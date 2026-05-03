@@ -49,14 +49,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, "agents", a.Name+".md")
-		if err := emit.WriteFile(path, emit.Frontmatter(a.Meta)+"\n"+a.Body, dryRun); err != nil {
+		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(a.Meta, target))+"\n"+a.Body, dryRun); err != nil {
 			return err
 		}
 	}
 
 	for _, s := range b.Skills {
 		path := filepath.Join(dir, "skills", s.Name, "SKILL.md")
-		if err := emit.WriteFile(path, emit.Frontmatter(s.Meta)+"\n"+s.Body, dryRun); err != nil {
+		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(s.Meta, target))+"\n"+s.Body, dryRun); err != nil {
 			return err
 		}
 	}

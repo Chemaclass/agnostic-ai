@@ -47,13 +47,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {
-	desc := e.Description()
-	globs := e.Globs()
+	m := emit.ResolveMeta(e.Meta, target)
+	desc, _ := m["description"].(string)
+	globs, _ := m["globs"].(string)
 	if globs == "" {
 		globs = "**/*"
 	}
 	always := alwaysApplyDefault
-	if v, ok := e.Meta["alwaysApply"].(bool); ok {
+	if v, ok := m["alwaysApply"].(bool); ok {
 		always = v
 	}
 	var b strings.Builder
