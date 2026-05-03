@@ -1,0 +1,46 @@
+name: New adapter request
+description: Request support for a new AI CLI target.
+title: "adapter: "
+labels: ["adapter-request", "needs-triage"]
+body:
+  - type: input
+    id: target
+    attributes:
+      label: Target name
+      description: Name of the AI CLI tool.
+      placeholder: e.g. claude-code, cursor, aider
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Official link
+      description: Homepage or repository URL.
+    validations:
+      required: true
+  - type: textarea
+    id: config_paths
+    attributes:
+      label: Native config format and paths
+      description: How does this tool store its config? File paths, formats, conventions.
+      placeholder: |
+        - Path: ~/.config/foo/agents.json
+        - Format: JSON
+    validations:
+      required: true
+  - type: checkboxes
+    id: kinds
+    attributes:
+      label: Supported kinds
+      description: Which content types does this target support?
+      options:
+        - label: agents
+        - label: skills
+        - label: rules
+        - label: hooks
+  - type: checkboxes
+    id: implement
+    attributes:
+      label: Willing to implement
+      options:
+        - label: I am willing to implement this adapter and open a PR.

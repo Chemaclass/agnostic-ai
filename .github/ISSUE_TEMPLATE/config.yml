@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/Chemaclass/agnostic-ai/discussions/categories/q-a
+    about: Ask questions and discuss ideas in GitHub Discussions.
+  - name: Security report
+    url: https://github.com/Chemaclass/agnostic-ai/security/advisories/new
+    about: Report security vulnerabilities privately via GitHub Security Advisories.
