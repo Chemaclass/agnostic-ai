@@ -19,10 +19,42 @@ const (
 	filePerm os.FileMode = 0o644
 )
 
+// CapturedFile is one (path, content) pair recorded during capture mode.
+type CapturedFile struct {
+	Path    string
+	Content string
+}
+
+var (
+	capturing bool
+	captured  []CapturedFile
+)
+
+// StartCapture redirects subsequent WriteFile calls to an in-memory buffer
+// instead of touching disk or stdout. Used by `sync --check` and `doctor`
+// to compare what would be emitted against current files.
+func StartCapture() {
+	capturing = true
+	captured = nil
+}
+
+// StopCapture returns the captured files and disables capture mode.
+func StopCapture() []CapturedFile {
+	capturing = false
+	out := captured
+	captured = nil
+	return out
+}
+
 // WriteFile creates parent directories as needed and writes content to path.
 // When dryRun is true the file is not written; the path and content are
-// printed to stdout instead.
+// printed to stdout instead. When capture mode is active, the call is
+// recorded and no IO occurs.
 func WriteFile(path, content string, dryRun bool) error {
+	if capturing {
+		captured = append(captured, CapturedFile{Path: path, Content: content})
+		return nil
+	}
 	if dryRun {
 		fmt.Printf("--- %s ---\n%s\n", path, content)
 		return nil

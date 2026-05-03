@@ -11,10 +11,22 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+// CapturedFile mirrors emit.CapturedFile so callers outside the internal
+// emit tree can consume capture output.
+type CapturedFile = emit.CapturedFile
+
+// StartCapture redirects subsequent adapter writes to an in-memory buffer.
+// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`).
+func StartCapture() { emit.StartCapture() }
+
+// StopCapture returns the captured files and disables capture mode.
+func StopCapture() []CapturedFile { return emit.StopCapture() }
 
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {

@@ -26,18 +26,29 @@ func NewRootCmd(version string) *cobra.Command {
 		newValidateCmd(),
 		newListCmd(),
 		newInitCmd(),
+		newDoctorCmd(),
 	)
 	return root
 }
 
 func newSyncCmd() *cobra.Command {
 	var targets []string
-	var dryRun bool
+	var dryRun, check bool
 
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Emit per-target configs from agnostic specs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if check {
+				reports, err := collectDrift(targets)
+				if err != nil {
+					return err
+				}
+				if printDrift(reports) {
+					return fmt.Errorf("drift detected")
+				}
+				return nil
+			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err
@@ -61,6 +72,7 @@ func newSyncCmd() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
+	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	return cmd
 }
 
