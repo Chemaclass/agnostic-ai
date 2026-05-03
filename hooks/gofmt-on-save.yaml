@@ -1,0 +1,5 @@
+name: gofmt-on-save
+description: Run gofmt after Edit/Write tools modify Go files.
+event: PostToolUse
+matcher: "Edit|Write"
+command: "echo \"$CLAUDE_FILE_PATHS\" | tr ' ' '\\n' | grep '\\.go$' | xargs -r gofmt -w"

@@ -1,0 +1,5 @@
+name: test-before-commit
+description: Run tests before allowing a commit through Bash tool.
+event: PreToolUse
+matcher: "Bash"
+command: "case \"$CLAUDE_TOOL_INPUT\" in *'git commit'*) go test ./... ;; esac"
