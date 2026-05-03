@@ -51,7 +51,7 @@ Change one rule in `rules/conventional-commits.md`. Run `sync`. Every tool sees 
 | Target          | Agents | Skills | Rules | Hooks |
 |-----------------|:------:|:------:|:-----:|:-----:|
 | Claude Code     | ✅     | ✅     | ✅    | ✅    |
-| Codex CLI       | merged | -      | ✅    | -     |
+| Codex CLI       | merged | listed | ✅ nested | - |
 | Gemini CLI      | merged | -      | ✅    | -     |
 | Cursor          | ✅     | -      | ✅    | -     |
 | GitHub Copilot  | merged | -      | ✅    | -     |

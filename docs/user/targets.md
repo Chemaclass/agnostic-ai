@@ -7,7 +7,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | Target          | Agents              | Skills | Rules                    | Hooks |
 |-----------------|---------------------|--------|--------------------------|-------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` |
-| **codex**       | merged in `AGENTS.md` | -    | `AGENTS.md`              | -     |
+| **codex**       | merged in `AGENTS.md` | listed | `AGENTS.md` (nested per-dir by globs) | - |
 | **gemini**      | merged in `GEMINI.md` | -    | `GEMINI.md`              | -     |
 | **cursor**      | as `.mdc` (alwaysApply: false) | - | `.cursor/rules/*.mdc` | - |
 | **copilot**     | merged in instructions | -  | `.github/copilot-instructions.md` | - |
@@ -34,9 +34,13 @@ Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-fil
 
 ```
 AGENTS.md
+src/AGENTS.md           # if any rule has globs: src/**
+docs/api/AGENTS.md      # if any rule has globs: docs/api/**
 ```
 
 Config key: `outputs.codex.file` (default `AGENTS.md`).
+
+Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. Skills are listed by name + description in the root with a pointer to the source path; Codex has no native skill execution.
 
 ### Gemini CLI (`gemini`)
 
