@@ -16,8 +16,8 @@ agnostic-ai/
 │       ├── codex/                  # Codex adapter
 │       ├── gemini/                 # Gemini CLI adapter
 │       └── cursor/                 # Cursor adapter
-├── examples/
-├── docs/
+├── .agnostic-ai/                # dogfood source specs (this repo's own AI config)
+├── docs/                        # user docs, internal docs, examples/
 └── Makefile
 ```
 

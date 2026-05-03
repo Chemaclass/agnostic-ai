@@ -182,10 +182,11 @@ Per-package coverage stays between 73% and 100%. Total project coverage: 85%.
 
 - **Users:** [docs/user/](docs/user/): getting started, spec format, targets, configuration, CLI reference
 - **Contributors:** [docs/internal/](docs/internal/): architecture, adding adapters, contributing, decision log, release process
+- **Examples:** [docs/examples/](docs/examples/): sample agents, skills, rules, hooks, plus a full config reference
 
 ## Dogfooding
 
-This repo uses agnostic-ai on itself. The `agents/`, `skills/`, `rules/`, `hooks/` directories at the project root are the source for the project's own AI configs. Run `make sync` to regenerate them.
+This repo runs agnostic-ai on itself. Source specs live under [`.agnostic-ai/`](.agnostic-ai/). Generated outputs (CLAUDE.md, AGENTS.md, `.cursor/`, etc.) are gitignored. Run `make sync` to regenerate them.
 
 ## Status
 

@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `renovate.json` for dependency updates.
 - Integration tests under `tests/integration/`.
 - Dogfood specs at project root (`agents/`, `skills/`, `rules/`, `hooks/`).
-- `examples/agnostic.config.yaml` covering every config knob.
+- `docs/examples/agnostic.config.yaml` covering every config knob.
 
 ### Fixed
 - `.gitignore` no longer ignores the `cmd/agnostic-ai/` source directory.

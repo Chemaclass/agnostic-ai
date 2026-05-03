@@ -1,15 +1,18 @@
 # agnostic-ai project config
 #
-# Author specs once. Emit per-CLI configs. Run `agnostic-ai sync`.
+# This repo dogfoods the tool: source specs live under .agnostic-ai/
+# and `agnostic-ai sync` regenerates the per-CLI configs in the working tree.
+#
+# Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore.
 
 version: 1
 
-# Source directories (relative to this file). Defaults shown.
+# Source directories, relative to this file.
 sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
+  agents: .agnostic-ai/agents
+  skills: .agnostic-ai/skills
+  rules: .agnostic-ai/rules
+  hooks: .agnostic-ai/hooks
 
 # AI CLIs to emit configs for. Comment any out to skip.
 targets:
@@ -23,5 +26,5 @@ targets:
   - windsurf      # Windsurf (Codeium)
   - continue      # Continue (continue.dev)
 
-# Capability degradation: when a feature is unsupported, log warning instead of error.
+# What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent
