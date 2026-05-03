@@ -51,16 +51,31 @@ agnostic-ai sync [flags]
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--dry-run` | Print to stdout instead of writing files |
+| `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 
 ```bash
 agnostic-ai sync                    # all targets in config
 agnostic-ai sync -t claude          # only claude
 agnostic-ai sync -t claude,cursor   # subset
 agnostic-ai sync --dry-run          # preview
-agnostic-ai sync -t claude --dry-run
+agnostic-ai sync --check            # CI gate: fail if outputs are stale
 ```
 
 Unknown targets log a warning to stderr and skip.
+
+## doctor
+
+Diagnose drift between source specs and emitted artifacts. Reports missing
+files (never synced) and stale files (hand-edited or out of date). Exits
+non-zero when any drift is found. Writes nothing.
+
+```bash
+agnostic-ai doctor                  # all targets in config
+agnostic-ai doctor -t claude        # subset
+```
+
+Use as a CI gate alongside `sync --check`, or after rebases to spot files
+the merge resolved manually.
 
 ## completion
 

@@ -134,3 +134,35 @@ Emitted natively by Claude Code only. Other targets log a warning and skip. See 
 - Files without frontmatter still load; name defaults to the filename.
 - Malformed frontmatter is treated as no metadata; entire content becomes the body.
 - Any field not listed above passes through on emit. Useful for target-specific extensions.
+
+## Target-specific extensions: `x-<target>` namespace
+
+Use `x-<target>:` blocks to attach fields only one adapter consumes. Other
+adapters strip the block on emit, so the spec stays portable.
+
+```markdown
+---
+name: code-reviewer
+description: Reviews diffs.
+model: sonnet
+x-claude:
+  allowed-tools: [Read, Grep, Bash]
+x-cursor:
+  globs: "src/**"
+  alwaysApply: false
+---
+```
+
+Resolution per target:
+
+- All `x-*` keys are dropped first.
+- The matching `x-<target>` block is flattened into top-level meta.
+- Flattened keys override top-level keys with the same name.
+
+Examples:
+
+| Target | Resulting frontmatter |
+|--------|-----------------------|
+| `claude` | `name`, `description`, `model`, `allowed-tools` |
+| `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
+| `gemini` | `name`, `description`, `model` |
