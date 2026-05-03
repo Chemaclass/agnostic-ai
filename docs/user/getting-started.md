@@ -33,6 +33,14 @@ agnostic-ai init
 └── hooks/
 ```
 
+### Already on Claude Code?
+
+```bash
+agnostic-ai init --from claude
+```
+
+Reads `CLAUDE.md` and `.claude/` from the current directory, writes equivalent agnostic specs and a `targets: [claude]` config. Add more targets to the config and run `agnostic-ai sync`.
+
 ## First rule
 
 `rules/conventional-commits.md`:
