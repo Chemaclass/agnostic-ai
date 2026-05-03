@@ -1,6 +1,6 @@
 # Configuration
 
-`agnostic.config.yaml` lives at the project root. agnostic-ai reads it from the current working directory when commands run. Every section is optional; defaults shown below.
+`agnostic.config.yaml` lives at the project root. Read from the current working directory at command time. Every section is optional; defaults below.
 
 ## Full schema
 
@@ -73,11 +73,11 @@ on-unsupported: warn   # warn | error | silent
 | `rules` | `rules` | Directory containing `*.md` rule specs. |
 | `hooks` | `hooks` | Directory containing `*.yaml` hook specs. |
 
-All paths are relative to the config file. Missing directories are silently skipped (not an error).
+Paths are relative to the config file. Missing directories are skipped silently.
 
 ## `outputs`
 
-Per-target paths. Each target reads only the fields it understands. Setting an irrelevant field is ignored.
+Per-target paths. Each target reads only the fields it understands; irrelevant fields are ignored.
 
 | Target | Field | Default | Notes |
 |--------|-------|---------|-------|
@@ -94,7 +94,7 @@ Per-target paths. Each target reads only the fields it understands. Setting an i
 
 ## `targets`
 
-Default targets when omitted: all 9 adapters above. Comment out entries to disable specific targets while keeping the rest. The CLI flag `-t/--target` overrides this list for a single run.
+When omitted: all 9 adapters above. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ## `on-unsupported`
 
@@ -104,20 +104,18 @@ Default targets when omitted: all 9 adapters above. Comment out entries to disab
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
 
-Triggers when an adapter receives spec kinds it does not natively support, e.g. `hooks` for Codex, or `skills` for Cursor.
+Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for Codex or `skills` for Cursor.
 
 ## Path semantics
 
-- All paths in `sources` and `outputs` are interpreted relative to the directory containing `agnostic.config.yaml`.
-- Output directories are created on demand. Pre-existing files at output paths are overwritten.
-- Generated outputs should be added to the project's `.gitignore` if you want the source specs to be the single source of truth (recommended).
+- All `sources`/`outputs` paths are relative to the directory holding `agnostic.config.yaml`.
+- Output directories are created on demand. Existing files are overwritten.
+- Add generated outputs to `.gitignore` to keep specs as the single source of truth (recommended).
 
 ## Precedence
 
-For settings that overlap with CLI flags:
+Last wins:
 
 1. Built-in defaults
 2. `agnostic.config.yaml`
 3. CLI flags (e.g. `agnostic-ai sync -t claude`)
-
-The last one wins.

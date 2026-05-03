@@ -1,6 +1,6 @@
 # Adding an adapter
 
-Steps to add a new AI CLI target (`foo`):
+Add a new AI CLI target (`foo`):
 
 ## 1. Create the package
 
@@ -42,7 +42,7 @@ var registry = map[string]Adapter{
 }
 ```
 
-Also update default targets in `internal/config/config.go` and `internal/cli/init.go`.
+Update default targets in `internal/config/config.go` and `internal/cli/init.go`.
 
 ## 3. Document capabilities
 
@@ -68,11 +68,11 @@ func TestEmit_WritesExpectedFile(t *testing.T) {
 
 ## 6. Handle unsupported kinds
 
-If the target lacks some kinds (e.g. hooks), log a warning to stderr. See `internal/adapters/codex/codex.go`.
+For kinds the target lacks (e.g. hooks), log a warning to stderr. See `internal/adapters/codex/codex.go`.
 
 ## Conventions
 
-- Adapter packages do not import other adapter packages. Share via `internal/adapters/internal/emit`.
+- Adapter packages never import other adapters. Share via `internal/adapters/internal/emit`.
 - Adapters are stateless. No globals; construct via `New()`.
-- Frontmatter passes through unless the target requires transformation (e.g. Cursor `.mdc`).
+- Frontmatter passes through unless the target needs transformation (e.g. Cursor `.mdc`).
 - Generated files belong in the project's `.gitignore` template.

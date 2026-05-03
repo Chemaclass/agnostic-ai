@@ -7,7 +7,7 @@
 | Rule   | `rules/*.md`                    | Markdown + YAML frontmatter |
 | Hook   | `hooks/*.yaml`                  | YAML                        |
 
-Spec discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/`.
+Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/`.
 
 ## Agents
 
@@ -38,20 +38,20 @@ Any other frontmatter fields pass through to the target CLI unchanged.
 
 ## Skills
 
-Two layouts supported:
+Two layouts:
 
 **Flat:**
 ```
 skills/yaml-validator.md
 ```
 
-**Nested (preferred for skills with attached resources):**
+**Nested (for skills with attached resources):**
 ```
 skills/yaml-validator/SKILL.md
 skills/yaml-validator/schema.yaml
 ```
 
-Only `SKILL.md` and flat `*.md` files are parsed. Other files in nested skill directories are ignored by agnostic-ai but available to Claude Code at runtime.
+Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories are ignored by agnostic-ai but available to Claude Code at runtime.
 
 ```markdown
 ---
@@ -73,7 +73,7 @@ description: Validate YAML against a schema.
 | `name` | no | dir or filename | Skill identifier. Used for the output directory. |
 | `description` | no | empty | One-liner shown when the model decides whether to invoke the skill. |
 
-Skills are emitted natively by Claude Code only. Other targets log a warning and skip.
+Emitted natively by Claude Code only. Other targets log a warning and skip.
 
 ## Rules
 
@@ -125,12 +125,12 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
 
-Hooks are emitted natively by Claude Code only. Other targets log a warning and skip. Refer to Claude Code documentation for the full event list and matcher semantics.
+Emitted natively by Claude Code only. Other targets log a warning and skip. See Claude Code docs for the full event list and matcher semantics.
 
 ## Frontmatter rules
 
-- Frontmatter is YAML between two `---` lines at the top of the file.
-- Empty frontmatter (`---\n---\n`) is allowed; it is treated as no metadata.
-- Files with no frontmatter are still loaded; the spec name defaults to the filename.
-- Malformed frontmatter is treated as no metadata, with the entire content used as the body.
-- Pass-through: any field not listed above is preserved on emit. Useful for target-specific extensions.
+- YAML between two `---` lines at the top of the file.
+- Empty (`---\n---\n`) is allowed and treated as no metadata.
+- Files without frontmatter still load; name defaults to the filename.
+- Malformed frontmatter is treated as no metadata; entire content becomes the body.
+- Any field not listed above passes through on emit. Useful for target-specific extensions.

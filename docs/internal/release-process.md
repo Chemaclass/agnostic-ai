@@ -34,4 +34,4 @@ ls dist/
 
 ## Backporting
 
-Cherry-pick fixes for the previous minor to a `release/X.Y` branch and tag `vX.Y.Zpatch`.
+Cherry-pick fixes for the previous minor onto a `release/X.Y` branch; tag `vX.Y.Zpatch`.

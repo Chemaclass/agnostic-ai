@@ -53,7 +53,7 @@ type Entry struct {
 }
 ```
 
-One spec file = one Entry. Adapters consume `[]Entry` and emit per-target output.
+One spec file = one Entry. Adapters consume `[]Entry` and emit per target.
 
 ### `Adapter` interface
 
@@ -72,7 +72,7 @@ Mirrors `agnostic.config.yaml`. Defaults applied in `config.Load`.
 
 ## Registry
 
-`internal/adapters/adapter.go` holds a `name -> Adapter` map. Adding an adapter = one line in the registry plus a new package. See [adding-adapters.md](adding-adapters.md).
+`internal/adapters/adapter.go` holds a `name -> Adapter` map. Adding an adapter: one registry line plus a new package. See [adding-adapters.md](adding-adapters.md).
 
 ## Boundaries
 

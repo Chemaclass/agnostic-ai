@@ -13,7 +13,7 @@ agnostic-ai [command] [flags]
 
 ## init
 
-Scaffold a project. Creates `agnostic.config.yaml` and empty `agents/`, `skills/`, `rules/`, `hooks/`. Errors if `agnostic.config.yaml` exists.
+Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`. Errors if `agnostic.config.yaml` exists.
 
 ```bash
 agnostic-ai init
@@ -60,11 +60,11 @@ agnostic-ai sync --dry-run          # preview
 agnostic-ai sync -t claude --dry-run
 ```
 
-Unknown target names log a warning to stderr and skip without failing.
+Unknown targets log a warning to stderr and skip.
 
 ## completion
 
-Generate shell completion scripts (provided by cobra).
+Shell completion scripts (cobra).
 
 ```bash
 agnostic-ai completion bash      # for bash
@@ -73,7 +73,7 @@ agnostic-ai completion fish      # for fish
 agnostic-ai completion powershell
 ```
 
-Install instructions: `agnostic-ai completion <shell> --help`.
+Install: `agnostic-ai completion <shell> --help`.
 
 ## help
 
@@ -92,11 +92,11 @@ agnostic-ai sync --help       # same
 
 ## Environment variables
 
-None. All configuration lives in `agnostic.config.yaml`.
+None. All config lives in `agnostic.config.yaml`.
 
 ## Config precedence
 
-For options that can be set in multiple places, last wins:
+Last wins:
 
 1. Built-in defaults (see [configuration](configuration.md))
 2. `agnostic.config.yaml`

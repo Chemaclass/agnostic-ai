@@ -1,6 +1,6 @@
 # Targets
 
-Unsupported features are skipped with a warning (default). Override via `on-unsupported` in [configuration](configuration.md).
+Unsupported features skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).
 
 ## Capability matrix
 
@@ -54,7 +54,7 @@ Config key: `outputs.gemini.file` (default `GEMINI.md`).
 
 Config key: `outputs.cursor.rules-dir` (default `.cursor/rules`).
 
-Rules emit with `alwaysApply: true`; agents emit as rules with `alwaysApply: false`. Override via the spec frontmatter.
+Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
 
 ### GitHub Copilot (`copilot`)
 
@@ -115,8 +115,8 @@ Per-run (CLI):
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-CLI flag overrides config. Unknown target names log a warning and skip without failing.
+CLI flag overrides config. Unknown targets log a warning and skip.
 
 ## New targets
 
-See [adding-adapters](../internal/adding-adapters.md). New adapter is ~50 lines plus one registry entry.
+See [adding-adapters](../internal/adding-adapters.md). ~50 lines plus one registry entry.
