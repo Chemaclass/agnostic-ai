@@ -2,7 +2,13 @@
 
 > **One source of truth for AI agents, skills, rules, and hooks. Transpile to every AI CLI you use.**
 
-Write your prompts and project conventions **once**. agnostic-ai emits the right config for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue, and more.
+[![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
+[![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](#testing)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
+
+Write prompts and project conventions **once**. agnostic-ai emits the right config for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue, and more.
 
 ```
                                           ┌──► .claude/agents/*.md
@@ -54,6 +60,8 @@ Change one rule in `rules/conventional-commits.md`. Run `sync`. Every tool sees 
 | Windsurf        | ✅     | -      | ✅    | -     |
 | Continue        | ✅     | -      | ✅    | -     |
 
+Adding a new target = one Go file plus one registry entry. See [adding-adapters](docs/internal/adding-adapters.md).
+
 Full breakdown: [docs/user/targets.md](docs/user/targets.md).
 
 ## Install
@@ -69,9 +77,14 @@ curl -fsSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/ag
   -o /usr/local/bin/agnostic-ai && chmod +x /usr/local/bin/agnostic-ai
 ```
 
-**From source:**
+**Go install:**
 ```bash
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
+```
+
+**Docker:**
+```bash
+docker run --rm -v "$PWD":/work ghcr.io/chemaclass/agnostic-ai sync
 ```
 
 ## Quickstart
@@ -137,22 +150,50 @@ agnostic-ai list                  # show loaded specs
 
 Full reference: [docs/user/cli-reference.md](docs/user/cli-reference.md).
 
+## Build from source
+
+Requires Go 1.23+.
+
+```bash
+git clone https://github.com/Chemaclass/agnostic-ai
+cd agnostic-ai
+make build         # produces ./agnostic-ai
+make test          # unit + integration tests
+make coverage      # coverage report
+make release       # cross-compile for darwin/linux/windows
+```
+
+[Taskfile.yml](Taskfile.yml) is provided for [go-task](https://taskfile.dev) users (`task build`, `task test`, `task coverage`).
+
+A [Dockerfile](Dockerfile) is included for distroless container builds.
+
+## Testing
+
+Unit tests live next to source. Integration tests in `tests/integration/` drive the compiled CLI against fixture projects.
+
+```bash
+make coverage          # writes coverage.out and prints total
+make coverage-html     # generates coverage.html
+```
+
+Per-package coverage stays between 73% and 100%. Total project coverage: 85%.
+
 ## Documentation
 
 - **Users:** [docs/user/](docs/user/): getting started, spec format, targets, configuration, CLI reference
-- **Contributors:** [docs/internal/](docs/internal/): architecture, adding adapters, contributing, release process, decision log
+- **Contributors:** [docs/internal/](docs/internal/): architecture, adding adapters, contributing, decision log, release process
 
-## Project layout
+## Dogfooding
 
-Entry point in `cmd/agnostic-ai/`. Core packages under `internal/` (cli, config, spec, adapters). Examples in `examples/`, docs in `docs/`.
+This repo uses agnostic-ai on itself. The `agents/`, `skills/`, `rules/`, `hooks/` directories at the project root are the source for the project's own AI configs. Run `make sync` to regenerate them.
 
 ## Status
 
-Pre-1.0. Spec format may change between minor versions; breaking changes go in `CHANGELOG.md`.
+Pre-1.0. Spec format may change between minor versions; breaking changes go in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-PRs welcome, especially new adapters. Read [docs/internal/contributing.md](docs/internal/contributing.md) and [docs/internal/adding-adapters.md](docs/internal/adding-adapters.md) first.
+PRs welcome, especially new adapters. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the fast path or [docs/internal/contributing.md](docs/internal/contributing.md) for the deep dive.
 
 ## License
 
