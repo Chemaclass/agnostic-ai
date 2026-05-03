@@ -1,0 +1,60 @@
+# Full reference config showing every available knob with its default value.
+# Trim down to what you actually need. Every section is optional.
+
+version: 1
+
+# Where to read agnostic specs from. Relative to this file.
+sources:
+  agents: agents
+  skills: skills
+  rules: rules
+  hooks: hooks
+
+# AI CLIs to emit configs for. Comment out any to skip.
+targets:
+  - claude
+  - codex
+  - gemini
+  - cursor
+  - copilot
+  - aider
+  - cline
+  - windsurf
+  - continue
+
+# Per-target output overrides. Useful when:
+#  - You vendor configs into a non-standard path.
+#  - Two projects in a monorepo share one config but write to different dirs.
+#  - You want to commit generated configs into a `vendor-ai/` directory.
+outputs:
+  claude:
+    dir: .claude              # default
+    rules-file: CLAUDE.md     # default
+
+  codex:
+    file: AGENTS.md           # default. Could be docs/AGENTS.md.
+
+  gemini:
+    file: GEMINI.md           # default
+
+  cursor:
+    rules-dir: .cursor/rules  # default
+
+  copilot:
+    file: .github/copilot-instructions.md  # default
+
+  aider:
+    file: CONVENTIONS.md      # default. Pair with `aider --read CONVENTIONS.md`.
+
+  cline:
+    rules-dir: .clinerules    # default
+
+  windsurf:
+    rules-dir: .windsurf/rules  # default
+
+  continue:
+    rules-dir: .continue/rules  # default
+
+# How to react when a spec kind is not supported by a target
+# (e.g. hooks for any target other than claude).
+on-unsupported: warn   # warn | error | silent

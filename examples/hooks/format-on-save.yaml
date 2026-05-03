@@ -1,0 +1,5 @@
+name: format-on-save
+description: Run formatter after Edit/Write tools touch source files.
+event: PostToolUse
+matcher: "Edit|Write"
+command: "test -f .editorconfig && npx prettier --write \"$CLAUDE_FILE_PATHS\" || true"
