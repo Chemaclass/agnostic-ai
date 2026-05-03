@@ -1,6 +1,6 @@
 # Targets
 
-Unsupported features are skipped with a warning.
+Unsupported features are skipped with a warning (default). Override via `on-unsupported` in [configuration](configuration.md).
 
 ## Capability matrix
 
@@ -28,11 +28,15 @@ Unsupported features are skipped with a warning.
 CLAUDE.md
 ```
 
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-file` (default `CLAUDE.md`).
+
 ### Codex (`codex`)
 
 ```
 AGENTS.md
 ```
+
+Config key: `outputs.codex.file` (default `AGENTS.md`).
 
 ### Gemini CLI (`gemini`)
 
@@ -40,11 +44,17 @@ AGENTS.md
 GEMINI.md
 ```
 
+Config key: `outputs.gemini.file` (default `GEMINI.md`).
+
 ### Cursor (`cursor`)
 
 ```
 .cursor/rules/<name>.mdc
 ```
+
+Config key: `outputs.cursor.rules-dir` (default `.cursor/rules`).
+
+Rules emit with `alwaysApply: true`; agents emit as rules with `alwaysApply: false`. Override via the spec frontmatter.
 
 ### GitHub Copilot (`copilot`)
 
@@ -52,11 +62,15 @@ GEMINI.md
 .github/copilot-instructions.md
 ```
 
+Config key: `outputs.copilot.file` (default `.github/copilot-instructions.md`).
+
 ### Aider (`aider`)
 
 ```
 CONVENTIONS.md
 ```
+
+Config key: `outputs.aider.file` (default `CONVENTIONS.md`).
 
 Pair with `aider --read CONVENTIONS.md` or add to `.aider.conf.yml`.
 
@@ -66,11 +80,15 @@ Pair with `aider --read CONVENTIONS.md` or add to `.aider.conf.yml`.
 .clinerules/<name>.md
 ```
 
+Config key: `outputs.cline.rules-dir` (default `.clinerules`).
+
 ### Windsurf (`windsurf`)
 
 ```
 .windsurf/rules/<name>.md
 ```
+
+Config key: `outputs.windsurf.rules-dir` (default `.windsurf/rules`).
 
 ### Continue (`continue`)
 
@@ -78,7 +96,11 @@ Pair with `aider --read CONVENTIONS.md` or add to `.aider.conf.yml`.
 .continue/rules/<name>.md
 ```
 
+Config key: `outputs.continue.rules-dir` (default `.continue/rules`).
+
 ## Selecting targets
+
+Persistent (config):
 
 ```yaml
 targets:
@@ -87,11 +109,13 @@ targets:
   - copilot
 ```
 
-Or via flag:
+Per-run (CLI):
 
 ```bash
 agnostic-ai sync -t claude,cursor,copilot
 ```
+
+CLI flag overrides config. Unknown target names log a warning and skip without failing.
 
 ## New targets
 

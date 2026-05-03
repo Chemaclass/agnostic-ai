@@ -1,44 +1,123 @@
 # Configuration
 
-`agnostic.config.yaml` lives at the project root.
+`agnostic.config.yaml` lives at the project root. agnostic-ai reads it from the current working directory when commands run. Every section is optional; defaults shown below.
 
-## Schema
+## Full schema
 
 ```yaml
 version: 1
 
+# Source directories, relative to this file.
 sources:
   agents: agents
   skills: skills
   rules: rules
   hooks: hooks
 
+# AI CLIs to emit configs for.
 targets:
   - claude
   - codex
   - gemini
   - cursor
+  - copilot
+  - aider
+  - cline
+  - windsurf
+  - continue
 
+# Per-target output overrides. Each target accepts only the fields
+# relevant to it. Defaults shown in comments.
 outputs:
   claude:
-    dir: .claude
-    rules-file: CLAUDE.md
+    dir: .claude               # default
+    rules-file: CLAUDE.md      # default
   codex:
-    file: AGENTS.md
+    file: AGENTS.md            # default
   gemini:
-    file: GEMINI.md
+    file: GEMINI.md            # default
   cursor:
-    rules-dir: .cursor/rules
+    rules-dir: .cursor/rules   # default
+  copilot:
+    file: .github/copilot-instructions.md  # default
+  aider:
+    file: CONVENTIONS.md       # default
+  cline:
+    rules-dir: .clinerules     # default
+  windsurf:
+    rules-dir: .windsurf/rules # default
+  continue:
+    rules-dir: .continue/rules # default
 
+# What to do when a spec kind is unsupported by a target
+# (e.g. hooks for any target other than claude).
 on-unsupported: warn   # warn | error | silent
 ```
 
-## Fields
+## Top-level fields
 
-| Field | Description |
-|-------|-------------|
-| `version` | Schema version. Always `1`. |
-| `sources` | Per-kind source directories, relative to the config file. |
-| `targets` | Adapter names to emit. Unknown targets are reported and skipped. |
-| `outputs` | Per-target output paths. See [targets](targets.md). |
-| `on-unsupported` | `warn` (default), `error`, or `silent`. |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `version` | int | `1` | Schema version. Reserved for future migrations. |
+| `sources` | map | see below | Per-kind source directories (relative to config file). |
+| `targets` | list | all 9 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
+| `outputs` | map | see below | Per-target output path overrides. |
+| `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
+
+## `sources`
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `agents` | `agents` | Directory containing `*.md` agent specs. |
+| `skills` | `skills` | Directory containing `*.md` skill specs (or nested `<name>/SKILL.md`). |
+| `rules` | `rules` | Directory containing `*.md` rule specs. |
+| `hooks` | `hooks` | Directory containing `*.yaml` hook specs. |
+
+All paths are relative to the config file. Missing directories are silently skipped (not an error).
+
+## `outputs`
+
+Per-target paths. Each target reads only the fields it understands. Setting an irrelevant field is ignored.
+
+| Target | Field | Default | Notes |
+|--------|-------|---------|-------|
+| `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
+| `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
+| `codex` | `file` | `AGENTS.md` | Single merged document. |
+| `gemini` | `file` | `GEMINI.md` | Single merged document. |
+| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
+| `copilot` | `file` | `.github/copilot-instructions.md` | Single merged document. |
+| `aider` | `file` | `CONVENTIONS.md` | Single merged document. |
+| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
+| `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
+| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
+
+## `targets`
+
+Default targets when omitted: all 9 adapters above. Comment out entries to disable specific targets while keeping the rest. The CLI flag `-t/--target` overrides this list for a single run.
+
+## `on-unsupported`
+
+| Value | Behavior |
+|-------|----------|
+| `warn` | Log to stderr and continue. Default. |
+| `error` | Fail the sync. |
+| `silent` | Skip without logging. |
+
+Triggers when an adapter receives spec kinds it does not natively support, e.g. `hooks` for Codex, or `skills` for Cursor.
+
+## Path semantics
+
+- All paths in `sources` and `outputs` are interpreted relative to the directory containing `agnostic.config.yaml`.
+- Output directories are created on demand. Pre-existing files at output paths are overwritten.
+- Generated outputs should be added to the project's `.gitignore` if you want the source specs to be the single source of truth (recommended).
+
+## Precedence
+
+For settings that overlap with CLI flags:
+
+1. Built-in defaults
+2. `agnostic.config.yaml`
+3. CLI flags (e.g. `agnostic-ai sync -t claude`)
+
+The last one wins.
