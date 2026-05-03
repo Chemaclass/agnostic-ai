@@ -1,0 +1,38 @@
+.git/
+.github/
+.idea/
+.vscode/
+dist/
+build/
+bin/
+tmp/
+
+# Generated outputs
+.claude/
+.cursor/
+.gemini/
+.clinerules/
+.windsurf/
+.continue/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+CONVENTIONS.md
+
+# Local files
+.env*
+*.log
+*.test
+*.out
+
+# Docs not needed in image
+docs/
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+GOVERNANCE.md
+MAINTAINERS.md
+ROADMAP.md
+SECURITY.md
+SUPPORT.md

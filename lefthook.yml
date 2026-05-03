@@ -1,0 +1,31 @@
+# Lefthook git hooks. Install with: `lefthook install`
+# https://lefthook.dev/
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: gofmt -l {staged_files} | (! grep .)
+      stage_fixed: true
+      fail_text: "Run `gofmt -w` on the listed files."
+
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --new-from-rev HEAD~1 {staged_files}
+
+    go-vet:
+      glob: "*.go"
+      run: go vet ./...
+
+pre-push:
+  commands:
+    tests:
+      run: go test -race ./...
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: |
+        head -1 "{1}" | grep -qE '^(feat|fix|docs|refactor|test|chore|perf|build|ci)(\([a-z0-9-]+\))?!?: .{1,72}$' \
+          || (echo "Subject must follow Conventional Commits and be under 72 chars." && exit 1)

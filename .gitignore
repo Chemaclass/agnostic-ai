@@ -1,0 +1,79 @@
+# =============================================================================
+# Build artifacts (root only, anchored with leading /)
+# =============================================================================
+/agnostic-ai
+/agnostic-ai.exe
+/dist/
+/build/
+/bin/
+
+# Go binaries and test outputs anywhere
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+
+# Cross-platform binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# =============================================================================
+# Go workspace (personal, never committed)
+# =============================================================================
+/go.work
+/go.work.sum
+/vendor/
+
+# =============================================================================
+# IDE and editor
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+__debug_bin*
+
+# =============================================================================
+# OS metadata
+# =============================================================================
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# Local env and secrets
+# =============================================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# =============================================================================
+# agnostic-ai generated outputs at the project root
+#
+# Only gitignored when this repo dogfoods itself (running `agnostic-ai sync`
+# in this directory). Source specs live in `examples/` and are committed.
+# =============================================================================
+/.claude/
+/.cursor/
+/.gemini/
+/.clinerules/
+/.windsurf/
+/.continue/
+/CLAUDE.md
+/AGENTS.md
+/GEMINI.md
+/CONVENTIONS.md
+/.github/copilot-instructions.md
+
+# =============================================================================
+# Tooling caches
+# =============================================================================
+/.golangci-cache/
+/tmp/

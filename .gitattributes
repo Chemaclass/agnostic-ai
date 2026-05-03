@@ -1,0 +1,27 @@
+# Normalize line endings on checkout/checkin
+* text=auto eol=lf
+
+# Go source must always be LF
+*.go text eol=lf
+
+# Shell scripts must always be LF
+*.sh text eol=lf
+
+# Windows files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files (no diff, no merge)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar.gz binary
+*.phar binary
+
+# Linguist hints for GitHub language stats
+docs/** linguist-documentation
+examples/** linguist-documentation
+*.md linguist-documentation

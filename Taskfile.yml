@@ -1,0 +1,83 @@
+# go-task runner config. https://taskfile.dev
+# Run with: `task <name>`
+version: "3"
+
+vars:
+  BIN: agnostic-ai
+  PKG: ./cmd/agnostic-ai
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  build:
+    desc: Build local binary.
+    cmds:
+      - go build -o {{.BIN}} {{.PKG}}
+
+  test:
+    desc: Run all tests with race detector.
+    cmds:
+      - go test -race ./...
+
+  test:integration:
+    desc: Run integration tests only.
+    cmds:
+      - go test -race ./tests/integration/...
+
+  lint:
+    desc: Run golangci-lint.
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Format Go code.
+    cmds:
+      - gofmt -w .
+      - goimports -w .
+
+  vet:
+    desc: Run go vet.
+    cmds:
+      - go vet ./...
+
+  install:
+    desc: Install binary to GOPATH/bin.
+    cmds:
+      - go install {{.PKG}}
+
+  clean:
+    desc: Remove build artifacts.
+    cmds:
+      - rm -f {{.BIN}}
+      - rm -rf dist/
+
+  release:
+    desc: Cross-compile binaries for all supported platforms.
+    deps: [clean]
+    cmds:
+      - mkdir -p dist
+      - GOOS=darwin  GOARCH=arm64 go build -o dist/{{.BIN}}-darwin-arm64  {{.PKG}}
+      - GOOS=darwin  GOARCH=amd64 go build -o dist/{{.BIN}}-darwin-amd64  {{.PKG}}
+      - GOOS=linux   GOARCH=arm64 go build -o dist/{{.BIN}}-linux-arm64   {{.PKG}}
+      - GOOS=linux   GOARCH=amd64 go build -o dist/{{.BIN}}-linux-amd64   {{.PKG}}
+      - GOOS=windows GOARCH=amd64 go build -o dist/{{.BIN}}-windows-amd64.exe {{.PKG}}
+
+  docker:build:
+    desc: Build Docker image.
+    cmds:
+      - docker build -t agnostic-ai:dev .
+
+  sync:
+    desc: Run agnostic-ai sync on the project itself (dogfood).
+    deps: [build]
+    cmds:
+      - ./{{.BIN}} sync
+
+  ci:
+    desc: Run the full CI pipeline locally.
+    cmds:
+      - task: vet
+      - task: lint
+      - task: test
