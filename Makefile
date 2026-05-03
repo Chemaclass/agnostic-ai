@@ -1,4 +1,4 @@
-.PHONY: build test install clean release
+.PHONY: build test test-race coverage coverage-html install clean release
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -9,11 +9,22 @@ build:
 test:
 	go test ./...
 
+test-race:
+	go test -race ./...
+
+coverage:
+	go test -coverpkg=./internal/...,./cmd/... -coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out | tail -1
+
+coverage-html: coverage
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Open coverage.html in your browser."
+
 install:
 	go install $(PKG)
 
 clean:
-	rm -f $(BIN)
+	rm -f $(BIN) coverage.out coverage.html
 	rm -rf dist/
 
 release:

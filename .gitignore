@@ -13,6 +13,7 @@
 *.prof
 coverage.txt
 coverage.html
+coverage.out
 
 # Cross-platform binaries
 *.exe

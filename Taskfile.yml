@@ -26,6 +26,19 @@ tasks:
     cmds:
       - go test -race ./tests/integration/...
 
+  coverage:
+    desc: Run tests with cross-package coverage.
+    cmds:
+      - go test -coverpkg=./internal/...,./cmd/... -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out | tail -1
+
+  coverage:html:
+    desc: Generate HTML coverage report.
+    deps: [coverage]
+    cmds:
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "Open coverage.html in your browser."'
+
   lint:
     desc: Run golangci-lint.
     cmds:
