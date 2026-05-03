@@ -23,7 +23,7 @@ func TestEmit_WritesConventions(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "CONVENTIONS.md"))

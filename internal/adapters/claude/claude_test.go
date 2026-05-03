@@ -29,7 +29,7 @@ func TestEmit_WritesAgent(t *testing.T) {
 			Body: "do reviews",
 		},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "reviewer.md"))
@@ -50,7 +50,7 @@ func TestEmit_WritesSkillNested(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "validator", Body: "skill body"},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/skills/validator/SKILL.md")); err != nil {
@@ -68,7 +68,7 @@ func TestEmit_WritesRulesIntoClaudeMd(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
 		{Kind: spec.KindRule, Name: "r2", Body: "rule two"},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -97,7 +97,7 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -128,7 +128,7 @@ func TestEmit_OutputOverride(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 		{Kind: spec.KindAgent, Name: "a1", Body: "y"},
 	}
-	if err := New().Emit(entries, cfg, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{"vendor/CLAUDE.md", "vendor/.claude/agents/a1.md"} {

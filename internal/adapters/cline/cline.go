@@ -1,54 +1,45 @@
+// Package cline emits .clinerules/*.md for the Cline VSCode extension.
 package cline
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// Cline (VSCode) reads `.clinerules/*.md` — one rule per file.
-// No native agents, skills, or hooks.
+const (
+	target     = "cline"
+	defaultDir = ".clinerules"
+)
 
-type Adapter struct{}
-
-func New() *Adapter { return &Adapter{} }
-
-func (a *Adapter) Name() string { return "cline" }
-
-func (a *Adapter) Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error {
-	dir := dirFor(cfg)
-
-	for _, r := range spec.Filter(entries, spec.KindRule) {
-		path := filepath.Join(dir, r.Name+".md")
-		content := "# " + r.Name + "\n\n" + r.Body
-		if err := emit.WriteFile(path, content, dryRun); err != nil {
-			return err
-		}
-	}
-	for _, ag := range spec.Filter(entries, spec.KindAgent) {
-		path := filepath.Join(dir, "agent-"+ag.Name+".md")
-		content := "# Agent: " + ag.Name + "\n\n" + ag.Body
-		if err := emit.WriteFile(path, content, dryRun); err != nil {
-			return err
-		}
-	}
-
-	if len(spec.Filter(entries, spec.KindHook)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! cline: hooks not supported, skipped")
-	}
-	if len(spec.Filter(entries, spec.KindSkill)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! cline: skills not supported, skipped")
-	}
-	return nil
+var caps = emit.Capabilities{
+	Target:   target,
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
 }
 
-func dirFor(cfg *config.Config) string {
-	if o, ok := cfg.Outputs["cline"]; ok && o.RulesDir != "" {
+// Adapter emits Cline configs.
+type Adapter struct{}
+
+// New returns a Cline adapter.
+func New() *Adapter { return &Adapter{} }
+
+// Name returns the target identifier.
+func (Adapter) Name() string { return target }
+
+// Emit writes one .md per rule and per agent into the rules directory.
+func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	return emit.RulesDirectory(b, emit.RulesDirOpts{
+		Dir:         outDir(cfg),
+		AgentPrefix: "agent-",
+	}, dryRun)
+}
+
+func outDir(cfg *config.Config) string {
+	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
 		return o.RulesDir
 	}
-	return ".clinerules"
+	return defaultDir
 }

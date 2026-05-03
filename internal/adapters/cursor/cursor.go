@@ -1,9 +1,11 @@
+// Package cursor emits .cursor/rules/*.mdc files for the Cursor editor.
+//
+// Rules emit with alwaysApply=true; agents emit as rules with
+// alwaysApply=false. Both honor a frontmatter override.
 package cursor
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -11,40 +13,42 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+const (
+	target     = "cursor"
+	defaultDir = ".cursor/rules"
+	defaultExt = ".mdc"
+)
+
+var caps = emit.Capabilities{
+	Target:   target,
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
+}
+
+// Adapter emits Cursor configs.
 type Adapter struct{}
 
+// New returns a Cursor adapter.
 func New() *Adapter { return &Adapter{} }
 
-func (a *Adapter) Name() string { return "cursor" }
+// Name returns the target identifier.
+func (Adapter) Name() string { return target }
 
-func (a *Adapter) Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error {
-	dir := rulesDir(cfg)
-
-	for _, r := range spec.Filter(entries, spec.KindRule) {
-		path := filepath.Join(dir, r.Name+".mdc")
-		if err := emit.WriteFile(path, mdc(r, true), dryRun); err != nil {
-			return err
-		}
+// Emit writes one .mdc per rule and per agent.
+func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
 	}
-	for _, a := range spec.Filter(entries, spec.KindAgent) {
-		path := filepath.Join(dir, a.Name+".mdc")
-		if err := emit.WriteFile(path, mdc(a, false), dryRun); err != nil {
-			return err
-		}
-	}
-
-	if len(spec.Filter(entries, spec.KindHook)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! cursor: hooks not supported, skipped")
-	}
-	if len(spec.Filter(entries, spec.KindSkill)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! cursor: skills not supported, skipped")
-	}
-	return nil
+	return emit.RulesDirectory(b, emit.RulesDirOpts{
+		Dir:         outDir(cfg),
+		Ext:         defaultExt,
+		FormatRule:  func(e spec.Entry) string { return mdc(e, true) },
+		FormatAgent: func(e spec.Entry) string { return mdc(e, false) },
+	}, dryRun)
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {
-	desc, _ := e.Meta["description"].(string)
-	globs, _ := e.Meta["globs"].(string)
+	desc := e.Description()
+	globs := e.Globs()
 	if globs == "" {
 		globs = "**/*"
 	}
@@ -62,9 +66,9 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	return b.String()
 }
 
-func rulesDir(cfg *config.Config) string {
-	if o, ok := cfg.Outputs["cursor"]; ok && o.RulesDir != "" {
+func outDir(cfg *config.Config) string {
+	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
 		return o.RulesDir
 	}
-	return ".cursor/rules"
+	return defaultDir
 }

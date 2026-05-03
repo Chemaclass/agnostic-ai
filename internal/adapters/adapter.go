@@ -1,3 +1,5 @@
+// Package adapters exposes the per-target Adapter interface and the
+// registry mapping target names to implementations.
 package adapters
 
 import (
@@ -14,9 +16,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// Adapter is the contract every target implementation satisfies.
 type Adapter interface {
+	// Name returns the target identifier used in config and CLI flags.
 	Name() string
-	Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error
+	// Emit renders the bundle as files for this target. dryRun prints
+	// rather than writing.
+	Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error
 }
 
 var registry = map[string]Adapter{
@@ -31,11 +37,13 @@ var registry = map[string]Adapter{
 	"continue": continueai.New(),
 }
 
+// Get returns the adapter registered under name.
 func Get(name string) (Adapter, bool) {
 	a, ok := registry[name]
 	return a, ok
 }
 
+// Names returns every registered target name.
 func Names() []string {
 	out := make([]string, 0, len(registry))
 	for k := range registry {

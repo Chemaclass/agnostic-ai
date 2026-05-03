@@ -19,7 +19,7 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 			Meta: map[string]any{"description": "agent desc"}},
 		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{"event": "X"}},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
@@ -47,7 +47,7 @@ func TestEmit_NestedByGlobs(t *testing.T) {
 		{Kind: spec.KindRule, Name: "deep-rule",
 			Meta: map[string]any{"globs": "docs/api/**"}, Body: "api content"},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +75,7 @@ func TestEmit_SkillsListedInRoot(t *testing.T) {
 			Path: "skills/yaml-validator.md",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
@@ -98,7 +98,7 @@ func TestEmit_AgentsAndSkillsAttachToRootOnly(t *testing.T) {
 			Meta: map[string]any{"globs": "src/**"}, Body: "src content"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent body"},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	root := readFile(t, filepath.Join(dir, "AGENTS.md"))
@@ -120,7 +120,7 @@ func TestEmit_OutputOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x", Meta: map[string]any{"globs": "src/**"}},
 	}
-	if err := New().Emit(entries, cfg, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/src/AGENTS.md")); err != nil {

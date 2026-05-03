@@ -25,7 +25,7 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 			Body: "rule body",
 		},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/my-rule.mdc"))
@@ -49,7 +49,7 @@ func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
 	}
-	if err := New().Emit(entries, &config.Config{}, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/agent1.mdc"))

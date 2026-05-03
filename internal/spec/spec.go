@@ -65,6 +65,25 @@ type Bundle struct {
 	Hooks  []Entry
 }
 
+// NewBundle groups a flat slice of entries by kind. Useful in tests and
+// when adapting external sources of Entry slices.
+func NewBundle(entries []Entry) Bundle {
+	var b Bundle
+	for _, e := range entries {
+		switch e.Kind {
+		case KindAgent:
+			b.Agents = append(b.Agents, e)
+		case KindSkill:
+			b.Skills = append(b.Skills, e)
+		case KindRule:
+			b.Rules = append(b.Rules, e)
+		case KindHook:
+			b.Hooks = append(b.Hooks, e)
+		}
+	}
+	return b
+}
+
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
 	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks))

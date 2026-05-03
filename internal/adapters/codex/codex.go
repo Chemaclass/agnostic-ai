@@ -1,8 +1,20 @@
+// Package codex emits AGENTS.md hierarchies for the Codex CLI.
+//
+// The Codex CLI reads AGENTS.md for project conventions and supports
+// nested AGENTS.md files in subdirectories that scope to that subtree.
+// This adapter routes rules by their globs frontmatter:
+//
+//   - "src/**"        -> src/AGENTS.md
+//   - "docs/api/**"   -> docs/api/AGENTS.md
+//   - "**/*"          -> root
+//   - "**/*.go"       -> root (no fixed prefix)
+//
+// Agents and skills attach to the root document only. Codex has no native
+// skill or hook systems, so skills are listed by name + source path and
+// hooks are skipped.
 package codex
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,109 +24,83 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// Codex CLI reads `AGENTS.md` for project rules and conventions, and supports
-// nested `AGENTS.md` files in subdirectories that scope to that subtree.
-//
-// This adapter:
-//   - Routes rules by their `globs` frontmatter field. A rule with
-//     `globs: "src/**"` writes to `src/AGENTS.md`. Unscoped rules go to root.
-//   - Emits agents as full sections in the root AGENTS.md.
-//   - Lists skills with name + description (Codex has no native skills).
-//   - Skips hooks with a warning (Codex has no hook system).
-//
-// Override the root output path via `outputs.codex.file`.
+const (
+	target         = "codex"
+	defaultOutFile = "AGENTS.md"
+)
 
+var caps = emit.Capabilities{
+	Target: target,
+	// Codex consumes agents, rules, and skills (the latter as listings).
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill},
+}
+
+// Adapter emits Codex configs.
 type Adapter struct{}
 
+// New returns a Codex adapter.
 func New() *Adapter { return &Adapter{} }
 
-func (a *Adapter) Name() string { return "codex" }
+// Name returns the target identifier.
+func (Adapter) Name() string { return target }
 
-func (a *Adapter) Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error {
-	rootFile := "AGENTS.md"
-	if o, ok := cfg.Outputs["codex"]; ok && o.File != "" {
-		rootFile = o.File
+// Emit writes the root AGENTS.md and any nested AGENTS.md files implied
+// by rule globs.
+func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
 	}
+
+	rootFile := outFile(cfg)
 	rootDir := filepath.Dir(rootFile)
 	rootBase := filepath.Base(rootFile)
 
-	rules := spec.Filter(entries, spec.KindRule)
-	agents := spec.Filter(entries, spec.KindAgent)
-	skills := spec.Filter(entries, spec.KindSkill)
+	byDir := groupRulesByDir(b.Rules)
 
-	// Group rules by routed directory.
-	byDir := map[string][]spec.Entry{}
-	for _, r := range rules {
-		byDir[routeDir(r)] = append(byDir[routeDir(r)], r)
+	dirs := sortedKeys(byDir)
+	if !contains(dirs, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
+		dirs = append([]string{""}, dirs...)
 	}
-
-	// Sort dirs for stable output.
-	dirs := make([]string, 0, len(byDir))
-	for d := range byDir {
-		dirs = append(dirs, d)
-	}
-	sort.Strings(dirs)
 
 	for _, dir := range dirs {
-		var b strings.Builder
-		writeHeader(&b, dir)
-		writeRules(&b, byDir[dir])
-
-		// Agents and skills only attach to the root document.
+		var sb strings.Builder
+		writeHeader(&sb, dir)
+		writeRules(&sb, byDir[dir])
 		if dir == "" {
-			if len(agents) > 0 {
-				writeAgents(&b, agents)
-			}
-			if len(skills) > 0 {
-				writeSkills(&b, skills)
-			}
+			writeAgents(&sb, b.Agents)
+			writeSkills(&sb, b.Skills)
 		}
-
 		path := filepath.Join(rootDir, dir, rootBase)
-		if err := emit.WriteFile(path, b.String(), dryRun); err != nil {
+		if err := emit.WriteFile(path, sb.String(), dryRun); err != nil {
 			return err
 		}
 	}
-
-	// If there are agents/skills but no root rule, ensure root file still exists.
-	if _, hasRoot := byDir[""]; !hasRoot && (len(agents) > 0 || len(skills) > 0) {
-		var b strings.Builder
-		writeHeader(&b, "")
-		if len(agents) > 0 {
-			writeAgents(&b, agents)
-		}
-		if len(skills) > 0 {
-			writeSkills(&b, skills)
-		}
-		if err := emit.WriteFile(filepath.Join(rootDir, rootBase), b.String(), dryRun); err != nil {
-			return err
-		}
-	}
-
-	if len(spec.Filter(entries, spec.KindHook)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! codex: hooks not supported, skipped")
-	}
-
 	return nil
 }
 
-// routeDir returns the subdirectory to route a rule to, based on its globs.
-//
-//	""              -> root
-//	"**/*"          -> root
-//	"src/**"        -> "src"
-//	"src/**/*.go"   -> "src"
-//	"docs/api/**"   -> "docs/api"
-//	"**/*.go"       -> root (no fixed prefix)
+func outFile(cfg *config.Config) string {
+	if o, ok := cfg.Outputs[target]; ok && o.File != "" {
+		return o.File
+	}
+	return defaultOutFile
+}
+
+func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {
+	out := map[string][]spec.Entry{}
+	for _, r := range rules {
+		out[routeDir(r)] = append(out[routeDir(r)], r)
+	}
+	return out
+}
+
+// routeDir returns the subdirectory to route a rule to based on its globs.
 func routeDir(r spec.Entry) string {
-	globs, _ := r.Meta["globs"].(string)
-	if globs == "" || globs == "**/*" || globs == "*" {
+	g := strings.TrimPrefix(r.Globs(), "/")
+	if g == "" || g == "**/*" || g == "*" {
 		return ""
 	}
-	g := strings.TrimPrefix(globs, "/")
-	parts := strings.Split(g, "/")
 	var prefix []string
-	for _, p := range parts {
+	for _, p := range strings.Split(g, "/") {
 		if strings.ContainsAny(p, "*?[") {
 			break
 		}
@@ -123,49 +109,73 @@ func routeDir(r spec.Entry) string {
 	return strings.Join(prefix, "/")
 }
 
-func writeHeader(b *strings.Builder, dir string) {
+func writeHeader(sb *strings.Builder, dir string) {
 	if dir == "" {
-		b.WriteString("# AGENTS.md\n\n")
+		sb.WriteString("# AGENTS.md\n\n")
 	} else {
-		b.WriteString("# AGENTS.md (" + dir + ")\n\n")
-		b.WriteString("Scoped to `" + dir + "/**`. Inherits root rules.\n\n")
+		sb.WriteString("# AGENTS.md (" + dir + ")\n\n")
+		sb.WriteString("Scoped to `" + dir + "/**`. Inherits root rules.\n\n")
 	}
-	b.WriteString("Generated by agnostic-ai. Do not edit by hand.\n\n")
+	sb.WriteString("Generated by agnostic-ai. Do not edit by hand.\n\n")
 }
 
-func writeRules(b *strings.Builder, rules []spec.Entry) {
+func writeRules(sb *strings.Builder, rules []spec.Entry) {
 	if len(rules) == 0 {
 		return
 	}
-	b.WriteString("## Conventions\n\n")
+	sb.WriteString("## Conventions\n\n")
 	for _, r := range rules {
-		b.WriteString("### " + r.Name + "\n\n")
-		if d, ok := r.Meta["description"].(string); ok && d != "" {
-			b.WriteString("_" + d + "_\n\n")
-		}
-		b.WriteString(r.Body + "\n\n")
+		writeSection(sb, r.Name, r.Description(), r.Body)
 	}
 }
 
-func writeAgents(b *strings.Builder, agents []spec.Entry) {
-	b.WriteString("## Agents\n\n")
+func writeAgents(sb *strings.Builder, agents []spec.Entry) {
+	if len(agents) == 0 {
+		return
+	}
+	sb.WriteString("## Agents\n\n")
 	for _, a := range agents {
-		b.WriteString("### " + a.Name + "\n\n")
-		if d, ok := a.Meta["description"].(string); ok && d != "" {
-			b.WriteString("_" + d + "_\n\n")
-		}
-		b.WriteString(a.Body + "\n\n")
+		writeSection(sb, a.Name, a.Description(), a.Body)
 	}
 }
 
-func writeSkills(b *strings.Builder, skills []spec.Entry) {
-	b.WriteString("## Skills\n\n")
-	b.WriteString("Codex has no native skills. The following are available as reference; invoke them by reading the source file.\n\n")
-	for _, s := range skills {
-		b.WriteString("### " + s.Name + "\n\n")
-		if d, ok := s.Meta["description"].(string); ok && d != "" {
-			b.WriteString("_" + d + "_\n\n")
-		}
-		b.WriteString("Source: `" + s.Path + "`\n\n")
+func writeSkills(sb *strings.Builder, skills []spec.Entry) {
+	if len(skills) == 0 {
+		return
 	}
+	sb.WriteString("## Skills\n\n")
+	sb.WriteString("Codex has no native skills. The following are available as reference; invoke them by reading the source file.\n\n")
+	for _, s := range skills {
+		sb.WriteString("### " + s.Name + "\n\n")
+		if d := s.Description(); d != "" {
+			sb.WriteString("_" + d + "_\n\n")
+		}
+		sb.WriteString("Source: `" + s.Path + "`\n\n")
+	}
+}
+
+func writeSection(sb *strings.Builder, name, description, body string) {
+	sb.WriteString("### " + name + "\n\n")
+	if description != "" {
+		sb.WriteString("_" + description + "_\n\n")
+	}
+	sb.WriteString(body + "\n\n")
+}
+
+func sortedKeys(m map[string][]spec.Entry) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func contains(ss []string, s string) bool {
+	for _, x := range ss {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }

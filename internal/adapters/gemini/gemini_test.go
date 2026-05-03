@@ -25,7 +25,7 @@ func TestEmit_WritesGeminiMd(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "GEMINI.md"))

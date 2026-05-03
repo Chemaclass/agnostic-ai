@@ -23,7 +23,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Dogfood specs at project root (`agents/`, `skills/`, `rules/`, `hooks/`).
 - `docs/examples/agnostic.config.yaml` covering every config knob.
 
-### Fixed
-- `.gitignore` no longer ignores the `cmd/agnostic-ai/` source directory.
-
 [Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/HEAD...HEAD

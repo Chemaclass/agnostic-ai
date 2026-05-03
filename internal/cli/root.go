@@ -1,3 +1,4 @@
+// Package cli builds the cobra command tree for the agnostic-ai binary.
 package cli
 
 import (
@@ -11,17 +12,21 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// NewRootCmd builds the root command tree.
 func NewRootCmd(version string) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "agnostic-ai",
-		Short: "Define AI agents, skills, rules, hooks once. Transpile per AI CLI.",
+		Use:           "agnostic-ai",
+		Short:         "Define AI agents, skills, rules, hooks once. Transpile per AI CLI.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Version:       version,
 	}
-	root.Version = version
-
-	root.AddCommand(newSyncCmd())
-	root.AddCommand(newValidateCmd())
-	root.AddCommand(newListCmd())
-	root.AddCommand(newInitCmd())
+	root.AddCommand(
+		newSyncCmd(),
+		newValidateCmd(),
+		newListCmd(),
+		newInitCmd(),
+	)
 	return root
 }
 
@@ -31,13 +36,9 @@ func newSyncCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Emit per-target configs from agnostic spec.",
+		Short: "Emit per-target configs from agnostic specs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(".")
-			if err != nil {
-				return err
-			}
-			s, err := spec.LoadAll(".", cfg)
+			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
@@ -51,7 +52,7 @@ func newSyncCmd() *cobra.Command {
 					continue
 				}
 				fmt.Printf("→ emit %s\n", t)
-				if err := adapter.Emit(s, cfg, dryRun); err != nil {
+				if err := adapter.Emit(b, cfg, dryRun); err != nil {
 					return fmt.Errorf("%s: %w", t, err)
 				}
 			}
@@ -68,15 +69,11 @@ func newValidateCmd() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate agnostic specs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(".")
+			_, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
-			s, err := spec.LoadAll(".", cfg)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("loaded %d entries. ok.\n", len(s))
+			fmt.Printf("loaded %d entries. ok.\n", len(b.All()))
 			return nil
 		},
 	}
@@ -87,15 +84,11 @@ func newListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List loaded specs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(".")
+			_, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
-			s, err := spec.LoadAll(".", cfg)
-			if err != nil {
-				return err
-			}
-			for _, e := range s {
+			for _, e := range b.All() {
 				fmt.Printf("%s\t%s\n", e.Kind, e.Name)
 			}
 			return nil
@@ -111,4 +104,17 @@ func newInitCmd() *cobra.Command {
 			return scaffold(".")
 		},
 	}
+}
+
+// loadProject loads config and bundle from root.
+func loadProject(root string) (*config.Config, spec.Bundle, error) {
+	cfg, err := config.Load(root)
+	if err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	b, err := spec.LoadBundle(root, cfg)
+	if err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	return cfg, b, nil
 }

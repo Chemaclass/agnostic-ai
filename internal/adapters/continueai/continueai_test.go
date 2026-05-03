@@ -23,7 +23,7 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{".continue/rules/r1.md", ".continue/rules/agent-ag1.md"} {

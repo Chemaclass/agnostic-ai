@@ -23,7 +23,7 @@ func TestEmit_WritesInstructions(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 	}
-	if err := a.Emit(entries, &config.Config{}, false); err != nil {
+	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".github/copilot-instructions.md"))

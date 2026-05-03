@@ -1,52 +1,47 @@
+// Package continueai emits .continue/rules/*.md for continue.dev.
+//
+// The package name is suffixed because `continue` is a Go keyword.
 package continueai
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// Continue (continue.dev) reads `.continue/rules/*.md` for project rules.
-// Agents render as additional rule files.
+const (
+	target     = "continue"
+	defaultDir = ".continue/rules"
+)
 
-type Adapter struct{}
-
-func New() *Adapter { return &Adapter{} }
-
-func (a *Adapter) Name() string { return "continue" }
-
-func (a *Adapter) Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error {
-	dir := dirFor(cfg)
-
-	for _, r := range spec.Filter(entries, spec.KindRule) {
-		path := filepath.Join(dir, r.Name+".md")
-		if err := emit.WriteFile(path, "# "+r.Name+"\n\n"+r.Body, dryRun); err != nil {
-			return err
-		}
-	}
-	for _, ag := range spec.Filter(entries, spec.KindAgent) {
-		path := filepath.Join(dir, "agent-"+ag.Name+".md")
-		if err := emit.WriteFile(path, "# Agent: "+ag.Name+"\n\n"+ag.Body, dryRun); err != nil {
-			return err
-		}
-	}
-
-	if len(spec.Filter(entries, spec.KindHook)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! continue: hooks not supported, skipped")
-	}
-	if len(spec.Filter(entries, spec.KindSkill)) > 0 {
-		fmt.Fprintln(os.Stderr, "  ! continue: skills not supported, skipped")
-	}
-	return nil
+var caps = emit.Capabilities{
+	Target:   target,
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
 }
 
-func dirFor(cfg *config.Config) string {
-	if o, ok := cfg.Outputs["continue"]; ok && o.RulesDir != "" {
+// Adapter emits Continue configs.
+type Adapter struct{}
+
+// New returns a Continue adapter.
+func New() *Adapter { return &Adapter{} }
+
+// Name returns the target identifier.
+func (Adapter) Name() string { return target }
+
+// Emit writes one .md per rule and per agent into the rules directory.
+func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	return emit.RulesDirectory(b, emit.RulesDirOpts{
+		Dir:         outDir(cfg),
+		AgentPrefix: "agent-",
+	}, dryRun)
+}
+
+func outDir(cfg *config.Config) string {
+	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
 		return o.RulesDir
 	}
-	return ".continue/rules"
+	return defaultDir
 }
