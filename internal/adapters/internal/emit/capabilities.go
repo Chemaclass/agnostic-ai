@@ -51,7 +51,7 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 		case OnUnsupportedSilent:
 			continue
 		default: // warn
-			fmt.Fprintln(Warner, msg)
+			_, _ = fmt.Fprintln(Warner, msg)
 		}
 	}
 	return nil
