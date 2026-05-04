@@ -14,7 +14,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
 }
 
 // Adapter emits Windsurf configs.

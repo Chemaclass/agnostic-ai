@@ -21,7 +21,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
 }
 
 // Adapter emits Cursor configs.
@@ -43,6 +43,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		Ext:         defaultExt,
 		FormatRule:  func(e spec.Entry) string { return mdc(e, true) },
 		FormatAgent: func(e spec.Entry) string { return mdc(e, false) },
+		FormatSkill: func(e spec.Entry) string { return mdc(e, false) },
 	}, dryRun)
 }
 

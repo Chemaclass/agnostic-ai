@@ -22,11 +22,12 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
+		{Kind: spec.KindSkill, Name: "sk1", Body: "skill"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md"} {
+	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md", ".clinerules/skill-sk1.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}

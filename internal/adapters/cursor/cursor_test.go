@@ -60,3 +60,27 @@ func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
 		t.Errorf("agent should default alwaysApply=false: %s", got)
 	}
 }
+
+func TestEmit_SkillWritesMdcFile(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	_ = os.Chdir(dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "sk1", Meta: map[string]any{"description": "skill desc"}, Body: "skill body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/skill-sk1.mdc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "description: skill desc") {
+		t.Errorf("missing description: %s", got)
+	}
+	if !strings.Contains(string(got), "alwaysApply: false") {
+		t.Errorf("skill should default alwaysApply=false: %s", got)
+	}
+}
