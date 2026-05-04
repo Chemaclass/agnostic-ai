@@ -124,7 +124,7 @@ func writeRules(sb *strings.Builder, rules []spec.Entry) {
 	}
 	sb.WriteString("## Conventions\n\n")
 	for _, r := range rules {
-		writeSection(sb, r.Name, r.Description(), r.Path, r.Body)
+		emit.WriteSection(sb, r.Name, r)
 	}
 }
 
@@ -134,7 +134,7 @@ func writeAgents(sb *strings.Builder, agents []spec.Entry) {
 	}
 	sb.WriteString("## Agents\n\n")
 	for _, a := range agents {
-		writeSection(sb, a.Name, a.Description(), a.Path, a.Body)
+		emit.WriteSection(sb, a.Name, a)
 	}
 }
 
@@ -152,15 +152,6 @@ func writeSkills(sb *strings.Builder, skills []spec.Entry) {
 		}
 		sb.WriteString("Source: `" + s.Path + "`\n\n")
 	}
-}
-
-func writeSection(sb *strings.Builder, name, description, path, body string) {
-	sb.WriteString("### " + name + "\n\n")
-	sb.WriteString(emit.SourceComment(path))
-	if description != "" {
-		sb.WriteString("_" + description + "_\n\n")
-	}
-	sb.WriteString(body + "\n\n")
 }
 
 func sortedKeys(m map[string][]spec.Entry) []string {

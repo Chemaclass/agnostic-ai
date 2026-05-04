@@ -73,14 +73,14 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 	if len(b.Rules) > 0 {
 		sb.WriteString("## " + opts.RulesHeading + "\n\n")
 		for _, r := range b.Rules {
-			writeSection(&sb, r.Name, r.Description(), r.Path, r.Body)
+			WriteSection(&sb, r.Name, r)
 		}
 	}
 
 	if len(b.Agents) > 0 {
 		sb.WriteString("## " + opts.AgentsHeading + "\n\n")
 		for _, a := range b.Agents {
-			writeSection(&sb, opts.AgentSectionPrefix+a.Name, a.Description(), a.Path, a.Body)
+			WriteSection(&sb, opts.AgentSectionPrefix+a.Name, a)
 		}
 	}
 
@@ -102,11 +102,16 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 	return WriteFile(opts.OutFile, sb.String(), dryRun)
 }
 
-func writeSection(sb *strings.Builder, name, description, path, body string) {
-	sb.WriteString("### " + name + "\n\n")
-	sb.WriteString(SourceComment(path))
-	if description != "" {
-		sb.WriteString("_" + description + "_\n\n")
+// WriteSection writes a "### <heading>" block followed by source
+// provenance comment, optional italic description, and body.
+//
+// heading is taken as a parameter (rather than e.Name) so callers can
+// prepend a prefix like "Agent: ".
+func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
+	sb.WriteString("### " + heading + "\n\n")
+	sb.WriteString(SourceComment(e.Path))
+	if d := e.Description(); d != "" {
+		sb.WriteString("_" + d + "_\n\n")
 	}
-	sb.WriteString(body + "\n\n")
+	sb.WriteString(e.Body + "\n\n")
 }
