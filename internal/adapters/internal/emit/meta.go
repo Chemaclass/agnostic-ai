@@ -12,9 +12,10 @@ const XPrefix = "x-"
 // for the named target and `x-*` keys for other targets dropped.
 //
 // Example: meta = {name: r1, x-claude: {allowed-tools: [Read]}, x-cursor: {globs: "src/**"}}
-//   ResolveMeta(meta, "claude") -> {name: r1, allowed-tools: [Read]}
-//   ResolveMeta(meta, "cursor") -> {name: r1, globs: "src/**"}
-//   ResolveMeta(meta, "gemini") -> {name: r1}
+//
+//	ResolveMeta(meta, "claude") -> {name: r1, allowed-tools: [Read]}
+//	ResolveMeta(meta, "cursor") -> {name: r1, globs: "src/**"}
+//	ResolveMeta(meta, "gemini") -> {name: r1}
 //
 // Adapter-owned keys overwrite top-level keys with the same name.
 func ResolveMeta(meta map[string]any, target string) map[string]any {
