@@ -22,6 +22,7 @@ func TestEmit_WritesInstructions(t *testing.T) {
 	}
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
+		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
@@ -30,7 +31,9 @@ func TestEmit_WritesInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "rule") {
-		t.Errorf("missing body: %s", got)
+	for _, want := range []string{"rule", "## Skills", "### sk1"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
 	}
 }

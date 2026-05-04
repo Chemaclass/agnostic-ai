@@ -24,6 +24,7 @@ func TestEmit_WritesGeminiMd(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
+		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
@@ -32,7 +33,9 @@ func TestEmit_WritesGeminiMd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "Agent: ag1") {
-		t.Errorf("missing agent header in %s", got)
+	for _, want := range []string{"Agent: ag1", "## Skills", "### sk1"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
 	}
 }
