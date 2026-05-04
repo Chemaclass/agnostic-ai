@@ -13,6 +13,7 @@ sources:
   skills: .agnostic-ai/skills
   rules: .agnostic-ai/rules
   hooks: .agnostic-ai/hooks
+  mcps: .agnostic-ai/mcps
 
 # AI CLIs to emit configs for. Comment any out to skip.
 targets:

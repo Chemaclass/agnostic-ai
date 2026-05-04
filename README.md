@@ -26,19 +26,19 @@ Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + Y
 
 ## Supported targets
 
-| Target         | Agents | Skills | Rules | Hooks |
-|----------------|:------:|:------:|:-----:|:-----:|
-| Claude Code    | ✅     | ✅     | ✅    | ✅    |
-| Codex CLI      | ◐      | ◐      | ✅    | —     |
-| Gemini CLI     | ◐      | ◐      | ✅    | —     |
-| Cursor         | ✅     | ✅     | ✅    | —     |
-| GitHub Copilot | ◐      | ◐      | ✅    | —     |
-| Aider          | ◐      | ◐      | ✅    | —     |
-| Cline          | ✅     | ✅     | ✅    | —     |
-| Windsurf       | ✅     | ✅     | ✅    | —     |
-| Continue       | ✅     | ✅     | ✅    | —     |
+| Target         | Agents | Skills | Rules | Hooks | MCPs |
+|----------------|:------:|:------:|:-----:|:-----:|:----:|
+| Claude Code    | ✅     | ✅     | ✅    | ✅    | ✅   |
+| Codex CLI      | ◐      | ◐      | ✅    | —     | —    |
+| Gemini CLI     | ◐      | ◐      | ✅    | —     | —    |
+| Cursor         | ✅     | ✅     | ✅    | —     | ✅   |
+| GitHub Copilot | ◐      | ◐      | ✅    | —     | ✅   |
+| Aider          | ◐      | ◐      | ✅    | —     | —    |
+| Cline          | ✅     | ✅     | ✅    | —     | —    |
+| Windsurf       | ✅     | ✅     | ✅    | —     | —    |
+| Continue       | ✅     | ✅     | ✅    | —     | —    |
 
-Legend: ✅ separate files · ◐ merged into single doc · — not supported. Hooks are Claude-specific.
+Legend: ✅ separate files · ◐ merged into single doc · — not supported. Hooks are Claude-specific. MCP propagation lands in the schema each tool understands.
 
 ## Install
 

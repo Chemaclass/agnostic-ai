@@ -1,7 +1,7 @@
 // Package spec loads and parses agnostic-ai source specs from disk.
 //
-// Specs come in four kinds (agent, skill, rule, hook). Markdown specs use
-// YAML frontmatter; hook specs are pure YAML.
+// Specs come in five kinds (agent, skill, rule, hook, mcp). Markdown specs
+// use YAML frontmatter; hook and mcp specs are pure YAML.
 package spec
 
 import (
@@ -27,11 +27,12 @@ const (
 	KindSkill Kind = "skill"
 	KindRule  Kind = "rule"
 	KindHook  Kind = "hook"
+	KindMCP   Kind = "mcp"
 )
 
 // AllKinds is the canonical ordering used by adapters that emit
 // per-kind sections.
-var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook}
+var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP}
 
 // Entry is a single loaded spec.
 type Entry struct {
@@ -63,6 +64,7 @@ type Bundle struct {
 	Skills []Entry
 	Rules  []Entry
 	Hooks  []Entry
+	MCPs   []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -79,6 +81,8 @@ func NewBundle(entries []Entry) Bundle {
 			b.Rules = append(b.Rules, e)
 		case KindHook:
 			b.Hooks = append(b.Hooks, e)
+		case KindMCP:
+			b.MCPs = append(b.MCPs, e)
 		}
 	}
 	return b
@@ -86,11 +90,12 @@ func NewBundle(entries []Entry) Bundle {
 
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
-	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks))
+	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs))
 	out = append(out, b.Agents...)
 	out = append(out, b.Skills...)
 	out = append(out, b.Rules...)
 	out = append(out, b.Hooks...)
+	out = append(out, b.MCPs...)
 	return out
 }
 
@@ -105,6 +110,8 @@ func (b Bundle) Has(k Kind) bool {
 		return len(b.Rules) > 0
 	case KindHook:
 		return len(b.Hooks) > 0
+	case KindMCP:
+		return len(b.MCPs) > 0
 	}
 	return false
 }
@@ -123,6 +130,7 @@ func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
 		{filepath.Join(root, cfg.Sources.Skills), ".md", KindSkill, parseMarkdown, &b.Skills},
 		{filepath.Join(root, cfg.Sources.Rules), ".md", KindRule, parseMarkdown, &b.Rules},
 		{filepath.Join(root, cfg.Sources.Hooks), ".yaml", KindHook, parseYAML, &b.Hooks},
+		{filepath.Join(root, cfg.Sources.MCPs), ".yaml", KindMCP, parseYAML, &b.MCPs},
 	}
 	for _, l := range loaders {
 		entries, err := walkDir(l.dir, l.ext, l.kind, l.parse)

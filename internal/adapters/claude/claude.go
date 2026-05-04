@@ -1,10 +1,11 @@
 // Package claude emits Claude Code configs.
 //
-// Claude Code natively supports all four spec kinds:
+// Claude Code natively supports all five spec kinds:
 //   - agents -> <dir>/agents/<name>.md
 //   - skills -> <dir>/skills/<name>/SKILL.md
 //   - rules  -> CLAUDE.md (concatenated)
 //   - hooks  -> <dir>/settings.json
+//   - mcps   -> .mcp.json
 package claude
 
 import (
@@ -22,11 +23,12 @@ const (
 	target           = "claude"
 	defaultDir       = ".claude"
 	defaultRulesFile = "CLAUDE.md"
+	defaultMCPFile   = ".mcp.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP},
 }
 
 // Adapter emits Claude Code configs.
@@ -82,6 +84,18 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
+	if len(b.MCPs) > 0 {
+		doc, err := emit.MCPDocument(b.MCPs, emit.MCPSchemaServersMap)
+		if err != nil {
+			return err
+		}
+		if doc != "" {
+			if err := emit.WriteFile(outMCPFile(cfg), doc, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -116,4 +130,11 @@ func outRulesFile(cfg *config.Config) string {
 		return o.RulesFile
 	}
 	return defaultRulesFile
+}
+
+func outMCPFile(cfg *config.Config) string {
+	if o, ok := cfg.Outputs[target]; ok && o.MCPFile != "" {
+		return o.MCPFile
+	}
+	return defaultMCPFile
 }

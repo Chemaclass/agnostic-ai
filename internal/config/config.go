@@ -21,6 +21,7 @@ type Sources struct {
 	Skills string `yaml:"skills"`
 	Rules  string `yaml:"rules"`
 	Hooks  string `yaml:"hooks"`
+	MCPs   string `yaml:"mcps"`
 }
 
 type Output struct {
@@ -28,6 +29,7 @@ type Output struct {
 	File      string `yaml:"file,omitempty"`
 	RulesFile string `yaml:"rules-file,omitempty"`
 	RulesDir  string `yaml:"rules-dir,omitempty"`
+	MCPFile   string `yaml:"mcp-file,omitempty"`
 }
 
 func Load(root string) (*Config, error) {
@@ -52,6 +54,7 @@ func defaults() *Config {
 			Skills: "skills",
 			Rules:  "rules",
 			Hooks:  "hooks",
+			MCPs:   "mcps",
 		},
 		Targets: []string{
 			"claude", "codex", "gemini", "cursor",
@@ -73,6 +76,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Hooks == "" {
 		c.Sources.Hooks = "hooks"
+	}
+	if c.Sources.MCPs == "" {
+		c.Sources.MCPs = "mcps"
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

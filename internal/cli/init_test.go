@@ -11,7 +11,7 @@ func TestScaffold_CreatesLayout(t *testing.T) {
 	if err := scaffold(dir); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"agents", "skills", "rules", "hooks"} {
+	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
 		if _, err := os.Stat(filepath.Join(dir, d)); err != nil {
 			t.Errorf("missing %s", d)
 		}

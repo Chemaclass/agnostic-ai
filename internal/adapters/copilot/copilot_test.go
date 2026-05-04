@@ -36,3 +36,32 @@ func TestEmit_WritesInstructions(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_WritesVSCodeMCPFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".vscode/mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"servers"`) {
+		t.Errorf("expected servers key: %s", got)
+	}
+	if !strings.Contains(string(got), `"type": "stdio"`) {
+		t.Errorf("expected stdio type: %s", got)
+	}
+}
