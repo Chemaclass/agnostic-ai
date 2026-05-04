@@ -9,6 +9,8 @@
 
 Write prompts and project conventions **once**. agnostic-ai emits the right config for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue, and more.
 
+Aligned with the [AGENTS.md](https://agents.md) open standard (Codex, OpenCode, Cursor, Aider). Markdown body + YAML frontmatter, no proprietary extensions.
+
 ```
                                           ┌──► .claude/agents/*.md
                                           ├──► CLAUDE.md
@@ -138,6 +140,22 @@ make test     # unit + integration
 - Contributors: [docs/internal/](docs/internal/): architecture, adapters, release process.
 - Examples: [docs/examples/](docs/examples/).
 
+## Standards this rides on
+
+- [AGENTS.md](https://agents.md): open agent-instructions standard, used by Codex, OpenCode, Cursor, Aider.
+- [CommonMark](https://commonmark.org): every spec body is plain Markdown.
+- YAML 1.2 frontmatter: portable across parsers.
+
+No proprietary extensions inside the open standard. If a target needs a vendor-specific block, the adapter writes it to that target's native file (e.g. `.cursor/rules/*.mdc`), not to `AGENTS.md`.
+
+## Roadmap
+
+- **User-global layer** (`~/.agnostic-ai/`): one source of truth across every project on the machine.
+- **Project-user layer** (`.agnostic-ai/`, gitignored): per-developer overrides on top of the project layer.
+- Precedence: project-user > project > user-global. Each layer can add or override specs by name.
+
+Track progress in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
+
 ## Status
 
 Pre-1.0. Spec format may change between minor versions. See [CHANGELOG.md](CHANGELOG.md).
@@ -149,3 +167,7 @@ PRs welcome, especially new adapters. See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+---
+
+> Write the rule once. Every AI tool obeys it. Outlive the tool.
