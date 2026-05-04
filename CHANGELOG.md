@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-05-04
+
 ### Added
 - MCP servers as a first-class spec kind. New `mcps/*.yaml` source dir; one file per server with `command`/`args`/`env` (stdio) or `url`/`headers` (http/sse). Adapters that propagate MCP: Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`), GitHub Copilot (`.vscode/mcp.json`, VS Code shape with per-server `type`). Other targets skip with a warning. Output paths overridable via `outputs.<target>.mcp-file`.
 - `agnostic-ai sync --backup`: copy each existing target file to `<path>.bak` before overwriting. Backup is opt-in (off by default) and skipped when the new content matches the existing file.
