@@ -12,35 +12,35 @@ Write prompts and project conventions **once**. agnostic-ai emits the right conf
 Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + YAML frontmatter, no proprietary extensions.
 
 ```
-                                          ┌──► .claude/agents/*.md
-                                          ├──► CLAUDE.md
-                                          ├──► AGENTS.md          (Codex)
-   agents/                                ├──► GEMINI.md
-   skills/      agnostic-ai sync          ├──► .cursor/rules/*.mdc
-   rules/      ─────────────────►         ├──► .github/copilot-instructions.md
-   hooks/                                 ├──► CONVENTIONS.md    (Aider)
-                                          ├──► .clinerules/*.md
-                                          ├──► .windsurf/rules/*.md
-                                          └──► .continue/rules/*.md
+                               ┌──► .claude/agents/*.md
+                               ├──► CLAUDE.md
+                               ├──► AGENTS.md          (Codex)
+   agents/                     ├──► GEMINI.md
+   skills/  agnostic-ai sync   ├──► .cursor/rules/*.mdc
+   rules/   ─────────────────► ├──► .github/copilot-instructions.md
+   hooks/                      ├──► CONVENTIONS.md    (Aider)
+                               ├──► .clinerules/*.md
+                               ├──► .windsurf/rules/*.md
+                               └──► .continue/rules/*.md
 ```
 
 ## Supported targets
 
 | Target         | Agents | Skills | Rules | Hooks | MCPs |
 |----------------|:------:|:------:|:-----:|:-----:|:----:|
-| Claude Code    | ✅     | ✅     | ✅    | ✅    | ✅   |
-| Codex CLI      | ◐      | ◐      | ✅    | -     | -    |
-| Gemini CLI     | ◐      | ◐      | ✅    | -     | -    |
-| Cursor         | ✅     | ✅     | ✅    | -     | ✅   |
-| GitHub Copilot | ◐      | ◐      | ✅    | -     | ✅   |
-| Aider          | ◐      | ◐      | ✅    | -     | -    |
-| Cline          | ✅     | ✅     | ✅    | -     | -    |
-| Windsurf       | ✅     | ✅     | ✅    | -     | -    |
-| Continue       | ✅     | ✅     | ✅    | -     | -    |
-| Amp            | ◐      | ◐      | ✅    | -     | -    |
-| Zed            | ◐      | ◐      | ✅    | -     | -    |
-| Warp           | ◐      | ◐      | ✅    | -     | -    |
-| OpenCode       | ◐      | ◐      | ✅    | -     | -    |
+| Claude Code    |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Codex CLI      |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Gemini CLI     |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| GitHub Copilot |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
+| Aider          |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Cline          |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Windsurf       |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Continue       |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Amp            |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Zed            |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Warp           |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| OpenCode       |   ◐    |   ◐    |   ✅   |   -   |  -   |
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks are Claude-specific. MCP propagation lands in the schema each tool understands.
 
@@ -65,21 +65,9 @@ Walkthrough with a first rule: [docs/user/getting-started.md](docs/user/getting-
 
 ## Documentation
 
-- [User docs](docs/user/): getting started, spec format, targets, configuration, CLI reference, standards.
+- [User docs](docs/user/): getting started, spec format, targets, config, CLI reference.
 - [Contributor docs](docs/internal/): architecture, adding adapters, release process, roadmap.
 - [Examples](docs/examples/).
-
-## Status
-
-Pre-1.0. Spec format may change between minor versions. See [CHANGELOG.md](CHANGELOG.md).
-
-## Contributing
-
-PRs welcome, especially new adapters. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
 
 ---
 
