@@ -253,14 +253,24 @@ function test_format_release_notes_includes_changelog_body() {
 EOF
   local out
   out="$(format_release_notes "v0.1.0" "$tmp" "owner/repo")"
-  assert_contains "## Install" "$out"
-  assert_contains "brew install chemaclass/tap/agnostic-ai" "$out"
-  assert_contains "owner/repo/releases/download/v0.1.0" "$out"
-  assert_contains "## What's in v0.1.0" "$out"
+  assert_contains "### Added" "$out"
   assert_contains "- one" "$out"
   assert_contains "- two" "$out"
-  assert_contains "## Documentation" "$out"
-  assert_contains "owner/repo/blob/main/docs/user/getting-started.md" "$out"
+  assert_contains "owner/repo/blob/main/CHANGELOG.md" "$out"
+  assert_contains "owner/repo#readme" "$out"
+  rm -f "$tmp"
+}
+
+function test_format_release_notes_omits_install_and_docs_blocks() {
+  local tmp
+  tmp="$(mktemp)"
+  printf '## [v0.1.0]\n\n- foo\n' > "$tmp"
+  local out
+  out="$(format_release_notes "v0.1.0" "$tmp" "owner/repo")"
+  assert_not_contains "## Install" "$out"
+  assert_not_contains "brew install" "$out"
+  assert_not_contains "## Documentation" "$out"
+  assert_not_contains "/docs/user/getting-started.md" "$out"
   rm -f "$tmp"
 }
 
