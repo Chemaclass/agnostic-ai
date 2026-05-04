@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Skill emission: rules-directory adapters (Cursor, Cline, Windsurf, Continue) now write each skill as its own rule file. Merged-document adapters (Codex, Gemini, Copilot, Aider) list skills in a `## Skills` section with name, description, and source path.
+- Merged-document outputs (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carry a generated-by header so downstream tools and humans see they are produced by `agnostic-ai sync`.
+- `internal/testutil` package with `Chdir` and `TempCwd` helpers for tests that change the process working directory.
+- `.github/dependabot.yml`: weekly updates for `gomod` and `github-actions`.
+- `SECURITY.md`: vulnerability reporting via GitHub private security advisories, 90-day disclosure.
+- Roadmap doc (`docs/internal/roadmap.md`) covering the planned user-global and project-user configuration layers.
+
+### Changed
+- README simplified: install, quickstart, build-from-source, commands, and spec-format details moved into `docs/`. README now links into the docs tree.
+- README aligned with the AGENTS.md open standard and lists the standards the project rides on.
+- `internal/cli/import_claude.go` (308 LOC) split into one file per concern: rules, skills+agents, hooks. `root.go` command builders moved into `sync.go`, `validate.go`, `list.go`, `init.go`. No behavior change.
+- CI test step writes a coverage profile and uploads it to Codecov from the Ubuntu runner.
+- `make build` now passes `-trimpath -ldflags="-s -w"` for reproducible, smaller binaries.
+- `Makefile` adds convenience targets: `lint`, `fmt`, `vet`, `cover`.
+- Codex `routeDir` and nested-glob tests converted to `t.Run` subtests for cleaner failure reports.
+
+### Fixed
+- CI Test step on the Windows runner: pinned to `bash` so PowerShell stops mis-parsing `-coverprofile=coverage.out`.
+
 ## [v0.1.0] - 2026-05-04
 
 ### Added
