@@ -40,6 +40,10 @@ func newSyncCmd() *cobra.Command {
 				adapters.SetBackup(true)
 				defer adapters.SetBackup(false)
 			}
+			gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
+			if gitignoreOn {
+				adapters.StartRecording()
+			}
 			for _, t := range targets {
 				adapter, ok := adapters.Get(t)
 				if !ok {
@@ -48,15 +52,14 @@ func newSyncCmd() *cobra.Command {
 				}
 				fmt.Printf("→ emit %s\n", t)
 				if err := adapter.Emit(b, cfg, dryRun); err != nil {
+					if gitignoreOn {
+						adapters.StopRecording()
+					}
 					return fmt.Errorf("%s: %w", t, err)
 				}
 			}
-			if !dryRun && resolveGitignore(cfg, gitignoreFlag) {
-				paths, err := collectEmittedPaths(cfg, b, targets)
-				if err != nil {
-					return fmt.Errorf("gitignore: %w", err)
-				}
-				if err := updateGitignore(cfg, paths); err != nil {
+			if gitignoreOn {
+				if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
 					return fmt.Errorf("gitignore: %w", err)
 				}
 				fmt.Println("→ updated .gitignore")

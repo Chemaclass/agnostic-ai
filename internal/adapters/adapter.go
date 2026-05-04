@@ -26,7 +26,8 @@ import (
 type CapturedFile = emit.CapturedFile
 
 // StartCapture redirects subsequent adapter writes to an in-memory buffer.
-// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`).
+// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`)
+// and `revert` to inspect what each adapter would emit without touching disk.
 func StartCapture() { emit.StartCapture() }
 
 // StopCapture returns the captured files and disables capture mode.
@@ -37,6 +38,15 @@ func StopCapture() []CapturedFile { return emit.StopCapture() }
 // overwriting. Used by `sync --backup` to leave a recovery trail that
 // `revert` can restore from.
 func SetBackup(b bool) { emit.SetBackup(b) }
+
+// StartRecording begins collecting written paths alongside real writes.
+// Unlike capture mode it does not suppress IO. Used by `sync` to learn
+// every emitted path in a single pass for follow-up actions like
+// .gitignore management.
+func StartRecording() { emit.StartRecording() }
+
+// StopRecording returns the recorded paths and disables recording.
+func StopRecording() []string { return emit.StopRecording() }
 
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {

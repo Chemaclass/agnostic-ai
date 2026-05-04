@@ -9,9 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -20,31 +18,19 @@ const (
 	gitignoreBlockNote  = "# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh."
 )
 
-// collectEmittedPaths runs each named target adapter in capture mode and
-// returns the sorted, deduplicated set of file paths that would be
-// written. Capture mode performs no IO.
-func collectEmittedPaths(cfg *config.Config, b spec.Bundle, targets []string) ([]string, error) {
-	seen := map[string]struct{}{}
-	for _, t := range targets {
-		adapter, ok := adapters.Get(t)
-		if !ok {
-			continue
-		}
-		adapters.StartCapture()
-		if err := adapter.Emit(b, cfg, false); err != nil {
-			adapters.StopCapture()
-			return nil, fmt.Errorf("%s: %w", t, err)
-		}
-		for _, f := range adapters.StopCapture() {
-			seen[f.Path] = struct{}{}
-		}
+// normalizeAndSort converts a slice of filesystem paths to gitignore
+// entries: forward slashes, leading `./` trimmed, deduplicated, sorted.
+func normalizeAndSort(paths []string) []string {
+	seen := make(map[string]struct{}, len(paths))
+	for _, p := range paths {
+		seen[normalizeGitignorePath(p)] = struct{}{}
 	}
 	out := make([]string, 0, len(seen))
 	for p := range seen {
-		out = append(out, normalizeGitignorePath(p))
+		out = append(out, p)
 	}
 	sort.Strings(out)
-	return out, nil
+	return out
 }
 
 // normalizeGitignorePath converts a filesystem path to a gitignore entry:

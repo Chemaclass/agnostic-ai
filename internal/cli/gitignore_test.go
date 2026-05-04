@@ -126,6 +126,24 @@ func TestNormalizeGitignorePath(t *testing.T) {
 	}
 }
 
+func TestNormalizeAndSort_DedupesAndSorts(t *testing.T) {
+	got := normalizeAndSort([]string{
+		"./b.md",
+		"a.md",
+		"b.md",
+		"./b.md",
+	})
+	want := []string{"a.md", "b.md"}
+	if len(got) != len(want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("index %d: got %q, want %q", i, got[i], w)
+		}
+	}
+}
+
 func TestResolveGitignore_FlagOverridesConfig(t *testing.T) {
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
 	if resolveGitignore(cfg, "off") {
