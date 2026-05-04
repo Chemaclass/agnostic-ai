@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-05-04
+
 ### Added
 - Skill emission: rules-directory adapters (Cursor, Cline, Windsurf, Continue) now write each skill as its own rule file. Merged-document adapters (Codex, Gemini, Copilot, Aider) list skills in a `## Skills` section with name, description, and source path.
 - Merged-document outputs (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carry a generated-by header so downstream tools and humans see they are produced by `agnostic-ai sync`.
