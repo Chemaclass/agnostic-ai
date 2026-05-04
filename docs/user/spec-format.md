@@ -6,8 +6,37 @@
 | Skill  | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
 | Rule   | `rules/*.md`                    | Markdown + YAML frontmatter |
 | Hook   | `hooks/*.yaml`                  | YAML                        |
+| MCP    | `mcps/*.yaml`                   | YAML                        |
 
-Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/`.
+Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/` and `mcps/`.
+
+## Nested layout: per-directory scope
+
+Specs placed in subdirectories of their source dir carry an implicit
+**scope** equal to that subpath. Example:
+
+```
+rules/
+├── conventional-commits.md      # scope: ""    (root)
+├── backend/
+│   └── auth.md                  # scope: "backend"
+└── backend/api/
+    └── limits.md                # scope: "backend/api"
+```
+
+Adapters that produce per-directory output honor the scope:
+
+| Target          | Scoped layout                              |
+|-----------------|--------------------------------------------|
+| `codex`         | `<scope>/AGENTS.md` (already routed via globs; layout wins) |
+| `cursor`        | `<scope>/.cursor/rules/<name>.mdc`         |
+| `cline`         | `<scope>/.clinerules/<name>.md`            |
+| `windsurf`      | `<scope>/.windsurf/rules/<name>.md`        |
+| `continue`      | `<scope>/.continue/rules/<name>.md`        |
+
+Single-document targets (`claude` CLAUDE.md, `gemini` GEMINI.md, `aider` CONVENTIONS.md, `copilot` instructions) merge regardless of scope. The scope is preserved as part of the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+
+A frontmatter `scope:` field is also accepted as a fallback when source layout is impractical (e.g. a single rule that needs to apply only in a subtree without moving the file).
 
 ## Agents
 
@@ -126,6 +155,35 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `Notification` | When Claude Code surfaces a system notification. |
 
 Emitted natively by Claude Code only. Other targets log a warning and skip. See Claude Code docs for the full event list and matcher semantics.
+
+## MCP servers
+
+Pure YAML, no markdown body. One file per MCP server.
+
+```yaml
+name: filesystem
+description: Local filesystem access for the model.
+type: stdio
+command: npx
+args:
+  - -y
+  - "@modelcontextprotocol/server-filesystem"
+env:
+  ROOT: /tmp
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | yes | none | Server identifier. Becomes the key in the generated config. |
+| `description` | no | empty | Free-form documentation. |
+| `type` | no | `stdio` | Transport: `stdio`, `http`, or `sse`. |
+| `command` | stdio only | none | Executable to launch. |
+| `args` | no | empty | Argument list for the command. |
+| `env` | no | empty | Environment variables passed to the server. |
+| `url` | http/sse only | none | Endpoint URL. |
+| `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
+
+Targets with native MCP propagation: Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`), GitHub Copilot / VS Code (`.vscode/mcp.json`). Other targets log a warning and skip.
 
 ## Frontmatter rules
 

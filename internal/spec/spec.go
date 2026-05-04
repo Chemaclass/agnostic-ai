@@ -1,7 +1,7 @@
 // Package spec loads and parses agnostic-ai source specs from disk.
 //
-// Specs come in four kinds (agent, skill, rule, hook). Markdown specs use
-// YAML frontmatter; hook specs are pure YAML.
+// Specs come in five kinds (agent, skill, rule, hook, mcp). Markdown specs
+// use YAML frontmatter; hook and mcp specs are pure YAML.
 package spec
 
 import (
@@ -27,19 +27,29 @@ const (
 	KindSkill Kind = "skill"
 	KindRule  Kind = "rule"
 	KindHook  Kind = "hook"
+	KindMCP   Kind = "mcp"
 )
 
 // AllKinds is the canonical ordering used by adapters that emit
 // per-kind sections.
-var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook}
+var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP}
 
 // Entry is a single loaded spec.
 type Entry struct {
 	Kind Kind
 	Name string
 	Path string
-	Meta map[string]any
-	Body string
+	// Scope is the relative directory under the source kind directory in
+	// which the spec lives, with forward slashes. A spec at
+	// `rules/backend/auth.md` has Scope "backend"; a spec at the root of
+	// `rules/` has Scope "".
+	//
+	// Adapters that produce nested per-directory outputs (Codex, Cursor,
+	// Cline, Windsurf, Continue) honor Scope. Single-document adapters
+	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
+	Scope string
+	Meta  map[string]any
+	Body  string
 }
 
 // Description returns the entry's description from frontmatter, or "" if
@@ -56,6 +66,20 @@ func (e Entry) Globs() string {
 	return g
 }
 
+// EffectiveScope returns the routing prefix for the entry. A non-empty
+// Scope (derived from source layout) wins over a frontmatter override
+// (`scope: <relpath>`); the override wins over a globs prefix; an empty
+// result means root.
+func (e Entry) EffectiveScope() string {
+	if e.Scope != "" {
+		return e.Scope
+	}
+	if s, ok := e.Meta["scope"].(string); ok && s != "" {
+		return strings.Trim(filepath.ToSlash(s), "/")
+	}
+	return ""
+}
+
 // Bundle is a pre-bucketed view of loaded entries. Adapters consume this
 // directly to avoid repeated Filter calls.
 type Bundle struct {
@@ -63,6 +87,7 @@ type Bundle struct {
 	Skills []Entry
 	Rules  []Entry
 	Hooks  []Entry
+	MCPs   []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -79,6 +104,8 @@ func NewBundle(entries []Entry) Bundle {
 			b.Rules = append(b.Rules, e)
 		case KindHook:
 			b.Hooks = append(b.Hooks, e)
+		case KindMCP:
+			b.MCPs = append(b.MCPs, e)
 		}
 	}
 	return b
@@ -86,11 +113,12 @@ func NewBundle(entries []Entry) Bundle {
 
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
-	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks))
+	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs))
 	out = append(out, b.Agents...)
 	out = append(out, b.Skills...)
 	out = append(out, b.Rules...)
 	out = append(out, b.Hooks...)
+	out = append(out, b.MCPs...)
 	return out
 }
 
@@ -105,6 +133,8 @@ func (b Bundle) Has(k Kind) bool {
 		return len(b.Rules) > 0
 	case KindHook:
 		return len(b.Hooks) > 0
+	case KindMCP:
+		return len(b.MCPs) > 0
 	}
 	return false
 }
@@ -123,15 +153,39 @@ func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
 		{filepath.Join(root, cfg.Sources.Skills), ".md", KindSkill, parseMarkdown, &b.Skills},
 		{filepath.Join(root, cfg.Sources.Rules), ".md", KindRule, parseMarkdown, &b.Rules},
 		{filepath.Join(root, cfg.Sources.Hooks), ".yaml", KindHook, parseYAML, &b.Hooks},
+		{filepath.Join(root, cfg.Sources.MCPs), ".yaml", KindMCP, parseYAML, &b.MCPs},
 	}
 	for _, l := range loaders {
 		entries, err := walkDir(l.dir, l.ext, l.kind, l.parse)
 		if err != nil {
 			return Bundle{}, fmt.Errorf("load %s: %w", l.kind, err)
 		}
+		assignScopes(entries, l.dir, l.kind)
 		*l.into = entries
 	}
 	return b, nil
+}
+
+// assignScopes derives Entry.Scope from the source layout. For markdown
+// kinds (rules, agents, skills), the scope is the relative directory
+// from the source root. Skill nested layout (`skills/<name>/SKILL.md`)
+// is a special case: the immediate parent IS the skill name, not a
+// scope, so skill scope is derived from the grandparent only.
+func assignScopes(entries []Entry, dir string, kind Kind) {
+	for i := range entries {
+		rel, err := filepath.Rel(dir, entries[i].Path)
+		if err != nil {
+			continue
+		}
+		parent := filepath.ToSlash(filepath.Dir(rel))
+		if kind == KindSkill && filepath.Base(entries[i].Path) == "SKILL.md" {
+			parent = filepath.ToSlash(filepath.Dir(filepath.Dir(rel)))
+		}
+		if parent == "." {
+			parent = ""
+		}
+		entries[i].Scope = parent
+	}
 }
 
 // LoadAll is a convenience wrapper that returns a flat slice. Prefer

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,34 +26,89 @@ type CapturedFile struct {
 	Content string
 }
 
-var (
+// state holds the package-global mode flags. Adapters and the CLI mutate
+// state through SetBackup, StartCapture, StopCapture, and StartRecording;
+// every read in WriteFile takes the same mutex so go test -race stays
+// clean and library reuse from concurrent goroutines is safe.
+var state struct {
+	mu        sync.Mutex
 	capturing bool
 	captured  []CapturedFile
-)
+	backup    bool
+	recording bool
+	recorded  []string
+}
+
+// SetBackup toggles backup mode. When enabled, WriteFile copies an
+// existing file to `<path>.bak` before overwriting (only when the new
+// content differs). Pair SetBackup(true) with SetBackup(false) once the
+// sync pass completes.
+func SetBackup(b bool) {
+	state.mu.Lock()
+	state.backup = b
+	state.mu.Unlock()
+}
 
 // StartCapture redirects subsequent WriteFile calls to an in-memory buffer
-// instead of touching disk or stdout. Used by `sync --check` and `doctor`
-// to compare what would be emitted against current files.
+// instead of touching disk or stdout. Used by `sync --check`, `doctor`,
+// and `revert` to inspect what each adapter would emit.
 func StartCapture() {
-	capturing = true
-	captured = nil
+	state.mu.Lock()
+	state.capturing = true
+	state.captured = nil
+	state.mu.Unlock()
 }
 
 // StopCapture returns the captured files and disables capture mode.
 func StopCapture() []CapturedFile {
-	capturing = false
-	out := captured
-	captured = nil
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.capturing = false
+	out := state.captured
+	state.captured = nil
+	return out
+}
+
+// StartRecording begins collecting written paths alongside real writes.
+// Unlike capture mode this does not suppress IO. Used by `sync` to learn
+// every emitted path in a single pass for follow-up actions like
+// .gitignore management.
+func StartRecording() {
+	state.mu.Lock()
+	state.recording = true
+	state.recorded = nil
+	state.mu.Unlock()
+}
+
+// StopRecording returns the recorded paths and disables recording.
+func StopRecording() []string {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.recording = false
+	out := state.recorded
+	state.recorded = nil
 	return out
 }
 
 // WriteFile creates parent directories as needed and writes content to path.
 // When dryRun is true the file is not written; the path and content are
 // printed to stdout instead. When capture mode is active, the call is
-// recorded and no IO occurs.
+// recorded and no IO occurs. When recording mode is active, the path is
+// appended to the recorder.
 func WriteFile(path, content string, dryRun bool) error {
+	state.mu.Lock()
+	capturing := state.capturing
+	backup := state.backup
+	recording := state.recording
 	if capturing {
-		captured = append(captured, CapturedFile{Path: path, Content: content})
+		state.captured = append(state.captured, CapturedFile{Path: path, Content: content})
+	}
+	if recording {
+		state.recorded = append(state.recorded, path)
+	}
+	state.mu.Unlock()
+
+	if capturing {
 		return nil
 	}
 	if dryRun {
@@ -61,6 +117,13 @@ func WriteFile(path, content string, dryRun bool) error {
 	}
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
+	}
+	if backup {
+		if existing, err := os.ReadFile(path); err == nil && string(existing) != content {
+			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+				return fmt.Errorf("backup %s: %w", path, err)
+			}
+		}
 	}
 	if err := os.WriteFile(path, []byte(content), filePerm); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)

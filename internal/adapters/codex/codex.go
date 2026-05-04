@@ -51,7 +51,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	rootFile := outFile(cfg)
+	rootFile := emit.OutputFile(cfg, target, defaultOutFile)
 	rootDir := filepath.Dir(rootFile)
 	rootBase := filepath.Base(rootFile)
 
@@ -78,13 +78,6 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	return nil
 }
 
-func outFile(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.File != "" {
-		return o.File
-	}
-	return defaultOutFile
-}
-
 func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {
 	out := map[string][]spec.Entry{}
 	for _, r := range rules {
@@ -93,8 +86,14 @@ func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {
 	return out
 }
 
-// routeDir returns the subdirectory to route a rule to based on its globs.
+// routeDir returns the subdirectory to route a rule to. Source-layout
+// scope (e.g. `rules/backend/auth.md` -> `backend`) wins over globs,
+// since it is explicit. Globs are still parsed as a fallback for rules
+// authored without nested layout.
 func routeDir(r spec.Entry) string {
+	if s := r.EffectiveScope(); s != "" {
+		return s
+	}
 	g := strings.TrimPrefix(r.Globs(), "/")
 	if g == "" || g == "**/*" || g == "*" {
 		return ""
@@ -125,7 +124,7 @@ func writeRules(sb *strings.Builder, rules []spec.Entry) {
 	}
 	sb.WriteString("## Conventions\n\n")
 	for _, r := range rules {
-		writeSection(sb, r.Name, r.Description(), r.Body)
+		emit.WriteSection(sb, r.Name, r)
 	}
 }
 
@@ -135,7 +134,7 @@ func writeAgents(sb *strings.Builder, agents []spec.Entry) {
 	}
 	sb.WriteString("## Agents\n\n")
 	for _, a := range agents {
-		writeSection(sb, a.Name, a.Description(), a.Body)
+		emit.WriteSection(sb, a.Name, a)
 	}
 }
 
@@ -147,19 +146,12 @@ func writeSkills(sb *strings.Builder, skills []spec.Entry) {
 	sb.WriteString("Codex has no native skills. The following are available as reference; invoke them by reading the source file.\n\n")
 	for _, s := range skills {
 		sb.WriteString("### " + s.Name + "\n\n")
+		sb.WriteString(emit.SourceComment(s.Path))
 		if d := s.Description(); d != "" {
 			sb.WriteString("_" + d + "_\n\n")
 		}
 		sb.WriteString("Source: `" + s.Path + "`\n\n")
 	}
-}
-
-func writeSection(sb *strings.Builder, name, description, body string) {
-	sb.WriteString("### " + name + "\n\n")
-	if description != "" {
-		sb.WriteString("_" + description + "_\n\n")
-	}
-	sb.WriteString(body + "\n\n")
 }
 
 func sortedKeys(m map[string][]spec.Entry) []string {

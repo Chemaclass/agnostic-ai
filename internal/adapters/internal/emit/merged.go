@@ -1,10 +1,28 @@
 package emit
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+// SourceComment renders an HTML comment that names the source spec for a
+// merged-document section. Returns empty when path is empty.
+//
+// Example:
+//
+//	<!-- source: rules/conventional-commits.md -->
+//
+// The comment is harmless in Markdown and lets readers (and adapter
+// authors) find the originating spec when staring at AGENTS.md or
+// CONVENTIONS.md.
+func SourceComment(path string) string {
+	if path == "" {
+		return ""
+	}
+	return "<!-- source: " + filepath.ToSlash(path) + " -->\n"
+}
 
 // MergedOpts configures MergedDocument output.
 type MergedOpts struct {
@@ -55,14 +73,14 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 	if len(b.Rules) > 0 {
 		sb.WriteString("## " + opts.RulesHeading + "\n\n")
 		for _, r := range b.Rules {
-			writeSection(&sb, r.Name, r.Description(), r.Body)
+			WriteSection(&sb, r.Name, r)
 		}
 	}
 
 	if len(b.Agents) > 0 {
 		sb.WriteString("## " + opts.AgentsHeading + "\n\n")
 		for _, a := range b.Agents {
-			writeSection(&sb, opts.AgentSectionPrefix+a.Name, a.Description(), a.Body)
+			WriteSection(&sb, opts.AgentSectionPrefix+a.Name, a)
 		}
 	}
 
@@ -71,6 +89,7 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 		sb.WriteString(opts.SkillsIntro + "\n\n")
 		for _, s := range b.Skills {
 			sb.WriteString("### " + s.Name + "\n\n")
+			sb.WriteString(SourceComment(s.Path))
 			if d := s.Description(); d != "" {
 				sb.WriteString("_" + d + "_\n\n")
 			}
@@ -83,10 +102,16 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 	return WriteFile(opts.OutFile, sb.String(), dryRun)
 }
 
-func writeSection(sb *strings.Builder, name, description, body string) {
-	sb.WriteString("### " + name + "\n\n")
-	if description != "" {
-		sb.WriteString("_" + description + "_\n\n")
+// WriteSection writes a "### <heading>" block followed by source
+// provenance comment, optional italic description, and body.
+//
+// heading is taken as a parameter (rather than e.Name) so callers can
+// prepend a prefix like "Agent: ".
+func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
+	sb.WriteString("### " + heading + "\n\n")
+	sb.WriteString(SourceComment(e.Path))
+	if d := e.Description(); d != "" {
+		sb.WriteString("_" + d + "_\n\n")
 	}
-	sb.WriteString(body + "\n\n")
+	sb.WriteString(e.Body + "\n\n")
 }

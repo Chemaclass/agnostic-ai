@@ -4,17 +4,21 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 
 ## Capability matrix
 
-| Target          | Agents              | Skills | Rules                    | Hooks |
-|-----------------|---------------------|--------|--------------------------|-------|
-| **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` |
-| **codex**       | merged in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by globs) | - |
-| **gemini**      | merged in `GEMINI.md` | listed in `GEMINI.md` | `GEMINI.md`     | -     |
-| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - |
-| **copilot**     | merged in instructions | listed in instructions | `.github/copilot-instructions.md` | - |
-| **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - |
-| **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     |
-| **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     |
-| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     |
+| Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
+|-----------------|---------------------|--------|--------------------------|-------|------|
+| **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` | `.mcp.json` |
+| **codex**       | merged in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
+| **gemini**      | merged in `GEMINI.md` | listed in `GEMINI.md` | `GEMINI.md`     | -     | - |
+| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
+| **copilot**     | merged in instructions | listed in instructions | `.github/copilot-instructions.md` | - | `.vscode/mcp.json` |
+| **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
+| **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
+| **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
+| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | - |
+| **amp**         | merged in `AGENT.md` | listed in `AGENT.md` | `AGENT.md` | - | - |
+| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
+| **warp**        | merged in `WARP.md` | listed in `WARP.md` | `WARP.md` | - | - |
+| **opencode**    | merged in `.opencode/AGENTS.md` | listed in `.opencode/AGENTS.md` | `.opencode/AGENTS.md` | - | - |
 
 Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
@@ -23,6 +27,11 @@ human reads the skill file and follows its instructions.
 Hooks are Claude-specific. They run as shell commands on lifecycle
 events (e.g. PreToolUse, PostToolUse, SessionStart). No other supported
 target has an equivalent concept, so hooks emit only for Claude.
+
+MCP servers emit for Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`),
+and GitHub Copilot in VS Code (`.vscode/mcp.json`). Other targets either
+have no project-scoped MCP file (Codex, Gemini) or no MCP support at all,
+and skip with a warning.
 
 ## Per-target output
 
@@ -36,7 +45,7 @@ target has an equivalent concept, so hooks emit only for Claude.
 CLAUDE.md
 ```
 
-Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-file` (default `CLAUDE.md`).
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-file` (default `CLAUDE.md`), `outputs.claude.mcp-file` (default `.mcp.json`).
 
 ### Codex (`codex`)
 
@@ -64,7 +73,7 @@ Config key: `outputs.gemini.file` (default `GEMINI.md`).
 .cursor/rules/<name>.mdc
 ```
 
-Config key: `outputs.cursor.rules-dir` (default `.cursor/rules`).
+Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`).
 
 Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
 
@@ -74,7 +83,9 @@ Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. 
 .github/copilot-instructions.md
 ```
 
-Config key: `outputs.copilot.file` (default `.github/copilot-instructions.md`).
+Config keys: `outputs.copilot.file` (default `.github/copilot-instructions.md`), `outputs.copilot.mcp-file` (default `.vscode/mcp.json`).
+
+The Copilot MCP file uses the VS Code schema: a top-level `servers` key with each entry carrying a `type` field (`stdio`, `http`, or `sse`).
 
 ### Aider (`aider`)
 
@@ -109,6 +120,38 @@ Config key: `outputs.windsurf.rules-dir` (default `.windsurf/rules`).
 ```
 
 Config key: `outputs.continue.rules-dir` (default `.continue/rules`).
+
+### Amp (`amp`)
+
+```
+AGENT.md
+```
+
+Config key: `outputs.amp.file` (default `AGENT.md`).
+
+### Zed (`zed`)
+
+```
+.rules
+```
+
+Config key: `outputs.zed.file` (default `.rules`).
+
+### Warp (`warp`)
+
+```
+WARP.md
+```
+
+Config key: `outputs.warp.file` (default `WARP.md`).
+
+### OpenCode (`opencode`)
+
+```
+.opencode/AGENTS.md
+```
+
+Config key: `outputs.opencode.file` (default `.opencode/AGENTS.md`). Routed under `.opencode/` to avoid clashing with Codex's repo-root `AGENTS.md` so both can be enabled together.
 
 ## Selecting targets
 

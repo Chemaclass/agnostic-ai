@@ -4,6 +4,7 @@ package adapters
 
 import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -12,7 +13,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/zed"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -22,11 +26,27 @@ import (
 type CapturedFile = emit.CapturedFile
 
 // StartCapture redirects subsequent adapter writes to an in-memory buffer.
-// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`).
+// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`)
+// and `revert` to inspect what each adapter would emit without touching disk.
 func StartCapture() { emit.StartCapture() }
 
 // StopCapture returns the captured files and disables capture mode.
 func StopCapture() []CapturedFile { return emit.StopCapture() }
+
+// SetBackup toggles backup mode on the shared emit layer. When enabled,
+// adapter writes copy any pre-existing target file to `<path>.bak` before
+// overwriting. Used by `sync --backup` to leave a recovery trail that
+// `revert` can restore from.
+func SetBackup(b bool) { emit.SetBackup(b) }
+
+// StartRecording begins collecting written paths alongside real writes.
+// Unlike capture mode it does not suppress IO. Used by `sync` to learn
+// every emitted path in a single pass for follow-up actions like
+// .gitignore management.
+func StartRecording() { emit.StartRecording() }
+
+// StopRecording returns the recorded paths and disables recording.
+func StopRecording() []string { return emit.StopRecording() }
 
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
@@ -47,6 +67,10 @@ var registry = map[string]Adapter{
 	"cline":    cline.New(),
 	"windsurf": windsurf.New(),
 	"continue": continueai.New(),
+	"amp":      amp.New(),
+	"zed":      zed.New(),
+	"warp":     warp.New(),
+	"opencode": opencode.New(),
 }
 
 // Get returns the adapter registered under name.

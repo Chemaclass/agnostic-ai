@@ -14,14 +14,15 @@ import (
 )
 
 const (
-	target     = "cursor"
-	defaultDir = ".cursor/rules"
-	defaultExt = ".mdc"
+	target         = "cursor"
+	defaultDir     = ".cursor/rules"
+	defaultExt     = ".mdc"
+	defaultMCPFile = ".cursor/mcp.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
 }
 
 // Adapter emits Cursor configs.
@@ -33,18 +34,22 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .mdc per rule and per agent.
+// Emit writes one .mdc per rule, agent, and skill, plus an
+// `.cursor/mcp.json` when MCP entries exist.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	return emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         outDir(cfg),
+	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext:         defaultExt,
 		FormatRule:  func(e spec.Entry) string { return mdc(e, true) },
 		FormatAgent: func(e spec.Entry) string { return mdc(e, false) },
 		FormatSkill: func(e spec.Entry) string { return mdc(e, false) },
-	}, dryRun)
+	}, dryRun); err != nil {
+		return err
+	}
+	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {
@@ -66,11 +71,4 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
-}
-
-func outDir(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
-		return o.RulesDir
-	}
-	return defaultDir
 }

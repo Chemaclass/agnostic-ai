@@ -14,6 +14,17 @@ type Config struct {
 	Targets       []string          `yaml:"targets"`
 	Outputs       map[string]Output `yaml:"outputs"`
 	OnUnsupported string            `yaml:"on-unsupported"`
+	Gitignore     Gitignore         `yaml:"gitignore"`
+}
+
+// Gitignore controls automatic management of .gitignore entries for the
+// generated target files. When Enabled, every `sync` run rewrites a
+// managed block in `.gitignore` (created if missing) listing every path
+// the configured adapters would emit.
+type Gitignore struct {
+	Enabled bool `yaml:"enabled"`
+	// Path overrides the .gitignore location relative to the project root.
+	Path string `yaml:"path,omitempty"`
 }
 
 type Sources struct {
@@ -21,6 +32,7 @@ type Sources struct {
 	Skills string `yaml:"skills"`
 	Rules  string `yaml:"rules"`
 	Hooks  string `yaml:"hooks"`
+	MCPs   string `yaml:"mcps"`
 }
 
 type Output struct {
@@ -28,6 +40,7 @@ type Output struct {
 	File      string `yaml:"file,omitempty"`
 	RulesFile string `yaml:"rules-file,omitempty"`
 	RulesDir  string `yaml:"rules-dir,omitempty"`
+	MCPFile   string `yaml:"mcp-file,omitempty"`
 }
 
 func Load(root string) (*Config, error) {
@@ -52,10 +65,12 @@ func defaults() *Config {
 			Skills: "skills",
 			Rules:  "rules",
 			Hooks:  "hooks",
+			MCPs:   "mcps",
 		},
 		Targets: []string{
 			"claude", "codex", "gemini", "cursor",
 			"copilot", "aider", "cline", "windsurf", "continue",
+			"amp", "zed", "warp", "opencode",
 		},
 		OnUnsupported: "warn",
 	}
@@ -73,6 +88,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Hooks == "" {
 		c.Sources.Hooks = "hooks"
+	}
+	if c.Sources.MCPs == "" {
+		c.Sources.MCPs = "mcps"
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

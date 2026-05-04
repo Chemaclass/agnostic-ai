@@ -119,6 +119,54 @@ func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	}
 }
 
+func TestLoadAll_DerivesScopeFromLayout(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "rules", "root.md"), "body")
+	mustWrite(t, filepath.Join(dir, "rules", "backend", "auth.md"), "body")
+	mustWrite(t, filepath.Join(dir, "rules", "backend", "api", "limits.md"), "body")
+	mustWrite(t, filepath.Join(dir, "skills", "validator", "SKILL.md"), "skill body")
+	mustWrite(t, filepath.Join(dir, "skills", "backend", "loader.md"), "body")
+
+	cfg := defaultsForTest()
+	cfg.Sources.Skills = "skills"
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]string{
+		"root":   "",
+		"auth":   "backend",
+		"limits": "backend/api",
+		"loader": "backend",
+	}
+	for _, e := range entries {
+		exp, ok := want[e.Name]
+		if !ok {
+			continue
+		}
+		if e.Scope != exp {
+			t.Errorf("entry %q scope = %q, want %q", e.Name, e.Scope, exp)
+		}
+	}
+	for _, e := range entries {
+		if e.Name == "validator" && e.Scope != "" {
+			t.Errorf("nested SKILL.md should have empty scope, got %q", e.Scope)
+		}
+	}
+}
+
+func TestEffectiveScope_FrontmatterFallback(t *testing.T) {
+	e := Entry{Meta: map[string]any{"scope": "/frontend/"}}
+	if got := e.EffectiveScope(); got != "frontend" {
+		t.Errorf("expected scope frontend, got %q", got)
+	}
+	e.Scope = "explicit"
+	if got := e.EffectiveScope(); got != "explicit" {
+		t.Errorf("layout scope should win, got %q", got)
+	}
+}
+
 func TestParseYAML_HookFields(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.yaml")

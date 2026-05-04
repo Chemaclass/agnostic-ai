@@ -1,4 +1,4 @@
-package aider
+package zed
 
 import (
 	"os"
@@ -11,33 +11,25 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEmit_WritesConventions(t *testing.T) {
+func TestEmit_WritesDotRules(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	a := New()
-	if a.Name() != "aider" {
-		t.Errorf("expected aider, got %s", a.Name())
+	if a.Name() != "zed" {
+		t.Errorf("expected zed, got %s", a.Name())
 	}
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
-		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "CONVENTIONS.md"))
+	got, err := os.ReadFile(filepath.Join(dir, ".rules"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{
-		"rule body",
-		"## Skills",
-		"### sk1",
-		"skills/sk1.md",
-		"<!-- source: rules/r1.md -->",
-		"<!-- source: skills/sk1.md -->",
-	} {
+	for _, want := range []string{"rule body", "<!-- source: rules/r1.md -->"} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("missing %q in %s", want, got)
 		}

@@ -34,14 +34,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	return emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         outDir(cfg),
+		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
 	}, dryRun)
-}
-
-func outDir(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
-		return o.RulesDir
-	}
-	return defaultDir
 }

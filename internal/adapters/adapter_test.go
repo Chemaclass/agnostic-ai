@@ -6,6 +6,7 @@ func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 	expected := []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
+		"amp", "zed", "warp", "opencode",
 	}
 	for _, name := range expected {
 		a, ok := Get(name)
@@ -27,7 +28,7 @@ func TestGet_UnknownReturnsFalse(t *testing.T) {
 
 func TestNames_ReturnsAll(t *testing.T) {
 	names := Names()
-	if len(names) < 9 {
-		t.Errorf("expected >= 9 names, got %d", len(names))
+	if len(names) < 13 {
+		t.Errorf("expected >= 13 names, got %d", len(names))
 	}
 }
