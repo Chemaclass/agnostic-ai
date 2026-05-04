@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -67,11 +68,14 @@ func resolveLayers(projectRoot string, cfg *config.Config) []spec.Layer {
 
 // userGlobalRoot resolves the user-global layer root. AGNOSTIC_AI_HOME
 // wins if set and the dir exists; otherwise ~/.agnostic-ai when present.
+// A set-but-unusable AGNOSTIC_AI_HOME is reported on stderr so typos
+// don't silently disable the user-global layer.
 func userGlobalRoot() (string, bool) {
 	if env := os.Getenv(envUserGlobalRoot); env != "" {
 		if dirExists(env) {
 			return env, true
 		}
+		fmt.Fprintf(os.Stderr, "! %s=%s: not a directory; user-global layer skipped\n", envUserGlobalRoot, env)
 		return "", false
 	}
 	home, err := os.UserHomeDir()
@@ -88,8 +92,8 @@ func userGlobalRoot() (string, bool) {
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false
+		if !errors.Is(err, fs.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "! stat %s: %v\n", path, err)
 		}
 		return false
 	}

@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -11,11 +10,12 @@ import (
 )
 
 // driftReport summarizes per-target drift between source specs and on-disk
-// emitted artifacts.
+// emitted artifacts. Missing and Stale carry the full captured content so
+// `--fix` can reconcile without a second adapter pass.
 type driftReport struct {
 	Target  string
-	Missing []string
-	Stale   []string
+	Missing []adapters.CapturedFile
+	Stale   []adapters.CapturedFile
 }
 
 func (r driftReport) hasDrift() bool {
@@ -51,13 +51,13 @@ func collectDrift(targets []string) ([]driftReport, error) {
 			disk, err := os.ReadFile(f.Path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					rep.Missing = append(rep.Missing, f.Path)
+					rep.Missing = append(rep.Missing, f)
 					continue
 				}
 				return nil, fmt.Errorf("read %s: %w", f.Path, err)
 			}
 			if string(disk) != f.Content {
-				rep.Stale = append(rep.Stale, f.Path)
+				rep.Stale = append(rep.Stale, f)
 			}
 		}
 		reports = append(reports, rep)
@@ -75,11 +75,11 @@ func printDrift(reports []driftReport) bool {
 		}
 		any = true
 		fmt.Printf("✗ %s: drift\n", r.Target)
-		for _, p := range r.Missing {
-			fmt.Printf("    missing: %s\n", p)
+		for _, f := range r.Missing {
+			fmt.Printf("    missing: %s\n", f.Path)
 		}
-		for _, p := range r.Stale {
-			fmt.Printf("    stale:   %s\n", p)
+		for _, f := range r.Stale {
+			fmt.Printf("    stale:   %s\n", f.Path)
 		}
 	}
 	return any
@@ -102,8 +102,7 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			drift := printDrift(reports)
-			if !drift {
+			if !printDrift(reports) {
 				return nil
 			}
 			if !fix {
@@ -123,72 +122,25 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// fixDrift writes only the files reported as missing or stale, sourced
-// from a fresh capture pass. Files in sync are left untouched. Returns
-// the number of files written.
+// fixDrift writes the captured content for every missing or stale file in
+// reports. Files in sync are left untouched. Returns the number of files
+// written.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
-	wanted := make(map[string]struct{})
-	targetsToFix := make(map[string]struct{})
+	if backup {
+		adapters.SetBackup(true)
+		defer adapters.SetBackup(false)
+	}
+	written := 0
 	for _, r := range reports {
 		if !r.hasDrift() {
 			continue
 		}
-		targetsToFix[r.Target] = struct{}{}
-		for _, p := range r.Missing {
-			wanted[p] = struct{}{}
-		}
-		for _, p := range r.Stale {
-			wanted[p] = struct{}{}
-		}
-	}
-	if len(wanted) == 0 {
-		return 0, nil
-	}
-
-	cfg, b, err := loadProject(".")
-	if err != nil {
-		return 0, err
-	}
-
-	written := 0
-	for t := range targetsToFix {
-		adapter, ok := adapters.Get(t)
-		if !ok {
-			continue
-		}
-		adapters.StartCapture()
-		if err := adapter.Emit(b, cfg, false); err != nil {
-			adapters.StopCapture()
-			return written, fmt.Errorf("%s: %w", t, err)
-		}
-		files := adapters.StopCapture()
-		for _, f := range files {
-			if _, want := wanted[f.Path]; !want {
-				continue
-			}
-			if err := writeFixed(f.Path, f.Content, backup); err != nil {
+		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.Stale...) {
+			if err := adapters.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
 			written++
 		}
 	}
 	return written, nil
-}
-
-// writeFixed writes a single drift-fix file, honoring backup.
-func writeFixed(path, content string, backup bool) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
-	}
-	if backup {
-		if existing, err := os.ReadFile(path); err == nil {
-			if err := os.WriteFile(path+".bak", existing, 0o644); err != nil {
-				return fmt.Errorf("backup %s: %w", path, err)
-			}
-		}
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
 }

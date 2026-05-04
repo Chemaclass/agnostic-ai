@@ -9,21 +9,21 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestImportFromCline_RefusesIfConfigExists(t *testing.T) {
+func TestImportFromRulesDir_RefusesIfConfigExists(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	if err := importFromCline(dir); err == nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err == nil {
 		t.Error("expected error when config already exists")
 	}
 }
 
-func TestImportFromCline_ReclassifiesByPrefix(t *testing.T) {
+func TestImportFromRulesDir_ReclassifiesByPrefix(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"), "# style\n\nUse 2-space indent.\n")
 	writeFile(t, filepath.Join(dir, ".clinerules", "agent-reviewer.md"), "# Agent: reviewer\n\nReview the diff.\n")
 	writeFile(t, filepath.Join(dir, ".clinerules", "skill-validator.md"), "# Skill: validator\n\nValidate input.\n")
 
-	if err := importFromCline(dir); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -47,11 +47,11 @@ func TestImportFromCline_ReclassifiesByPrefix(t *testing.T) {
 	}
 }
 
-func TestImportFromCline_StripsLeadingHeading(t *testing.T) {
+func TestImportFromRulesDir_StripsLeadingHeading(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"),
 		"# style\n\nbody line\n")
-	if err := importFromCline(dir); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
@@ -70,11 +70,11 @@ func TestImportFromCline_StripsLeadingHeading(t *testing.T) {
 	}
 }
 
-func TestImportFromCline_PreservesScopeSubdirs(t *testing.T) {
+func TestImportFromRulesDir_PreservesScopeSubdirs(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "backend", "auth.md"),
 		"# auth\n\nauth body\n")
-	if err := importFromCline(dir); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "backend", "auth.md")); err != nil {
@@ -82,9 +82,25 @@ func TestImportFromCline_PreservesScopeSubdirs(t *testing.T) {
 	}
 }
 
-func TestImportFromCline_NoSourceDir(t *testing.T) {
+func TestImportFromRulesDir_RootFileHasNoDotSegment(t *testing.T) {
 	dir := t.TempDir()
-	if err := importFromCline(dir); err != nil {
+	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"), "# style\n\nbody\n")
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(dir, "rules", "style.md")
+	info, err := os.Lstat(want)
+	if err != nil {
+		t.Fatalf("expected %s, got: %v", want, err)
+	}
+	if info.IsDir() {
+		t.Fatalf("expected file at %s, got dir", want)
+	}
+}
+
+func TestImportFromRulesDir_NoSourceDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
@@ -96,11 +112,11 @@ func TestImportFromCline_NoSourceDir(t *testing.T) {
 	}
 }
 
-func TestImportFromWindsurf_ReadsWindsurfRulesDir(t *testing.T) {
+func TestImportFromRulesDir_WindsurfTarget(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "style.md"),
 		"# style\n\nwindsurf body\n")
-	if err := importFromWindsurf(dir); err != nil {
+	if err := importFromRulesDir(dir, "windsurf", filepath.Join(".windsurf", "rules")); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
@@ -116,11 +132,11 @@ func TestImportFromWindsurf_ReadsWindsurfRulesDir(t *testing.T) {
 	}
 }
 
-func TestImportFromContinue_ReadsContinueRulesDir(t *testing.T) {
+func TestImportFromRulesDir_ContinueTarget(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".continue", "rules", "style.md"),
 		"# style\n\ncontinue body\n")
-	if err := importFromContinue(dir); err != nil {
+	if err := importFromRulesDir(dir, "continue", filepath.Join(".continue", "rules")); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))

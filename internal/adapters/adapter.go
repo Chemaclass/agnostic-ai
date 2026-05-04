@@ -48,6 +48,12 @@ func StartRecording() { emit.StartRecording() }
 // StopRecording returns the recorded paths and disables recording.
 func StopRecording() []string { return emit.StopRecording() }
 
+// WriteFile writes content to path through the shared emit layer,
+// honoring the current capture, recording, and backup modes.
+func WriteFile(path, content string, dryRun bool) error {
+	return emit.WriteFile(path, content, dryRun)
+}
+
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.

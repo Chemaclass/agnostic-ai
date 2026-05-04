@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// rulesDirCounts is the per-kind import tally for rules-directory imports.
 type rulesDirCounts struct {
 	rules, agents, skills int
 }
@@ -21,9 +20,8 @@ type rulesDirCounts struct {
 //	skill-<name>.md → skills/<name>.md
 //	<name>.md       → rules/<name>.md
 //
-// Subdirectories under srcDir are preserved as scope. Body is the file
-// content with any leading `# <heading>\n\n` stripped (the heading is
-// re-emitted on sync).
+// Subdirectories under srcDir are preserved as scope. The leading
+// `# <heading>\n\n` block (re-emitted on sync) is stripped from the body.
 func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
 	var c rulesDirCounts
 	full := filepath.Join(root, srcDir)
@@ -49,7 +47,7 @@ func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
 
 		kindDir, baseName := classifyRulesDirFile(rel)
 		body := stripLeadingHeading(string(data))
-		out := filepath.Join(root, kindDir, filepath.Dir(rel), baseName+".md")
+		out := filepath.Join(root, kindDir, scopeDir(rel), baseName+".md")
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
@@ -76,8 +74,16 @@ func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
 	return c, nil
 }
 
-// classifyRulesDirFile maps a relative `.md` path under a rules
-// directory to (kindDir, baseName) by inspecting the filename prefix.
+// scopeDir returns the directory portion of rel, normalized so root-level
+// files produce "" instead of the "." that filepath.Dir yields.
+func scopeDir(rel string) string {
+	d := filepath.Dir(rel)
+	if d == "." {
+		return ""
+	}
+	return d
+}
+
 func classifyRulesDirFile(rel string) (kindDir, baseName string) {
 	base := strings.TrimSuffix(filepath.Base(rel), ".md")
 	switch {
@@ -90,9 +96,6 @@ func classifyRulesDirFile(rel string) (kindDir, baseName string) {
 	}
 }
 
-// stripLeadingHeading removes a `# <text>\n\n` block at the start of
-// content, if present. The adapter prepends one on emit; removing it
-// here keeps round-trips clean.
 func stripLeadingHeading(content string) string {
 	if !strings.HasPrefix(content, "# ") {
 		return content
@@ -101,14 +104,34 @@ func stripLeadingHeading(content string) string {
 	if nl < 0 {
 		return ""
 	}
-	rest := content[nl+1:]
-	rest = strings.TrimLeft(rest, "\n")
-	return rest
+	return strings.TrimLeft(content[nl+1:], "\n")
 }
 
-// rulesDirImportConfig builds a minimal agnostic.config.yaml string with
-// only the given target enabled.
-func rulesDirImportConfig(target string) string {
+// importFromRulesDir scaffolds an agnostic-ai project from an existing
+// rules directory layout (cline/windsurf/continue). Refuses if
+// agnostic.config.yaml already exists.
+func importFromRulesDir(root, target, srcDir string) error {
+	cfgPath := filepath.Join(root, "agnostic.config.yaml")
+	if _, err := os.Stat(cfgPath); err == nil {
+		return fmt.Errorf("agnostic.config.yaml already exists")
+	}
+	if err := ensureSourceDirs(root); err != nil {
+		return err
+	}
+	c, err := importRulesDirectory(root, srcDir)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig(target)), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", cfgPath, err)
+	}
+	fmt.Printf("imported %d rules, %d agents, %d skills\n", c.rules, c.agents, c.skills)
+	return nil
+}
+
+// singleTargetConfig builds the minimal agnostic.config.yaml that all
+// importers write: standard source dirs, one target enabled.
+func singleTargetConfig(target string) string {
 	return fmt.Sprintf(`version: 1
 
 sources:
@@ -122,27 +145,4 @@ targets:
 
 on-unsupported: warn
 `, target)
-}
-
-// importFromRulesDir is the shared entry point for cline/windsurf/continue
-// importers. It refuses to overwrite an existing config, scaffolds the
-// source dirs, walks the adapter's rules directory, and writes a
-// single-target config.
-func importFromRulesDir(root, target, srcDir string) error {
-	cfgPath := filepath.Join(root, "agnostic.config.yaml")
-	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("agnostic.config.yaml already exists")
-	}
-	if err := ensureSourceDirs(root); err != nil {
-		return err
-	}
-	c, err := importRulesDirectory(root, srcDir)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(cfgPath, []byte(rulesDirImportConfig(target)), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", cfgPath, err)
-	}
-	fmt.Printf("imported %d rules, %d agents, %d skills\n", c.rules, c.agents, c.skills)
-	return nil
 }

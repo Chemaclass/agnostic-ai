@@ -8,6 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// rulesDirImporters maps a --from source name to the rules directory the
+// importer walks. Claude, Codex, and Cursor have richer importers and
+// route directly.
+var rulesDirImporters = map[string]string{
+	"cline":    ".clinerules",
+	"windsurf": filepath.Join(".windsurf", "rules"),
+	"continue": filepath.Join(".continue", "rules"),
+}
+
 func newInitCmd() *cobra.Command {
 	var from string
 	cmd := &cobra.Command{
@@ -23,15 +32,11 @@ func newInitCmd() *cobra.Command {
 				return importFromCodex(".")
 			case "cursor":
 				return importFromCursor(".")
-			case "cline":
-				return importFromCline(".")
-			case "windsurf":
-				return importFromWindsurf(".")
-			case "continue":
-				return importFromContinue(".")
-			default:
-				return fmt.Errorf("unknown source for --from: %q (supported: claude, codex, cursor, cline, windsurf, continue)", from)
 			}
+			if srcDir, ok := rulesDirImporters[from]; ok {
+				return importFromRulesDir(".", from, srcDir)
+			}
+			return fmt.Errorf("unknown source for --from: %q (supported: claude, codex, cursor, cline, windsurf, continue)", from)
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude, codex, cursor, cline, windsurf, continue)")

@@ -12,20 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const cursorOnlyConfig = `version: 1
-
-sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-
-targets:
-  - cursor
-
-on-unsupported: warn
-`
-
 // importFromCursor scaffolds an agnostic-ai project by reading existing
 // Cursor config (.cursor/rules/*.mdc) under root. Refuses if
 // agnostic.config.yaml already exists.
@@ -42,7 +28,7 @@ func importFromCursor(root string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(cfgPath, []byte(cursorOnlyConfig), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig("cursor")), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
 	fmt.Printf("imported %d rules\n", n)

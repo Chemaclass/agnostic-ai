@@ -18,7 +18,7 @@ func newListCmd() *cobra.Command {
 			for _, e := range b.All() {
 				layer := e.Layer
 				if layer == "" {
-					layer = "project"
+					layer = layerNameProject
 				}
 				fmt.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
 			}
