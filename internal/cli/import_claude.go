@@ -6,20 +6,6 @@ import (
 	"path/filepath"
 )
 
-const claudeOnlyConfig = `version: 1
-
-sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-
-targets:
-  - claude
-
-on-unsupported: warn
-`
-
 type importCounts struct{ rules, agents, skills, hooks int }
 
 // importFromClaude scaffolds an agnostic-ai project by reading existing
@@ -48,7 +34,7 @@ func importFromClaude(root string) error {
 	if c.hooks, err = importClaudeHooks(root); err != nil {
 		return err
 	}
-	if err := os.WriteFile(cfgPath, []byte(claudeOnlyConfig), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig("claude")), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
 	fmt.Printf("imported %d rules, %d agents, %d skills, %d hooks\n",

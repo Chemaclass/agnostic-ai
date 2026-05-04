@@ -10,11 +10,12 @@ import (
 )
 
 // driftReport summarizes per-target drift between source specs and on-disk
-// emitted artifacts.
+// emitted artifacts. Missing and Stale carry the full captured content so
+// `--fix` can reconcile without a second adapter pass.
 type driftReport struct {
 	Target  string
-	Missing []string
-	Stale   []string
+	Missing []adapters.CapturedFile
+	Stale   []adapters.CapturedFile
 }
 
 func (r driftReport) hasDrift() bool {
@@ -50,13 +51,13 @@ func collectDrift(targets []string) ([]driftReport, error) {
 			disk, err := os.ReadFile(f.Path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					rep.Missing = append(rep.Missing, f.Path)
+					rep.Missing = append(rep.Missing, f)
 					continue
 				}
 				return nil, fmt.Errorf("read %s: %w", f.Path, err)
 			}
 			if string(disk) != f.Content {
-				rep.Stale = append(rep.Stale, f.Path)
+				rep.Stale = append(rep.Stale, f)
 			}
 		}
 		reports = append(reports, rep)
@@ -74,11 +75,11 @@ func printDrift(reports []driftReport) bool {
 		}
 		any = true
 		fmt.Printf("✗ %s: drift\n", r.Target)
-		for _, p := range r.Missing {
-			fmt.Printf("    missing: %s\n", p)
+		for _, f := range r.Missing {
+			fmt.Printf("    missing: %s\n", f.Path)
 		}
-		for _, p := range r.Stale {
-			fmt.Printf("    stale:   %s\n", p)
+		for _, f := range r.Stale {
+			fmt.Printf("    stale:   %s\n", f.Path)
 		}
 	}
 	return any
@@ -86,23 +87,60 @@ func printDrift(reports []driftReport) bool {
 
 func newDoctorCmd() *cobra.Command {
 	var targets []string
+	var fix, backup bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose drift between specs and emitted target files.",
 		Long: "doctor compares what `sync` would emit against the files on disk.\n" +
 			"Reports missing outputs and hand-edits. Exits non-zero on any drift.\n" +
-			"Use as a CI gate or after rebases.",
+			"Use as a CI gate or after rebases.\n\n" +
+			"With --fix, doctor reconciles drift by writing the missing or stale\n" +
+			"files. Pair with --backup to copy each existing file to <path>.bak\n" +
+			"before overwriting hand-edits.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reports, err := collectDrift(targets)
 			if err != nil {
 				return err
 			}
-			if printDrift(reports) {
-				return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile")
+			if !printDrift(reports) {
+				return nil
 			}
+			if !fix {
+				return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
+			}
+			fixed, err := fixDrift(reports, backup)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("→ reconciled %d file(s)\n", fixed)
 			return nil
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
+	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
+	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
 	return cmd
+}
+
+// fixDrift writes the captured content for every missing or stale file in
+// reports. Files in sync are left untouched. Returns the number of files
+// written.
+func fixDrift(reports []driftReport, backup bool) (int, error) {
+	if backup {
+		adapters.SetBackup(true)
+		defer adapters.SetBackup(false)
+	}
+	written := 0
+	for _, r := range reports {
+		if !r.hasDrift() {
+			continue
+		}
+		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.Stale...) {
+			if err := adapters.WriteFile(f.Path, f.Content, false); err != nil {
+				return written, err
+			}
+			written++
+		}
+	}
+	return written, nil
 }

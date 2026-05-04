@@ -10,20 +10,6 @@ import (
 	"strings"
 )
 
-const codexOnlyConfig = `version: 1
-
-sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-
-targets:
-  - codex
-
-on-unsupported: warn
-`
-
 // importFromCodex scaffolds an agnostic-ai project by reading existing
 // Codex config (root AGENTS.md plus any nested <dir>/AGENTS.md) under root.
 // Refuses if agnostic.config.yaml already exists.
@@ -40,7 +26,7 @@ func importFromCodex(root string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(cfgPath, []byte(codexOnlyConfig), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig("codex")), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
 	fmt.Printf("imported %d rules\n", n)

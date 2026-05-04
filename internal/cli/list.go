@@ -16,7 +16,11 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 			for _, e := range b.All() {
-				fmt.Printf("%s\t%s\n", e.Kind, e.Name)
+				layer := e.Layer
+				if layer == "" {
+					layer = layerNameProject
+				}
+				fmt.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
 			}
 			return nil
 		},

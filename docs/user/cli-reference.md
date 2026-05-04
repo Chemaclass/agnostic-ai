@@ -20,11 +20,14 @@ agnostic-ai init                  # empty scaffold
 agnostic-ai init --from claude    # import existing Claude Code config
 agnostic-ai init --from codex     # import existing Codex / AGENTS.md config
 agnostic-ai init --from cursor    # import existing Cursor config
+agnostic-ai init --from cline     # import existing Cline config
+agnostic-ai init --from windsurf  # import existing Windsurf config
+agnostic-ai init --from continue  # import existing Continue config
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`, `cursor`. |
+| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`. |
 
 `--from claude` reads the current directory:
 
@@ -58,6 +61,17 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden
 | (no `name:` in frontmatter) | `name:` injected from the filename |
 
 Round-trips cleanly: a subsequent `sync` regenerates equivalent `.cursor/rules/*.mdc`. Writes `targets: [cursor]` only.
+
+`--from cline`, `--from windsurf`, `--from continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
+
+| Source filename | Becomes |
+|-----------------|---------|
+| `agent-<name>.md` | `agents/<name>.md` |
+| `skill-<name>.md` | `skills/<name>.md` |
+| `<name>.md` | `rules/<name>.md` |
+| `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
+
+The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected. Each importer writes a single-target config.
 
 ## validate
 
@@ -133,15 +147,24 @@ nothing is restored.
 
 Diagnose drift between source specs and emitted artifacts. Reports missing
 files (never synced) and stale files (hand-edited or out of date). Exits
-non-zero when any drift is found. Writes nothing.
+non-zero when any drift is found.
 
 ```bash
-agnostic-ai doctor                  # all targets in config
+agnostic-ai doctor                  # all targets in config (read-only)
 agnostic-ai doctor -t claude        # subset
+agnostic-ai doctor --fix            # reconcile drift in place
+agnostic-ai doctor --fix --backup   # save .bak of hand-edits before overwrite
 ```
 
-Use as a CI gate alongside `sync --check`, or after rebases to spot files
-the merge resolved manually.
+| Flag | Description |
+|------|-------------|
+| `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `--fix` | Write missing/stale files. In-sync files untouched. |
+| `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
+
+Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to
+spot files the merge resolved manually. Use `--fix` for an interactive cleanup
+pass. Pair with `--backup` when reconciling files you may have hand-edited.
 
 ## completion
 
@@ -173,7 +196,9 @@ agnostic-ai sync --help       # same
 
 ## Environment variables
 
-None. All config lives in `agnostic.config.yaml`.
+| Var | Default | Description |
+|-----|---------|-------------|
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Root of the user-global spec layer. See [configuration: layered specs](configuration.md#layered-specs). |
 
 ## Config precedence
 
