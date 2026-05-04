@@ -4,7 +4,6 @@
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
-[![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](#testing)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
 
@@ -14,37 +13,18 @@ Write prompts and project conventions **once**. agnostic-ai emits the right conf
                                           ┌──► .claude/agents/*.md
                                           ├──► CLAUDE.md
                                           ├──► AGENTS.md          (Codex)
-   agents/                                 ├──► GEMINI.md
-   skills/      agnostic-ai sync           ├──► .cursor/rules/*.mdc
-   rules/      ─────────────────►          ├──► .github/copilot-instructions.md
-   hooks/                                  ├──► CONVENTIONS.md    (Aider)
-                                           ├──► .clinerules/*.md
-                                           ├──► .windsurf/rules/*.md
-                                           └──► .continue/rules/*.md
+   agents/                                ├──► GEMINI.md
+   skills/      agnostic-ai sync          ├──► .cursor/rules/*.mdc
+   rules/      ─────────────────►         ├──► .github/copilot-instructions.md
+   hooks/                                 ├──► CONVENTIONS.md    (Aider)
+                                          ├──► .clinerules/*.md
+                                          ├──► .windsurf/rules/*.md
+                                          └──► .continue/rules/*.md
 ```
 
-## The problem
+## Why
 
-Each AI CLI wants its own config:
-
-- Claude Code: `CLAUDE.md` + `.claude/agents/*.md`
-- Cursor: `.cursor/rules/*.mdc` with custom frontmatter
-- Copilot: `.github/copilot-instructions.md`
-- Codex: `AGENTS.md`
-- Aider: `CONVENTIONS.md`
-
-Copy-paste leads to drift. Teammates don't know which file is canonical.
-
-## What agnostic-ai does
-
-One source. Many outputs. The CLI walks your `agents/`, `skills/`, `rules/`, `hooks/` directories and emits whatever each tool expects.
-
-```bash
-agnostic-ai init       # scaffold
-agnostic-ai sync       # emit configs for every enabled target
-```
-
-Change one rule in `rules/conventional-commits.md`. Run `sync`. Every tool sees the update.
+Each AI CLI wants its own config (`CLAUDE.md`, `.cursor/rules/*.mdc`, `AGENTS.md`, `CONVENTIONS.md`, ...). Copy-paste drifts. agnostic-ai keeps one source under `agents/`, `skills/`, `rules/`, `hooks/` and emits whatever each tool expects. Edit once, run `sync`, every tool updates.
 
 ## Supported targets
 
@@ -60,31 +40,18 @@ Change one rule in `rules/conventional-commits.md`. Run `sync`. Every tool sees 
 | Windsurf        | ✅     | -      | ✅    | -     |
 | Continue        | ✅     | -      | ✅    | -     |
 
-Adding a new target = one Go file plus one registry entry. See [adding-adapters](docs/internal/adding-adapters.md).
-
-Full breakdown: [docs/user/targets.md](docs/user/targets.md).
+Details: [docs/user/targets.md](docs/user/targets.md). Adding a target: [docs/internal/adding-adapters.md](docs/internal/adding-adapters.md).
 
 ## Install
 
-**Homebrew (mac/linux):**
-```bash
-brew install chemaclass/tap/agnostic-ai
-```
+**Prebuilt binary** (no Go required):
 
-**Direct binary:**
-```bash
-curl -fsSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-$(uname -s)-$(uname -m) \
-  -o /usr/local/bin/agnostic-ai && chmod +x /usr/local/bin/agnostic-ai
-```
+Grab the archive for your OS/arch from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest), extract `agnostic-ai`, and put it on your `PATH`.
 
 **Go install:**
+
 ```bash
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
-```
-
-**Docker:**
-```bash
-docker run --rm -v "$PWD":/work ghcr.io/chemaclass/agnostic-ai sync
 ```
 
 ## Quickstart
@@ -157,44 +124,23 @@ Requires Go 1.23+.
 ```bash
 git clone https://github.com/Chemaclass/agnostic-ai
 cd agnostic-ai
-make build         # produces ./agnostic-ai
-make test          # unit + integration tests
-make coverage      # coverage report
-make release       # cross-compile for darwin/linux/windows
+make build    # ./agnostic-ai
+make test     # unit + integration
 ```
-
-[Taskfile.yml](Taskfile.yml) is provided for [go-task](https://taskfile.dev) users (`task build`, `task test`, `task coverage`).
-
-A [Dockerfile](Dockerfile) is included for distroless container builds.
-
-## Testing
-
-Unit tests live next to source. Integration tests in `tests/integration/` drive the compiled CLI against fixture projects.
-
-```bash
-make coverage          # writes coverage.out and prints total
-make coverage-html     # generates coverage.html
-```
-
-Per-package coverage stays between 73% and 100%. Total project coverage: 85%.
 
 ## Documentation
 
-- **Users:** [docs/user/](docs/user/): getting started, spec format, targets, configuration, CLI reference
-- **Contributors:** [docs/internal/](docs/internal/): architecture, adding adapters, contributing, decision log, release process
-- **Examples:** [docs/examples/](docs/examples/): sample agents, skills, rules, hooks, plus a full config reference
-
-## Dogfooding
-
-This repo runs agnostic-ai on itself. Source specs live under [`.agnostic-ai/`](.agnostic-ai/). Generated outputs (CLAUDE.md, AGENTS.md, `.cursor/`, etc.) are gitignored. Run `make sync` to regenerate them.
+- Users: [docs/user/](docs/user/): getting started, spec format, targets, config, CLI reference.
+- Contributors: [docs/internal/](docs/internal/): architecture, adapters, release process.
+- Examples: [docs/examples/](docs/examples/).
 
 ## Status
 
-Pre-1.0. Spec format may change between minor versions; breaking changes go in [CHANGELOG.md](CHANGELOG.md).
+Pre-1.0. Spec format may change between minor versions. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-PRs welcome, especially new adapters. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the fast path or [docs/internal/contributing.md](docs/internal/contributing.md) for the deep dive.
+PRs welcome, especially new adapters. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
