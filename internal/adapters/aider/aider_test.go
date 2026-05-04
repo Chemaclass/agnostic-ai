@@ -20,7 +20,7 @@ func TestEmit_WritesConventions(t *testing.T) {
 		t.Errorf("expected aider, got %s", a.Name())
 	}
 	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -30,7 +30,14 @@ func TestEmit_WritesConventions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"rule body", "## Skills", "### sk1", "skills/sk1.md"} {
+	for _, want := range []string{
+		"rule body",
+		"## Skills",
+		"### sk1",
+		"skills/sk1.md",
+		"<!-- source: rules/r1.md -->",
+		"<!-- source: skills/sk1.md -->",
+	} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("missing %q in %s", want, got)
 		}

@@ -15,8 +15,8 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
-		{Kind: spec.KindAgent, Name: "ag1", Body: "agent body",
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+		{Kind: spec.KindAgent, Name: "ag1", Path: "agents/ag1.md", Body: "agent body",
 			Meta: map[string]any{"description": "agent desc"}},
 		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{"event": "X"}},
 	}
@@ -32,6 +32,11 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 	}
 	if !strings.Contains(got, "_agent desc_") {
 		t.Errorf("missing agent description in:\n%s", got)
+	}
+	for _, want := range []string{"<!-- source: rules/r1.md -->", "<!-- source: agents/ag1.md -->"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing provenance %q in:\n%s", want, got)
+		}
 	}
 }
 
