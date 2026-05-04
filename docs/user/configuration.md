@@ -140,3 +140,21 @@ Last wins:
 1. Built-in defaults
 2. `agnostic.config.yaml`
 3. CLI flags (e.g. `agnostic-ai sync -t claude`)
+
+## Layered specs
+
+Specs load from up to three layers, low- to high-precedence:
+
+| Layer          | Root                                                | Loaded when         |
+|----------------|-----------------------------------------------------|---------------------|
+| `user-global`  | `$AGNOSTIC_AI_HOME` if set, else `~/.agnostic-ai`   | directory exists    |
+| `project`      | `agnostic.config.yaml` `sources` paths              | always              |
+| `project-user` | `<project>/.agnostic-ai.local`                      | directory exists    |
+
+Higher layers override by spec name (per kind). New names append.
+
+`user-global` and `project-user` use a fixed source layout: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/` under the layer root. Only the `project` layer honors custom `sources` paths.
+
+Add `.agnostic-ai.local/` to your `.gitignore` so personal overrides stay local.
+
+`agnostic-ai list` prints each spec's source layer for debugging.
