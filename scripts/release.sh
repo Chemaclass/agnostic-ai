@@ -19,8 +19,8 @@
 #      insert a fresh [Unreleased] block above.
 #   5. Commit `chore(release): vX.Y.Z`.
 #   6. Create annotated tag vX.Y.Z.
-#   7. Push main and tag. CI fires GoReleaser, which builds and uploads
-#      binaries plus tarballs to a fresh GitHub Release for the tag.
+#   7. Push main and tag atomically. CI fires GoReleaser, which builds
+#      and uploads binaries plus tarballs to a fresh GitHub Release.
 #   8. Watch the release workflow.
 #   9. Replace the auto-generated release notes with the matching section
 #      from CHANGELOG.md (install + changelog body + docs links).
@@ -62,18 +62,20 @@ compute_next_version() {
 # bump_version_in_file <main.go path> <new plain version> — rewrites the
 # `var version = "..."` line.
 bump_version_in_file() {
-  local file="$1" new="$2"
+  local file="$1" new="$2" tmp="$1.tmp"
+  trap 'rm -f "$tmp"' RETURN
   awk -v new="$new" '
     /^var version =/ { print "var version = \"" new "\""; next }
     { print }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
 # promote_changelog <CHANGELOG path> <vX.Y.Z> <YYYY-MM-DD> — promotes the
 # existing [Unreleased] block to [version] - date and inserts a fresh
 # empty [Unreleased] block above.
 promote_changelog() {
-  local file="$1" ver="$2" date="$3"
+  local file="$1" ver="$2" date="$3" tmp="$1.tmp"
+  trap 'rm -f "$tmp"' RETURN
   grep -q '^## \[Unreleased\]' "$file" || { printf 'error: no [Unreleased] section in %s\n' "$file" >&2; return 1; }
   awk -v ver="$ver" -v date="$date" '
     !done && /^## \[Unreleased\]/ {
@@ -84,7 +86,7 @@ promote_changelog() {
       next
     }
     { print }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
 # extract_changelog_section <CHANGELOG path> <vX.Y.Z> — echoes the body
@@ -128,6 +130,12 @@ $section
 EOF
 }
 
+# print_help — prints the leading comment block (everything between the
+# shebang and the first non-`#` line) with `# ` stripped.
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "$SCRIPT_PATH"
+}
+
 # parse_args <argv...> — sets globals VERSION, BUMP, DRY_RUN, NO_PUSH.
 parse_args() {
   VERSION=""
@@ -138,7 +146,7 @@ parse_args() {
     case "$arg" in
       --dry-run)         DRY_RUN=1 ;;
       --no-push)         NO_PUSH=1 ;;
-      -h|--help)         sed -n '2,24p' "$SCRIPT_PATH"; exit 0 ;;
+      -h|--help)         print_help; exit 0 ;;
       major|minor|patch) BUMP="$arg" ;;
       v*)                VERSION="$arg" ;;
       *)                 die "unknown arg: $arg"; return 1 ;;
@@ -199,22 +207,32 @@ main() {
   git tag -a "$VERSION" -m "Release $VERSION"
 
   if [[ $NO_PUSH -eq 1 ]]; then
-    note "skipping push. run \`git push origin main && git push origin $VERSION\` when ready."
+    note "skipping push. run \`git push --atomic origin main $VERSION\` when ready."
     return 0
   fi
 
-  note "push main"
-  git push origin main
-
-  note "push tag (CI builds release binaries)"
-  git push origin "$VERSION"
+  note "push main + tag (atomic; CI builds release binaries)"
+  git push --atomic origin main "$VERSION"
 
   watch_release "$VERSION"
+}
+
+# require_cmd <name>... — fails with a clear message if any tool is missing.
+require_cmd() {
+  local missing=()
+  local cmd
+  for cmd in "$@"; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+  [[ ${#missing[@]} -eq 0 ]] || die "missing required tool(s): ${missing[*]}"
 }
 
 # preflight gates the release on git state and code health.
 preflight() {
   local version="$1"
+  note "preflight: tools"
+  require_cmd git go awk
+
   note "preflight: git state"
   [[ -z "$(git status --porcelain)" ]] || die "working tree dirty. commit or stash first."
 
