@@ -10,6 +10,34 @@
 
 Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/` and `mcps/`.
 
+## Nested layout: per-directory scope
+
+Specs placed in subdirectories of their source dir carry an implicit
+**scope** equal to that subpath. Example:
+
+```
+rules/
+├── conventional-commits.md      # scope: ""    (root)
+├── backend/
+│   └── auth.md                  # scope: "backend"
+└── backend/api/
+    └── limits.md                # scope: "backend/api"
+```
+
+Adapters that produce per-directory output honor the scope:
+
+| Target          | Scoped layout                              |
+|-----------------|--------------------------------------------|
+| `codex`         | `<scope>/AGENTS.md` (already routed via globs; layout wins) |
+| `cursor`        | `<scope>/.cursor/rules/<name>.mdc`         |
+| `cline`         | `<scope>/.clinerules/<name>.md`            |
+| `windsurf`      | `<scope>/.windsurf/rules/<name>.md`        |
+| `continue`      | `<scope>/.continue/rules/<name>.md`        |
+
+Single-document targets (`claude` CLAUDE.md, `gemini` GEMINI.md, `aider` CONVENTIONS.md, `copilot` instructions) merge regardless of scope. The scope is preserved as part of the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+
+A frontmatter `scope:` field is also accepted as a fallback when source layout is impractical (e.g. a single rule that needs to apply only in a subtree without moving the file).
+
 ## Agents
 
 ```markdown

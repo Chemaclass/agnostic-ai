@@ -40,6 +40,21 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 	}
 }
 
+func TestEmit_NestedByLayoutScope(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "auth body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "backend", "AGENTS.md"))
+	if !strings.Contains(got, "auth body") {
+		t.Errorf("expected scoped AGENTS.md content:\n%s", got)
+	}
+}
+
 func TestEmit_NestedByGlobs(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

@@ -32,3 +32,18 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend/api", Body: "rule"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/api/.clinerules/auth.md")); err != nil {
+		t.Errorf("expected nested clinerules: %v", err)
+	}
+}

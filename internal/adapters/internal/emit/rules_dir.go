@@ -32,6 +32,11 @@ type RulesDirOpts struct {
 
 // RulesDirectory writes one file per rule, agent, and skill into a directory.
 // Used by Cursor (with custom formatters), Cline, Windsurf, and Continue.
+//
+// Entries with a non-empty Scope are nested under that scope:
+// `<scope>/<Dir>/<name><Ext>`. Tools that load rules from `.cursor/rules/`,
+// `.clinerules/`, etc. at any nesting level pick up the scoped output
+// automatically; tools that only read at root will see the root entries.
 func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	if opts.Ext == "" {
 		opts.Ext = ".md"
@@ -50,26 +55,35 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	}
 
 	for _, r := range b.Rules {
-		path := filepath.Join(opts.Dir, r.Name+opts.Ext)
+		path := filepath.Join(scopedDir(opts.Dir, r), r.Name+opts.Ext)
 		if err := WriteFile(path, opts.FormatRule(r), dryRun); err != nil {
 			return err
 		}
 	}
 	for _, a := range b.Agents {
 		name := opts.AgentPrefix + a.Name
-		path := filepath.Join(opts.Dir, name+opts.Ext)
+		path := filepath.Join(scopedDir(opts.Dir, a), name+opts.Ext)
 		if err := WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
 			return err
 		}
 	}
 	for _, s := range b.Skills {
 		name := opts.SkillPrefix + s.Name
-		path := filepath.Join(opts.Dir, name+opts.Ext)
+		path := filepath.Join(scopedDir(opts.Dir, s), name+opts.Ext)
 		if err := WriteFile(path, opts.FormatSkill(s), dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// scopedDir returns `<scope>/<dir>` when the entry has a non-empty
+// EffectiveScope, otherwise `dir` unchanged.
+func scopedDir(dir string, e spec.Entry) string {
+	if s := e.EffectiveScope(); s != "" {
+		return filepath.Join(s, dir)
+	}
+	return dir
 }
 
 func defaultFormatRule(e spec.Entry) string {

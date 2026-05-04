@@ -93,8 +93,14 @@ func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {
 	return out
 }
 
-// routeDir returns the subdirectory to route a rule to based on its globs.
+// routeDir returns the subdirectory to route a rule to. Source-layout
+// scope (e.g. `rules/backend/auth.md` -> `backend`) wins over globs,
+// since it is explicit. Globs are still parsed as a fallback for rules
+// authored without nested layout.
 func routeDir(r spec.Entry) string {
+	if s := r.EffectiveScope(); s != "" {
+		return s
+	}
 	g := strings.TrimPrefix(r.Globs(), "/")
 	if g == "" || g == "**/*" || g == "*" {
 		return ""

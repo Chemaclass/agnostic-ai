@@ -58,6 +58,24 @@ func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
 	}
 }
 
+func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "rule"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/.cursor/rules/auth.mdc")); err != nil {
+		t.Errorf("expected nested file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/auth.mdc")); !os.IsNotExist(err) {
+		t.Errorf("expected no root file when scope set, err=%v", err)
+	}
+}
+
 func TestEmit_WritesMCPFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

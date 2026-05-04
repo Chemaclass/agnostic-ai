@@ -39,8 +39,17 @@ type Entry struct {
 	Kind Kind
 	Name string
 	Path string
-	Meta map[string]any
-	Body string
+	// Scope is the relative directory under the source kind directory in
+	// which the spec lives, with forward slashes. A spec at
+	// `rules/backend/auth.md` has Scope "backend"; a spec at the root of
+	// `rules/` has Scope "".
+	//
+	// Adapters that produce nested per-directory outputs (Codex, Cursor,
+	// Cline, Windsurf, Continue) honor Scope. Single-document adapters
+	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
+	Scope string
+	Meta  map[string]any
+	Body  string
 }
 
 // Description returns the entry's description from frontmatter, or "" if
@@ -55,6 +64,20 @@ func (e Entry) Description() string {
 func (e Entry) Globs() string {
 	g, _ := e.Meta["globs"].(string)
 	return g
+}
+
+// EffectiveScope returns the routing prefix for the entry. A non-empty
+// Scope (derived from source layout) wins over a frontmatter override
+// (`scope: <relpath>`); the override wins over a globs prefix; an empty
+// result means root.
+func (e Entry) EffectiveScope() string {
+	if e.Scope != "" {
+		return e.Scope
+	}
+	if s, ok := e.Meta["scope"].(string); ok && s != "" {
+		return strings.Trim(filepath.ToSlash(s), "/")
+	}
+	return ""
 }
 
 // Bundle is a pre-bucketed view of loaded entries. Adapters consume this
@@ -137,9 +160,32 @@ func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
 		if err != nil {
 			return Bundle{}, fmt.Errorf("load %s: %w", l.kind, err)
 		}
+		assignScopes(entries, l.dir, l.kind)
 		*l.into = entries
 	}
 	return b, nil
+}
+
+// assignScopes derives Entry.Scope from the source layout. For markdown
+// kinds (rules, agents, skills), the scope is the relative directory
+// from the source root. Skill nested layout (`skills/<name>/SKILL.md`)
+// is a special case: the immediate parent IS the skill name, not a
+// scope, so skill scope is derived from the grandparent only.
+func assignScopes(entries []Entry, dir string, kind Kind) {
+	for i := range entries {
+		rel, err := filepath.Rel(dir, entries[i].Path)
+		if err != nil {
+			continue
+		}
+		parent := filepath.ToSlash(filepath.Dir(rel))
+		if kind == KindSkill && filepath.Base(entries[i].Path) == "SKILL.md" {
+			parent = filepath.ToSlash(filepath.Dir(filepath.Dir(rel)))
+		}
+		if parent == "." {
+			parent = ""
+		}
+		entries[i].Scope = parent
+	}
 }
 
 // LoadAll is a convenience wrapper that returns a flat slice. Prefer
