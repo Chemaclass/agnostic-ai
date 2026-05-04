@@ -19,14 +19,16 @@ func newInitCmd() *cobra.Command {
 				return scaffold(".")
 			case "claude":
 				return importFromClaude(".")
+			case "codex":
+				return importFromCodex(".")
 			case "cursor":
 				return importFromCursor(".")
 			default:
-				return fmt.Errorf("unknown source for --from: %q (supported: claude, cursor)", from)
+				return fmt.Errorf("unknown source for --from: %q (supported: claude, codex, cursor)", from)
 			}
 		},
 	}
-	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude, cursor)")
+	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude, codex, cursor)")
 	return cmd
 }
 
