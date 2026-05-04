@@ -1,4 +1,4 @@
-.PHONY: build test test-race coverage coverage-html install clean release
+.PHONY: build test test-race test-shell coverage coverage-html install clean release
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -11,6 +11,9 @@ test:
 
 test-race:
 	go test -race ./...
+
+test-shell:
+	bashunit scripts/release_test.sh
 
 coverage:
 	go test -coverpkg=./internal/...,./cmd/... -coverprofile=coverage.out ./...

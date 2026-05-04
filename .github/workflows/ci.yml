@@ -66,3 +66,17 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+  shell:
+    name: Shell tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install bashunit
+        run: |
+          curl -s https://bashunit.typeddevs.com/install.sh | bash -s -- /usr/local/bin
+
+      - name: Run release.sh tests
+        run: bashunit scripts/release_test.sh
