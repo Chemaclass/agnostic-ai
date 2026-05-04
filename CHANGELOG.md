@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-05-04
+
 ### Added
 - `agnostic-ai init --from claude`: import existing `CLAUDE.md`, `.claude/agents/`, `.claude/skills/`, and `.claude/settings.json` into agnostic source specs. Lowers adoption friction for users with populated Claude Code configs.
 - `agnostic-ai sync --check` and `agnostic-ai doctor`: detect drift between source specs and emitted target files. Use as CI gate.
