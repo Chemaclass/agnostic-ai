@@ -7,14 +7,22 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | Target          | Agents              | Skills | Rules                    | Hooks |
 |-----------------|---------------------|--------|--------------------------|-------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` |
-| **codex**       | merged in `AGENTS.md` | listed | `AGENTS.md` (nested per-dir by globs) | - |
-| **gemini**      | merged in `GEMINI.md` | -    | `GEMINI.md`              | -     |
-| **cursor**      | as `.mdc` (alwaysApply: false) | - | `.cursor/rules/*.mdc` | - |
-| **copilot**     | merged in instructions | -  | `.github/copilot-instructions.md` | - |
-| **aider**       | merged in `CONVENTIONS.md` | - | `CONVENTIONS.md`     | -     |
-| **cline**       | as `.md` rule       | -      | `.clinerules/*.md`       | -     |
-| **windsurf**    | as `.md` rule       | -      | `.windsurf/rules/*.md`   | -     |
-| **continue**    | as `.md` rule       | -      | `.continue/rules/*.md`   | -     |
+| **codex**       | merged in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by globs) | - |
+| **gemini**      | merged in `GEMINI.md` | listed in `GEMINI.md` | `GEMINI.md`     | -     |
+| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - |
+| **copilot**     | merged in instructions | listed in instructions | `.github/copilot-instructions.md` | - |
+| **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - |
+| **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     |
+| **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     |
+| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     |
+
+Skills emitted to non-Claude targets are reference material. Only Claude
+Code has native skill execution. For all other targets, the agent or
+human reads the skill file and follows its instructions.
+
+Hooks are Claude-specific. They run as shell commands on lifecycle
+events (e.g. PreToolUse, PostToolUse, SessionStart). No other supported
+target has an equivalent concept, so hooks emit only for Claude.
 
 ## Per-target output
 

@@ -32,15 +32,17 @@ Each AI CLI wants its own config (`CLAUDE.md`, `.cursor/rules/*.mdc`, `AGENTS.md
 |----------------|:------:|:------:|:-----:|:-----:|
 | Claude Code    | ✅     | ✅     | ✅    | ✅    |
 | Codex CLI      | ◐      | ◐      | ✅    | —     |
-| Gemini CLI     | ◐      | —      | ✅    | —     |
-| Cursor         | ✅     | —      | ✅    | —     |
-| GitHub Copilot | ◐      | —      | ✅    | —     |
-| Aider          | ◐      | —      | ✅    | —     |
-| Cline          | ✅     | —      | ✅    | —     |
-| Windsurf       | ✅     | —      | ✅    | —     |
-| Continue       | ✅     | —      | ✅    | —     |
+| Gemini CLI     | ◐      | ◐      | ✅    | —     |
+| Cursor         | ✅     | ✅     | ✅    | —     |
+| GitHub Copilot | ◐      | ◐      | ✅    | —     |
+| Aider          | ◐      | ◐      | ✅    | —     |
+| Cline          | ✅     | ✅     | ✅    | —     |
+| Windsurf       | ✅     | ✅     | ✅    | —     |
+| Continue       | ✅     | ✅     | ✅    | —     |
 
 Legend: ✅ separate files · ◐ merged into single doc · — not supported.
+
+Hooks are Claude-specific (lifecycle events with shell commands). Other targets have no equivalent concept.
 
 Details: [docs/user/targets.md](docs/user/targets.md). Adding a target: [docs/internal/adding-adapters.md](docs/internal/adding-adapters.md).
 
