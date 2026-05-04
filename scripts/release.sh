@@ -21,7 +21,9 @@
 #   6. Create annotated tag vX.Y.Z.
 #   7. Push main and tag. CI fires GoReleaser, which builds and uploads
 #      binaries plus tarballs to a fresh GitHub Release for the tag.
-#   8. Watch the release workflow and print the release URL when done.
+#   8. Watch the release workflow.
+#   9. Replace the auto-generated release notes with the matching section
+#      from CHANGELOG.md (install + changelog body + docs links).
 
 set -Eeuo pipefail
 
@@ -83,6 +85,69 @@ promote_changelog() {
     }
     { print }
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+}
+
+# extract_changelog_section <CHANGELOG path> <vX.Y.Z> — echoes the body
+# under `## [vX.Y.Z]` up to (but not including) the next `## ` heading.
+# Trailing blank lines are stripped. Returns 1 if the section is missing.
+extract_changelog_section() {
+  local file="$1" ver="$2"
+  grep -q "^## \[${ver}\]" "$file" || return 1
+  awk -v ver="$ver" '
+    BEGIN { in_section=0 }
+    {
+      if (match($0, "^## \\[" ver "\\]")) { in_section=1; next }
+      if (in_section && match($0, /^## /)) { in_section=0 }
+      if (in_section) lines[++n]=$0
+    }
+    END {
+      end=n
+      while (end > 0 && lines[end] ~ /^[[:space:]]*$/) end--
+      start=1
+      while (start <= end && lines[start] ~ /^[[:space:]]*$/) start++
+      for (i=start; i<=end; i++) print lines[i]
+    }
+  ' "$file"
+}
+
+# format_release_notes <vX.Y.Z> <CHANGELOG path> <repo nameWithOwner> —
+# echoes a markdown release-notes body: install block + changelog section +
+# docs links.
+format_release_notes() {
+  local ver="$1" changelog="$2" repo="$3"
+  local section
+  section="$(extract_changelog_section "$changelog" "$ver")" \
+    || { printf 'error: no [%s] section in %s\n' "$ver" "$changelog" >&2; return 1; }
+  cat <<EOF
+## Install
+
+Homebrew:
+\`\`\`bash
+brew install chemaclass/tap/agnostic-ai
+\`\`\`
+
+Direct binary:
+\`\`\`bash
+curl -fsSL https://github.com/$repo/releases/download/$ver/agnostic-ai_\$(uname -s)_\$(uname -m).tar.gz | tar xz
+\`\`\`
+
+From source:
+\`\`\`bash
+go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@$ver
+\`\`\`
+
+## What's in $ver
+
+$section
+
+## Documentation
+
+- [Getting started](https://github.com/$repo/blob/main/docs/user/getting-started.md)
+- [Spec format](https://github.com/$repo/blob/main/docs/user/spec-format.md)
+- [Targets and capability matrix](https://github.com/$repo/blob/main/docs/user/targets.md)
+- [CLI reference](https://github.com/$repo/blob/main/docs/user/cli-reference.md)
+- [Full changelog](https://github.com/$repo/blob/main/CHANGELOG.md)
+EOF
 }
 
 # parse_args <argv...> — sets globals VERSION, BUMP, DRY_RUN, NO_PUSH.
@@ -233,6 +298,18 @@ watch_release() {
 
   local repo
   repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+
+  note "updating release notes from CHANGELOG.md"
+  local notes
+  notes="$(mktemp)"
+  if format_release_notes "$version" "CHANGELOG.md" "$repo" > "$notes"; then
+    gh release edit "$version" --notes-file "$notes" >/dev/null
+    note "release notes updated"
+  else
+    note "could not extract [$version] section from CHANGELOG.md; leaving auto-generated notes."
+  fi
+  rm -f "$notes"
+
   note "release published:"
   note "  https://github.com/$repo/releases/tag/$version"
   gh release view "$version" --json assets --jq '.assets[].name' \

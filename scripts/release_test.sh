@@ -152,6 +152,127 @@ function test_promote_changelog_errors_without_unreleased() {
   rm -f "$tmp"
 }
 
+# ---- extract_changelog_section ----------------------------------------------
+
+function test_extract_changelog_section_returns_body_only() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [v0.2.0] - 2026-06-01
+
+### Added
+- New thing.
+
+### Fixed
+- Old bug.
+
+## [v0.1.0] - 2026-05-04
+
+### Added
+- Initial release.
+EOF
+  local out
+  out="$(extract_changelog_section "$tmp" "v0.2.0")"
+  assert_contains "### Added" "$out"
+  assert_contains "- New thing." "$out"
+  assert_contains "- Old bug." "$out"
+  assert_not_contains "## [v0.1.0]" "$out"
+  assert_not_contains "Initial release" "$out"
+  rm -f "$tmp"
+}
+
+function test_extract_changelog_section_strips_trailing_blanks() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+## [v0.1.0] - 2026-05-04
+
+### Added
+- foo
+
+
+
+## [v0.0.1] - 2026-04-01
+
+- old
+EOF
+  local out
+  out="$(extract_changelog_section "$tmp" "v0.1.0")"
+  # Last line must be content, not blank.
+  local last
+  last="$(printf '%s\n' "$out" | tail -1)"
+  assert_equals "- foo" "$last"
+  rm -f "$tmp"
+}
+
+function test_extract_changelog_section_returns_last_section() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+## [v0.2.0] - 2026-06-01
+
+- new
+
+## [v0.1.0] - 2026-05-04
+
+- first
+- ever
+EOF
+  local out
+  out="$(extract_changelog_section "$tmp" "v0.1.0")"
+  assert_contains "- first" "$out"
+  assert_contains "- ever" "$out"
+  assert_not_contains "- new" "$out"
+  rm -f "$tmp"
+}
+
+function test_extract_changelog_section_errors_on_missing() {
+  local tmp
+  tmp="$(mktemp)"
+  printf '## [v0.1.0]\n- foo\n' > "$tmp"
+  extract_changelog_section "$tmp" "v9.9.9" >/dev/null
+  assert_equals 1 $?
+  rm -f "$tmp"
+}
+
+# ---- format_release_notes ----------------------------------------------------
+
+function test_format_release_notes_includes_changelog_body() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+## [v0.1.0] - 2026-05-04
+
+### Added
+- one
+- two
+EOF
+  local out
+  out="$(format_release_notes "v0.1.0" "$tmp" "owner/repo")"
+  assert_contains "## Install" "$out"
+  assert_contains "brew install chemaclass/tap/agnostic-ai" "$out"
+  assert_contains "owner/repo/releases/download/v0.1.0" "$out"
+  assert_contains "## What's in v0.1.0" "$out"
+  assert_contains "- one" "$out"
+  assert_contains "- two" "$out"
+  assert_contains "## Documentation" "$out"
+  assert_contains "owner/repo/blob/main/docs/user/getting-started.md" "$out"
+  rm -f "$tmp"
+}
+
+function test_format_release_notes_errors_on_missing_section() {
+  local tmp
+  tmp="$(mktemp)"
+  printf '## [v0.1.0]\n- foo\n' > "$tmp"
+  format_release_notes "v9.9.9" "$tmp" "owner/repo" >/dev/null 2>&1
+  assert_equals 1 $?
+  rm -f "$tmp"
+}
+
 # ---- parse_args --------------------------------------------------------------
 
 function test_parse_args_default_is_minor() {
