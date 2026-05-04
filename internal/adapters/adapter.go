@@ -4,6 +4,7 @@ package adapters
 
 import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -12,7 +13,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/zed"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -53,6 +57,10 @@ var registry = map[string]Adapter{
 	"cline":    cline.New(),
 	"windsurf": windsurf.New(),
 	"continue": continueai.New(),
+	"amp":      amp.New(),
+	"zed":      zed.New(),
+	"warp":     warp.New(),
+	"opencode": opencode.New(),
 }
 
 // Get returns the adapter registered under name.

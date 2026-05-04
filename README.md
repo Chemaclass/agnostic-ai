@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
 
-Write prompts and project conventions **once**. agnostic-ai emits the right config for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue, and more.
+Write prompts and project conventions **once**. agnostic-ai emits the right config for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue, Amp, Zed, Warp, OpenCode, and more.
 
 Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + YAML frontmatter, no proprietary extensions.
 
@@ -37,6 +37,10 @@ Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + Y
 | Cline          | ✅     | ✅     | ✅    | —     | —    |
 | Windsurf       | ✅     | ✅     | ✅    | —     | —    |
 | Continue       | ✅     | ✅     | ✅    | —     | —    |
+| Amp            | ◐      | ◐      | ✅    | —     | —    |
+| Zed            | ◐      | ◐      | ✅    | —     | —    |
+| Warp           | ◐      | ◐      | ✅    | —     | —    |
+| OpenCode       | ◐      | ◐      | ✅    | —     | —    |
 
 Legend: ✅ separate files · ◐ merged into single doc · — not supported. Hooks are Claude-specific. MCP propagation lands in the schema each tool understands.
 

@@ -70,6 +70,7 @@ func defaults() *Config {
 		Targets: []string{
 			"claude", "codex", "gemini", "cursor",
 			"copilot", "aider", "cline", "windsurf", "continue",
+			"amp", "zed", "warp", "opencode",
 		},
 		OnUnsupported: "warn",
 	}

@@ -15,6 +15,10 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
 | **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
 | **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | - |
+| **amp**         | merged in `AGENT.md` | listed in `AGENT.md` | `AGENT.md` | - | - |
+| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
+| **warp**        | merged in `WARP.md` | listed in `WARP.md` | `WARP.md` | - | - |
+| **opencode**    | merged in `.opencode/AGENTS.md` | listed in `.opencode/AGENTS.md` | `.opencode/AGENTS.md` | - | - |
 
 Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
@@ -116,6 +120,38 @@ Config key: `outputs.windsurf.rules-dir` (default `.windsurf/rules`).
 ```
 
 Config key: `outputs.continue.rules-dir` (default `.continue/rules`).
+
+### Amp (`amp`)
+
+```
+AGENT.md
+```
+
+Config key: `outputs.amp.file` (default `AGENT.md`).
+
+### Zed (`zed`)
+
+```
+.rules
+```
+
+Config key: `outputs.zed.file` (default `.rules`).
+
+### Warp (`warp`)
+
+```
+WARP.md
+```
+
+Config key: `outputs.warp.file` (default `WARP.md`).
+
+### OpenCode (`opencode`)
+
+```
+.opencode/AGENTS.md
+```
+
+Config key: `outputs.opencode.file` (default `.opencode/AGENTS.md`). Routed under `.opencode/` to avoid clashing with Codex's repo-root `AGENTS.md` so both can be enabled together.
 
 ## Selecting targets
 

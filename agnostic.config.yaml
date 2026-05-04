@@ -26,6 +26,10 @@ targets:
   - cline         # Cline (VSCode extension)
   - windsurf      # Windsurf (Codeium)
   - continue      # Continue (continue.dev)
+  - amp           # Amp (Sourcegraph)
+  - zed           # Zed editor
+  - warp          # Warp terminal
+  - opencode      # OpenCode
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent

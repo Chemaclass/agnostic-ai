@@ -51,6 +51,10 @@ targets:
   - cline
   - windsurf
   - continue
+  - amp
+  - zed
+  - warp
+  - opencode
 
 on-unsupported: warn
 `
