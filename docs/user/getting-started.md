@@ -67,3 +67,21 @@ agnostic-ai sync
 | `AGENTS.md` | Codex |
 | `GEMINI.md` | Gemini CLI |
 | `.cursor/rules/conventional-commits.mdc` | Cursor |
+
+Full tree after sync with the default targets:
+
+```
+.
+├── agnostic.config.yaml
+├── rules/
+│   └── conventional-commits.md
+├── CLAUDE.md                                    # for Claude Code
+├── AGENTS.md                                    # for Codex
+├── GEMINI.md                                    # for Gemini CLI
+├── CONVENTIONS.md                               # for Aider
+├── .github/copilot-instructions.md              # for Copilot
+├── .cursor/rules/conventional-commits.mdc       # for Cursor
+├── .clinerules/conventional-commits.md          # for Cline
+├── .windsurf/rules/conventional-commits.md      # for Windsurf
+└── .continue/rules/conventional-commits.md      # for Continue
+```
