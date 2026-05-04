@@ -19,11 +19,12 @@ Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rul
 agnostic-ai init                  # empty scaffold
 agnostic-ai init --from claude    # import existing Claude Code config
 agnostic-ai init --from codex     # import existing Codex / AGENTS.md config
+agnostic-ai init --from cursor    # import existing Cursor config
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`. |
+| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`, `cursor`. |
 
 `--from claude` reads the current directory:
 
@@ -48,6 +49,15 @@ Writes `targets: [claude]` only. Add other targets to the config and run `agnost
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
 
 Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories and `agents/`, `skills/`, `rules/`, `hooks/`, `node_modules/`, `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files. Writes `targets: [codex]` only.
+
+`--from cursor` reads the current directory:
+
+| Source | Becomes |
+|--------|---------|
+| `.cursor/rules/<name>.mdc` | `rules/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
+| (no `name:` in frontmatter) | `name:` injected from the filename |
+
+Round-trips cleanly: a subsequent `sync` regenerates equivalent `.cursor/rules/*.mdc`. Writes `targets: [cursor]` only.
 
 ## validate
 

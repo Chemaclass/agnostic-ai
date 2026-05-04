@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `agnostic-ai init --from cursor`: import an existing Cursor project. Reads `.cursor/rules/*.mdc`, translates each into `rules/<name>.md`, and writes a cursor-only `agnostic.config.yaml`. Frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) passes through verbatim; `name:` is injected from the filename when missing. Round-trips cleanly back to `.cursor/rules/*.mdc` on the next `sync`.
 - `agnostic-ai init --from codex`: import an existing Codex project. Walks the tree for `AGENTS.md` files (root + nested), translates each `## section` into a rule under `rules/`, and infers `globs:` for nested files (e.g. `src/AGENTS.md` → `globs: src/**`) so a subsequent `sync` routes rules back to the correct nested file. Handles both hand-written and agnostic-emitted `AGENTS.md` shapes: `## Conventions` / `## Agents` / `## Skills` wrappers are unwrapped into their `###` children, and a single-line italic (`_text_`) immediately under a rule heading is extracted as the rule's `description`. Slug collisions across files are deduplicated.
 
 ## [v0.2.0] - 2026-05-04
