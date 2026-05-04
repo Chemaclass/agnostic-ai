@@ -7,6 +7,7 @@ Read in this order.
 3. [Contributing](contributing.md) — branch flow, commit style, test expectations.
 4. [Release process](release-process.md) — how a tag becomes a release.
 5. [Decision log](decisions.md) — historical record of design choices.
+6. [Roadmap](roadmap.md) — planned directions (layered config, more adapters).
 
 ## House rules
 
