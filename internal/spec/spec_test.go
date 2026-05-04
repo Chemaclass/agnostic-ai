@@ -181,6 +181,88 @@ func TestParseYAML_HookFields(t *testing.T) {
 	}
 }
 
+func TestLoadLayered_HigherLayerOverridesByName(t *testing.T) {
+	base := t.TempDir()
+	over := t.TempDir()
+
+	mustWrite(t, filepath.Join(base, "rules", "shared.md"),
+		"---\nname: shared\n---\nbase body")
+	mustWrite(t, filepath.Join(base, "rules", "only-base.md"),
+		"---\nname: only-base\n---\nbase only")
+	mustWrite(t, filepath.Join(over, "rules", "shared.md"),
+		"---\nname: shared\n---\nover body")
+	mustWrite(t, filepath.Join(over, "rules", "only-over.md"),
+		"---\nname: only-over\n---\nover only")
+
+	src := defaultsForTest().Sources
+	bundle, err := LoadLayered([]Layer{
+		{Name: "base", Root: base, Sources: src},
+		{Name: "over", Root: over, Sources: src},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bundle.Rules) != 3 {
+		t.Fatalf("expected 3 rules, got %d", len(bundle.Rules))
+	}
+	got := map[string]Entry{}
+	for _, e := range bundle.Rules {
+		got[e.Name] = e
+	}
+	if got["shared"].Body != "over body" {
+		t.Errorf("shared.Body = %q, want over body", got["shared"].Body)
+	}
+	if got["shared"].Layer != "over" {
+		t.Errorf("shared.Layer = %q, want over", got["shared"].Layer)
+	}
+	if got["only-base"].Layer != "base" {
+		t.Errorf("only-base.Layer = %q, want base", got["only-base"].Layer)
+	}
+	if got["only-over"].Layer != "over" {
+		t.Errorf("only-over.Layer = %q, want over", got["only-over"].Layer)
+	}
+}
+
+func TestLoadLayered_PreservesOrderForExistingNames(t *testing.T) {
+	base := t.TempDir()
+	over := t.TempDir()
+
+	mustWrite(t, filepath.Join(base, "rules", "a.md"), "---\nname: a\n---\nbase a")
+	mustWrite(t, filepath.Join(base, "rules", "b.md"), "---\nname: b\n---\nbase b")
+	mustWrite(t, filepath.Join(over, "rules", "a.md"), "---\nname: a\n---\nover a")
+
+	src := defaultsForTest().Sources
+	bundle, err := LoadLayered([]Layer{
+		{Name: "base", Root: base, Sources: src},
+		{Name: "over", Root: over, Sources: src},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Rules) != 2 {
+		t.Fatalf("expected 2 rules, got %d", len(bundle.Rules))
+	}
+	if bundle.Rules[0].Name != "a" || bundle.Rules[1].Name != "b" {
+		t.Fatalf("order changed: %+v", bundle.Rules)
+	}
+	if bundle.Rules[0].Body != "over a" {
+		t.Errorf("expected override body, got %q", bundle.Rules[0].Body)
+	}
+}
+
+func TestLoadBundle_TagsLayerProject(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "rules", "x.md"), "---\nname: x\n---\nbody")
+	bundle, err := LoadBundle(dir, defaultsForTest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Rules) != 1 || bundle.Rules[0].Layer != "project" {
+		t.Fatalf("expected layer=project, got %+v", bundle.Rules)
+	}
+}
+
 func defaultsForTest() *config.Config {
 	return &config.Config{
 		Sources: config.Sources{

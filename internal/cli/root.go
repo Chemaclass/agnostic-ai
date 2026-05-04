@@ -28,13 +28,17 @@ func NewRootCmd(version string) *cobra.Command {
 	return root
 }
 
-// loadProject loads config and bundle from root.
+// loadProject loads config and a layered bundle from root. Layer
+// precedence (low to high): user-global (~/.agnostic-ai or
+// $AGNOSTIC_AI_HOME) → project (cfg.Sources) → project-user
+// (.agnostic-ai.local). Optional layers load only when their root
+// exists.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
-	b, err := spec.LoadBundle(root, cfg)
+	b, err := spec.LoadLayered(resolveLayers(root, cfg))
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}

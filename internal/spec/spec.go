@@ -48,6 +48,10 @@ type Entry struct {
 	// Cline, Windsurf, Continue) honor Scope. Single-document adapters
 	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
 	Scope string
+	// Layer names the source layer this entry came from
+	// ("user-global", "project", "project-user"). Empty when loaded
+	// outside the layered loader (legacy path).
+	Layer string
 	Meta  map[string]any
 	Body  string
 }
@@ -139,8 +143,43 @@ func (b Bundle) Has(k Kind) bool {
 	return false
 }
 
-// LoadBundle walks the source directories and returns a pre-bucketed Bundle.
+// Layer is one tier in a layered spec load. Layers stack low-precedence
+// to high-precedence; later layers override earlier layers by
+// (Kind, Name).
+type Layer struct {
+	Name    string
+	Root    string
+	Sources config.Sources
+}
+
+// LoadBundle walks the source directories under root and returns a
+// pre-bucketed Bundle. Single-layer convenience wrapper around
+// LoadLayered.
 func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
+	return LoadLayered([]Layer{{Name: "project", Root: root, Sources: cfg.Sources}})
+}
+
+// LoadLayered walks each layer's source directories in order and merges
+// the results. For each kind, entries with the same Name from a later
+// layer replace earlier ones; new names append. Each Entry is tagged
+// with its source Layer.Name for provenance.
+func LoadLayered(layers []Layer) (Bundle, error) {
+	var b Bundle
+	for _, layer := range layers {
+		lb, err := loadLayer(layer)
+		if err != nil {
+			return Bundle{}, err
+		}
+		b.Agents = mergeEntries(b.Agents, lb.Agents)
+		b.Skills = mergeEntries(b.Skills, lb.Skills)
+		b.Rules = mergeEntries(b.Rules, lb.Rules)
+		b.Hooks = mergeEntries(b.Hooks, lb.Hooks)
+		b.MCPs = mergeEntries(b.MCPs, lb.MCPs)
+	}
+	return b, nil
+}
+
+func loadLayer(layer Layer) (Bundle, error) {
 	var b Bundle
 	loaders := []struct {
 		dir   string
@@ -149,21 +188,46 @@ func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
 		parse func(string) (Entry, error)
 		into  *[]Entry
 	}{
-		{filepath.Join(root, cfg.Sources.Agents), ".md", KindAgent, parseMarkdown, &b.Agents},
-		{filepath.Join(root, cfg.Sources.Skills), ".md", KindSkill, parseMarkdown, &b.Skills},
-		{filepath.Join(root, cfg.Sources.Rules), ".md", KindRule, parseMarkdown, &b.Rules},
-		{filepath.Join(root, cfg.Sources.Hooks), ".yaml", KindHook, parseYAML, &b.Hooks},
-		{filepath.Join(root, cfg.Sources.MCPs), ".yaml", KindMCP, parseYAML, &b.MCPs},
+		{filepath.Join(layer.Root, layer.Sources.Agents), ".md", KindAgent, parseMarkdown, &b.Agents},
+		{filepath.Join(layer.Root, layer.Sources.Skills), ".md", KindSkill, parseMarkdown, &b.Skills},
+		{filepath.Join(layer.Root, layer.Sources.Rules), ".md", KindRule, parseMarkdown, &b.Rules},
+		{filepath.Join(layer.Root, layer.Sources.Hooks), ".yaml", KindHook, parseYAML, &b.Hooks},
+		{filepath.Join(layer.Root, layer.Sources.MCPs), ".yaml", KindMCP, parseYAML, &b.MCPs},
 	}
 	for _, l := range loaders {
 		entries, err := walkDir(l.dir, l.ext, l.kind, l.parse)
 		if err != nil {
-			return Bundle{}, fmt.Errorf("load %s: %w", l.kind, err)
+			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
 		assignScopes(entries, l.dir, l.kind)
+		for i := range entries {
+			entries[i].Layer = layer.Name
+		}
 		*l.into = entries
 	}
 	return b, nil
+}
+
+// mergeEntries appends src onto base, replacing any entry in base with
+// the same Name. Order preserved: existing names keep their slot, new
+// names append.
+func mergeEntries(base, src []Entry) []Entry {
+	if len(src) == 0 {
+		return base
+	}
+	idx := make(map[string]int, len(base))
+	for i, e := range base {
+		idx[e.Name] = i
+	}
+	for _, e := range src {
+		if i, ok := idx[e.Name]; ok {
+			base[i] = e
+			continue
+		}
+		idx[e.Name] = len(base)
+		base = append(base, e)
+	}
+	return base
 }
 
 // assignScopes derives Entry.Scope from the source layout. For markdown
