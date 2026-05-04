@@ -18,11 +18,12 @@ Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rul
 ```bash
 agnostic-ai init                  # empty scaffold
 agnostic-ai init --from claude    # import existing Claude Code config
+agnostic-ai init --from codex     # import existing Codex / AGENTS.md config
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--from <source>` | Import existing config from a source. Supported: `claude`. |
+| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`. |
 
 `--from claude` reads the current directory:
 
@@ -35,6 +36,18 @@ agnostic-ai init --from claude    # import existing Claude Code config
 | `.claude/settings.json` hooks | `hooks/<event>-<group>-<index>.yaml` |
 
 Writes `targets: [claude]` only. Add other targets to the config and run `agnostic-ai sync`.
+
+`--from codex` walks the project for `AGENTS.md` files at any depth:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` (split on `## headings`) | `rules/<slug>.md` per section |
+| `AGENTS.md` (no headings) | single `rules/<projectname>.md` |
+| `<dir>/AGENTS.md` (nested) | `rules/<slug>.md` with inferred `globs: <dir>/**` |
+| `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped — their `### children` become the rules |
+| Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
+
+Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories and `agents/`, `skills/`, `rules/`, `hooks/`, `node_modules/`, `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files. Writes `targets: [codex]` only.
 
 ## validate
 

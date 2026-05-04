@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `agnostic-ai init --from codex`: import an existing Codex project. Walks the tree for `AGENTS.md` files (root + nested), translates each `## section` into a rule under `rules/`, and infers `globs:` for nested files (e.g. `src/AGENTS.md` → `globs: src/**`) so a subsequent `sync` routes rules back to the correct nested file. Handles both hand-written and agnostic-emitted `AGENTS.md` shapes: `## Conventions` / `## Agents` / `## Skills` wrappers are unwrapped into their `###` children, and a single-line italic (`_text_`) immediately under a rule heading is extracted as the rule's `description`. Slug collisions across files are deduplicated.
+
 ## [v0.2.0] - 2026-05-04
 
 ### Added
