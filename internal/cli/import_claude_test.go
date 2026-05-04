@@ -202,7 +202,7 @@ func TestInitCmd_UnknownFromRejected(t *testing.T) {
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "cursor"})
+	root.SetArgs([]string{"init", "--from", "nonesuch"})
 	if err := root.Execute(); err == nil {
 		t.Error("expected error for unknown --from")
 	}
