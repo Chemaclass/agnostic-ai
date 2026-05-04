@@ -74,7 +74,9 @@ desktop.ini
 /.github/copilot-instructions.md
 # Codex emits AGENTS.md at the root and per-directory based on rule globs.
 **/AGENTS.md
-
+AGENT.md
+WARP.md
+.rules
 # =============================================================================
 # Tooling caches
 # =============================================================================
