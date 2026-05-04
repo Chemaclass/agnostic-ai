@@ -105,4 +105,3 @@ func buildHookSettings(hooks []spec.Entry) map[string]any {
 	}
 	return map[string]any{"hooks": byEvent}
 }
-

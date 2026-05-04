@@ -56,6 +56,27 @@ func TestReplaceManagedBlock_EmptyFileEmptyEntriesNoop(t *testing.T) {
 	}
 }
 
+func TestReplaceManagedBlock_TruncatedBlockReplaced(t *testing.T) {
+	// Start marker present, end marker absent: simulate a corrupted
+	// .gitignore. The replacement should rewrite a fresh block; trailing
+	// junk after the start marker is treated as part of the truncated
+	// block and consumed.
+	corrupt := "node_modules/\n" + gitignoreBlockStart + "\nold-entry.md\n"
+	got := replaceManagedBlock(corrupt, []string{"CLAUDE.md"})
+	if !strings.Contains(got, "node_modules/") {
+		t.Errorf("preserved lines lost: %q", got)
+	}
+	if strings.Contains(got, "old-entry.md") {
+		t.Errorf("truncated content leaked: %q", got)
+	}
+	if !strings.Contains(got, gitignoreBlockEnd) {
+		t.Errorf("expected end marker rewritten: %q", got)
+	}
+	if strings.Count(got, gitignoreBlockStart) != 1 {
+		t.Errorf("expected exactly one block, got %q", got)
+	}
+}
+
 func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -158,5 +179,18 @@ func TestResolveGitignore_FlagOverridesConfig(t *testing.T) {
 	cfg.Gitignore.Enabled = false
 	if resolveGitignore(cfg, "") {
 		t.Error("no flag should defer to config (false)")
+	}
+}
+
+func TestValidateGitignoreFlag(t *testing.T) {
+	for _, ok := range []string{"", "on", "off"} {
+		if err := validateGitignoreFlag(ok); err != nil {
+			t.Errorf("expected %q to validate, got %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"true", "false", "yes", "no", "1", "0", "maybe"} {
+		if err := validateGitignoreFlag(bad); err == nil {
+			t.Errorf("expected %q to error", bad)
+		}
 	}
 }

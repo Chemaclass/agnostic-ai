@@ -27,8 +27,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes .github/copilot-instructions.md plus .vscode/mcp.json
-// when MCP entries are present.
+// Emit writes the Copilot instructions and, when MCP entries exist,
+// a `.vscode/mcp.json` using the VS Code servers schema.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err

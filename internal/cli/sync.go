@@ -19,6 +19,9 @@ func newSyncCmd() *cobra.Command {
 		Use:   "sync",
 		Short: "Emit per-target configs from agnostic specs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
+				return err
+			}
 			if check {
 				reports, err := collectDrift(targets)
 				if err != nil {
@@ -71,7 +74,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
-	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run")
+	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	return cmd
 }
 
@@ -79,10 +82,23 @@ func newSyncCmd() *cobra.Command {
 // flag wins when set, otherwise cfg.Gitignore.Enabled.
 func resolveGitignore(cfg *config.Config, flag string) bool {
 	switch flag {
-	case "on", "true", "yes":
+	case "":
+		return cfg.Gitignore.Enabled
+	case "on":
 		return true
-	case "off", "false", "no":
+	case "off":
 		return false
 	}
 	return cfg.Gitignore.Enabled
+}
+
+// validateGitignoreFlag returns nil for "", "on", or "off"; otherwise an
+// error. Used by sync to fail fast on bad input rather than silently
+// falling back to config.
+func validateGitignoreFlag(flag string) error {
+	switch flag {
+	case "", "on", "off":
+		return nil
+	}
+	return fmt.Errorf("--gitignore: expected 'on' or 'off', got %q", flag)
 }

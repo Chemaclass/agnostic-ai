@@ -39,7 +39,10 @@ func newRevertCmd() *cobra.Command {
 					continue
 				}
 				adapters.StartCapture()
-				if err := adapter.Emit(b, cfg, false); err != nil {
+				// Pass dryRun=true so any adapter that writes outside
+				// emit.WriteFile (e.g. a future os.Mkdir for an empty
+				// output dir) does not side-effect during revert.
+				if err := adapter.Emit(b, cfg, true); err != nil {
 					adapters.StopCapture()
 					return fmt.Errorf("%s: %w", t, err)
 				}
@@ -63,14 +66,12 @@ func newRevertCmd() *cobra.Command {
 // removes path. Missing files at either location are ignored.
 func revertOne(path string, dryRun bool) error {
 	bak := path + ".bak"
-	if _, err := os.Stat(bak); err == nil {
+	data, err := os.ReadFile(bak)
+	switch {
+	case err == nil:
 		if dryRun {
 			fmt.Printf("    restore: %s ← %s\n", path, bak)
 			return nil
-		}
-		data, err := os.ReadFile(bak)
-		if err != nil {
-			return fmt.Errorf("read backup %s: %w", bak, err)
 		}
 		if err := os.WriteFile(path, data, 0o644); err != nil {
 			return fmt.Errorf("restore %s: %w", path, err)
@@ -80,18 +81,15 @@ func revertOne(path string, dryRun bool) error {
 		}
 		fmt.Printf("    restored: %s\n", path)
 		return nil
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("stat %s: %w", bak, err)
+	case !errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("read backup %s: %w", bak, err)
 	}
 
 	if dryRun {
 		fmt.Printf("    remove:  %s\n", path)
 		return nil
 	}
-	if err := os.Remove(path); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	fmt.Printf("    removed:  %s\n", path)

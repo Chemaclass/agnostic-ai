@@ -34,8 +34,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .mdc per rule and per agent, plus .cursor/mcp.json
-// when MCP entries are present.
+// Emit writes one .mdc per rule, agent, and skill, plus an
+// `.cursor/mcp.json` when MCP entries exist.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -72,4 +72,3 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	b.WriteString(e.Body)
 	return b.String()
 }
-

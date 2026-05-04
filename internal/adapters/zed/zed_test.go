@@ -20,7 +20,7 @@ func TestEmit_WritesDotRules(t *testing.T) {
 		t.Errorf("expected zed, got %s", a.Name())
 	}
 	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
@@ -29,7 +29,9 @@ func TestEmit_WritesDotRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "rule body") {
-		t.Errorf("missing rule body in %s", got)
+	for _, want := range []string{"rule body", "<!-- source: rules/r1.md -->"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
 	}
 }
