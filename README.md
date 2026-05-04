@@ -28,17 +28,19 @@ Each AI CLI wants its own config (`CLAUDE.md`, `.cursor/rules/*.mdc`, `AGENTS.md
 
 ## Supported targets
 
-| Target          | Agents | Skills | Rules | Hooks |
-|-----------------|:------:|:------:|:-----:|:-----:|
-| Claude Code     | ✅     | ✅     | ✅    | ✅    |
-| Codex CLI       | merged | listed | ✅ nested | - |
-| Gemini CLI      | merged | -      | ✅    | -     |
-| Cursor          | ✅     | -      | ✅    | -     |
-| GitHub Copilot  | merged | -      | ✅    | -     |
-| Aider           | merged | -      | ✅    | -     |
-| Cline           | ✅     | -      | ✅    | -     |
-| Windsurf        | ✅     | -      | ✅    | -     |
-| Continue        | ✅     | -      | ✅    | -     |
+| Target         | Agents | Skills | Rules | Hooks |
+|----------------|:------:|:------:|:-----:|:-----:|
+| Claude Code    | ✅     | ✅     | ✅    | ✅    |
+| Codex CLI      | ◐      | ◐      | ✅    | —     |
+| Gemini CLI     | ◐      | —      | ✅    | —     |
+| Cursor         | ✅     | —      | ✅    | —     |
+| GitHub Copilot | ◐      | —      | ✅    | —     |
+| Aider          | ◐      | —      | ✅    | —     |
+| Cline          | ✅     | —      | ✅    | —     |
+| Windsurf       | ✅     | —      | ✅    | —     |
+| Continue       | ✅     | —      | ✅    | —     |
+
+Legend: ✅ separate files · ◐ merged into single doc · — not supported.
 
 Details: [docs/user/targets.md](docs/user/targets.md). Adding a target: [docs/internal/adding-adapters.md](docs/internal/adding-adapters.md).
 
