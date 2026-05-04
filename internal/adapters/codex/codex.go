@@ -51,7 +51,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	rootFile := outFile(cfg)
+	rootFile := emit.OutputFile(cfg, target, defaultOutFile)
 	rootDir := filepath.Dir(rootFile)
 	rootBase := filepath.Base(rootFile)
 
@@ -76,13 +76,6 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 	return nil
-}
-
-func outFile(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.File != "" {
-		return o.File
-	}
-	return defaultOutFile
 }
 
 func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {

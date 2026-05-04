@@ -46,8 +46,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	dir := outDir(cfg)
-	rulesFile := outRulesFile(cfg)
+	dir := emit.OutputDir(cfg, target, defaultDir)
+	rulesFile := emit.OutputRulesFile(cfg, target, defaultRulesFile)
 
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, "agents", a.Name+".md")
@@ -84,19 +84,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	if len(b.MCPs) > 0 {
-		doc, err := emit.MCPDocument(b.MCPs, emit.MCPSchemaServersMap)
-		if err != nil {
-			return err
-		}
-		if doc != "" {
-			if err := emit.WriteFile(outMCPFile(cfg), doc, dryRun); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 func buildHookSettings(hooks []spec.Entry) map[string]any {
@@ -118,23 +106,3 @@ func buildHookSettings(hooks []spec.Entry) map[string]any {
 	return map[string]any{"hooks": byEvent}
 }
 
-func outDir(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.Dir != "" {
-		return o.Dir
-	}
-	return defaultDir
-}
-
-func outRulesFile(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.RulesFile != "" {
-		return o.RulesFile
-	}
-	return defaultRulesFile
-}
-
-func outMCPFile(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.MCPFile != "" {
-		return o.MCPFile
-	}
-	return defaultMCPFile
-}

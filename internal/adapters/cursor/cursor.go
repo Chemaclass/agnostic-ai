@@ -41,7 +41,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         outDir(cfg),
+		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext:         defaultExt,
 		FormatRule:  func(e spec.Entry) string { return mdc(e, true) },
 		FormatAgent: func(e spec.Entry) string { return mdc(e, false) },
@@ -49,18 +49,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
-	if len(b.MCPs) > 0 {
-		doc, err := emit.MCPDocument(b.MCPs, emit.MCPSchemaServersMap)
-		if err != nil {
-			return err
-		}
-		if doc != "" {
-			if err := emit.WriteFile(outMCPFile(cfg), doc, dryRun); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {
@@ -84,16 +73,3 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	return b.String()
 }
 
-func outDir(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.RulesDir != "" {
-		return o.RulesDir
-	}
-	return defaultDir
-}
-
-func outMCPFile(cfg *config.Config) string {
-	if o, ok := cfg.Outputs[target]; ok && o.MCPFile != "" {
-		return o.MCPFile
-	}
-	return defaultMCPFile
-}

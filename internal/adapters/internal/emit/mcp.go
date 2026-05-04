@@ -19,6 +19,24 @@ const (
 	MCPSchemaVSCodeServers
 )
 
+// WriteMCPFile renders mcps with the target schema and writes to path.
+// No file is written when mcps is empty or every entry produces an empty
+// server block. Adapters call this in lieu of hand-rolling the
+// guard / render / write triple at every call site.
+func WriteMCPFile(mcps []spec.Entry, schema MCPSchema, path string, dryRun bool) error {
+	if len(mcps) == 0 {
+		return nil
+	}
+	doc, err := MCPDocument(mcps, schema)
+	if err != nil {
+		return err
+	}
+	if doc == "" {
+		return nil
+	}
+	return WriteFile(path, doc, dryRun)
+}
+
 // MCPDocument renders an MCP server config file from bundle MCP entries.
 //
 // Each entry's frontmatter accepts: type (stdio|http|sse, default stdio),
