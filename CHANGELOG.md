@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `agnostic-ai init --from claude`: import existing `CLAUDE.md`, `.claude/agents/`, `.claude/skills/`, and `.claude/settings.json` into agnostic source specs. Lowers adoption friction for users with populated Claude Code configs.
+- `agnostic-ai sync --check` and `agnostic-ai doctor`: detect drift between source specs and emitted target files. Use as CI gate.
+- `x-<target>` frontmatter namespace: per-adapter extensions (e.g. `x-claude:`, `x-cursor:`) flatten for the matching target and are stripped for others.
 - Initial Go scaffold.
 - Adapters for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue.
 - Commands: `init`, `sync`, `validate`, `list`.

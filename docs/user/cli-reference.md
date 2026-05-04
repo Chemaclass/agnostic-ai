@@ -16,8 +16,25 @@ agnostic-ai [command] [flags]
 Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`. Errors if `agnostic.config.yaml` exists.
 
 ```bash
-agnostic-ai init
+agnostic-ai init                  # empty scaffold
+agnostic-ai init --from claude    # import existing Claude Code config
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--from <source>` | Import existing config from a source. Supported: `claude`. |
+
+`--from claude` reads the current directory:
+
+| Source | Becomes |
+|--------|---------|
+| `CLAUDE.md` (split on `## headings`) | `rules/<slug>.md` per section |
+| `CLAUDE.md` (no headings) | single `rules/<projectname>.md` |
+| `.claude/agents/*.md` | `agents/<name>.md` (byte-identical copy) |
+| `.claude/skills/<name>/SKILL.md` | `skills/<name>/SKILL.md` |
+| `.claude/settings.json` hooks | `hooks/<event>-<group>-<index>.yaml` |
+
+Writes `targets: [claude]` only. Add other targets to the config and run `agnostic-ai sync`.
 
 ## validate
 

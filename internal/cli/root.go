@@ -109,13 +109,23 @@ func newListCmd() *cobra.Command {
 }
 
 func newInitCmd() *cobra.Command {
-	return &cobra.Command{
+	var from string
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return scaffold(".")
+			switch from {
+			case "":
+				return scaffold(".")
+			case "claude":
+				return importFromClaude(".")
+			default:
+				return fmt.Errorf("unknown source for --from: %q (supported: claude)", from)
+			}
 		},
 	}
+	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude)")
+	return cmd
 }
 
 // loadProject loads config and bundle from root.
