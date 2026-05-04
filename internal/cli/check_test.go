@@ -4,11 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestSync_Check_PassesWhenInSync(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
@@ -26,7 +28,7 @@ func TestSync_Check_PassesWhenInSync(t *testing.T) {
 
 func TestDoctor_DetectsMissing(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
@@ -39,7 +41,7 @@ func TestDoctor_DetectsMissing(t *testing.T) {
 
 func TestDoctor_DetectsStale(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")

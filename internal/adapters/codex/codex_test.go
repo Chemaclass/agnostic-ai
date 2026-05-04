@@ -8,10 +8,11 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestEmit_RootAgentsMd(t *testing.T) {
-	dir := chdir(t)
+	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
@@ -35,7 +36,7 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 }
 
 func TestEmit_NestedByGlobs(t *testing.T) {
-	dir := chdir(t)
+	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "root-rule",
@@ -60,15 +61,17 @@ func TestEmit_NestedByGlobs(t *testing.T) {
 		{"docs/api/AGENTS.md", "api content"},
 	}
 	for _, c := range cases {
-		got := readFile(t, filepath.Join(dir, c.path))
-		if !strings.Contains(got, c.mustContain) {
-			t.Errorf("%s missing %q:\n%s", c.path, c.mustContain, got)
-		}
+		t.Run(c.path, func(t *testing.T) {
+			got := readFile(t, filepath.Join(dir, c.path))
+			if !strings.Contains(got, c.mustContain) {
+				t.Errorf("%s missing %q:\n%s", c.path, c.mustContain, got)
+			}
+		})
 	}
 }
 
 func TestEmit_SkillsListedInRoot(t *testing.T) {
-	dir := chdir(t)
+	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "yaml-validator",
@@ -91,7 +94,7 @@ func TestEmit_SkillsListedInRoot(t *testing.T) {
 }
 
 func TestEmit_AgentsAndSkillsAttachToRootOnly(t *testing.T) {
-	dir := chdir(t)
+	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "src-rule",
@@ -112,7 +115,7 @@ func TestEmit_AgentsAndSkillsAttachToRootOnly(t *testing.T) {
 }
 
 func TestEmit_OutputOverride(t *testing.T) {
-	dir := chdir(t)
+	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{"codex": {File: "vendor/AGENTS.md"}},
@@ -130,22 +133,24 @@ func TestEmit_OutputOverride(t *testing.T) {
 
 func TestRouteDir(t *testing.T) {
 	cases := []struct {
-		globs, want string
+		name, globs, want string
 	}{
-		{"", ""},
-		{"**/*", ""},
-		{"*", ""},
-		{"src/**", "src"},
-		{"src/**/*.go", "src"},
-		{"docs/api/**", "docs/api"},
-		{"**/*.go", ""},
-		{"/src/**", "src"},
+		{"empty", "", ""},
+		{"all-slash", "**/*", ""},
+		{"star", "*", ""},
+		{"src", "src/**", "src"},
+		{"src-go", "src/**/*.go", "src"},
+		{"deep", "docs/api/**", "docs/api"},
+		{"go-only", "**/*.go", ""},
+		{"leading-slash", "/src/**", "src"},
 	}
 	for _, c := range cases {
-		entry := spec.Entry{Meta: map[string]any{"globs": c.globs}}
-		if got := routeDir(entry); got != c.want {
-			t.Errorf("routeDir(%q) = %q, want %q", c.globs, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			entry := spec.Entry{Meta: map[string]any{"globs": c.globs}}
+			if got := routeDir(entry); got != c.want {
+				t.Errorf("routeDir(%q) = %q, want %q", c.globs, got, c.want)
+			}
+		})
 	}
 }
 
@@ -153,19 +158,6 @@ func TestAdapterName(t *testing.T) {
 	if New().Name() != "codex" {
 		t.Errorf("expected codex, got %s", New().Name())
 	}
-}
-
-// helpers
-
-func chdir(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	return dir
 }
 
 func readFile(t *testing.T, path string) string {

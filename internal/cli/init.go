@@ -4,7 +4,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
 )
+
+func newInitCmd() *cobra.Command {
+	var from string
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Scaffold an agnostic-ai project in the current directory.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch from {
+			case "":
+				return scaffold(".")
+			case "claude":
+				return importFromClaude(".")
+			default:
+				return fmt.Errorf("unknown source for --from: %q (supported: claude)", from)
+			}
+		},
+	}
+	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude)")
+	return cmd
+}
 
 const defaultConfig = `version: 1
 

@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/cli"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestSync_EmitsAllTargets(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	root := cli.NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
@@ -42,7 +43,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 
 func TestSync_SingleTarget(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	root := cli.NewRootCmd("test")
 	root.SetArgs([]string{"sync", "-t", "claude"})
@@ -60,7 +61,7 @@ func TestSync_SingleTarget(t *testing.T) {
 
 func TestValidate_OK(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	root := cli.NewRootCmd("test")
 	root.SetArgs([]string{"validate"})
@@ -71,7 +72,7 @@ func TestValidate_OK(t *testing.T) {
 
 func TestList_PrintsEntries(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	root := cli.NewRootCmd("test")
 	root.SetArgs([]string{"list"})
@@ -82,7 +83,7 @@ func TestList_PrintsEntries(t *testing.T) {
 
 func TestInit_ScaffoldsLayout(t *testing.T) {
 	dir := t.TempDir()
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	root := cli.NewRootCmd("test")
 	root.SetArgs([]string{"init"})
@@ -139,14 +140,6 @@ command: "echo edited"
 `), 0o644))
 
 	return dir
-}
-
-func chdir(t *testing.T, dir string) {
-	t.Helper()
-	cwd, err := os.Getwd()
-	must(t, err)
-	must(t, os.Chdir(dir))
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
 }
 
 func must(t *testing.T, err error) {

@@ -7,13 +7,12 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestEmit_WritesRulesAndAgents(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	a := New()
 	if a.Name() != "windsurf" {

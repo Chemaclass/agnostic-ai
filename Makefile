@@ -1,10 +1,10 @@
-.PHONY: build test test-race test-shell coverage coverage-html install clean release
+.PHONY: build test test-race test-shell coverage coverage-html cover lint fmt vet install clean release
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
 
 build:
-	go build -o $(BIN) $(PKG)
+	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
 
 test:
 	go test ./...
@@ -14,6 +14,19 @@ test-race:
 
 test-shell:
 	bashunit scripts/release_test.sh
+
+lint:
+	golangci-lint run
+
+fmt:
+	gofmt -w .
+
+vet:
+	go vet ./...
+
+cover:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
 
 coverage:
 	go test -coverpkg=./internal/...,./cmd/... -coverprofile=coverage.out ./...

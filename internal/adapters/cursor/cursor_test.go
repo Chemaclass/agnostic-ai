@@ -8,13 +8,12 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestEmit_WritesMdcRule(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	a := New()
 	entries := []spec.Entry{
@@ -42,9 +41,7 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 
 func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
@@ -63,9 +60,7 @@ func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
 
 func TestEmit_SkillWritesMdcFile(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "sk1", Meta: map[string]any{"description": "skill desc"}, Body: "skill body"},
