@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -196,7 +198,7 @@ func TestSlugify_Collisions(t *testing.T) {
 
 func TestInitCmd_UnknownFromRejected(t *testing.T) {
 	dir := t.TempDir()
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
@@ -209,7 +211,7 @@ func TestInitCmd_UnknownFromRejected(t *testing.T) {
 func TestInitCmd_FromClaudeRoutes(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## r1\n\nbody\n")
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")

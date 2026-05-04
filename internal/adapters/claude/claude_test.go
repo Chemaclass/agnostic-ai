@@ -9,13 +9,12 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestEmit_WritesAgent(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	a := New()
 	if a.Name() != "claude" {
@@ -43,9 +42,7 @@ func TestEmit_WritesAgent(t *testing.T) {
 
 func TestEmit_WritesSkillNested(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "validator", Body: "skill body"},
@@ -60,9 +57,7 @@ func TestEmit_WritesSkillNested(t *testing.T) {
 
 func TestEmit_WritesRulesIntoClaudeMd(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
@@ -82,9 +77,7 @@ func TestEmit_WritesRulesIntoClaudeMd(t *testing.T) {
 
 func TestEmit_WritesHookSettings(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
 		{
@@ -115,9 +108,7 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 
 func TestEmit_OutputOverride(t *testing.T) {
 	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
+	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{

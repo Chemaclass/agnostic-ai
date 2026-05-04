@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestRoot_VersionFlag(t *testing.T) {
@@ -23,7 +25,7 @@ func TestRoot_VersionFlag(t *testing.T) {
 
 func TestSync_Validate_List_OnFixture(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 
 	// suppress noisy stderr/stdout from cobra during this test
 	silence(t)
@@ -47,7 +49,7 @@ func TestSync_Validate_List_OnFixture(t *testing.T) {
 
 func TestSync_DryRunDoesNotWrite(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
@@ -62,7 +64,7 @@ func TestSync_DryRunDoesNotWrite(t *testing.T) {
 
 func TestSync_UnknownTargetIsSkipped(t *testing.T) {
 	dir := setupFixture(t)
-	chdir(t, dir)
+	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
@@ -86,18 +88,6 @@ func setupFixture(t *testing.T) string {
 	must(os.WriteFile(filepath.Join(dir, "rules", "r1.md"),
 		[]byte("---\nname: r1\n---\nrule body"), 0o644))
 	return dir
-}
-
-func chdir(t *testing.T, dir string) {
-	t.Helper()
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
 }
 
 func silence(t *testing.T) {
