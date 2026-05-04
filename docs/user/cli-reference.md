@@ -45,7 +45,7 @@ Writes `targets: [claude]` only. Add other targets to the config and run `agnost
 | `AGENTS.md` (split on `## headings`) | `rules/<slug>.md` per section |
 | `AGENTS.md` (no headings) | single `rules/<projectname>.md` |
 | `<dir>/AGENTS.md` (nested) | `rules/<slug>.md` with inferred `globs: <dir>/**` |
-| `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped — their `### children` become the rules |
+| `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
 
 Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories and `agents/`, `skills/`, `rules/`, `hooks/`, `node_modules/`, `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files. Writes `targets: [codex]` only.
@@ -126,7 +126,7 @@ agnostic-ai sync --backup           # 1. snapshot existing files
 agnostic-ai revert                  # 2. roll back to the snapshot
 ```
 
-Without a prior `--backup`, `revert` simply removes the generated files;
+Without a prior `--backup`, `revert` removes the generated files;
 nothing is restored.
 
 ## doctor

@@ -29,20 +29,20 @@ Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + Y
 | Target         | Agents | Skills | Rules | Hooks | MCPs |
 |----------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code    | ✅     | ✅     | ✅    | ✅    | ✅   |
-| Codex CLI      | ◐      | ◐      | ✅    | —     | —    |
-| Gemini CLI     | ◐      | ◐      | ✅    | —     | —    |
-| Cursor         | ✅     | ✅     | ✅    | —     | ✅   |
-| GitHub Copilot | ◐      | ◐      | ✅    | —     | ✅   |
-| Aider          | ◐      | ◐      | ✅    | —     | —    |
-| Cline          | ✅     | ✅     | ✅    | —     | —    |
-| Windsurf       | ✅     | ✅     | ✅    | —     | —    |
-| Continue       | ✅     | ✅     | ✅    | —     | —    |
-| Amp            | ◐      | ◐      | ✅    | —     | —    |
-| Zed            | ◐      | ◐      | ✅    | —     | —    |
-| Warp           | ◐      | ◐      | ✅    | —     | —    |
-| OpenCode       | ◐      | ◐      | ✅    | —     | —    |
+| Codex CLI      | ◐      | ◐      | ✅    | -     | -    |
+| Gemini CLI     | ◐      | ◐      | ✅    | -     | -    |
+| Cursor         | ✅     | ✅     | ✅    | -     | ✅   |
+| GitHub Copilot | ◐      | ◐      | ✅    | -     | ✅   |
+| Aider          | ◐      | ◐      | ✅    | -     | -    |
+| Cline          | ✅     | ✅     | ✅    | -     | -    |
+| Windsurf       | ✅     | ✅     | ✅    | -     | -    |
+| Continue       | ✅     | ✅     | ✅    | -     | -    |
+| Amp            | ◐      | ◐      | ✅    | -     | -    |
+| Zed            | ◐      | ◐      | ✅    | -     | -    |
+| Warp           | ◐      | ◐      | ✅    | -     | -    |
+| OpenCode       | ◐      | ◐      | ✅    | -     | -    |
 
-Legend: ✅ separate files · ◐ merged into single doc · — not supported. Hooks are Claude-specific. MCP propagation lands in the schema each tool understands.
+Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks are Claude-specific. MCP propagation lands in the schema each tool understands.
 
 ## Install
 

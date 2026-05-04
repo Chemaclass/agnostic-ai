@@ -19,6 +19,7 @@ Each layer can add new specs by name or override an existing one. The transpiler
 
 Filed as issues:
 
-- More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)).
-- Richer `--from <source>` importers beyond `claude`.
+- More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)). Recently shipped: Amp, Zed, Warp, OpenCode.
+- Richer `--from <source>` importers. Shipped: `claude`, `codex`, `cursor`. Wanted: `cline`, `windsurf`, `continue`.
 - `doctor` improvements (drift fixes, not only detection).
+- More MCP-aware targets. Shipped: Claude (`.mcp.json`), Cursor (`.cursor/mcp.json`), Copilot (`.vscode/mcp.json`).

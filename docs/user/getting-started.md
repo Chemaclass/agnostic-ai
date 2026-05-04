@@ -30,7 +30,8 @@ agnostic-ai init
 ├── agents/
 ├── skills/
 ├── rules/
-└── hooks/
+├── hooks/
+└── mcps/
 ```
 
 ### Already on Claude Code?
@@ -92,12 +93,39 @@ Full tree after sync with the default targets:
 ├── rules/
 │   └── conventional-commits.md
 ├── CLAUDE.md                                    # for Claude Code
+├── AGENT.md                                     # for Amp
 ├── AGENTS.md                                    # for Codex
 ├── GEMINI.md                                    # for Gemini CLI
+├── WARP.md                                      # for Warp
 ├── CONVENTIONS.md                               # for Aider
+├── .rules                                       # for Zed
+├── .opencode/AGENTS.md                          # for OpenCode
 ├── .github/copilot-instructions.md              # for Copilot
 ├── .cursor/rules/conventional-commits.mdc       # for Cursor
 ├── .clinerules/conventional-commits.md          # for Cline
 ├── .windsurf/rules/conventional-commits.md      # for Windsurf
 └── .continue/rules/conventional-commits.md      # for Continue
 ```
+
+## Roll back a sync
+
+```bash
+agnostic-ai sync --backup    # snapshot existing outputs to <path>.bak
+# ...experiment with spec changes...
+agnostic-ai revert           # restore from .bak when present, else delete
+```
+
+Pair `--backup` with `revert` for safe iteration. Without `--backup`,
+`revert` removes the generated files.
+
+## Auto-manage .gitignore
+
+Add to `agnostic.config.yaml` to keep generated paths out of git:
+
+```yaml
+gitignore:
+  enabled: true
+```
+
+`sync` rewrites a managed block in `.gitignore` listing every emitted
+path. Lines outside the block are preserved.

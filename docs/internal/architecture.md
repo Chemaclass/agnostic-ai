@@ -6,16 +6,19 @@
 agnostic-ai/
 ├── cmd/agnostic-ai/main.go         # entry point
 ├── internal/
-│   ├── cli/                        # cobra commands (sync, validate, list, init)
+│   ├── cli/                        # cobra commands (sync, validate, list,
+│   │                                 init, doctor, revert; gitignore helper)
 │   ├── config/                     # agnostic.config.yaml loader
 │   ├── spec/                       # spec file loader (md+frontmatter, yaml)
+│   │                                 with per-directory scope assignment
 │   └── adapters/
 │       ├── adapter.go              # Adapter interface + registry
-│       ├── internal/emit/          # shared emit helpers
-│       ├── claude/                 # Claude Code adapter
-│       ├── codex/                  # Codex adapter
-│       ├── gemini/                 # Gemini CLI adapter
-│       └── cursor/                 # Cursor adapter
+│       ├── internal/emit/          # shared emit helpers (write file,
+│       │                             merged docs, rules dirs, MCP, output
+│       │                             path resolvers, capture/recording)
+│       ├── claude/  codex/  gemini/  cursor/  copilot/  aider/
+│       ├── cline/   windsurf/  continueai/
+│       └── amp/  zed/  warp/  opencode/    # 13 adapters total
 ├── .agnostic-ai/                # dogfood source specs (this repo's own AI config)
 ├── docs/                        # user docs, internal docs, examples/
 └── Makefile
@@ -28,16 +31,33 @@ agnostic.config.yaml ─┐
                       ├─► config.Load ─► Config
                       │
 agents/*.md ──────────┤
-skills/*.md ──────────┼─► spec.LoadAll ─► []spec.Entry
-rules/*.md ───────────┤
-hooks/*.yaml ─────────┘
+skills/*.md ──────────┤
+rules/*.md ───────────┼─► spec.LoadBundle ─► spec.Bundle (Agents, Skills,
+hooks/*.yaml ─────────┤                       Rules, Hooks, MCPs; per-entry
+mcps/*.yaml ──────────┘                       Scope derived from layout)
 
-[]spec.Entry ──► adapter.Emit(entries, config) ──► files written
-                  ├─ claude:  .claude/, CLAUDE.md
-                  ├─ codex:   AGENTS.md
-                  ├─ gemini:  GEMINI.md
-                  └─ cursor:  .cursor/rules/
+spec.Bundle ──► adapter.Emit(bundle, config, dryRun) ──► files written
+                 ├─ claude:    .claude/, CLAUDE.md, .mcp.json
+                 ├─ codex:     AGENTS.md (root + nested per scope/globs)
+                 ├─ cursor:    .cursor/rules/, .cursor/mcp.json
+                 ├─ copilot:   .github/..., .vscode/mcp.json
+                 ├─ amp/zed/warp/opencode: AGENT.md / .rules / WARP.md / .opencode/AGENTS.md
+                 └─ ...
 ```
+
+## Emit modes
+
+The shared `emit` package keeps three orthogonal modes behind a mutex-
+guarded `state` struct:
+
+| Mode      | Effect | Used by |
+|-----------|--------|---------|
+| capture   | suppresses IO; records `(path, content)` pairs | `sync --check`, `doctor`, `revert` |
+| recording | does NOT suppress IO; records paths only      | `sync` with gitignore enabled |
+| backup    | copies existing `<path>` to `<path>.bak` before overwriting | `sync --backup` |
+
+Modes are independent and can stack (e.g. recording + backup during a
+gitignore-managed sync).
 
 ## Core types
 
@@ -45,30 +65,34 @@ hooks/*.yaml ─────────┘
 
 ```go
 type Entry struct {
-    Kind Kind            // KindAgent | KindSkill | KindRule | KindHook
-    Name string          // identifier
-    Path string          // source file path (for error messages)
-    Meta map[string]any  // frontmatter or YAML fields
-    Body string          // markdown body (empty for hooks)
+    Kind  Kind             // KindAgent | KindSkill | KindRule | KindHook | KindMCP
+    Name  string            // identifier
+    Path  string            // source file path (for error messages and provenance)
+    Scope string            // implicit per-directory scope from source layout
+    Meta  map[string]any    // frontmatter or YAML fields
+    Body  string            // markdown body (empty for hooks/mcps)
 }
 ```
 
-One spec file = one Entry. Adapters consume `[]Entry` and emit per target.
+One spec file = one Entry. Adapters consume a `spec.Bundle` (Entries
+pre-bucketed by Kind) and emit per target.
 
 ### `Adapter` interface
 
 ```go
 type Adapter interface {
     Name() string
-    Emit(entries []spec.Entry, cfg *config.Config, dryRun bool) error
+    Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error
 }
 ```
 
-Stateless. Construct once, call `Emit` per sync.
+Stateless. Construct once via `New()`, call `Emit` per sync.
 
 ### `config.Config`
 
 Mirrors `agnostic.config.yaml`. Defaults applied in `config.Load`.
+Holds `Sources` (per-kind source dirs), `Outputs` (per-target path
+overrides, including `mcp-file`), and the `Gitignore` block.
 
 ## Registry
 
