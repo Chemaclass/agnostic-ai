@@ -111,42 +111,20 @@ extract_changelog_section() {
 }
 
 # format_release_notes <vX.Y.Z> <CHANGELOG path> <repo nameWithOwner> —
-# echoes a markdown release-notes body: install block + changelog section +
-# docs links.
+# echoes the changelog section for ver plus a single link to the full
+# changelog. Install instructions and docs live in README; not duplicated
+# here.
 format_release_notes() {
   local ver="$1" changelog="$2" repo="$3"
   local section
   section="$(extract_changelog_section "$changelog" "$ver")" \
     || { printf 'error: no [%s] section in %s\n' "$ver" "$changelog" >&2; return 1; }
   cat <<EOF
-## Install
-
-Homebrew:
-\`\`\`bash
-brew install chemaclass/tap/agnostic-ai
-\`\`\`
-
-Direct binary:
-\`\`\`bash
-curl -fsSL https://github.com/$repo/releases/download/$ver/agnostic-ai_\$(uname -s)_\$(uname -m).tar.gz | tar xz
-\`\`\`
-
-From source:
-\`\`\`bash
-go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@$ver
-\`\`\`
-
-## What's in $ver
-
 $section
 
-## Documentation
+---
 
-- [Getting started](https://github.com/$repo/blob/main/docs/user/getting-started.md)
-- [Spec format](https://github.com/$repo/blob/main/docs/user/spec-format.md)
-- [Targets and capability matrix](https://github.com/$repo/blob/main/docs/user/targets.md)
-- [CLI reference](https://github.com/$repo/blob/main/docs/user/cli-reference.md)
-- [Full changelog](https://github.com/$repo/blob/main/CHANGELOG.md)
+[Full changelog](https://github.com/$repo/blob/main/CHANGELOG.md) · [README](https://github.com/$repo#readme)
 EOF
 }
 
