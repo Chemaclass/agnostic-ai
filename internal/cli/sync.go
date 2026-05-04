@@ -11,7 +11,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets []string
-	var dryRun, check bool
+	var dryRun, check, backup bool
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -34,6 +34,10 @@ func newSyncCmd() *cobra.Command {
 			if len(targets) == 0 {
 				targets = cfg.Targets
 			}
+			if backup {
+				adapters.SetBackup(true)
+				defer adapters.SetBackup(false)
+			}
 			for _, t := range targets {
 				adapter, ok := adapters.Get(t)
 				if !ok {
@@ -51,5 +55,6 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
+	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
 	return cmd
 }

@@ -28,7 +28,14 @@ type CapturedFile struct {
 var (
 	capturing bool
 	captured  []CapturedFile
+	backup    bool
 )
+
+// SetBackup toggles backup mode. When enabled, WriteFile renames an
+// existing file to `<path>.bak` before overwriting. The flag is process
+// global; pair every SetBackup(true) with SetBackup(false) once the sync
+// pass completes.
+func SetBackup(b bool) { backup = b }
 
 // StartCapture redirects subsequent WriteFile calls to an in-memory buffer
 // instead of touching disk or stdout. Used by `sync --check` and `doctor`
@@ -61,6 +68,15 @@ func WriteFile(path, content string, dryRun bool) error {
 	}
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
+	}
+	if backup {
+		if existing, err := os.ReadFile(path); err == nil {
+			if string(existing) != content {
+				if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+					return fmt.Errorf("backup %s: %w", path, err)
+				}
+			}
+		}
 	}
 	if err := os.WriteFile(path, []byte(content), filePerm); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)

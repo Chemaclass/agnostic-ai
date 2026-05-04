@@ -28,6 +28,12 @@ func StartCapture() { emit.StartCapture() }
 // StopCapture returns the captured files and disables capture mode.
 func StopCapture() []CapturedFile { return emit.StopCapture() }
 
+// SetBackup toggles backup mode on the shared emit layer. When enabled,
+// adapter writes copy any pre-existing target file to `<path>.bak` before
+// overwriting. Used by `sync --backup` to leave a recovery trail that
+// `revert` can restore from.
+func SetBackup(b bool) { emit.SetBackup(b) }
+
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.

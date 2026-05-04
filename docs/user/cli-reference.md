@@ -13,7 +13,7 @@ agnostic-ai [command] [flags]
 
 ## init
 
-Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`. Errors if `agnostic.config.yaml` exists.
+Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic.config.yaml` exists.
 
 ```bash
 agnostic-ai init                  # empty scaffold
@@ -92,6 +92,7 @@ agnostic-ai sync [flags]
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--dry-run` | Print to stdout instead of writing files |
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
+| `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
 
 ```bash
 agnostic-ai sync                    # all targets in config
@@ -99,9 +100,33 @@ agnostic-ai sync -t claude          # only claude
 agnostic-ai sync -t claude,cursor   # subset
 agnostic-ai sync --dry-run          # preview
 agnostic-ai sync --check            # CI gate: fail if outputs are stale
+agnostic-ai sync --backup           # leave a .bak trail for revert
 ```
 
 Unknown targets log a warning to stderr and skip.
+
+## revert
+
+Undo a previous sync. For every file an adapter would emit, restores
+`<path>.bak` if present (and removes the .bak), otherwise removes the file.
+
+```bash
+agnostic-ai revert [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `--dry-run` | Report intended actions without touching disk |
+
+```bash
+agnostic-ai sync --backup           # 1. snapshot existing files
+# ...edits or experiments...
+agnostic-ai revert                  # 2. roll back to the snapshot
+```
+
+Without a prior `--backup`, `revert` simply removes the generated files;
+nothing is restored.
 
 ## doctor
 
