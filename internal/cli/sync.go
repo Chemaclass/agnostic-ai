@@ -7,11 +7,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func newSyncCmd() *cobra.Command {
 	var targets []string
 	var dryRun, check, backup bool
+	var gitignoreFlag string
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -49,6 +51,16 @@ func newSyncCmd() *cobra.Command {
 					return fmt.Errorf("%s: %w", t, err)
 				}
 			}
+			if !dryRun && resolveGitignore(cfg, gitignoreFlag) {
+				paths, err := collectEmittedPaths(cfg, b, targets)
+				if err != nil {
+					return fmt.Errorf("gitignore: %w", err)
+				}
+				if err := updateGitignore(cfg, paths); err != nil {
+					return fmt.Errorf("gitignore: %w", err)
+				}
+				fmt.Println("→ updated .gitignore")
+			}
 			return nil
 		},
 	}
@@ -56,5 +68,18 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
+	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run")
 	return cmd
+}
+
+// resolveGitignore picks the effective gitignore mode: the --gitignore
+// flag wins when set, otherwise cfg.Gitignore.Enabled.
+func resolveGitignore(cfg *config.Config, flag string) bool {
+	switch flag {
+	case "on", "true", "yes":
+		return true
+	case "off", "false", "no":
+		return false
+	}
+	return cfg.Gitignore.Enabled
 }

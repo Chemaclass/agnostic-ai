@@ -13,6 +13,7 @@ sources:
   skills: skills
   rules: rules
   hooks: hooks
+  mcps: mcps
 
 # AI CLIs to emit configs for.
 targets:
@@ -52,6 +53,13 @@ outputs:
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for any target other than claude).
 on-unsupported: warn   # warn | error | silent
+
+# Auto-manage a block in .gitignore listing every generated path.
+# When enabled, `sync` rewrites the block; `--gitignore on|off` overrides
+# this setting for one run.
+gitignore:
+  enabled: false
+  path: .gitignore   # default
 ```
 
 ## Top-level fields
@@ -63,6 +71,7 @@ on-unsupported: warn   # warn | error | silent
 | `targets` | list | all 9 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
+| `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
 
 ## `sources`
 
@@ -72,6 +81,7 @@ on-unsupported: warn   # warn | error | silent
 | `skills` | `skills` | Directory containing `*.md` skill specs (or nested `<name>/SKILL.md`). |
 | `rules` | `rules` | Directory containing `*.md` rule specs. |
 | `hooks` | `hooks` | Directory containing `*.yaml` hook specs. |
+| `mcps` | `mcps` | Directory containing `*.yaml` MCP server specs. |
 
 Paths are relative to the config file. Missing directories are skipped silently.
 
@@ -105,6 +115,17 @@ When omitted: all 9 adapters above. Comment out entries to disable targets. CLI 
 | `silent` | Skip without logging. |
 
 Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for Codex or `skills` for Cursor.
+
+## `gitignore`
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters would emit. |
+| `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
+
+The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged).
+
+Override per-run with `--gitignore on|off` on `sync`.
 
 ## Path semantics
 

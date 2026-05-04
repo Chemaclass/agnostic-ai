@@ -93,6 +93,7 @@ agnostic-ai sync [flags]
 | `--dry-run` | Print to stdout instead of writing files |
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
+| `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 
 ```bash
 agnostic-ai sync                    # all targets in config

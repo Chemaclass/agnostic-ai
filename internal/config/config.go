@@ -14,6 +14,17 @@ type Config struct {
 	Targets       []string          `yaml:"targets"`
 	Outputs       map[string]Output `yaml:"outputs"`
 	OnUnsupported string            `yaml:"on-unsupported"`
+	Gitignore     Gitignore         `yaml:"gitignore"`
+}
+
+// Gitignore controls automatic management of .gitignore entries for the
+// generated target files. When Enabled, every `sync` run rewrites a
+// managed block in `.gitignore` (created if missing) listing every path
+// the configured adapters would emit.
+type Gitignore struct {
+	Enabled bool `yaml:"enabled"`
+	// Path overrides the .gitignore location relative to the project root.
+	Path string `yaml:"path,omitempty"`
 }
 
 type Sources struct {
