@@ -80,6 +80,9 @@ func renderConfig(base string, targets []string) string {
 	return sb.String()
 }
 
+// scaffold creates agnostic.config.yaml at root and the source-folder
+// tree under base. targets is written verbatim to the targets: block;
+// callers must supply at least one entry.
 func scaffold(root, base string, demo bool, targets []string) error {
 	cfgPath := filepath.Join(root, "agnostic.config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {

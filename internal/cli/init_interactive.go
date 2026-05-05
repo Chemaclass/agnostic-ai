@@ -1,5 +1,10 @@
 package cli
 
+// This file holds the canonical target list shared by the default and
+// interactive init flows. It grows in later commits to host the
+// interactive selection logic (selectTargets, parsePipedSelection)
+// behind agnostic-ai init -i.
+
 // targetChoice is one selectable AI CLI target shown to the user and
 // written to agnostic.config.yaml.
 type targetChoice struct {

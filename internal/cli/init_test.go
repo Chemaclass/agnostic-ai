@@ -224,6 +224,9 @@ func TestRenderConfig_DefaultTargetsListAllThirteen(t *testing.T) {
 			t.Errorf("renderConfig missing %q in:\n%s", name, got)
 		}
 	}
+	if count := strings.Count(got, "\n  - "); count != len(allTargets) {
+		t.Errorf("expected %d targets in output, got %d", len(allTargets), count)
+	}
 }
 
 func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
