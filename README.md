@@ -123,7 +123,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 | Target         | Agents | Skills | Rules | Hooks | MCPs |
 |----------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code    |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI      |   ✅    |   ◐    |   ✅   |   -   |  -   |
+| Codex CLI      |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Gemini CLI     |   ◐    |   ◐    |   ✅   |   -   |  -   |
 | Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | GitHub Copilot |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
