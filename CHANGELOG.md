@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `agnostic-ai init` scaffolds source folders under `.agnostic-ai/` by default (was project root).
 - `agnostic-ai init [dir]` accepts an optional positional argument to override the base directory. Use `agnostic-ai init .` for the legacy root-level layout.
 - Codex `AGENTS.md` `## Agents` section no longer inlines agent bodies. It lists each agent with its description and a pointer to the source TOML, so the body lives in exactly one place.
+- README: sharper hook, side-by-side "one spec, many outputs" demo, expanded fan-out diagram, "What you get" highlights, restructured docs links.
 
 ### Removed
 - `agnostic-ai init --from <source>` flag. Run `agnostic-ai init` followed by `agnostic-ai import <source>` instead.
