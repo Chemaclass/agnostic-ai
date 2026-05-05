@@ -153,6 +153,7 @@ agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,h
 agnostic-ai init --demo           # same, plus one example spec per folder to learn from
 agnostic-ai sync                  # emit native config for every target
 agnostic-ai sync --dry-run        # preview without writing
+agnostic-ai sync --watch          # re-emit on spec changes (Ctrl+C to exit)
 agnostic-ai revert                # undo last sync
 ```
 

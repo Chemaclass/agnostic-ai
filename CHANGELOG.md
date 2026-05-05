@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `agnostic-ai sync --watch`: keep the process alive and re-emit on any change under the source directories or `agnostic.config.yaml`. Polls every 200 ms (natural debounce for rapid edits). Ctrl+C exits cleanly. Incompatible with `--check` (errors early).
 - `agnostic-ai init --demo`: seed each source folder with one minimal example spec (`agents/code-reviewer.md`, `skills/yaml-validator.md`, `rules/conventional-commits.md`, `hooks/format-on-save.yaml`, `mcps/filesystem.yaml`) so a fresh project produces real `sync` output immediately. Existing files are never overwritten.
 - `agnostic-ai import <source>`: translate an existing AI CLI configuration into agnostic specs in an already-initialized project. Honors the `sources:` paths from `agnostic.config.yaml`. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
 - Codex subagent emission: each agent now emits to `.codex/agents/<name>.toml` (Codex CLI subagent schema). Override the location with `outputs.codex.agents-dir`. Frontmatter `model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates` (under `x-codex:`) pass through to the TOML.
