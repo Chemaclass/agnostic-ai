@@ -49,3 +49,11 @@ func OutputAgentsDir(cfg *config.Config, target, fallback string) string {
 	}
 	return fallback
 }
+
+// OutputSkillsDir returns cfg.Outputs[target].SkillsDir when set, otherwise fallback.
+func OutputSkillsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.SkillsDir != "" {
+		return o.SkillsDir
+	}
+	return fallback
+}

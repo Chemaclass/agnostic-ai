@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - `agnostic-ai import <source>`: translate an existing AI CLI configuration into agnostic specs in an already-initialized project. Honors the `sources:` paths from `agnostic.config.yaml`. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
 - Codex subagent emission: each agent now emits to `.codex/agents/<name>.toml` (Codex CLI subagent schema). Override the location with `outputs.codex.agents-dir`. Frontmatter `model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates` (under `x-codex:`) pass through to the TOML.
+- Codex skill emission: each skill now emits its own folder at `.agents/skills/<name>/SKILL.md` per the [Codex skills layout](https://developers.openai.com/codex/skills), instead of being inlined as a listing inside `AGENTS.md`. Override the location with `outputs.codex.skills-dir`. When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an additional `agents/openai.yaml` is written alongside `SKILL.md` for UI customization, policy, and tool dependencies.
 - `Examples:` blocks on every command (`--help`) showing the typical workflow: init/sync, migrate from another tool, CI drift gate, dry-run, backup, etc.
 
 ### Changed
