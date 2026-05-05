@@ -19,7 +19,14 @@ Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rul
 agnostic-ai init                  # default base dir: .agnostic-ai/
 agnostic-ai init specs            # custom base: specs/{agents,skills,...}/
 agnostic-ai init .                # legacy root-level layout
+agnostic-ai init --demo           # seed each source folder with one example spec
+agnostic-ai init -i               # interactive: pick which targets land in config
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Existing files are never overwritten. |
+| `-i, --interactive` | Multi-select prompt to pick which targets land in `agnostic.config.yaml`. Accepts piped comma-separated input for non-TTY use (e.g. `echo "claude,codex" \| agnostic-ai init -i`). |
 
 The optional positional `[dir]` arg sets the base directory under which
 the source folders are created. The generated `agnostic.config.yaml`
@@ -100,6 +107,10 @@ agnostic-ai validate
 loaded 12 entries. ok.
 ```
 
+When no specs are loaded, `validate` prints a hint to stderr suggesting
+`init` or `import` to populate sources. Stdout still reports `loaded 0
+entries. ok.` so scripts that rely on stdout do not break.
+
 ## list
 
 Print all loaded specs as `kind<tab>name`.
@@ -107,6 +118,9 @@ Print all loaded specs as `kind<tab>name`.
 ```bash
 agnostic-ai list
 ```
+
+When no specs are loaded, `list` prints the same stderr hint and keeps
+stdout empty so pipes stay clean.
 
 ## sync
 
@@ -123,6 +137,8 @@ agnostic-ai sync [flags]
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
+| `--watch` | Keep the process alive and re-emit on spec or config changes (200 ms poll). Ctrl+C exits cleanly. Incompatible with `--check`. |
+| `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
 
 ```bash
 agnostic-ai sync                    # all targets in config
@@ -131,6 +147,8 @@ agnostic-ai sync -t claude,cursor   # subset
 agnostic-ai sync --dry-run          # preview
 agnostic-ai sync --check            # CI gate: fail if outputs are stale
 agnostic-ai sync --backup           # leave a .bak trail for revert
+agnostic-ai sync --watch            # re-emit on spec changes; Ctrl+C exits
+agnostic-ai sync --auto-sync=yes    # opt in to agent-managed auto-sync
 ```
 
 Unknown targets log a warning to stderr and skip.

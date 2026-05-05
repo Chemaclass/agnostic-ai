@@ -24,7 +24,14 @@ go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
 agnostic-ai init                 # default base dir: .agnostic-ai/
 agnostic-ai init specs           # custom base
 agnostic-ai init .               # legacy root-level layout
+agnostic-ai init --demo          # plus one example spec per source folder
+agnostic-ai init -i              # interactive: pick which targets land in config
 ```
+
+`--demo` seeds each source folder with a minimal example spec so the
+first `sync` produces real output. `-i` (or `--interactive`) prompts
+for which targets to enable; pipe a comma-separated list (`echo
+"claude,codex" | agnostic-ai init -i`) for non-TTY use.
 
 ```
 .
@@ -84,7 +91,8 @@ agnostic-ai sync
 | `GEMINI.md` | Gemini CLI |
 | `.cursor/rules/conventional-commits.mdc` | Cursor |
 
-Full tree after sync with the default targets:
+Full tree after `sync` with the default targets (only files with content
+are written; empty stubs are skipped):
 
 ```
 .
@@ -117,6 +125,33 @@ agnostic-ai revert           # restore from .bak when present, else delete
 
 Pair `--backup` with `revert` for safe iteration. Without `--backup`,
 `revert` removes the generated files.
+
+## Watch mode
+
+Skip the manual `sync` after every spec edit:
+
+```bash
+agnostic-ai sync --watch
+```
+
+Polls every 200 ms for changes under the source directories or
+`agnostic.config.yaml` and re-emits affected targets. Ctrl+C exits
+cleanly. Incompatible with `--check`.
+
+## Auto-sync rule
+
+On the first `sync` in a TTY, `agnostic-ai` offers to write an
+`auto-sync` rule spec instructing agents to run `agnostic-ai sync`
+whenever specs change. Skip the prompt with the flag:
+
+```bash
+agnostic-ai sync --auto-sync=yes   # write the rule, persist autoSync: true
+agnostic-ai sync --auto-sync=no    # skip, persist autoSync: false
+```
+
+The answer is saved to `agnostic.config.yaml` as `autoSync: true|false`
+so the prompt fires only once. `--dry-run` skips the prompt and the
+persistence step.
 
 ## Auto-manage .gitignore
 

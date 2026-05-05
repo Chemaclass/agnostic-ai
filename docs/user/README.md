@@ -6,7 +6,7 @@ Read in this order. Each builds on the previous.
 2. [Spec format](spec-format.md): the five kinds (agent, skill, rule, hook, MCP), nested per-directory scope, and the `x-<target>` namespace for tool-specific extensions.
 3. [Targets](targets.md): capability matrix and per-target output paths (13 supported tools).
 4. [Configuration](configuration.md): `agnostic.config.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
-5. [CLI reference](cli-reference.md): every command and flag, including `sync --check`, `sync --backup`, `revert`, and `doctor`.
+5. [CLI reference](cli-reference.md): every command and flag, including `sync --watch`, `sync --auto-sync`, `sync --check`, `sync --backup`, `init --demo`, `init -i`, `import <source>`, `revert`, and `doctor`.
 
 ## Mental model
 
