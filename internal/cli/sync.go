@@ -18,6 +18,20 @@ func newSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Emit per-target configs from agnostic specs.",
+		Example: `  # Emit every target listed in agnostic.config.yaml
+  agnostic-ai sync
+
+  # Emit only Claude and Cursor
+  agnostic-ai sync -t claude -t cursor
+
+  # Preview without writing
+  agnostic-ai sync --dry-run
+
+  # CI gate: non-zero exit when output drifts from specs
+  agnostic-ai sync --check
+
+  # Back up each existing file to <path>.bak before overwriting
+  agnostic-ai sync --backup`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
 				return err

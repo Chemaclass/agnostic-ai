@@ -16,6 +16,16 @@ func NewRootCmd(version string) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version,
+		Example: `  # Start a new project and emit configs for every target
+  agnostic-ai init
+  agnostic-ai sync
+
+  # Migrate an existing project from another tool
+  agnostic-ai init
+  agnostic-ai import claude
+
+  # CI gate: fail when emitted files drift from specs
+  agnostic-ai sync --check`,
 	}
 	root.AddCommand(
 		newSyncCmd(),

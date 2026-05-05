@@ -50,7 +50,14 @@ type MergedOpts struct {
 // MergedDocument writes a single markdown file with rules, agents, and
 // skills merged into sections. Used by adapters whose target CLI consumes
 // a single file (Codex's flat mode, Gemini, Copilot, Aider).
+//
+// Returns nil without writing when the bundle has no rules, agents, or
+// skills, so a fresh `init` followed by `sync` does not pollute the
+// project root with empty stub files.
 func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
+	if len(b.Rules) == 0 && len(b.Agents) == 0 && len(b.Skills) == 0 {
+		return nil
+	}
 	if opts.RulesHeading == "" {
 		opts.RulesHeading = "Rules"
 	}

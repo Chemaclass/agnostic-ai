@@ -10,12 +10,18 @@ func newValidateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate",
 		Short: "Validate agnostic specs.",
+		Example: `  # Parse every spec and print the loaded count
+  agnostic-ai validate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
-			fmt.Printf("loaded %d entries. ok.\n", len(b.All()))
+			n := len(b.All())
+			fmt.Fprintf(cmd.OutOrStdout(), "loaded %d entries. ok.\n", n)
+			if n == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), emptySpecsHint)
+			}
 			return nil
 		},
 	}

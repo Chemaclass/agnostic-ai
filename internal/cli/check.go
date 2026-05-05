@@ -97,6 +97,11 @@ func newDoctorCmd() *cobra.Command {
 			"With --fix, doctor reconciles drift by writing the missing or stale\n" +
 			"files. Pair with --backup to copy each existing file to <path>.bak\n" +
 			"before overwriting hand-edits.",
+		Example: `  # Diagnose drift (CI gate)
+  agnostic-ai doctor
+
+  # Reconcile drift in place, keeping a .bak of each hand-edited file
+  agnostic-ai doctor --fix --backup`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reports, err := collectDrift(targets)
 			if err != nil {

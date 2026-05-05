@@ -20,6 +20,14 @@ func newInitCmd() *cobra.Command {
 		Long: "Creates agnostic.config.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout).",
+		Example: `  # Default: scaffold under .agnostic-ai/
+  agnostic-ai init
+
+  # Legacy root-level layout (agents/, skills/, rules/, ... at project root)
+  agnostic-ai init .
+
+  # Custom base directory
+  agnostic-ai init config/ai`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			base := defaultBaseDir
