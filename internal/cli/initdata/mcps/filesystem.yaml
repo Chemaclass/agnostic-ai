@@ -1,0 +1,7 @@
+name: filesystem
+description: Local filesystem MCP server for reading project files.
+command: npx
+args:
+  - -y
+  - "@modelcontextprotocol/server-filesystem"
+  - "."
