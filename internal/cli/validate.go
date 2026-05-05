@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +16,9 @@ func newValidateCmd() *cobra.Command {
 				return err
 			}
 			n := len(b.All())
-			fmt.Fprintf(cmd.OutOrStdout(), "loaded %d entries. ok.\n", n)
+			cmd.Printf("loaded %d entries. ok.\n", n)
 			if n == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), emptySpecsHint)
+				cmd.PrintErrln(emptySpecsHint)
 			}
 			return nil
 		},

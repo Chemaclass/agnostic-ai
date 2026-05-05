@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +17,7 @@ func newListCmd() *cobra.Command {
 			}
 			entries := b.All()
 			if len(entries) == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), emptySpecsHint)
+				cmd.PrintErrln(emptySpecsHint)
 				return nil
 			}
 			for _, e := range entries {
@@ -27,7 +25,7 @@ func newListCmd() *cobra.Command {
 				if layer == "" {
 					layer = layerNameProject
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", e.Kind, e.Name, layer)
+				cmd.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
 			}
 			return nil
 		},
