@@ -1,5 +1,11 @@
 package cli
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
 // This file holds the canonical target list shared by the default and
 // interactive init flows. It grows in later commits to host the
 // interactive selection logic (selectTargets, parsePipedSelection)
@@ -37,4 +43,49 @@ func allTargetNames() []string {
 		out[i] = t.Name
 	}
 	return out
+}
+
+// errNoTargets is returned when a selection (interactive or piped)
+// resolves to zero targets. Surfaced to the user with a clear message.
+var errNoTargets = errors.New("no targets selected; rerun and pick at least one")
+
+// parsePipedSelection takes a single line of comma-separated target
+// names, trims whitespace around each entry, deduplicates while
+// preserving canonical (allTargets) order, and validates every name
+// against allTargets. An empty or whitespace-only line returns
+// errNoTargets. An unknown name returns a descriptive error listing
+// the valid names.
+func parsePipedSelection(line string) ([]string, error) {
+	raw := strings.Split(strings.TrimSpace(line), ",")
+	picked := make(map[string]bool, len(raw))
+	for _, r := range raw {
+		name := strings.TrimSpace(r)
+		if name == "" {
+			continue
+		}
+		if !isKnownTarget(name) {
+			return nil, fmt.Errorf("unknown target %q (valid: %s)",
+				name, strings.Join(allTargetNames(), ", "))
+		}
+		picked[name] = true
+	}
+	if len(picked) == 0 {
+		return nil, errNoTargets
+	}
+	out := make([]string, 0, len(picked))
+	for _, t := range allTargets {
+		if picked[t.Name] {
+			out = append(out, t.Name)
+		}
+	}
+	return out, nil
+}
+
+func isKnownTarget(name string) bool {
+	for _, t := range allTargets {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
 }
