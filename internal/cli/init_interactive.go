@@ -14,7 +14,7 @@ import (
 
 // This file holds the canonical target list and the selection helpers
 // shared by the default and interactive init flows. selectTargets
-// (added in the next commit) branches on TTY vs piped input.
+// branches on TTY vs piped input.
 
 // targetChoice is one selectable AI CLI target shown to the user and
 // written to agnostic.config.yaml.
@@ -77,13 +77,7 @@ func parsePipedSelection(line string) ([]string, error) {
 	if len(picked) == 0 {
 		return nil, errNoTargets
 	}
-	out := make([]string, 0, len(picked))
-	for _, t := range allTargets {
-		if picked[t.Name] {
-			out = append(out, t.Name)
-		}
-	}
-	return out, nil
+	return filterToCanonicalOrder(picked), nil
 }
 
 // isKnownTarget reports whether name matches any entry in allTargets.
@@ -94,6 +88,18 @@ func isKnownTarget(name string) bool {
 		}
 	}
 	return false
+}
+
+// filterToCanonicalOrder returns the subset of allTargets whose names
+// appear in picked, preserving allTargets order.
+func filterToCanonicalOrder(picked map[string]bool) []string {
+	out := make([]string, 0, len(picked))
+	for _, t := range allTargets {
+		if picked[t.Name] {
+			out = append(out, t.Name)
+		}
+	}
+	return out
 }
 
 // selectTargets returns the user's chosen subset of allTargets, by
@@ -137,15 +143,9 @@ func runInteractivePrompt(stderr io.Writer) ([]string, error) {
 	if len(picked) == 0 {
 		return nil, errNoTargets
 	}
-	out := make([]string, 0, len(picked))
 	pickedSet := make(map[string]bool, len(picked))
 	for _, n := range picked {
 		pickedSet[n] = true
 	}
-	for _, t := range allTargets {
-		if pickedSet[t.Name] {
-			out = append(out, t.Name)
-		}
-	}
-	return out, nil
+	return filterToCanonicalOrder(pickedSet), nil
 }
