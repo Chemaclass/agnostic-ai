@@ -91,9 +91,9 @@ func TestInit_ScaffoldsLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, d := range []string{"agents", "skills", "rules", "hooks"} {
-		if _, err := os.Stat(filepath.Join(dir, d)); err != nil {
-			t.Errorf("expected dir %s to exist", d)
+	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); err != nil {
+			t.Errorf("expected dir .agnostic-ai/%s to exist", d)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); err != nil {

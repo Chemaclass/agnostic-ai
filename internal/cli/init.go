@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// defaultBaseDir is the default parent directory for scaffolded source
+// folders (agents, skills, rules, hooks, mcps).
+const defaultBaseDir = ".agnostic-ai"
 
 // rulesDirImporters maps a --from source name to the rules directory the
 // importer walks. Claude, Codex, and Cursor have richer importers and
@@ -19,13 +24,14 @@ var rulesDirImporters = map[string]string{
 
 func newInitCmd() *cobra.Command {
 	var from string
+	var dir string
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch from {
 			case "":
-				return scaffold(".")
+				return scaffold(".", dir)
 			case "claude":
 				return importFromClaude(".")
 			case "codex":
@@ -40,17 +46,25 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude, codex, cursor, cline, windsurf, continue)")
+	cmd.Flags().StringVar(&dir, "dir", defaultBaseDir, "Base directory for scaffolded source folders. Use \".\" to write at project root.")
 	return cmd
 }
 
-const defaultConfig = `version: 1
+// renderDefaultConfig builds agnostic.config.yaml with source paths nested
+// under base. base="." writes paths at the project root.
+func renderDefaultConfig(base string) string {
+	prefix := ""
+	if base != "" && base != "." {
+		prefix = filepath.ToSlash(base) + "/"
+	}
+	return fmt.Sprintf(`version: 1
 
 sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-  mcps: mcps
+  agents: %sagents
+  skills: %sskills
+  rules: %srules
+  hooks: %shooks
+  mcps: %smcps
 
 targets:
   - claude
@@ -68,22 +82,34 @@ targets:
   - opencode
 
 on-unsupported: warn
-`
+`, prefix, prefix, prefix, prefix, prefix)
+}
 
-func scaffold(root string) error {
+func scaffold(root, base string) error {
 	cfgPath := filepath.Join(root, "agnostic.config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		return fmt.Errorf("agnostic.config.yaml already exists")
 	}
-	dirs := []string{"agents", "skills", "rules", "hooks", "mcps"}
-	for _, d := range dirs {
-		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+	if base == "" {
+		base = defaultBaseDir
+	}
+	kinds := []string{"agents", "skills", "rules", "hooks", "mcps"}
+	for _, k := range kinds {
+		if err := os.MkdirAll(filepath.Join(root, base, k), 0o755); err != nil {
 			return err
 		}
 	}
-	if err := os.WriteFile(cfgPath, []byte(defaultConfig), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(renderDefaultConfig(base)), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("scaffold complete. edit agents/, skills/, rules/, hooks/, mcps/ then run `agnostic-ai sync`.")
+	fmt.Printf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
 	return nil
+}
+
+func scaffoldHint(base string, kinds []string) string {
+	list := strings.Join(kinds, ",")
+	if base == "" || base == "." {
+		return fmt.Sprintf("{%s}/", list)
+	}
+	return fmt.Sprintf("%s/{%s}/", filepath.ToSlash(base), list)
 }
