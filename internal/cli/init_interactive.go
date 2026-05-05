@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-// This file holds the canonical target list shared by the default and
-// interactive init flows. It grows in later commits to host the
-// interactive selection logic (selectTargets, parsePipedSelection)
-// behind agnostic-ai init -i.
+// This file holds the canonical target list and the selection helpers
+// shared by the default and interactive init flows. selectTargets
+// (added in the next commit) branches on TTY vs piped input.
 
 // targetChoice is one selectable AI CLI target shown to the user and
 // written to agnostic.config.yaml.
@@ -81,6 +80,7 @@ func parsePipedSelection(line string) ([]string, error) {
 	return out, nil
 }
 
+// isKnownTarget reports whether name matches any entry in allTargets.
 func isKnownTarget(name string) bool {
 	for _, t := range allTargets {
 		if t.Name == name {
