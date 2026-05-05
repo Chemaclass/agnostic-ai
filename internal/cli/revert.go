@@ -24,6 +24,11 @@ func newRevertCmd() *cobra.Command {
 			"  - otherwise the file is removed (it did not exist before sync)\n" +
 			"Pair with `sync --backup` so the .bak trail exists. Without backups,\n" +
 			"revert simply deletes the generated files.",
+		Example: `  # Preview what would be reverted
+  agnostic-ai revert --dry-run
+
+  # Restore .bak files where they exist; remove generated files otherwise
+  agnostic-ai revert`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, b, err := loadProject(".")
 			if err != nil {
