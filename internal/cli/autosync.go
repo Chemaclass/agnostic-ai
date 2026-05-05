@@ -54,7 +54,7 @@ func handleAutoSync(root, flag string, in io.Reader, out io.Writer) error {
 		if err := writeAutoSyncSpec(rulesDir); err != nil {
 			return fmt.Errorf("write auto-sync spec: %w", err)
 		}
-		fmt.Fprintln(out, "→ auto-sync enabled: agents will run `agnostic-ai sync` when specs change")
+		_, _ = fmt.Fprintln(out, "→ auto-sync enabled: agents will run `agnostic-ai sync` when specs change")
 	}
 
 	return nil
@@ -93,7 +93,7 @@ func resolveAutoSync(cfg *config.Config, flag string, in io.Reader, out io.Write
 }
 
 func promptAutoSync(in io.Reader, out io.Writer) (bool, error) {
-	fmt.Fprint(out, "Sync automatically when specs change? [y/N] ")
+	_, _ = fmt.Fprint(out, "Sync automatically when specs change? [y/N] ")
 	br := bufio.NewReader(in)
 	line, err := br.ReadString('\n')
 	if err != nil && err != io.EOF {
