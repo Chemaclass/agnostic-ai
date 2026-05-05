@@ -12,16 +12,17 @@ Write prompts and project conventions **once**. agnostic-ai emits the right conf
 Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + YAML frontmatter, no proprietary extensions.
 
 ```
-                               ┌──► .claude/agents/*.md
-                               ├──► CLAUDE.md
-                               ├──► AGENTS.md          (Codex)
-   agents/                     ├──► GEMINI.md
-   skills/  agnostic-ai sync   ├──► .cursor/rules/*.mdc
-   rules/   ─────────────────► ├──► .github/copilot-instructions.md
-   hooks/                      ├──► CONVENTIONS.md    (Aider)
-                               ├──► .clinerules/*.md
-                               ├──► .windsurf/rules/*.md
-                               └──► .continue/rules/*.md
+                                  ┌──► .claude/agents/*.md
+                                  ├──► CLAUDE.md
+                                  ├──► AGENTS.md            (Codex)
+                                  ├──► .codex/agents/*.toml (Codex subagents)
+   .agnostic-ai/agents/           ├──► GEMINI.md
+   .agnostic-ai/skills/  sync     ├──► .cursor/rules/*.mdc
+   .agnostic-ai/rules/   ───────► ├──► .github/copilot-instructions.md
+   .agnostic-ai/hooks/            ├──► CONVENTIONS.md      (Aider)
+                                  ├──► .clinerules/*.md
+                                  ├──► .windsurf/rules/*.md
+                                  └──► .continue/rules/*.md
 ```
 
 ## Supported targets
@@ -29,7 +30,7 @@ Aligned with the [AGENTS.md](https://agents.md) open standard. Markdown body + Y
 | Target         | Agents | Skills | Rules | Hooks | MCPs |
 |----------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code    |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI      |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Codex CLI      |   ✅    |   ◐    |   ✅   |   -   |  -   |
 | Gemini CLI     |   ◐    |   ◐    |   ✅   |   -   |  -   |
 | Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | GitHub Copilot |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
@@ -57,7 +58,7 @@ More options (Homebrew, curl one-liner): [docs/user/getting-started.md](docs/use
 ## Quickstart
 
 ```bash
-agnostic-ai init    # scaffold agents/, skills/, rules/, hooks/
+agnostic-ai init    # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/
 agnostic-ai sync    # emit configs for every target
 ```
 
