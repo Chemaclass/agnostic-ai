@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,22 +15,33 @@ import (
 // folders (agents, skills, rules, hooks, mcps).
 const defaultBaseDir = ".agnostic-ai"
 
+// demoFS holds one minimal sample spec per source kind. Used by
+// `init --demo` to seed a fresh project so the user can run `sync`
+// immediately and see what each adapter produces.
+//
+//go:embed initdata/agents/* initdata/skills/* initdata/rules/* initdata/hooks/* initdata/mcps/*
+var demoFS embed.FS
+
 func newInitCmd() *cobra.Command {
+	var demo bool
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
 		Long: "Creates agnostic.config.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
-			"to override (use \".\" for the legacy root-level layout).",
+			"to override (use \".\" for the legacy root-level layout). " +
+			"Pass --demo to seed each source folder with a minimal example spec.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			base := defaultBaseDir
 			if len(args) == 1 {
 				base = args[0]
 			}
-			return scaffold(".", base)
+			return scaffold(".", base, demo)
 		},
 	}
+	cmd.Flags().BoolVar(&demo, "demo", false,
+		"Seed each source folder with a minimal example spec.")
 	return cmd
 }
 
@@ -67,7 +80,7 @@ on-unsupported: warn
 `, prefix, prefix, prefix, prefix, prefix)
 }
 
-func scaffold(root, base string) error {
+func scaffold(root, base string, demo bool) error {
 	cfgPath := filepath.Join(root, "agnostic.config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		return fmt.Errorf("agnostic.config.yaml already exists")
@@ -84,9 +97,50 @@ func scaffold(root, base string) error {
 	if err := os.WriteFile(cfgPath, []byte(renderDefaultConfig(base)), 0o644); err != nil {
 		return err
 	}
+	if demo {
+		if err := writeDemoFiles(filepath.Join(root, base)); err != nil {
+			return err
+		}
+	}
 	fmt.Printf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
+	if demo {
+		fmt.Println("seeded one example spec per source folder. delete or edit to taste.")
+	}
 	fmt.Println("import existing AI CLI config with `agnostic-ai import <source>`.")
 	return nil
+}
+
+// writeDemoFiles mirrors every file under initdata/ into baseDir,
+// preserving the kind subfolder. Existing files are left untouched so a
+// rerun against a partially populated tree never clobbers user content.
+func writeDemoFiles(baseDir string) error {
+	return fs.WalkDir(demoFS, "initdata", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel("initdata", path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(baseDir, filepath.FromSlash(rel))
+		if _, err := os.Stat(dst); err == nil {
+			return nil
+		}
+		data, err := demoFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read embedded %s: %w", path, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", dst, err)
+		}
+		return nil
+	})
 }
 
 func scaffoldHint(base string, kinds []string) string {

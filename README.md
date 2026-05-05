@@ -150,6 +150,7 @@ Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclas
 
 ```bash
 agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/
+agnostic-ai init --demo           # same, plus one example spec per folder to learn from
 agnostic-ai sync                  # emit native config for every target
 agnostic-ai sync --dry-run        # preview without writing
 agnostic-ai revert                # undo last sync
