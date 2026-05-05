@@ -46,11 +46,11 @@ func newInitCmd() *cobra.Command {
 const defaultConfig = `version: 1
 
 sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-  mcps: mcps
+  agents: .agnostic-ai/agents
+  skills: .agnostic-ai/skills
+  rules: .agnostic-ai/rules
+  hooks: .agnostic-ai/hooks
+  mcps: .agnostic-ai/mcps
 
 targets:
   - claude
@@ -75,7 +75,13 @@ func scaffold(root string) error {
 	if _, err := os.Stat(cfgPath); err == nil {
 		return fmt.Errorf("agnostic.config.yaml already exists")
 	}
-	dirs := []string{"agents", "skills", "rules", "hooks", "mcps"}
+	dirs := []string{
+		filepath.Join(".agnostic-ai", "agents"),
+		filepath.Join(".agnostic-ai", "skills"),
+		filepath.Join(".agnostic-ai", "rules"),
+		filepath.Join(".agnostic-ai", "hooks"),
+		filepath.Join(".agnostic-ai", "mcps"),
+	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			return err
@@ -84,6 +90,6 @@ func scaffold(root string) error {
 	if err := os.WriteFile(cfgPath, []byte(defaultConfig), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("scaffold complete. edit agents/, skills/, rules/, hooks/, mcps/ then run `agnostic-ai sync`.")
+	fmt.Println("scaffold complete. edit .agnostic-ai/{agents,skills,rules,hooks,mcps}/ then run `agnostic-ai sync`.")
 	return nil
 }

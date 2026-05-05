@@ -12,8 +12,8 @@ func TestScaffold_CreatesLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
-		if _, err := os.Stat(filepath.Join(dir, d)); err != nil {
-			t.Errorf("missing %s", d)
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); err != nil {
+			t.Errorf("missing .agnostic-ai/%s", d)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); err != nil {
