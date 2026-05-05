@@ -48,7 +48,7 @@ func newInitCmd() *cobra.Command {
 			if len(args) == 1 {
 				base = args[0]
 			}
-			return scaffold(".", base, demo)
+			return scaffold(".", base, demo, allTargetNames())
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
@@ -56,42 +56,31 @@ func newInitCmd() *cobra.Command {
 	return cmd
 }
 
-// renderDefaultConfig builds agnostic.config.yaml with source paths nested
-// under base. base="." writes paths at the project root.
-func renderDefaultConfig(base string) string {
+// renderConfig builds agnostic.config.yaml with source paths nested
+// under base and the given targets list. base="." writes paths at the
+// project root. Targets are emitted in the order provided.
+func renderConfig(base string, targets []string) string {
 	prefix := ""
 	if base != "" && base != "." {
 		prefix = filepath.ToSlash(base) + "/"
 	}
-	return fmt.Sprintf(`version: 1
-
-sources:
-  agents: %sagents
-  skills: %sskills
-  rules: %srules
-  hooks: %shooks
-  mcps: %smcps
-
-targets:
-  - claude
-  - codex
-  - gemini
-  - cursor
-  - copilot
-  - aider
-  - cline
-  - windsurf
-  - continue
-  - amp
-  - zed
-  - warp
-  - opencode
-
-on-unsupported: warn
-`, prefix, prefix, prefix, prefix, prefix)
+	var sb strings.Builder
+	sb.WriteString("version: 1\n\n")
+	sb.WriteString("sources:\n")
+	fmt.Fprintf(&sb, "  agents: %sagents\n", prefix)
+	fmt.Fprintf(&sb, "  skills: %sskills\n", prefix)
+	fmt.Fprintf(&sb, "  rules: %srules\n", prefix)
+	fmt.Fprintf(&sb, "  hooks: %shooks\n", prefix)
+	fmt.Fprintf(&sb, "  mcps: %smcps\n", prefix)
+	sb.WriteString("\ntargets:\n")
+	for _, t := range targets {
+		fmt.Fprintf(&sb, "  - %s\n", t)
+	}
+	sb.WriteString("\non-unsupported: warn\n")
+	return sb.String()
 }
 
-func scaffold(root, base string, demo bool) error {
+func scaffold(root, base string, demo bool, targets []string) error {
 	cfgPath := filepath.Join(root, "agnostic.config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		return fmt.Errorf("agnostic.config.yaml already exists")
@@ -105,7 +94,7 @@ func scaffold(root, base string, demo bool) error {
 			return err
 		}
 	}
-	if err := os.WriteFile(cfgPath, []byte(renderDefaultConfig(base)), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets)), 0o644); err != nil {
 		return err
 	}
 	if demo {
