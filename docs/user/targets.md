@@ -7,7 +7,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
 |-----------------|---------------------|--------|--------------------------|-------|------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` | `.mcp.json` |
-| **codex**       | merged in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
+| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
 | **gemini**      | merged in `GEMINI.md` | listed in `GEMINI.md` | `GEMINI.md`     | -     | - |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | merged in instructions | listed in instructions | `.github/copilot-instructions.md` | - | `.vscode/mcp.json` |
@@ -51,13 +51,18 @@ Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-fil
 
 ```
 AGENTS.md
-src/AGENTS.md           # if any rule has globs: src/**
-docs/api/AGENTS.md      # if any rule has globs: docs/api/**
+src/AGENTS.md                                # if any rule has globs: src/**
+docs/api/AGENTS.md                           # if any rule has globs: docs/api/**
+.codex/agents/<name>.toml                    # one TOML per agent
+.agents/skills/<name>/SKILL.md               # one folder per skill
+.agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
 ```
 
-Config key: `outputs.codex.file` (default `AGENTS.md`).
+Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.codex/agents`), `outputs.codex.skills-dir` (default `.agents/skills`).
 
-Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. Skills are listed by name + description in the root with a pointer to the source path; Codex has no native skill execution.
+Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file.
+
+Skills follow the [Codex skills layout](https://developers.openai.com/codex/skills): one folder per skill under `.agents/skills/<name>/` with a required `SKILL.md` (frontmatter `name` + `description`, plus the body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an additional `agents/openai.yaml` is written in the skill folder for UI customization and policy declarations. The root `AGENTS.md` lists each skill with a pointer to its `SKILL.md`.
 
 ### Gemini CLI (`gemini`)
 

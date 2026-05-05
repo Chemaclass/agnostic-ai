@@ -195,8 +195,135 @@ func TestEmit_SkillsListedInRoot(t *testing.T) {
 	if !strings.Contains(got, "yaml-validator") {
 		t.Errorf("missing skill name:\n%s", got)
 	}
-	if !strings.Contains(got, "skills/yaml-validator.md") {
-		t.Errorf("missing skill source path:\n%s", got)
+	if !strings.Contains(got, ".agents/skills/yaml-validator/SKILL.md") {
+		t.Errorf("AGENTS.md should point at the per-skill SKILL.md:\n%s", got)
+	}
+}
+
+func TestEmit_SkillFolderLayout(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator",
+			Path: "skills/yaml-validator.md",
+			Body: "Run yamllint, then suggest fixes.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	for _, want := range []string{
+		"name: yaml-validator",
+		"description: Validate YAML.",
+		"Run yamllint, then suggest fixes.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("SKILL.md frontmatter should not leak unrelated keys:\n%s", got)
+	}
+}
+
+func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "explorer",
+			Body: "Trace the call graph."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/explorer/SKILL.md"))
+	if !strings.Contains(got, "description: explorer") {
+		t.Errorf("expected description to fall back to name:\n%s", got)
+	}
+}
+
+func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator",
+			Body: "Validate YAML files.",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"x-codex": map[string]any{
+					"interface": map[string]any{
+						"display_name": "YAML Validator",
+						"brand_color":  "#3B82F6",
+					},
+					"policy": map[string]any{
+						"allow_implicit_invocation": false,
+					},
+					"dependencies": map[string]any{
+						"tools": []any{
+							map[string]any{
+								"type":  "mcp",
+								"value": "yamllint",
+							},
+						},
+					},
+				},
+			}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/agents/openai.yaml"))
+	for _, want := range []string{
+		"display_name: YAML Validator",
+		"brand_color: '#3B82F6'",
+		"allow_implicit_invocation: false",
+		"type: mcp",
+		"value: yamllint",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("openai.yaml missing %q in:\n%s", want, got)
+		}
+	}
+
+	skillMd := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	if strings.Contains(skillMd, "interface:") || strings.Contains(skillMd, "x-codex") {
+		t.Errorf("SKILL.md frontmatter should not contain x-codex/interface fields:\n%s", skillMd)
+	}
+}
+
+func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "explorer", Body: "Look around."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/explorer/agents/openai.yaml")); err == nil {
+		t.Errorf("agents/openai.yaml should not be written without x-codex extras")
+	}
+}
+
+func TestEmit_SkillFolder_RespectsSkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"codex": {SkillsDir: "vendor/codex/skills"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "explorer", Body: "Look around."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/skills/explorer/SKILL.md")); err != nil {
+		t.Errorf("expected SKILL.md at custom skills-dir: %v", err)
+	}
+	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(got, "vendor/codex/skills/explorer/SKILL.md") {
+		t.Errorf("AGENTS.md should reference the override path:\n%s", got)
 	}
 }
 

@@ -32,6 +32,7 @@ agnostic-ai keeps **one source of truth** in plain Markdown + YAML frontmatter, 
                                      │
    .agnostic-ai/agents/   ┌───────┐  ├──► AGENTS.md            (Codex)
    .agnostic-ai/skills/   │       │  ├──► .codex/agents/*.toml
+                          │       │  ├──► .agents/skills/*/SKILL.md
    .agnostic-ai/rules/    │ sync  │  ├──► GEMINI.md
    .agnostic-ai/hooks/    │       │──┤
    .agnostic-ai/mcps/     │       │  ├──► .cursor/rules/*.mdc

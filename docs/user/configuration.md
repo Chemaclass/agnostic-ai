@@ -93,8 +93,9 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
 | `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
-| `codex` | `file` | `AGENTS.md` | Single merged document (rules + agent listing + skill listing). Nested `<dir>/AGENTS.md` files share this base. |
+| `codex` | `file` | `AGENTS.md` | Rules document; nested `<dir>/AGENTS.md` files share this base. Lists agents and skills with pointers to their per-target files. |
 | `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). |
+| `codex` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, optional `<name>/agents/openai.yaml`) per the Codex skills layout. |
 | `gemini` | `file` | `GEMINI.md` | Single merged document. |
 | `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
 | `copilot` | `file` | `.github/copilot-instructions.md` | Single merged document. |

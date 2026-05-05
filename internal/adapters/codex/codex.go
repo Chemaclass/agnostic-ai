@@ -1,5 +1,5 @@
-// Package codex emits AGENTS.md hierarchies and .codex/agents/*.toml
-// files for the Codex CLI.
+// Package codex emits AGENTS.md hierarchies, .codex/agents/*.toml files,
+// and .agents/skills/<name>/ skill folders for the Codex CLI.
 //
 // The Codex CLI reads AGENTS.md for project conventions and supports
 // nested AGENTS.md files in subdirectories that scope to that subtree.
@@ -16,8 +16,14 @@
 // agent name, description, and source TOML path so humans browsing the
 // document still see what is available.
 //
-// Codex has no native skill or hook systems: skills are listed by name +
-// source path; hooks are skipped.
+// Skills emit as a folder per skill under .agents/skills/<name>/ (override
+// via outputs.codex.skills-dir) per the Codex skills layout. Each folder
+// contains a SKILL.md with `name` + `description` frontmatter plus the
+// skill body. When the spec provides `x-codex.interface`, `x-codex.policy`,
+// or `x-codex.dependencies`, an additional `agents/openai.yaml` is written
+// alongside SKILL.md for UI customization and policy declarations.
+//
+// Codex has no native hook system: hooks are skipped.
 package codex
 
 import (
@@ -34,6 +40,7 @@ const (
 	target           = "codex"
 	defaultOutFile   = "AGENTS.md"
 	defaultAgentsDir = ".codex/agents"
+	defaultSkillsDir = ".agents/skills"
 )
 
 var caps = emit.Capabilities{
@@ -62,10 +69,17 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	rootDir := filepath.Dir(rootFile)
 	rootBase := filepath.Base(rootFile)
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".toml")
 		if err := emit.WriteFile(path, agentTOML(a), dryRun); err != nil {
+			return err
+		}
+	}
+
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
 			return err
 		}
 	}
@@ -83,7 +97,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		writeRules(&sb, byDir[dir])
 		if dir == "" {
 			writeAgents(&sb, b.Agents, agentsDir)
-			writeSkills(&sb, b.Skills)
+			writeSkills(&sb, b.Skills, skillsDir)
 		}
 		path := filepath.Join(rootDir, dir, rootBase)
 		if err := emit.WriteFile(path, sb.String(), dryRun); err != nil {
@@ -162,19 +176,23 @@ func writeAgents(sb *strings.Builder, agents []spec.Entry, agentsDir string) {
 	}
 }
 
-func writeSkills(sb *strings.Builder, skills []spec.Entry) {
+// writeSkills renders a reference listing of skills in AGENTS.md. Each
+// skill emits as its own folder under skillsDir per the Codex skills
+// layout; this section just helps humans see what is available without
+// browsing the directory.
+func writeSkills(sb *strings.Builder, skills []spec.Entry, skillsDir string) {
 	if len(skills) == 0 {
 		return
 	}
 	sb.WriteString("## Skills\n\n")
-	sb.WriteString("Codex has no native skills. The following are available as reference; invoke them by reading the source file.\n\n")
+	sb.WriteString("Codex skills. Definitions live in `" + skillsDir + "/<name>/SKILL.md`.\n\n")
 	for _, s := range skills {
 		sb.WriteString("### " + s.Name + "\n\n")
 		sb.WriteString(emit.SourceComment(s.Path))
 		if d := s.Description(); d != "" {
 			sb.WriteString("_" + d + "_\n\n")
 		}
-		sb.WriteString("Source: `" + s.Path + "`\n\n")
+		sb.WriteString("Source: `" + filepath.ToSlash(filepath.Join(skillsDir, s.Name, "SKILL.md")) + "`\n\n")
 	}
 }
 
