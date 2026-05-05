@@ -23,16 +23,20 @@ const defaultBaseDir = ".agnostic-ai"
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
-	var demo bool
+	var demo, interactive bool
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
 		Long: "Creates agnostic.config.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
-			"Pass --demo to seed each source folder with a minimal example spec.",
+			"Pass --demo to seed each source folder with a minimal example spec. " +
+			"Pass -i / --interactive to pick which targets land in the config.",
 		Example: `  # Default: scaffold under .agnostic-ai/
   agnostic-ai init
+
+  # Pick which targets to enable
+  agnostic-ai init -i
 
   # Seed each source folder with one minimal example spec
   agnostic-ai init --demo
@@ -48,11 +52,21 @@ func newInitCmd() *cobra.Command {
 			if len(args) == 1 {
 				base = args[0]
 			}
-			return scaffold(".", base, demo, allTargetNames())
+			targets := allTargetNames()
+			if interactive {
+				picked, err := selectTargets(cmd.InOrStdin(), cmd.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+				targets = picked
+			}
+			return scaffold(".", base, demo, targets)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
 		"Seed each source folder with a minimal example spec.")
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false,
+		"Prompt for which targets to enable instead of writing all.")
 	return cmd
 }
 
