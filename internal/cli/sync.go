@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -12,7 +16,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets []string
-	var dryRun, check, backup bool
+	var dryRun, check, backup, watch bool
 	var gitignoreFlag string
 
 	cmd := &cobra.Command{
@@ -36,6 +40,9 @@ func newSyncCmd() *cobra.Command {
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
 				return err
 			}
+			if watch && check {
+				return fmt.Errorf("--watch and --check are incompatible")
+			}
 			if check {
 				reports, err := collectDrift(targets)
 				if err != nil {
@@ -46,42 +53,12 @@ func newSyncCmd() *cobra.Command {
 				}
 				return nil
 			}
-			cfg, b, err := loadProject(".")
-			if err != nil {
-				return err
+			if watch {
+				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+				defer stop()
+				return watchSync(ctx, 200*time.Millisecond, ".", targets, dryRun, backup, gitignoreFlag)
 			}
-			if len(targets) == 0 {
-				targets = cfg.Targets
-			}
-			if backup {
-				adapters.SetBackup(true)
-				defer adapters.SetBackup(false)
-			}
-			gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
-			if gitignoreOn {
-				adapters.StartRecording()
-			}
-			for _, t := range targets {
-				adapter, ok := adapters.Get(t)
-				if !ok {
-					fmt.Fprintf(os.Stderr, "! unknown target: %s\n", t)
-					continue
-				}
-				fmt.Printf("→ emit %s\n", t)
-				if err := adapter.Emit(b, cfg, dryRun); err != nil {
-					if gitignoreOn {
-						adapters.StopRecording()
-					}
-					return fmt.Errorf("%s: %w", t, err)
-				}
-			}
-			if gitignoreOn {
-				if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
-					return fmt.Errorf("gitignore: %w", err)
-				}
-				fmt.Println("→ updated .gitignore")
-			}
-			return nil
+			return runSyncOnce(".", targets, dryRun, backup, gitignoreFlag)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
@@ -89,7 +66,48 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
+	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	return cmd
+}
+
+func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+	cfg, b, err := loadProject(root)
+	if err != nil {
+		return err
+	}
+	effectiveTargets := targets
+	if len(effectiveTargets) == 0 {
+		effectiveTargets = cfg.Targets
+	}
+	if backup {
+		adapters.SetBackup(true)
+		defer adapters.SetBackup(false)
+	}
+	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
+	if gitignoreOn {
+		adapters.StartRecording()
+	}
+	for _, t := range effectiveTargets {
+		adapter, ok := adapters.Get(t)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "! unknown target: %s\n", t)
+			continue
+		}
+		fmt.Printf("→ emit %s\n", t)
+		if err := adapter.Emit(b, cfg, dryRun); err != nil {
+			if gitignoreOn {
+				adapters.StopRecording()
+			}
+			return fmt.Errorf("%s: %w", t, err)
+		}
+	}
+	if gitignoreOn {
+		if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
+			return fmt.Errorf("gitignore: %w", err)
+		}
+		fmt.Println("→ updated .gitignore")
+	}
+	return nil
 }
 
 // resolveGitignore picks the effective gitignore mode: the --gitignore
