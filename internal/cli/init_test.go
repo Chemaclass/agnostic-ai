@@ -307,7 +307,10 @@ func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "agents", "code-reviewer.md")); err != nil {
 		t.Errorf("expected demo agent file, got %v", err)
 	}
-	cfg, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
 	if !strings.Contains(string(cfg), "  - claude\n") {
 		t.Errorf("config missing claude:\n%s", cfg)
 	}
