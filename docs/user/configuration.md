@@ -26,6 +26,10 @@ targets:
   - cline
   - windsurf
   - continue
+  - amp
+  - zed
+  - warp
+  - opencode
 
 # Per-target output overrides. Each target accepts only the fields
 # relevant to it. Defaults shown in comments.
@@ -35,6 +39,8 @@ outputs:
     rules-file: CLAUDE.md      # default
   codex:
     file: AGENTS.md            # default
+    agents-dir: .codex/agents  # default. One TOML per agent (Codex subagent schema).
+    skills-dir: .agents/skills # default. One folder per skill per the Codex skills layout.
   gemini:
     file: GEMINI.md            # default
   cursor:
@@ -49,6 +55,14 @@ outputs:
     rules-dir: .windsurf/rules # default
   continue:
     rules-dir: .continue/rules # default
+  amp:
+    file: AGENT.md             # default
+  zed:
+    file: .rules               # default
+  warp:
+    file: WARP.md              # default
+  opencode:
+    file: .opencode/AGENTS.md  # default. Routed under .opencode/ to coexist with Codex.
 
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for any target other than claude).
@@ -60,6 +74,12 @@ on-unsupported: warn   # warn | error | silent
 gitignore:
   enabled: false
   path: .gitignore   # default
+
+# Persisted answer to the first-run auto-sync prompt. Set by
+# `sync --auto-sync=yes|no` or interactively on first sync. When true,
+# `sync` writes an `auto-sync` rule spec telling agents to run
+# `agnostic-ai sync` whenever specs change.
+autoSync: false
 ```
 
 ## Top-level fields
@@ -68,10 +88,11 @@ gitignore:
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version. Reserved for future migrations. |
 | `sources` | map | see below | Per-kind source directories (relative to config file). |
-| `targets` | list | all 9 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
+| `targets` | list | all 13 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
+| `autoSync` | bool | unset | Whether `sync` keeps the `auto-sync` rule spec. Set by the first-run prompt or `sync --auto-sync=yes\|no`. Unset means the prompt has not yet fired. |
 
 ## `sources`
 
@@ -103,10 +124,14 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
 | `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
+| `amp` | `file` | `AGENT.md` | Single merged document. |
+| `zed` | `file` | `.rules` | Single merged document. |
+| `warp` | `file` | `WARP.md` | Single merged document. |
+| `opencode` | `file` | `.opencode/AGENTS.md` | Single merged document; routed under `.opencode/` to coexist with Codex. |
 
 ## `targets`
 
-When omitted: all 9 adapters above. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
+When omitted: all 13 adapters above. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ### Interactive target selection
 
@@ -142,6 +167,19 @@ Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for 
 The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged).
 
 Override per-run with `--gitignore on|off` on `sync`.
+
+## `autoSync`
+
+Persisted answer to the first-run auto-sync prompt. Three states:
+
+| Value | Meaning |
+|-------|---------|
+| unset | Prompt has not fired. On a TTY, the next `sync` asks; non-TTY runs are silent. |
+| `true` | Agents are expected to run `agnostic-ai sync` when specs change. The `auto-sync` rule spec under `sources.rules` carries the instruction. |
+| `false` | User opted out. No prompt on subsequent syncs. |
+
+Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
+`--auto-sync=no`. The prompt and persistence are skipped under `--dry-run`.
 
 ## Path semantics
 

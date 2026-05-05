@@ -102,7 +102,12 @@ description: Validate YAML against a schema.
 | `name` | no | dir or filename | Skill identifier. Used for the output directory. |
 | `description` | no | empty | One-liner shown when the model decides whether to invoke the skill. |
 
-Emitted natively by Claude Code only. Other targets log a warning and skip.
+Emitted natively by Claude Code (`.claude/skills/<name>/SKILL.md`) and
+Codex (`.agents/skills/<name>/SKILL.md`). Cursor, Cline, Windsurf, and
+Continue emit each skill as a rule file (`skill-<name>.{mdc,md}`).
+Merged-document targets (Gemini, Copilot, Aider, Amp, Zed, Warp,
+OpenCode) list skills in a `## Skills` section. See
+[targets](targets.md) for the full matrix.
 
 ## Rules
 
@@ -224,3 +229,10 @@ Examples:
 | `claude` | `name`, `description`, `model`, `allowed-tools` |
 | `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
 | `gemini` | `name`, `description`, `model` |
+
+For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`,
+`sandbox_mode`, `nickname_candidates`) pass through to the generated
+`.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`,
+`x-codex.policy`, and `x-codex.dependencies` trigger an additional
+`.agents/skills/<name>/agents/openai.yaml` for UI customization, policy,
+and tool dependencies.

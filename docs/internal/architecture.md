@@ -7,7 +7,8 @@ agnostic-ai/
 ├── cmd/agnostic-ai/main.go         # entry point
 ├── internal/
 │   ├── cli/                        # cobra commands (sync, validate, list,
-│   │                                 init, doctor, revert; gitignore helper)
+│   │                                 init, import, doctor, revert; gitignore
+│   │                                 helper, watch loop, auto-sync prompt)
 │   ├── config/                     # agnostic.config.yaml loader
 │   ├── spec/                       # spec file loader (md+frontmatter, yaml)
 │   │                                 with per-directory scope assignment
@@ -38,7 +39,8 @@ mcps/*.yaml ──────────┘                       Scope derive
 
 spec.Bundle ──► adapter.Emit(bundle, config, dryRun) ──► files written
                  ├─ claude:    .claude/, CLAUDE.md, .mcp.json
-                 ├─ codex:     AGENTS.md (root + nested per scope/globs)
+                 ├─ codex:     AGENTS.md (lists agents w/ pointers; nested per scope/globs),
+                 │             .codex/agents/<name>.toml, .agents/skills/<name>/SKILL.md
                  ├─ cursor:    .cursor/rules/, .cursor/mcp.json
                  ├─ copilot:   .github/..., .vscode/mcp.json
                  ├─ amp/zed/warp/opencode: AGENT.md / .rules / WARP.md / .opencode/AGENTS.md
@@ -58,6 +60,10 @@ guarded `state` struct:
 
 Modes are independent and can stack (e.g. recording + backup during a
 gitignore-managed sync).
+
+`sync --watch` wraps these by polling the source directories and
+`agnostic.config.yaml` every 200 ms and re-running `Emit` whenever an
+mtime changes.
 
 ## Core types
 
@@ -92,7 +98,9 @@ Stateless. Construct once via `New()`, call `Emit` per sync.
 
 Mirrors `agnostic.config.yaml`. Defaults applied in `config.Load`.
 Holds `Sources` (per-kind source dirs), `Outputs` (per-target path
-overrides, including `mcp-file`), and the `Gitignore` block.
+overrides, including `mcp-file`), the `Gitignore` block, and `AutoSync`
+(`*bool`, persisted from the `--auto-sync` prompt; `nil` means the
+prompt has not yet fired).
 
 ## Registry
 

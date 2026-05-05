@@ -9,6 +9,7 @@ sources:
   skills: skills
   rules: rules
   hooks: hooks
+  mcps: mcps
 
 # AI CLIs to emit configs for. Comment out any to skip.
 targets:
@@ -21,6 +22,10 @@ targets:
   - cline
   - windsurf
   - continue
+  - amp
+  - zed
+  - warp
+  - opencode
 
 # Per-target output overrides. Useful when:
 #  - You vendor configs into a non-standard path.
@@ -30,18 +35,23 @@ outputs:
   claude:
     dir: .claude              # default
     rules-file: CLAUDE.md     # default
+    mcp-file: .mcp.json       # default
 
   codex:
-    file: AGENTS.md           # default. Could be docs/AGENTS.md.
+    file: AGENTS.md            # default. Could be docs/AGENTS.md.
+    agents-dir: .codex/agents  # default. v0.4: per-agent TOML files.
+    skills-dir: .agents/skills # default. v0.4: per-skill SKILL.md folders.
 
   gemini:
     file: GEMINI.md           # default
 
   cursor:
     rules-dir: .cursor/rules  # default
+    mcp-file: .cursor/mcp.json # default
 
   copilot:
     file: .github/copilot-instructions.md  # default
+    mcp-file: .vscode/mcp.json             # default. VS Code schema.
 
   aider:
     file: CONVENTIONS.md      # default. Pair with `aider --read CONVENTIONS.md`.
@@ -55,6 +65,30 @@ outputs:
   continue:
     rules-dir: .continue/rules  # default
 
+  amp:
+    file: AGENT.md            # default
+
+  zed:
+    file: .rules              # default
+
+  warp:
+    file: WARP.md             # default
+
+  opencode:
+    file: .opencode/AGENTS.md # default. Routed under .opencode/ to coexist with Codex.
+
 # How to react when a spec kind is not supported by a target
 # (e.g. hooks for any target other than claude).
 on-unsupported: warn   # warn | error | silent
+
+# Auto-managed .gitignore block listing every generated path.
+# Lines outside the block are preserved.
+gitignore:
+  enabled: false
+  path: .gitignore   # default
+
+# Persisted answer to the first-run auto-sync prompt. Set by
+# `sync --auto-sync=yes|no` or interactively on first sync. When true,
+# `sync` keeps an `auto-sync` rule spec under sources.rules telling
+# agents to run `agnostic-ai sync` whenever specs change.
+autoSync: false

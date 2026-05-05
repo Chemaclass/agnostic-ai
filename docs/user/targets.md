@@ -60,7 +60,7 @@ docs/api/AGENTS.md                           # if any rule has globs: docs/api/*
 
 Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.codex/agents`), `outputs.codex.skills-dir` (default `.agents/skills`).
 
-Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file.
+Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. The `## Agents` section lists each agent with a pointer to its TOML rather than inlining the body, so each agent lives in exactly one place.
 
 Skills follow the [Codex skills layout](https://developers.openai.com/codex/skills): one folder per skill under `.agents/skills/<name>/` with a required `SKILL.md` (frontmatter `name` + `description`, plus the body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an additional `agents/openai.yaml` is written in the skill folder for UI customization and policy declarations. The root `AGENTS.md` lists each skill with a pointer to its `SKILL.md`.
 

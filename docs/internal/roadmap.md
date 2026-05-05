@@ -12,6 +12,15 @@ Shipped. Three layers, low- to high-precedence:
 
 Higher layer wins on `(Kind, Name)` collision. New names append. Adapters stay layer-agnostic; merge happens in `spec.LoadLayered`. Optional layers load only when their root exists. See [docs/user/configuration.md](../user/configuration.md#layered-specs).
 
+## Shipped in v0.4
+
+- ~~Watch mode for tight authoring loops.~~ Shipped: `sync --watch` (200 ms poll, Ctrl+C exits).
+- ~~Agent-managed auto-sync.~~ Shipped: `sync --auto-sync=yes|no` plus a first-run TTY prompt; persists `autoSync` in `agnostic.config.yaml`.
+- ~~Onboarding examples in fresh projects.~~ Shipped: `init --demo`.
+- ~~Interactive target selection.~~ Shipped: `init -i` / `--interactive`.
+- ~~Codex subagents and skills.~~ Shipped: `.codex/agents/<name>.toml` and `.agents/skills/<name>/SKILL.md`.
+- ~~Promote import to a top-level command.~~ Shipped: `import <source>` (replaces `init --from`).
+
 ## Other directions
 
 Filed as issues:
