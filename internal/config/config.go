@@ -41,6 +41,7 @@ type Output struct {
 	RulesFile string `yaml:"rules-file,omitempty"`
 	RulesDir  string `yaml:"rules-dir,omitempty"`
 	MCPFile   string `yaml:"mcp-file,omitempty"`
+	AgentsDir string `yaml:"agents-dir,omitempty"`
 }
 
 func Load(root string) (*Config, error) {

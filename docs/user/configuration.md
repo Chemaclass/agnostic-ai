@@ -93,7 +93,8 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
 | `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
-| `codex` | `file` | `AGENTS.md` | Single merged document. |
+| `codex` | `file` | `AGENTS.md` | Single merged document (rules + agent listing + skill listing). Nested `<dir>/AGENTS.md` files share this base. |
+| `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). |
 | `gemini` | `file` | `GEMINI.md` | Single merged document. |
 | `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
 | `copilot` | `file` | `.github/copilot-instructions.md` | Single merged document. |

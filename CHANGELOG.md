@@ -8,10 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - `agnostic-ai import <source>`: translate an existing AI CLI configuration into agnostic specs in an already-initialized project. Honors the `sources:` paths from `agnostic.config.yaml`. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
+- Codex subagent emission: each agent now emits to `.codex/agents/<name>.toml` (Codex CLI subagent schema). Override the location with `outputs.codex.agents-dir`. Frontmatter `model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates` (under `x-codex:`) pass through to the TOML.
 
 ### Changed
 - `agnostic-ai init` scaffolds source folders under `.agnostic-ai/` by default (was project root).
 - `agnostic-ai init [dir]` accepts an optional positional argument to override the base directory. Use `agnostic-ai init .` for the legacy root-level layout.
+- Codex `AGENTS.md` `## Agents` section no longer inlines agent bodies. It lists each agent with its description and a pointer to the source TOML, so the body lives in exactly one place.
 
 ### Removed
 - `agnostic-ai init --from <source>` flag. Run `agnostic-ai init` followed by `agnostic-ai import <source>` instead.
