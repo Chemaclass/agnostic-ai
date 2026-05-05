@@ -8,26 +8,20 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// importFromCodex scaffolds an agnostic-ai project by reading existing
-// Codex config (root AGENTS.md plus any nested <dir>/AGENTS.md) under root.
-// Refuses if agnostic.config.yaml already exists.
-func importFromCodex(root string) error {
-	cfgPath := filepath.Join(root, "agnostic.config.yaml")
-	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("agnostic.config.yaml already exists")
-	}
-	if err := ensureSourceDirs(root); err != nil {
+// importFromCodex reads existing Codex config (root AGENTS.md plus any
+// nested <dir>/AGENTS.md) under root and writes specs into the configured
+// source directories.
+func importFromCodex(root string, src config.Sources) error {
+	if err := mkdirAllSources(root, src.Rules); err != nil {
 		return err
 	}
-
-	n, err := importCodexRules(root)
+	n, err := importCodexRules(root, filepath.Join(root, src.Rules), src)
 	if err != nil {
 		return err
-	}
-	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig("codex")), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
 	fmt.Printf("imported %d rules\n", n)
 	return nil
@@ -43,10 +37,10 @@ var codexWrapperHeadings = map[string]bool{
 }
 
 // importCodexRules walks the project tree for AGENTS.md files and writes
-// one rule per ## section found. Rules from <dir>/AGENTS.md inherit
-// "globs: <dir>/**". Slug collisions across files are deduplicated.
-func importCodexRules(root string) (int, error) {
-	files, err := findCodexFiles(root)
+// one rule per ## section found into dstDir. Rules from <dir>/AGENTS.md
+// inherit "globs: <dir>/**". Slug collisions across files are deduplicated.
+func importCodexRules(root, dstDir string, src config.Sources) (int, error) {
+	files, err := findCodexFiles(root, src)
 	if err != nil {
 		return 0, err
 	}
@@ -68,7 +62,7 @@ func importCodexRules(root string) (int, error) {
 				continue
 			}
 			name := dedupSlug(used, projectSlug(root))
-			if err := writeCodexRule(root, name, "", f.globs, body); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
 				return count, err
 			}
 			count++
@@ -76,7 +70,7 @@ func importCodexRules(root string) (int, error) {
 		}
 		for _, s := range sections {
 			name := dedupSlug(used, s.slug)
-			if err := writeCodexRule(root, name, s.description, f.globs, s.body); err != nil {
+			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body); err != nil {
 				return count, err
 			}
 			count++
@@ -93,11 +87,15 @@ type codexFile struct {
 // findCodexFiles walks root for AGENTS.md files. Hidden directories and
 // the agnostic source dirs are skipped to avoid picking up unrelated
 // AGENTS.md files (e.g. from vendored projects or our own scaffold).
-func findCodexFiles(root string) ([]codexFile, error) {
+func findCodexFiles(root string, src config.Sources) ([]codexFile, error) {
 	var out []codexFile
 	skipDirs := map[string]bool{
-		"agents": true, "skills": true, "rules": true, "hooks": true,
 		"node_modules": true, "vendor": true,
+	}
+	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
+		if p != "" {
+			skipDirs[firstSegment(p)] = true
+		}
 	}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -130,6 +128,17 @@ func findCodexFiles(root string) ([]codexFile, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
 	return out, nil
+}
+
+// firstSegment returns the first path segment of p (e.g. ".agnostic-ai"
+// from ".agnostic-ai/agents"). Used to skip the source tree when scanning
+// for legacy AGENTS.md files.
+func firstSegment(p string) string {
+	p = filepath.ToSlash(p)
+	if i := strings.IndexByte(p, '/'); i >= 0 {
+		return p[:i]
+	}
+	return p
 }
 
 type codexSection struct {
@@ -219,7 +228,7 @@ func dedupSlug(used map[string]int, slug string) string {
 	return slug
 }
 
-func writeCodexRule(root, name, description, globs, body string) error {
+func writeCodexRule(dstDir, name, description, globs, body string) error {
 	var fm strings.Builder
 	fm.WriteString("---\nname: " + name + "\n")
 	if description != "" {
@@ -232,7 +241,7 @@ func writeCodexRule(root, name, description, globs, body string) error {
 	fm.WriteString(strings.TrimRight(body, "\n"))
 	fm.WriteString("\n")
 
-	path := filepath.Join(root, "rules", name+".md")
+	path := filepath.Join(dstDir, name+".md")
 	if err := os.WriteFile(path, []byte(fm.String()), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}

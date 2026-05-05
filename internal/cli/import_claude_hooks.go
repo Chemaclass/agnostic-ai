@@ -28,8 +28,8 @@ type claudeSettings struct {
 }
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
-// hook command into hooks/<event>-<group>-<index>.yaml.
-func importClaudeHooks(root string) (int, error) {
+// hook command into <dstDir>/<event>-<group>-<index>.yaml.
+func importClaudeHooks(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ".claude", "settings.json")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -66,7 +66,7 @@ func importClaudeHooks(root string) (int, error) {
 				if err != nil {
 					return count, fmt.Errorf("marshal hook %s: %w", name, err)
 				}
-				path := filepath.Join(root, "hooks", name+".yaml")
+				path := filepath.Join(dstDir, name+".yaml")
 				if err := os.WriteFile(path, raw, 0o644); err != nil {
 					return count, fmt.Errorf("write %s: %w", path, err)
 				}

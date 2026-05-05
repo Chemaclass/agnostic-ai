@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// importClaudeAgents copies .claude/agents/*.md byte-for-byte to agents/.
-func importClaudeAgents(root string) (int, error) {
+// importClaudeAgents copies .claude/agents/*.md byte-for-byte to dstDir.
+func importClaudeAgents(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ".claude", "agents")
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -28,7 +28,7 @@ func importClaudeAgents(root string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read agent %s: %w", e.Name(), err)
 		}
-		dst := filepath.Join(root, "agents", e.Name())
+		dst := filepath.Join(dstDir, e.Name())
 		if err := os.WriteFile(dst, data, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
@@ -38,8 +38,8 @@ func importClaudeAgents(root string) (int, error) {
 }
 
 // importClaudeSkills copies each .claude/skills/<name>/SKILL.md to
-// skills/<name>/SKILL.md. Other files inside the skill dir are ignored.
-func importClaudeSkills(root string) (int, error) {
+// <dstDir>/<name>/SKILL.md. Other files inside the skill dir are ignored.
+func importClaudeSkills(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ".claude", "skills")
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -61,11 +61,11 @@ func importClaudeSkills(root string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read skill %s: %w", e.Name(), err)
 		}
-		dstDir := filepath.Join(root, "skills", e.Name())
-		if err := os.MkdirAll(dstDir, 0o755); err != nil {
-			return count, fmt.Errorf("mkdir %s: %w", dstDir, err)
+		out := filepath.Join(dstDir, e.Name())
+		if err := os.MkdirAll(out, 0o755); err != nil {
+			return count, fmt.Errorf("mkdir %s: %w", out, err)
 		}
-		dst := filepath.Join(dstDir, "SKILL.md")
+		dst := filepath.Join(out, "SKILL.md")
 		if err := os.WriteFile(dst, data, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}

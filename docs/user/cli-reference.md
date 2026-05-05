@@ -16,62 +16,77 @@ agnostic-ai [command] [flags]
 Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic.config.yaml` exists.
 
 ```bash
-agnostic-ai init                  # empty scaffold
-agnostic-ai init --from claude    # import existing Claude Code config
-agnostic-ai init --from codex     # import existing Codex / AGENTS.md config
-agnostic-ai init --from cursor    # import existing Cursor config
-agnostic-ai init --from cline     # import existing Cline config
-agnostic-ai init --from windsurf  # import existing Windsurf config
-agnostic-ai init --from continue  # import existing Continue config
+agnostic-ai init                  # default base dir: .agnostic-ai/
+agnostic-ai init specs            # custom base: specs/{agents,skills,...}/
+agnostic-ai init .                # legacy root-level layout
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--from <source>` | Import existing config from a source. Supported: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`. |
+The optional positional `[dir]` arg sets the base directory under which
+the source folders are created. The generated `agnostic.config.yaml`
+writes matching `sources:` paths.
 
-`--from claude` reads the current directory:
+To pull in an existing AI CLI configuration after init, use `import`.
+
+## import
+
+Translate an existing AI CLI configuration into agnostic specs. Reads
+`agnostic.config.yaml` to resolve `sources:` paths, then writes specs
+into those directories.
+
+```bash
+agnostic-ai import claude     # CLAUDE.md, .claude/{agents,skills,settings.json}
+agnostic-ai import codex      # AGENTS.md (root + nested)
+agnostic-ai import cursor     # .cursor/rules/*.mdc
+agnostic-ai import cline      # .clinerules/
+agnostic-ai import windsurf   # .windsurf/rules/
+agnostic-ai import continue   # .continue/rules/
+```
+
+`import` does not modify `targets:` or any other config field; only
+spec files under `sources:` are touched. Re-running overwrites by
+filename. Run after `init`, in the same project root.
+
+`import claude`:
 
 | Source | Becomes |
 |--------|---------|
-| `CLAUDE.md` (split on `## headings`) | `rules/<slug>.md` per section |
-| `CLAUDE.md` (no headings) | single `rules/<projectname>.md` |
-| `.claude/agents/*.md` | `agents/<name>.md` (byte-identical copy) |
-| `.claude/skills/<name>/SKILL.md` | `skills/<name>/SKILL.md` |
-| `.claude/settings.json` hooks | `hooks/<event>-<group>-<index>.yaml` |
+| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section |
+| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` |
+| `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
+| `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
+| `.claude/settings.json` hooks | `<hooks>/<event>-<group>-<index>.yaml` |
 
-Writes `targets: [claude]` only. Add other targets to the config and run `agnostic-ai sync`.
-
-`--from codex` walks the project for `AGENTS.md` files at any depth:
+`import codex` walks the project for `AGENTS.md` files at any depth:
 
 | Source | Becomes |
 |--------|---------|
-| `AGENTS.md` (split on `## headings`) | `rules/<slug>.md` per section |
-| `AGENTS.md` (no headings) | single `rules/<projectname>.md` |
-| `<dir>/AGENTS.md` (nested) | `rules/<slug>.md` with inferred `globs: <dir>/**` |
+| `AGENTS.md` (split on `## headings`) | `<rules>/<slug>.md` per section |
+| `AGENTS.md` (no headings) | single `<rules>/<projectname>.md` |
+| `<dir>/AGENTS.md` (nested) | `<rules>/<slug>.md` with inferred `globs: <dir>/**` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
 
-Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories and `agents/`, `skills/`, `rules/`, `hooks/`, `node_modules/`, `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files. Writes `targets: [codex]` only.
+Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories, the configured source directories, `node_modules/`, and `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files.
 
-`--from cursor` reads the current directory:
+`import cursor`:
 
 | Source | Becomes |
 |--------|---------|
-| `.cursor/rules/<name>.mdc` | `rules/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
+| `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
 
-Round-trips cleanly: a subsequent `sync` regenerates equivalent `.cursor/rules/*.mdc`. Writes `targets: [cursor]` only.
+Round-trips cleanly: a subsequent `sync` regenerates equivalent `.cursor/rules/*.mdc`.
 
-`--from cline`, `--from windsurf`, `--from continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
+`import cline`, `import windsurf`, `import continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
 | Source filename | Becomes |
 |-----------------|---------|
-| `agent-<name>.md` | `agents/<name>.md` |
-| `skill-<name>.md` | `skills/<name>.md` |
-| `<name>.md` | `rules/<name>.md` |
+| `agent-<name>.md` | `<agents>/<name>.md` |
+| `skill-<name>.md` | `<skills>/<name>.md` |
+| `<name>.md` | `<rules>/<name>.md` |
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
-The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected. Each importer writes a single-target config.
+The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected.
 
 ## validate
 

@@ -22,6 +22,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newValidateCmd(),
 		newListCmd(),
 		newInitCmd(),
+		newImportCmd(),
 		newDoctorCmd(),
 		newRevertCmd(),
 	)
