@@ -77,8 +77,8 @@ func TestSelectTargets_NonTTYNoData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Close() // immediate EOF: not a TTY, no data
-	t.Cleanup(func() { r.Close() })
+	_ = w.Close() // immediate EOF: not a TTY, no data
+	t.Cleanup(func() { _ = r.Close() })
 
 	_, err = selectTargets(r, io.Discard)
 	if err == nil {
