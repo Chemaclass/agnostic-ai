@@ -17,7 +17,7 @@ import (
 func newSyncCmd() *cobra.Command {
 	var targets []string
 	var dryRun, check, backup, watch bool
-	var gitignoreFlag string
+	var gitignoreFlag, autoSyncFlag string
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -53,6 +53,11 @@ func newSyncCmd() *cobra.Command {
 				}
 				return nil
 			}
+			if !dryRun {
+				if err := handleAutoSync(".", autoSyncFlag, cmd.InOrStdin(), cmd.OutOrStdout()); err != nil {
+					return err
+				}
+			}
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
@@ -67,6 +72,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
+	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
 	return cmd
 }
 
