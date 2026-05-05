@@ -7,7 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Changed
-- `agnostic-ai init` (bare, no `--from`) now scaffolds source folders under `.agnostic-ai/` instead of cluttering the project root. New `--dir <path>` flag overrides the base directory; pass `--dir .` to keep the legacy root-level layout. The generated `agnostic.config.yaml` reflects the chosen base via its `sources:` paths. Importers (`init --from ...`) keep the previous root-level layout.
+- `agnostic-ai init` scaffolds source folders under `.agnostic-ai/` by default (was project root).
+- `agnostic-ai init --dir <path>`: choose the base directory. Use `--dir .` for the legacy root-level layout.
 
 ## [v0.3.0] - 2026-05-04
 
