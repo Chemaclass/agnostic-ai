@@ -10,36 +10,29 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// importFromCursor scaffolds an agnostic-ai project by reading existing
-// Cursor config (.cursor/rules/*.mdc) under root. Refuses if
-// agnostic.config.yaml already exists.
-func importFromCursor(root string) error {
-	cfgPath := filepath.Join(root, "agnostic.config.yaml")
-	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("agnostic.config.yaml already exists")
-	}
-	if err := ensureSourceDirs(root); err != nil {
+// importFromCursor reads existing Cursor config (.cursor/rules/*.mdc)
+// under root and writes specs into the configured source directories.
+func importFromCursor(root string, src config.Sources) error {
+	if err := mkdirAllSources(root, src.Rules); err != nil {
 		return err
 	}
-
-	n, err := importCursorRules(root)
+	n, err := importCursorRules(root, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
-	}
-	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig("cursor")), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
 	fmt.Printf("imported %d rules\n", n)
 	return nil
 }
 
-// importCursorRules translates each .cursor/rules/*.mdc into rules/<name>.md.
+// importCursorRules translates each .cursor/rules/*.mdc into <dstDir>/<name>.md.
 // Frontmatter keys (description, globs, alwaysApply, plus any custom keys)
 // pass through verbatim; a name field derived from the filename is injected
 // when missing.
-func importCursorRules(root string) (int, error) {
+func importCursorRules(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ".cursor", "rules")
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -63,7 +56,7 @@ func importCursorRules(root string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("translate %s: %w", e.Name(), err)
 		}
-		dst := filepath.Join(root, "rules", name+".md")
+		dst := filepath.Join(dstDir, name+".md")
 		if err := os.WriteFile(dst, translated, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}

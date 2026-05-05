@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 type rulesDirCounts struct {
@@ -16,13 +18,13 @@ type rulesDirCounts struct {
 // importRulesDirectory walks srcDir for .md files and reclassifies each
 // as a rule, agent, or skill based on filename prefix:
 //
-//	agent-<name>.md → agents/<name>.md
-//	skill-<name>.md → skills/<name>.md
-//	<name>.md       → rules/<name>.md
+//	agent-<name>.md → <agentsDst>/<name>.md
+//	skill-<name>.md → <skillsDst>/<name>.md
+//	<name>.md       → <rulesDst>/<name>.md
 //
 // Subdirectories under srcDir are preserved as scope. The leading
 // `# <heading>\n\n` block (re-emitted on sync) is stripped from the body.
-func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
+func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCounts, error) {
 	var c rulesDirCounts
 	full := filepath.Join(root, srcDir)
 	if _, err := os.Stat(full); errors.Is(err, fs.ErrNotExist) {
@@ -45,9 +47,10 @@ func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 
-		kindDir, baseName := classifyRulesDirFile(rel)
+		kind, baseName := classifyRulesDirFile(rel)
+		dstDir := pickKindDir(kind, src)
 		body := stripLeadingHeading(string(data))
-		out := filepath.Join(root, kindDir, scopeDir(rel), baseName+".md")
+		out := filepath.Join(root, dstDir, scopeDir(rel), baseName+".md")
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
@@ -58,7 +61,7 @@ func importRulesDirectory(root, srcDir string) (rulesDirCounts, error) {
 		if err := os.WriteFile(out, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
-		switch kindDir {
+		switch kind {
 		case "agents":
 			c.agents++
 		case "skills":
@@ -84,7 +87,7 @@ func scopeDir(rel string) string {
 	return d
 }
 
-func classifyRulesDirFile(rel string) (kindDir, baseName string) {
+func classifyRulesDirFile(rel string) (kind, baseName string) {
 	base := strings.TrimSuffix(filepath.Base(rel), ".md")
 	switch {
 	case strings.HasPrefix(base, "agent-"):
@@ -93,6 +96,17 @@ func classifyRulesDirFile(rel string) (kindDir, baseName string) {
 		return "skills", strings.TrimPrefix(base, "skill-")
 	default:
 		return "rules", base
+	}
+}
+
+func pickKindDir(kind string, src config.Sources) string {
+	switch kind {
+	case "agents":
+		return src.Agents
+	case "skills":
+		return src.Skills
+	default:
+		return src.Rules
 	}
 }
 
@@ -107,42 +121,17 @@ func stripLeadingHeading(content string) string {
 	return strings.TrimLeft(content[nl+1:], "\n")
 }
 
-// importFromRulesDir scaffolds an agnostic-ai project from an existing
-// rules directory layout (cline/windsurf/continue). Refuses if
-// agnostic.config.yaml already exists.
-func importFromRulesDir(root, target, srcDir string) error {
-	cfgPath := filepath.Join(root, "agnostic.config.yaml")
-	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("agnostic.config.yaml already exists")
-	}
-	if err := ensureSourceDirs(root); err != nil {
+// importFromRulesDir reads an existing rules directory (cline/windsurf/
+// continue) and writes specs into the configured source directories.
+func importFromRulesDir(root, target, srcDir string, src config.Sources) error {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, srcDir)
+	c, err := importRulesDirectory(root, srcDir, src)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(cfgPath, []byte(singleTargetConfig(target)), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", cfgPath, err)
-	}
-	fmt.Printf("imported %d rules, %d agents, %d skills\n", c.rules, c.agents, c.skills)
+	fmt.Printf("imported %d rules, %d agents, %d skills (from %s)\n",
+		c.rules, c.agents, c.skills, target)
 	return nil
-}
-
-// singleTargetConfig builds the minimal agnostic.config.yaml that all
-// importers write: standard source dirs, one target enabled.
-func singleTargetConfig(target string) string {
-	return fmt.Sprintf(`version: 1
-
-sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-
-targets:
-  - %s
-
-on-unsupported: warn
-`, target)
 }

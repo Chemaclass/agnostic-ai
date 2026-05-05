@@ -13,40 +13,22 @@ import (
 // folders (agents, skills, rules, hooks, mcps).
 const defaultBaseDir = ".agnostic-ai"
 
-// rulesDirImporters maps a --from source name to the rules directory the
-// importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly.
-var rulesDirImporters = map[string]string{
-	"cline":    ".clinerules",
-	"windsurf": filepath.Join(".windsurf", "rules"),
-	"continue": filepath.Join(".continue", "rules"),
-}
-
 func newInitCmd() *cobra.Command {
-	var from string
-	var dir string
 	cmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
+		Long: "Creates agnostic.config.yaml plus source folders. " +
+			"Default base dir is .agnostic-ai/. Pass a positional argument " +
+			"to override (use \".\" for the legacy root-level layout).",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			switch from {
-			case "":
-				return scaffold(".", dir)
-			case "claude":
-				return importFromClaude(".")
-			case "codex":
-				return importFromCodex(".")
-			case "cursor":
-				return importFromCursor(".")
+			base := defaultBaseDir
+			if len(args) == 1 {
+				base = args[0]
 			}
-			if srcDir, ok := rulesDirImporters[from]; ok {
-				return importFromRulesDir(".", from, srcDir)
-			}
-			return fmt.Errorf("unknown source for --from: %q (supported: claude, codex, cursor, cline, windsurf, continue)", from)
+			return scaffold(".", base)
 		},
 	}
-	cmd.Flags().StringVar(&from, "from", "", "Import existing config from a source (supported: claude, codex, cursor, cline, windsurf, continue)")
-	cmd.Flags().StringVar(&dir, "dir", defaultBaseDir, "Base directory for scaffolded source folders. Use \".\" to write at project root.")
 	return cmd
 }
 
@@ -103,6 +85,7 @@ func scaffold(root, base string) error {
 		return err
 	}
 	fmt.Printf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
+	fmt.Println("import existing AI CLI config with `agnostic-ai import <source>`.")
 	return nil
 }
 

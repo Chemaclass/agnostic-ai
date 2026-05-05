@@ -9,14 +9,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestImportFromCursor_RefusesIfConfigExists(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	if err := importFromCursor(dir); err == nil {
-		t.Error("expected error when config already exists")
-	}
-}
-
 func TestImportFromCursor_TranslatesRules(t *testing.T) {
 	dir := t.TempDir()
 	mdc := `---
@@ -29,7 +21,7 @@ Use ` + "`feat:`" + `, ` + "`fix:`" + `, etc.
 `
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "conventional-commits.mdc"), mdc)
 
-	if err := importFromCursor(dir); err != nil {
+	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +46,7 @@ func TestImportFromCursor_NoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "loose.mdc"), "Just plain body.\n")
 
-	if err := importFromCursor(dir); err != nil {
+	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +76,7 @@ body
 `
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "scoped.mdc"), mdc)
 
-	if err := importFromCursor(dir); err != nil {
+	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,7 +97,7 @@ body
 
 func TestImportFromCursor_NoCursorDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := importFromCursor(dir); err != nil {
+	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	entries, _ := os.ReadDir(filepath.Join(dir, "rules"))
@@ -114,29 +106,12 @@ func TestImportFromCursor_NoCursorDir(t *testing.T) {
 	}
 }
 
-func TestImportFromCursor_WritesCursorOnlyConfig(t *testing.T) {
-	dir := t.TempDir()
-	if err := importFromCursor(dir); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "- cursor") {
-		t.Errorf("expected cursor target, got %s", data)
-	}
-	if strings.Contains(string(data), "- claude") {
-		t.Errorf("expected only cursor target, got %s", data)
-	}
-}
-
 func TestImportFromCursor_SkipsNonMdc(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "keep.mdc"), "body\n")
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "ignore.txt"), "ignored\n")
 
-	if err := importFromCursor(dir); err != nil {
+	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "keep.md")); err != nil {
@@ -147,8 +122,9 @@ func TestImportFromCursor_SkipsNonMdc(t *testing.T) {
 	}
 }
 
-func TestInitCmd_FromCursorRoutes(t *testing.T) {
+func TestImportCmd_CursorRoutes(t *testing.T) {
 	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
 	mdc := `---
 description: routed
 ---
@@ -160,11 +136,11 @@ body
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "cursor"})
+	root.SetArgs([]string{"import", "cursor"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "routed.md")); err != nil {
-		t.Error("expected rules/routed.md after init --from cursor")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "routed.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/routed.md after import cursor")
 	}
 }

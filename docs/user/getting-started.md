@@ -21,42 +21,41 @@ go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
 ## Scaffold
 
 ```bash
-agnostic-ai init
+agnostic-ai init                 # default base dir: .agnostic-ai/
+agnostic-ai init specs           # custom base
+agnostic-ai init .               # legacy root-level layout
 ```
 
 ```
 .
 ├── agnostic.config.yaml
-├── agents/
-├── skills/
-├── rules/
-├── hooks/
-└── mcps/
+└── .agnostic-ai/
+    ├── agents/
+    ├── skills/
+    ├── rules/
+    ├── hooks/
+    └── mcps/
 ```
 
-### Already on Claude Code?
+### Already on another AI CLI? Import it
+
+After `init`, run `import <source>` to translate an existing
+configuration into agnostic specs under the configured `sources:` paths:
 
 ```bash
-agnostic-ai init --from claude
+agnostic-ai init                  # scaffold
+agnostic-ai import claude         # CLAUDE.md + .claude/{agents,skills,settings.json}
+agnostic-ai import codex          # AGENTS.md (root + nested)
+agnostic-ai import cursor         # .cursor/rules/*.mdc
+agnostic-ai import cline          # .clinerules/
+agnostic-ai import windsurf       # .windsurf/rules/
+agnostic-ai import continue       # .continue/rules/
+agnostic-ai sync                  # fan out to every target in the config
 ```
 
-Reads `CLAUDE.md` and `.claude/` from the current directory, writes equivalent agnostic specs and a `targets: [claude]` config. Add more targets to the config and run `agnostic-ai sync`.
-
-### Already on Codex (or any AGENTS.md project)?
-
-```bash
-agnostic-ai init --from codex
-```
-
-Walks the project for `AGENTS.md` files (root and any nested), splits each by `##` heading into one rule per section, and writes a `targets: [codex]` config. Nested files inherit `globs:` inferred from their path (`src/AGENTS.md` → `globs: src/**`) so a later `sync` routes each rule back to the correct nested `AGENTS.md`. Add more targets and run `agnostic-ai sync` to fan the same rules out everywhere.
-
-### Already on Cursor?
-
-```bash
-agnostic-ai init --from cursor
-```
-
-Reads `.cursor/rules/*.mdc`, translates each into `rules/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved, and writes a `targets: [cursor]` config. Add more targets and run `agnostic-ai sync` to fan the same rules out to every supported tool.
+`import` does not touch `targets:` or other config fields; it only
+writes spec files. The default `init` config enables every target, so
+one `sync` covers them all. To narrow output, edit the `targets:` list.
 
 ## First rule
 

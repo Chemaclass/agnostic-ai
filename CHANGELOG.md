@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `agnostic-ai import <source>`: translate an existing AI CLI configuration into agnostic specs in an already-initialized project. Honors the `sources:` paths from `agnostic.config.yaml`. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
+
 ### Changed
 - `agnostic-ai init` scaffolds source folders under `.agnostic-ai/` by default (was project root).
-- `agnostic-ai init --dir <path>`: choose the base directory. Use `--dir .` for the legacy root-level layout.
+- `agnostic-ai init [dir]` accepts an optional positional argument to override the base directory. Use `agnostic-ai init .` for the legacy root-level layout.
+
+### Removed
+- `agnostic-ai init --from <source>` flag. Run `agnostic-ai init` followed by `agnostic-ai import <source>` instead.
 
 ## [v0.3.0] - 2026-05-04
 

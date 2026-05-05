@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -19,11 +20,15 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-func TestImportFromClaude_RefusesIfConfigExists(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	if err := importFromClaude(dir); err == nil {
-		t.Error("expected error when config already exists")
+// rootSources returns a Sources value pointing at root-level kind dirs,
+// matching the importer test fixtures.
+func rootSources() config.Sources {
+	return config.Sources{
+		Agents: "agents",
+		Skills: "skills",
+		Rules:  "rules",
+		Hooks:  "hooks",
+		MCPs:   "mcps",
 	}
 }
 
@@ -39,7 +44,7 @@ Use feat:, fix:, etc.
 
 gofmt clean.
 `)
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"conventional-commits", "go-style"} {
@@ -57,7 +62,7 @@ gofmt clean.
 func TestImportFromClaude_MonolithicRules(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "Just a flat doc with no headings.\n")
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(filepath.Join(dir, "rules"))
@@ -71,7 +76,7 @@ func TestImportFromClaude_MonolithicRules(t *testing.T) {
 
 func TestImportFromClaude_NoClaudeMd(t *testing.T) {
 	dir := t.TempDir()
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	entries, _ := os.ReadDir(filepath.Join(dir, "rules"))
@@ -84,7 +89,7 @@ func TestImportFromClaude_CopiesAgents(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nname: reviewer\nmodel: sonnet\n---\nReview diffs.\n"
 	writeFile(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"), body)
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
@@ -100,7 +105,7 @@ func TestImportFromClaude_CopiesSkills(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nname: validator\n---\nValidate yaml.\n"
 	writeFile(t, filepath.Join(dir, ".claude", "skills", "validator", "SKILL.md"), body)
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "skills", "validator", "SKILL.md"))
@@ -122,7 +127,7 @@ func TestImportFromClaude_ImportsHooks(t *testing.T) {
   }
 }`
 	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "hooks", "posttooluse-1-1.yaml")
@@ -150,7 +155,7 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
   }
 }`
 	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
-	if err := importFromClaude(dir); err != nil {
+	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"posttooluse-1-1.yaml", "posttooluse-1-2.yaml"} {
@@ -163,25 +168,26 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 func TestImportFromClaude_MalformedSettings(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), "{not json")
-	if err := importFromClaude(dir); err == nil {
+	if err := importFromClaude(dir, rootSources()); err == nil {
 		t.Error("expected parse error on malformed settings.json")
 	}
 }
 
-func TestImportFromClaude_WritesClaudeOnlyConfig(t *testing.T) {
+func TestImportFromClaude_HonorsCustomSourceDirs(t *testing.T) {
 	dir := t.TempDir()
-	if err := importFromClaude(dir); err != nil {
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## r1\n\nbody\n")
+	src := config.Sources{
+		Agents: ".agnostic-ai/agents",
+		Skills: ".agnostic-ai/skills",
+		Rules:  ".agnostic-ai/rules",
+		Hooks:  ".agnostic-ai/hooks",
+		MCPs:   ".agnostic-ai/mcps",
+	}
+	if err := importFromClaude(dir, src); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "- claude") {
-		t.Errorf("expected claude target, got %s", data)
-	}
-	if strings.Contains(string(data), "- cursor") {
-		t.Errorf("expected only claude target, got %s", data)
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Errorf("expected .agnostic-ai/rules/r1.md, got %v", err)
 	}
 }
 
@@ -196,30 +202,57 @@ func TestSlugify_Collisions(t *testing.T) {
 	}
 }
 
-func TestInitCmd_UnknownFromRejected(t *testing.T) {
+func TestImportCmd_UnknownSourceRejected(t *testing.T) {
+	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "nonesuch"})
+	if err := root.Execute(); err == nil {
+		t.Error("expected error for unknown source")
+	}
+}
+
+func TestImportCmd_RequiresConfig(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "nonesuch"})
+	root.SetArgs([]string{"import", "claude"})
 	if err := root.Execute(); err == nil {
-		t.Error("expected error for unknown --from")
+		t.Error("expected error when agnostic.config.yaml missing")
 	}
 }
 
-func TestInitCmd_FromClaudeRoutes(t *testing.T) {
+func TestImportCmd_ClaudeWritesIntoConfiguredSources(t *testing.T) {
 	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## r1\n\nbody\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "claude"})
+	root.SetArgs([]string{"import", "claude"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "r1.md")); err != nil {
-		t.Error("expected rules/r1.md after init --from claude")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Errorf("expected .agnostic-ai/rules/r1.md, got %v", err)
 	}
+}
+
+// writeMinimalConfig drops a config that points sources at base/<kind>.
+func writeMinimalConfig(t *testing.T, dir, base string) {
+	t.Helper()
+	cfg := "version: 1\n"
+	if base != "" {
+		cfg += "sources:\n"
+		for _, k := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+			cfg += "  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n"
+		}
+	}
+	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), cfg)
 }

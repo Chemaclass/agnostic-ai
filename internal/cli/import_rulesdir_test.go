@@ -9,21 +9,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestImportFromRulesDir_RefusesIfConfigExists(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err == nil {
-		t.Error("expected error when config already exists")
-	}
-}
-
 func TestImportFromRulesDir_ReclassifiesByPrefix(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"), "# style\n\nUse 2-space indent.\n")
 	writeFile(t, filepath.Join(dir, ".clinerules", "agent-reviewer.md"), "# Agent: reviewer\n\nReview the diff.\n")
 	writeFile(t, filepath.Join(dir, ".clinerules", "skill-validator.md"), "# Skill: validator\n\nValidate input.\n")
 
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules", rootSources()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,7 +43,7 @@ func TestImportFromRulesDir_StripsLeadingHeading(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"),
 		"# style\n\nbody line\n")
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules", rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
@@ -74,7 +66,7 @@ func TestImportFromRulesDir_PreservesScopeSubdirs(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "backend", "auth.md"),
 		"# auth\n\nauth body\n")
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules", rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "backend", "auth.md")); err != nil {
@@ -85,7 +77,7 @@ func TestImportFromRulesDir_PreservesScopeSubdirs(t *testing.T) {
 func TestImportFromRulesDir_RootFileHasNoDotSegment(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".clinerules", "style.md"), "# style\n\nbody\n")
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules", rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	want := filepath.Join(dir, "rules", "style.md")
@@ -100,23 +92,20 @@ func TestImportFromRulesDir_RootFileHasNoDotSegment(t *testing.T) {
 
 func TestImportFromRulesDir_NoSourceDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := importFromRulesDir(dir, "cline", ".clinerules"); err != nil {
+	if err := importFromRulesDir(dir, "cline", ".clinerules", rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(cfg), "- cline") {
-		t.Errorf("expected cline target, got:\n%s", cfg)
+	entries, _ := os.ReadDir(filepath.Join(dir, "rules"))
+	if len(entries) != 0 {
+		t.Errorf("expected empty rules/, got %d entries", len(entries))
 	}
 }
 
-func TestImportFromRulesDir_WindsurfTarget(t *testing.T) {
+func TestImportFromRulesDir_WindsurfRoutes(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "style.md"),
 		"# style\n\nwindsurf body\n")
-	if err := importFromRulesDir(dir, "windsurf", filepath.Join(".windsurf", "rules")); err != nil {
+	if err := importFromRulesDir(dir, "windsurf", filepath.Join(".windsurf", "rules"), rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
@@ -126,17 +115,13 @@ func TestImportFromRulesDir_WindsurfTarget(t *testing.T) {
 	if !strings.Contains(string(out), "windsurf body") {
 		t.Errorf("body not imported, got:\n%s", out)
 	}
-	cfg, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
-	if !strings.Contains(string(cfg), "- windsurf") {
-		t.Errorf("expected windsurf target, got:\n%s", cfg)
-	}
 }
 
-func TestImportFromRulesDir_ContinueTarget(t *testing.T) {
+func TestImportFromRulesDir_ContinueRoutes(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".continue", "rules", "style.md"),
 		"# style\n\ncontinue body\n")
-	if err := importFromRulesDir(dir, "continue", filepath.Join(".continue", "rules")); err != nil {
+	if err := importFromRulesDir(dir, "continue", filepath.Join(".continue", "rules"), rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
@@ -146,57 +131,56 @@ func TestImportFromRulesDir_ContinueTarget(t *testing.T) {
 	if !strings.Contains(string(out), "continue body") {
 		t.Errorf("body not imported, got:\n%s", out)
 	}
-	cfg, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
-	if !strings.Contains(string(cfg), "- continue") {
-		t.Errorf("expected continue target, got:\n%s", cfg)
-	}
 }
 
-func TestInitCmd_FromClineRoutes(t *testing.T) {
+func TestImportCmd_ClineRoutesIntoConfiguredSources(t *testing.T) {
 	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
 	writeFile(t, filepath.Join(dir, ".clinerules", "routed.md"), "# routed\n\nbody\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "cline"})
+	root.SetArgs([]string{"import", "cline"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "routed.md")); err != nil {
-		t.Error("expected rules/routed.md after init --from cline")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "routed.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/routed.md after import cline")
 	}
 }
 
-func TestInitCmd_FromWindsurfRoutes(t *testing.T) {
+func TestImportCmd_WindsurfRoutesIntoConfiguredSources(t *testing.T) {
 	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
 	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "routed.md"), "# routed\n\nbody\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "windsurf"})
+	root.SetArgs([]string{"import", "windsurf"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "routed.md")); err != nil {
-		t.Error("expected rules/routed.md after init --from windsurf")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "routed.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/routed.md after import windsurf")
 	}
 }
 
-func TestInitCmd_FromContinueRoutes(t *testing.T) {
+func TestImportCmd_ContinueRoutesIntoConfiguredSources(t *testing.T) {
 	dir := t.TempDir()
+	writeMinimalConfig(t, dir, ".agnostic-ai")
 	writeFile(t, filepath.Join(dir, ".continue", "rules", "routed.md"), "# routed\n\nbody\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--from", "continue"})
+	root.SetArgs([]string{"import", "continue"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "routed.md")); err != nil {
-		t.Error("expected rules/routed.md after init --from continue")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "routed.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/routed.md after import continue")
 	}
 }
 
@@ -209,7 +193,7 @@ func TestStripLeadingHeading_NoHeading(t *testing.T) {
 
 func TestClassifyRulesDirFile(t *testing.T) {
 	cases := map[string]struct {
-		kindDir, baseName string
+		kind, baseName string
 	}{
 		"style.md":             {"rules", "style"},
 		"agent-reviewer.md":    {"agents", "reviewer"},
@@ -219,8 +203,8 @@ func TestClassifyRulesDirFile(t *testing.T) {
 	}
 	for in, want := range cases {
 		k, n := classifyRulesDirFile(in)
-		if k != want.kindDir || n != want.baseName {
-			t.Errorf("%s: got (%q,%q), want (%q,%q)", in, k, n, want.kindDir, want.baseName)
+		if k != want.kind || n != want.baseName {
+			t.Errorf("%s: got (%q,%q), want (%q,%q)", in, k, n, want.kind, want.baseName)
 		}
 	}
 }

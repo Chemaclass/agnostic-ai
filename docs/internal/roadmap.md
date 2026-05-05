@@ -17,6 +17,6 @@ Higher layer wins on `(Kind, Name)` collision. New names append. Adapters stay l
 Filed as issues:
 
 - More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)). Recently shipped: Amp, Zed, Warp, OpenCode.
-- Richer `--from <source>` importers. Shipped: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
+- Richer `import <source>` importers. Shipped: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
 - ~~`doctor` improvements (drift fixes, not only detection).~~ Shipped: `doctor --fix [--backup]`.
 - More MCP-aware targets. Shipped: Claude (`.mcp.json`), Cursor (`.cursor/mcp.json`), Copilot (`.vscode/mcp.json`).

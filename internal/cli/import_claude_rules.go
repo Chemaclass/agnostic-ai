@@ -11,9 +11,9 @@ import (
 )
 
 // importClaudeRules splits CLAUDE.md on `## ` headings into one rule file
-// per section. Without headings it writes a single rule named after the
-// project directory.
-func importClaudeRules(root string) (int, error) {
+// per section in dstDir. Without headings it writes a single rule named
+// after the project directory.
+func importClaudeRules(root, dstDir string) (int, error) {
 	src := filepath.Join(root, "CLAUDE.md")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -30,14 +30,14 @@ func importClaudeRules(root string) (int, error) {
 			return 0, nil
 		}
 		name := projectSlug(root)
-		path := filepath.Join(root, "rules", name+".md")
+		path := filepath.Join(dstDir, name+".md")
 		if err := writeRule(path, name, body); err != nil {
 			return 0, err
 		}
 		return 1, nil
 	}
 	for _, s := range sections {
-		path := filepath.Join(root, "rules", s.slug+".md")
+		path := filepath.Join(dstDir, s.slug+".md")
 		if err := writeRule(path, s.slug, s.body); err != nil {
 			return 0, err
 		}

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestScaffold_DefaultBaseDir(t *testing.T) {
@@ -78,6 +80,48 @@ func TestScaffold_NestedBaseDir(t *testing.T) {
 	}
 	if !strings.Contains(string(cfg), "agents: config/ai/agents") {
 		t.Errorf("config missing nested base path:\n%s", cfg)
+	}
+}
+
+func TestInitCmd_PositionalDirArg(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init", "specs"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "specs", "agents")); err != nil {
+		t.Errorf("expected specs/agents/ from positional dir arg, got %v", err)
+	}
+}
+
+func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "agents")); err != nil {
+		t.Errorf("expected default .agnostic-ai/agents/, got %v", err)
+	}
+}
+
+func TestInitCmd_RejectsExtraArgs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init", "specs", "extra"})
+	if err := root.Execute(); err == nil {
+		t.Error("expected error for too many positional args")
 	}
 }
 
