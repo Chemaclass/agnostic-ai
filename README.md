@@ -23,28 +23,8 @@ agnostic-ai keeps **one source of truth** in plain Markdown + YAML frontmatter, 
 
 ## How it works
 
-```
-                                     ┌──► CLAUDE.md
-                                     ├──► .claude/agents/*.md
-                                     ├──► .claude/skills/*.md
-                                     ├──► .claude/settings.json (hooks)
-                                     ├──► .mcp.json
-                                     │
-   .agnostic-ai/agents/   ┌───────┐  ├──► AGENTS.md            (Codex)
-   .agnostic-ai/skills/   │       │  ├──► .codex/agents/*.toml
-                          │       │  ├──► .agents/skills/*/SKILL.md
-   .agnostic-ai/rules/    │ sync  │  ├──► GEMINI.md
-   .agnostic-ai/hooks/    │       │──┤
-   .agnostic-ai/mcps/     │       │  ├──► .cursor/rules/*.mdc
-                          └───────┘  ├──► .cursor/mcp.json
-                                     ├──► .github/copilot-instructions.md
-                                     ├──► .vscode/mcp.json
-                                     ├──► CONVENTIONS.md       (Aider)
-                                     ├──► .clinerules/*.md
-                                     ├──► .windsurf/rules/*.md
-                                     ├──► .continue/rules/*.md
-                                     └──► … (Amp, Zed, Warp, OpenCode)
-```
+<img width="1472" height="536" alt="image" src="https://github.com/user-attachments/assets/c065913b-67d9-4759-b584-56dca79a6a14" />
+
 
 ## See it work
 
