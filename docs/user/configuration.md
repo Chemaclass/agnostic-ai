@@ -108,6 +108,20 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 
 When omitted: all 9 adapters above. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
+### Interactive target selection
+
+By default, `agnostic-ai init` writes every supported target into the generated config. Most projects only use a handful. Pass `-i` (or `--interactive`) to pick:
+
+    agnostic-ai init -i
+
+Use ↑/↓ to move, space to toggle, enter to confirm. The resulting `targets:` list contains only the chosen targets, in canonical order.
+
+For scripted use (CI, integration tests), pipe a comma-separated line of target names instead:
+
+    echo "claude,codex" | agnostic-ai init -i
+
+Unknown names, an empty selection, or a non-TTY stdin without piped data each produce a clear error and leave the working tree untouched.
+
 ## `on-unsupported`
 
 | Value | Behavior |
