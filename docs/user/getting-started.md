@@ -94,6 +94,7 @@ Full tree after sync with the default targets:
 ├── CLAUDE.md                                    # for Claude Code
 ├── AGENT.md                                     # for Amp
 ├── AGENTS.md                                    # for Codex
+├── .codex/agents/<name>.toml                    # for Codex subagents
 ├── GEMINI.md                                    # for Gemini CLI
 ├── WARP.md                                      # for Warp
 ├── CONVENTIONS.md                               # for Aider

@@ -27,16 +27,103 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 	if !strings.Contains(got, "rule body") {
 		t.Errorf("missing rule body in:\n%s", got)
 	}
-	if !strings.Contains(got, "agent body") {
-		t.Errorf("missing agent body in:\n%s", got)
-	}
 	if !strings.Contains(got, "_agent desc_") {
 		t.Errorf("missing agent description in:\n%s", got)
+	}
+	if !strings.Contains(got, "Source: `.codex/agents/ag1.toml`") {
+		t.Errorf("missing agent toml reference in:\n%s", got)
+	}
+	if strings.Contains(got, "agent body") {
+		t.Errorf("agent body must live only in the toml file, not AGENTS.md:\n%s", got)
 	}
 	for _, want := range []string{"<!-- source: rules/r1.md -->", "<!-- source: agents/ag1.md -->"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing provenance %q in:\n%s", want, got)
 		}
+	}
+}
+
+func TestEmit_AgentTOMLFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "pr-reviewer",
+			Body: "Review like an owner.\nLead with concrete findings.",
+			Meta: map[string]any{
+				"description": "PR reviewer",
+				"model":       "gpt-5",
+				"x-codex": map[string]any{
+					"sandbox_mode":           "read-only",
+					"model_reasoning_effort": "high",
+					"nickname_candidates":    []any{"Atlas", "Delta"},
+				},
+			}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/agents/pr-reviewer.toml"))
+	for _, want := range []string{
+		`name = "pr-reviewer"`,
+		`description = "PR reviewer"`,
+		`developer_instructions = """`,
+		"Review like an owner.",
+		`model = "gpt-5"`,
+		`sandbox_mode = "read-only"`,
+		`model_reasoning_effort = "high"`,
+		`nickname_candidates = ["Atlas", "Delta"]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("toml missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_AgentTOML_NoExtras(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "explorer", Body: "Trace execution paths."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/agents/explorer.toml"))
+	for _, want := range []string{
+		`name = "explorer"`,
+		`description = "explorer"`, // falls back to name when frontmatter description missing
+		`developer_instructions = """`,
+		"Trace execution paths.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("toml missing %q in:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{"model =", "sandbox_mode =", "nickname_candidates ="} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("toml should omit empty optional %q:\n%s", unwanted, got)
+		}
+	}
+}
+
+func TestEmit_AgentTOML_RespectsAgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"codex": {AgentsDir: "vendor/codex/agents"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "scout", Body: "Look around."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/agents/scout.toml")); err != nil {
+		t.Errorf("expected toml at custom agents-dir: %v", err)
+	}
+	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(got, "vendor/codex/agents/scout.toml") {
+		t.Errorf("AGENTS.md should reference the override path:\n%s", got)
 	}
 }
 
@@ -125,12 +212,12 @@ func TestEmit_AgentsAndSkillsAttachToRootOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(root, "agent body") {
-		t.Errorf("agents must be in root: %s", root)
+	if !strings.Contains(root, "## Agents") {
+		t.Errorf("agents listing must be in root AGENTS.md: %s", root)
 	}
 	srcDoc := readFile(t, filepath.Join(dir, "src", "AGENTS.md"))
-	if strings.Contains(srcDoc, "agent body") {
-		t.Errorf("agents must not be in nested doc: %s", srcDoc)
+	if strings.Contains(srcDoc, "## Agents") {
+		t.Errorf("agents listing must not appear in nested AGENTS.md: %s", srcDoc)
 	}
 }
 

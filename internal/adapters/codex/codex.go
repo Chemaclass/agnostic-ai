@@ -1,4 +1,5 @@
-// Package codex emits AGENTS.md hierarchies for the Codex CLI.
+// Package codex emits AGENTS.md hierarchies and .codex/agents/*.toml
+// files for the Codex CLI.
 //
 // The Codex CLI reads AGENTS.md for project conventions and supports
 // nested AGENTS.md files in subdirectories that scope to that subtree.
@@ -9,9 +10,14 @@
 //   - "**/*"          -> root
 //   - "**/*.go"       -> root (no fixed prefix)
 //
-// Agents and skills attach to the root document only. Codex has no native
-// skill or hook systems, so skills are listed by name + source path and
-// hooks are skipped.
+// Agents emit as one TOML file per agent under .codex/agents/ (override
+// via outputs.codex.agents-dir) following the Codex subagents schema.
+// The root AGENTS.md keeps a `## Agents` reference section listing each
+// agent name, description, and source TOML path so humans browsing the
+// document still see what is available.
+//
+// Codex has no native skill or hook systems: skills are listed by name +
+// source path; hooks are skipped.
 package codex
 
 import (
@@ -25,8 +31,9 @@ import (
 )
 
 const (
-	target         = "codex"
-	defaultOutFile = "AGENTS.md"
+	target           = "codex"
+	defaultOutFile   = "AGENTS.md"
+	defaultAgentsDir = ".codex/agents"
 )
 
 var caps = emit.Capabilities{
@@ -44,8 +51,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes the root AGENTS.md and any nested AGENTS.md files implied
-// by rule globs.
+// Emit writes the root AGENTS.md, any nested AGENTS.md files implied by
+// rule globs, and one .codex/agents/<name>.toml per agent.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -54,6 +61,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	rootFile := emit.OutputFile(cfg, target, defaultOutFile)
 	rootDir := filepath.Dir(rootFile)
 	rootBase := filepath.Base(rootFile)
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+
+	for _, a := range b.Agents {
+		path := filepath.Join(agentsDir, a.Name+".toml")
+		if err := emit.WriteFile(path, agentTOML(a), dryRun); err != nil {
+			return err
+		}
+	}
 
 	byDir := groupRulesByDir(b.Rules)
 
@@ -67,7 +82,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		writeHeader(&sb, dir)
 		writeRules(&sb, byDir[dir])
 		if dir == "" {
-			writeAgents(&sb, b.Agents)
+			writeAgents(&sb, b.Agents, agentsDir)
 			writeSkills(&sb, b.Skills)
 		}
 		path := filepath.Join(rootDir, dir, rootBase)
@@ -128,13 +143,22 @@ func writeRules(sb *strings.Builder, rules []spec.Entry) {
 	}
 }
 
-func writeAgents(sb *strings.Builder, agents []spec.Entry) {
+// writeAgents renders a reference listing of agents in AGENTS.md. The
+// real definitions live in <agentsDir>/<name>.toml; this section just
+// helps humans see what is available without reading the TOML files.
+func writeAgents(sb *strings.Builder, agents []spec.Entry, agentsDir string) {
 	if len(agents) == 0 {
 		return
 	}
 	sb.WriteString("## Agents\n\n")
+	sb.WriteString("Custom Codex subagents. Definitions live in `" + agentsDir + "/`.\n\n")
 	for _, a := range agents {
-		emit.WriteSection(sb, a.Name, a)
+		sb.WriteString("### " + a.Name + "\n\n")
+		sb.WriteString(emit.SourceComment(a.Path))
+		if d := a.Description(); d != "" {
+			sb.WriteString("_" + d + "_\n\n")
+		}
+		sb.WriteString("Source: `" + filepath.ToSlash(filepath.Join(agentsDir, a.Name+".toml")) + "`\n\n")
 	}
 }
 

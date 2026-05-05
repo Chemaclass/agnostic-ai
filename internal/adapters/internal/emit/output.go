@@ -41,3 +41,11 @@ func OutputMCPFile(cfg *config.Config, target, fallback string) string {
 	}
 	return fallback
 }
+
+// OutputAgentsDir returns cfg.Outputs[target].AgentsDir when set, otherwise fallback.
+func OutputAgentsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.AgentsDir != "" {
+		return o.AgentsDir
+	}
+	return fallback
+}
