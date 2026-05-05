@@ -1,9 +1,15 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
+
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/term"
 )
 
 // This file holds the canonical target list and the selection helpers
@@ -88,4 +94,58 @@ func isKnownTarget(name string) bool {
 		}
 	}
 	return false
+}
+
+// selectTargets returns the user's chosen subset of allTargets, by
+// canonical name. Branches on whether `in` is a terminal-backed
+// *os.File (run an interactive multi-select via huh) or a plain reader
+// (read one line and parsePipedSelection it). On immediate EOF with
+// no terminal, returns a clear error.
+func selectTargets(in io.Reader, stderr io.Writer) ([]string, error) {
+	if f, ok := in.(*os.File); ok && term.IsTerminal(f.Fd()) {
+		return runInteractivePrompt(stderr)
+	}
+
+	br := bufio.NewReader(in)
+	line, err := br.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if line == "" {
+		return nil, fmt.Errorf("init -i requires an interactive terminal or piped target list")
+	}
+	return parsePipedSelection(line)
+}
+
+// runInteractivePrompt drives the huh multi-select. It is glue around
+// the third-party widget; behavior is verified manually rather than
+// in unit tests.
+func runInteractivePrompt(stderr io.Writer) ([]string, error) {
+	opts := make([]huh.Option[string], len(allTargets))
+	for i, t := range allTargets {
+		label := fmt.Sprintf("%-9s %s", t.Name, t.Desc)
+		opts[i] = huh.NewOption(label, t.Name)
+	}
+	var picked []string
+	form := huh.NewMultiSelect[string]().
+		Title("Select targets to enable").
+		Options(opts...).
+		Value(&picked)
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+	if len(picked) == 0 {
+		return nil, errNoTargets
+	}
+	out := make([]string, 0, len(picked))
+	pickedSet := make(map[string]bool, len(picked))
+	for _, n := range picked {
+		pickedSet[n] = true
+	}
+	for _, t := range allTargets {
+		if pickedSet[t.Name] {
+			out = append(out, t.Name)
+		}
+	}
+	return out, nil
 }
