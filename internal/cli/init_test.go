@@ -238,3 +238,113 @@ func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
 		t.Errorf("gemini should be absent:\n%s", got)
 	}
 }
+
+func TestInitCmd_Interactive_PipedSelection(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude,codex\n"))
+	root.SetArgs([]string{"init", "-i"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	got := string(cfg)
+	for _, want := range []string{"  - claude\n", "  - codex\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("config missing %q:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{"  - gemini\n", "  - cursor\n", "  - opencode\n"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("config should not contain %q:\n%s", unwanted, got)
+		}
+	}
+}
+
+func TestInitCmd_Interactive_PipedWithDir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude\n"))
+	root.SetArgs([]string{"init", "-i", "specs"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "specs", "agents")); err != nil {
+		t.Errorf("expected specs/agents/, got %v", err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfg), "agents: specs/agents") {
+		t.Errorf("config missing custom path:\n%s", cfg)
+	}
+	if !strings.Contains(string(cfg), "  - claude\n") {
+		t.Errorf("config missing claude:\n%s", cfg)
+	}
+}
+
+func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude\n"))
+	root.SetArgs([]string{"init", "-i", "--demo"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "agents", "code-reviewer.md")); err != nil {
+		t.Errorf("expected demo agent file, got %v", err)
+	}
+	cfg, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	if !strings.Contains(string(cfg), "  - claude\n") {
+		t.Errorf("config missing claude:\n%s", cfg)
+	}
+}
+
+func TestInitCmd_Interactive_PipedEmptyErrors(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("\n"))
+	root.SetArgs([]string{"init", "-i"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected error for empty piped selection")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); err == nil {
+		t.Error("agnostic.config.yaml should not be written on empty selection")
+	}
+}
+
+func TestInitCmd_Interactive_PipedUnknownTarget(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude,fnord\n"))
+	root.SetArgs([]string{"init", "-i"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for unknown target")
+	}
+	if !strings.Contains(err.Error(), "fnord") {
+		t.Errorf("error should mention 'fnord', got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); statErr == nil {
+		t.Error("agnostic.config.yaml should not be written on validation error")
+	}
+}
