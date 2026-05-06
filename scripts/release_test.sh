@@ -133,12 +133,12 @@ EOF
   local out
   out="$(cat "$tmp")"
   assert_contains "## [Unreleased]" "$out"
-  assert_contains "## [v0.2.0] - 2026-05-04" "$out"
+  assert_contains "## v0.2.0 - 2026-05-04" "$out"
   assert_contains "- foo" "$out"
   # The new [Unreleased] must appear before the dated section.
   local unreleased_line dated_line
   unreleased_line="$(grep -n '^## \[Unreleased\]$' "$tmp" | head -1 | cut -d: -f1)"
-  dated_line="$(grep -n '^## \[v0.2.0\]' "$tmp" | head -1 | cut -d: -f1)"
+  dated_line="$(grep -n '^## v0.2.0' "$tmp" | head -1 | cut -d: -f1)"
   assert_equals "true" "$([[ $unreleased_line -lt $dated_line ]] && echo true || echo false)"
   rm -f "$tmp"
 }
@@ -227,6 +227,29 @@ EOF
   assert_contains "- first" "$out"
   assert_contains "- ever" "$out"
   assert_not_contains "- new" "$out"
+  rm -f "$tmp"
+}
+
+function test_extract_changelog_section_accepts_bracketless_heading() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+## [Unreleased]
+
+## v0.4.0 - 2026-05-05
+
+### Added
+- thing
+
+## v0.3.0 - 2026-05-04
+
+- prior
+EOF
+  local out
+  out="$(extract_changelog_section "$tmp" "v0.4.0")"
+  assert_contains "### Added" "$out"
+  assert_contains "- thing" "$out"
+  assert_not_contains "- prior" "$out"
   rm -f "$tmp"
 }
 

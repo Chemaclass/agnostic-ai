@@ -25,7 +25,7 @@ The script:
 3. Bumps `version` in `cmd/agnostic-ai/main.go`.
 4. Promotes `[Unreleased]` in `CHANGELOG.md` to `vX.Y.Z` (no brackets) with today's date and inserts a fresh `[Unreleased]` block above. Format: `## vX.Y.Z - YYYY-MM-DD`.
 5. Commits `chore(release): vX.Y.Z` and tags `vX.Y.Z` (annotated).
-6. Pushes `main` and the tag. CI fires GoReleaser, which publishes binaries.
+6. Pushes `main` and the tag. CI fires GoReleaser. The workflow first runs `scripts/release-notes.sh` to build `NOTES.md` from the matching `CHANGELOG.md` section, then runs `goreleaser release --release-notes=NOTES.md` so the published GitHub Release body matches the changelog from creation. No post-hoc edit.
 
 Manual fallback (only if the script can't run):
 

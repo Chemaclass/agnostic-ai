@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- Release workflow now feeds `goreleaser release --release-notes=NOTES.md`, where `NOTES.md` is built from the matching `CHANGELOG.md` section by `scripts/release-notes.sh`. The published GitHub Release body matches the changelog from the moment the release is created; no post-hoc `gh release edit`.
+- `scripts/release.sh` `promote_changelog` writes dated headings as `## vX.Y.Z - YYYY-MM-DD` (no brackets) to match docs and prior history. Brackets stay on `## [Unreleased]`.
+
+### Fixed
+- `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z` heading forms, so older bracketless entries still resolve.
+
 ## v0.4.0 - 2026-05-05
 
 ### Added

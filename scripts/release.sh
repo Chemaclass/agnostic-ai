@@ -21,9 +21,10 @@
 #   6. Create annotated tag vX.Y.Z.
 #   7. Push main and tag atomically. CI fires GoReleaser, which builds
 #      and uploads binaries plus tarballs to a fresh GitHub Release.
-#   8. Watch the release workflow.
-#   9. Replace the auto-generated release notes with the matching section
-#      from CHANGELOG.md (install + changelog body + docs links).
+#   8. Watch the release workflow. The workflow builds release notes from
+#      CHANGELOG.md (`scripts/release-notes.sh`) and feeds them to
+#      GoReleaser via `--release-notes`, so the published GitHub Release
+#      body matches the changelog from the start. No post-hoc edit.
 
 set -Eeuo pipefail
 
@@ -71,8 +72,9 @@ bump_version_in_file() {
 }
 
 # promote_changelog <CHANGELOG path> <vX.Y.Z> <YYYY-MM-DD> — promotes the
-# existing [Unreleased] block to [version] - date and inserts a fresh
-# empty [Unreleased] block above.
+# existing [Unreleased] block to a dated `## vX.Y.Z - date` heading and
+# inserts a fresh empty [Unreleased] block above. Brackets stay on
+# Unreleased; dated headings drop them, matching docs and history.
 promote_changelog() {
   local file="$1" ver="$2" date="$3" tmp="$1.tmp"
   trap 'rm -f "$tmp"' RETURN
@@ -81,7 +83,7 @@ promote_changelog() {
     !done && /^## \[Unreleased\]/ {
       print "## [Unreleased]"
       print ""
-      print "## [" ver "] - " date
+      print "## " ver " - " date
       done = 1
       next
     }
@@ -90,15 +92,20 @@ promote_changelog() {
 }
 
 # extract_changelog_section <CHANGELOG path> <vX.Y.Z> — echoes the body
-# under `## [vX.Y.Z]` up to (but not including) the next `## ` heading.
-# Trailing blank lines are stripped. Returns 1 if the section is missing.
+# under `## [vX.Y.Z]` or `## vX.Y.Z` up to (but not including) the next
+# `## ` heading. Trailing blank lines are stripped. Returns 1 if the
+# section is missing. Both heading forms are accepted because earlier
+# entries used `## vX.Y.Z` while promote_changelog now writes
+# `## [vX.Y.Z]`.
 extract_changelog_section() {
   local file="$1" ver="$2"
-  grep -q "^## \[${ver}\]" "$file" || return 1
+  grep -Eq "^## (\[${ver}\]|${ver}( |$))" "$file" || return 1
   awk -v ver="$ver" '
     BEGIN { in_section=0 }
     {
-      if (match($0, "^## \\[" ver "\\]")) { in_section=1; next }
+      if (match($0, "^## \\[" ver "\\]") || match($0, "^## " ver "( |$)")) {
+        in_section=1; next
+      }
       if (in_section && match($0, /^## /)) { in_section=0 }
       if (in_section) lines[++n]=$0
     }
@@ -294,17 +301,6 @@ watch_release() {
 
   local repo
   repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-
-  note "updating release notes from CHANGELOG.md"
-  local notes
-  notes="$(mktemp)"
-  if format_release_notes "$version" "CHANGELOG.md" "$repo" > "$notes"; then
-    gh release edit "$version" --notes-file "$notes" >/dev/null
-    note "release notes updated"
-  else
-    note "could not extract [$version] section from CHANGELOG.md; leaving auto-generated notes."
-  fi
-  rm -f "$notes"
 
   note "release published:"
   note "  https://github.com/$repo/releases/tag/$version"
