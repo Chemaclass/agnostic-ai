@@ -58,6 +58,13 @@ func StartRecording() { emit.StartRecording() }
 // StopRecording returns the recorded paths and disables recording.
 func StopRecording() []string { return emit.StopRecording() }
 
+// StartCounting begins tracking the number of files written to disk.
+// Does not affect IO. Used by sync to record files_changed in the state file.
+func StartCounting() { emit.StartCounting() }
+
+// StopCounting returns the count of files written since StartCounting.
+func StopCounting() int { return emit.StopCounting() }
+
 // WriteFile writes content to path through the shared emit layer,
 // honoring the current capture, recording, and backup modes.
 func WriteFile(path, content string, dryRun bool) error {
