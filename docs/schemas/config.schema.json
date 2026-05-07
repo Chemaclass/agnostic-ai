@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chemaclass/agnostic-ai/internal/config/config",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "Config": {
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        },
+        "targets": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Output"
+          },
+          "type": "object"
+        },
+        "on-unsupported": {
+          "type": "string"
+        },
+        "gitignore": {
+          "$ref": "#/$defs/Gitignore"
+        },
+        "autoSync": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "version",
+        "sources",
+        "targets",
+        "outputs",
+        "on-unsupported",
+        "gitignore"
+      ]
+    },
+    "Gitignore": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "enabled"
+      ]
+    },
+    "Output": {
+      "properties": {
+        "dir": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "rules-file": {
+          "type": "string"
+        },
+        "rules-dir": {
+          "type": "string"
+        },
+        "mcp-file": {
+          "type": "string"
+        },
+        "agents-dir": {
+          "type": "string"
+        },
+        "skills-dir": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Sources": {
+      "properties": {
+        "agents": {
+          "type": "string"
+        },
+        "skills": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "string"
+        },
+        "hooks": {
+          "type": "string"
+        },
+        "mcps": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "agents",
+        "skills",
+        "rules",
+        "hooks",
+        "mcps"
+      ]
+    }
+  },
+  "title": "agnostic-ai configuration",
+  "description": "Configuration file for agnostic-ai (agnostic.config.yaml)."
+}
