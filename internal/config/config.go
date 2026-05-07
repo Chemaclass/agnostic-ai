@@ -14,7 +14,7 @@ type Config struct {
 	Targets       []string          `yaml:"targets"        json:"targets"`
 	Outputs       map[string]Output `yaml:"outputs"        json:"outputs"`
 	OnUnsupported string            `yaml:"on-unsupported" json:"on-unsupported"`
-	Gitignore     Gitignore         `yaml:"gitignore"      json:"gitignore"`
+	Gitignore     Gitignore         `yaml:"gitignore"      json:"gitignore,omitempty"`
 	AutoSync      *bool             `yaml:"autoSync,omitempty"  json:"autoSync,omitempty"`
 }
 
