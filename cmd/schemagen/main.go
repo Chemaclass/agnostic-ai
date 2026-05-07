@@ -14,7 +14,7 @@ import (
 func main() {
 	r := jsonschema.Reflector{}
 	schema := r.Reflect(&config.Config{})
-	schema.ID = "https://github.com/chemaclass/agnostic-ai/docs/schemas/config.schema.json"
+	schema.ID = "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
 	schema.Title = "agnostic-ai configuration"
 	schema.Description = "Configuration file for agnostic-ai (agnostic.config.yaml)."
 

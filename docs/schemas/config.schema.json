@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/chemaclass/agnostic-ai/docs/schemas/config.schema.json",
+  "$id": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json",
   "$ref": "#/$defs/Config",
   "$defs": {
     "Config": {
