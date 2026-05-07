@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `completion bash|zsh|fish|powershell`: generate shell completion scripts. Tab-completing `--target` reads `agnostic.config.yaml` and falls back to the full default target list when no config is found.
+
 ### Changed
 - GitHub Release body built from `CHANGELOG.md` via `scripts/release-notes.sh` and passed to `goreleaser release --release-notes=NOTES.md`. No post-hoc `gh release edit`.
 - `promote_changelog` writes dated headings as `## vX.Y.Z - YYYY-MM-DD` (no brackets), matching prior history. `## [Unreleased]` keeps brackets.

@@ -201,16 +201,28 @@ pass. Pair with `--backup` when reconciling files you may have hand-edited.
 
 ## completion
 
-Shell completion scripts (cobra).
+Generate a shell completion script and install it for your shell.
 
 ```bash
-agnostic-ai completion bash      # for bash
-agnostic-ai completion zsh       # for zsh
-agnostic-ai completion fish      # for fish
-agnostic-ai completion powershell
+# Bash — system-wide (may need sudo)
+agnostic-ai completion bash > /etc/bash_completion.d/agnostic-ai
+
+# Bash — current user only
+agnostic-ai completion bash > ~/.local/share/bash-completion/completions/agnostic-ai
+
+# Zsh
+agnostic-ai completion zsh > "${fpath[1]}/_agnostic-ai"
+
+# Fish
+agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
+
+# PowerShell
+agnostic-ai completion powershell | Out-String | Invoke-Expression
 ```
 
-Install: `agnostic-ai completion <shell> --help`.
+After installing, restart your shell (or `source` the completion file). Tab-completing `--target` reads `agnostic.config.yaml` in the current directory and falls back to the full default target list when no config is found.
+
+Run `agnostic-ai completion <shell> --help` for shell-specific setup instructions.
 
 ## help
 

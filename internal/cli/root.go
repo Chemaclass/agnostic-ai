@@ -36,6 +36,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newDoctorCmd(),
 		newRevertCmd(),
 	)
+	root.InitDefaultCompletionCmd()
 	return root
 }
 

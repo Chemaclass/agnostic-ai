@@ -75,6 +75,27 @@ on-unsupported: error
 	}
 }
 
+func TestDefaultTargets(t *testing.T) {
+	want := []string{
+		"claude", "codex", "gemini", "cursor",
+		"copilot", "aider", "cline", "windsurf", "continue",
+		"amp", "zed", "warp", "opencode",
+	}
+	targets := DefaultTargets()
+	if len(targets) != len(want) {
+		t.Fatalf("expected %d targets, got %d: %v", len(want), len(targets), targets)
+	}
+	wantSet := make(map[string]bool, len(want))
+	for _, w := range want {
+		wantSet[w] = true
+	}
+	for _, tgt := range targets {
+		if !wantSet[tgt] {
+			t.Errorf("unexpected target %q in DefaultTargets()", tgt)
+		}
+	}
+}
+
 func TestLoad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := Load(dir)
