@@ -54,3 +54,45 @@ func TestFrontmatter_WithFields(t *testing.T) {
 		t.Errorf("expected trailing ---, got %q", got)
 	}
 }
+
+func TestStartCounting_CountsRealWrites(t *testing.T) {
+	dir := t.TempDir()
+	StartCounting()
+	if err := WriteFile(filepath.Join(dir, "a.txt"), "aaa", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteFile(filepath.Join(dir, "b.txt"), "bbb", false); err != nil {
+		t.Fatal(err)
+	}
+	n := StopCounting()
+	if n != 2 {
+		t.Fatalf("want 2, got %d", n)
+	}
+}
+
+func TestStartCounting_IgnoresDryRun(t *testing.T) {
+	dir := t.TempDir()
+	StartCounting()
+	_ = WriteFile(filepath.Join(dir, "x.txt"), "xxx", true)
+	n := StopCounting()
+	if n != 0 {
+		t.Fatalf("want 0 for dry-run, got %d", n)
+	}
+}
+
+func TestStartCounting_IgnoresCaptureMode(t *testing.T) {
+	StartCapture()
+	StartCounting()
+	_ = WriteFile("/nonexistent/fake.txt", "zzz", false)
+	_ = StopCapture()
+	n := StopCounting()
+	if n != 0 {
+		t.Fatalf("want 0 in capture mode, got %d", n)
+	}
+}
+
+func TestStopCounting_WithoutStart_ReturnsZero(t *testing.T) {
+	if n := StopCounting(); n != 0 {
+		t.Fatalf("want 0 when not counting, got %d", n)
+	}
+}

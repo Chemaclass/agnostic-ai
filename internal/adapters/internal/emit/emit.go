@@ -37,6 +37,8 @@ var state struct {
 	backup    bool
 	recording bool
 	recorded  []string
+	counting  bool
+	counted   int
 }
 
 // SetBackup toggles backup mode. When enabled, WriteFile copies an
@@ -90,6 +92,26 @@ func StopRecording() []string {
 	return out
 }
 
+// StartCounting begins tracking the number of files written to disk.
+// Does not affect IO. Reset on each call to StartCounting.
+func StartCounting() {
+	state.mu.Lock()
+	state.counting = true
+	state.counted = 0
+	state.mu.Unlock()
+}
+
+// StopCounting returns the count of files written since StartCounting
+// and disables counting mode.
+func StopCounting() int {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.counting = false
+	n := state.counted
+	state.counted = 0
+	return n
+}
+
 // WriteFile creates parent directories as needed and writes content to path.
 // When dryRun is true the file is not written; the path and content are
 // printed to stdout instead. When capture mode is active, the call is
@@ -105,6 +127,9 @@ func WriteFile(path, content string, dryRun bool) error {
 	}
 	if recording {
 		state.recorded = append(state.recorded, path)
+	}
+	if state.counting && !capturing && !dryRun {
+		state.counted++
 	}
 	state.mu.Unlock()
 
