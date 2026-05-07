@@ -78,7 +78,7 @@ func defaults() *Config {
 			Hooks:  "hooks",
 			MCPs:   "mcps",
 		},
-		Targets: DefaultTargets(),
+		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
 	}
 }
