@@ -18,6 +18,23 @@ From source:
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
 ```
 
+## Shell completion
+
+Enable tab completion for subcommands and `--target`:
+
+```bash
+# Zsh
+agnostic-ai completion zsh > "${fpath[1]}/_agnostic-ai"
+
+# Bash (user-level)
+agnostic-ai completion bash > ~/.local/share/bash-completion/completions/agnostic-ai
+
+# Fish
+agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
+```
+
+Restart your shell after installing. See `agnostic-ai completion <shell> --help` for more options.
+
 ## Scaffold
 
 ```bash
