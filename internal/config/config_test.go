@@ -75,6 +75,22 @@ on-unsupported: error
 	}
 }
 
+func TestDefaultTargets(t *testing.T) {
+	targets := DefaultTargets()
+	if len(targets) == 0 {
+		t.Fatal("DefaultTargets must not be empty")
+	}
+	want := map[string]bool{
+		"claude": true, "codex": true, "cursor": true, "gemini": true,
+	}
+	for _, tgt := range targets {
+		delete(want, tgt)
+	}
+	if len(want) > 0 {
+		t.Errorf("missing expected targets: %v", want)
+	}
+}
+
 func TestLoad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := Load(dir)

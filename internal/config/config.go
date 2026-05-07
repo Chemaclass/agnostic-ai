@@ -60,6 +60,14 @@ func Load(root string) (*Config, error) {
 	return cfg, nil
 }
 
+func DefaultTargets() []string {
+	return []string{
+		"claude", "codex", "gemini", "cursor",
+		"copilot", "aider", "cline", "windsurf", "continue",
+		"amp", "zed", "warp", "opencode",
+	}
+}
+
 func defaults() *Config {
 	return &Config{
 		Version: 1,
@@ -70,11 +78,7 @@ func defaults() *Config {
 			Hooks:  "hooks",
 			MCPs:   "mcps",
 		},
-		Targets: []string{
-			"claude", "codex", "gemini", "cursor",
-			"copilot", "aider", "cline", "windsurf", "continue",
-			"amp", "zed", "warp", "opencode",
-		},
+		Targets: DefaultTargets(),
 		OnUnsupported: "warn",
 	}
 }
