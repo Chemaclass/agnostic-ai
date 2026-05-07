@@ -350,7 +350,7 @@ func normalizeLineEndings(b []byte) []byte {
 // splitFrontmatter parses a leading `---` block as YAML and returns the
 // remaining body. A file that does not start with `---`, or whose
 // closing `---` is missing, is treated as body-only with empty meta
-// (this matches the legacy behaviour). Malformed YAML inside a fully
+// (this matches the legacy behavior). Malformed YAML inside a fully
 // delimited block is surfaced as an error rather than silently
 // swallowed.
 func splitFrontmatter(data []byte) (map[string]any, string, error) {

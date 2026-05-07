@@ -19,19 +19,20 @@ func formatYAMLError(path string, err error, lineOffset int) error {
 	if err == nil {
 		return nil
 	}
-	for _, msg := range yamlErrorMessages(err) {
-		line, col, body := extractPosition(msg)
-		if line > 0 {
-			line += lineOffset
-		} else {
-			line = 1
-		}
-		if col <= 0 {
-			col = 1
-		}
-		return fmt.Errorf("%s:%d:%d: %s", path, line, col, body)
+	msgs := yamlErrorMessages(err)
+	if len(msgs) == 0 {
+		return fmt.Errorf("%s: %s", path, err.Error())
 	}
-	return fmt.Errorf("%s: %s", path, err.Error())
+	line, col, body := extractPosition(msgs[0])
+	if line > 0 {
+		line += lineOffset
+	} else {
+		line = 1
+	}
+	if col <= 0 {
+		col = 1
+	}
+	return fmt.Errorf("%s:%d:%d: %s", path, line, col, body)
 }
 
 // yamlErrorMessages flattens a yaml.v3 error chain into individual
