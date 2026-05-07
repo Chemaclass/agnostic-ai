@@ -124,6 +124,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
 	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
+	registerTargetCompletion(cmd)
 	return cmd
 }
 

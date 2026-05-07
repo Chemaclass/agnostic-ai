@@ -73,6 +73,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
+	registerTargetCompletion(cmd)
 	return cmd
 }
 

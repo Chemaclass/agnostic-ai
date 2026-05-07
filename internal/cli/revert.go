@@ -64,6 +64,7 @@ func newRevertCmd() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to revert (default: all in config)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report intended actions without touching disk")
+	registerTargetCompletion(cmd)
 	return cmd
 }
 
