@@ -65,7 +65,7 @@ func newStatusCmd() *cobra.Command {
 }
 
 func gatherStatus(projectRoot string) (*statusResult, error) {
-	cwd, err := os.Getwd()
+	abs, err := filepath.Abs(projectRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 	syncedAt, filesChanged := readSyncState(projectRoot, allPaths)
 
 	return &statusResult{
-		ProjectName:  filepath.Base(cwd),
+		ProjectName:  filepath.Base(abs),
 		Layers:       buildLayerInfos(projectRoot, cfg),
 		Specs:        countSpecs(b),
 		Targets:      cfg.Targets,
@@ -204,7 +204,7 @@ func printStatus(cmd *cobra.Command, r *statusResult) {
 	if r.DriftFiles == 0 {
 		cmd.Printf("Drift:   in sync\n")
 	} else {
-		cmd.Printf("Drift:   %d file%s out of date  (run `agnostic-ai sync` or `agnostic-ai doctor --fix`)\n",
+		cmd.Printf("Drift:   %d file%s out of date (run `agnostic-ai sync` or `agnostic-ai doctor --fix`)\n",
 			r.DriftFiles, pluralS(r.DriftFiles))
 	}
 }
