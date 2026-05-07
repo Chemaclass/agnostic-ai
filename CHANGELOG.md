@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.5.0 - 2026-05-07
+
 ### Added
 - `agnostic-ai validate --fix`: rewrite source spec files to fix autofixable issues. Today it backfills missing `name:` frontmatter (deriving the value from the filename, or the parent directory name for skills under `<skill>/SKILL.md`) without disturbing any other frontmatter or body byte. The plain `validate` command now lists detected issues with a `*` marker for autofixable ones and a hint to rerun with `--fix`.
 - Plugin protocol (v1) for external adapters. Any binary on `PATH` named `agnostic-ai-adapter-<target>` is automatically discovered when `<target>` is listed in `agnostic.config.yaml`. The host pipes a JSON document of specs and config to stdin and reads back a JSON document of files/warnings/errors on stdout, then writes the files through the same emit layer that handles capture/backup/dry-run. Protocol stable at `protocol_version: 1`, documented in `docs/internal/plugin-protocol.md`. Reference Go helpers (`external.DecodeInput`, `external.EncodeOutput`) live in `internal/adapters/external/`.
