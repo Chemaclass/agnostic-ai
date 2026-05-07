@@ -50,6 +50,8 @@ first `sync` produces real output. `-i` (or `--interactive`) prompts
 for which targets to enable; pipe a comma-separated list (`echo
 "claude,codex" | agnostic-ai init -i`) for non-TTY use.
 
+The generated `agnostic.config.yaml` includes a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config automatically.
+
 ```
 .
 ├── agnostic.config.yaml
