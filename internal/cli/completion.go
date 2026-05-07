@@ -7,13 +7,14 @@ import (
 )
 
 func registerTargetCompletion(cmd *cobra.Command) {
-	_ = cmd.RegisterFlagCompletionFunc("target",
-		func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-			cfg, err := config.Load(".")
-			if err != nil {
-				return config.DefaultTargets(), cobra.ShellCompDirectiveNoFileComp
-			}
-			return cfg.Targets, cobra.ShellCompDirectiveNoFileComp
-		},
-	)
+	completeTargets := func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		cfg, err := config.Load(".")
+		if err != nil {
+			return config.DefaultTargets(), cobra.ShellCompDirectiveNoFileComp
+		}
+		return cfg.Targets, cobra.ShellCompDirectiveNoFileComp
+	}
+	_ = cmd.RegisterFlagCompletionFunc("target", completeTargets)
+	_ = cmd.RegisterFlagCompletionFunc("only", completeTargets)
+	_ = cmd.RegisterFlagCompletionFunc("except", completeTargets)
 }
