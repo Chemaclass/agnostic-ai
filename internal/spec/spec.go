@@ -309,7 +309,8 @@ func parseMarkdown(path string) (Entry, error) {
 	}
 	meta, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
-		return Entry{}, fmt.Errorf("parse frontmatter: %w", err)
+		// Frontmatter starts at line 2 (line 1 is the opening `---`).
+		return Entry{}, formatYAMLError(path, err, 1)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
@@ -327,7 +328,7 @@ func parseYAML(path string) (Entry, error) {
 	}
 	var meta map[string]any
 	if err := yaml.Unmarshal(data, &meta); err != nil {
-		return Entry{}, fmt.Errorf("parse yaml: %w", err)
+		return Entry{}, formatYAMLError(path, err, 0)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
