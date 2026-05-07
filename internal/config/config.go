@@ -9,13 +9,13 @@ import (
 )
 
 type Config struct {
-	Version       int               `yaml:"version"`
-	Sources       Sources           `yaml:"sources"`
-	Targets       []string          `yaml:"targets"`
-	Outputs       map[string]Output `yaml:"outputs"`
-	OnUnsupported string            `yaml:"on-unsupported"`
-	Gitignore     Gitignore         `yaml:"gitignore"`
-	AutoSync      *bool             `yaml:"autoSync,omitempty"`
+	Version       int               `yaml:"version"        json:"version"`
+	Sources       Sources           `yaml:"sources"        json:"sources"`
+	Targets       []string          `yaml:"targets"        json:"targets"`
+	Outputs       map[string]Output `yaml:"outputs"        json:"outputs"`
+	OnUnsupported string            `yaml:"on-unsupported" json:"on-unsupported"`
+	Gitignore     Gitignore         `yaml:"gitignore"      json:"gitignore"`
+	AutoSync      *bool             `yaml:"autoSync,omitempty" json:"autoSync,omitempty"`
 }
 
 // Gitignore controls automatic management of .gitignore entries for the
@@ -23,27 +23,27 @@ type Config struct {
 // managed block in `.gitignore` (created if missing) listing every path
 // the configured adapters would emit.
 type Gitignore struct {
-	Enabled bool `yaml:"enabled"`
+	Enabled bool `yaml:"enabled"        json:"enabled"`
 	// Path overrides the .gitignore location relative to the project root.
-	Path string `yaml:"path,omitempty"`
+	Path string `yaml:"path,omitempty" json:"path,omitempty"`
 }
 
 type Sources struct {
-	Agents string `yaml:"agents"`
-	Skills string `yaml:"skills"`
-	Rules  string `yaml:"rules"`
-	Hooks  string `yaml:"hooks"`
-	MCPs   string `yaml:"mcps"`
+	Agents string `yaml:"agents" json:"agents"`
+	Skills string `yaml:"skills" json:"skills"`
+	Rules  string `yaml:"rules"  json:"rules"`
+	Hooks  string `yaml:"hooks"  json:"hooks"`
+	MCPs   string `yaml:"mcps"   json:"mcps"`
 }
 
 type Output struct {
-	Dir       string `yaml:"dir,omitempty"`
-	File      string `yaml:"file,omitempty"`
-	RulesFile string `yaml:"rules-file,omitempty"`
-	RulesDir  string `yaml:"rules-dir,omitempty"`
-	MCPFile   string `yaml:"mcp-file,omitempty"`
-	AgentsDir string `yaml:"agents-dir,omitempty"`
-	SkillsDir string `yaml:"skills-dir,omitempty"`
+	Dir       string `yaml:"dir,omitempty"        json:"dir,omitempty"`
+	File      string `yaml:"file,omitempty"       json:"file,omitempty"`
+	RulesFile string `yaml:"rules-file,omitempty" json:"rules-file,omitempty"`
+	RulesDir  string `yaml:"rules-dir,omitempty"  json:"rules-dir,omitempty"`
+	MCPFile   string `yaml:"mcp-file,omitempty"   json:"mcp-file,omitempty"`
+	AgentsDir string `yaml:"agents-dir,omitempty" json:"agents-dir,omitempty"`
+	SkillsDir string `yaml:"skills-dir,omitempty" json:"skills-dir,omitempty"`
 }
 
 func Load(root string) (*Config, error) {
