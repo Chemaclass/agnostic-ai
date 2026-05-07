@@ -3,6 +3,7 @@
 package adapters
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
@@ -85,10 +86,22 @@ var registry = map[string]Adapter{
 	"opencode": opencode.New(),
 }
 
-// Get returns the adapter registered under name.
+// Get returns the adapter registered under name. Lookup is restricted to
+// the in-tree registry; for the full lookup including external adapters
+// discovered on PATH, use Resolve.
 func Get(name string) (Adapter, bool) {
 	a, ok := registry[name]
 	return a, ok
+}
+
+// Resolve returns the adapter for name, looking it up first in the
+// in-tree registry. Callers should use Resolve rather than Get directly
+// so non-built-in targets can be picked up by future resolvers.
+func Resolve(name string) (Adapter, error) {
+	if a, ok := registry[name]; ok {
+		return a, nil
+	}
+	return nil, fmt.Errorf("unknown target: %s", name)
 }
 
 // Names returns every registered target name.
