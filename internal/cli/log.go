@@ -17,7 +17,7 @@ var (
 	logOut    io.Writer = os.Stdout
 )
 
-//Prints a one line command summary. Can be suppressed using --quiet flag
+// Prints a one line command summary. Can be suppressed using --quiet flag
 func summaryf(format string, a ...any) {
 	if verbosity < levelDefault {
 		return
