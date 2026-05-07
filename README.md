@@ -145,6 +145,20 @@ Already have `.cursor/rules` or `AGENTS.md`? Pull them in:
 agnostic-ai import cursor         # also: codex, claude, cline, windsurf, continue
 ```
 
+## CI gate
+
+Drop the official action into any workflow to fail PRs that drift from
+source specs:
+
+```yaml
+- uses: chemaclass/agnostic-ai-action@v1
+  with:
+    command: check
+```
+
+See [CI docs](docs/user/ci.md) for version pinning and `sync` / `doctor`
+modes.
+
 ## What you get
 
 - **Stateless adapters.** Same input, same output. Diffable, reviewable, regeneratable.
