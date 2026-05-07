@@ -28,7 +28,7 @@ func watchSync(ctx context.Context, interval time.Duration, root string, targets
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	fmt.Println("→ watching for changes (Ctrl+C to exit)")
+	summaryf("→ watching for changes (Ctrl+C to exit)\n")
 
 	for {
 		select {
@@ -40,7 +40,7 @@ func watchSync(ctx context.Context, interval time.Duration, root string, targets
 				continue
 			}
 			snapshot = curr
-			fmt.Println("→ change detected, re-syncing")
+			summaryf("→ change detected, re-syncing\n")
 			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}

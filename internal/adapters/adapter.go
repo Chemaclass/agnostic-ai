@@ -3,6 +3,8 @@
 package adapters
 
 import (
+	"io"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
@@ -38,6 +40,10 @@ func StopCapture() []CapturedFile { return emit.StopCapture() }
 // overwriting. Used by `sync --backup` to leave a recovery trail that
 // `revert` can restore from.
 func SetBackup(b bool) { emit.SetBackup(b) }
+
+// SetWarner redirects capability warnings emitted by adapters. The CLI uses
+// this to suppress warnings under --quiet.
+func SetWarner(w io.Writer) { emit.Warner = w }
 
 // StartRecording begins collecting written paths alongside real writes.
 // Unlike capture mode it does not suppress IO. Used by `sync` to learn

@@ -52,7 +52,7 @@ func newRevertCmd() *cobra.Command {
 					return fmt.Errorf("%s: %w", t, err)
 				}
 				files := adapters.StopCapture()
-				fmt.Printf("← revert %s\n", t)
+				summaryf("← revert %s\n", t)
 				for _, f := range files {
 					if err := revertOne(f.Path, dryRun); err != nil {
 						return fmt.Errorf("%s: %w", t, err)
@@ -75,7 +75,7 @@ func revertOne(path string, dryRun bool) error {
 	switch {
 	case err == nil:
 		if dryRun {
-			fmt.Printf("    restore: %s ← %s\n", path, bak)
+			verbosef("    restore: %s ← %s\n", path, bak)
 			return nil
 		}
 		if err := os.WriteFile(path, data, 0o644); err != nil {
@@ -84,19 +84,19 @@ func revertOne(path string, dryRun bool) error {
 		if err := os.Remove(bak); err != nil {
 			return fmt.Errorf("remove %s: %w", bak, err)
 		}
-		fmt.Printf("    restored: %s\n", path)
+		verbosef("    restored: %s\n", path)
 		return nil
 	case !errors.Is(err, fs.ErrNotExist):
 		return fmt.Errorf("read backup %s: %w", bak, err)
 	}
 
 	if dryRun {
-		fmt.Printf("    remove:  %s\n", path)
+		verbosef("    remove:  %s\n", path)
 		return nil
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
-	fmt.Printf("    removed:  %s\n", path)
+	verbosef("    removed:  %s\n", path)
 	return nil
 }

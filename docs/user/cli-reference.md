@@ -9,7 +9,9 @@ agnostic-ai [command] [flags]
 | Flag | Description |
 |------|-------------|
 | `-h, --help` | Help for any command |
-| `-v, --version` | Print version and exit |
+| `--version` | Print version and exit |
+| `-q, --quiet` | Errors only |
+| `-v, --verbose` | Per-target detail. Mutually exclusive with `--quiet`. |
 
 ## init
 

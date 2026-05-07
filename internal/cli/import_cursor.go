@@ -24,7 +24,7 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("imported %d rules\n", n)
+	summaryf("imported %d rules\n", n)
 	return nil
 }
 

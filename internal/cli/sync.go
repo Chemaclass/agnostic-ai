@@ -99,7 +99,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			fmt.Fprintf(os.Stderr, "! unknown target: %s\n", t)
 			continue
 		}
-		fmt.Printf("→ emit %s\n", t)
+		verbosef("→ emit %s\n", t)
 		if err := adapter.Emit(b, cfg, dryRun); err != nil {
 			if gitignoreOn {
 				adapters.StopRecording()
@@ -111,7 +111,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
-		fmt.Println("→ updated .gitignore")
+		summaryf("→ updated .gitignore\n")
 	}
 	return nil
 }
