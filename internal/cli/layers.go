@@ -39,31 +39,52 @@ func defaultLayerSources() config.Sources {
 // not exist.
 func resolveLayers(projectRoot string, cfg *config.Config) []spec.Layer {
 	var layers []spec.Layer
-
-	if root, ok := userGlobalRoot(); ok {
-		layers = append(layers, spec.Layer{
-			Name:    layerNameUserGlobal,
-			Root:    root,
-			Sources: defaultLayerSources(),
-		})
+	if l, ok := resolveUserGlobalLayer(); ok {
+		layers = append(layers, l)
 	}
+	layers = append(layers, resolveProjectLayer(projectRoot, cfg))
+	if l, ok := resolveProjectUserLayer(projectRoot); ok {
+		layers = append(layers, l)
+	}
+	return layers
+}
 
-	layers = append(layers, spec.Layer{
+// resolveUserGlobalLayer returns the user-global layer when
+// AGNOSTIC_AI_HOME or ~/.agnostic-ai resolves to an existing directory.
+func resolveUserGlobalLayer() (spec.Layer, bool) {
+	root, ok := userGlobalRoot()
+	if !ok {
+		return spec.Layer{}, false
+	}
+	return spec.Layer{
+		Name:    layerNameUserGlobal,
+		Root:    root,
+		Sources: defaultLayerSources(),
+	}, true
+}
+
+// resolveProjectLayer returns the always-present project layer using
+// the configurable source paths from cfg.
+func resolveProjectLayer(projectRoot string, cfg *config.Config) spec.Layer {
+	return spec.Layer{
 		Name:    layerNameProject,
 		Root:    projectRoot,
 		Sources: cfg.Sources,
-	})
-
-	pu := filepath.Join(projectRoot, defaultProjectUser)
-	if dirExists(pu) {
-		layers = append(layers, spec.Layer{
-			Name:    layerNameProjectUser,
-			Root:    pu,
-			Sources: defaultLayerSources(),
-		})
 	}
+}
 
-	return layers
+// resolveProjectUserLayer returns the project-user layer when
+// `<projectRoot>/.agnostic-ai.local` exists.
+func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
+	pu := filepath.Join(projectRoot, defaultProjectUser)
+	if !dirExists(pu) {
+		return spec.Layer{}, false
+	}
+	return spec.Layer{
+		Name:    layerNameProjectUser,
+		Root:    pu,
+		Sources: defaultLayerSources(),
+	}, true
 }
 
 // userGlobalRoot resolves the user-global layer root. AGNOSTIC_AI_HOME
