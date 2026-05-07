@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "agnostic-ai spec frontmatter",
+  "description": "YAML frontmatter for agnostic-ai spec files (agents, skills, rules, hooks, MCPs).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Spec identifier. Defaults to the filename without extension."
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line summary shown in tool listings."
+    },
+    "tools": {
+      "description": "Tools the agent may invoke. Format depends on target CLI.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "model": {
+      "type": "string",
+      "description": "Preferred model.",
+      "examples": ["sonnet", "opus", "haiku"]
+    },
+    "globs": {
+      "type": "string",
+      "description": "File patterns where this rule applies. Used by Cursor."
+    },
+    "alwaysApply": {
+      "type": "boolean",
+      "description": "Whether the rule injects unconditionally or only on matching context."
+    },
+    "scope": {
+      "type": "string",
+      "description": "Routing prefix override. Relative path with forward slashes."
+    },
+    "event": {
+      "type": "string",
+      "description": "Hook event that triggers this hook (Claude Code).",
+      "enum": ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "Notification"]
+    },
+    "matcher": {
+      "type": "string",
+      "description": "Regex on the tool name or other event-specific selector (hooks)."
+    },
+    "command": {
+      "type": "string",
+      "description": "Shell command (hooks) or executable to launch (MCP stdio)."
+    },
+    "type": {
+      "type": "string",
+      "description": "MCP transport type.",
+      "enum": ["stdio", "http", "sse"]
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Argument list for the MCP command (stdio transport)."
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Environment variables passed to the MCP server."
+    },
+    "url": {
+      "type": "string",
+      "description": "MCP endpoint URL for http/sse transports."
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "HTTP headers for MCP http/sse transports."
+    }
+  }
+}
