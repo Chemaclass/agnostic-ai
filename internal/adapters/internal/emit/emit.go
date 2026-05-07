@@ -93,7 +93,7 @@ func StopRecording() []string {
 }
 
 // StartCounting begins tracking the number of files written to disk.
-// Does not affect IO. Reset on each call to StartCounting.
+// Does not affect IO.
 func StartCounting() {
 	state.mu.Lock()
 	state.counting = true
@@ -108,7 +108,6 @@ func StopCounting() int {
 	defer state.mu.Unlock()
 	state.counting = false
 	n := state.counted
-	state.counted = 0
 	return n
 }
 
