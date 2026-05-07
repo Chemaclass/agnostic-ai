@@ -68,6 +68,9 @@ desktop.ini
 /.clinerules/
 /.windsurf/
 /.continue/
+/.codex/
+/.opencode/
+/.agents/
 /CLAUDE.md
 /GEMINI.md
 /CONVENTIONS.md
