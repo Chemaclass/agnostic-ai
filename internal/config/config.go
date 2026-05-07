@@ -15,7 +15,7 @@ type Config struct {
 	Outputs       map[string]Output `yaml:"outputs"        json:"outputs"`
 	OnUnsupported string            `yaml:"on-unsupported" json:"on-unsupported"`
 	Gitignore     Gitignore         `yaml:"gitignore"      json:"gitignore"`
-	AutoSync      *bool             `yaml:"autoSync,omitempty" json:"autoSync,omitempty"`
+	AutoSync      *bool             `yaml:"autoSync,omitempty"  json:"autoSync,omitempty"`
 }
 
 // Gitignore controls automatic management of .gitignore entries for the
