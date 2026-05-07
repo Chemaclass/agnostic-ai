@@ -131,7 +131,7 @@ func importFromRulesDir(root, target, srcDir string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("imported %d rules, %d agents, %d skills (from %s)\n",
+	summaryf("imported %d rules, %d agents, %d skills (from %s)\n",
 		c.rules, c.agents, c.skills, target)
 	return nil
 }

@@ -120,11 +120,11 @@ func scaffold(root, base string, demo bool, targets []string) error {
 			return err
 		}
 	}
-	fmt.Printf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
+	summaryf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
 	if demo {
-		fmt.Println("seeded one example spec per source folder. delete or edit to taste.")
+		summaryf("seeded one example spec per source folder. delete or edit to taste.\n")
 	}
-	fmt.Println("import existing AI CLI config with `agnostic-ai import <source>`.")
+	summaryf("import existing AI CLI config with `agnostic-ai import <source>`.\n")
 	return nil
 }
 

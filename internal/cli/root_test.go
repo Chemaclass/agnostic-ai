@@ -23,6 +23,55 @@ func TestRoot_VersionFlag(t *testing.T) {
 	}
 }
 
+func TestRoot_VerboseShortDoesNotPrintVersion(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("9.9.9")
+	root.SetArgs([]string{"-v", "validate"})
+	buf := &bytes.Buffer{}
+	root.SetOut(buf)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(buf.Bytes(), []byte("9.9.9")) {
+		t.Errorf("-v should be verbosity, not version; got %s", buf.Bytes())
+	}
+}
+
+func TestRoot_QuietAndVerboseAreMutuallyExclusive(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"-q", "-v", "validate"})
+	if err := root.Execute(); err == nil {
+		t.Error("expected error when --quiet and --verbose combined")
+	}
+}
+
+func TestRoot_QuietSuppressesSummary(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	prev := logOut
+	buf := &bytes.Buffer{}
+	logOut = buf
+	t.Cleanup(func() { logOut = prev })
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"-q", "sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("--quiet should suppress summary output, got %q", buf.String())
+	}
+}
+
 func TestSync_Validate_List_OnFixture(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

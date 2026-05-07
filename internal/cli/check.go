@@ -70,16 +70,16 @@ func printDrift(reports []driftReport) bool {
 	any := false
 	for _, r := range reports {
 		if !r.hasDrift() {
-			fmt.Printf("✓ %s: in sync\n", r.Target)
+			verbosef("✓ %s: in sync\n", r.Target)
 			continue
 		}
 		any = true
-		fmt.Printf("✗ %s: drift\n", r.Target)
+		summaryf("✗ %s: drift\n", r.Target)
 		for _, f := range r.Missing {
-			fmt.Printf("    missing: %s\n", f.Path)
+			verbosef("    missing: %s\n", f.Path)
 		}
 		for _, f := range r.Stale {
-			fmt.Printf("    stale:   %s\n", f.Path)
+			verbosef("    stale:   %s\n", f.Path)
 		}
 	}
 	return any
@@ -117,7 +117,7 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("→ reconciled %d file(s)\n", fixed)
+			summaryf("→ reconciled %d file(s)\n", fixed)
 			return nil
 		},
 	}

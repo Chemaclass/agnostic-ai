@@ -2,8 +2,12 @@
 package cli
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -27,6 +31,33 @@ func NewRootCmd(version string) *cobra.Command {
   # CI gate: fail when emitted files drift from specs
   agnostic-ai sync --check`,
 	}
+
+	var quiet bool
+	root.PersistentFlags().CountP("verbose", "v", "Increase output verbosity")
+	root.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-error output")
+
+	// Cobra auto binds -v to --version when Version is set so
+	// So here taking -v back for verbosity by clearing the shorthand on the version flag.
+	root.InitDefaultVersionFlag()
+	if vf := root.Flags().Lookup("version"); vf != nil {
+		vf.Shorthand = ""
+	}
+
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		v, _ := cmd.Flags().GetCount("verbose")
+		if quiet && v > 0 {
+			return fmt.Errorf("--quiet and --verbose are mutually exclusive")
+		}
+		switch {
+		case quiet:
+			verbosity = levelQuiet
+			adapters.SetWarner(io.Discard)
+		default:
+			verbosity = v
+		}
+		return nil
+	}
+
 	root.AddCommand(
 		newSyncCmd(),
 		newValidateCmd(),

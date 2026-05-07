@@ -32,7 +32,7 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
 		return err
 	}
-	fmt.Printf("imported %d rules, %d agents, %d skills, %d hooks\n",
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks\n",
 		c.rules, c.agents, c.skills, c.hooks)
 	return nil
 }
