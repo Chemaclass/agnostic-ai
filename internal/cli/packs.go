@@ -159,7 +159,7 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	if err := writePacksLock(root, lock); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "✓ added %s\n", name)
+	_, _ = fmt.Fprintf(out, "✓ added %s\n", name)
 	return nil
 }
 
@@ -179,7 +179,7 @@ func runPacksRemove(root, name string, out io.Writer) error {
 	if err := writePacksLock(root, lock); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "✓ removed %s\n", name)
+	_, _ = fmt.Fprintf(out, "✓ removed %s\n", name)
 	return nil
 }
 
@@ -189,7 +189,7 @@ func runPacksList(root string, out io.Writer) error {
 		return err
 	}
 	if len(lock.Packs) == 0 {
-		fmt.Fprintln(out, "no packs installed.")
+		_, _ = fmt.Fprintln(out, "no packs installed.")
 		return nil
 	}
 	for _, p := range lock.Packs {
@@ -197,11 +197,11 @@ func runPacksList(root string, out io.Writer) error {
 		if ref == "" {
 			ref = "HEAD"
 		}
-		fmt.Fprintf(out, "%s\t%s@%s", p.Name, p.Source, ref)
+		_, _ = fmt.Fprintf(out, "%s\t%s@%s", p.Name, p.Source, ref)
 		if p.Sha != "" {
-			fmt.Fprintf(out, " (%s)", short(p.Sha))
+			_, _ = fmt.Fprintf(out, " (%s)", short(p.Sha))
 		}
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 	}
 	return nil
 }
@@ -212,7 +212,7 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 		return err
 	}
 	if len(lock.Packs) == 0 {
-		fmt.Fprintln(out, "no packs installed.")
+		_, _ = fmt.Fprintln(out, "no packs installed.")
 		return nil
 	}
 	updated := 0
@@ -229,7 +229,7 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
 		lock.Packs[i].Sha = sha
-		fmt.Fprintf(out, "✓ updated %s\n", p.Name)
+		_, _ = fmt.Fprintf(out, "✓ updated %s\n", p.Name)
 		updated++
 	}
 	if only != "" && updated == 0 {
@@ -252,17 +252,17 @@ func isLocalSource(s string) bool {
 	if strings.HasPrefix(s, "file://") {
 		return true
 	}
-	if strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") || strings.HasPrefix(s, "/") {
+	if strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") {
+		return true
+	}
+	if filepath.IsAbs(s) {
 		return true
 	}
 	return false
 }
 
 func localPath(s string) string {
-	if strings.HasPrefix(s, "file://") {
-		return strings.TrimPrefix(s, "file://")
-	}
-	return s
+	return strings.TrimPrefix(s, "file://")
 }
 
 func copyTree(src, dst string) error {
@@ -349,12 +349,12 @@ func splitSourceRef(s string) (src, ref string) {
 }
 
 // derivePackName picks an install directory name from a source string.
-// Strategy: take the last path component, drop a `.git` suffix.
+// Strategy: take the last path component, drop a `.git` suffix. Path
+// separators are normalized so an absolute Windows path like
+// `C:\Users\me\pack` still produces `pack`.
 func derivePackName(source string) string {
-	s := source
-	if strings.HasPrefix(s, "file://") {
-		s = strings.TrimPrefix(s, "file://")
-	}
+	s := strings.TrimPrefix(source, "file://")
+	s = filepath.ToSlash(s)
 	s = strings.TrimSuffix(s, "/")
 	s = strings.TrimSuffix(s, ".git")
 	if u, err := url.Parse(s); err == nil && u.Path != "" && u.Host != "" {
