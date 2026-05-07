@@ -42,6 +42,7 @@ func resolveLayers(projectRoot string, cfg *config.Config) []spec.Layer {
 	if l, ok := resolveUserGlobalLayer(); ok {
 		layers = append(layers, l)
 	}
+	layers = append(layers, resolvePacksLayers(projectRoot)...)
 	layers = append(layers, resolveProjectLayer(projectRoot, cfg))
 	if l, ok := resolveProjectUserLayer(projectRoot); ok {
 		layers = append(layers, l)

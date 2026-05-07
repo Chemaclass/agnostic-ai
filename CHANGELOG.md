@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `agnostic-ai packs add|remove|update|list`: install shareable spec packs from Git URLs or local directories. Packs land under `.agnostic-ai/packs/<name>/`, are pinned in `agnostic.packs.lock`, and load as a layer between user-global and project so any project-local entry overrides a pack-supplied one. `agnostic-ai packs add github.com/foo/bar@v1.2.0` clones the repo (`--depth 1`), strips `.git`, and records the resolved commit sha in the lockfile. New docs at `docs/user/packs.md` (consumer) and `docs/internal/pack-authors.md` (publisher).
 - `docs/user/ci.md`: dedicated CI page covering `sync --check` and the official `chemaclass/agnostic-ai-action@v1` GitHub Action (3-line drop-in snippet, version pinning, cached binary, drift summary in the job log).
 - `completion bash|zsh|fish|powershell`: generate shell completion scripts. Tab-completing `--target` reads `agnostic.config.yaml` and falls back to the full default target list when no config is found.
 - JSON Schema published at `docs/schemas/config.schema.json` (generated from Go structs) and `docs/schemas/spec.schema.json` (hand-authored). Editors with the YAML Language Server validate `agnostic.config.yaml` and spec frontmatter automatically.
