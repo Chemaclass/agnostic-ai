@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `agnostic-ai status`: single read-only command that shows project name, active layers, spec counts, configured targets, last sync timestamp (with files-changed count), and current drift count. Use `--json` for machine-readable output. Exits 0 even when drifted; use `sync --check` for CI gating. Last sync timestamp is read from `.agnostic-ai/.sync-state` written by each successful `sync` run, with a fallback to the newest mtime of generated files when the state file is absent.
+
 ## v0.5.0 - 2026-05-07
 
 ### Added

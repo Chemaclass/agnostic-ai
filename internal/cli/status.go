@@ -246,7 +246,7 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		DriftFiles:           r.DriftFiles,
 	}
 	for i, l := range r.Layers {
-		out.Layers[i] = layerJSON{Name: l.Name, Path: l.Path}
+		out.Layers[i] = layerJSON(l)
 	}
 	if r.LastSync != nil {
 		s := r.LastSync.UTC().Format(time.RFC3339)
