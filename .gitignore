@@ -81,6 +81,14 @@ AGENT.md
 WARP.md
 .rules
 # =============================================================================
+# Release scaffolding
+# =============================================================================
+# NOTES.md is built by .github/workflows/release.yml from CHANGELOG.md and
+# fed to GoReleaser via --release-notes. GoReleaser refuses to release with
+# a dirty tree, so the file must stay out of git.
+/NOTES.md
+
+# =============================================================================
 # Tooling caches
 # =============================================================================
 /.golangci-cache/
