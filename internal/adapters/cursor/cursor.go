@@ -67,7 +67,7 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	b.WriteString("---\n")
 	b.WriteString("description: " + desc + "\n")
 	b.WriteString("globs: " + globs + "\n")
-	b.WriteString(fmt.Sprintf("alwaysApply: %t\n", always))
+	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()

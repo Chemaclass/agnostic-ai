@@ -12,7 +12,7 @@ import (
 )
 
 func newRevertCmd() *cobra.Command {
-	var targets []string
+	var targets, only, except []string
 	var dryRun bool
 
 	cmd := &cobra.Command{
@@ -28,16 +28,30 @@ func newRevertCmd() *cobra.Command {
   agnostic-ai revert --dry-run
 
   # Restore .bak files where they exist; remove generated files otherwise
-  agnostic-ai revert`,
+  agnostic-ai revert
+
+  # Revert only Claude and Cursor
+  agnostic-ai revert --only claude,cursor
+
+  # Revert everything except Codex
+  agnostic-ai revert --except codex`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(only) > 0 && len(except) > 0 {
+				return fmt.Errorf("--only and --except are mutually exclusive")
+			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
-			if len(targets) == 0 {
-				targets = cfg.Targets
+			base := targets
+			if len(base) == 0 {
+				base = cfg.Targets
 			}
-			for _, t := range targets {
+			effective, err := filterTargets(base, only, except)
+			if err != nil {
+				return err
+			}
+			for _, t := range effective {
 				adapter, err := adapters.Resolve(t)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "! %v\n", err)
@@ -63,6 +77,8 @@ func newRevertCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to revert (default: all in config)")
+	cmd.Flags().StringSliceVar(&only, "only", nil, "Revert only these targets (comma-separated); mutually exclusive with --except")
+	cmd.Flags().StringSliceVar(&except, "except", nil, "Revert all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report intended actions without touching disk")
 	registerTargetCompletion(cmd)
 	return cmd

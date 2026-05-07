@@ -15,7 +15,7 @@ import (
 )
 
 func newSyncCmd() *cobra.Command {
-	var targets []string
+	var targets, only, except []string
 	var dryRun, check, backup, watch bool
 	var gitignoreFlag, autoSyncFlag string
 
@@ -26,7 +26,10 @@ func newSyncCmd() *cobra.Command {
   agnostic-ai sync
 
   # Emit only Claude and Cursor
-  agnostic-ai sync -t claude -t cursor
+  agnostic-ai sync --only claude,cursor
+
+  # Emit everything except Codex
+  agnostic-ai sync --except codex
 
   # Preview without writing
   agnostic-ai sync --dry-run
@@ -40,11 +43,28 @@ func newSyncCmd() *cobra.Command {
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
 				return err
 			}
+			if len(only) > 0 && len(except) > 0 {
+				return fmt.Errorf("--only and --except are mutually exclusive")
+			}
 			if watch && check {
 				return fmt.Errorf("--watch and --check are incompatible")
 			}
+
+			cfg, _, err := loadProject(".")
+			if err != nil {
+				return err
+			}
+			base := targets
+			if len(base) == 0 {
+				base = cfg.Targets
+			}
+			effective, err := filterTargets(base, only, except)
+			if err != nil {
+				return err
+			}
+
 			if check {
-				reports, err := collectDrift(targets)
+				reports, err := collectDrift(effective)
 				if err != nil {
 					return err
 				}
@@ -61,12 +81,14 @@ func newSyncCmd() *cobra.Command {
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
-				return watchSync(ctx, 200*time.Millisecond, ".", targets, dryRun, backup, gitignoreFlag)
+				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag)
 			}
-			return runSyncOnce(".", targets, dryRun, backup, gitignoreFlag)
+			return runSyncOnce(".", effective, dryRun, backup, gitignoreFlag)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
+	cmd.Flags().StringSliceVar(&only, "only", nil, "Emit only these targets (comma-separated); mutually exclusive with --except")
+	cmd.Flags().StringSliceVar(&except, "except", nil, "Emit all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")

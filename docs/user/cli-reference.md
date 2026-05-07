@@ -135,6 +135,8 @@ agnostic-ai sync [flags]
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `--only <list>` | Emit only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
+| `--except <list>` | Emit all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Print to stdout instead of writing files |
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
@@ -143,17 +145,18 @@ agnostic-ai sync [flags]
 | `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
 
 ```bash
-agnostic-ai sync                    # all targets in config
-agnostic-ai sync -t claude          # only claude
-agnostic-ai sync -t claude,cursor   # subset
-agnostic-ai sync --dry-run          # preview
-agnostic-ai sync --check            # CI gate: fail if outputs are stale
-agnostic-ai sync --backup           # leave a .bak trail for revert
-agnostic-ai sync --watch            # re-emit on spec changes; Ctrl+C exits
-agnostic-ai sync --auto-sync=yes    # opt in to agent-managed auto-sync
+agnostic-ai sync                       # all targets in config
+agnostic-ai sync -t claude             # only claude (legacy form)
+agnostic-ai sync --only claude,cursor  # only claude and cursor
+agnostic-ai sync --except codex        # all configured targets except codex
+agnostic-ai sync --dry-run             # preview
+agnostic-ai sync --check               # CI gate: fail if outputs are stale
+agnostic-ai sync --backup              # leave a .bak trail for revert
+agnostic-ai sync --watch               # re-emit on spec changes; Ctrl+C exits
+agnostic-ai sync --auto-sync=yes       # opt in to agent-managed auto-sync
 ```
 
-Unknown targets log a warning to stderr and skip.
+`--only` and `--except` validate names against the configured targets list and return an error on unknown names (rather than silently skipping).
 
 ## revert
 
@@ -167,12 +170,16 @@ agnostic-ai revert [flags]
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `--only <list>` | Revert only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
+| `--except <list>` | Revert all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Report intended actions without touching disk |
 
 ```bash
-agnostic-ai sync --backup           # 1. snapshot existing files
+agnostic-ai sync --backup              # 1. snapshot existing files
 # ...edits or experiments...
-agnostic-ai revert                  # 2. roll back to the snapshot
+agnostic-ai revert                     # 2. roll back to the snapshot
+agnostic-ai revert --only claude       # 3. roll back only claude
+agnostic-ai revert --except codex      # 4. roll back everything except codex
 ```
 
 Without a prior `--backup`, `revert` removes the generated files;
