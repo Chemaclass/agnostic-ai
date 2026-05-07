@@ -75,6 +75,25 @@ jobs:
       - name: Build
         run: go build ./...
 
+  schema:
+    name: Schema drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Regenerate schema
+        run: go run ./cmd/schemagen
+
+      - name: Fail on drift
+        run: git diff --exit-code docs/schemas/config.schema.json
+
   shell:
     name: Shell tests
     runs-on: ubuntu-latest
