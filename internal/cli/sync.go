@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -13,6 +15,30 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
+
+type syncStateFile struct {
+	SyncedAt     time.Time `json:"synced_at"`
+	FilesChanged int       `json:"files_changed"`
+}
+
+func stateFilePath(projectRoot string) string {
+	return filepath.Join(projectRoot, ".agnostic-ai", ".sync-state")
+}
+
+func writeStateFile(projectRoot string, filesChanged int) error {
+	p := stateFilePath(projectRoot)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
+	}
+	data, err := json.Marshal(syncStateFile{
+		SyncedAt:     time.Now().UTC(),
+		FilesChanged: filesChanged,
+	})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0o644)
+}
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
@@ -116,6 +142,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if gitignoreOn {
 		adapters.StartRecording()
 	}
+	if !dryRun {
+		adapters.StartCounting()
+	}
 	for _, t := range effectiveTargets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
@@ -127,14 +156,26 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			if gitignoreOn {
 				adapters.StopRecording()
 			}
+			if !dryRun {
+				adapters.StopCounting()
+			}
 			return fmt.Errorf("%s: %w", t, err)
 		}
+	}
+	filesChanged := 0
+	if !dryRun {
+		filesChanged = adapters.StopCounting()
 	}
 	if gitignoreOn {
 		if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
 		summaryf("→ updated .gitignore\n")
+	}
+	if !dryRun {
+		if err := writeStateFile(root, filesChanged); err != nil {
+			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+		}
 	}
 	return nil
 }
