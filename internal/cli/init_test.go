@@ -239,6 +239,14 @@ func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
 	}
 }
 
+func TestRenderConfig_ContainsSchemaComment(t *testing.T) {
+	got := renderConfig("", []string{"claude"})
+	want := "# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
+	if !strings.HasPrefix(got, want) {
+		t.Errorf("renderConfig output should start with schema comment, got:\n%s", got)
+	}
+}
+
 func TestInitCmd_Interactive_PipedSelection(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
