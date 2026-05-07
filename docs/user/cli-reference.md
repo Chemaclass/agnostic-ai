@@ -208,6 +208,47 @@ Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to
 spot files the merge resolved manually. Use `--fix` for an interactive cleanup
 pass. Pair with `--backup` when reconciling files you may have hand-edited.
 
+## status
+
+Show project configuration and current sync state. Exits 0 even when drift is
+detected. Use `sync --check` or `doctor` as CI gates.
+
+```bash
+agnostic-ai status          # human-readable output
+agnostic-ai status --json   # machine-readable JSON (for editor extensions, dashboards)
+```
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON instead of plain text. |
+
+**Human-readable output:**
+
+```
+Project: my-project
+Layers:  project (.agnostic-ai/)
+Specs:   3 rules, 1 agent, 2 skills
+Targets: claude, cursor, copilot
+Last sync: 2026-05-07 14:22 (5 files changed)
+Drift:   in sync
+```
+
+**JSON output keys:**
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `project` | string | Base name of the project directory. |
+| `layers` | array | Active spec layers. Each has `name` and `path`. |
+| `specs` | object | Counts: `agents`, `skills`, `rules`, `hooks`, `mcps`. |
+| `targets` | array | Targets listed in `agnostic.config.yaml`. |
+| `last_sync` | string or null | RFC 3339 timestamp of the last successful `sync`, or `null` if unknown. |
+| `files_changed_last_sync` | number or null | Files written during the last sync, or `null` when the timestamp came from an mtime fallback. |
+| `drift_files` | number | Count of emitted files whose on-disk content differs from what `sync` would produce. |
+
+**State file:** Each successful `sync` writes `.agnostic-ai/.sync-state` (JSON) recording the
+timestamp and file count. When that file is absent, `status` falls back to the newest mtime of
+generated files. When no files exist yet, the timestamp is reported as `unknown`.
+
 ## completion
 
 Generate a shell completion script and install it for your shell.

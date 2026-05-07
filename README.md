@@ -137,6 +137,7 @@ agnostic-ai sync --dry-run        # preview without writing
 agnostic-ai sync --watch          # re-emit on spec changes (Ctrl+C to exit)
 agnostic-ai sync --auto-sync=yes  # write a rule telling agents to run sync on spec changes
 agnostic-ai revert                # undo last sync
+agnostic-ai status                # show project config, spec counts, and sync state
 ```
 
 Already have `.cursor/rules` or `AGENTS.md`? Pull them in:

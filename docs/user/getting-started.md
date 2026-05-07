@@ -134,6 +134,18 @@ are written; empty stubs are skipped):
 └── .continue/rules/conventional-commits.md      # for Continue
 ```
 
+## Check project status
+
+See what the tool knows about your project at a glance:
+
+```bash
+agnostic-ai status
+```
+
+Output includes the project name, active spec layers, spec counts, configured
+targets, the last sync timestamp, and whether any generated files are out of
+date. Exits 0 regardless of drift. Use `sync --check` or `doctor` in CI.
+
 ## Roll back a sync
 
 ```bash
