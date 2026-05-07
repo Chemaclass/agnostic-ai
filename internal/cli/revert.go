@@ -38,9 +38,9 @@ func newRevertCmd() *cobra.Command {
 				targets = cfg.Targets
 			}
 			for _, t := range targets {
-				adapter, ok := adapters.Get(t)
-				if !ok {
-					fmt.Fprintf(os.Stderr, "! unknown target: %s\n", t)
+				adapter, err := adapters.Resolve(t)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "! %v\n", err)
 					continue
 				}
 				adapters.StartCapture()

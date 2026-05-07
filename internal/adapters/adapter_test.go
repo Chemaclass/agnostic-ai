@@ -1,6 +1,9 @@
 package adapters
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 	expected := []string{
@@ -30,5 +33,27 @@ func TestNames_ReturnsAll(t *testing.T) {
 	names := Names()
 	if len(names) < 13 {
 		t.Errorf("expected >= 13 names, got %d", len(names))
+	}
+}
+
+func TestResolve_BuiltInWins(t *testing.T) {
+	a, err := Resolve("claude")
+	if err != nil {
+		t.Fatalf("resolve claude: %v", err)
+	}
+	if a.Name() != "claude" {
+		t.Errorf("Name()=%q, want claude", a.Name())
+	}
+}
+
+func TestResolve_UnknownTargetMentionsPATH(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	_, err := Resolve("definitely-not-installed-target-xyz")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "unknown target") || !strings.Contains(msg, "PATH") {
+		t.Errorf("err=%q, want mention of unknown target and PATH", msg)
 	}
 }

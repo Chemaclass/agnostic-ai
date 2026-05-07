@@ -95,9 +95,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		adapters.StartRecording()
 	}
 	for _, t := range effectiveTargets {
-		adapter, ok := adapters.Get(t)
-		if !ok {
-			fmt.Fprintf(os.Stderr, "! unknown target: %s\n", t)
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "! %v\n", err)
 			continue
 		}
 		verbosef("→ emit %s\n", t)
