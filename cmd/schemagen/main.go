@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/invopop/jsonschema"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func main() {
