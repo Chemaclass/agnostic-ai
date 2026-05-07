@@ -8,6 +8,7 @@ Read in this order. Each builds on the previous.
 4. [Configuration](configuration.md): `agnostic.config.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
 5. [CLI reference](cli-reference.md): every command and flag, including `sync --watch`, `sync --auto-sync`, `sync --check`, `sync --backup`, `init --demo`, `init -i`, `import <source>`, `revert`, and `doctor`.
 6. [CI](ci.md): drift detection in pull requests with `sync --check`.
+7. [Packs](packs.md): install shared spec packs (`agnostic-ai packs add`).
 
 ## Mental model
 
