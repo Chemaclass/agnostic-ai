@@ -79,6 +79,7 @@ func renderConfig(base string, targets []string) string {
 		prefix = filepath.ToSlash(base) + "/"
 	}
 	var sb strings.Builder
+	sb.WriteString("# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json\n")
 	sb.WriteString("version: 1\n\n")
 	sb.WriteString("sources:\n")
 	fmt.Fprintf(&sb, "  agents: %sagents\n", prefix)

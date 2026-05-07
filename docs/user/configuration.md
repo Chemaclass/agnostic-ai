@@ -2,6 +2,16 @@
 
 `agnostic.config.yaml` lives at the project root. Read from the current working directory at command time. Every section is optional; defaults below.
 
+## Editor validation
+
+The JSON Schema for this file is published at `docs/schemas/config.schema.json`. The `init` command embeds a `yaml-language-server` comment in the generated file:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json
+```
+
+Editors with YAML Language Server support pick this up automatically and validate keys and values as you type.
+
 ## Full schema
 
 ```yaml
