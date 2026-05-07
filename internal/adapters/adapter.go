@@ -3,8 +3,10 @@
 package adapters
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
@@ -14,6 +16,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/continueai"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/external"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
@@ -94,14 +97,22 @@ func Get(name string) (Adapter, bool) {
 	return a, ok
 }
 
-// Resolve returns the adapter for name, looking it up first in the
-// in-tree registry. Callers should use Resolve rather than Get directly
-// so non-built-in targets can be picked up by future resolvers.
+// Resolve returns the adapter for name. The in-tree registry is checked
+// first; if no built-in matches, an external adapter named
+// `agnostic-ai-adapter-<name>` is looked up on PATH. Callers should use
+// Resolve rather than Get so opt-in external targets work.
 func Resolve(name string) (Adapter, error) {
 	if a, ok := registry[name]; ok {
 		return a, nil
 	}
-	return nil, fmt.Errorf("unknown target: %s", name)
+	a, err := external.New(name)
+	if err == nil {
+		return a, nil
+	}
+	if errors.Is(err, exec.ErrNotFound) {
+		return nil, fmt.Errorf("unknown target: %s (no built-in adapter and no %s%s on PATH)", name, external.BinaryPrefix, name)
+	}
+	return nil, fmt.Errorf("unknown target: %s: %w", name, err)
 }
 
 // Names returns every registered target name.

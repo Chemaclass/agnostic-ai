@@ -4,10 +4,11 @@ Read in this order.
 
 1. [Architecture](architecture.md): code layout, data flow, core types. Start here.
 2. [Adding an adapter](adding-adapters.md): concrete walkthrough; ~50 lines plus one registry entry.
-3. [Contributing](contributing.md): branch flow, commit style, test expectations.
-4. [Release process](release-process.md): how a tag becomes a release.
-5. [Decision log](decisions.md): historical record of design choices.
-6. [Roadmap](roadmap.md): planned directions (layered config, more adapters).
+3. [Plugin protocol](plugin-protocol.md): JSON-over-stdio contract for out-of-tree adapter binaries.
+4. [Contributing](contributing.md): branch flow, commit style, test expectations.
+5. [Release process](release-process.md): how a tag becomes a release.
+6. [Decision log](decisions.md): historical record of design choices.
+7. [Roadmap](roadmap.md): planned directions (layered config, more adapters).
 
 ## House rules
 
