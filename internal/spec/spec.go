@@ -307,7 +307,11 @@ func parseMarkdown(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, body := splitFrontmatter(normalizeLineEndings(data))
+	meta, body, err := splitFrontmatter(normalizeLineEndings(data))
+	if err != nil {
+		// Frontmatter starts at line 2 (line 1 is the opening `---`).
+		return Entry{}, formatYAMLError(path, err, 1)
+	}
 	name, _ := meta["name"].(string)
 	return Entry{
 		Path: path,
@@ -324,7 +328,7 @@ func parseYAML(path string) (Entry, error) {
 	}
 	var meta map[string]any
 	if err := yaml.Unmarshal(data, &meta); err != nil {
-		return Entry{}, fmt.Errorf("parse yaml: %w", err)
+		return Entry{}, formatYAMLError(path, err, 0)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
@@ -343,27 +347,33 @@ func normalizeLineEndings(b []byte) []byte {
 	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 }
 
-func splitFrontmatter(data []byte) (map[string]any, string) {
+// splitFrontmatter parses a leading `---` block as YAML and returns the
+// remaining body. A file that does not start with `---`, or whose
+// closing `---` is missing, is treated as body-only with empty meta
+// (this matches the legacy behavior). Malformed YAML inside a fully
+// delimited block is surfaced as an error rather than silently
+// swallowed.
+func splitFrontmatter(data []byte) (map[string]any, string, error) {
 	const delim = "---"
 	empty := map[string]any{}
 
 	if !bytes.HasPrefix(data, []byte(delim)) {
-		return empty, string(data)
+		return empty, string(data), nil
 	}
 	rest := data[len(delim):]
 	idx := bytes.Index(rest, []byte("\n"+delim))
 	if idx < 0 {
-		return empty, string(data)
+		return empty, string(data), nil
 	}
 	yamlPart := rest[:idx]
 	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
 
 	var meta map[string]any
 	if err := yaml.Unmarshal(yamlPart, &meta); err != nil {
-		return empty, string(data)
+		return nil, "", err
 	}
 	if meta == nil {
 		meta = empty
 	}
-	return meta, string(body)
+	return meta, string(body), nil
 }

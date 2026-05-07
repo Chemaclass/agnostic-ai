@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CI lint job upgraded to `golangci/golangci-lint-action@v9` with `golangci-lint v2.6`. `.golangci.yml` migrated to v2 schema (`version: "2"`, `linters.default: none`, `formatters` section for `gofmt`/`goimports`).
 
 ### Fixed
+- Spec frontmatter parse errors now report `path:line:col: message` (with column 1 when the YAML parser does not provide one) and the line number is shifted by one for markdown frontmatter so it points at the offending line in the source file. Previously a malformed YAML block was silently treated as plain body, producing an empty `meta` and confusing downstream emission.
 - `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z` heading forms.
 
 ## v0.4.0 - 2026-05-05
