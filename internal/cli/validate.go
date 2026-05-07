@@ -1,17 +1,28 @@
 package cli
 
 import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func newValidateCmd() *cobra.Command {
-	return &cobra.Command{
+	var fix bool
+	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate agnostic specs.",
 		Example: `  # Parse every spec, list any issues
-  agnostic-ai validate`,
+  agnostic-ai validate
+
+  # Reconcile autofixable issues in source spec files
+  agnostic-ai validate --fix`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, b, err := loadProject(".")
 			if err != nil {
@@ -24,10 +35,26 @@ func newValidateCmd() *cobra.Command {
 				return nil
 			}
 			issues := lintEntries(entries)
-			reportIssues(cmd, issues)
+			if !fix {
+				reportIssues(cmd, issues)
+				return nil
+			}
+			fixed, remaining, err := applyFixes(issues)
+			if err != nil {
+				return err
+			}
+			cmd.Printf("fixed %d issue(s).\n", fixed)
+			if len(remaining) > 0 {
+				cmd.Printf("%d issue(s) remain (not autofixable):\n", len(remaining))
+				for _, i := range remaining {
+					cmd.Printf("    %s: %s\n", i.Path, i.Message)
+				}
+			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
+	return cmd
 }
 
 // lintEntries scans loaded specs for fixable problems. Today it
@@ -108,4 +135,131 @@ func metaHasString(meta map[string]any, key string) bool {
 	}
 	s, ok := v.(string)
 	return ok && s != ""
+}
+
+// applyFixes runs the autofix routine for every issue whose kind is
+// non-zero. Returns the count fixed and the remaining (non-autofixable)
+// issues so the caller can report them.
+func applyFixes(issues []validationIssue) (fixed int, remaining []validationIssue, err error) {
+	for _, i := range issues {
+		if !i.Autofixable() {
+			remaining = append(remaining, i)
+			continue
+		}
+		switch i.kind {
+		case issueMissingName:
+			if err := fixInjectName(i.entry); err != nil {
+				return fixed, remaining, fmt.Errorf("%s: %w", i.Path, err)
+			}
+			fixed++
+		default:
+			remaining = append(remaining, i)
+		}
+	}
+	return fixed, remaining, nil
+}
+
+// fixInjectName rewrites a markdown spec to include a `name:` key in
+// its frontmatter, deriving the value from the file path. The rest of
+// the frontmatter and the body are preserved byte-for-byte.
+func fixInjectName(e spec.Entry) error {
+	data, err := os.ReadFile(e.Path)
+	if err != nil {
+		return fmt.Errorf("read: %w", err)
+	}
+
+	derived := derivedSpecName(e)
+	if derived == "" {
+		return fmt.Errorf("cannot derive name from %s", e.Path)
+	}
+
+	patched, err := injectFrontmatterName(data, derived)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(e.Path, patched, 0o644)
+}
+
+// derivedSpecName picks the name used to backfill missing frontmatter.
+// Skills nest under `<skill>/SKILL.md` so the parent directory is the
+// authoritative name; everything else uses the bare filename.
+func derivedSpecName(e spec.Entry) string {
+	if e.Kind == spec.KindSkill && filepath.Base(e.Path) == "SKILL.md" {
+		return filepath.Base(filepath.Dir(e.Path))
+	}
+	base := filepath.Base(e.Path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
+// injectFrontmatterName parses the existing frontmatter (creating an
+// empty block when none is present), sets `name`, and re-serializes
+// the document. yaml.v3 round-trips comments and field order for
+// existing keys; new keys land at the end of the block.
+func injectFrontmatterName(data []byte, name string) ([]byte, error) {
+	const delim = "---"
+	yamlBytes, body, hadFrontmatter := splitFrontmatter(data)
+
+	var node yaml.Node
+	if hadFrontmatter && len(bytes.TrimSpace(yamlBytes)) > 0 {
+		if err := yaml.Unmarshal(yamlBytes, &node); err != nil {
+			return nil, fmt.Errorf("parse existing frontmatter: %w", err)
+		}
+	}
+	if node.Kind == 0 {
+		node = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+	}
+	if node.Kind != yaml.DocumentNode || len(node.Content) == 0 || node.Content[0].Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("frontmatter root must be a mapping")
+	}
+	mapping := node.Content[0]
+
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "name"}
+	valueNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: name}
+	updated := false
+	for i := 0; i < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == "name" {
+			mapping.Content[i+1] = valueNode
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		mapping.Content = append([]*yaml.Node{keyNode, valueNode}, mapping.Content...)
+	}
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(&node); err != nil {
+		return nil, fmt.Errorf("encode frontmatter: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+
+	var out bytes.Buffer
+	out.WriteString(delim + "\n")
+	out.Write(buf.Bytes())
+	out.WriteString(delim + "\n")
+	out.WriteString(body)
+	return out.Bytes(), nil
+}
+
+// splitFrontmatter mirrors spec.splitFrontmatter but returns the raw
+// frontmatter bytes (rather than parsed meta) so the writer can
+// preserve the existing layout. hadFrontmatter is false when the file
+// has no leading `---` block.
+func splitFrontmatter(data []byte) (yamlBytes []byte, body string, hadFrontmatter bool) {
+	const delim = "---"
+	if !bytes.HasPrefix(data, []byte(delim)) {
+		return nil, string(data), false
+	}
+	rest := data[len(delim):]
+	idx := bytes.Index(rest, []byte("\n"+delim))
+	if idx < 0 {
+		return nil, string(data), false
+	}
+	yamlBytes = rest[:idx]
+	body = string(bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n"))
+	return yamlBytes, body, true
 }
