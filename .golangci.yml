@@ -1,30 +1,37 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - govet
     - ineffassign
-    - staticcheck
-    - unused
-    - gofmt
-    - goimports
     - misspell
     - revive
+    - staticcheck
+    - unused
+  settings:
+    misspell:
+      locale: US
+    revive:
+      severity: warning
+  exclusions:
+    generated: lax
 
-linters-settings:
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/chemaclass/agnostic-ai
-  misspell:
-    locale: US
-  revive:
-    severity: warning
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/chemaclass/agnostic-ai
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

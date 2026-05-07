@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - GitHub Release body built from `CHANGELOG.md` via `scripts/release-notes.sh` and passed to `goreleaser release --release-notes=NOTES.md`. No post-hoc `gh release edit`.
 - `promote_changelog` writes dated headings as `## vX.Y.Z - YYYY-MM-DD` (no brackets), matching prior history. `## [Unreleased]` keeps brackets.
+- CI lint job upgraded to `golangci/golangci-lint-action@v9` with `golangci-lint v2.6`. `.golangci.yml` migrated to v2 schema (`version: "2"`, `linters.default: none`, `formatters` section for `gofmt`/`goimports`).
 
 ### Fixed
 - `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z` heading forms.
