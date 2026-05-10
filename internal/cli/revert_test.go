@@ -19,7 +19,7 @@ func TestRevertOne_RestoresFromBak(t *testing.T) {
 	if err := os.WriteFile(path+".bak", []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := revertOne(path, false); err != nil {
+	if _, err := revertOne(path, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
@@ -42,7 +42,7 @@ func TestRevertOne_RemovesWhenNoBak(t *testing.T) {
 	if err := os.WriteFile(path, []byte("generated"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := revertOne(path, false); err != nil {
+	if _, err := revertOne(path, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -58,7 +58,7 @@ func TestRevertOne_DryRunNoSideEffects(t *testing.T) {
 	if err := os.WriteFile(path, []byte("generated"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := revertOne(path, true); err != nil {
+	if _, err := revertOne(path, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -70,7 +70,7 @@ func TestRevertOne_MissingFileIsNoop(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	if err := revertOne(filepath.Join(dir, "ghost.md"), false); err != nil {
+	if _, err := revertOne(filepath.Join(dir, "ghost.md"), false); err != nil {
 		t.Errorf("unexpected error reverting missing file: %v", err)
 	}
 }

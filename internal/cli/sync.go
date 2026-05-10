@@ -42,7 +42,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, backup, watch bool
+	var dryRun, check, backup, watch, jsonOut bool
 	var gitignoreFlag, autoSyncFlag string
 
 	cmd := &cobra.Command{
@@ -64,7 +64,10 @@ func newSyncCmd() *cobra.Command {
   agnostic-ai sync --check
 
   # Back up each existing file to <path>.bak before overwriting
-  agnostic-ai sync --backup`,
+  agnostic-ai sync --backup
+
+  # Machine-readable output for CI dashboards and editor extensions
+  agnostic-ai sync --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
 				return err
@@ -94,6 +97,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if jsonOut {
+					return printSyncCheckJSON(cmd, reports)
+				}
 				if printDrift(reports) {
 					return fmt.Errorf("drift detected")
 				}
@@ -109,6 +115,9 @@ func newSyncCmd() *cobra.Command {
 				defer stop()
 				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag)
 			}
+			if jsonOut {
+				return runSyncJSON(cmd, ".", effective, dryRun, backup, gitignoreFlag)
+			}
 			return runSyncOnce(".", effective, dryRun, backup, gitignoreFlag)
 		},
 	}
@@ -121,6 +130,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	registerTargetCompletion(cmd)
 	return cmd
 }
@@ -176,6 +186,95 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		if err := writeStateFile(root, filesChanged); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
+	}
+	return nil
+}
+
+// runSyncJSON runs a real sync pass and emits a JSON result describing each
+// file written, updated, or skipped per target.
+func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+	cfg, b, err := loadProject(root)
+	if err != nil {
+		return err
+	}
+	effectiveTargets := targets
+	if len(effectiveTargets) == 0 {
+		effectiveTargets = cfg.Targets
+	}
+	if backup {
+		adapters.SetBackup(true)
+		defer adapters.SetBackup(false)
+	}
+	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
+	if gitignoreOn {
+		adapters.StartRecording()
+	}
+
+	out := jsonOutput{Version: "1", Command: "sync"}
+	for _, t := range effectiveTargets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
+			continue
+		}
+		adapters.StartDetailedRecording()
+		if err := adapter.Emit(b, cfg, dryRun); err != nil {
+			adapters.StopDetailedRecording()
+			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
+			continue
+		}
+		for _, f := range adapters.StopDetailedRecording() {
+			rec := fileRecord{Target: t, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
+			if f.Action == "skip" {
+				out.Skipped = append(out.Skipped, rec)
+			} else {
+				out.Writes = append(out.Writes, rec)
+			}
+		}
+	}
+
+	if gitignoreOn {
+		if err := updateGitignore(cfg, normalizeAndSort(adapters.StopRecording())); err != nil {
+			return fmt.Errorf("gitignore: %w", err)
+		}
+	}
+	if !dryRun {
+		if err := writeStateFile(root, len(out.Writes)); err != nil {
+			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+		}
+	}
+	return emitJSON(cmd, out)
+}
+
+// printSyncCheckJSON emits a JSON result for `sync --check`. Files that need
+// to be written appear in writes (action: "missing" or "stale"); files that
+// are already in sync appear in skipped (action: "ok").
+func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport) error {
+	out := jsonOutput{Version: "1", Command: "sync --check"}
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			out.Writes = append(out.Writes, fileRecord{
+				Target: r.Target,
+				Path:   f.Path,
+				Action: "missing",
+				Bytes:  len(f.Content),
+			})
+		}
+		for _, f := range r.Stale {
+			out.Writes = append(out.Writes, fileRecord{
+				Target: r.Target,
+				Path:   f.Path,
+				Action: "stale",
+				Bytes:  len(f.Content),
+			})
+		}
+	}
+	hasDrift := len(out.Writes) > 0
+	if err := emitJSON(cmd, out); err != nil {
+		return err
+	}
+	if hasDrift {
+		return fmt.Errorf("drift detected")
 	}
 	return nil
 }

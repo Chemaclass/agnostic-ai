@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `sync --json`, `sync --check --json`, `revert --json`, `doctor --json`: stable JSON output for machine consumption. Emits `{version, command, writes, skipped, errors}`. The `writes` array lists per-file records with `target`, `path`, `action` (create/update/skip for sync; missing/stale for check; restore/remove for revert), and `bytes`. Schema versioned at `"1"`; breaking changes will bump it. Documented in `docs/user/cli-reference.md`.
 - `agnostic-ai status`: single read-only command that shows project name, active layers, spec counts, configured targets, last sync timestamp (with files-changed count), and current drift count. Use `--json` for machine-readable output. Exits 0 even when drifted; use `sync --check` for CI gating. Last sync timestamp is read from `.agnostic-ai/.sync-state` written by each successful `sync` run, with a fallback to the newest mtime of generated files when the state file is absent.
 
 ## v0.5.0 - 2026-05-07

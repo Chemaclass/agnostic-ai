@@ -87,7 +87,7 @@ func printDrift(reports []driftReport) bool {
 
 func newDoctorCmd() *cobra.Command {
 	var targets []string
-	var fix, backup bool
+	var fix, backup, jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose drift between specs and emitted target files.",
@@ -101,11 +101,17 @@ func newDoctorCmd() *cobra.Command {
   agnostic-ai doctor
 
   # Reconcile drift in place, keeping a .bak of each hand-edited file
-  agnostic-ai doctor --fix --backup`,
+  agnostic-ai doctor --fix --backup
+
+  # Machine-readable drift report for CI dashboards
+  agnostic-ai doctor --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reports, err := collectDrift(targets)
 			if err != nil {
 				return err
+			}
+			if jsonOut {
+				return printDoctorJSON(cmd, reports)
 			}
 			if !printDrift(reports) {
 				return nil
@@ -124,8 +130,42 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
 	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	registerTargetCompletion(cmd)
 	return cmd
+}
+
+// printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
+// used by `sync --check --json`: missing/stale files appear in writes,
+// up-to-date files appear in skipped.
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
+	out := jsonOutput{Version: "1", Command: "doctor"}
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			out.Writes = append(out.Writes, fileRecord{
+				Target: r.Target,
+				Path:   f.Path,
+				Action: "missing",
+				Bytes:  len(f.Content),
+			})
+		}
+		for _, f := range r.Stale {
+			out.Writes = append(out.Writes, fileRecord{
+				Target: r.Target,
+				Path:   f.Path,
+				Action: "stale",
+				Bytes:  len(f.Content),
+			})
+		}
+	}
+	hasDrift := len(out.Writes) > 0
+	if err := emitJSON(cmd, out); err != nil {
+		return err
+	}
+	if hasDrift {
+		return fmt.Errorf("drift detected")
+	}
+	return nil
 }
 
 // fixDrift writes the captured content for every missing or stale file in
