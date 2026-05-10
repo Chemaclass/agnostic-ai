@@ -31,6 +31,10 @@ import (
 // emit tree can consume capture output.
 type CapturedFile = emit.CapturedFile
 
+// WrittenFile mirrors emit.WrittenFile so callers outside the internal
+// emit tree can consume detailed recording output.
+type WrittenFile = emit.WrittenFile
+
 // StartCapture redirects subsequent adapter writes to an in-memory buffer.
 // Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`)
 // and `revert` to inspect what each adapter would emit without touching disk.
@@ -64,6 +68,15 @@ func StartCounting() { emit.StartCounting() }
 
 // StopCounting returns the count of files written since StartCounting.
 func StopCounting() int { return emit.StopCounting() }
+
+// StartDetailedRecording begins collecting per-file write results alongside
+// real writes. Determines each file's action (create/update/skip) by
+// comparing new content against the existing file before writing.
+func StartDetailedRecording() { emit.StartDetailedRecording() }
+
+// StopDetailedRecording returns the collected write records and disables
+// detailed recording mode.
+func StopDetailedRecording() []WrittenFile { return emit.StopDetailedRecording() }
 
 // WriteFile writes content to path through the shared emit layer,
 // honoring the current capture, recording, and backup modes.

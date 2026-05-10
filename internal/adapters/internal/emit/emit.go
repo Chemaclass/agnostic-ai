@@ -26,6 +26,15 @@ type CapturedFile struct {
 	Content string
 }
 
+// WrittenFile is one write event recorded during detailed recording mode.
+// Action is "create" (new file), "update" (existing file with changed
+// content), or "skip" (existing file with identical content, not rewritten).
+type WrittenFile struct {
+	Path   string
+	Bytes  int
+	Action string
+}
+
 // state holds the package-global mode flags. Adapters and the CLI mutate
 // state through SetBackup, StartCapture, StopCapture, and StartRecording;
 // every read in WriteFile takes the same mutex so go test -race stays
@@ -39,6 +48,8 @@ var state struct {
 	recorded  []string
 	counting  bool
 	counted   int
+	detailing bool
+	detailed  []WrittenFile
 }
 
 // SetBackup toggles backup mode. When enabled, WriteFile copies an
@@ -111,16 +122,43 @@ func StopCounting() int {
 	return n
 }
 
+// StartDetailedRecording begins collecting per-file write results alongside
+// real writes. Unlike capture mode this does not suppress IO. Unlike counting
+// and recording modes it also determines the action ("create", "update", or
+// "skip") by comparing the new content against what is on disk before writing.
+// Files whose content is unchanged are not rewritten and are recorded with
+// action "skip".
+func StartDetailedRecording() {
+	state.mu.Lock()
+	state.detailing = true
+	state.detailed = nil
+	state.mu.Unlock()
+}
+
+// StopDetailedRecording returns the collected write records and disables
+// detailed recording mode.
+func StopDetailedRecording() []WrittenFile {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.detailing = false
+	out := state.detailed
+	state.detailed = nil
+	return out
+}
+
 // WriteFile creates parent directories as needed and writes content to path.
 // When dryRun is true the file is not written; the path and content are
 // printed to stdout instead. When capture mode is active, the call is
 // recorded and no IO occurs. When recording mode is active, the path is
-// appended to the recorder.
+// appended to the recorder. When detailed recording mode is active, the
+// action (create/update/skip) is determined by comparing against existing
+// content; unchanged files are skipped and not rewritten.
 func WriteFile(path, content string, dryRun bool) error {
 	state.mu.Lock()
 	capturing := state.capturing
 	backup := state.backup
 	recording := state.recording
+	detailing := state.detailing
 	if capturing {
 		state.captured = append(state.captured, CapturedFile{Path: path, Content: content})
 	}
@@ -142,6 +180,37 @@ func WriteFile(path, content string, dryRun bool) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
+
+	// Detailed recording: inspect existing content to classify the action.
+	if detailing {
+		existing, err := os.ReadFile(path)
+		var action string
+		switch {
+		case os.IsNotExist(err):
+			action = "create"
+		case err == nil && string(existing) == content:
+			// File is already up to date; skip the write.
+			state.mu.Lock()
+			state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip"})
+			state.mu.Unlock()
+			return nil
+		default:
+			action = "update"
+		}
+		if backup && action == "update" {
+			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+				return fmt.Errorf("backup %s: %w", path, err)
+			}
+		}
+		if err := os.WriteFile(path, []byte(content), filePerm); err != nil {
+			return fmt.Errorf("write %s: %w", path, err)
+		}
+		state.mu.Lock()
+		state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action})
+		state.mu.Unlock()
+		return nil
+	}
+
 	if backup {
 		if existing, err := os.ReadFile(path); err == nil && string(existing) != content {
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {

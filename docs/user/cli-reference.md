@@ -143,6 +143,7 @@ agnostic-ai sync [flags]
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Keep the process alive and re-emit on spec or config changes (200 ms poll). Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
+| `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
 ```bash
 agnostic-ai sync                       # all targets in config
@@ -154,9 +155,38 @@ agnostic-ai sync --check               # CI gate: fail if outputs are stale
 agnostic-ai sync --backup              # leave a .bak trail for revert
 agnostic-ai sync --watch               # re-emit on spec changes; Ctrl+C exits
 agnostic-ai sync --auto-sync=yes       # opt in to agent-managed auto-sync
+agnostic-ai sync --json                # machine-readable output
+agnostic-ai sync --check --json        # machine-readable drift report
 ```
 
 `--only` and `--except` validate names against the configured targets list and return an error on unknown names (rather than silently skipping).
+
+**JSON output schema (version 1):**
+
+```json
+{
+  "version": "1",
+  "command": "sync",
+  "writes": [
+    {"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284},
+    {"target": "cursor", "path": ".cursor/rules/foo.mdc", "action": "update", "bytes": 312}
+  ],
+  "skipped": [
+    {"target": "claude", "path": "CLAUDE.md", "action": "skip", "bytes": 1284}
+  ],
+  "errors": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | Schema version. Currently `"1"`. |
+| `command` | string | Command that produced the output (`"sync"` or `"sync --check"`). |
+| `writes` | array | Files written (action `"create"` or `"update"`) or, for `--check`, files that need writing (action `"missing"` or `"stale"`). |
+| `skipped` | array | Files whose on-disk content already matched (action `"skip"`). Empty for `--check`. |
+| `errors` | array | Per-target errors with `target` and `message` fields. |
+
+Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `action` (string), `bytes` (number).
 
 ## revert
 
@@ -173,6 +203,7 @@ agnostic-ai revert [flags]
 | `--only <list>` | Revert only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
 | `--except <list>` | Revert all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Report intended actions without touching disk |
+| `--json` | Output as JSON instead of plain text. |
 
 ```bash
 agnostic-ai sync --backup              # 1. snapshot existing files
@@ -180,7 +211,10 @@ agnostic-ai sync --backup              # 1. snapshot existing files
 agnostic-ai revert                     # 2. roll back to the snapshot
 agnostic-ai revert --only claude       # 3. roll back only claude
 agnostic-ai revert --except codex      # 4. roll back everything except codex
+agnostic-ai revert --json              # machine-readable output
 ```
+
+The `--json` output uses the same schema as `sync --json`. Actions are `"restore"` (`.bak` was applied), `"remove"` (file was deleted), or `"skip"` (file was already absent).
 
 Without a prior `--backup`, `revert` removes the generated files;
 nothing is restored.
@@ -203,6 +237,7 @@ agnostic-ai doctor --fix --backup   # save .bak of hand-edits before overwrite
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--fix` | Write missing/stale files. In-sync files untouched. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
+| `--json` | Output drift report as JSON. Same schema as `sync --check --json`. |
 
 Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to
 spot files the merge resolved manually. Use `--fix` for an interactive cleanup
