@@ -83,6 +83,12 @@
         },
         "instructions-dir": {
           "type": "string"
+        },
+        "commands-dir": {
+          "type": "string"
+        },
+        "emit-skills-as-commands": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
