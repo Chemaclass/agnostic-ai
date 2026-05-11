@@ -103,6 +103,11 @@ Use `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` prefixes. Subject u
 agnostic-ai sync
 ```
 
+On the first run, `sync` opens a multi-select to pick which targets to
+enable. The choice is saved to `agnostic.config.yaml` and never asked
+again. To emit every target without the prompt, run `sync --all` or
+pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
+
 | Output | Target |
 |--------|--------|
 | `CLAUDE.md` | Claude Code |

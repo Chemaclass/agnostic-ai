@@ -42,7 +42,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, backup, watch, jsonOut bool
+	var dryRun, check, backup, watch, jsonOut, allTargets bool
 	var gitignoreFlag, autoSyncFlag string
 
 	cmd := &cobra.Command{
@@ -86,6 +86,17 @@ func newSyncCmd() *cobra.Command {
 			base := targets
 			if len(base) == 0 {
 				base = cfg.Targets
+			}
+			if !check && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
+				if shouldPromptTargetSelection(".", cfg) {
+					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), cmd.OutOrStdout())
+					if err != nil {
+						return err
+					}
+					if len(picked) > 0 {
+						base = picked
+					}
+				}
 			}
 			effective, err := filterTargets(base, only, except)
 			if err != nil {
@@ -131,6 +142,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
+	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	registerTargetCompletion(cmd)
 	return cmd
 }
