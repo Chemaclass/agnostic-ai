@@ -57,3 +57,11 @@ func OutputSkillsDir(cfg *config.Config, target, fallback string) string {
 	}
 	return fallback
 }
+
+// OutputInstructionsDir returns cfg.Outputs[target].InstructionsDir when set, otherwise fallback.
+func OutputInstructionsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.InstructionsDir != "" {
+		return o.InstructionsDir
+	}
+	return fallback
+}

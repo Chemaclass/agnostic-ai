@@ -10,7 +10,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
 | **gemini**      | merged in `GEMINI.md` | listed in `GEMINI.md` | `GEMINI.md`     | -     | - |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
-| **copilot**     | merged in instructions | listed in instructions | `.github/copilot-instructions.md` | - | `.vscode/mcp.json` |
+| **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
 | **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
 | **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
 | **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
@@ -85,10 +85,16 @@ Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. 
 ### GitHub Copilot (`copilot`)
 
 ```
-.github/copilot-instructions.md
+.github/copilot-instructions.md                            # always-on rules
+.github/instructions/<name>.instructions.md                # scoped rule per file
+.github/instructions/agent-<name>.instructions.md          # one per agent
+.github/instructions/skill-<name>.instructions.md          # one per skill
+.vscode/mcp.json                                           # when MCP entries exist
 ```
 
-Config keys: `outputs.copilot.file` (default `.github/copilot-instructions.md`), `outputs.copilot.mcp-file` (default `.vscode/mcp.json`).
+Config keys: `outputs.copilot.file` (default `.github/copilot-instructions.md`), `outputs.copilot.instructions-dir` (default `.github/instructions`), `outputs.copilot.mcp-file` (default `.vscode/mcp.json`).
+
+Copilot natively supports path-scoped instructions via `applyTo:` frontmatter. Rules with a `globs` field (or a source-layout scope like `rules/backend/auth.md`) emit as a separate `.instructions.md` file with `applyTo` derived from the globs (explicit `globs` wins, else `<scope>/**`). Rules with `alwaysApply: true` or no scope merge into the always-on `.github/copilot-instructions.md`. Agents and skills always emit as catch-all (`applyTo: "**"`) so they remain discoverable across the repo.
 
 The Copilot MCP file uses the VS Code schema: a top-level `servers` key with each entry carrying a `type` field (`stdio`, `http`, or `sse`).
 

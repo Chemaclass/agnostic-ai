@@ -106,7 +106,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 | Codex CLI      |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Gemini CLI     |   ◐    |   ◐    |   ✅   |   -   |  -   |
 | Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| GitHub Copilot |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
+| GitHub Copilot |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Aider          |   ◐    |   ◐    |   ✅   |   -   |  -   |
 | Cline          |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Windsurf       |   ✅    |   ✅    |   ✅   |   -   |  -   |
