@@ -7,7 +7,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
 |-----------------|---------------------|--------|--------------------------|-------|------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` | `.mcp.json` |
-| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
+| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) |
 | **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
@@ -56,13 +56,16 @@ docs/api/AGENTS.md                           # if any rule has globs: docs/api/*
 .codex/agents/<name>.toml                    # one TOML per agent
 .agents/skills/<name>/SKILL.md               # one folder per skill
 .agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
+.codex/config.toml                           # when hook and/or MCP entries exist
 ```
 
-Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.codex/agents`), `outputs.codex.skills-dir` (default `.agents/skills`).
+Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.codex/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks).
 
 Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. The `## Agents` section lists each agent with a pointer to its TOML rather than inlining the body, so each agent lives in exactly one place.
 
 Skills follow the [Codex skills layout](https://developers.openai.com/codex/skills): one folder per skill under `.agents/skills/<name>/` with a required `SKILL.md` (frontmatter `name` + `description`, plus the body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an additional `agents/openai.yaml` is written in the skill folder for UI customization and policy declarations. The root `AGENTS.md` lists each skill with a pointer to its `SKILL.md`.
+
+Hooks and MCP servers both land in `.codex/config.toml`. Hook specs route by their `event` frontmatter (e.g. `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into `[[hooks.<event>]]` array-of-tables entries with `matcher` and `command`. MCP servers emit as `[mcp_servers.<name>]` tables — stdio uses `command`/`args`/`env`; HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is agnostic-ai-managed (overwritten on each sync); add unmanaged Codex config to `~/.codex/config.toml` user-global instead.
 
 ### Gemini CLI (`gemini`)
 
