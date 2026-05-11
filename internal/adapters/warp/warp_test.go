@@ -181,6 +181,99 @@ func TestEmit_FileOverride(t *testing.T) {
 	}
 }
 
+// Stdio MCP entry emits to .warp/.mcp.json with the standard mcpServers schema.
+func TestEmit_MCP_WritesStdioServer(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	for _, want := range []string{
+		`"mcpServers"`,
+		`"fs"`,
+		`"command": "npx"`,
+		`"ALLOWED_PATHS"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_WritesHTTPServer(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://mcp.linear.app",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	for _, want := range []string{
+		`"linear"`,
+		`"url": "https://mcp.linear.app"`,
+		`"Authorization"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"warp": {MCPFile: "vendor/mcp.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/mcp.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".warp/.mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no MCP file when no entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
