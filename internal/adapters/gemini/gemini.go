@@ -25,12 +25,13 @@ const (
 	target              = "gemini"
 	defaultRootFile     = "GEMINI.md"
 	defaultCommandsDir  = ".gemini/commands"
+	defaultSettingsFile = ".gemini/settings.json"
 	skillFilenamePrefix = "skill-"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP},
 }
 
 // Adapter emits Gemini CLI configs.
@@ -59,7 +60,102 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 	}
-	return emitGEMINITree(b, cfg, commandsDir, dryRun)
+	if err := emitGEMINITree(b, cfg, commandsDir, dryRun); err != nil {
+		return err
+	}
+	return emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
+}
+
+// emitSettings writes (or merges into) .gemini/settings.json with the
+// `mcpServers` and `hooks` keys. Routes through emit.MergeJSONFile so
+// any user-managed Gemini settings survive the sync.
+func emitSettings(b spec.Bundle, path string, dryRun bool) error {
+	keys := map[string]any{}
+	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
+		keys["mcpServers"] = servers
+	}
+	if hooks := buildHooks(b.Hooks); len(hooks) > 0 {
+		keys["hooks"] = hooks
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	return emit.MergeJSONFile(path, keys, dryRun)
+}
+
+// buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit
+// {command, args, env}; HTTP / SSE specs emit {httpUrl, headers} -
+// Gemini uses `httpUrl`, not the standard `url`.
+func buildMCPServers(mcps []spec.Entry) map[string]any {
+	out := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		entry := buildMCPServer(e)
+		if len(entry) == 0 {
+			continue
+		}
+		out[e.Name] = entry
+	}
+	return out
+}
+
+func buildMCPServer(e spec.Entry) map[string]any {
+	transport, _ := e.Meta["type"].(string)
+	if transport == "" {
+		transport = "stdio"
+	}
+	out := map[string]any{}
+	switch transport {
+	case "stdio":
+		if cmd, _ := e.Meta["command"].(string); cmd != "" {
+			out["command"] = cmd
+		}
+		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
+			out["args"] = args
+		}
+	case "http", "sse":
+		if url, _ := e.Meta["url"].(string); url != "" {
+			out["httpUrl"] = url
+		}
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			out["headers"] = h
+		}
+	}
+	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+		out["env"] = env
+	}
+	return out
+}
+
+// buildHooks groups hook specs by their `event` frontmatter into the
+// Gemini hooks shape: `hooks.<event> = [{matcher, command}, ...]`.
+// `matcher` is omitted when absent so the hook fires unconditionally.
+func buildHooks(hooks []spec.Entry) map[string]any {
+	byEvent := map[string][]map[string]any{}
+	for _, h := range hooks {
+		event, _ := h.Meta["event"].(string)
+		if event == "" {
+			continue
+		}
+		entry := map[string]any{}
+		if matcher, _ := h.Meta["matcher"].(string); matcher != "" {
+			entry["matcher"] = matcher
+		}
+		if cmd, _ := h.Meta["command"].(string); cmd != "" {
+			entry["command"] = cmd
+		}
+		if len(entry) == 0 {
+			continue
+		}
+		byEvent[event] = append(byEvent[event], entry)
+	}
+	out := map[string]any{}
+	for k, v := range byEvent {
+		out[k] = v
+	}
+	return out
 }
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
