@@ -144,11 +144,11 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		if url, _ := e.Meta["url"].(string); url != "" {
 			entry["url"] = url
 		}
-		if h := stringMap(e.Meta["headers"]); len(h) > 0 {
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			entry["headers"] = h
 		}
 	}
-	if env := stringMap(e.Meta["env"]); len(env) > 0 {
+	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		entry["environment"] = env
 	}
 	return entry
@@ -162,38 +162,8 @@ func combineCommand(meta map[string]any) []string {
 	if cmd != "" {
 		parts = append(parts, cmd)
 	}
-	for _, a := range stringSlice(meta["args"]) {
-		parts = append(parts, a)
-	}
+	parts = append(parts, emit.StringSlice(meta["args"])...)
 	return parts
-}
-
-func stringSlice(v any) []string {
-	raw, ok := v.([]any)
-	if !ok {
-		return nil
-	}
-	out := make([]string, 0, len(raw))
-	for _, x := range raw {
-		if s, ok := x.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func stringMap(v any) map[string]string {
-	raw, ok := v.(map[string]any)
-	if !ok {
-		return nil
-	}
-	out := make(map[string]string, len(raw))
-	for k, x := range raw {
-		if s, ok := x.(string); ok {
-			out[k] = s
-		}
-	}
-	return out
 }
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {

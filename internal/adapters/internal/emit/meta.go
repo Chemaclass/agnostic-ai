@@ -8,6 +8,42 @@ import "strings"
 // portable.
 const XPrefix = "x-"
 
+// StringSlice coerces a `[]any` of strings (YAML's default unmarshalled
+// shape for list-of-strings) into `[]string`. Non-string elements and
+// non-slice inputs return nil. Adapters use this to read `args`,
+// `nickname_candidates`, etc. from spec frontmatter.
+func StringSlice(v any) []string {
+	raw, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, x := range raw {
+		if s, ok := x.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// StringMap coerces a `map[string]any` of string values (YAML's default
+// for a string-keyed string-valued map) into `map[string]string`.
+// Non-string values are dropped; a non-map input returns nil. Adapters
+// use this to read `env`, `headers`, etc. from spec frontmatter.
+func StringMap(v any) map[string]string {
+	raw, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for k, x := range raw {
+		if s, ok := x.(string); ok {
+			out[k] = s
+		}
+	}
+	return out
+}
+
 // ResolveMeta returns a copy of meta with target-specific keys flattened
 // for the named target and `x-*` keys for other targets dropped.
 //

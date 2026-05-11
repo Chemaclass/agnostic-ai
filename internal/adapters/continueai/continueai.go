@@ -83,7 +83,7 @@ func mcpYAML(e spec.Entry) (string, error) {
 		if cmd, _ := e.Meta["command"].(string); cmd != "" {
 			doc["command"] = cmd
 		}
-		if args := stringSlice(e.Meta["args"]); len(args) > 0 {
+		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 			doc["args"] = args
 		}
 	case "http", "sse", "streamable-http":
@@ -91,12 +91,12 @@ func mcpYAML(e spec.Entry) (string, error) {
 		if url, _ := e.Meta["url"].(string); url != "" {
 			doc["url"] = url
 		}
-		if h := stringMap(e.Meta["headers"]); len(h) > 0 {
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			doc["headers"] = h
 		}
 	}
 
-	if env := stringMap(e.Meta["env"]); len(env) > 0 {
+	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		doc["env"] = env
 	}
 
@@ -105,32 +105,4 @@ func mcpYAML(e spec.Entry) (string, error) {
 		return "", fmt.Errorf("marshal mcp %s: %w", e.Name, err)
 	}
 	return string(raw), nil
-}
-
-func stringSlice(v any) []string {
-	raw, ok := v.([]any)
-	if !ok {
-		return nil
-	}
-	out := make([]string, 0, len(raw))
-	for _, x := range raw {
-		if s, ok := x.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func stringMap(v any) map[string]string {
-	raw, ok := v.(map[string]any)
-	if !ok {
-		return nil
-	}
-	out := make(map[string]string, len(raw))
-	for k, x := range raw {
-		if s, ok := x.(string); ok {
-			out[k] = s
-		}
-	}
-	return out
 }
