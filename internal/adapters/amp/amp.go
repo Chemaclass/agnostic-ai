@@ -154,7 +154,7 @@ func migrateLegacyAgentMd(cfg *config.Config, dryRun bool) {
 	if err := os.Rename(legacyPath, legacyPath+".bak"); err != nil {
 		return
 	}
-	fmt.Fprintf(emit.Warner, "amp: renamed legacy %s to %s.bak; new layout writes AGENTS.md\n", legacyPath, legacyPath)
+	_, _ = fmt.Fprintf(emit.Warner, "amp: renamed legacy %s to %s.bak; new layout writes AGENTS.md\n", legacyPath, legacyPath)
 }
 
 func writeHeader(sb *strings.Builder, scope string) {
