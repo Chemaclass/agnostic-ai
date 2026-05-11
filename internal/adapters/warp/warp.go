@@ -13,9 +13,10 @@ package warp
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -68,8 +69,8 @@ func emitAgentsTree(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	rootBase := filepath.Base(rootFile)
 
 	byScope := emit.GroupRulesByScope(b.Rules)
-	scopes := sortedKeys(byScope)
-	if !contains(scopes, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
+	scopes := slices.Sorted(maps.Keys(byScope))
+	if !slices.Contains(scopes, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
 		scopes = append([]string{""}, scopes...)
 	}
 
@@ -155,22 +156,4 @@ func writeSkillsSection(sb *strings.Builder, skills []spec.Entry) {
 	for _, s := range skills {
 		emit.WriteReference(sb, s, s.Path)
 	}
-}
-
-func sortedKeys(m map[string][]spec.Entry) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func contains(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
