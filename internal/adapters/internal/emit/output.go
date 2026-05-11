@@ -74,6 +74,16 @@ func OutputCommandsDir(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputMCPDir returns cfg.Outputs[target].MCPDir when set, otherwise fallback.
+// Used by adapters that emit one MCP server file per entry into a directory
+// (Continue: `.continue/mcpServers/`) rather than a single combined MCP file.
+func OutputMCPDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.MCPDir != "" {
+		return o.MCPDir
+	}
+	return fallback
+}
+
 // EmitSkillsAsCommands reports whether the named target opts skills into
 // slash-command emission. Off by default.
 func EmitSkillsAsCommands(cfg *config.Config, target string) bool {

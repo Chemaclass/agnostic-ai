@@ -46,6 +46,7 @@ type Output struct {
 	SkillsDir            string `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
 	InstructionsDir      string `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
 	CommandsDir          string `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	MCPDir               string `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 }
 
