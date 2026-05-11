@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Changed
+- **Breaking:** Warp adapter renames `WARP.md` (legacy default) to `AGENTS.md` per Warp's current Rules docs (open AGENTS.md standard). The first sync after upgrading detects any agnostic-generated `WARP.md` at the configured root and renames it to `WARP.md.bak`. A user-authored `WARP.md` is left untouched. Roll back with `agnostic-ai revert`, or `git rm WARP.md.bak` once satisfied. Warp now also routes rules hierarchically: a rule's source-layout scope (or `globs` prefix) places it into `<scope>/AGENTS.md`, matching Warp's subtree-rules behavior. Agents inline their bodies into the root `AGENTS.md` (Warp has no separate slash-command surface); skills list as reference pointers to their source spec. Closes #68.
 - **Breaking:** Amp adapter renames `AGENT.md` (singular, previous default) to `AGENTS.md` (plural, the spec-correct name per Sourcegraph Amp's owner's manual). The first sync after upgrading detects any agnostic-generated `AGENT.md` at the configured root and renames it to `AGENT.md.bak` so users can verify the new layout before deleting the backup. A user-authored `AGENT.md` is left untouched. Roll back with `agnostic-ai revert`, or `git rm AGENT.md.bak` once satisfied. Closes #67.
 
 ### Added

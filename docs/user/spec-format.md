@@ -36,6 +36,7 @@ Adapters that produce per-directory output honor the scope:
 | `copilot`       | `<scope>/**` applied to a single `.github/instructions/<name>.instructions.md` (no nested dirs; the glob targets the scope) |
 | `gemini`        | `<scope>/GEMINI.md`                        |
 | `amp`           | `<scope>/AGENTS.md`                        |
+| `warp`          | `<scope>/AGENTS.md`                        |
 
 Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. The scope is preserved as part of the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
 
