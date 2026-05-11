@@ -112,7 +112,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 | Windsurf       |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Continue       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Amp            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Zed            |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Zed            |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | Warp           |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | OpenCode       |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
 

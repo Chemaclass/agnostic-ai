@@ -16,7 +16,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
 | **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | `.amp/settings.json` (`amp.mcpServers`) |
-| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
+| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | `.zed/settings.json` (`context_servers`) |
 | **warp**        | inlined in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
 | **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | `opencode.json` (`mcp`) |
 
@@ -167,9 +167,14 @@ Amp's hierarchical `AGENTS.md` shares the same open standard as Codex and Warp. 
 
 ```
 .rules
+.zed/settings.json                     # when MCP entries exist (merged with any existing user config)
 ```
 
-Config key: `outputs.zed.file` (default `.rules`).
+Config keys: `outputs.zed.file` (default `.rules`), `outputs.zed.mcp-file` (default `.zed/settings.json`).
+
+When MCP entries are present, the adapter writes (or updates) `.zed/settings.json` with the `context_servers` map (Zed's key — not `mcpServers`). Each server emits with Zed's nested `command: {path, args, env}` shape plus an empty `settings: {}`. User-managed keys (theme, buffer_font_size, etc.) are preserved across syncs.
+
+Zed only supports stdio transport natively. HTTP / SSE MCP entries auto-bridge through `npx mcp-remote <url>` so they still work — a one-line stderr warning fires when this fallback is taken.
 
 ### Warp (`warp`)
 
