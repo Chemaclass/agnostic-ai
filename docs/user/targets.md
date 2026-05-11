@@ -8,7 +8,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 |-----------------|---------------------|--------|--------------------------|-------|------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` | `.mcp.json` |
 | **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | - | - |
-| **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | - | - |
+| **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
 | **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
@@ -72,13 +72,16 @@ src/GEMINI.md                          # rules scoped to src/ (source layout or 
 docs/api/GEMINI.md                     # rules scoped to docs/api/
 .gemini/commands/<name>.toml           # one per agent
 .gemini/commands/skill-<name>.toml     # one per skill, only when emit-skills-as-commands: true
+.gemini/settings.json                  # when MCP and/or hook entries exist (merged with any existing user config)
 ```
 
-Config keys: `outputs.gemini.file` (default `GEMINI.md`), `outputs.gemini.commands-dir` (default `.gemini/commands`), `outputs.gemini.emit-skills-as-commands` (default `false`).
+Config keys: `outputs.gemini.file` (default `GEMINI.md`), `outputs.gemini.commands-dir` (default `.gemini/commands`), `outputs.gemini.mcp-file` (default `.gemini/settings.json` — also holds hooks), `outputs.gemini.emit-skills-as-commands` (default `false`).
 
 Gemini CLI loads `GEMINI.md` hierarchically: each subdirectory adds context for its subtree. This adapter routes rules by their source-layout scope (e.g. `rules/backend/auth.md` → `backend/GEMINI.md`) or by a leading literal prefix of their `globs` frontmatter (e.g. `docs/api/**` → `docs/api/GEMINI.md`). Source layout wins when both are present.
 
 Agents emit as TOML slash commands under `.gemini/commands/` per [Gemini CLI custom commands](https://geminicli.com/docs/cli/custom-commands/). The root `GEMINI.md` lists each agent with a reference pointer rather than inlining the body, so each agent lives in exactly one place. Skills default to reference-only listings in the root `GEMINI.md`; flip `outputs.gemini.emit-skills-as-commands: true` to also emit one `.gemini/commands/skill-<name>.toml` per skill.
+
+When MCP and/or hook entries are present, the adapter writes (or updates) `.gemini/settings.json` with the `mcpServers` map and the `hooks` map. Gemini uses `httpUrl` (not `url`) for HTTP MCP servers — the adapter handles the rename automatically. Hook specs route by their `event` frontmatter (e.g. `BeforeTool`, `AfterTool`, `SessionStart`); each event entry is `{matcher, command}`. Pre-existing user-managed keys in `.gemini/settings.json` survive across syncs.
 
 ### Cursor (`cursor`)
 
