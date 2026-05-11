@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -35,6 +36,32 @@ func WriteTOMLStringArray(sb *strings.Builder, key string, values []string) {
 		sb.WriteString("\"" + EscapeTOMLBasic(v) + "\"")
 	}
 	sb.WriteString("]\n")
+}
+
+// WriteTOMLInlineStringTable writes an inline-table value:
+//
+//	key = { k1 = "v1", k2 = "v2" }
+//
+// Keys are sorted alphabetically for deterministic output. Empty maps
+// emit nothing. Used by adapters that pass env vars / headers as a
+// nested TOML structure (Codex `[mcp_servers.<name>] env = {...}`).
+func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]string) {
+	if len(m) == 0 {
+		return
+	}
+	sb.WriteString(key + " = { ")
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	for i, k := range keys {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(k + " = \"" + EscapeTOMLBasic(m[k]) + "\"")
+	}
+	sb.WriteString(" }\n")
 }
 
 // EscapeTOMLBasic escapes the two characters that can break out of a
