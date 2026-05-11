@@ -1,6 +1,6 @@
 # Targets
 
-Unsupported features skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).
+Each adapter emits in its tool's native format — separate files where the tool supports them, a merged document otherwise. Unsupported features (e.g. hooks for a non-hook-aware target) skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).
 
 ## Capability matrix
 
@@ -24,14 +24,14 @@ Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
 human reads the skill file and follows its instructions.
 
-Hooks are Claude-specific. They run as shell commands on lifecycle
-events (e.g. PreToolUse, PostToolUse, SessionStart). No other supported
-target has an equivalent concept, so hooks emit only for Claude.
+Hooks run as shell commands on lifecycle events (e.g. `PreToolUse`,
+`PostToolUse`, `SessionStart`). Emitted natively by Claude Code, Codex,
+and Gemini in each tool's own schema. Other targets have no equivalent
+concept and skip with a warning.
 
-MCP servers emit for Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`),
-and GitHub Copilot in VS Code (`.vscode/mcp.json`). Other targets either
-have no project-scoped MCP file (Codex, Gemini) or no MCP support at all,
-and skip with a warning.
+MCP servers propagate to every target that has a project-scoped MCP file
+(10 of 13 — see the matrix above). Aider, Cline, and Windsurf have no
+project-scoped MCP surface and skip with a warning.
 
 ## Per-target output
 

@@ -45,39 +45,51 @@ targets:
 # relevant to it. Defaults shown in comments.
 outputs:
   claude:
-    dir: .claude               # default
-    rules-file: CLAUDE.md      # default
+    dir: .claude                 # default
+    rules-file: CLAUDE.md        # default
+    mcp-file: .mcp.json          # default
   codex:
-    file: AGENTS.md            # default
-    agents-dir: .codex/agents  # default. One TOML per agent (Codex subagent schema).
-    skills-dir: .agents/skills # default. One folder per skill per the Codex skills layout.
+    file: AGENTS.md              # default. Hierarchical per scope.
+    agents-dir: .codex/agents    # default. One TOML per agent.
+    skills-dir: .agents/skills   # default. One folder per skill.
+    mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:
-    file: GEMINI.md            # default
+    file: GEMINI.md                  # default. Hierarchical per scope.
+    commands-dir: .gemini/commands   # default. One .toml per agent (and per skill when opted in).
+    emit-skills-as-commands: false   # default
+    mcp-file: .gemini/settings.json  # default. Holds both mcpServers and hooks.
   cursor:
-    rules-dir: .cursor/rules   # default
+    rules-dir: .cursor/rules     # default
+    mcp-file: .cursor/mcp.json   # default
   copilot:
-    file: .github/copilot-instructions.md  # default. Always-on rules.
-    instructions-dir: .github/instructions # default. One .instructions.md per scoped rule, agent, skill.
+    file: .github/copilot-instructions.md   # default. Always-on rules.
+    instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
+    mcp-file: .vscode/mcp.json              # default
   aider:
-    file: CONVENTIONS.md       # default
+    file: CONVENTIONS.md         # default
   cline:
-    rules-dir: .clinerules     # default
+    rules-dir: .clinerules       # default
   windsurf:
-    rules-dir: .windsurf/rules # default
+    rules-dir: .windsurf/rules   # default
   continue:
-    rules-dir: .continue/rules # default
+    rules-dir: .continue/rules        # default
+    mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
   amp:
-    file: AGENTS.md            # default. Hierarchical per scope; was AGENT.md.
-    commands-dir: .agents/commands # default. One .md per agent (and per skill when opted in).
+    file: AGENTS.md                 # default. Hierarchical per scope; was AGENT.md.
+    commands-dir: .agents/commands  # default. One .md per agent (and per skill when opted in).
+    emit-skills-as-commands: false  # default
+    mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
   zed:
-    file: .rules               # default
+    file: .rules                  # default
+    mcp-file: .zed/settings.json  # default. context_servers (stdio native, HTTP via mcp-remote).
   warp:
-    file: AGENTS.md            # default. Hierarchical per scope; was WARP.md.
+    file: AGENTS.md             # default. Hierarchical per scope; was WARP.md.
+    mcp-file: .warp/.mcp.json   # default. Standard mcpServers schema.
   opencode:
-    file: .opencode/AGENTS.md  # default. Routed under .opencode/ to coexist with Codex.
-    commands-dir: .opencode/commands # default. One .md per agent (and per skill when opted in).
-  gemini:
-    commands-dir: .gemini/commands # default. One .toml per agent (and per skill when opted in).
+    file: .opencode/AGENTS.md            # default. Routed under .opencode/ to coexist with Codex.
+    commands-dir: .opencode/commands     # default. One .md per agent (and per skill when opted in).
+    emit-skills-as-commands: false       # default
+    mcp-file: opencode.json              # default. mcp map with type: local|remote.
 
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for any target other than claude).
@@ -129,27 +141,37 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
 | `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
+| `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `codex` | `file` | `AGENTS.md` | Rules document; nested `<dir>/AGENTS.md` files share this base. Lists agents and skills with pointers to their per-target files. |
 | `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). |
-| `codex` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, optional `<name>/agents/openai.yaml`) per the Codex skills layout. |
+| `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
+| `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
 | `gemini` | `file` | `GEMINI.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/GEMINI.md` files share this base. |
 | `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
+| `gemini` | `mcp-file` | `.gemini/settings.json` | Holds both `mcpServers` and `hooks`. HTTP MCP entries use `httpUrl`. |
 | `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
+| `cursor` | `mcp-file` | `.cursor/mcp.json` | Standard `mcpServers` schema. |
 | `copilot` | `file` | `.github/copilot-instructions.md` | Always-on rules (`alwaysApply: true` or no scope). |
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
+| `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
 | `aider` | `file` | `CONVENTIONS.md` | Single merged document. |
 | `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
 | `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
-| `amp` | `file` | `AGENTS.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `AGENT.md`; legacy file migrated to `AGENT.md.bak` on first sync. |
+| `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
+| `amp` | `file` | `AGENTS.md` | Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `AGENT.md`; legacy file migrated to `AGENT.md.bak` on first sync. |
 | `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). |
 | `amp` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.agents/commands/skill-<name>.md`. |
+| `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
 | `zed` | `file` | `.rules` | Single merged document. |
+| `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio native; HTTP/SSE auto-bridges via `npx mcp-remote`. |
 | `warp` | `file` | `AGENTS.md` | Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `WARP.md`; legacy file migrated to `WARP.md.bak` on first sync. |
+| `warp` | `mcp-file` | `.warp/.mcp.json` | Standard `mcpServers` schema. |
 | `opencode` | `file` | `.opencode/AGENTS.md` | Rules + agent/skill references; routed under `.opencode/` to coexist with Codex. |
 | `opencode` | `commands-dir` | `.opencode/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). Frontmatter filtered to `description`, `agent`, `model`, `subtask`. |
 | `opencode` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.opencode/commands/skill-<name>.md`. |
+| `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
 
 ## `targets`
 

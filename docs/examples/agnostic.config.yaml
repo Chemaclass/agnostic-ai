@@ -38,20 +38,25 @@ outputs:
     mcp-file: .mcp.json       # default
 
   codex:
-    file: AGENTS.md            # default. Could be docs/AGENTS.md.
-    agents-dir: .codex/agents  # default. v0.4: per-agent TOML files.
-    skills-dir: .agents/skills # default. v0.4: per-skill SKILL.md folders.
+    file: AGENTS.md              # default. Hierarchical per scope.
+    agents-dir: .codex/agents    # default. One TOML per agent.
+    skills-dir: .agents/skills   # default. One folder per skill.
+    mcp-file: .codex/config.toml # default. Holds [[hooks.<event>]] and [mcp_servers.<name>].
 
   gemini:
-    file: GEMINI.md           # default
+    file: GEMINI.md                  # default. Hierarchical per scope.
+    commands-dir: .gemini/commands   # default. One .toml per agent (and per skill if opted in).
+    emit-skills-as-commands: false   # default
+    mcp-file: .gemini/settings.json  # default. Holds mcpServers + hooks. HTTP uses httpUrl.
 
   cursor:
-    rules-dir: .cursor/rules  # default
+    rules-dir: .cursor/rules   # default
     mcp-file: .cursor/mcp.json # default
 
   copilot:
-    file: .github/copilot-instructions.md  # default
-    mcp-file: .vscode/mcp.json             # default. VS Code schema.
+    file: .github/copilot-instructions.md   # default. Always-on rules.
+    instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
+    mcp-file: .vscode/mcp.json              # default. VS Code schema.
 
   aider:
     file: CONVENTIONS.md      # default. Pair with `aider --read CONVENTIONS.md`.
@@ -63,19 +68,28 @@ outputs:
     rules-dir: .windsurf/rules  # default
 
   continue:
-    rules-dir: .continue/rules  # default
+    rules-dir: .continue/rules     # default
+    mcp-dir: .continue/mcpServers  # default. One YAML per MCP server.
 
   amp:
-    file: AGENT.md            # default
+    file: AGENTS.md                 # default. Hierarchical per scope. Was AGENT.md (auto-migrated).
+    commands-dir: .agents/commands  # default. One .md per agent (and per skill if opted in).
+    emit-skills-as-commands: false  # default
+    mcp-file: .amp/settings.json    # default. amp.mcpServers dotted key.
 
   zed:
-    file: .rules              # default
+    file: .rules                  # default
+    mcp-file: .zed/settings.json  # default. context_servers (stdio native, HTTP via mcp-remote).
 
   warp:
-    file: WARP.md             # default
+    file: AGENTS.md            # default. Hierarchical per scope. Was WARP.md (auto-migrated).
+    mcp-file: .warp/.mcp.json  # default. Standard mcpServers schema.
 
   opencode:
-    file: .opencode/AGENTS.md # default. Routed under .opencode/ to coexist with Codex.
+    file: .opencode/AGENTS.md            # default. Routed under .opencode/ to coexist with Codex.
+    commands-dir: .opencode/commands     # default. One .md per agent (and per skill if opted in).
+    emit-skills-as-commands: false       # default
+    mcp-file: opencode.json              # default. mcp map with type: local|remote.
 
 # How to react when a spec kind is not supported by a target
 # (e.g. hooks for any target other than claude).

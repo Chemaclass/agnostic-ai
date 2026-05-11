@@ -116,7 +116,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 | Warp           |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | OpenCode       |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
 
-Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks are Claude-specific. MCPs propagate in each tool's native schema.
+Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
 
 ## Install
 

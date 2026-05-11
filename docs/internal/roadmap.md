@@ -28,4 +28,5 @@ Filed as issues:
 - More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)). Recently shipped: Amp, Zed, Warp, OpenCode.
 - Richer `import <source>` importers. Shipped: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
 - ~~`doctor` improvements (drift fixes, not only detection).~~ Shipped: `doctor --fix [--backup]`.
-- More MCP-aware targets. Shipped: Claude (`.mcp.json`), Cursor (`.cursor/mcp.json`), Copilot (`.vscode/mcp.json`).
+- More MCP-aware targets. Shipped for 10 of 13: Claude (`.mcp.json`), Cursor (`.cursor/mcp.json`), Copilot (`.vscode/mcp.json`), Codex (`.codex/config.toml`), Gemini (`.gemini/settings.json`), Continue (`.continue/mcpServers/*.yaml`), Amp (`.amp/settings.json`), Zed (`.zed/settings.json`), Warp (`.warp/.mcp.json`), OpenCode (`opencode.json`). Aider/Cline/Windsurf have no project-scoped MCP surface.
+- Hooks beyond Claude. Shipped: Codex (`.codex/config.toml` `[[hooks.<event>]]`) and Gemini (`.gemini/settings.json` `hooks`). Other targets have no equivalent.

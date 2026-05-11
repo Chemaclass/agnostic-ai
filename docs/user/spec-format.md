@@ -109,9 +109,10 @@ description: Validate YAML against a schema.
 Emitted natively by Claude Code (`.claude/skills/<name>/SKILL.md`) and
 Codex (`.agents/skills/<name>/SKILL.md`). Cursor, Cline, Windsurf, and
 Continue emit each skill as a rule file (`skill-<name>.{mdc,md}`).
-Merged-document targets (Gemini, Copilot, Aider, Amp, Zed, Warp,
-OpenCode) list skills in a `## Skills` section. See
-[targets](targets.md) for the full matrix.
+Gemini, Amp, and OpenCode list skills by default and can opt into
+native slash-command emission via `outputs.<target>.emit-skills-as-commands: true`.
+Other targets (Aider, Copilot, Zed, Warp) list skills in a `## Skills`
+section. See [targets](targets.md) for the full matrix.
 
 ## Rules
 
@@ -163,7 +164,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
 
-Emitted natively by Claude Code only. Other targets log a warning and skip. See Claude Code docs for the full event list and matcher semantics.
+Emitted natively by Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), and Gemini (`.gemini/settings.json` `hooks` — uses event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
 
 ## MCP servers
 
@@ -192,7 +193,22 @@ env:
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 
-Targets with native MCP propagation: Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`), GitHub Copilot / VS Code (`.vscode/mcp.json`). Other targets log a warning and skip.
+Targets with native MCP propagation:
+
+| Target | File | Schema |
+|--------|------|--------|
+| Claude Code | `.mcp.json` | standard `mcpServers` |
+| Cursor | `.cursor/mcp.json` | standard `mcpServers` |
+| Copilot / VS Code | `.vscode/mcp.json` | `servers` with `type` field |
+| Codex | `.codex/config.toml` | `[mcp_servers.<name>]` table |
+| Gemini | `.gemini/settings.json` | `mcpServers` (uses `httpUrl` for HTTP) |
+| Continue | `.continue/mcpServers/<name>.yaml` | one YAML per server |
+| Amp | `.amp/settings.json` | `amp.mcpServers` (dotted key) |
+| Zed | `.zed/settings.json` | `context_servers` (stdio only; HTTP bridges via `npx mcp-remote`) |
+| Warp | `.warp/.mcp.json` | standard `mcpServers` |
+| OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
+
+Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
 
 ## Frontmatter rules
 

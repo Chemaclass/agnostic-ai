@@ -38,19 +38,25 @@ hooks/*.yaml ─────────┤                       Rules, Hooks, 
 mcps/*.yaml ──────────┘                       Scope derived from layout)
 
 spec.Bundle ──► adapter.Emit(bundle, config, dryRun) ──► files written
-                 ├─ claude:    .claude/, CLAUDE.md, .mcp.json
-                 ├─ codex:     AGENTS.md (lists agents w/ pointers; nested per scope/globs),
-                 │             .codex/agents/<name>.toml, .agents/skills/<name>/SKILL.md
-                 ├─ gemini:    GEMINI.md (hierarchical per scope), .gemini/commands/<name>.toml
+                 ├─ claude:    .claude/, CLAUDE.md, .mcp.json, .claude/settings.json (hooks)
+                 ├─ codex:     AGENTS.md (hierarchical), .codex/agents/<name>.toml,
+                 │             .agents/skills/<name>/SKILL.md, .codex/config.toml (hooks + MCP)
+                 ├─ gemini:    GEMINI.md (hierarchical), .gemini/commands/<name>.toml,
+                 │             .gemini/settings.json (hooks + mcpServers)
                  ├─ cursor:    .cursor/rules/, .cursor/mcp.json
                  ├─ copilot:   .github/copilot-instructions.md (always-on),
                  │             .github/instructions/<name>.instructions.md (applyTo-scoped),
                  │             .vscode/mcp.json
-                 ├─ amp:       AGENTS.md (hierarchical), .agents/commands/<name>.md
-                 ├─ warp:      AGENTS.md (hierarchical; agents inlined, skills referenced)
-                 ├─ opencode:  .opencode/AGENTS.md, .opencode/commands/<name>.md
-                 ├─ zed:       .rules
-                 └─ ...
+                 ├─ aider:     CONVENTIONS.md
+                 ├─ cline:     .clinerules/<name>.md
+                 ├─ windsurf:  .windsurf/rules/<name>.md
+                 ├─ continue:  .continue/rules/<name>.md, .continue/mcpServers/<name>.yaml
+                 ├─ amp:       AGENTS.md (hierarchical), .agents/commands/<name>.md,
+                 │             .amp/settings.json (amp.mcpServers)
+                 ├─ zed:       .rules, .zed/settings.json (context_servers)
+                 ├─ warp:      AGENTS.md (hierarchical; agents inlined), .warp/.mcp.json
+                 └─ opencode:  .opencode/AGENTS.md, .opencode/commands/<name>.md,
+                               opencode.json (mcp map; merges with user keys)
 ```
 
 ## Emit modes

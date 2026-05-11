@@ -150,18 +150,33 @@ user's `on-unsupported` setting.
 
 ## 7. MCP propagation (optional)
 
-If the target reads project-local MCP server config, write it from the
-shared helper:
+If the target reads a project-local MCP server config, use the shared
+helper for the JSON-map schemas it covers:
 
 ```go
 return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
     emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 ```
 
-Two schemas exist:
+Built-in schemas:
 
-- `MCPSchemaServersMap`: `{"mcpServers": {...}}` (Claude, Cursor)
+- `MCPSchemaServersMap`: `{"mcpServers": {...}}` (Claude, Cursor, Warp)
 - `MCPSchemaVSCodeServers`: `{"servers": {...}}` with `type` per server (Copilot / VS Code)
+
+Targets with non-trivial shapes (Codex TOML, Gemini `httpUrl`, Amp
+`amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp` map,
+Continue one-YAML-per-server) emit custom — see each adapter for the
+pattern. Use `emit.MergeJSONFile` to preserve unrelated user keys in
+shared JSON files (Gemini, Amp, Zed, OpenCode). Use `emit.OutputMCPDir`
+for one-file-per-server adapters (Continue).
+
+## 8. Hook propagation (optional)
+
+If the target supports lifecycle hooks, emit them alongside MCPs in the
+same project-tier file (Codex: `.codex/config.toml`; Gemini:
+`.gemini/settings.json`). Group entries by `Meta["event"]`; skip entries
+without one. Pass-through event names — let the user write
+`PreToolUse`/`BeforeTool`/etc. per the target's own docs.
 
 ## Conventions
 
