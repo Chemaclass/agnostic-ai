@@ -23,7 +23,11 @@
 // or `x-codex.dependencies`, an additional `agents/openai.yaml` is written
 // alongside SKILL.md for UI customization and policy declarations.
 //
-// Codex has no native hook system: hooks are skipped.
+// Codex's lifecycle hooks and MCP servers both live in
+// `.codex/config.toml`, written separately from AGENTS.md. The hook
+// engine (SessionStart, Stop, UserPromptSubmit, PreToolUse,
+// PostToolUse, pre/post compact) emits as `[[hooks.<event>]]` array of
+// tables; each MCP server emits as a `[mcp_servers.<name>]` table.
 package codex
 
 import (
@@ -38,16 +42,18 @@ import (
 )
 
 const (
-	target           = "codex"
-	defaultOutFile   = "AGENTS.md"
-	defaultAgentsDir = ".codex/agents"
-	defaultSkillsDir = ".agents/skills"
+	target            = "codex"
+	defaultOutFile    = "AGENTS.md"
+	defaultAgentsDir  = ".codex/agents"
+	defaultSkillsDir  = ".agents/skills"
+	defaultConfigFile = ".codex/config.toml"
 )
 
 var caps = emit.Capabilities{
 	Target: target,
-	// Codex consumes agents, rules, and skills (the latter as listings).
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill},
+	// Codex consumes agents, rules, skills (the latter as listings),
+	// plus lifecycle hooks and MCP servers via .codex/config.toml.
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP},
 }
 
 // Adapter emits Codex configs.
@@ -105,7 +111,22 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 	}
-	return nil
+
+	return emitConfigTOML(b, cfg, dryRun)
+}
+
+// emitConfigTOML writes `.codex/config.toml` with hooks and MCP servers
+// when either is present. Codex's project-tier config.toml is
+// agnostic-ai-managed: overwrite on each sync. Users who want to add
+// non-managed Codex config keys should set them in the user-global
+// `~/.codex/config.toml` instead.
+func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	body := renderConfigTOML(b.Hooks, b.MCPs)
+	if body == "" {
+		return nil
+	}
+	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	return emit.WriteFile(path, body, dryRun)
 }
 
 func writeHeader(sb *strings.Builder, dir string) {
