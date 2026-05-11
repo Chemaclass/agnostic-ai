@@ -213,6 +213,187 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	}
 }
 
+// Stdio MCP emits to .gemini/settings.json under mcpServers.
+func TestEmit_MCP_StdioWritesMcpServersKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	for _, want := range []string{
+		`"mcpServers"`,
+		`"fs"`,
+		`"command": "npx"`,
+		`"ALLOWED_PATHS"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// HTTP MCP uses Gemini's `httpUrl` key, not the standard `url`.
+func TestEmit_MCP_HTTPUsesHttpUrlKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://api.githubcopilot.com/mcp/",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	if !strings.Contains(got, `"httpUrl"`) {
+		t.Errorf("expected httpUrl key (not url): %s", got)
+	}
+	if !strings.Contains(got, `"https://api.githubcopilot.com/mcp/"`) {
+		t.Errorf("missing url value: %s", got)
+	}
+}
+
+// Hooks emit under hooks.<event> = [{matcher, command}, ...].
+func TestEmit_Hook_GroupsByEvent(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "pre-bash",
+			Meta: map[string]any{
+				"event":   "BeforeTool",
+				"matcher": "Bash",
+				"command": "echo pre-tool",
+			},
+		},
+		{
+			Kind: spec.KindHook,
+			Name: "session",
+			Meta: map[string]any{
+				"event":   "SessionStart",
+				"command": "echo started",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	for _, want := range []string{
+		`"hooks"`,
+		`"BeforeTool"`,
+		`"matcher": "Bash"`,
+		`"command": "echo pre-tool"`,
+		`"SessionStart"`,
+		`"command": "echo started"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// Hook with no event is skipped (no key to route into).
+func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "bad",
+			Meta: map[string]any{"command": "echo nope"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no settings file when hook has no event, err=%v", err)
+	}
+}
+
+func TestEmit_Settings_PreservesExistingUserKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".gemini"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"theme": "dark", "selectedAuthType": "oauth-personal"}`
+	if err := os.WriteFile(filepath.Join(dir, ".gemini/settings.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	for _, want := range []string{
+		`"theme": "dark"`,
+		`"selectedAuthType": "oauth-personal"`,
+		`"mcpServers"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_Settings_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"gemini": {MCPFile: "vendor/gemini.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/gemini.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_Settings_NoFileWhenNoMCPOrHooks(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no settings file when no MCP/hook entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
