@@ -120,11 +120,19 @@ Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. H
 
 ## Install
 
+Homebrew:
+
+```bash
+brew install Chemaclass/tap/agnostic-ai
+```
+
+Go:
+
 ```bash
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
 ```
 
-Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest). Homebrew and curl one-liner: [getting started](docs/user/getting-started.md).
+Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest). Curl one-liner: [getting started](docs/user/getting-started.md).
 
 ## Quickstart
 

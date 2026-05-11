@@ -4,7 +4,7 @@
 
 Homebrew:
 ```bash
-brew install chemaclass/tap/agnostic-ai
+brew install Chemaclass/tap/agnostic-ai
 ```
 
 Direct binary:
