@@ -84,7 +84,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	byDir := groupRulesByDir(b.Rules)
+	byDir := emit.GroupRulesByScope(b.Rules)
 
 	dirs := sortedKeys(byDir)
 	if !contains(dirs, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
@@ -105,36 +105,6 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 	return nil
-}
-
-func groupRulesByDir(rules []spec.Entry) map[string][]spec.Entry {
-	out := map[string][]spec.Entry{}
-	for _, r := range rules {
-		out[routeDir(r)] = append(out[routeDir(r)], r)
-	}
-	return out
-}
-
-// routeDir returns the subdirectory to route a rule to. Source-layout
-// scope (e.g. `rules/backend/auth.md` -> `backend`) wins over globs,
-// since it is explicit. Globs are still parsed as a fallback for rules
-// authored without nested layout.
-func routeDir(r spec.Entry) string {
-	if s := r.EffectiveScope(); s != "" {
-		return s
-	}
-	g := strings.TrimPrefix(r.Globs(), "/")
-	if g == "" || g == "**/*" || g == "*" {
-		return ""
-	}
-	var prefix []string
-	for _, p := range strings.Split(g, "/") {
-		if strings.ContainsAny(p, "*?[") {
-			break
-		}
-		prefix = append(prefix, p)
-	}
-	return strings.Join(prefix, "/")
 }
 
 func writeHeader(sb *strings.Builder, dir string) {
