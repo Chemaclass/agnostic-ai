@@ -113,7 +113,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 | Continue       |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Amp            |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Zed            |   ◐    |   ◐    |   ✅   |   -   |  -   |
-| Warp           |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Warp           |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | OpenCode       |   ✅    |   ◐    |   ✅   |   -   |  -   |
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks are Claude-specific. MCPs propagate in each tool's native schema.

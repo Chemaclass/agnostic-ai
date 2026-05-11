@@ -24,12 +24,13 @@ import (
 const (
 	target         = "warp"
 	defaultOutFile = "AGENTS.md"
+	defaultMCPFile = ".warp/.mcp.json"
 	legacyOutFile  = "WARP.md"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
 }
 
 // Adapter emits Warp configs.
@@ -50,7 +51,11 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	emit.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
 
-	return emitAgentsTree(b, cfg, dryRun)
+	if err := emitAgentsTree(b, cfg, dryRun); err != nil {
+		return err
+	}
+	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgentsTree writes one AGENTS.md per scope. Root document holds
