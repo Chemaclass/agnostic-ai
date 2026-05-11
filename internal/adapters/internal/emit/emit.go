@@ -72,6 +72,16 @@ func StartCapture() {
 	state.mu.Unlock()
 }
 
+// IsCapturing reports whether capture mode is active. Adapters that
+// perform side-effects beyond `WriteFile` (e.g. one-shot file renames
+// for migrations) should consult it and no-op when true, so dry-check
+// modes do not mutate the working tree.
+func IsCapturing() bool {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.capturing
+}
+
 // StopCapture returns the captured files and disables capture mode.
 func StopCapture() []CapturedFile {
 	state.mu.Lock()

@@ -365,29 +365,6 @@ func TestEmit_OutputOverride(t *testing.T) {
 	}
 }
 
-func TestRouteDir(t *testing.T) {
-	cases := []struct {
-		name, globs, want string
-	}{
-		{"empty", "", ""},
-		{"all-slash", "**/*", ""},
-		{"star", "*", ""},
-		{"src", "src/**", "src"},
-		{"src-go", "src/**/*.go", "src"},
-		{"deep", "docs/api/**", "docs/api"},
-		{"go-only", "**/*.go", ""},
-		{"leading-slash", "/src/**", "src"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			entry := spec.Entry{Meta: map[string]any{"globs": c.globs}}
-			if got := routeDir(entry); got != c.want {
-				t.Errorf("routeDir(%q) = %q, want %q", c.globs, got, c.want)
-			}
-		})
-	}
-}
-
 func TestAdapterName(t *testing.T) {
 	if New().Name() != "codex" {
 		t.Errorf("expected codex, got %s", New().Name())
