@@ -104,7 +104,7 @@ Same content. Each tool happy. No copy-paste, no drift.
 |----------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code    |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
 | Codex CLI      |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Gemini CLI     |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Gemini CLI     |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | GitHub Copilot |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Aider          |   ◐    |   ◐    |   ✅   |   -   |  -   |

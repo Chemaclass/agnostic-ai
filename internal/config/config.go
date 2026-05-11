@@ -37,14 +37,16 @@ type Sources struct {
 }
 
 type Output struct {
-	Dir             string `yaml:"dir,omitempty"              json:"dir,omitempty"`
-	File            string `yaml:"file,omitempty"             json:"file,omitempty"`
-	RulesFile       string `yaml:"rules-file,omitempty"       json:"rules-file,omitempty"`
-	RulesDir        string `yaml:"rules-dir,omitempty"        json:"rules-dir,omitempty"`
-	MCPFile         string `yaml:"mcp-file,omitempty"         json:"mcp-file,omitempty"`
-	AgentsDir       string `yaml:"agents-dir,omitempty"       json:"agents-dir,omitempty"`
-	SkillsDir       string `yaml:"skills-dir,omitempty"       json:"skills-dir,omitempty"`
-	InstructionsDir string `yaml:"instructions-dir,omitempty" json:"instructions-dir,omitempty"`
+	Dir                  string `yaml:"dir,omitempty"                      json:"dir,omitempty"`
+	File                 string `yaml:"file,omitempty"                     json:"file,omitempty"`
+	RulesFile            string `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
+	RulesDir             string `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	MCPFile              string `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
+	AgentsDir            string `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
+	SkillsDir            string `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
+	InstructionsDir      string `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
+	CommandsDir          string `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 }
 
 func Load(root string) (*Config, error) {

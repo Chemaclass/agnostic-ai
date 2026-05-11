@@ -65,3 +65,20 @@ func OutputInstructionsDir(cfg *config.Config, target, fallback string) string {
 	}
 	return fallback
 }
+
+// OutputCommandsDir returns cfg.Outputs[target].CommandsDir when set, otherwise fallback.
+func OutputCommandsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.CommandsDir != "" {
+		return o.CommandsDir
+	}
+	return fallback
+}
+
+// EmitSkillsAsCommands reports whether the named target opts skills into
+// slash-command emission. Off by default.
+func EmitSkillsAsCommands(cfg *config.Config, target string) bool {
+	if o, ok := cfg.Outputs[target]; ok {
+		return o.EmitSkillsAsCommands
+	}
+	return false
+}
