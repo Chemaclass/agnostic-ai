@@ -18,7 +18,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | - |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
 | **warp**        | inlined in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
-| **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | - |
+| **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | `opencode.json` (`mcp`) |
 
 Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
@@ -190,9 +190,12 @@ Warp's `AGENTS.md` shares the same open standard as Codex and Amp. When two or m
 .opencode/AGENTS.md                       # rules + agent/skill references
 .opencode/commands/<name>.md              # one per agent
 .opencode/commands/skill-<name>.md        # one per skill, only when emit-skills-as-commands: true
+opencode.json                             # when MCP entries exist (merged with any existing user config)
 ```
 
-Config keys: `outputs.opencode.file` (default `.opencode/AGENTS.md`), `outputs.opencode.commands-dir` (default `.opencode/commands`), `outputs.opencode.emit-skills-as-commands` (default `false`).
+Config keys: `outputs.opencode.file` (default `.opencode/AGENTS.md`), `outputs.opencode.commands-dir` (default `.opencode/commands`), `outputs.opencode.mcp-file` (default `opencode.json`), `outputs.opencode.emit-skills-as-commands` (default `false`).
+
+When MCP entries are present, the adapter writes (or updates) `opencode.json` at the project root with a `$schema` link and the `mcp` map. Stdio servers map to `{type: "local", command: [...]}`; HTTP/SSE/remote servers map to `{type: "remote", url, headers}`. Any pre-existing non-managed keys (`theme`, `model`, etc.) are preserved across syncs; only `$schema` and `mcp` are overwritten. Note: drift checks (`sync --check`) read in capture mode and skip the read step, so unrelated user keys may be reported as drift until the next non-check sync — this is by design.
 
 Routed under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`, so both can be enabled together. Each command file carries frontmatter filtered to the OpenCode-supported keys (`description`, `agent`, `model`, `subtask`) — pass `agent`, `model`, or `subtask` through the `x-opencode` namespace in your spec frontmatter to route them into the command file without polluting other targets.
 

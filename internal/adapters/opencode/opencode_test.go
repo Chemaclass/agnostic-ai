@@ -234,6 +234,131 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	}
 }
 
+// Stdio MCP emits to opencode.json with type=local + command array.
+func TestEmit_MCP_StdioWritesLocalCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{
+		`"$schema": "https://opencode.ai/config.json"`,
+		`"mcp"`,
+		`"fs"`,
+		`"type": "local"`,
+		`"npx"`,
+		`"@modelcontextprotocol/server-filesystem"`,
+		`"environment"`,
+		`"ALLOWED_PATHS"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_HTTPWritesRemoteURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://mcp.linear.app",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{
+		`"type": "remote"`,
+		`"url": "https://mcp.linear.app"`,
+		`"Authorization"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// User-managed keys in an existing opencode.json survive the sync.
+func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	existing := `{"theme": "dark", "model": "claude-opus-4-7"}`
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{
+		`"theme": "dark"`,
+		`"model": "claude-opus-4-7"`,
+		`"mcp"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"opencode": {MCPFile: "vendor/opencode.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/opencode.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "opencode.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no opencode.json when no MCP entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

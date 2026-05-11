@@ -12,6 +12,9 @@
 package opencode
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +27,9 @@ const (
 	target              = "opencode"
 	defaultOutFile      = ".opencode/AGENTS.md"
 	defaultCommandsDir  = ".opencode/commands"
+	defaultMCPFile      = "opencode.json"
 	skillFilenamePrefix = "skill-"
+	opencodeSchemaURL   = "https://opencode.ai/config.json"
 )
 
 // commandFrontmatterKeys names the only frontmatter keys OpenCode reads
@@ -34,7 +39,7 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
 }
 
 // Adapter emits OpenCode configs.
@@ -63,7 +68,102 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 	}
-	return emitAgentsMd(b, cfg, commandsDir, dryRun)
+	if err := emitAgentsMd(b, cfg, commandsDir, dryRun); err != nil {
+		return err
+	}
+	return emitMCPConfig(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// emitMCPConfig writes (or merges into) opencode.json with the `mcp`
+// map and a `$schema` link. When the file already exists on disk and
+// is valid JSON, non-managed keys are preserved so the user's other
+// OpenCode config survives the sync. Capture mode and dry-run skip
+// the read; the resulting document then contains only `$schema` and
+// `mcp`, which may appear as drift if the user has unrelated keys.
+func emitMCPConfig(mcps []spec.Entry, path string, dryRun bool) error {
+	if len(mcps) == 0 {
+		return nil
+	}
+	doc := readExistingConfig(path, dryRun)
+	doc["$schema"] = opencodeSchemaURL
+	doc["mcp"] = buildMCPMap(mcps)
+
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal opencode.json: %w", err)
+	}
+	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+func readExistingConfig(path string, dryRun bool) map[string]any {
+	if dryRun || emit.IsCapturing() {
+		return map[string]any{}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return map[string]any{}
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil || doc == nil {
+		return map[string]any{}
+	}
+	return doc
+}
+
+// buildMCPMap maps spec MCP entries to OpenCode's `mcp` schema:
+//
+//	stdio:  {type: "local",  command: ["cmd", "arg1", ...], environment: {...}}
+//	http:   {type: "remote", url: "...", headers: {...}}
+func buildMCPMap(mcps []spec.Entry) map[string]any {
+	out := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		entry := buildMCPEntry(e)
+		if len(entry) == 0 {
+			continue
+		}
+		out[e.Name] = entry
+	}
+	return out
+}
+
+func buildMCPEntry(e spec.Entry) map[string]any {
+	transport, _ := e.Meta["type"].(string)
+	if transport == "" {
+		transport = "stdio"
+	}
+	entry := map[string]any{}
+	switch transport {
+	case "stdio":
+		entry["type"] = "local"
+		entry["command"] = combineCommand(e.Meta)
+	case "http", "sse", "remote":
+		entry["type"] = "remote"
+		if url, _ := e.Meta["url"].(string); url != "" {
+			entry["url"] = url
+		}
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			entry["headers"] = h
+		}
+	}
+	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+		entry["environment"] = env
+	}
+	return entry
+}
+
+// combineCommand turns OpenCode's expected `command: [cmd, arg1, ...]`
+// shape from agnostic-ai's separate `command` + `args` fields.
+func combineCommand(meta map[string]any) []string {
+	cmd, _ := meta["command"].(string)
+	parts := []string{}
+	if cmd != "" {
+		parts = append(parts, cmd)
+	}
+	parts = append(parts, emit.StringSlice(meta["args"])...)
+	return parts
 }
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
