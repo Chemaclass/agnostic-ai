@@ -17,19 +17,8 @@ sources:
 
 # AI CLIs to emit configs for. Comment any out to skip.
 targets:
-  - claude        # Claude Code (Anthropic)
-  - codex         # Codex CLI (OpenAI)
-  - gemini        # Gemini CLI (Google)
-  - cursor        # Cursor (cursor.com)
-  - copilot       # GitHub Copilot
-  - aider         # Aider (aider.chat)
-  - cline         # Cline (VSCode extension)
-  - windsurf      # Windsurf (Codeium)
-  - continue      # Continue (continue.dev)
-  - amp           # Amp (Sourcegraph)
-  - zed           # Zed editor
-  - warp          # Warp terminal
-  - opencode      # OpenCode
+  - claude
+  - codex
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent
