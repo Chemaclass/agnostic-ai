@@ -18,7 +18,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **amp**         | merged in `AGENT.md` | listed in `AGENT.md` | `AGENT.md` | - | - |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
 | **warp**        | merged in `WARP.md` | listed in `WARP.md` | `WARP.md` | - | - |
-| **opencode**    | merged in `.opencode/AGENTS.md` | listed in `.opencode/AGENTS.md` | `.opencode/AGENTS.md` | - | - |
+| **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | - |
 
 Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
@@ -167,10 +167,14 @@ Config key: `outputs.warp.file` (default `WARP.md`).
 ### OpenCode (`opencode`)
 
 ```
-.opencode/AGENTS.md
+.opencode/AGENTS.md                       # rules + agent/skill references
+.opencode/commands/<name>.md              # one per agent
+.opencode/commands/skill-<name>.md        # one per skill, only when emit-skills-as-commands: true
 ```
 
-Config key: `outputs.opencode.file` (default `.opencode/AGENTS.md`). Routed under `.opencode/` to avoid clashing with Codex's repo-root `AGENTS.md` so both can be enabled together.
+Config keys: `outputs.opencode.file` (default `.opencode/AGENTS.md`), `outputs.opencode.commands-dir` (default `.opencode/commands`), `outputs.opencode.emit-skills-as-commands` (default `false`).
+
+Routed under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`, so both can be enabled together. Each command file carries frontmatter filtered to the OpenCode-supported keys (`description`, `agent`, `model`, `subtask`) — pass `agent`, `model`, or `subtask` through the `x-opencode` namespace in your spec frontmatter to route them into the command file without polluting other targets.
 
 ## Selecting targets
 
