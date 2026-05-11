@@ -60,3 +60,23 @@ changelog:
       order: 5
     - title: Others
       order: 999
+
+brews:
+  - name: agnostic-ai
+    repository:
+      owner: Chemaclass
+      name: homebrew-tap
+      branch: master
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/Chemaclass/agnostic-ai
+    description: Sync agent prompts, skills, rules, and hooks across AI coding tools
+    license: MIT
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "feat: bump {{ .ProjectName }} to {{ .Tag }}"
+    test: |
+      system "#{bin}/agnostic-ai", "--help"
+    install: |
+      bin.install "agnostic-ai"
