@@ -69,24 +69,27 @@ func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error 
 		if isAlwaysOn(r) {
 			continue
 		}
-		path := filepath.Join(dir, r.Name+instructionFileSuffix)
-		if err := emit.WriteFile(path, renderInstruction(r, applyToFor(r)), dryRun); err != nil {
+		if err := writeInstruction(dir, "", applyToFor(r), r, dryRun); err != nil {
 			return err
 		}
 	}
 	for _, a := range b.Agents {
-		path := filepath.Join(dir, agentFilenamePrefix+a.Name+instructionFileSuffix)
-		if err := emit.WriteFile(path, renderInstruction(a, catchAllApplyTo), dryRun); err != nil {
+		if err := writeInstruction(dir, agentFilenamePrefix, catchAllApplyTo, a, dryRun); err != nil {
 			return err
 		}
 	}
 	for _, s := range b.Skills {
-		path := filepath.Join(dir, skillFilenamePrefix+s.Name+instructionFileSuffix)
-		if err := emit.WriteFile(path, renderInstruction(s, catchAllApplyTo), dryRun); err != nil {
+		if err := writeInstruction(dir, skillFilenamePrefix, catchAllApplyTo, s, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// writeInstruction writes one `<prefix><name>.instructions.md` into dir.
+func writeInstruction(dir, prefix, applyTo string, e spec.Entry, dryRun bool) error {
+	path := filepath.Join(dir, prefix+e.Name+instructionFileSuffix)
+	return emit.WriteFile(path, renderInstruction(e, applyTo), dryRun)
 }
 
 // emitMainFile writes always-on rules to `.github/copilot-instructions.md`.
