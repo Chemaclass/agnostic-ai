@@ -27,8 +27,9 @@
 package codex
 
 import (
+	"maps"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -86,8 +87,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	byDir := emit.GroupRulesByScope(b.Rules)
 
-	dirs := sortedKeys(byDir)
-	if !contains(dirs, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
+	dirs := slices.Sorted(maps.Keys(byDir))
+	if !slices.Contains(dirs, "") && (len(b.Agents) > 0 || len(b.Skills) > 0) {
 		dirs = append([]string{""}, dirs...)
 	}
 
@@ -164,22 +165,4 @@ func writeSkills(sb *strings.Builder, skills []spec.Entry, skillsDir string) {
 		}
 		sb.WriteString("Source: `" + filepath.ToSlash(filepath.Join(skillsDir, s.Name, "SKILL.md")) + "`\n\n")
 	}
-}
-
-func sortedKeys(m map[string][]spec.Entry) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func contains(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
