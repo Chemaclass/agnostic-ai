@@ -11,10 +11,7 @@
 package amp
 
 import (
-	"encoding/json"
-	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -125,37 +122,16 @@ func emitAgentsTree(b spec.Bundle, cfg *config.Config, commandsDir string, dryRu
 }
 
 // emitMCPSettings writes (or merges into) `.amp/settings.json` with the
-// `amp.mcpServers` map. User-managed keys in an existing settings file
-// survive the sync; only `amp.mcpServers` is overwritten. Capture mode
-// and dry-run skip the disk read, which may report drift for unrelated
-// user keys - matches the OpenCode adapter's trade-off.
+// `amp.mcpServers` map. Routes through emit.MergeJSONFile so any
+// pre-existing user-managed keys (theme, editor settings, ...) survive
+// the sync; only `amp.mcpServers` is overwritten.
 func emitMCPSettings(mcps []spec.Entry, path string, dryRun bool) error {
 	if len(mcps) == 0 {
 		return nil
 	}
-	doc := readExistingSettings(path, dryRun)
-	doc[ampMCPKey] = buildMCPMap(mcps)
-
-	raw, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal amp settings: %w", err)
-	}
-	return emit.WriteFile(path, string(raw)+"\n", dryRun)
-}
-
-func readExistingSettings(path string, dryRun bool) map[string]any {
-	if dryRun || emit.IsCapturing() {
-		return map[string]any{}
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return map[string]any{}
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil || doc == nil {
-		return map[string]any{}
-	}
-	return doc
+	return emit.MergeJSONFile(path, map[string]any{
+		ampMCPKey: buildMCPMap(mcps),
+	}, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {

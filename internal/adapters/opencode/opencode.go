@@ -12,9 +12,6 @@
 package opencode
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -75,39 +72,17 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 }
 
 // emitMCPConfig writes (or merges into) opencode.json with the `mcp`
-// map and a `$schema` link. When the file already exists on disk and
-// is valid JSON, non-managed keys are preserved so the user's other
-// OpenCode config survives the sync. Capture mode and dry-run skip
-// the read; the resulting document then contains only `$schema` and
-// `mcp`, which may appear as drift if the user has unrelated keys.
+// map and a `$schema` link. Routes through emit.MergeJSONFile so any
+// pre-existing user-managed keys (theme, model, ...) survive the sync;
+// only `$schema` and `mcp` are overwritten.
 func emitMCPConfig(mcps []spec.Entry, path string, dryRun bool) error {
 	if len(mcps) == 0 {
 		return nil
 	}
-	doc := readExistingConfig(path, dryRun)
-	doc["$schema"] = opencodeSchemaURL
-	doc["mcp"] = buildMCPMap(mcps)
-
-	raw, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal opencode.json: %w", err)
-	}
-	return emit.WriteFile(path, string(raw)+"\n", dryRun)
-}
-
-func readExistingConfig(path string, dryRun bool) map[string]any {
-	if dryRun || emit.IsCapturing() {
-		return map[string]any{}
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return map[string]any{}
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil || doc == nil {
-		return map[string]any{}
-	}
-	return doc
+	return emit.MergeJSONFile(path, map[string]any{
+		"$schema": opencodeSchemaURL,
+		"mcp":     buildMCPMap(mcps),
+	}, dryRun)
 }
 
 // buildMCPMap maps spec MCP entries to OpenCode's `mcp` schema:
