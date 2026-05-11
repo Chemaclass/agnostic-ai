@@ -119,15 +119,17 @@ are written; empty stubs are skipped):
 ├── rules/
 │   └── conventional-commits.md
 ├── CLAUDE.md                                    # for Claude Code
-├── AGENT.md                                     # for Amp
-├── AGENTS.md                                    # for Codex
+├── AGENTS.md                                    # for Codex / Amp / Warp (shared open standard)
 ├── .codex/agents/<name>.toml                    # for Codex subagents
+├── .agents/commands/<name>.md                   # for Amp slash commands
 ├── GEMINI.md                                    # for Gemini CLI
-├── WARP.md                                      # for Warp
+├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands
 ├── CONVENTIONS.md                               # for Aider
 ├── .rules                                       # for Zed
 ├── .opencode/AGENTS.md                          # for OpenCode
-├── .github/copilot-instructions.md              # for Copilot
+├── .opencode/commands/<name>.md                 # for OpenCode slash commands
+├── .github/copilot-instructions.md              # for Copilot (always-on rules)
+├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules + agents + skills
 ├── .cursor/rules/conventional-commits.mdc       # for Cursor
 ├── .clinerules/conventional-commits.md          # for Cline
 ├── .windsurf/rules/conventional-commits.md      # for Windsurf

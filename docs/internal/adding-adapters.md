@@ -84,8 +84,33 @@ rather than hand-rolling per adapter:
 - `emit.OutputRulesDir(cfg, target, fallback)` for a rules-directory adapter
 - `emit.OutputRulesFile(cfg, target, fallback)` for the merged rules file
 - `emit.OutputMCPFile(cfg, target, fallback)` for MCP propagation
+- `emit.OutputAgentsDir(cfg, target, fallback)` for per-agent files
+- `emit.OutputSkillsDir(cfg, target, fallback)` for per-skill files / folders
+- `emit.OutputCommandsDir(cfg, target, fallback)` for slash-command directories
+- `emit.OutputInstructionsDir(cfg, target, fallback)` for Copilot-style scoped-rule directories
+- `emit.EmitSkillsAsCommands(cfg, target)` for the opt-in flag that emits skills as slash commands
 
 If a target needs a new field on `config.Output`, add it once and reuse.
+
+## Shared helpers for hierarchical / slash-command adapters
+
+- `emit.GroupRulesByScope(rules)` + `emit.RouteScope(r)` route rules to
+  `<scope>/AGENTS.md` / `<scope>/GEMINI.md` style hierarchies
+  (Codex, Gemini, Amp, Warp).
+- `emit.WriteSection(sb, heading, e)` renders an inlined `### heading`
+  block; `emit.WriteReference(sb, e, sourcePath)` renders a reference
+  pointer (no body) when the real definition lives in a separate file.
+- `emit.WriteTOMLString` / `WriteTOMLMultiline` / `WriteTOMLStringArray`
+  / `EscapeTOMLBasic` build TOML emission (Codex agents, Gemini commands).
+- `emit.Frontmatter(meta)` renders a YAML frontmatter block.
+- `emit.ResolveMeta(meta, target)` flattens the spec's `x-<target>`
+  namespace so adapters read the target's overrides as top-level keys.
+- `emit.MigrateLegacyFile(cfg, target, legacyName, defaultNewPath, dryRun)`
+  renames a previously generated file aside when the default output
+  name changes across releases. Honors capture mode and dry-run.
+- `emit.IsCapturing()` reports whether `sync --check` / `revert` is
+  observing emission; adapters with filesystem side-effects beyond
+  `WriteFile` should consult it before mutating the tree.
 
 ## 5. Add tests
 

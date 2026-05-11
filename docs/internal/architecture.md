@@ -41,9 +41,15 @@ spec.Bundle ──► adapter.Emit(bundle, config, dryRun) ──► files writt
                  ├─ claude:    .claude/, CLAUDE.md, .mcp.json
                  ├─ codex:     AGENTS.md (lists agents w/ pointers; nested per scope/globs),
                  │             .codex/agents/<name>.toml, .agents/skills/<name>/SKILL.md
+                 ├─ gemini:    GEMINI.md (hierarchical per scope), .gemini/commands/<name>.toml
                  ├─ cursor:    .cursor/rules/, .cursor/mcp.json
-                 ├─ copilot:   .github/..., .vscode/mcp.json
-                 ├─ amp/zed/warp/opencode: AGENT.md / .rules / WARP.md / .opencode/AGENTS.md
+                 ├─ copilot:   .github/copilot-instructions.md (always-on),
+                 │             .github/instructions/<name>.instructions.md (applyTo-scoped),
+                 │             .vscode/mcp.json
+                 ├─ amp:       AGENTS.md (hierarchical), .agents/commands/<name>.md
+                 ├─ warp:      AGENTS.md (hierarchical; agents inlined, skills referenced)
+                 ├─ opencode:  .opencode/AGENTS.md, .opencode/commands/<name>.md
+                 ├─ zed:       .rules
                  └─ ...
 ```
 

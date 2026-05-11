@@ -56,7 +56,8 @@ outputs:
   cursor:
     rules-dir: .cursor/rules   # default
   copilot:
-    file: .github/copilot-instructions.md  # default
+    file: .github/copilot-instructions.md  # default. Always-on rules.
+    instructions-dir: .github/instructions # default. One .instructions.md per scoped rule, agent, skill.
   aider:
     file: CONVENTIONS.md       # default
   cline:
@@ -66,13 +67,17 @@ outputs:
   continue:
     rules-dir: .continue/rules # default
   amp:
-    file: AGENT.md             # default
+    file: AGENTS.md            # default. Hierarchical per scope; was AGENT.md.
+    commands-dir: .agents/commands # default. One .md per agent (and per skill when opted in).
   zed:
     file: .rules               # default
   warp:
-    file: WARP.md              # default
+    file: AGENTS.md            # default. Hierarchical per scope; was WARP.md.
   opencode:
     file: .opencode/AGENTS.md  # default. Routed under .opencode/ to coexist with Codex.
+    commands-dir: .opencode/commands # default. One .md per agent (and per skill when opted in).
+  gemini:
+    commands-dir: .gemini/commands # default. One .toml per agent (and per skill when opted in).
 
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for any target other than claude).
@@ -127,17 +132,24 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `codex` | `file` | `AGENTS.md` | Rules document; nested `<dir>/AGENTS.md` files share this base. Lists agents and skills with pointers to their per-target files. |
 | `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). |
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, optional `<name>/agents/openai.yaml`) per the Codex skills layout. |
-| `gemini` | `file` | `GEMINI.md` | Single merged document. |
+| `gemini` | `file` | `GEMINI.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/GEMINI.md` files share this base. |
+| `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
+| `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
-| `copilot` | `file` | `.github/copilot-instructions.md` | Single merged document. |
+| `copilot` | `file` | `.github/copilot-instructions.md` | Always-on rules (`alwaysApply: true` or no scope). |
+| `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
 | `aider` | `file` | `CONVENTIONS.md` | Single merged document. |
 | `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
 | `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
-| `amp` | `file` | `AGENT.md` | Single merged document. |
+| `amp` | `file` | `AGENTS.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `AGENT.md`; legacy file migrated to `AGENT.md.bak` on first sync. |
+| `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). |
+| `amp` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.agents/commands/skill-<name>.md`. |
 | `zed` | `file` | `.rules` | Single merged document. |
-| `warp` | `file` | `WARP.md` | Single merged document. |
-| `opencode` | `file` | `.opencode/AGENTS.md` | Single merged document; routed under `.opencode/` to coexist with Codex. |
+| `warp` | `file` | `AGENTS.md` | Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `WARP.md`; legacy file migrated to `WARP.md.bak` on first sync. |
+| `opencode` | `file` | `.opencode/AGENTS.md` | Rules + agent/skill references; routed under `.opencode/` to coexist with Codex. |
+| `opencode` | `commands-dir` | `.opencode/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). Frontmatter filtered to `description`, `agent`, `model`, `subtask`. |
+| `opencode` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.opencode/commands/skill-<name>.md`. |
 
 ## `targets`
 
