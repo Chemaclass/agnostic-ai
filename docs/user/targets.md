@@ -14,7 +14,7 @@ Unsupported features skip with a warning by default. Override via `on-unsupporte
 | **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
 | **cline**       | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
 | **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
-| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | - |
+| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | - |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | - |
 | **warp**        | inlined in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
@@ -136,9 +136,12 @@ Config key: `outputs.windsurf.rules-dir` (default `.windsurf/rules`).
 
 ```
 .continue/rules/<name>.md
+.continue/mcpServers/<name>.yaml       # one per MCP entry
 ```
 
-Config key: `outputs.continue.rules-dir` (default `.continue/rules`).
+Config keys: `outputs.continue.rules-dir` (default `.continue/rules`), `outputs.continue.mcp-dir` (default `.continue/mcpServers`).
+
+Continue picks up each YAML under `.continue/mcpServers/` as a single MCP server config. Stdio servers emit `command`/`args`/`env`; HTTP / SSE / streamable-http variants emit `type`/`url`/`headers`.
 
 ### Amp (`amp`)
 

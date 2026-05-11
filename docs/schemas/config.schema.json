@@ -87,6 +87,9 @@
         "commands-dir": {
           "type": "string"
         },
+        "mcp-dir": {
+          "type": "string"
+        },
         "emit-skills-as-commands": {
           "type": "boolean"
         }
