@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.6.0 - 2026-05-12
+
 ### Changed
 - **Breaking:** Amp default file `AGENT.md` (singular) → `AGENTS.md` (plural, per Sourcegraph Amp's owner's manual). Legacy auto-renamed to `AGENT.md.bak` on first sync when agnostic-generated; user-authored files left alone. Roll back with `agnostic-ai revert`. (#67)
 - **Breaking:** Warp default file `WARP.md` → `AGENTS.md` (per Warp's current Rules docs / open AGENTS.md standard). Legacy auto-renamed to `WARP.md.bak` on first sync when agnostic-generated. (#68)
