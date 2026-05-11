@@ -245,6 +245,129 @@ func TestEmit_FileOverride_RespectedForRoot(t *testing.T) {
 	}
 }
 
+// Stdio MCP emits to .amp/settings.json under amp.mcpServers (note dot).
+func TestEmit_MCP_StdioWritesAmpMcpServersKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
+	for _, want := range []string{
+		`"amp.mcpServers"`,
+		`"fs"`,
+		`"command": "npx"`,
+		`"ALLOWED_PATHS"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://mcp.linear.app",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
+	for _, want := range []string{
+		`"linear"`,
+		`"url": "https://mcp.linear.app"`,
+		`"Authorization"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".amp"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"amp.theme": "dark", "amp.editor.tabSize": 4}`
+	if err := os.WriteFile(filepath.Join(dir, ".amp/settings.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
+	for _, want := range []string{
+		`"amp.theme": "dark"`,
+		`"amp.editor.tabSize": 4`,
+		`"amp.mcpServers"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"amp": {MCPFile: "vendor/amp.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/amp.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".amp/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no settings file when no MCP entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
