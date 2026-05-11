@@ -80,6 +80,9 @@
         },
         "skills-dir": {
           "type": "string"
+        },
+        "instructions-dir": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
