@@ -11,7 +11,10 @@
 package amp
 
 import (
+	"encoding/json"
+	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -25,13 +28,15 @@ const (
 	target              = "amp"
 	defaultOutFile      = "AGENTS.md"
 	defaultCommandsDir  = ".agents/commands"
+	defaultMCPFile      = ".amp/settings.json"
 	skillFilenamePrefix = "skill-"
 	legacyOutFile       = "AGENT.md"
+	ampMCPKey           = "amp.mcpServers"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
 }
 
 // Adapter emits Amp configs.
@@ -62,7 +67,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 	}
-	return emitAgentsTree(b, cfg, commandsDir, dryRun)
+	if err := emitAgentsTree(b, cfg, commandsDir, dryRun); err != nil {
+		return err
+	}
+	return emitMCPSettings(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
@@ -114,6 +122,87 @@ func emitAgentsTree(b spec.Bundle, cfg *config.Config, commandsDir string, dryRu
 		}
 	}
 	return nil
+}
+
+// emitMCPSettings writes (or merges into) `.amp/settings.json` with the
+// `amp.mcpServers` map. User-managed keys in an existing settings file
+// survive the sync; only `amp.mcpServers` is overwritten. Capture mode
+// and dry-run skip the disk read, which may report drift for unrelated
+// user keys - matches the OpenCode adapter's trade-off.
+func emitMCPSettings(mcps []spec.Entry, path string, dryRun bool) error {
+	if len(mcps) == 0 {
+		return nil
+	}
+	doc := readExistingSettings(path, dryRun)
+	doc[ampMCPKey] = buildMCPMap(mcps)
+
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal amp settings: %w", err)
+	}
+	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+func readExistingSettings(path string, dryRun bool) map[string]any {
+	if dryRun || emit.IsCapturing() {
+		return map[string]any{}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return map[string]any{}
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil || doc == nil {
+		return map[string]any{}
+	}
+	return doc
+}
+
+func buildMCPMap(mcps []spec.Entry) map[string]any {
+	out := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		entry := buildMCPEntry(e)
+		if len(entry) == 0 {
+			continue
+		}
+		out[e.Name] = entry
+	}
+	return out
+}
+
+// buildMCPEntry renders a single MCP server in Amp's settings shape.
+// Amp accepts the standard `command`/`args`/`env` for stdio and
+// `url`/`headers` for HTTP transports (see Amp owner's manual MCP
+// guide).
+func buildMCPEntry(e spec.Entry) map[string]any {
+	transport, _ := e.Meta["type"].(string)
+	if transport == "" {
+		transport = "stdio"
+	}
+	entry := map[string]any{}
+	switch transport {
+	case "stdio":
+		if cmd, _ := e.Meta["command"].(string); cmd != "" {
+			entry["command"] = cmd
+		}
+		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
+			entry["args"] = args
+		}
+	case "http", "sse":
+		if url, _ := e.Meta["url"].(string); url != "" {
+			entry["url"] = url
+		}
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			entry["headers"] = h
+		}
+	}
+	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+		entry["env"] = env
+	}
+	return entry
 }
 
 // commandFile renders one Amp slash command markdown file: description
