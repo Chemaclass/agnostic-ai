@@ -59,7 +59,7 @@ Subject under 72 chars...
 </td>
 <td>
 
-**`.cursor/rules/conventional-commits.mdc`**
+**`.cursor/rules/conventional.mdc`**
 ```markdown
 ---
 description: Always use Conventional Commits.
@@ -77,7 +77,7 @@ Use Conventional Commits...
 **`AGENTS.md`** (Codex)
 ```markdown
 ## Conventions
-<!-- source: rules/conventional-commits.md -->
+<!-- source: rules/conventional.md -->
 ### conventional-commits
 Use Conventional Commits...
 ```

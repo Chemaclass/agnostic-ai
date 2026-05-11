@@ -71,15 +71,25 @@ desktop.ini
 /.codex/
 /.opencode/
 /.agents/
+/.amp/
+/.zed/
+/.warp/
+/.vscode/mcp.json
 /CLAUDE.md
-/GEMINI.md
 /CONVENTIONS.md
 /.github/copilot-instructions.md
-# Codex emits AGENTS.md at the root and per-directory based on rule globs.
+/.github/instructions/
+/.mcp.json
+/opencode.json
+# Codex / Amp / Warp share the open AGENTS.md standard and emit
+# hierarchically; Gemini emits GEMINI.md hierarchically too.
 **/AGENTS.md
+**/GEMINI.md
 AGENT.md
 WARP.md
 .rules
+# Local sync state written by `agnostic-ai sync`.
+.agnostic-ai/.sync-state
 # =============================================================================
 # Release scaffolding
 # =============================================================================

@@ -143,10 +143,24 @@ agnostic-ai sync [flags]
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Keep the process alive and re-emit on spec or config changes (200 ms poll). Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
+| `--all` | Emit every configured target without running the first-sync target picker. Useful for ad-hoc full emission or scripted runs that should bypass interactive prompts. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
+### First-sync target picker
+
+On the very first `sync` (no `.agnostic-ai/.sync-state` file yet) where
+the config still lists every supported target, `sync` opens an
+interactive multi-select to narrow the list. The selection is persisted
+to `agnostic.config.yaml` so future syncs skip the prompt.
+
+- **TTY:** multi-select widget (same UI as `init -i`).
+- **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects + persists without a prompt.
+- **Non-TTY with no piped data (CI):** silent fallback — emits every configured target. CI runs keep working without changes.
+- **Bypass:** pass `--all`, `-t`, `--only`, or `--except` to skip the picker for one run.
+
 ```bash
-agnostic-ai sync                       # all targets in config
+agnostic-ai sync                       # first run: prompt for targets; later: all in config
+agnostic-ai sync --all                 # skip the first-sync picker; emit every configured target
 agnostic-ai sync -t claude             # only claude (legacy form)
 agnostic-ai sync --only claude,cursor  # only claude and cursor
 agnostic-ai sync --except codex        # all configured targets except codex
