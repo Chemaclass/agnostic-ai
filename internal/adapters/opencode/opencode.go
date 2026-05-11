@@ -148,7 +148,7 @@ func writeAgentsSection(sb *strings.Builder, agents []spec.Entry, commandsDir st
 	sb.WriteString("## Agents\n\n")
 	sb.WriteString("Custom OpenCode slash commands. Definitions live in `" + commandsDir + "/`.\n\n")
 	for _, a := range agents {
-		writeReference(sb, a, filepath.Join(commandsDir, a.Name+".md"))
+		emit.WriteReference(sb, a, filepath.Join(commandsDir, a.Name+".md"))
 	}
 }
 
@@ -169,17 +169,6 @@ func writeSkillsSection(sb *strings.Builder, skills []spec.Entry, commandsDir st
 		} else {
 			sourcePath = s.Path
 		}
-		writeReference(sb, s, sourcePath)
-	}
-}
-
-func writeReference(sb *strings.Builder, e spec.Entry, sourcePath string) {
-	sb.WriteString("### " + e.Name + "\n\n")
-	sb.WriteString(emit.SourceComment(e.Path))
-	if d := e.Description(); d != "" {
-		sb.WriteString("_" + d + "_\n\n")
-	}
-	if sourcePath != "" {
-		sb.WriteString("Source: `" + filepath.ToSlash(sourcePath) + "`\n\n")
+		emit.WriteReference(sb, s, sourcePath)
 	}
 }

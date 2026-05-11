@@ -122,3 +122,20 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 	}
 	sb.WriteString(e.Body + "\n\n")
 }
+
+// WriteReference writes a "### <name>" reference block: provenance
+// comment, italic description, and a `Source: <path>` pointer. Unlike
+// WriteSection it does NOT inline the spec body — callers use it when
+// the body lives in a separate generated file (e.g. one agent per
+// TOML, one skill per folder) and the merged document only indexes
+// them.
+func WriteReference(sb *strings.Builder, e spec.Entry, sourcePath string) {
+	sb.WriteString("### " + e.Name + "\n\n")
+	sb.WriteString(SourceComment(e.Path))
+	if d := e.Description(); d != "" {
+		sb.WriteString("_" + d + "_\n\n")
+	}
+	if sourcePath != "" {
+		sb.WriteString("Source: `" + filepath.ToSlash(sourcePath) + "`\n\n")
+	}
+}
