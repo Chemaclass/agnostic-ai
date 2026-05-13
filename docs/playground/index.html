@@ -3,30 +3,65 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>agnostic-ai playground</title>
+    <title>agnostic-ai · Playground</title>
     <meta
       name="description"
-      content="Paste an agnostic-ai spec, pick targets, see what each AI CLI gets — runs entirely in your browser via WebAssembly."
+      content="Author one spec, see what every AI CLI receives. Runs entirely in your browser via WebAssembly. No server, no upload."
     />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='white' font-family='ui-sans-serif,system-ui' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="style.css" />
     <script src="wasm_exec.js"></script>
   </head>
   <body>
-    <header>
-      <h1>agnostic-ai playground</h1>
-      <p class="lede">
-        Paste an
-        <a href="https://github.com/Chemaclass/agnostic-ai">agnostic-ai</a> spec
-        on the left, pick targets, and see exactly what each AI CLI receives.
-        Runs entirely in your browser. No server, no upload.
-      </p>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="https://github.com/Chemaclass/agnostic-ai" aria-label="agnostic-ai on GitHub">
+          <span class="brand-mark" aria-hidden="true">a</span>
+          <span class="brand-name">agnostic-ai</span>
+          <span class="brand-tag">playground</span>
+        </a>
+        <nav class="topbar-links">
+          <a href="https://github.com/Chemaclass/agnostic-ai">GitHub</a>
+          <a href="https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user">Docs</a>
+          <a href="https://github.com/Chemaclass/agnostic-ai/releases">Releases</a>
+          <button id="theme-toggle" class="ghost" type="button" aria-label="Toggle theme">
+            <span class="theme-icon">◐</span>
+          </button>
+        </nav>
+      </div>
     </header>
 
-    <main id="app" hidden>
-      <section class="input">
-        <div class="input-controls">
-          <label>
-            Kind
+    <section class="hero">
+      <div class="hero-inner">
+        <h1>Author once. Ship to every AI CLI.</h1>
+        <p>
+          Paste an <a href="https://github.com/Chemaclass/agnostic-ai">agnostic-ai</a>
+          spec, pick your targets, and see exactly what each CLI receives.
+          Runs entirely in your browser via WebAssembly. No server, no upload.
+        </p>
+      </div>
+    </section>
+
+    <main id="app" class="layout" hidden>
+      <section class="panel panel-source">
+        <header class="panel-head">
+          <div class="panel-title">
+            <span class="dot dot-in" aria-hidden="true"></span>
+            <h2>Spec source</h2>
+          </div>
+          <div class="panel-actions">
+            <label class="select-wrap">
+              <span class="sr-only">Load sample</span>
+              <select id="sample" aria-label="Load sample spec">
+                <option value="">Load sample…</option>
+              </select>
+            </label>
+          </div>
+        </header>
+        <div class="controls">
+          <label class="field">
+            <span>Kind</span>
             <select id="kind">
               <option value="rule" selected>rule</option>
               <option value="agent">agent</option>
@@ -35,7 +70,7 @@
               <option value="mcp">mcp</option>
             </select>
           </label>
-          <fieldset id="targets" class="targets">
+          <fieldset id="targets" class="chips">
             <legend>Targets</legend>
           </fieldset>
         </div>
@@ -43,22 +78,47 @@
           id="source"
           spellcheck="false"
           aria-label="Spec source"
+          placeholder="Paste a spec here or pick a sample above…"
         ></textarea>
       </section>
-      <section class="output">
-        <div class="tabs" id="tabs" role="tablist"></div>
-        <pre id="content" tabindex="0"></pre>
+
+      <section class="panel panel-output">
+        <header class="panel-head">
+          <div class="panel-title">
+            <span class="dot dot-out" aria-hidden="true"></span>
+            <h2>Generated output</h2>
+          </div>
+          <div class="panel-actions">
+            <button id="copy" class="ghost" type="button" aria-label="Copy current file">
+              <span class="icon">⧉</span> Copy
+            </button>
+            <button id="download" class="ghost" type="button" aria-label="Download current file">
+              <span class="icon">↓</span> Download
+            </button>
+          </div>
+        </header>
+        <div class="tabs" id="tabs" role="tablist" aria-label="Targets"></div>
+        <div class="file-row">
+          <label class="select-wrap file-select" hidden>
+            <span class="sr-only">File</span>
+            <select id="files" aria-label="Output file"></select>
+          </label>
+          <span id="filemeta" class="filemeta"></span>
+        </div>
+        <pre id="content" tabindex="0" aria-live="polite"></pre>
       </section>
     </main>
 
-    <p id="status">Loading WebAssembly module (~5 MB, ~1.4 MB gzipped)…</p>
+    <p id="status" role="status">Loading WebAssembly module (~5 MB, ~1.4 MB gzipped)…</p>
 
-    <footer>
-      <p>
-        Source: <a href="https://github.com/Chemaclass/agnostic-ai">Chemaclass/agnostic-ai</a>
-        ·
-        Reflects the build at deploy time; rebuild on each release.
-      </p>
+    <footer class="footer">
+      <div class="footer-inner">
+        <span>
+          Built with WebAssembly. Source at
+          <a href="https://github.com/Chemaclass/agnostic-ai">Chemaclass/agnostic-ai</a>.
+        </span>
+        <span>Reflects build at deploy time. Rebuild on each release.</span>
+      </div>
     </footer>
 
     <script src="playground.js"></script>

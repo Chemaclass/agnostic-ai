@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Playground UX refresh: branded header, sample picker per kind, target chips, per-target file selector with Copy/Download buttons, theme toggle (system/light/dark), preference persistence via localStorage, mobile single-column layout.
 
 ### Changed
 
