@@ -21,8 +21,4 @@ Steps:
 10. Run `make build && make test`.
 11. Add a `[Unreleased]` entry to `CHANGELOG.md`.
 
-Conventions:
-
-- Stateless adapter, constructed via `New()`.
-- Log a warning to stderr for unsupported spec kinds.
-- No imports from other adapter packages.
+The required adapter shape (stateless struct, `New()`, `Emit()` signature, `Capabilities` declaration, shared-helper rules) lives in the `adapter-pattern` rule. Read it before step 2.
