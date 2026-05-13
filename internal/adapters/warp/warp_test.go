@@ -284,6 +284,82 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	}
 }
 
+func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "deploy",
+			Path: "agents/deploy.md",
+			Meta: map[string]any{
+				"description": "Run the deploy script.",
+				"tags":        []any{"release", "ops"},
+			},
+			Body: "./scripts/deploy.sh prod",
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"warp": {WorkflowsDir: ".warp/workflows"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+
+	wf := readFile(t, filepath.Join(dir, ".warp/workflows/deploy.yaml"))
+	for _, want := range []string{
+		"name: deploy",
+		"command:",
+		"./scripts/deploy.sh prod",
+		"description: Run the deploy script.",
+		"tags:",
+		"- release",
+		"- ops",
+	} {
+		if !strings.Contains(wf, want) {
+			t.Errorf("missing %q in %s", want, wf)
+		}
+	}
+
+	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(agents, "## Agents") {
+		t.Errorf("missing ## Agents section: %s", agents)
+	}
+	if !strings.Contains(agents, "Run the deploy script.") {
+		t.Errorf("agents reference should include description: %s", agents)
+	}
+	if !strings.Contains(agents, "agents/deploy.md") {
+		t.Errorf("agents reference should include source path: %s", agents)
+	}
+	if strings.Contains(agents, "./scripts/deploy.sh prod") {
+		t.Errorf("agent body should NOT inline when workflows-dir is set: %s", agents)
+	}
+}
+
+func TestEmit_NoWorkflowsDirInlinesAgentsAsBefore(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "x",
+			Body: "do the thing",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".warp/workflows")); !os.IsNotExist(err) {
+		t.Errorf("expected no workflows dir; err=%v", err)
+	}
+	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(agents, "do the thing") {
+		t.Errorf("body should inline when workflows-dir unset: %s", agents)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
