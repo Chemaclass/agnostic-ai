@@ -17,7 +17,7 @@ Allowed imports inside an adapter:
 
 Forbidden:
 
-- Importing one adapter from another (e.g. `claude` importing `cursor`).
+- Importing one adapter package from another (`internal/adapters/<a>` importing `internal/adapters/<b>`).
 - Adding shared business logic across adapters in the registry file.
 
 If you need to share code between two adapters, lift it into `internal/adapters/internal/emit` first.

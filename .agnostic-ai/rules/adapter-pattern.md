@@ -5,7 +5,7 @@ globs: "internal/adapters/**/*.go"
 alwaysApply: true
 ---
 
-Every adapter follows the same skeleton. Use `internal/adapters/codex/codex.go` as the simplest reference.
+Every adapter follows the same skeleton. Read any existing file under `internal/adapters/<target>/` for a working reference.
 
 ```go
 package <target>
