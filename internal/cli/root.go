@@ -70,6 +70,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newStatusCmd(),
 		newNewCmd(),
 		newRenderCmd(),
+		newExplainCmd(),
 	)
 	root.InitDefaultCompletionCmd()
 	return root
