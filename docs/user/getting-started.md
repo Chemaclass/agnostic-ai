@@ -172,9 +172,12 @@ Skip the manual `sync` after every spec edit:
 agnostic-ai sync --watch
 ```
 
-Polls every 200 ms for changes under the source directories or
-`agnostic.config.yaml` and re-emits affected targets. Ctrl+C exits
-cleanly. Incompatible with `--check`.
+Watches the source directories and `agnostic.config.yaml` via OS file
+events (fsnotify) with a 50 ms debounce, so saves trigger a re-sync in
+under 100 ms. On filesystems where fsnotify fails (some network mounts,
+specific container volumes), `sync` falls back to a 200 ms poll. Force
+the poll backend with `--watch-poll`. Ctrl+C exits cleanly. Incompatible
+with `--check`.
 
 ## Auto-sync rule
 

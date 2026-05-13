@@ -141,7 +141,8 @@ agnostic-ai sync [flags]
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
-| `--watch` | Keep the process alive and re-emit on spec or config changes (200 ms poll). Ctrl+C exits cleanly. Incompatible with `--check`. |
+| `--watch` | Keep the process alive and re-emit on spec or config changes. Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll on filesystems where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
+| `--watch-poll` | Force the polling backend (200 ms) even when fsnotify is available. Use on network mounts or container volumes where fsnotify misses events. Requires `--watch`. |
 | `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
 | `--all` | Emit every configured target without running the first-sync target picker. Useful for ad-hoc full emission or scripted runs that should bypass interactive prompts. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
