@@ -79,6 +79,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {
@@ -229,7 +230,6 @@ a:focus-visible {
 /* ─────────── Layout ─────────── */
 
 .layout {
-  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -240,9 +240,33 @@ a:focus-visible {
   min-height: 0;
 }
 
-@media (max-width: 900px) {
+/* Sticky footer: when total content is shorter than the viewport, the
+   auto top-margin on the footer absorbs the slack so the footer stays
+   pinned to the bottom. When content overflows, the auto margin
+   collapses to 0 and the footer sits right after the content. */
+.footer {
+  margin-top: auto;
+}
+
+/* Desktop only: let the layout grow to fill the viewport so panels
+   feel proportional on big screens. On mobile we keep natural heights
+   so panels stack without dead space. */
+@media (min-width: 901px) {
   .layout {
-    grid-template-columns: 1fr;
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Stack panels vertically. flex: 0 0 auto stops the layout from
+     growing past its content, so the footer sits right under the
+     last panel instead of floating with dead space above it. */
+  .layout {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    padding: 12px;
+    gap: 12px;
   }
 }
 
@@ -583,4 +607,102 @@ textarea::placeholder {
   gap: 8px;
   color: var(--fg-muted);
   font-size: 13px;
+}
+
+/* ─────────── Phone tuning ─────────── */
+
+@media (max-width: 640px) {
+  .topbar-inner {
+    padding: 10px 14px;
+  }
+
+  .brand-tag {
+    display: none;
+  }
+
+  .topbar-links a {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  .hero-inner {
+    padding: 22px 16px 18px;
+  }
+
+  .hero h1 {
+    font-size: 1.45rem;
+  }
+
+  .hero p {
+    font-size: 14px;
+  }
+
+  .panel {
+    min-height: 0;
+    border-radius: 8px;
+  }
+
+  .panel-head {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .panel-actions {
+    flex-wrap: wrap;
+  }
+
+  .controls {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .chips {
+    width: 100%;
+  }
+
+  .chips legend {
+    width: 100%;
+    float: none;
+    padding: 0 0 4px;
+  }
+
+  textarea {
+    min-height: 220px;
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .tabs {
+    padding: 8px 10px;
+    min-height: 0;
+  }
+
+  .file-row {
+    padding: 6px 10px;
+    flex-wrap: wrap;
+  }
+
+  .filemeta {
+    font-size: 11px;
+    word-break: break-all;
+  }
+
+  #content {
+    min-height: 200px;
+    padding: 12px;
+    font-size: 12.5px;
+  }
+
+  #status {
+    padding: 10px 14px;
+    font-size: 12.5px;
+  }
+
+  .footer-inner {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 12.5px;
+  }
 }
