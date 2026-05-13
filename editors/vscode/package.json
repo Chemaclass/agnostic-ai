@@ -1,0 +1,99 @@
+{
+  "name": "agnostic-ai",
+  "displayName": "agnostic-ai",
+  "description": "Author once, ship to every AI CLI. Schema-validated config editing, codelens-driven render preview, sync/check/doctor commands, and a status-bar drift indicator for agnostic-ai projects.",
+  "version": "0.1.0",
+  "publisher": "Chemaclass",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chemaclass/agnostic-ai.git",
+    "directory": "editors/vscode"
+  },
+  "homepage": "https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode",
+  "bugs": {
+    "url": "https://github.com/Chemaclass/agnostic-ai/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Linters"],
+  "keywords": [
+    "agnostic-ai",
+    "AI",
+    "LLM",
+    "Claude",
+    "Codex",
+    "Cursor",
+    "agents",
+    "rules",
+    "AGENTS.md"
+  ],
+  "activationEvents": [
+    "workspaceContains:agnostic.config.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "yamlValidation": [
+      {
+        "fileMatch": "agnostic.config.yaml",
+        "url": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "agnostic-ai.sync",
+        "title": "agnostic-ai: Sync (emit per-target configs)"
+      },
+      {
+        "command": "agnostic-ai.syncCheck",
+        "title": "agnostic-ai: Sync — check for drift"
+      },
+      {
+        "command": "agnostic-ai.doctorFix",
+        "title": "agnostic-ai: Doctor — auto-fix"
+      },
+      {
+        "command": "agnostic-ai.status",
+        "title": "agnostic-ai: Status"
+      },
+      {
+        "command": "agnostic-ai.renderCurrent",
+        "title": "agnostic-ai: Render current spec to a target"
+      }
+    ],
+    "configuration": {
+      "title": "agnostic-ai",
+      "properties": {
+        "agnostic-ai.binaryPath": {
+          "type": "string",
+          "default": "agnostic-ai",
+          "description": "Path to the agnostic-ai binary. Defaults to whatever is on PATH. Set to an absolute path to pin a specific install."
+        },
+        "agnostic-ai.driftPollSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "description": "How often (in seconds) to refresh the status-bar drift count via `sync --check --json`."
+        },
+        "agnostic-ai.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show 'Render to <target>' codelens above each spec."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.4.0"
+  }
+}

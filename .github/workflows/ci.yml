@@ -110,3 +110,27 @@ jobs:
 
       - name: Run release.sh tests
         run: bashunit scripts/release_test.sh
+
+  vscode:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci || npm install --no-audit --no-fund
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Package
+        run: npx vsce package --skip-license --no-dependencies
