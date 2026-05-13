@@ -46,6 +46,11 @@ type Output struct {
 	SkillsDir            string `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
 	InstructionsDir      string `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
 	CommandsDir          string `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	ChatmodesDir         string `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
+	WorkflowsDir         string `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
+	AssistantsDir        string `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
+	TasksFile            string `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
+	ConfFile             string `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
 	MCPDir               string `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 }

@@ -243,3 +243,52 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+func TestEmit_ChatmodesDirEmitsAgentAsChatmode(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			target: {ChatmodesDir: ".github/chatmodes"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "researcher", Meta: map[string]any{
+			"description": "deep research",
+			"model":       "sonnet",
+			"tools":       []any{"Read", "Grep", "Bash"},
+		}, Body: "You are a researcher.\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".github/chatmodes/researcher.chatmode.md"))
+	if err != nil {
+		t.Fatalf("expected chatmode file: %v", err)
+	}
+	for _, want := range []string{"description: deep research", "model: sonnet", "tools: [Read, Grep, Bash]", "You are a researcher."} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in chatmode body:\n%s", want, got)
+		}
+	}
+	// Catch-all instruction-form emission preserved.
+	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/agent-researcher.instructions.md")); err != nil {
+		t.Errorf("instruction-form must remain when chatmodes-dir is set: %v", err)
+	}
+}
+
+func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "x", Meta: map[string]any{}, Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".github/chatmodes/x.chatmode.md")); err == nil {
+		t.Error("chatmodes dir not configured; should not emit chatmode file")
+	}
+}

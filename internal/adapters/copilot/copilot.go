@@ -46,7 +46,10 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes per-file instructions, the always-on main file, and the
-// `.vscode/mcp.json` when MCP entries exist.
+// `.vscode/mcp.json` when MCP entries exist. When
+// `outputs.copilot.chatmodes-dir` is set, also writes one Copilot
+// Custom Chat Mode per agent at that directory; the catch-all
+// instruction-form emission still happens for back-compat.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -54,11 +57,62 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitInstructionFiles(b, cfg, dryRun); err != nil {
 		return err
 	}
+	if err := emitChatmodes(b, cfg, dryRun); err != nil {
+		return err
+	}
 	if err := emitMainFile(b, cfg, dryRun); err != nil {
 		return err
 	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaVSCodeServers,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// emitChatmodes writes one `.chatmode.md` per agent under the
+// configured chat-modes directory. No-op when the dir is unset, so
+// existing setups are unaffected.
+func emitChatmodes(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	dir := emit.OutputChatmodesDir(cfg, target, "")
+	if dir == "" {
+		return nil
+	}
+	for _, a := range b.Agents {
+		path := filepath.Join(dir, a.Name+".chatmode.md")
+		if err := emit.WriteFile(path, renderChatmode(a), dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// renderChatmode renders a Copilot Custom Chat Mode file. Frontmatter
+// is restricted to the keys Copilot reads (description, tools, model);
+// extras would noisy-warn on activation.
+func renderChatmode(e spec.Entry) string {
+	m := emit.ResolveMeta(e.Meta, target)
+	desc, _ := m["description"].(string)
+	model, _ := m["model"].(string)
+	tools := emit.StringSlice(m["tools"])
+	var b strings.Builder
+	b.WriteString("---\n")
+	if desc != "" {
+		b.WriteString("description: " + desc + "\n")
+	}
+	if model != "" {
+		b.WriteString("model: " + model + "\n")
+	}
+	if len(tools) > 0 {
+		b.WriteString("tools: [")
+		for i, t := range tools {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(t)
+		}
+		b.WriteString("]\n")
+	}
+	b.WriteString("---\n\n")
+	b.WriteString(e.Body)
+	return b.String()
 }
 
 // emitInstructionFiles writes one `.instructions.md` per scoped rule, agent, and skill.
