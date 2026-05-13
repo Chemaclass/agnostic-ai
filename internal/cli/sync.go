@@ -42,7 +42,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, backup, watch, jsonOut, allTargets bool
+	var dryRun, check, backup, watch, watchPoll, jsonOut, allTargets bool
 	var gitignoreFlag, autoSyncFlag string
 
 	cmd := &cobra.Command{
@@ -121,10 +121,13 @@ func newSyncCmd() *cobra.Command {
 					return err
 				}
 			}
+			if watchPoll && !watch {
+				return fmt.Errorf("--watch-poll requires --watch")
+			}
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
-				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag)
+				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll)
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", effective, dryRun, backup, gitignoreFlag)
@@ -140,6 +143,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
+	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
 	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")

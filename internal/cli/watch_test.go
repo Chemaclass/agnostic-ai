@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -71,7 +73,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off")
+		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off", false)
 	}()
 
 	// Wait for initial sync.
@@ -127,5 +129,85 @@ func TestWatchSync_CheckAndWatchIncompatible(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for --watch --check combination")
+	}
+}
+
+func TestWatchSync_WatchPollWithoutWatch(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--watch-poll"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when --watch-poll is used without --watch")
+	}
+}
+
+func TestWatchSync_PollFallback(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		// forcePoll = true exercises the polling backend explicitly.
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true)
+	}()
+
+	time.Sleep(80 * time.Millisecond)
+
+	claudeMD := filepath.Join(dir, "CLAUDE.md")
+	if _, err := os.Stat(claudeMD); err != nil {
+		t.Fatal("initial sync did not produce CLAUDE.md")
+	}
+	if err := os.Remove(claudeMD); err != nil {
+		t.Fatal(err)
+	}
+
+	specPath := filepath.Join(dir, "rules", "r1.md")
+	content, err := os.ReadFile(specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(15 * time.Millisecond)
+	if err := os.WriteFile(specPath, append(content, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(claudeMD); err == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if _, err := os.Stat(claudeMD); err != nil {
+		t.Error("polling watch did not re-emit CLAUDE.md after spec change")
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIsIgnoredEvent_Chmod(t *testing.T) {
+	if !isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Chmod}) {
+		t.Error("chmod-only events must be ignored")
+	}
+	if isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Write}) {
+		t.Error("write events must not be ignored")
+	}
+}
+
+func TestIsIgnoredEvent_SyncStateFile(t *testing.T) {
+	ev := fsnotify.Event{Name: filepath.Join("anywhere", ".sync-state"), Op: fsnotify.Write}
+	if !isIgnoredEvent(ev) {
+		t.Error(".sync-state writes must be ignored to avoid feedback loops")
 	}
 }
