@@ -5,16 +5,21 @@
 // their directory. Previous releases of this adapter wrote `WARP.md`
 // (the legacy name), which newer Warp versions no longer read.
 //
-// Warp has no separate slash-command surface, so agents inline their
-// bodies into the root AGENTS.md and skills list as reference pointers
-// to their source spec.
+// Agents inline their bodies into the root AGENTS.md by default. When
+// `outputs.warp.workflows-dir` is set, each agent additionally emits
+// as a Warp Workflow YAML at `<dir>/<name>.yaml`, and the AGENTS.md
+// `## Agents` section switches to reference pointers (description plus
+// source path) so each agent body lives in exactly one place.
 package warp
 
 import (
+	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -54,8 +59,66 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitAgentsTree(b, cfg, dryRun); err != nil {
 		return err
 	}
+	if err := emitWorkflows(b, cfg, dryRun); err != nil {
+		return err
+	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// workflowsEnabled reports whether the user opted into per-agent
+// workflow YAML emission. When true, AGENTS.md downgrades agents to
+// reference pointers so each body lives only in its workflow file.
+func workflowsEnabled(cfg *config.Config) bool {
+	return emit.OutputWorkflowsDir(cfg, target, "") != ""
+}
+
+// emitWorkflows writes one .warp/workflows/<name>.yaml per agent. The
+// agent body becomes the workflow `command:`; description and tags are
+// pulled from frontmatter when present.
+func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	dir := emit.OutputWorkflowsDir(cfg, target, "")
+	if dir == "" {
+		return nil
+	}
+	for _, a := range b.Agents {
+		doc, err := workflowYAML(a)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(dir, a.Name+".yaml")
+		if err := emit.WriteFile(path, doc, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// workflowYAML renders one agent as a Warp Workflow per the
+// docs.warp.dev schema (name, command, description, tags). The body
+// goes into `command:` verbatim; users tailor it to a Warp-friendly
+// shell snippet from there.
+func workflowYAML(e spec.Entry) (string, error) {
+	m := emit.ResolveMeta(e.Meta, target)
+	desc, _ := m["description"].(string)
+	tags := emit.StringSlice(m["tags"])
+
+	doc := map[string]any{
+		"name":    e.Name,
+		"command": e.Body,
+	}
+	if desc != "" {
+		doc["description"] = desc
+	}
+	if len(tags) > 0 {
+		doc["tags"] = tags
+	}
+
+	raw, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("marshal workflow %s: %w", e.Name, err)
+	}
+	return string(raw), nil
 }
 
 // emitAgentsTree writes one AGENTS.md per scope. Root document holds
@@ -75,12 +138,13 @@ func emitAgentsTree(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		scopes = append([]string{""}, scopes...)
 	}
 
+	asReferences := workflowsEnabled(cfg)
 	for _, scope := range scopes {
 		var sb strings.Builder
 		writeHeader(&sb, scope)
 		writeRulesSection(&sb, byScope[scope])
 		if scope == "" {
-			writeAgentsSection(&sb, b.Agents)
+			writeAgentsSection(&sb, b.Agents, asReferences)
 			writeSkillsSection(&sb, b.Skills)
 		}
 		path := filepath.Join(rootDir, scope, rootBase)
@@ -111,13 +175,22 @@ func writeRulesSection(sb *strings.Builder, rules []spec.Entry) {
 	}
 }
 
-// writeAgentsSection inlines each agent body (Warp has no separate
-// command surface to point at).
-func writeAgentsSection(sb *strings.Builder, agents []spec.Entry) {
+// writeAgentsSection inlines each agent body by default. When
+// asReferences is true, the section instead lists each agent as a
+// pointer (description + source path); the body lives in a Warp
+// Workflow YAML so each agent has exactly one home.
+func writeAgentsSection(sb *strings.Builder, agents []spec.Entry, asReferences bool) {
 	if len(agents) == 0 {
 		return
 	}
 	sb.WriteString("## Agents\n\n")
+	if asReferences {
+		sb.WriteString("Each agent ships as a Warp Workflow. Read the source file or invoke from the Warp launcher.\n\n")
+		for _, a := range agents {
+			emit.WriteReference(sb, a, a.Path)
+		}
+		return
+	}
 	for _, a := range agents {
 		emit.WriteSection(sb, "Agent: "+a.Name, a)
 	}
