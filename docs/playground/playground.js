@@ -93,7 +93,7 @@ function renderTabs() {
   });
   const files = byTarget.get(currentTarget) || [];
   content.textContent = files
-    .map((f) => `# ${f.path}\n${f.content}`)
+    .map((f) => `// ${f.path}\n${f.content}`)
     .join("\n\n");
 }
 
