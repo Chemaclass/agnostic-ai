@@ -302,6 +302,44 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 	return entries, nil
 }
 
+// ParseMarkdownBytes parses an in-memory spec document and returns the
+// resulting Entry. Used by callers that have a spec body in hand and
+// no on-disk path (e.g. the WASM playground) — Path is left empty so
+// adapters that emit per-file outputs fall back to the entry's Name.
+//
+// The data must be UTF-8 with optional `---` frontmatter on top.
+func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
+	meta, body, err := splitFrontmatter(normalizeLineEndings(data))
+	if err != nil {
+		return Entry{}, err
+	}
+	name, _ := meta["name"].(string)
+	return Entry{
+		Kind: kind,
+		Name: name,
+		Meta: meta,
+		Body: body,
+	}, nil
+}
+
+// ParseYAMLBytes parses an in-memory hook or MCP spec (pure YAML, no
+// frontmatter) and returns the Entry.
+func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
+	var meta map[string]any
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return Entry{}, err
+	}
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	name, _ := meta["name"].(string)
+	return Entry{
+		Kind: kind,
+		Name: name,
+		Meta: meta,
+	}, nil
+}
+
 func parseMarkdown(path string) (Entry, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
