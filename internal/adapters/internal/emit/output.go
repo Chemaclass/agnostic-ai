@@ -74,6 +74,56 @@ func OutputCommandsDir(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputChatmodesDir returns cfg.Outputs[target].ChatmodesDir when set,
+// otherwise fallback. Used by the Copilot adapter to opt agents into
+// emission as Custom Chat Modes.
+func OutputChatmodesDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.ChatmodesDir != "" {
+		return o.ChatmodesDir
+	}
+	return fallback
+}
+
+// OutputWorkflowsDir returns cfg.Outputs[target].WorkflowsDir when set,
+// otherwise fallback. Used by Cline, Windsurf, and Warp adapters to
+// opt agents into emission as workflows.
+func OutputWorkflowsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.WorkflowsDir != "" {
+		return o.WorkflowsDir
+	}
+	return fallback
+}
+
+// OutputAssistantsDir returns cfg.Outputs[target].AssistantsDir when
+// set, otherwise fallback. Used by the Continue adapter to opt agents
+// into emission as Continue assistants.
+func OutputAssistantsDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.AssistantsDir != "" {
+		return o.AssistantsDir
+	}
+	return fallback
+}
+
+// OutputTasksFile returns cfg.Outputs[target].TasksFile when set,
+// otherwise fallback. Used by the Zed adapter to opt hooks into
+// emission as Zed tasks.
+func OutputTasksFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.TasksFile != "" {
+		return o.TasksFile
+	}
+	return fallback
+}
+
+// OutputConfFile returns cfg.Outputs[target].ConfFile when set,
+// otherwise fallback. Used by the Aider adapter to opt into writing
+// .aider.conf.yml.
+func OutputConfFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.ConfFile != "" {
+		return o.ConfFile
+	}
+	return fallback
+}
+
 // OutputMCPDir returns cfg.Outputs[target].MCPDir when set, otherwise fallback.
 // Used by adapters that emit one MCP server file per entry into a directory
 // (Continue: `.continue/mcpServers/`) rather than a single combined MCP file.

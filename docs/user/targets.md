@@ -101,6 +101,9 @@ When `outputs.cursor.commands-dir` is set, each agent additionally emits as a [C
 
 ### GitHub Copilot (`copilot`)
 
+> When `outputs.copilot.chatmodes-dir` is set, each agent additionally emits as a [Copilot Custom Chat Mode](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot#about-custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter. The catch-all `agent-<name>.instructions.md` emission keeps working.
+
+
 ```
 .github/copilot-instructions.md                            # always-on rules
 .github/instructions/<name>.instructions.md                # scoped rule per file

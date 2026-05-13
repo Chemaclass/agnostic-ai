@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`validate` per-target hook event whitelist** (#112): unknown `event:` values in hook specs are reported with the supported list inline, derived from the union of every configured target. Catches typos like `PostToolsUse` before they ever ship.
 - **`validate` orphan-kind warning** (#114): when a project ships hook or MCP specs but no enabled target consumes them, validate prints a one-line summary per orphaned kind with the targets that would unblock it.
 - **`doctor` MCP command resolution** (#113): for every stdio MCP spec, doctor reports whether the configured `command:` resolves on PATH. Missing common commands (npx, uvx, python, docker) include an inline install hint. HTTP/SSE servers skip the check.
+- **Copilot Custom Chat Modes** (#105): when `outputs.copilot.chatmodes-dir` is set, each agent emits as a Copilot Chat Mode (`<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter). The catch-all `.github/instructions/agent-<name>.instructions.md` emission stays in place.
 
 - **Cursor Custom Commands** (#104): when `outputs.cursor.commands-dir` is set, each agent emits as a Cursor Custom Command (Markdown with `description`/`model` frontmatter) at that path, in addition to the existing `.cursor/rules/<name>.mdc` rule form.
 

@@ -87,6 +87,21 @@
         "commands-dir": {
           "type": "string"
         },
+        "chatmodes-dir": {
+          "type": "string"
+        },
+        "workflows-dir": {
+          "type": "string"
+        },
+        "assistants-dir": {
+          "type": "string"
+        },
+        "tasks-file": {
+          "type": "string"
+        },
+        "conf-file": {
+          "type": "string"
+        },
         "mcp-dir": {
           "type": "string"
         },
