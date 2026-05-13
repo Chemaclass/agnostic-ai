@@ -184,7 +184,7 @@ modes. Catch drift earlier with a [pre-commit hook](docs/user/git-hooks.md)
 - **[Targets](docs/user/targets.md)** · what each adapter emits and where.
 - **[Configuration](docs/user/configuration.md)** · `agnostic.config.yaml` reference.
 - **[CLI reference](docs/user/cli-reference.md)** · every flag, every command.
-- **[Playground](docs/playground/)** · paste a spec in your browser, see what every adapter emits live (WASM, runs offline).
+- **[Playground](https://chemaclass.github.io/agnostic-ai/)** · paste a spec in your browser, see what every adapter emits live (WASM, runs offline).
 - **[Editor extensions](editors/)** · VS Code (shipped), JetBrains (planned).
 - **[Examples](docs/examples/)** · drop-in templates.
 - **[Contributing](docs/internal/)** · architecture, adding adapters, release process.
