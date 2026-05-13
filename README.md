@@ -166,7 +166,8 @@ source specs:
 ```
 
 See [CI docs](docs/user/ci.md) for version pinning and `sync` / `doctor`
-modes.
+modes. Catch drift earlier with a [pre-commit hook](docs/user/git-hooks.md)
+(pre-commit, lefthook, or husky).
 
 ## What you get
 
