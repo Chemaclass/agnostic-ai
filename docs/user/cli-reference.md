@@ -124,6 +124,47 @@ agnostic-ai list
 When no specs are loaded, `list` prints the same stderr hint and keeps
 stdout empty so pipes stay clean.
 
+## new
+
+Scaffold a single spec file with kind-appropriate frontmatter under the
+source directory configured for that kind. Replaces "copy from `--demo`
+and edit" as the starting point for one new agent, skill, rule, hook,
+or MCP.
+
+```bash
+agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
+agnostic-ai new agent code-reviewer     # → <agents>/code-reviewer.md
+agnostic-ai new skill yaml-validator    # → <skills>/yaml-validator.md
+agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
+agnostic-ai new mcp filesystem          # → <mcps>/filesystem.yaml
+```
+
+Errors if the destination file already exists. Names must be lowercase
+slugs (`[a-z0-9][a-z0-9-]*`); the same form Cursor and Cline expect.
+Honors `sources:` from `agnostic.config.yaml`, so a project that puts
+specs under `specs/` lands files there automatically.
+
+## render
+
+Print the emission for a single spec to stdout, per target. Iterate on
+one spec and see exactly what each adapter would produce, without
+writing files or rerunning a full sync.
+
+```bash
+agnostic-ai render rules/no-console-log.md --target cursor
+agnostic-ai render rules/no-console-log.md --target claude,codex
+agnostic-ai render rules/no-console-log.md         # all configured targets
+```
+
+| Flag | Description |
+|------|-------------|
+| `-t, --target <list>` | Target(s) to render. Repeat or comma-separate. Default: every target in `agnostic.config.yaml`. |
+
+Output format is `# target: <name> — <output path>` followed by the file
+body, one block per emitted file. Targets that produce no output for the
+spec's kind print a short note. Render writes nothing to disk; pair with
+`sync` once the output looks right.
+
 ## sync
 
 Emit per-target configs.
