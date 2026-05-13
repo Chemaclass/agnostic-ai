@@ -35,7 +35,9 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule and per agent into the rules directory,
-// plus one .yaml per MCP entry under `.continue/mcpServers/`.
+// plus one .yaml per MCP entry under `.continue/mcpServers/`. When
+// `outputs.continue.assistants-dir` is set, each agent additionally
+// emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -46,7 +48,66 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
+	if err := emitAssistants(b, cfg, dryRun); err != nil {
+		return err
+	}
 	return emitMCPServers(b.MCPs, emit.OutputMCPDir(cfg, target, defaultMCPDir), dryRun)
+}
+
+// emitAssistants writes one Continue Assistant YAML per agent into the
+// configured assistants dir. No-op when the dir is unset.
+func emitAssistants(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	dir := emit.OutputAssistantsDir(cfg, target, "")
+	if dir == "" {
+		return nil
+	}
+	for _, a := range b.Agents {
+		doc, err := assistantYAML(a)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(dir, a.Name+".yaml")
+		if err := emit.WriteFile(path, doc, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// assistantYAML renders one agent as a Continue local Assistant per the
+// hub assistants schema (v1). The agent body becomes a single named
+// prompt; fields like models or `rules:` are intentionally omitted so
+// Continue inherits the user's configured defaults.
+func assistantYAML(e spec.Entry) (string, error) {
+	m := emit.ResolveMeta(e.Meta, target)
+	desc, _ := m["description"].(string)
+	version, _ := m["version"].(string)
+	if version == "" {
+		version = "0.0.1"
+	}
+
+	doc := map[string]any{
+		"name":    e.Name,
+		"version": version,
+		"schema":  "v1",
+	}
+	if desc != "" {
+		doc["description"] = desc
+	}
+	prompt := map[string]any{
+		"name":   e.Name,
+		"prompt": e.Body,
+	}
+	if desc != "" {
+		prompt["description"] = desc
+	}
+	doc["prompts"] = []any{prompt}
+
+	raw, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("marshal assistant %s: %w", e.Name, err)
+	}
+	return string(raw), nil
 }
 
 // emitMCPServers writes one YAML per MCP entry. Continue's loader picks

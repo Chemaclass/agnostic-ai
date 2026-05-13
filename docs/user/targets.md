@@ -14,7 +14,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 | **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
 | **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
-| **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
+| **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | `.amp/settings.json` (`amp.mcpServers`) |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | `.zed/settings.json` (`context_servers`) |
 | **warp**        | inlined in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
@@ -155,11 +155,14 @@ When `outputs.windsurf.workflows-dir` is set, each agent additionally emits as a
 ```
 .continue/rules/<name>.md
 .continue/mcpServers/<name>.yaml       # one per MCP entry
+.continue/assistants/<name>.yaml       # one per agent, only when assistants-dir is set
 ```
 
-Config keys: `outputs.continue.rules-dir` (default `.continue/rules`), `outputs.continue.mcp-dir` (default `.continue/mcpServers`).
+Config keys: `outputs.continue.rules-dir` (default `.continue/rules`), `outputs.continue.mcp-dir` (default `.continue/mcpServers`), `outputs.continue.assistants-dir` (default empty — opt-in).
 
 Continue picks up each YAML under `.continue/mcpServers/` as a single MCP server config. Stdio servers emit `command`/`args`/`env`; HTTP / SSE / streamable-http variants emit `type`/`url`/`headers`.
+
+When `outputs.continue.assistants-dir` is set, each agent additionally emits as a [Continue local Assistant](https://docs.continue.dev/hub/assistants/intro) YAML at `<dir>/<name>.yaml` (`schema: v1`, `version: 0.0.1` by default). The agent body wraps as a single named prompt so Continue surfaces it in the assistant picker. Models and rules are intentionally omitted so the user's defaults apply. The rule-form emission (`.continue/rules/agent-<name>.md`) still happens, so existing setups keep working.
 
 ### Amp (`amp`)
 

@@ -113,6 +113,52 @@ func TestEmit_MCP_DirOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_AssistantsDirEmitsAgentsAsAssistants(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "ship-it",
+			Meta: map[string]any{"description": "open and merge a PR"},
+			Body: "Run the release.",
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"continue": {AssistantsDir: ".continue/assistants"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".continue/assistants/ship-it.yaml"))
+	for _, want := range []string{
+		"name: ship-it",
+		"version: 0.0.1",
+		"schema: v1",
+		"description: open and merge a PR",
+		"prompts:",
+		"Run the release.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_NoAssistantsDirNoEmit(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "x"}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".continue/assistants")); !os.IsNotExist(err) {
+		t.Errorf("expected no assistants dir; err=%v", err)
+	}
+}
+
 func TestEmit_MCP_NoFilesWhenNoEntries(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
