@@ -1,0 +1,50 @@
+package cli
+
+import "github.com/chemaclass/agnostic-ai/internal/spec"
+
+// hookEventsByTarget enumerates the hook events each target's
+// underlying CLI consumes. Specs whose `event:` falls outside the
+// union of every configured target's set are reported by `validate`.
+//
+// Sources of truth (kept out of source comments because they rot):
+// the per-adapter docs linked from `docs/user/targets.md`. When a
+// target adds a new event, append it here so validation stays useful.
+var hookEventsByTarget = map[string]map[string]struct{}{
+	"claude": setOf(
+		"PreToolUse", "PostToolUse",
+		"UserPromptSubmit",
+		"SessionStart", "SessionEnd", "Stop", "SubagentStop",
+		"PreCompact", "PostCompact",
+		"Notification",
+	),
+	"codex": setOf(
+		"PreToolUse", "PostToolUse",
+		"UserPromptSubmit",
+		"SessionStart", "SessionEnd", "Stop",
+		"PreCompact", "PostCompact",
+	),
+	"gemini": setOf(
+		"BeforeTool", "AfterTool",
+		"SessionStart", "SessionEnd",
+	),
+}
+
+// targetsSupportingKind lists the targets whose adapter actually
+// emits non-empty output for the given kind. Used by the orphan-kind
+// validator: if a project has hook specs but no enabled target maps
+// to a hook surface, the specs are dead weight.
+var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
+	spec.KindAgent: setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindSkill: setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindRule:  setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindHook:  setOf("claude", "codex", "gemini"),
+	spec.KindMCP:   setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode"),
+}
+
+func setOf(items ...string) map[string]struct{} {
+	out := make(map[string]struct{}, len(items))
+	for _, s := range items {
+		out[s] = struct{}{}
+	}
+	return out
+}

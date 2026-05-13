@@ -115,6 +115,22 @@ When no specs are loaded, `validate` prints a hint to stderr suggesting
 `init` or `import` to populate sources. Stdout still reports `loaded 0
 entries. ok.` so scripts that rely on stdout do not break.
 
+`validate` also surfaces three native-support checks once specs load:
+
+- **Hook events.** Each hook spec's `event:` value must be in the
+  union of every configured target's supported list. Unknown values
+  report inline with the supported list. Per-target sets:
+  - Claude: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`,
+    `SessionStart`, `SessionEnd`, `Stop`, `SubagentStop`, `PreCompact`,
+    `PostCompact`, `Notification`.
+  - Codex: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`,
+    `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `PostCompact`.
+  - Gemini: `BeforeTool`, `AfterTool`, `SessionStart`, `SessionEnd`.
+- **Missing fields.** Hook specs missing `event:` are flagged.
+- **Orphaned kinds.** When a project has hook or MCP specs but no
+  enabled target consumes them, validate prints one summary line per
+  orphaned kind with the targets that would unblock it.
+
 ## list
 
 Print all loaded specs as `kind<tab>name`.
@@ -334,6 +350,13 @@ agnostic-ai doctor --fix --backup   # save .bak of hand-edits before overwrite
 Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to
 spot files the merge resolved manually. Use `--fix` for an interactive cleanup
 pass. Pair with `--backup` when reconciling files you may have hand-edited.
+
+After the drift report, doctor prints an MCP block listing each MCP
+spec's stdio `command:` and whether it resolves on PATH. Missing common
+commands (`npx`, `uvx`, `python`, `docker`) include an inline install
+hint. HTTP/SSE servers (no command, only `url:`) skip the check. The
+report is advisory: a missing binary is an environment problem, not a
+spec problem, so it does not change doctor's exit code.
 
 ## status
 
