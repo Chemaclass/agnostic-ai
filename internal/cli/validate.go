@@ -24,7 +24,7 @@ func newValidateCmd() *cobra.Command {
   # Reconcile autofixable issues in source spec files
   agnostic-ai validate --fix`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, b, err := loadProject(".")
+			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err
 			}
@@ -35,6 +35,8 @@ func newValidateCmd() *cobra.Command {
 				return nil
 			}
 			issues := lintEntries(entries)
+			issues = append(issues, lintHookEvents(entries, cfg.Targets)...)
+			issues = append(issues, lintOrphanKinds(b, cfg.Targets)...)
 			if !fix {
 				reportIssues(cmd, issues)
 				return nil
@@ -119,6 +121,137 @@ const (
 	issueNone issueKind = iota
 	issueMissingName
 )
+
+// lintHookEvents flags hook specs whose `event:` value is unknown to
+// every configured target. The union approach avoids false positives
+// when a project enables several targets that each understand a
+// disjoint subset (e.g. claude's `Notification` is fine when claude is
+// in targets even though codex doesn't know it).
+func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
+	var out []validationIssue
+	allowed := unionEvents(targets)
+	for _, e := range entries {
+		if e.Kind != spec.KindHook {
+			continue
+		}
+		event, _ := e.Meta["event"].(string)
+		if event == "" {
+			out = append(out, validationIssue{
+				Path:    e.Path,
+				Field:   "event",
+				Message: "hook spec is missing required 'event:' field",
+			})
+			continue
+		}
+		if len(allowed) == 0 {
+			continue // no hook-aware target enabled; the orphan-kind lint covers this
+		}
+		if _, ok := allowed[event]; ok {
+			continue
+		}
+		out = append(out, validationIssue{
+			Path:    e.Path,
+			Field:   "event",
+			Message: "unknown hook event " + quote(event) + " for enabled targets " + commaList(targets) + "; supported events: " + commaList(sortedKeys(allowed)),
+		})
+	}
+	return out
+}
+
+// lintOrphanKinds reports each spec kind whose specs no enabled
+// target consumes. Validation surfaces this once per kind, not per
+// spec, so the message stays scannable.
+func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
+	type kindCount struct {
+		kind  spec.Kind
+		count int
+		path  string
+	}
+	counts := []kindCount{
+		{spec.KindHook, len(b.Hooks), firstPath(b.Hooks)},
+		{spec.KindMCP, len(b.MCPs), firstPath(b.MCPs)},
+	}
+	enabled := setOf(targets...)
+	var out []validationIssue
+	for _, kc := range counts {
+		if kc.count == 0 {
+			continue
+		}
+		if anyTargetSupports(kc.kind, enabled) {
+			continue
+		}
+		supporters := sortedKeys(targetsSupportingKind[kc.kind])
+		out = append(out, validationIssue{
+			Path:    kc.path,
+			Field:   string(kc.kind),
+			Message: pluralize(kc.count, string(kc.kind)) + " configured but no enabled target supports " + string(kc.kind) + "s. Enable one of: " + commaList(supporters),
+		})
+	}
+	return out
+}
+
+func unionEvents(targets []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, t := range targets {
+		for ev := range hookEventsByTarget[t] {
+			out[ev] = struct{}{}
+		}
+	}
+	return out
+}
+
+func anyTargetSupports(k spec.Kind, enabled map[string]struct{}) bool {
+	for t := range targetsSupportingKind[k] {
+		if _, ok := enabled[t]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func firstPath(entries []spec.Entry) string {
+	if len(entries) == 0 {
+		return ""
+	}
+	return entries[0].Path
+}
+
+func sortedKeys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sortStrings(out)
+	return out
+}
+
+func commaList(items []string) string {
+	if len(items) == 0 {
+		return "(none)"
+	}
+	return strings.Join(items, ", ")
+}
+
+func quote(s string) string {
+	return "\"" + s + "\""
+}
+
+func pluralize(n int, kind string) string {
+	if n == 1 {
+		return "1 " + kind + " spec"
+	}
+	return fmt.Sprintf("%d %s specs", n, kind)
+}
+
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		j := i
+		for j > 0 && s[j-1] > s[j] {
+			s[j-1], s[j] = s[j], s[j-1]
+			j--
+		}
+	}
+}
 
 func isMarkdownKind(k spec.Kind) bool {
 	switch k {

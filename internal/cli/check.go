@@ -114,9 +114,11 @@ func newDoctorCmd() *cobra.Command {
 				return printDoctorJSON(cmd, reports)
 			}
 			if !printDrift(reports) {
+				reportMCPCommandResolution(cmd)
 				return nil
 			}
 			if !fix {
+				reportMCPCommandResolution(cmd)
 				return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
 			}
 			fixed, err := fixDrift(reports, backup)
@@ -124,6 +126,7 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			summaryf("→ reconciled %d file(s)\n", fixed)
+			reportMCPCommandResolution(cmd)
 			return nil
 		},
 	}
