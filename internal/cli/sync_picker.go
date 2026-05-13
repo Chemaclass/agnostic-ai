@@ -47,7 +47,7 @@ func targetsMatchDefault(targets []string) bool {
 }
 
 // firstSyncTargetSelection drives the first-sync target picker.
-// Returns the chosen subset and persists it to agnostic.config.yaml.
+// Returns the chosen subset and persists it to the base config file.
 // Returns (nil, nil) on a silent fallback — non-TTY with no piped data
 // — so the caller keeps the original targets.
 func firstSyncTargetSelection(root string, in io.Reader, out io.Writer) ([]string, error) {
@@ -61,7 +61,7 @@ func firstSyncTargetSelection(root string, in io.Reader, out io.Writer) ([]strin
 	if err := config.PersistTargets(root, picked); err != nil {
 		return nil, fmt.Errorf("persist targets: %w", err)
 	}
-	_, _ = fmt.Fprintf(out, "→ saved %d target(s) to agnostic.config.yaml\n", len(picked))
+	_, _ = fmt.Fprintf(out, "→ saved %d target(s) to %s\n", len(picked), config.ConfigFileName)
 	return picked, nil
 }
 

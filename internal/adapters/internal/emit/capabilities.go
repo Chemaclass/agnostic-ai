@@ -25,7 +25,7 @@ func (c Capabilities) supports(k spec.Kind) bool {
 	return false
 }
 
-// Unsupported policies. Mirrors agnostic.config.yaml `on-unsupported`.
+// Unsupported policies. Mirrors agnostic-ai.yaml `on-unsupported`.
 const (
 	OnUnsupportedWarn   = "warn"
 	OnUnsupportedError  = "error"

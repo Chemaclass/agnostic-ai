@@ -40,7 +40,7 @@ type Input struct {
 	Specs           SpecsEnvelope  `json:"specs"`
 }
 
-// ConfigEnvelope mirrors the user's agnostic.config.yaml fields the
+// ConfigEnvelope mirrors the user's agnostic-ai.yaml fields the
 // adapter most commonly needs. The full Config is JSON-marshaled into
 // Raw so adapters can read fields the envelope does not surface yet
 // without bumping ProtocolVersion.

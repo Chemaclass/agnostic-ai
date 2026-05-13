@@ -15,7 +15,7 @@ and the contents merge into their layered spec load.
 └── mcps/
 ```
 
-Empty directories may be omitted. No `agnostic.config.yaml` is needed
+Empty directories may be omitted. No `agnostic-ai.yaml` is needed
 in a pack: the loader uses the default per-kind subdirectory names.
 
 ## Spec content

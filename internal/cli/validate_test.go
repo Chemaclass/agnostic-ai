@@ -12,7 +12,7 @@ import (
 
 func TestValidate_ReportsMissingNameAsAutofixable(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	mustWriteFile(t, filepath.Join(dir, "rules", "no-name.md"),
 		"---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
@@ -43,7 +43,7 @@ func TestValidate_ReportsMissingNameAsAutofixable(t *testing.T) {
 
 func TestValidate_FixInjectsMissingName(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	specPath := filepath.Join(dir, "rules", "no-name.md")
 	mustWriteFile(t, specPath, "---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
@@ -88,7 +88,7 @@ func TestValidate_FixInjectsMissingName(t *testing.T) {
 
 func TestValidate_FixInjectsNameForSkillFromParentDir(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	skillPath := filepath.Join(dir, "skills", "validator", "SKILL.md")
 	mustWriteFile(t, skillPath, "---\ndescription: a skill\n---\nbody\n")
 	testutil.Chdir(t, dir)
@@ -112,7 +112,7 @@ func TestValidate_FixInjectsNameForSkillFromParentDir(t *testing.T) {
 
 func TestValidate_NoIssuesWhenNamePresent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	mustWriteFile(t, filepath.Join(dir, "rules", "good.md"),
 		"---\nname: good\n---\nbody\n")
 	testutil.Chdir(t, dir)

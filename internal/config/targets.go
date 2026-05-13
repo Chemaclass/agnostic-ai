@@ -3,23 +3,27 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
-// PersistTargets rewrites the `targets:` block in agnostic.config.yaml
-// in place. Comments, header lines (e.g. `yaml-language-server:`), and
-// every other key are preserved. The list is rendered with two-space
-// indentation matching the format written by `init`.
+// PersistTargets rewrites the `targets:` block in the project's base
+// config file (preferring agnostic-ai.yaml, falling back to the legacy
+// agnostic.config.yaml). Comments, header lines (e.g.
+// `yaml-language-server:`), and every other key are preserved. The
+// list is rendered with two-space indentation matching the format
+// written by `init`. The local-override file is never touched.
 //
 // When the file has no `targets:` key, the block is appended at the
 // end. When `targets` is empty, the block is rewritten as an empty list
 // (no items); callers should validate non-empty selections upstream.
 func PersistTargets(root string, targets []string) error {
-	path := filepath.Join(root, "agnostic.config.yaml")
+	path, _, err := ResolveConfigPath(root)
+	if err != nil {
+		return err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read config: %w", err)
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	out := rewriteTargetsBlock(string(data), targets)
 	return os.WriteFile(path, []byte(out), 0o644)

@@ -32,7 +32,7 @@ targets:
 			t.Fatal(err)
 		}
 	}
-	mustWrite(filepath.Join(dir, "agnostic.config.yaml"), cfg)
+	mustWrite(filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 	mustWrite(filepath.Join(dir, "rules", "no-console-log.md"), `---
 name: no-console-log
 description: No console.log in shipped code.

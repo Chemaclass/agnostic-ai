@@ -18,6 +18,38 @@ const (
 	gitignoreBlockNote  = "# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh."
 )
 
+// ensureLineInGitignore appends entry to .gitignore at root so it is
+// never committed. The file is created if missing. A no-op when the
+// entry already appears verbatim on its own line. Used by `init` to
+// gitignore the local-override config; lives here (next to the
+// managed-block writer) rather than in init.go so all gitignore
+// mutations share one home.
+func ensureLineInGitignore(root, entry string) error {
+	path := filepath.Join(root, ".gitignore")
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	for _, line := range strings.Split(string(existing), "\n") {
+		if strings.TrimSpace(line) == entry {
+			return nil
+		}
+	}
+	var buf strings.Builder
+	if len(existing) > 0 {
+		buf.Write(existing)
+		if !strings.HasSuffix(string(existing), "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString(entry)
+	buf.WriteString("\n")
+	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
 // normalizeAndSort converts a slice of filesystem paths to gitignore
 // entries: forward slashes, leading `./` trimmed, deduplicated, sorted.
 func normalizeAndSort(paths []string) []string {

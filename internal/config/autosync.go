@@ -3,18 +3,22 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
-// PersistAutoSync writes autoSync: true/false to agnostic.config.yaml.
-// Replaces the existing line when present, otherwise appends.
-// The rest of the file is preserved as-is.
+// PersistAutoSync writes autoSync: true/false to the project's base
+// config file (preferring agnostic-ai.yaml, falling back to the legacy
+// agnostic.config.yaml). Replaces the existing line when present,
+// otherwise appends. The rest of the file is preserved as-is. The
+// local-override file is never touched.
 func PersistAutoSync(root string, enabled bool) error {
-	path := filepath.Join(root, "agnostic.config.yaml")
+	path, _, err := ResolveConfigPath(root)
+	if err != nil {
+		return err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read config: %w", err)
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	val := "false"
 	if enabled {

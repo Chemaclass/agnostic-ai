@@ -16,7 +16,7 @@ taste. The canonical copies ship with the CLI binary under
 
 ## Reference config
 
-[agnostic.config.yaml](agnostic.config.yaml) shows every available
+[agnostic-ai.yaml](agnostic-ai.yaml) shows every available
 knob with its default value. Drop into your project root and trim to
 what you need; every section is optional.
 

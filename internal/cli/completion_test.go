@@ -35,7 +35,7 @@ func TestTargetCompletion_FallsBackToDefaults_OutsideProject(t *testing.T) {
 func TestTargetCompletion_ReadsConfigTargets(t *testing.T) {
 	dir := t.TempDir()
 	yaml := "version: 1\ntargets:\n  - claude\n  - cursor\n"
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"), []byte(yaml), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	testutil.Chdir(t, dir)

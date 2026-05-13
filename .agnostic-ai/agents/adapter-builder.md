@@ -16,7 +16,7 @@ Steps:
 5. Update `.gitignore` if the target writes new generated paths at root.
 6. Update `docs/user/targets.md` capability matrix and per-target output section.
 7. Update `README.md` capability table.
-8. Update `agnostic.config.yaml` example with the new target name and a comment.
+8. Update `agnostic-ai.yaml` example with the new target name and a comment.
 9. Add a unit test in `internal/adapters/<name>/<name>_test.go`.
 10. Run `make build && make test`.
 11. Add a `[Unreleased]` entry to `CHANGELOG.md`.

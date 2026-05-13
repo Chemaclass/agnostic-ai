@@ -209,7 +209,14 @@ func isIgnoredEvent(ev fsnotify.Event) bool {
 
 // watchDirs returns the config file and source directories to watch.
 func watchDirs(root string, cfg *config.Config) []string {
-	paths := []string{filepath.Join(root, "agnostic.config.yaml")}
+	paths := []string{}
+	if cfgPath, _, err := config.ResolveConfigPath(root); err == nil {
+		paths = append(paths, cfgPath)
+	}
+	localPath := filepath.Join(root, config.LocalOverrideFileName)
+	if _, err := os.Stat(localPath); err == nil {
+		paths = append(paths, localPath)
+	}
 	for _, src := range []string{
 		cfg.Sources.Agents,
 		cfg.Sources.Skills,

@@ -96,8 +96,8 @@ func TestInit_ScaffoldsLayout(t *testing.T) {
 			t.Errorf("expected dir .agnostic-ai/%s to exist", d)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); err != nil {
-		t.Error("expected agnostic.config.yaml")
+	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
+		t.Error("expected agnostic-ai.yaml")
 	}
 }
 
@@ -106,7 +106,7 @@ func setupFixture(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 
-	must(t, os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, "agents"), 0o755))

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `agnostic-ai.local.yaml` for per-machine overrides; deep-merged over the base (`init` auto-gitignores it) (#128).
+
+### Changed
+- Renamed config file `agnostic.config.yaml` → `agnostic-ai.yaml`. Legacy filename still loads with a deprecation warning (#128).
+
 ## v0.7.0 - 2026-05-13
 
 ### Added

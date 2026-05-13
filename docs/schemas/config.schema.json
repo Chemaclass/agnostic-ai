@@ -148,5 +148,5 @@
     }
   },
   "title": "agnostic-ai configuration",
-  "description": "Configuration file for agnostic-ai (agnostic.config.yaml)."
+  "description": "Configuration file for agnostic-ai (agnostic-ai.yaml; legacy: agnostic.config.yaml)."
 }

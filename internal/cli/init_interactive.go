@@ -17,7 +17,7 @@ import (
 // branches on TTY vs piped input.
 
 // targetChoice is one selectable AI CLI target shown to the user and
-// written to agnostic.config.yaml.
+// written to agnostic-ai.yaml.
 type targetChoice struct {
 	Name string // canonical name written to the config
 	Desc string // short human description shown in prompts

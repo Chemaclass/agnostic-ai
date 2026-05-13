@@ -17,7 +17,7 @@ func main() {
 	schema := r.Reflect(&config.Config{})
 	schema.ID = "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
 	schema.Title = "agnostic-ai configuration"
-	schema.Description = "Configuration file for agnostic-ai (agnostic.config.yaml)."
+	schema.Description = "Configuration file for agnostic-ai (agnostic-ai.yaml; legacy: agnostic.config.yaml)."
 
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {

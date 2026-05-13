@@ -131,7 +131,7 @@ func setupFixture(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	must(os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	must(os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\n"), 0o644))
 	must(os.MkdirAll(filepath.Join(dir, "rules"), 0o755))
 	must(os.WriteFile(filepath.Join(dir, "rules", "r1.md"),
