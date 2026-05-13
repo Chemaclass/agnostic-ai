@@ -58,17 +58,17 @@ func newRenderCmd() *cobra.Command {
 					return fmt.Errorf("%s: %w", t, err)
 				}
 				if len(captured) == 0 {
-					fmt.Fprintf(out, "# target: %s — (no output for kind %s)\n", t, entry.Kind)
+					_, _ = fmt.Fprintf(out, "# target: %s — (no output for kind %s)\n", t, entry.Kind)
 					continue
 				}
 				anyOutput = true
 				for _, f := range captured {
-					fmt.Fprintf(out, "# target: %s — %s\n", t, f.Path)
-					fmt.Fprint(out, f.Content)
+					_, _ = fmt.Fprintf(out, "# target: %s — %s\n", t, filepath.ToSlash(f.Path))
+					_, _ = fmt.Fprint(out, f.Content)
 					if !strings.HasSuffix(f.Content, "\n") {
-						fmt.Fprintln(out)
+						_, _ = fmt.Fprintln(out)
 					}
-					fmt.Fprintln(out)
+					_, _ = fmt.Fprintln(out)
 				}
 			}
 			if !anyOutput {
