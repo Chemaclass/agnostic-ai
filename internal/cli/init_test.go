@@ -11,7 +11,7 @@ import (
 
 func TestScaffold_DefaultBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, allTargetNames()); err != nil {
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
@@ -30,7 +30,7 @@ func TestScaffold_DefaultBaseDir(t *testing.T) {
 
 func TestScaffold_CustomBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "specs", false, allTargetNames()); err != nil {
+	if err := scaffold(dir, "specs", false, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
@@ -49,7 +49,7 @@ func TestScaffold_CustomBaseDir(t *testing.T) {
 
 func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, ".", false, allTargetNames()); err != nil {
+	if err := scaffold(dir, ".", false, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
@@ -68,7 +68,7 @@ func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 
 func TestScaffold_NestedBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, filepath.Join("config", "ai"), false, allTargetNames()); err != nil {
+	if err := scaffold(dir, filepath.Join("config", "ai"), false, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "config", "ai", "agents")); err != nil {
@@ -127,7 +127,7 @@ func TestInitCmd_RejectsExtraArgs(t *testing.T) {
 
 func TestScaffold_Demo_SeedsOneFilePerKind(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", true, allTargetNames()); err != nil {
+	if err := scaffold(dir, "", true, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	wantFiles := map[string]string{
@@ -159,7 +159,7 @@ func TestScaffold_Demo_DoesNotOverwriteExistingFiles(t *testing.T) {
 	if err := os.WriteFile(custom, []byte("user content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := scaffold(dir, "", true, allTargetNames()); err != nil {
+	if err := scaffold(dir, "", true, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(custom)
@@ -173,7 +173,7 @@ func TestScaffold_Demo_DoesNotOverwriteExistingFiles(t *testing.T) {
 
 func TestScaffold_NoDemo_LeavesFoldersEmpty(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, allTargetNames()); err != nil {
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
 		t.Fatal(err)
 	}
 	for _, kind := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
@@ -208,7 +208,7 @@ func TestScaffold_RefusesIfConfigExists(t *testing.T) {
 		[]byte("version: 1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := scaffold(dir, "", false, allTargetNames()); err == nil {
+	if err := scaffold(dir, "", false, "", allTargetNames()); err == nil {
 		t.Error("expected error when config already exists")
 	}
 }

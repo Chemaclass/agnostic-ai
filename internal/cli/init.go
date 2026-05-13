@@ -22,8 +22,19 @@ const defaultBaseDir = ".agnostic-ai"
 //go:embed initdata/agents/* initdata/skills/* initdata/rules/* initdata/hooks/* initdata/mcps/*
 var demoFS embed.FS
 
+// presetFS holds stack-flavored starter spec packs. `init --preset go`
+// (or `--preset ts-react`, `--preset python`) seeds the project with the
+// preset's specs, in addition to whatever `--demo` would write. Each
+// preset lives at `initdata/presets/<name>/<kind>/...`.
+//
+//go:embed all:initdata/presets
+var presetFS embed.FS
+
+const presetRoot = "initdata/presets"
+
 func newInitCmd() *cobra.Command {
 	var demo, interactive bool
+	var preset string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
@@ -31,6 +42,7 @@ func newInitCmd() *cobra.Command {
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
 			"Pass --demo to seed each source folder with a minimal example spec. " +
+			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass -i / --interactive to pick which targets land in the config.",
 		Example: `  # Default: scaffold under .agnostic-ai/
   agnostic-ai init
@@ -40,6 +52,10 @@ func newInitCmd() *cobra.Command {
 
   # Seed each source folder with one minimal example spec
   agnostic-ai init --demo
+
+  # Seed idiomatic specs for a stack
+  agnostic-ai init --preset go
+  agnostic-ai init --preset ts-react
 
   # Legacy root-level layout (agents/, skills/, rules/, ... at project root)
   agnostic-ai init .
@@ -52,6 +68,11 @@ func newInitCmd() *cobra.Command {
 			if len(args) == 1 {
 				base = args[0]
 			}
+			if preset != "" {
+				if err := validatePresetName(preset); err != nil {
+					return err
+				}
+			}
 			targets := allTargetNames()
 			if interactive {
 				picked, err := selectTargets(cmd.InOrStdin(), cmd.ErrOrStderr())
@@ -60,14 +81,45 @@ func newInitCmd() *cobra.Command {
 				}
 				targets = picked
 			}
-			return scaffold(".", base, demo, targets)
+			return scaffold(".", base, demo, preset, targets)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
 		"Seed each source folder with a minimal example spec.")
 	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false,
 		"Prompt for which targets to enable instead of writing all.")
+	cmd.Flags().StringVar(&preset, "preset", "",
+		"Seed stack-flavored starter specs (go, ts-react, python). Composes with --demo and -i.")
+	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
+}
+
+// availablePresets returns the sorted list of preset names embedded in
+// the binary. Drives both tab completion and the unknown-preset error
+// message.
+func availablePresets() []string {
+	entries, err := presetFS.ReadDir(presetRoot)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			out = append(out, e.Name())
+		}
+	}
+	return out
+}
+
+func validatePresetName(name string) error {
+	for _, p := range availablePresets() {
+		if p == name {
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown preset %q. Available: %s", name, strings.Join(availablePresets(), ", "))
 }
 
 // renderConfig builds agnostic.config.yaml with source paths nested
@@ -98,7 +150,7 @@ func renderConfig(base string, targets []string) string {
 // scaffold creates agnostic.config.yaml at root and the source-folder
 // tree under base. targets is written verbatim to the targets: block;
 // callers must supply at least one entry.
-func scaffold(root, base string, demo bool, targets []string) error {
+func scaffold(root, base string, demo bool, preset string, targets []string) error {
 	cfgPath := filepath.Join(root, "agnostic.config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		return fmt.Errorf("agnostic.config.yaml already exists")
@@ -120,9 +172,17 @@ func scaffold(root, base string, demo bool, targets []string) error {
 			return err
 		}
 	}
+	if preset != "" {
+		if err := writePresetFiles(filepath.Join(root, base), preset); err != nil {
+			return err
+		}
+	}
 	summaryf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
 	if demo {
 		summaryf("seeded one example spec per source folder. delete or edit to taste.\n")
+	}
+	if preset != "" {
+		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", preset)
 	}
 	summaryf("import existing AI CLI config with `agnostic-ai import <source>`.\n")
 	return nil
@@ -148,6 +208,41 @@ func writeDemoFiles(baseDir string) error {
 			return nil
 		}
 		data, err := demoFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read embedded %s: %w", path, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", dst, err)
+		}
+		return nil
+	})
+}
+
+// writePresetFiles mirrors every file under initdata/presets/<name>
+// into baseDir, preserving the kind subfolder. Existing files are left
+// untouched, so layering --preset on top of --demo or an existing tree
+// never clobbers user content.
+func writePresetFiles(baseDir, name string) error {
+	root := presetRoot + "/" + name
+	return fs.WalkDir(presetFS, root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(baseDir, filepath.FromSlash(rel))
+		if _, err := os.Stat(dst); err == nil {
+			return nil
+		}
+		data, err := presetFS.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read embedded %s: %w", path, err)
 		}

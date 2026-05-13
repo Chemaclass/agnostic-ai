@@ -7,8 +7,9 @@ Read in this order.
 3. [Plugin protocol](plugin-protocol.md): JSON-over-stdio contract for out-of-tree adapter binaries.
 4. [Contributing](contributing.md): branch flow, commit style, test expectations.
 5. [Release process](release-process.md): how a tag becomes a release.
-6. [Decision log](decisions.md): historical record of design choices.
-7. [Roadmap](roadmap.md): planned directions (layered config, more adapters).
+6. [Contributing a preset](contributing-presets.md): adding a new `init --preset <name>` starter pack.
+7. [Decision log](decisions.md): historical record of design choices.
+8. [Roadmap](roadmap.md): planned directions (layered config, more adapters).
 
 ## House rules
 
