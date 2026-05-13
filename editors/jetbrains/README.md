@@ -24,6 +24,8 @@ review surface as `agnostic-ai sync --check`.
   platform build).
 - The `agnostic-ai` binary on `PATH`. Install from
   [the project README](https://github.com/Chemaclass/agnostic-ai#install).
+- JDK 21+ (for local development; the wrapper auto-downloads if
+  missing via Gradle's toolchain support).
 
 ## Settings
 

@@ -11,7 +11,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.25"
-    id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.intellij.platform") version "2.16.0"
 }
 
 group = "com.agnosticai"
@@ -31,7 +31,8 @@ dependencies {
         // support ships in the platform itself (no separate plugin),
         // so only YAML is listed here.
         bundledPlugins("org.jetbrains.plugins.yaml")
-        // Test plugin verifier; used by `verifyPlugin` task.
+        // Required by the instrumentCode task on IntelliJ Platform 2024.2+.
+        instrumentationTools()
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
@@ -54,12 +55,12 @@ intellijPlatform {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
