@@ -144,6 +144,40 @@ slugs (`[a-z0-9][a-z0-9-]*`); the same form Cursor and Cline expect.
 Honors `sources:` from `agnostic.config.yaml`, so a project that puts
 specs under `specs/` lands files there automatically.
 
+## explain
+
+Reverse provenance: list every output file and section that one spec
+contributes to. Pairs with the `<!-- source: ... -->` forward markers
+adapters write into merged documents.
+
+```bash
+agnostic-ai explain rules/conventional-commits.md
+agnostic-ai explain rules/conventional-commits.md --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Stable schema for editor extensions and scripts. |
+
+Output groups contributions by configured target (the ones in
+`agnostic.config.yaml`) and a separate "would emit if enabled" list for
+adapters that exist but are not currently activated. Each entry tags
+itself as `(full file)` (the spec owns the file) or
+`(section "<name>")` (the spec contributes one section to a merged
+document). Writes nothing to disk.
+
+JSON envelope:
+
+```json
+{
+  "version": "1",
+  "command": "explain",
+  "spec": { "kind": "rule", "name": "...", "path": "..." },
+  "contributions":         [{ "target": "...", "path": "...", "section": "...", "mode": "full|section" }],
+  "would_emit_if_enabled": [{ "target": "...", "path": "...", "section": "...", "mode": "full|section" }]
+}
+```
+
 ## render
 
 Print the emission for a single spec to stdout, per target. Iterate on

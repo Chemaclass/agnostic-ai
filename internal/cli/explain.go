@@ -1,0 +1,236 @@
+package cli
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+
+	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+// contribution describes one downstream output that a single source
+// spec contributes to.
+type contribution struct {
+	Target  string `json:"target"`
+	Path    string `json:"path"`
+	Section string `json:"section,omitempty"`
+	Mode    string `json:"mode"` // "full" or "section"
+}
+
+// explainOutput is the JSON envelope for `explain --json`.
+type explainOutput struct {
+	Version       string         `json:"version"`
+	Command       string         `json:"command"`
+	Spec          explainSpecRef `json:"spec"`
+	Contributions []contribution `json:"contributions"`
+	// WouldEmitIfEnabled lists outputs from adapters that are NOT in the
+	// project's configured targets. Helps authors anticipate the impact
+	// of enabling a new target without having to edit and re-sync.
+	WouldEmitIfEnabled []contribution `json:"would_emit_if_enabled"`
+}
+
+type explainSpecRef struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+func newExplainCmd() *cobra.Command {
+	var jsonOut bool
+	cmd := &cobra.Command{
+		Use:   "explain <spec>",
+		Short: "List every output file and section a spec contributes to.",
+		Long: "Reverse provenance: takes one spec and shows where it lands in " +
+			"each target's emission. Pairs with the `<!-- source: ... -->` " +
+			"forward markers adapters write into merged documents.",
+		Example: `  # Human-readable
+  agnostic-ai explain rules/conventional-commits.md
+
+  # Machine-readable, for editor extensions or scripts
+  agnostic-ai explain rules/conventional-commits.md --json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				return err
+			}
+			entry, err := findSpecEntry(args[0], bundle)
+			if err != nil {
+				return err
+			}
+			configured, extra, err := computeContributions(entry, bundle, cfg)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				if configured == nil {
+					configured = []contribution{}
+				}
+				if extra == nil {
+					extra = []contribution{}
+				}
+				return emitExplainJSON(cmd, explainOutput{
+					Version: "1",
+					Command: "explain",
+					Spec: explainSpecRef{
+						Kind: string(entry.Kind),
+						Name: entry.Name,
+						Path: filepath.ToSlash(entry.Path),
+					},
+					Contributions:      configured,
+					WouldEmitIfEnabled: extra,
+				})
+			}
+			out := cmd.OutOrStdout()
+			_, _ = fmt.Fprintf(out, "%s →\n", filepath.ToSlash(entry.Path))
+			if len(configured) == 0 {
+				_, _ = fmt.Fprintln(out, "  (no configured target emits output for this spec)")
+			}
+			for _, c := range configured {
+				_, _ = fmt.Fprintf(out, "  %s\n", formatContribution(c))
+			}
+			if len(extra) > 0 {
+				_, _ = fmt.Fprintln(out, "")
+				_, _ = fmt.Fprintln(out, "would emit if enabled:")
+				for _, c := range extra {
+					_, _ = fmt.Fprintf(out, "  %s\n", formatContribution(c))
+				}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
+	return cmd
+}
+
+func formatContribution(c contribution) string {
+	path := filepath.ToSlash(c.Path)
+	if c.Mode == "full" {
+		return fmt.Sprintf("[%s] %s (full file)", c.Target, path)
+	}
+	if c.Section != "" {
+		return fmt.Sprintf("[%s] %s (section %q)", c.Target, path, c.Section)
+	}
+	return fmt.Sprintf("[%s] %s (partial)", c.Target, path)
+}
+
+// computeContributions classifies each emitted file as either fully
+// owned by the spec or as one section among many. Returns two slices:
+// contributions from configured targets and contributions from
+// not-configured-but-built-in adapters.
+//
+// Strategy: render every adapter twice — once with the full bundle,
+// once with the bundle minus the spec — and compare. If the path
+// disappears, the spec owns the file; if the content shrinks, the spec
+// contributes a section. Avoids parsing each adapter's output format.
+func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]contribution, []contribution, error) {
+	// Silence per-adapter capability warnings while we render every
+	// adapter twice. Without this, hooks/MCPs would emit "X not
+	// supported" lines repeatedly even though they're informational.
+	adapters.SetWarner(io.Discard)
+	defer adapters.SetWarner(os.Stderr)
+
+	withoutSpec := bundleWithout(b, e)
+	configuredSet := make(map[string]struct{}, len(cfg.Targets))
+	for _, t := range cfg.Targets {
+		configuredSet[t] = struct{}{}
+	}
+
+	var configured, extra []contribution
+	for _, name := range adapters.Names() {
+		adapter, err := adapters.Resolve(name)
+		if err != nil {
+			continue
+		}
+		full, err := captureEmit(adapter, b, cfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", name, err)
+		}
+		minus, err := captureEmit(adapter, withoutSpec, cfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", name, err)
+		}
+		minusByPath := make(map[string]string, len(minus))
+		for _, f := range minus {
+			minusByPath[f.Path] = f.Content
+		}
+		for _, f := range full {
+			before, present := minusByPath[f.Path]
+			switch {
+			case !present:
+				addContribution(&configured, &extra, configuredSet, contribution{
+					Target: name, Path: f.Path, Mode: "full",
+				})
+			case before != f.Content:
+				addContribution(&configured, &extra, configuredSet, contribution{
+					Target: name, Path: f.Path, Section: e.Name, Mode: "section",
+				})
+			}
+		}
+	}
+	sortContribs(configured)
+	sortContribs(extra)
+	return configured, extra, nil
+}
+
+func addContribution(configured, extra *[]contribution, configuredSet map[string]struct{}, c contribution) {
+	if _, ok := configuredSet[c.Target]; ok {
+		*configured = append(*configured, c)
+		return
+	}
+	*extra = append(*extra, c)
+}
+
+func sortContribs(c []contribution) {
+	sort.SliceStable(c, func(i, j int) bool {
+		if c[i].Target != c[j].Target {
+			return c[i].Target < c[j].Target
+		}
+		return c[i].Path < c[j].Path
+	})
+}
+
+// bundleWithout returns a copy of b with the given entry removed.
+// Identity is by Path, which is unique within a bundle.
+func bundleWithout(b spec.Bundle, e spec.Entry) spec.Bundle {
+	return spec.Bundle{
+		Agents: filterEntries(b.Agents, e.Path),
+		Skills: filterEntries(b.Skills, e.Path),
+		Rules:  filterEntries(b.Rules, e.Path),
+		Hooks:  filterEntries(b.Hooks, e.Path),
+		MCPs:   filterEntries(b.MCPs, e.Path),
+	}
+}
+
+func filterEntries(entries []spec.Entry, excludePath string) []spec.Entry {
+	out := make([]spec.Entry, 0, len(entries))
+	for _, e := range entries {
+		if e.Path == excludePath {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// emitExplainJSON serializes an explainOutput with stable indentation.
+// `explain` carries a different envelope than sync/revert/doctor (which
+// share jsonOutput), so it gets its own emitter.
+func emitExplainJSON(cmd *cobra.Command, v explainOutput) error {
+	for i := range v.Contributions {
+		v.Contributions[i].Path = filepath.ToSlash(v.Contributions[i].Path)
+	}
+	for i := range v.WouldEmitIfEnabled {
+		v.WouldEmitIfEnabled[i].Path = filepath.ToSlash(v.WouldEmitIfEnabled[i].Path)
+	}
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
