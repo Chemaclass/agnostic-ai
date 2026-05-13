@@ -64,7 +64,7 @@ compute_next_version() {
 # `var version = "..."` line.
 bump_version_in_file() {
   local file="$1" new="$2" tmp="$1.tmp"
-  trap 'rm -f "$tmp"' RETURN
+  trap 'rm -f "${tmp:-}"' RETURN
   awk -v new="$new" '
     /^var version =/ { print "var version = \"" new "\""; next }
     { print }
@@ -77,7 +77,7 @@ bump_version_in_file() {
 # Unreleased; dated headings drop them, matching docs and history.
 promote_changelog() {
   local file="$1" ver="$2" date="$3" tmp="$1.tmp"
-  trap 'rm -f "$tmp"' RETURN
+  trap 'rm -f "${tmp:-}"' RETURN
   grep -q '^## \[Unreleased\]' "$file" || { printf 'error: no [Unreleased] section in %s\n' "$file" >&2; return 1; }
   awk -v ver="$ver" -v date="$date" '
     !done && /^## \[Unreleased\]/ {
