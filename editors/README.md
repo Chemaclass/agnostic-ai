@@ -8,7 +8,7 @@ no bundled binary, matching the v1 acceptance criteria from
 | Editor | Status | Path | Marketplace |
 |--------|--------|------|-------------|
 | VS Code | shipped (v0.1.0) | [`editors/vscode/`](vscode/) | publish via `npm run publish` from the directory; Personal Access Token required |
-| JetBrains | planned | [`editors/jetbrains/`](jetbrains/) | tracked in #44 |
+| JetBrains | shipped (v0.1.0) | [`editors/jetbrains/`](jetbrains/) | publish via `./gradlew publishPlugin`; `JETBRAINS_MARKETPLACE_TOKEN` required |
 
 ## Why one repo
 

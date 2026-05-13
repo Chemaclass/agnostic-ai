@@ -1,0 +1,88 @@
+<idea-plugin>
+    <id>com.agnosticai</id>
+    <name>agnostic-ai</name>
+    <vendor email="agnostic-ai@chemaclass.es" url="https://github.com/Chemaclass/agnostic-ai">
+        Chemaclass
+    </vendor>
+
+    <description><![CDATA[
+        First-party JetBrains plugin for <a href="https://github.com/Chemaclass/agnostic-ai">agnostic-ai</a>.
+        <br/><br/>
+        Author your AI specs once, ship them to every CLI. Live preview, drift detection, and one-click
+        sync from inside the IDE.
+        <br/><br/>
+        <b>Features</b>
+        <ul>
+            <li><b>Schema-backed editing</b> for <code>agnostic.config.yaml</code> via the published JSON Schema.</li>
+            <li><b>Tools menu actions</b>: sync, sync --check, doctor --fix, status.</li>
+            <li><b>Render banner</b> above each spec: one "Render to &lt;target&gt;" link per configured target.</li>
+            <li><b>Status bar widget</b> showing the current drift count, polled from <code>sync --check --json</code>.</li>
+        </ul>
+        <p>Shells out to the user's installed <code>agnostic-ai</code> binary; ships no bundled binary.</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <h3>0.1.0</h3>
+        <ul>
+            <li>Initial release.</li>
+            <li>Schema validation, tools menu actions, render banner, drift status bar.</li>
+        </ul>
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.json</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="agnostic-ai" displayType="BALLOON"/>
+
+        <!-- Settings page: Settings / Tools / agnostic-ai. -->
+        <applicationService serviceImplementation="com.agnosticai.intellij.settings.AgnosticAiSettings"/>
+        <applicationConfigurable
+            parentId="tools"
+            instance="com.agnosticai.intellij.settings.AgnosticAiConfigurable"
+            id="com.agnosticai.intellij.settings.AgnosticAiConfigurable"
+            displayName="agnostic-ai"/>
+
+        <!-- Status bar widget: drift count. -->
+        <statusBarWidgetFactory
+            id="com.agnosticai.intellij.statusbar.DriftStatusBarFactory"
+            implementation="com.agnosticai.intellij.statusbar.DriftStatusBarFactory"/>
+
+        <!-- Editor banner above each spec with one "Render to <target>"
+             link per configured target. Works for any file type without
+             needing a per-language plugin dependency. -->
+        <editorNotificationProvider
+            implementation="com.agnosticai.intellij.codeinsight.SpecRenderBannerProvider"/>
+
+        <!-- JSON schema for agnostic.config.yaml. -->
+        <json.jsonSchemaProviderFactory
+            implementation="com.agnosticai.intellij.schema.AgnosticConfigSchemaProvider"/>
+    </extensions>
+
+    <actions>
+        <group id="com.agnosticai.intellij.actions.AgnosticAiMenu" text="agnostic-ai" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action
+                id="com.agnosticai.intellij.actions.SyncAction"
+                class="com.agnosticai.intellij.actions.SyncAction"
+                text="Sync"
+                description="Emit per-target configs from agnostic specs."/>
+            <action
+                id="com.agnosticai.intellij.actions.SyncCheckAction"
+                class="com.agnosticai.intellij.actions.SyncCheckAction"
+                text="Sync — check for drift"
+                description="Compare emitted output to disk; non-zero exit on drift."/>
+            <action
+                id="com.agnosticai.intellij.actions.DoctorFixAction"
+                class="com.agnosticai.intellij.actions.DoctorFixAction"
+                text="Doctor — auto-fix"
+                description="Run agnostic-ai doctor --fix."/>
+            <action
+                id="com.agnosticai.intellij.actions.StatusAction"
+                class="com.agnosticai.intellij.actions.StatusAction"
+                text="Status"
+                description="Print project name, layers, spec counts, configured targets, last sync."/>
+        </group>
+    </actions>
+</idea-plugin>
