@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Copilot Custom Chat Modes** (#105): when `outputs.copilot.chatmodes-dir` is set, each agent emits as a Copilot Chat Mode (`<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter). The catch-all `.github/instructions/agent-<name>.instructions.md` emission stays in place.
 
 - **Cursor Custom Commands** (#104): when `outputs.cursor.commands-dir` is set, each agent emits as a Cursor Custom Command (Markdown with `description`/`model` frontmatter) at that path, in addition to the existing `.cursor/rules/<name>.mdc` rule form.
+- **Cline Workflows** (#106): when `outputs.cline.workflows-dir` is set, each agent emits as a Cline Workflow (`<dir>/<name>.md`, invokable in chat as `/<name>.md`). The italic description prefixes the body when present. The existing `.clinerules/agent-<name>.md` rule-form emission stays in place.
 
 ### Changed
 - **`sync --watch` reaction time** (#36): swapped the 200 ms mtime poll for fsnotify with a 50 ms debounce. Idle CPU drops to zero between events; saves trigger a re-sync in under 100 ms. Polling backend kept as an automatic fallback when `fsnotify.NewWatcher` or `Add` fails.
