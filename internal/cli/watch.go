@@ -46,7 +46,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 	if err != nil {
 		return err
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	if err := addWatchPaths(w, watchDirs(root, cfg)); err != nil {
 		return err
