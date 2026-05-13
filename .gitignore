@@ -77,6 +77,7 @@ desktop.ini
 /.vscode/mcp.json
 /CLAUDE.md
 /CONVENTIONS.md
+/.aider.conf.yml
 /.github/copilot-instructions.md
 /.github/instructions/
 /.mcp.json

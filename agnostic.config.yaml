@@ -15,10 +15,30 @@ sources:
   hooks: .agnostic-ai/hooks
   mcps: .agnostic-ai/mcps
 
-# AI CLIs to emit configs for. Comment any out to skip.
+# AI CLIs to emit configs for. Every adapter the tool ships is enabled
+# so the project itself acts as the end-to-end fixture for each emitter.
+# Comment any out to skip.
 targets:
   - claude
   - codex
+  - gemini
+  - cursor
+  - copilot
+  - aider
+  - cline
+  - windsurf
+  - continue
+  - amp
+  - zed
+  - warp
+  - opencode
+
+# Per-target output overrides. Defaults work for everything below;
+# the aider conf-file is opt-in and demonstrates the merge feature.
+outputs:
+  aider:
+    file: CONVENTIONS.md
+    conf-file: .aider.conf.yml
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent

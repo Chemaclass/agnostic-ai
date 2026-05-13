@@ -1,0 +1,5 @@
+name: regen-schema-on-config-edit
+description: Regenerate docs/schemas/config.schema.json whenever internal/config/config.go is edited.
+event: PostToolUse
+matcher: "Edit|Write"
+command: "case \"$CLAUDE_FILE_PATHS\" in *internal/config/config.go*) go run ./cmd/schemagen ;; esac"

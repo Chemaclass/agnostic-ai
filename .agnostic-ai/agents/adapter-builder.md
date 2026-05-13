@@ -10,7 +10,7 @@ You add a new AI CLI adapter to agnostic-ai end to end.
 Steps:
 
 1. Ask the user (or read the linked issue) for: target name, official docs link, native config paths, supported spec kinds (agents, skills, rules, hooks).
-2. Create `internal/adapters/<name>/<name>.go` following the pattern in existing adapters (see `internal/adapters/codex/codex.go` as the simplest reference).
+2. Create `internal/adapters/<name>/<name>.go` following the contract in the `adapter-pattern` rule. Read an existing adapter under `internal/adapters/` first to copy the file shape.
 3. Register in `internal/adapters/adapter.go`.
 4. Add to default targets in `internal/config/config.go` and `internal/cli/init.go`.
 5. Update `.gitignore` if the target writes new generated paths at root.
@@ -21,8 +21,4 @@ Steps:
 10. Run `make build && make test`.
 11. Add a `[Unreleased]` entry to `CHANGELOG.md`.
 
-Conventions:
-
-- Stateless adapter, constructed via `New()`.
-- Log a warning to stderr for unsupported spec kinds.
-- No imports from other adapter packages.
+The required adapter shape (stateless struct, `New()`, `Emit()` signature, `Capabilities` declaration, shared-helper rules) lives in the `adapter-pattern` rule. Read it before step 2.
