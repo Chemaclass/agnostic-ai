@@ -27,36 +27,55 @@ agnostic-ai/
 
 ## Data flow
 
-```
-agnostic-ai.yaml ─┐
-                      ├─► config.Load ─► Config
-                      │
-agents/*.md ──────────┤
-skills/*.md ──────────┤
-rules/*.md ───────────┼─► spec.LoadBundle ─► spec.Bundle (Agents, Skills,
-hooks/*.yaml ─────────┤                       Rules, Hooks, MCPs; per-entry
-mcps/*.yaml ──────────┘                       Scope derived from layout)
+Config and specs are loaded independently, then handed to each adapter.
 
-spec.Bundle ──► adapter.Emit(bundle, config, dryRun) ──► files written
-                 ├─ claude:    .claude/, CLAUDE.md, .mcp.json, .claude/settings.json (hooks)
-                 ├─ codex:     AGENTS.md (hierarchical), .codex/agents/<name>.toml,
-                 │             .agents/skills/<name>/SKILL.md, .codex/config.toml (hooks + MCP)
-                 ├─ gemini:    GEMINI.md (hierarchical), .gemini/commands/<name>.toml,
-                 │             .gemini/settings.json (hooks + mcpServers)
-                 ├─ cursor:    .cursor/rules/, .cursor/mcp.json
-                 ├─ copilot:   .github/copilot-instructions.md (always-on),
-                 │             .github/instructions/<name>.instructions.md (applyTo-scoped),
-                 │             .vscode/mcp.json
-                 ├─ aider:     CONVENTIONS.md
-                 ├─ cline:     .clinerules/<name>.md
-                 ├─ windsurf:  .windsurf/rules/<name>.md
-                 ├─ continue:  .continue/rules/<name>.md, .continue/mcpServers/<name>.yaml
-                 ├─ amp:       AGENTS.md (hierarchical), .agents/commands/<name>.md,
-                 │             .amp/settings.json (amp.mcpServers)
-                 ├─ zed:       .rules, .zed/settings.json (context_servers)
-                 ├─ warp:      AGENTS.md (hierarchical; agents inlined), .warp/.mcp.json
-                 └─ opencode:  .opencode/AGENTS.md, .opencode/commands/<name>.md,
-                               opencode.json (mcp map; merges with user keys)
+### Config layer
+
+```
+agnostic-ai.yaml          (committed; team-wide defaults)
+  + agnostic-ai.local.yaml (optional, gitignored; per-machine overrides)
+        │
+        ▼  deep-merge: maps recurse, scalars and slices replace
+   config.Load ──► *config.Config (defaults applied)
+```
+
+Legacy projects with `agnostic.config.yaml` still load; a one-shot stderr
+warning per process prompts the rename.
+
+### Spec layer
+
+```
+agents/*.md   ─┐
+skills/*.md   ─┤
+rules/*.md    ─┼─► spec.LoadBundle ─► spec.Bundle
+hooks/*.yaml  ─┤                       (Agents, Skills, Rules, Hooks, MCPs;
+mcps/*.yaml   ─┘                        per-entry Scope from source layout)
+```
+
+### Emit layer
+
+```
+(Config, spec.Bundle) ──► adapter.Emit(bundle, config, dryRun)
+        │
+        ├─ claude     .claude/, CLAUDE.md, .mcp.json, .claude/settings.json (hooks)
+        ├─ codex      AGENTS.md (hierarchical), .codex/agents/<name>.toml,
+        │             .agents/skills/<name>/SKILL.md, .codex/config.toml (hooks + MCP)
+        ├─ gemini     GEMINI.md (hierarchical), .gemini/commands/<name>.toml,
+        │             .gemini/settings.json (hooks + mcpServers)
+        ├─ cursor     .cursor/rules/, .cursor/mcp.json
+        ├─ copilot    .github/copilot-instructions.md (always-on),
+        │             .github/instructions/<name>.instructions.md (applyTo-scoped),
+        │             .vscode/mcp.json
+        ├─ aider      CONVENTIONS.md
+        ├─ cline      .clinerules/<name>.md
+        ├─ windsurf   .windsurf/rules/<name>.md
+        ├─ continue   .continue/rules/<name>.md, .continue/mcpServers/<name>.yaml
+        ├─ amp        AGENTS.md (hierarchical), .agents/commands/<name>.md,
+        │             .amp/settings.json (amp.mcpServers)
+        ├─ zed        .rules, .zed/settings.json (context_servers)
+        ├─ warp       AGENTS.md (hierarchical; agents inlined), .warp/.mcp.json
+        └─ opencode   .opencode/AGENTS.md, .opencode/commands/<name>.md,
+                      opencode.json (mcp map; merges with user keys)
 ```
 
 ## Emit modes
@@ -73,9 +92,11 @@ guarded `state` struct:
 Modes are independent and can stack (e.g. recording + backup during a
 gitignore-managed sync).
 
-`sync --watch` wraps these by polling the source directories and
-`agnostic-ai.yaml` every 200 ms and re-running `Emit` whenever an
-mtime changes.
+`sync --watch` wraps these. The default backend is fsnotify with a 50 ms
+debounce, watching every source directory plus `agnostic-ai.yaml` and
+`agnostic-ai.local.yaml` when present. `--watch-poll` forces the legacy
+200 ms mtime poll for filesystems where fsnotify is unreliable (some
+network mounts, container volumes).
 
 ## Core types
 

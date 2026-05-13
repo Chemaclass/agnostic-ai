@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
+	"sync"
 	"testing"
 )
 
@@ -115,6 +117,40 @@ func TestLoad_MalformedYAML(t *testing.T) {
 	_, err := Load(dir)
 	if err == nil {
 		t.Fatal("expected error on malformed yaml")
+	}
+}
+
+func TestLoad_LegacyWarningFiresOncePerPath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, LegacyConfigFileName),
+		[]byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Reset the dedupe map so this test is independent of other tests
+	// that already loaded a legacy file in the same process.
+	legacyWarnedPaths = sync.Map{}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	for i := 0; i < 5; i++ {
+		if _, err := Load(dir); err != nil {
+			t.Fatalf("load %d: %v", i, err)
+		}
+	}
+	_ = w.Close()
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	got := string(buf[:n])
+	count := strings.Count(got, "is deprecated. Rename to")
+	if count != 1 {
+		t.Errorf("expected 1 deprecation warning across 5 loads, got %d: %q", count, got)
 	}
 }
 

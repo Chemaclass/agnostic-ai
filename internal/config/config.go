@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
 
-// ConfigFileName is the canonical config file. Load also accepts the
-// legacy LegacyConfigFileName but emits a deprecation warning.
+// File names recognized by Load.
 const (
 	ConfigFileName        = "agnostic-ai.yaml"
 	LegacyConfigFileName  = "agnostic.config.yaml"
@@ -66,11 +66,11 @@ type Output struct {
 }
 
 // Load reads the project config from root. It prefers
-// agnostic-ai.yaml and falls back to the legacy
-// agnostic.config.yaml (with a stderr deprecation warning). When
-// agnostic-ai.local.yaml exists in the same directory, it is
-// deep-merged over the base: scalars and slices in the local file
-// replace the base, maps merge recursively.
+// `agnostic-ai.yaml` and falls back to the legacy
+// `agnostic.config.yaml` (with a one-shot stderr deprecation warning
+// per process). When `agnostic-ai.local.yaml` exists in the same
+// directory, it is deep-merged over the base: scalars and slices in
+// the local file replace the base, maps merge recursively.
 func Load(root string) (*Config, error) {
 	cfg, _, err := LoadWithSources(root)
 	return cfg, err
@@ -85,36 +85,28 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		return nil, nil, err
 	}
 	if legacy {
-		fmt.Fprintf(os.Stderr,
-			"! %s is deprecated. Rename to %s.\n",
-			LegacyConfigFileName, ConfigFileName)
+		warnLegacyOnce(basePath)
 	}
-
-	merged, err := readYAMLMap(basePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	sources := []string{basePath}
 
 	localPath := filepath.Join(root, LocalOverrideFileName)
-	if _, statErr := os.Stat(localPath); statErr == nil {
-		localMap, err := readYAMLMap(localPath)
-		if err != nil {
+	localExists := fileExists(localPath)
+
+	cfg := defaults()
+	if localExists {
+		if err := loadAndMerge(cfg, basePath, localPath); err != nil {
 			return nil, nil, err
 		}
-		deepMerge(merged, localMap)
-		sources = append(sources, localPath)
-	}
-
-	data, err := yaml.Marshal(merged)
-	if err != nil {
-		return nil, nil, fmt.Errorf("re-encode merged config: %w", err)
-	}
-	cfg := defaults()
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, nil, fmt.Errorf("parse %s: %w", basePath, err)
+	} else {
+		if err := loadInto(cfg, basePath); err != nil {
+			return nil, nil, err
+		}
 	}
 	cfg.applyDefaults()
+
+	sources := []string{basePath}
+	if localExists {
+		sources = append(sources, localPath)
+	}
 	return cfg, sources, nil
 }
 
@@ -123,15 +115,50 @@ func LoadWithSources(root string) (*Config, []string, error) {
 // legacy is true when the fallback won.
 func ResolveConfigPath(root string) (path string, legacy bool, err error) {
 	primary := filepath.Join(root, ConfigFileName)
-	if _, statErr := os.Stat(primary); statErr == nil {
+	if fileExists(primary) {
 		return primary, false, nil
 	}
 	legacyPath := filepath.Join(root, LegacyConfigFileName)
-	if _, statErr := os.Stat(legacyPath); statErr == nil {
+	if fileExists(legacyPath) {
 		return legacyPath, true, nil
 	}
 	return "", false, fmt.Errorf("read config: no %s or %s in %s",
 		ConfigFileName, LegacyConfigFileName, root)
+}
+
+// loadInto unmarshals path directly into cfg. Used when no local
+// override file is present and the map-merge round-trip is wasteful.
+func loadInto(cfg *Config, path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	return nil
+}
+
+// loadAndMerge parses base and local as untyped maps, deep-merges
+// local over base, and decodes the result into cfg.
+func loadAndMerge(cfg *Config, basePath, localPath string) error {
+	base, err := readYAMLMap(basePath)
+	if err != nil {
+		return err
+	}
+	local, err := readYAMLMap(localPath)
+	if err != nil {
+		return err
+	}
+	deepMerge(base, local)
+	data, err := yaml.Marshal(base)
+	if err != nil {
+		return fmt.Errorf("re-encode merged config: %w", err)
+	}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("parse merged config: %w", err)
+	}
+	return nil
 }
 
 func readYAMLMap(path string) (map[string]any, error) {
@@ -165,6 +192,25 @@ func deepMerge(dst, src map[string]any) {
 		}
 		dst[k] = sv
 	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// warnLegacyOnce prints the deprecation warning a single time per
+// process per legacy path. Load is called several times in a typical
+// sync flow; spamming the same warning is noise.
+var legacyWarnedPaths sync.Map
+
+func warnLegacyOnce(path string) {
+	if _, loaded := legacyWarnedPaths.LoadOrStore(path, struct{}{}); loaded {
+		return
+	}
+	fmt.Fprintf(os.Stderr,
+		"! %s is deprecated. Rename to %s.\n",
+		LegacyConfigFileName, ConfigFileName)
 }
 
 func DefaultTargets() []string {

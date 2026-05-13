@@ -173,7 +173,7 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets)), 0o644); err != nil {
 		return err
 	}
-	if err := ensureLocalOverrideIgnored(root); err != nil {
+	if err := ensureLineInGitignore(root, config.LocalOverrideFileName); err != nil {
 		return err
 	}
 	if demo {
@@ -263,37 +263,6 @@ func writePresetFiles(baseDir, name string) error {
 		}
 		return nil
 	})
-}
-
-// ensureLocalOverrideIgnored appends the local-override filename to
-// .gitignore so machine-specific tweaks never get committed by
-// accident. The file is created if missing. A no-op when the entry
-// already exists.
-func ensureLocalOverrideIgnored(root string) error {
-	path := filepath.Join(root, ".gitignore")
-	entry := config.LocalOverrideFileName
-	existing, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	for _, line := range strings.Split(string(existing), "\n") {
-		if strings.TrimSpace(line) == entry {
-			return nil
-		}
-	}
-	var buf strings.Builder
-	if len(existing) > 0 {
-		buf.Write(existing)
-		if !strings.HasSuffix(string(existing), "\n") {
-			buf.WriteString("\n")
-		}
-	}
-	buf.WriteString(entry)
-	buf.WriteString("\n")
-	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
 }
 
 func scaffoldHint(base string, kinds []string) string {
