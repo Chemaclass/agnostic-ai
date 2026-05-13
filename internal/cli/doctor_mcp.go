@@ -47,12 +47,11 @@ func reportMCPCommandResolution(cmd *cobra.Command) {
 	cmd.Println()
 	cmd.Println("MCP command resolution:")
 	for _, r := range results {
-		switch {
-		case r.err == nil:
+		if r.err == nil {
 			cmd.Printf("  ✓ %s (%s) → %s\n", r.name, r.cmd, r.path)
-		default:
-			cmd.Printf("  ✗ %s (%s) not found on PATH. %s\n", r.name, r.cmd, installHint(r.cmd))
+			continue
 		}
+		cmd.Printf("  ✗ %s (%s) not found on PATH. %s\n", r.name, r.cmd, installHint(r.cmd))
 	}
 }
 
