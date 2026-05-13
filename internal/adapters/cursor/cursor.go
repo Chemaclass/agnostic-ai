@@ -35,7 +35,10 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one .mdc per rule, agent, and skill, plus an
-// `.cursor/mcp.json` when MCP entries exist.
+// `.cursor/mcp.json` when MCP entries exist. When
+// `outputs.cursor.commands-dir` is set, also writes one Cursor Custom
+// Command per agent at that directory; the rule-form emission still
+// happens so users that depend on it keep working.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -49,7 +52,36 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
+	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
+		for _, a := range b.Agents {
+			path := commandsDir + "/" + a.Name + ".md"
+			if err := emit.WriteFile(path, command(a), dryRun); err != nil {
+				return err
+			}
+		}
+	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// command renders a Cursor Custom Command file. The Cursor docs
+// describe these as Markdown with optional frontmatter (`description`,
+// `model`); the body is the prompt the IDE sends when the user invokes
+// the command.
+func command(e spec.Entry) string {
+	m := emit.ResolveMeta(e.Meta, target)
+	desc, _ := m["description"].(string)
+	model, _ := m["model"].(string)
+	var b strings.Builder
+	b.WriteString("---\n")
+	if desc != "" {
+		b.WriteString("description: " + desc + "\n")
+	}
+	if model != "" {
+		b.WriteString("model: " + model + "\n")
+	}
+	b.WriteString("---\n\n")
+	b.WriteString(e.Body)
+	return b.String()
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {

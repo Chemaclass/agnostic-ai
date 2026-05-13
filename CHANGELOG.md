@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`validate` orphan-kind warning** (#114): when a project ships hook or MCP specs but no enabled target consumes them, validate prints a one-line summary per orphaned kind with the targets that would unblock it.
 - **`doctor` MCP command resolution** (#113): for every stdio MCP spec, doctor reports whether the configured `command:` resolves on PATH. Missing common commands (npx, uvx, python, docker) include an inline install hint. HTTP/SSE servers skip the check.
 
+- **Cursor Custom Commands** (#104): when `outputs.cursor.commands-dir` is set, each agent emits as a Cursor Custom Command (Markdown with `description`/`model` frontmatter) at that path, in addition to the existing `.cursor/rules/<name>.mdc` rule form.
+
 ### Changed
 - **`sync --watch` reaction time** (#36): swapped the 200 ms mtime poll for fsnotify with a 50 ms debounce. Idle CPU drops to zero between events; saves trigger a re-sync in under 100 ms. Polling backend kept as an automatic fallback when `fsnotify.NewWatcher` or `Add` fails.
 - **Code of Conduct contact**: `conduct@chemaclass.dev` → `agnostic-ai@chemaclass.es`.

@@ -123,3 +123,56 @@ func TestEmit_SkillWritesMdcFile(t *testing.T) {
 		t.Errorf("skill should default alwaysApply=false: %s", got)
 	}
 }
+
+func TestEmit_CommandsDirEmitsAgentAsCommand(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			target: {CommandsDir: ".cursor/commands"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "code-reviewer", Meta: map[string]any{
+			"description": "reviews code",
+			"model":       "sonnet-4-6",
+		}, Body: "Body of the prompt.\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	commandPath := filepath.Join(dir, ".cursor/commands/code-reviewer.md")
+	got, err := os.ReadFile(commandPath)
+	if err != nil {
+		t.Fatalf("expected command file at %s: %v", commandPath, err)
+	}
+	if !strings.Contains(string(got), "description: reviews code") {
+		t.Errorf("missing description in command: %s", got)
+	}
+	if !strings.Contains(string(got), "model: sonnet-4-6") {
+		t.Errorf("missing model in command: %s", got)
+	}
+	if !strings.Contains(string(got), "Body of the prompt.") {
+		t.Errorf("missing body in command: %s", got)
+	}
+	// Rule-form emission must still happen (back-compat).
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/code-reviewer.mdc")); err != nil {
+		t.Errorf("rule-form emission must remain when commands-dir is set: %v", err)
+	}
+}
+
+func TestEmit_NoCommandsDirSkipsCommandEmission(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/agent1.md")); err == nil {
+		t.Error("commands dir not configured; should not emit command file")
+	}
+}
