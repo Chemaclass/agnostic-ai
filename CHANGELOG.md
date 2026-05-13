@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.7.0 - 2026-05-13
+
 ### Added
 - New CLI commands: `new <kind> <name>` scaffolds a single spec (#31); `render <spec> [--target <t>...]` prints emission to stdout (#31); `explain <spec>` lists every output a spec contributes to, `--json` envelope (#40); `init --preset <go|ts-react|python>` seeds stack-flavored starter specs (#47).
 - `sync --watch-poll` to force the polling backend on network mounts / container volumes (#36).
