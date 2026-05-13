@@ -1,10 +1,13 @@
 :root {
+  color-scheme: dark light;
   --bg: #0d1117;
   --bg-panel: #161b22;
   --fg: #c9d1d9;
   --fg-muted: #8b949e;
   --accent: #58a6ff;
+  --accent-fg: #0d1117;
   --border: #30363d;
+  --danger: #f85149;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -15,7 +18,9 @@
     --fg: #1f2328;
     --fg-muted: #57606a;
     --accent: #0969da;
+    --accent-fg: #ffffff;
     --border: #d0d7de;
+    --danger: #d1242f;
   }
 }
 
@@ -31,6 +36,32 @@ body {
   color: var(--fg);
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
   height: 100%;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+textarea:focus-visible,
+#content:focus-visible {
+  outline-offset: -2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 body {
@@ -152,10 +183,14 @@ textarea {
   cursor: pointer;
 }
 
+.tabs button:hover {
+  border-color: var(--accent);
+}
+
 .tabs button[aria-selected="true"] {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--bg);
+  color: var(--accent-fg);
 }
 
 #content {
@@ -182,7 +217,7 @@ textarea {
 }
 
 #status.error {
-  color: #f85149;
+  color: var(--danger);
   font-style: normal;
 }
 
