@@ -31,8 +31,6 @@ dependencies {
         // support ships in the platform itself (no separate plugin),
         // so only YAML is listed here.
         bundledPlugins("org.jetbrains.plugins.yaml")
-        // Required by the instrumentCode task on IntelliJ Platform 2024.2+.
-        instrumentationTools()
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
