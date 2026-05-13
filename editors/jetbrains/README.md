@@ -49,7 +49,7 @@ cd editors/jetbrains
                             # recommended IDE versions
 ```
 
-The Gradle wrapper bootstraps Gradle 8.10.2 on first run.
+The Gradle wrapper bootstraps Gradle 9.0.0 on first run.
 
 ## Publish
 
