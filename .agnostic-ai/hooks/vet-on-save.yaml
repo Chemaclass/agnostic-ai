@@ -1,0 +1,5 @@
+name: vet-on-save
+description: Run go vet on the touched package after Edit or Write modifies a Go file.
+event: PostToolUse
+matcher: "Edit|Write"
+command: "echo \"$CLAUDE_FILE_PATHS\" | tr ' ' '\\n' | grep '\\.go$' | xargs -r -I{} dirname {} | sort -u | xargs -r -I{} go vet ./{}/..."

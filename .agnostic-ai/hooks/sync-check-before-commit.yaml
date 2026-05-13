@@ -1,0 +1,5 @@
+name: sync-check-before-commit
+description: Refuse a git commit while .agnostic-ai/ specs have drifted from emitted target files.
+event: PreToolUse
+matcher: "Bash"
+command: "case \"$CLAUDE_TOOL_INPUT\" in *'git commit'*) ./agnostic-ai sync --check || { echo 'specs drift from emitted files; run: agnostic-ai sync' >&2; exit 1; } ;; esac"
