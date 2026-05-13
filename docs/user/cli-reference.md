@@ -22,12 +22,14 @@ agnostic-ai init                  # default base dir: .agnostic-ai/
 agnostic-ai init specs            # custom base: specs/{agents,skills,...}/
 agnostic-ai init .                # legacy root-level layout
 agnostic-ai init --demo           # seed each source folder with one example spec
+agnostic-ai init --preset go      # seed idiomatic specs for a stack (go, ts-react, python)
 agnostic-ai init -i               # interactive: pick which targets land in config
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Existing files are never overwritten. |
+| `--preset <name>` | Seed stack-flavored starter specs. Available: `go`, `ts-react`, `python`. Composes with `--demo` and `-i`. Errors on unknown names with the available list. Existing files are never overwritten, so re-running against a partially populated tree is safe. |
 | `-i, --interactive` | Multi-select prompt to pick which targets land in `agnostic.config.yaml`. Accepts piped comma-separated input for non-TTY use (e.g. `echo "claude,codex" \| agnostic-ai init -i`). |
 
 The optional positional `[dir]` arg sets the base directory under which
