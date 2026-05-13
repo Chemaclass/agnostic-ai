@@ -3,6 +3,7 @@ package cline
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -45,5 +46,62 @@ func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "backend/api/.clinerules/auth.md")); err != nil {
 		t.Errorf("expected nested clinerules: %v", err)
+	}
+}
+
+func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "ship-it",
+			Meta: map[string]any{"description": "open and merge a PR"},
+			Body: "Run the release.",
+		},
+		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"cline": {WorkflowsDir: ".clinerules/workflows"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+
+	wfPath := filepath.Join(dir, ".clinerules/workflows/ship-it.md")
+	got, err := os.ReadFile(wfPath)
+	if err != nil {
+		t.Fatalf("missing workflow: %v", err)
+	}
+	body := string(got)
+	if !strings.Contains(body, "_open and merge a PR_") {
+		t.Errorf("workflow missing description italic: %q", body)
+	}
+	if !strings.Contains(body, "Run the release.") {
+		t.Errorf("workflow missing body: %q", body)
+	}
+
+	// Rule-form emission still happens for back-compat.
+	if _, err := os.Stat(filepath.Join(dir, ".clinerules/agent-ship-it.md")); err != nil {
+		t.Errorf("rule-form agent missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".clinerules/r1.md")); err != nil {
+		t.Errorf("rule missing: %v", err)
+	}
+}
+
+func TestEmit_NoWorkflowsDirNoEmit(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "agent"}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".clinerules/workflows")); !os.IsNotExist(err) {
+		t.Errorf("expected no workflows dir; err=%v", err)
 	}
 }

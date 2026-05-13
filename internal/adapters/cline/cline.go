@@ -1,7 +1,14 @@
 // Package cline emits .clinerules/*.md for the Cline VSCode extension.
+//
+// Rules and agents emit as `.clinerules/*.md` (always-on). When
+// `outputs.cline.workflows-dir` is set, each agent additionally emits
+// as a Cline Workflow at `<dir>/<name>.md`, invokable in chat as
+// `/<name>.md` (Cline's slash-command surface for workflows).
 package cline
 
 import (
+	"path/filepath"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -27,12 +34,46 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule and per agent into the rules directory.
+// When `outputs.cline.workflows-dir` is set, each agent additionally
+// emits as a Cline Workflow at `<dir>/<name>.md`; the existing
+// `.clinerules/agent-<name>.md` rule-form emission stays in place so
+// users that depend on it keep working.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	return emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
-	}, dryRun)
+	}, dryRun); err != nil {
+		return err
+	}
+	return emitWorkflows(b, cfg, dryRun)
+}
+
+// emitWorkflows writes one workflow per agent under the configured
+// workflows directory. No-op when the dir is unset.
+func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	dir := emit.OutputWorkflowsDir(cfg, target, "")
+	if dir == "" {
+		return nil
+	}
+	for _, a := range b.Agents {
+		path := filepath.Join(dir, a.Name+".md")
+		if err := emit.WriteFile(path, renderWorkflow(a), dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// renderWorkflow returns the Markdown body for a Cline Workflow file.
+// Cline workflows are plain Markdown with no required frontmatter; the
+// description (when present) prefixes the body as an italic line so
+// users can see at a glance what the workflow does when listed.
+func renderWorkflow(e spec.Entry) string {
+	if d := e.Description(); d != "" {
+		return "_" + d + "_\n\n" + e.Body
+	}
+	return e.Body
 }
