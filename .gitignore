@@ -103,3 +103,9 @@ WARP.md
 # =============================================================================
 /.golangci-cache/
 /tmp/
+
+# =============================================================================
+# Playground build artifacts (rebuilt by `make playground-build` or CI)
+# =============================================================================
+/docs/playground/agnostic-ai.wasm
+/docs/playground/wasm_exec.js

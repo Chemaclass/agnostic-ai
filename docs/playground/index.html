@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>agnostic-ai playground</title>
+    <meta
+      name="description"
+      content="Paste an agnostic-ai spec, pick targets, see what each AI CLI gets — runs entirely in your browser via WebAssembly."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="wasm_exec.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>agnostic-ai playground</h1>
+      <p class="lede">
+        Paste an
+        <a href="https://github.com/Chemaclass/agnostic-ai">agnostic-ai</a> spec
+        on the left, pick targets, and see exactly what each AI CLI receives.
+        Runs entirely in your browser. No server, no upload.
+      </p>
+    </header>
+
+    <main id="app" hidden>
+      <section class="input">
+        <div class="input-controls">
+          <label>
+            Kind
+            <select id="kind">
+              <option value="rule" selected>rule</option>
+              <option value="agent">agent</option>
+              <option value="skill">skill</option>
+              <option value="hook">hook</option>
+              <option value="mcp">mcp</option>
+            </select>
+          </label>
+          <fieldset id="targets" class="targets">
+            <legend>Targets</legend>
+          </fieldset>
+        </div>
+        <textarea
+          id="source"
+          spellcheck="false"
+          aria-label="Spec source"
+        ></textarea>
+      </section>
+      <section class="output">
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <pre id="content" tabindex="0"></pre>
+      </section>
+    </main>
+
+    <p id="status">Loading WebAssembly module (~5 MB, ~1.4 MB gzipped)…</p>
+
+    <footer>
+      <p>
+        Source: <a href="https://github.com/Chemaclass/agnostic-ai">Chemaclass/agnostic-ai</a>
+        ·
+        Reflects the build at deploy time; rebuild on each release.
+      </p>
+    </footer>
+
+    <script src="playground.js"></script>
+  </body>
+</html>
