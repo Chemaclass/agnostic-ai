@@ -102,6 +102,12 @@
         "conf-file": {
           "type": "string"
         },
+        "model": {
+          "type": "string"
+        },
+        "weak-model": {
+          "type": "string"
+        },
         "mcp-dir": {
           "type": "string"
         },
