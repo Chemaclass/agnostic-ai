@@ -15,7 +15,7 @@ import (
 func emptyProjectDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -122,7 +122,7 @@ func TestInit_PresetDoesNotOverwriteExistingFiles(t *testing.T) {
 	if err := os.WriteFile(existing, preserved, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// scaffold errors when agnostic.config.yaml exists, so call
+	// scaffold errors when agnostic-ai.yaml exists, so call
 	// writePresetFiles directly to test the no-clobber guarantee.
 	if err := writePresetFiles(filepath.Join(dir, ".agnostic-ai"), "go"); err != nil {
 		t.Fatal(err)

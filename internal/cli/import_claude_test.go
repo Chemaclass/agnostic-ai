@@ -223,7 +223,7 @@ func TestImportCmd_RequiresConfig(t *testing.T) {
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"import", "claude"})
 	if err := root.Execute(); err == nil {
-		t.Error("expected error when agnostic.config.yaml missing")
+		t.Error("expected error when agnostic-ai.yaml missing")
 	}
 }
 
@@ -254,5 +254,5 @@ func writeMinimalConfig(t *testing.T, dir, base string) {
 			cfg += "  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n"
 		}
 	}
-	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), cfg)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 }

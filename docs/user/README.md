@@ -5,7 +5,7 @@ Read in this order. Each builds on the previous.
 1. [Getting started](getting-started.md): install, scaffold, first sync. ~5 min.
 2. [Spec format](spec-format.md): the five kinds (agent, skill, rule, hook, MCP), nested per-directory scope, and the `x-<target>` namespace for tool-specific extensions.
 3. [Targets](targets.md): capability matrix and per-target output paths (13 supported tools).
-4. [Configuration](configuration.md): `agnostic.config.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
+4. [Configuration](configuration.md): `agnostic-ai.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
 5. [CLI reference](cli-reference.md): every command and flag, including `sync --watch`, `sync --auto-sync`, `sync --check`, `sync --backup`, `init --demo`, `init -i`, `import <source>`, `revert`, `doctor`, `status`, and `--json` output on `sync`/`revert`/`doctor`/`status`.
 6. [CI](ci.md): drift detection in pull requests with `sync --check`.
 7. [Git hooks](git-hooks.md): pre-commit recipes for pre-commit, lefthook, husky.

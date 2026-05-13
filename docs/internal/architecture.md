@@ -9,7 +9,7 @@ agnostic-ai/
 │   ├── cli/                        # cobra commands (sync, validate, list,
 │   │                                 init, import, doctor, revert; gitignore
 │   │                                 helper, watch loop, auto-sync prompt)
-│   ├── config/                     # agnostic.config.yaml loader
+│   ├── config/                     # agnostic-ai.yaml loader
 │   ├── spec/                       # spec file loader (md+frontmatter, yaml)
 │   │                                 with per-directory scope assignment
 │   └── adapters/
@@ -28,7 +28,7 @@ agnostic-ai/
 ## Data flow
 
 ```
-agnostic.config.yaml ─┐
+agnostic-ai.yaml ─┐
                       ├─► config.Load ─► Config
                       │
 agents/*.md ──────────┤
@@ -74,7 +74,7 @@ Modes are independent and can stack (e.g. recording + backup during a
 gitignore-managed sync).
 
 `sync --watch` wraps these by polling the source directories and
-`agnostic.config.yaml` every 200 ms and re-running `Emit` whenever an
+`agnostic-ai.yaml` every 200 ms and re-running `Emit` whenever an
 mtime changes.
 
 ## Core types
@@ -108,7 +108,7 @@ Stateless. Construct once via `New()`, call `Emit` per sync.
 
 ### `config.Config`
 
-Mirrors `agnostic.config.yaml`. Defaults applied in `config.Load`.
+Mirrors `agnostic-ai.yaml`. Defaults applied in `config.Load`.
 Holds `Sources` (per-kind source dirs), `Outputs` (per-target path
 overrides, including `mcp-file`), the `Gitignore` block, and `AutoSync`
 (`*bool`, persisted from the `--auto-sync` prompt; `nil` means the

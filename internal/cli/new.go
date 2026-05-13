@@ -30,7 +30,7 @@ func newNewCmd() *cobra.Command {
 		Use:   "new <kind> <name>",
 		Short: "Scaffold a single spec file with kind-appropriate frontmatter.",
 		Long: "Creates one spec file under the directory configured for <kind> " +
-			"in agnostic.config.yaml. Replaces 'copy from --demo and edit' as " +
+			"in agnostic-ai.yaml. Replaces 'copy from --demo and edit' as " +
 			"the starting point for a single new agent, skill, rule, hook, or MCP.",
 		Example: `  # Add a new rule
   agnostic-ai new rule no-console-log

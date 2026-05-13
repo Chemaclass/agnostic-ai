@@ -19,7 +19,7 @@ func TestScaffold_DefaultBaseDir(t *testing.T) {
 			t.Errorf("missing .agnostic-ai/%s", d)
 		}
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestScaffold_CustomBaseDir(t *testing.T) {
 			t.Errorf("missing specs/%s", d)
 		}
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 			t.Errorf("missing %s at root", d)
 		}
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestScaffold_NestedBaseDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "config", "ai", "agents")); err != nil {
 		t.Errorf("missing config/ai/agents")
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestInitCmd_DemoFlag(t *testing.T) {
 
 func TestScaffold_RefusesIfConfigExists(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestInitCmd_Interactive_PipedSelection(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestInitCmd_Interactive_PipedWithDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "specs", "agents")); err != nil {
 		t.Errorf("expected specs/agents/, got %v", err)
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "agents", "code-reviewer.md")); err != nil {
 		t.Errorf("expected demo agent file, got %v", err)
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -335,8 +335,8 @@ func TestInitCmd_Interactive_PipedEmptyErrors(t *testing.T) {
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected error for empty piped selection")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); err == nil {
-		t.Error("agnostic.config.yaml should not be written on empty selection")
+	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); err == nil {
+		t.Error("agnostic-ai.yaml should not be written on empty selection")
 	}
 }
 
@@ -355,7 +355,7 @@ func TestInitCmd_Interactive_PipedUnknownTarget(t *testing.T) {
 	if !strings.Contains(err.Error(), "fnord") {
 		t.Errorf("error should mention 'fnord', got %v", err)
 	}
-	if _, statErr := os.Stat(filepath.Join(dir, "agnostic.config.yaml")); statErr == nil {
-		t.Error("agnostic.config.yaml should not be written on validation error")
+	if _, statErr := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); statErr == nil {
+		t.Error("agnostic-ai.yaml should not be written on validation error")
 	}
 }

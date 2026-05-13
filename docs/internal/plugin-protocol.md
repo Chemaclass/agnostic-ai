@@ -15,7 +15,7 @@ agnostic-ai-adapter-<target>
 ```
 
 is a candidate adapter for the target `<target>`. To opt in, list the
-target in `agnostic.config.yaml`:
+target in `agnostic-ai.yaml`:
 
 ```yaml
 targets:
@@ -74,7 +74,7 @@ Field notes:
   by returning an `errors` entry.
 - `command` is `emit` for the only currently-supported operation. New
   commands will use distinct names rather than reshape the envelope.
-- `target` is the exact target name from `agnostic.config.yaml`. An
+- `target` is the exact target name from `agnostic-ai.yaml`. An
   adapter can multiplex on multiple names by using the same binary at
   different `<target>` symlinks.
 - `dry_run` lets the adapter skip side effects an in-tree adapter
@@ -82,7 +82,7 @@ Field notes:
   host writes `files` itself, and dry-run is honored at the host
   level.
 - `config.sources` and `config.outputs` mirror the user's
-  `agnostic.config.yaml` after defaults are applied. Adapters that
+  `agnostic-ai.yaml` after defaults are applied. Adapters that
   honor per-target output paths read them from `outputs[target]`.
 
 ### Output
@@ -176,4 +176,4 @@ func render(rules []external.SpecEntry) string {
 ```
 
 Build as `agnostic-ai-adapter-my-tool`, drop on `PATH`, list `my-tool`
-in `agnostic.config.yaml`. The next `agnostic-ai sync` picks it up.
+in `agnostic-ai.yaml`. The next `agnostic-ai sync` picks it up.

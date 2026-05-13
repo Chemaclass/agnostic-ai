@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `agnostic-ai.local.yaml` local override file. Deep-merged over the base config: scalars and lists replace, maps merge recursively. Intended for per-machine tweaks (extra targets, alternate output paths) that should never be committed. `init` now appends the filename to `.gitignore` automatically (#128).
+
+### Changed
+- Renamed the canonical config file from `agnostic.config.yaml` to `agnostic-ai.yaml` so the filename matches the binary name. `Load` still accepts the legacy filename and prints a one-line deprecation warning on stderr; `init` writes the new name (#128).
+
 ## v0.7.0 - 2026-05-13
 
 ### Added

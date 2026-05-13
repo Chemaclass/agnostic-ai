@@ -96,7 +96,7 @@ func TestSelectTargetsForSync_PipedUnknownTarget(t *testing.T) {
 func TestFirstSyncTargetSelection_PipedPersists(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\ntargets:\n"+listTargets(allTargetNames())), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestFirstSyncTargetSelection_PipedPersists(t *testing.T) {
 		t.Errorf("got %v, want %v", picked, want)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(data), "targets:\n  - claude\n  - cursor\n") {
 		t.Errorf("config not persisted, got:\n%s", data)
 	}
@@ -136,7 +136,7 @@ func TestSync_AllFlagSkipsPrompt(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\ntargets:\n"+listTargets(allTargetNames())), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestSync_AllFlagSkipsPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(data), "- claude") || !strings.Contains(string(data), "- opencode") {
 		t.Errorf("--all should not narrow targets, got:\n%s", data)
 	}

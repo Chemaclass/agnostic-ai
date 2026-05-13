@@ -23,7 +23,7 @@ targets:
   - claude
   - cursor
 `
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"), []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return dir
@@ -124,7 +124,7 @@ sources:
   mcps: specs/mcps
 targets: [claude]
 `
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"), []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	testutil.Chdir(t, dir)

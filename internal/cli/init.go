@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // defaultBaseDir is the default parent directory for scaffolded source
@@ -38,7 +40,7 @@ func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
-		Long: "Creates agnostic.config.yaml plus source folders. " +
+		Long: "Creates agnostic-ai.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
 			"Pass --demo to seed each source folder with a minimal example spec. " +
@@ -122,8 +124,8 @@ func validatePresetName(name string) error {
 	return fmt.Errorf("unknown preset %q. Available: %s", name, strings.Join(availablePresets(), ", "))
 }
 
-// renderConfig builds agnostic.config.yaml with source paths nested
-// under base and the given targets list. base="." writes paths at the
+// renderConfig builds agnostic-ai.yaml with source paths nested under
+// base and the given targets list. base="." writes paths at the
 // project root. Targets are emitted in the order provided.
 func renderConfig(base string, targets []string) string {
 	prefix := ""
@@ -147,13 +149,17 @@ func renderConfig(base string, targets []string) string {
 	return sb.String()
 }
 
-// scaffold creates agnostic.config.yaml at root and the source-folder
-// tree under base. targets is written verbatim to the targets: block;
+// scaffold creates agnostic-ai.yaml at root and the source-folder tree
+// under base. targets is written verbatim to the targets: block;
 // callers must supply at least one entry.
 func scaffold(root, base string, demo bool, preset string, targets []string) error {
-	cfgPath := filepath.Join(root, "agnostic.config.yaml")
+	cfgPath := filepath.Join(root, config.ConfigFileName)
 	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("agnostic.config.yaml already exists")
+		return fmt.Errorf("%s already exists", config.ConfigFileName)
+	}
+	if _, err := os.Stat(filepath.Join(root, config.LegacyConfigFileName)); err == nil {
+		return fmt.Errorf("%s already exists (legacy name; rename to %s)",
+			config.LegacyConfigFileName, config.ConfigFileName)
 	}
 	if base == "" {
 		base = defaultBaseDir
@@ -165,6 +171,9 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 		}
 	}
 	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets)), 0o644); err != nil {
+		return err
+	}
+	if err := ensureLocalOverrideIgnored(root); err != nil {
 		return err
 	}
 	if demo {
@@ -254,6 +263,37 @@ func writePresetFiles(baseDir, name string) error {
 		}
 		return nil
 	})
+}
+
+// ensureLocalOverrideIgnored appends the local-override filename to
+// .gitignore so machine-specific tweaks never get committed by
+// accident. The file is created if missing. A no-op when the entry
+// already exists.
+func ensureLocalOverrideIgnored(root string) error {
+	path := filepath.Join(root, ".gitignore")
+	entry := config.LocalOverrideFileName
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	for _, line := range strings.Split(string(existing), "\n") {
+		if strings.TrimSpace(line) == entry {
+			return nil
+		}
+	}
+	var buf strings.Builder
+	if len(existing) > 0 {
+		buf.Write(existing)
+		if !strings.HasSuffix(string(existing), "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString(entry)
+	buf.WriteString("\n")
+	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }
 
 func scaffoldHint(base string, kinds []string) string {

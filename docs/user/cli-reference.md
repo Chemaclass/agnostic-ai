@@ -15,7 +15,7 @@ agnostic-ai [command] [flags]
 
 ## init
 
-Scaffold a project: `agnostic.config.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic.config.yaml` exists.
+Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic-ai.yaml` exists.
 
 ```bash
 agnostic-ai init                  # default base dir: .agnostic-ai/
@@ -30,10 +30,10 @@ agnostic-ai init -i               # interactive: pick which targets land in conf
 |------|-------------|
 | `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Existing files are never overwritten. |
 | `--preset <name>` | Seed stack-flavored starter specs. Available: `go`, `ts-react`, `python`. Composes with `--demo` and `-i`. Errors on unknown names with the available list. Existing files are never overwritten, so re-running against a partially populated tree is safe. |
-| `-i, --interactive` | Multi-select prompt to pick which targets land in `agnostic.config.yaml`. Accepts piped comma-separated input for non-TTY use (e.g. `echo "claude,codex" \| agnostic-ai init -i`). |
+| `-i, --interactive` | Multi-select prompt to pick which targets land in `agnostic-ai.yaml`. Accepts piped comma-separated input for non-TTY use (e.g. `echo "claude,codex" \| agnostic-ai init -i`). |
 
 The optional positional `[dir]` arg sets the base directory under which
-the source folders are created. The generated `agnostic.config.yaml`
+the source folders are created. The generated `agnostic-ai.yaml`
 writes matching `sources:` paths.
 
 To pull in an existing AI CLI configuration after init, use `import`.
@@ -41,7 +41,7 @@ To pull in an existing AI CLI configuration after init, use `import`.
 ## import
 
 Translate an existing AI CLI configuration into agnostic specs. Reads
-`agnostic.config.yaml` to resolve `sources:` paths, then writes specs
+`agnostic-ai.yaml` to resolve `sources:` paths, then writes specs
 into those directories.
 
 ```bash
@@ -159,7 +159,7 @@ agnostic-ai new mcp filesystem          # → <mcps>/filesystem.yaml
 
 Errors if the destination file already exists. Names must be lowercase
 slugs (`[a-z0-9][a-z0-9-]*`); the same form Cursor and Cline expect.
-Honors `sources:` from `agnostic.config.yaml`, so a project that puts
+Honors `sources:` from `agnostic-ai.yaml`, so a project that puts
 specs under `specs/` lands files there automatically.
 
 ## explain
@@ -178,7 +178,7 @@ agnostic-ai explain rules/conventional-commits.md --json
 | `--json` | Stable schema for editor extensions and scripts. |
 
 Output groups contributions by configured target (the ones in
-`agnostic.config.yaml`) and a separate "would emit if enabled" list for
+`agnostic-ai.yaml`) and a separate "would emit if enabled" list for
 adapters that exist but are not currently activated. Each entry tags
 itself as `(full file)` (the spec owns the file) or
 `(section "<name>")` (the spec contributes one section to a merged
@@ -210,7 +210,7 @@ agnostic-ai render rules/no-console-log.md         # all configured targets
 
 | Flag | Description |
 |------|-------------|
-| `-t, --target <list>` | Target(s) to render. Repeat or comma-separate. Default: every target in `agnostic.config.yaml`. |
+| `-t, --target <list>` | Target(s) to render. Repeat or comma-separate. Default: every target in `agnostic-ai.yaml`. |
 
 Output format is `# target: <name> — <output path>` followed by the file
 body, one block per emitted file. Targets that produce no output for the
@@ -236,7 +236,7 @@ agnostic-ai sync [flags]
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Keep the process alive and re-emit on spec or config changes. Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll on filesystems where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--watch-poll` | Force the polling backend (200 ms) even when fsnotify is available. Use on network mounts or container volumes where fsnotify misses events. Requires `--watch`. |
-| `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic.config.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
+| `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic-ai.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
 | `--all` | Emit every configured target without running the first-sync target picker. Useful for ad-hoc full emission or scripted runs that should bypass interactive prompts. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
@@ -245,7 +245,7 @@ agnostic-ai sync [flags]
 On the very first `sync` (no `.agnostic-ai/.sync-state` file yet) where
 the config still lists every supported target, `sync` opens an
 interactive multi-select to narrow the list. The selection is persisted
-to `agnostic.config.yaml` so future syncs skip the prompt.
+to `agnostic-ai.yaml` so future syncs skip the prompt.
 
 - **TTY:** multi-select widget (same UI as `init -i`).
 - **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects + persists without a prompt.
@@ -390,7 +390,7 @@ Drift:   in sync
 | `project` | string | Base name of the project directory. |
 | `layers` | array | Active spec layers. Each has `name` and `path`. |
 | `specs` | object | Counts: `agents`, `skills`, `rules`, `hooks`, `mcps`. |
-| `targets` | array | Targets listed in `agnostic.config.yaml`. |
+| `targets` | array | Targets listed in `agnostic-ai.yaml`. |
 | `last_sync` | string or null | RFC 3339 timestamp of the last successful `sync`, or `null` if unknown. |
 | `files_changed_last_sync` | number or null | Files written during the last sync, or `null` when the timestamp came from an mtime fallback. |
 | `drift_files` | number | Count of emitted files whose on-disk content differs from what `sync` would produce. |
@@ -420,7 +420,7 @@ agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
 agnostic-ai completion powershell | Out-String | Invoke-Expression
 ```
 
-After installing, restart your shell (or `source` the completion file). Tab-completing `--target` reads `agnostic.config.yaml` in the current directory and falls back to the full default target list when no config is found.
+After installing, restart your shell (or `source` the completion file). Tab-completing `--target` reads `agnostic-ai.yaml` in the current directory and falls back to the full default target list when no config is found.
 
 Run `agnostic-ai completion <shell> --help` for shell-specific setup instructions.
 
@@ -450,5 +450,5 @@ agnostic-ai sync --help       # same
 Last wins:
 
 1. Built-in defaults (see [configuration](configuration.md))
-2. `agnostic.config.yaml`
+2. `agnostic-ai.yaml`
 3. CLI flags (e.g. `-t`)

@@ -50,11 +50,11 @@ first `sync` produces real output. `-i` (or `--interactive`) prompts
 for which targets to enable; pipe a comma-separated list (`echo
 "claude,codex" | agnostic-ai init -i`) for non-TTY use.
 
-The generated `agnostic.config.yaml` includes a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config automatically.
+The generated `agnostic-ai.yaml` includes a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config automatically.
 
 ```
 .
-├── agnostic.config.yaml
+├── agnostic-ai.yaml
 └── .agnostic-ai/
     ├── agents/
     ├── skills/
@@ -104,7 +104,7 @@ agnostic-ai sync
 ```
 
 On the first run, `sync` opens a multi-select to pick which targets to
-enable. The choice is saved to `agnostic.config.yaml` and never asked
+enable. The choice is saved to `agnostic-ai.yaml` and never asked
 again. To emit every target without the prompt, run `sync --all` or
 pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
 
@@ -120,7 +120,7 @@ are written; empty stubs are skipped):
 
 ```
 .
-├── agnostic.config.yaml
+├── agnostic-ai.yaml
 ├── rules/
 │   └── conventional-commits.md
 ├── CLAUDE.md                                    # for Claude Code
@@ -172,7 +172,7 @@ Skip the manual `sync` after every spec edit:
 agnostic-ai sync --watch
 ```
 
-Watches the source directories and `agnostic.config.yaml` via OS file
+Watches the source directories and `agnostic-ai.yaml` via OS file
 events (fsnotify) with a 50 ms debounce, so saves trigger a re-sync in
 under 100 ms. On filesystems where fsnotify fails (some network mounts,
 specific container volumes), `sync` falls back to a 200 ms poll. Force
@@ -190,13 +190,13 @@ agnostic-ai sync --auto-sync=yes   # write the rule, persist autoSync: true
 agnostic-ai sync --auto-sync=no    # skip, persist autoSync: false
 ```
 
-The answer is saved to `agnostic.config.yaml` as `autoSync: true|false`
+The answer is saved to `agnostic-ai.yaml` as `autoSync: true|false`
 so the prompt fires only once. `--dry-run` skips the prompt and the
 persistence step.
 
 ## Auto-manage .gitignore
 
-Add to `agnostic.config.yaml` to keep generated paths out of git:
+Add to `agnostic-ai.yaml` to keep generated paths out of git:
 
 ```yaml
 gitignore:

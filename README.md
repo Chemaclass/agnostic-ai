@@ -138,7 +138,7 @@ Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclas
 
 ```bash
 agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/
-agnostic-ai init -i               # same, but pick which targets land in agnostic.config.yaml
+agnostic-ai init -i               # same, but pick which targets land in agnostic-ai.yaml
 agnostic-ai init --demo           # same, plus one example spec per folder to learn from
 agnostic-ai sync                  # emit native config for every target
 agnostic-ai sync --dry-run        # preview without writing
@@ -182,7 +182,7 @@ modes. Catch drift earlier with a [pre-commit hook](docs/user/git-hooks.md)
 - **[Getting started](docs/user/getting-started.md)** · first rule, first sync, in 2 minutes.
 - **[Spec format](docs/user/spec-format.md)** · frontmatter reference for agents, skills, rules, hooks, MCPs.
 - **[Targets](docs/user/targets.md)** · what each adapter emits and where.
-- **[Configuration](docs/user/configuration.md)** · `agnostic.config.yaml` reference.
+- **[Configuration](docs/user/configuration.md)** · `agnostic-ai.yaml` reference.
 - **[CLI reference](docs/user/cli-reference.md)** · every flag, every command.
 - **[Playground](https://chemaclass.github.io/agnostic-ai/)** · paste a spec in your browser, see what every adapter emits live (WASM, runs offline).
 - **[Editor extensions](editors/)** · VS Code (shipped), JetBrains (planned).

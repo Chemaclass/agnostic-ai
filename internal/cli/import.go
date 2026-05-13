@@ -35,7 +35,7 @@ func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import <source>",
 		Short: "Import existing config from another AI CLI into this project's source directories.",
-		Long: "Reads agnostic.config.yaml to resolve source paths, then translates an " +
+		Long: "Reads agnostic-ai.yaml to resolve source paths, then translates an " +
 			"existing AI CLI configuration into agnostic specs. Sources: " + importSources() + ".",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init

@@ -11,7 +11,7 @@ import (
 
 func writeConfig(t *testing.T, dir, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func writeConfig(t *testing.T, dir, content string) {
 
 func readConfig(t *testing.T, dir string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

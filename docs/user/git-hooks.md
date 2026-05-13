@@ -2,7 +2,7 @@
 
 Catch spec drift at commit time, before it ever reaches CI. Each
 recipe below runs `agnostic-ai sync --check` whenever a spec or
-`agnostic.config.yaml` is staged, and blocks the commit if any
+`agnostic-ai.yaml` is staged, and blocks the commit if any
 generated target file is out of date.
 
 The same `sync --check` powers the [CI gate](ci.md). Running it
@@ -57,7 +57,7 @@ Add to `lefthook.yml`:
 pre-commit:
   commands:
     agnostic-ai-check:
-      glob: "{.agnostic-ai/**,agnostic.config.yaml}"
+      glob: "{.agnostic-ai/**,agnostic-ai.yaml}"
       run: agnostic-ai sync --check
 ```
 
@@ -83,7 +83,7 @@ standard pairing.
     "prepare": "husky"
   },
   "lint-staged": {
-    "{.agnostic-ai/**,agnostic.config.yaml}": "agnostic-ai sync --check --"
+    "{.agnostic-ai/**,agnostic-ai.yaml}": "agnostic-ai sync --check --"
   }
 }
 ```
@@ -111,7 +111,7 @@ files.
   `command not found` on their first commit.
 - To recover from drift, run `agnostic-ai sync` and stage the
   regenerated outputs alongside the spec change.
-- Set `gitignore.enabled: true` in `agnostic.config.yaml` if you
+- Set `gitignore.enabled: true` in `agnostic-ai.yaml` if you
   want generated outputs out of git entirely; the hook still
   catches drift because `sync --check` ignores `gitignore`.
 - Skip a hook for a single commit with `git commit --no-verify`.

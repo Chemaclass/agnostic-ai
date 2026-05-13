@@ -29,7 +29,7 @@ func newRenderCmd() *cobra.Command {
   # Multi-target preview
   agnostic-ai render rules/no-console-log.md --target claude,codex
 
-  # Default targets come from agnostic.config.yaml
+  # Default targets come from agnostic-ai.yaml
   agnostic-ai render rules/no-console-log.md`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -82,9 +83,13 @@ func NewRootCmd(version string) *cobra.Command {
 // (.agnostic-ai.local). Optional layers load only when their root
 // exists.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
-	cfg, err := config.Load(root)
+	cfg, sources, err := config.LoadWithSources(root)
 	if err != nil {
 		return nil, spec.Bundle{}, err
+	}
+	if len(sources) > 1 {
+		verbosef("→ merged %d config layers: %s\n",
+			len(sources), strings.Join(sources, ", "))
 	}
 	b, err := spec.LoadLayered(resolveLayers(root, cfg))
 	if err != nil {

@@ -17,7 +17,7 @@ func boolPtr(b bool) *bool { return &b }
 
 func writeSimpleConfig(t *testing.T, dir string) {
 	t.Helper()
-	err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"),
+	err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func TestPersistAutoSync_AppendsWhenAbsent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(data), "autoSync: true") {
 		t.Errorf("expected autoSync: true in config, got:\n%s", data)
 	}
@@ -43,7 +43,7 @@ func TestPersistAutoSync_AppendsWhenAbsent(t *testing.T) {
 func TestPersistAutoSync_UpdatesExisting(t *testing.T) {
 	dir := t.TempDir()
 	content := "version: 1\nautoSync: false\n"
-	if err := os.WriteFile(filepath.Join(dir, "agnostic.config.yaml"), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,7 +51,7 @@ func TestPersistAutoSync_UpdatesExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(data), "autoSync: true") {
 		t.Errorf("expected autoSync: true after update, got:\n%s", data)
 	}
@@ -70,7 +70,7 @@ func TestPersistAutoSync_IdempotentOnRepeat(t *testing.T) {
 		}
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	count := strings.Count(string(data), "autoSync:")
 	if count != 1 {
 		t.Errorf("expected exactly 1 autoSync: line, got %d:\n%s", count, data)
@@ -231,7 +231,7 @@ func TestHandleAutoSync_FlagYesWritesSpec(t *testing.T) {
 		t.Error("auto-sync spec not written to rules dir")
 	}
 
-	cfgData, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfgData, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(cfgData), "autoSync: true") {
 		t.Error("config not updated with autoSync: true")
 	}
@@ -251,7 +251,7 @@ func TestHandleAutoSync_FlagNoSkipsSpec(t *testing.T) {
 		t.Error("auto-sync spec should not be written for flag=no")
 	}
 
-	cfgData, _ := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	cfgData, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if !strings.Contains(string(cfgData), "autoSync: false") {
 		t.Error("config not updated with autoSync: false")
 	}

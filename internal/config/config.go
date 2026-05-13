@@ -8,6 +8,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConfigFileName is the canonical config file. Load also accepts the
+// legacy LegacyConfigFileName but emits a deprecation warning.
+const (
+	ConfigFileName        = "agnostic-ai.yaml"
+	LegacyConfigFileName  = "agnostic.config.yaml"
+	LocalOverrideFileName = "agnostic-ai.local.yaml"
+)
+
 type Config struct {
 	Version       int               `yaml:"version"        json:"version"`
 	Sources       Sources           `yaml:"sources"        json:"sources"`
@@ -57,18 +65,106 @@ type Output struct {
 	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 }
 
+// Load reads the project config from root. It prefers
+// agnostic-ai.yaml and falls back to the legacy
+// agnostic.config.yaml (with a stderr deprecation warning). When
+// agnostic-ai.local.yaml exists in the same directory, it is
+// deep-merged over the base: scalars and slices in the local file
+// replace the base, maps merge recursively.
 func Load(root string) (*Config, error) {
-	path := filepath.Join(root, "agnostic.config.yaml")
-	data, err := os.ReadFile(path)
+	cfg, _, err := LoadWithSources(root)
+	return cfg, err
+}
+
+// LoadWithSources is Load that also reports the files it parsed, in
+// load order (base first, local last). Callers that want to surface
+// which files were merged (e.g. `sync` summary) use this variant.
+func LoadWithSources(root string) (*Config, []string, error) {
+	basePath, legacy, err := ResolveConfigPath(root)
 	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		return nil, nil, err
+	}
+	if legacy {
+		fmt.Fprintf(os.Stderr,
+			"! %s is deprecated. Rename to %s.\n",
+			LegacyConfigFileName, ConfigFileName)
+	}
+
+	merged, err := readYAMLMap(basePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	sources := []string{basePath}
+
+	localPath := filepath.Join(root, LocalOverrideFileName)
+	if _, statErr := os.Stat(localPath); statErr == nil {
+		localMap, err := readYAMLMap(localPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		deepMerge(merged, localMap)
+		sources = append(sources, localPath)
+	}
+
+	data, err := yaml.Marshal(merged)
+	if err != nil {
+		return nil, nil, fmt.Errorf("re-encode merged config: %w", err)
 	}
 	cfg := defaults()
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("parse config: %w", err)
+		return nil, nil, fmt.Errorf("parse %s: %w", basePath, err)
 	}
 	cfg.applyDefaults()
-	return cfg, nil
+	return cfg, sources, nil
+}
+
+// ResolveConfigPath returns the path of the base config file in root.
+// It prefers ConfigFileName and falls back to LegacyConfigFileName;
+// legacy is true when the fallback won.
+func ResolveConfigPath(root string) (path string, legacy bool, err error) {
+	primary := filepath.Join(root, ConfigFileName)
+	if _, statErr := os.Stat(primary); statErr == nil {
+		return primary, false, nil
+	}
+	legacyPath := filepath.Join(root, LegacyConfigFileName)
+	if _, statErr := os.Stat(legacyPath); statErr == nil {
+		return legacyPath, true, nil
+	}
+	return "", false, fmt.Errorf("read config: no %s or %s in %s",
+		ConfigFileName, LegacyConfigFileName, root)
+}
+
+func readYAMLMap(path string) (map[string]any, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	out := map[string]any{}
+	if len(data) == 0 {
+		return out, nil
+	}
+	if err := yaml.Unmarshal(data, &out); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return out, nil
+}
+
+// deepMerge folds src into dst. Maps merge recursively; scalars and
+// slices in src replace dst entirely. Slice concat is intentionally
+// not supported: targets and similar lists should be authoritative
+// per-layer so override semantics stay obvious.
+func deepMerge(dst, src map[string]any) {
+	for k, sv := range src {
+		if dv, ok := dst[k]; ok {
+			dstMap, dstIsMap := dv.(map[string]any)
+			srcMap, srcIsMap := sv.(map[string]any)
+			if dstIsMap && srcIsMap {
+				deepMerge(dstMap, srcMap)
+				continue
+			}
+		}
+		dst[k] = sv
+	}
 }
 
 func DefaultTargets() []string {

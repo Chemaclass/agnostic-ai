@@ -1,6 +1,20 @@
 # Configuration
 
-`agnostic.config.yaml` lives at the project root. Read from the current working directory at command time. Every section is optional; defaults below.
+`agnostic-ai.yaml` lives at the project root. Read from the current working directory at command time. Every section is optional; defaults below.
+
+> **Legacy filename:** projects that still use `agnostic.config.yaml` continue to work. The CLI loads it with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
+
+## Local overrides
+
+Drop an `agnostic-ai.local.yaml` next to the base config to layer per-machine tweaks without touching the shared file. Loaded after the base and deep-merged: scalars and lists in the local file replace the base, maps merge recursively. `agnostic-ai init` adds the local filename to `.gitignore` automatically.
+
+```yaml
+# agnostic-ai.local.yaml — never committed
+on-unsupported: error
+outputs:
+  claude:
+    dir: .claude-local   # overrides base; rules-file from base survives
+```
 
 ## Editor validation
 
@@ -234,7 +248,7 @@ Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
 
 ## Path semantics
 
-- All `sources`/`outputs` paths are relative to the directory holding `agnostic.config.yaml`.
+- All `sources`/`outputs` paths are relative to the directory holding `agnostic-ai.yaml`.
 - Output directories are created on demand. Existing files are overwritten.
 - Add generated outputs to `.gitignore` to keep specs as the single source of truth (recommended).
 
@@ -243,8 +257,9 @@ Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
 Last wins:
 
 1. Built-in defaults
-2. `agnostic.config.yaml`
-3. CLI flags (e.g. `agnostic-ai sync -t claude`)
+2. `agnostic-ai.yaml`
+3. `agnostic-ai.local.yaml` (deep-merged over the base when present)
+4. CLI flags (e.g. `agnostic-ai sync -t claude`)
 
 ## Layered specs
 
@@ -253,7 +268,7 @@ Specs load from up to three layers, low- to high-precedence:
 | Layer          | Root                                                | Loaded when         |
 |----------------|-----------------------------------------------------|---------------------|
 | `user-global`  | `$AGNOSTIC_AI_HOME` if set, else `~/.agnostic-ai`   | directory exists    |
-| `project`      | `agnostic.config.yaml` `sources` paths              | always              |
+| `project`      | `agnostic-ai.yaml` `sources` paths                  | always              |
 | `project-user` | `<project>/.agnostic-ai.local`                      | directory exists    |
 
 Higher layers override by spec name (per kind). New names append.
