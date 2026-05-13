@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **VS Code extension** (#44): first-party extension at `editors/vscode/` (v0.1.0). Schema validation for `agnostic.config.yaml`, command palette entries (`Sync`, `Sync — check for drift`, `Doctor — auto-fix`, `Status`, `Render current spec to a target`), codelens above each spec with one `Render to <target>` action per configured target, and a status bar item polling `sync --check --json` for the current drift count. Shells out to the user's installed `agnostic-ai`; ships no bundled binary.
 - **Pre-commit hook recipes** (#39): new `docs/user/git-hooks.md` with copy-paste configs for `pre-commit` (Python), `lefthook`, and `husky` + `lint-staged`. Each runs `agnostic-ai sync --check` only when a spec or `agnostic.config.yaml` is staged. Linked from the README CI section.
 
+- **Cursor Custom Commands** (#104): when `outputs.cursor.commands-dir` is set, each agent emits as a Cursor Custom Command (Markdown with `description`/`model` frontmatter) at that path, in addition to the existing `.cursor/rules/<name>.mdc` rule form.
+
 ### Changed
 - **`sync --watch` reaction time** (#36): swapped the 200 ms mtime poll for fsnotify with a 50 ms debounce. Idle CPU drops to zero between events; saves trigger a re-sync in under 100 ms. Polling backend kept as an automatic fallback when `fsnotify.NewWatcher` or `Add` fails.
 - **Code of Conduct contact**: `conduct@chemaclass.dev` → `agnostic-ai@chemaclass.es`.

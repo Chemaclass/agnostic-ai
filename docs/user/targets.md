@@ -90,11 +90,14 @@ When MCP and/or hook entries are present, the adapter writes (or updates) `.gemi
 
 ```
 .cursor/rules/<name>.mdc
+.cursor/commands/<name>.md           # one per agent, only when commands-dir is set
 ```
 
-Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`).
+Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.commands-dir` (default empty — opt-in), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`).
 
 Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
+
+When `outputs.cursor.commands-dir` is set, each agent additionally emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): a Markdown file with optional `description` and `model` frontmatter. The rule-form emission (`.cursor/rules/<name>.mdc`) still happens, so existing setups keep working.
 
 ### GitHub Copilot (`copilot`)
 
