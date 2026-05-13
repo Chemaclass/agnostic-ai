@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- **`agnostic-ai new <kind> <name>`** (#31): scaffold a single spec file with kind-appropriate frontmatter under the source directory configured for that kind. Replaces "copy from `--demo` and edit" as the starting point for one new agent, skill, rule, hook, or MCP. Honors layered `sources:` from `agnostic.config.yaml`. Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`).
+- **`agnostic-ai render <spec> [--target <t>...]`** (#31): print the emission for a single spec to stdout per target, without writing to disk. Default targets come from `agnostic.config.yaml`; `--target` accepts repeats and comma-separated lists. Output format is `# target: <name> — <output path>` followed by the file body. Pairs with `sync --dry-run` (which writes the world).
+- **`agnostic-ai explain <spec>`** (#40): reverse provenance — list every output file and section a spec contributes to. Groups configured targets vs would-emit-if-enabled. Each entry is tagged `(full file)` or `(section "<name>")`. `--json` emits a versioned envelope (`version`, `command`, `spec`, `contributions`, `would_emit_if_enabled`) for editor extensions and scripts.
+- **`init --preset <name>`** (#47): seed stack-flavored starter specs. Ships with `go`, `ts-react`, `python`. Composes with `--demo` and `-i`. Existing files are never overwritten. Tab completion on the flag; unknown names error with the available list. Contributing guide at `docs/internal/contributing-presets.md`.
+- **`sync --watch-poll`** (#36): force the polling backend even when fsnotify is available (network mounts, container volumes where fsnotify misses events).
+- **WebAssembly playground** (#43): `cmd/agnostic-ai-wasm` exposes the spec parser plus the full adapter registry to JavaScript. `docs/playground/` is a static page that lets visitors paste a spec, pick targets, and see each adapter's output side-by-side. Runs entirely client-side; no server. ~1.4 MB gzipped. Published via the new `Playground` GitHub workflow on release tags and on manual dispatch. New `internal/spec.ParseMarkdownBytes` and `ParseYAMLBytes` for in-memory parsing.
+- **VS Code extension** (#44): first-party extension at `editors/vscode/` (v0.1.0). Schema validation for `agnostic.config.yaml`, command palette entries (`Sync`, `Sync — check for drift`, `Doctor — auto-fix`, `Status`, `Render current spec to a target`), codelens above each spec with one `Render to <target>` action per configured target, and a status bar item polling `sync --check --json` for the current drift count. Shells out to the user's installed `agnostic-ai`; ships no bundled binary.
+- **Pre-commit hook recipes** (#39): new `docs/user/git-hooks.md` with copy-paste configs for `pre-commit` (Python), `lefthook`, and `husky` + `lint-staged`. Each runs `agnostic-ai sync --check` only when a spec or `agnostic.config.yaml` is staged. Linked from the README CI section.
+
+### Changed
+- **`sync --watch` reaction time** (#36): swapped the 200 ms mtime poll for fsnotify with a 50 ms debounce. Idle CPU drops to zero between events; saves trigger a re-sync in under 100 ms. Polling backend kept as an automatic fallback when `fsnotify.NewWatcher` or `Add` fails.
+- **Code of Conduct contact**: `conduct@chemaclass.dev` → `agnostic-ai@chemaclass.es`.
+
 ## v0.6.0 - 2026-05-12
 
 ### Changed

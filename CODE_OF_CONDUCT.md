@@ -27,7 +27,7 @@ Applies in all project spaces and when representing the project in public.
 
 ## Enforcement
 
-Report violations to **conduct@chemaclass.dev**. All reports are reviewed and met with a response appropriate to the circumstances. Maintainers keep the reporter's identity confidential.
+Report violations to **agnostic-ai@chemaclass.es**. All reports are reviewed and met with a response appropriate to the circumstances. Maintainers keep the reporter's identity confidential.
 
 ## Attribution
 
