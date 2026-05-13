@@ -124,6 +124,26 @@ func OutputConfFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputModel returns cfg.Outputs[target].Model when set, otherwise fallback.
+// Used by the Aider adapter to write the `model:` key into
+// `.aider.conf.yml`.
+func OutputModel(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.Model != "" {
+		return o.Model
+	}
+	return fallback
+}
+
+// OutputWeakModel returns cfg.Outputs[target].WeakModel when set,
+// otherwise fallback. Used by the Aider adapter to write the
+// `weak-model:` key into `.aider.conf.yml`.
+func OutputWeakModel(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.WeakModel != "" {
+		return o.WeakModel
+	}
+	return fallback
+}
+
 // OutputMCPDir returns cfg.Outputs[target].MCPDir when set, otherwise fallback.
 // Used by adapters that emit one MCP server file per entry into a directory
 // (Continue: `.continue/mcpServers/`) rather than a single combined MCP file.

@@ -67,6 +67,10 @@ outputs:
     mcp-file: .vscode/mcp.json              # default
   aider:
     file: CONVENTIONS.md         # default
+    # Opt-in: also merge .aider.conf.yml so Aider auto-loads CONVENTIONS.md.
+    # conf-file: .aider.conf.yml
+    # model: gpt-4o
+    # weak-model: gpt-4o-mini
   cline:
     rules-dir: .clinerules       # default
   windsurf:
@@ -156,6 +160,9 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
 | `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
 | `aider` | `file` | `CONVENTIONS.md` | Single merged document. |
+| `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
+| `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
+| `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
 | `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
 | `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |

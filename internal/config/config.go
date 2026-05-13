@@ -51,6 +51,8 @@ type Output struct {
 	AssistantsDir        string `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
 	TasksFile            string `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
 	ConfFile             string `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
+	Model                string `yaml:"model,omitempty"                    json:"model,omitempty"`
+	WeakModel            string `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
 	MCPDir               string `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 }
