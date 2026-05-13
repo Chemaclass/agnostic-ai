@@ -1,14 +1,15 @@
 name: Playground
 
 # Builds the WebAssembly playground and publishes docs/playground/ to
-# GitHub Pages on every push to main, every release tag, and on demand.
-# Manual dispatch lets maintainers republish without cutting a release.
+# GitHub Pages on every push to main and on demand. Tag pushes are
+# intentionally excluded: the release commit lands on main first and
+# triggers a deploy through that path. The github-pages environment is
+# branch-restricted to main, so a tag-triggered deploy would fail the
+# protection rule.
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
