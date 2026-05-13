@@ -13,7 +13,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
 | **aider**       | merged in `CONVENTIONS.md` | listed in `CONVENTIONS.md` | `CONVENTIONS.md` | - | - |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
-| **windsurf**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
+| **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
 | **continue**    | as `.md` rule       | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | `.amp/settings.json` (`amp.mcpServers`) |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | `.zed/settings.json` (`context_servers`) |
@@ -143,9 +143,12 @@ When `outputs.cline.workflows-dir` is set, each agent additionally emits as a [C
 
 ```
 .windsurf/rules/<name>.md
+.windsurf/workflows/<name>.md        # one per agent, only when workflows-dir is set
 ```
 
-Config key: `outputs.windsurf.rules-dir` (default `.windsurf/rules`).
+Config keys: `outputs.windsurf.rules-dir` (default `.windsurf/rules`), `outputs.windsurf.workflows-dir` (default empty — opt-in).
+
+When `outputs.windsurf.workflows-dir` is set, each agent additionally emits as a [Windsurf Workflow](https://docs.windsurf.com/windsurf/cascade/workflows): a Markdown file with `description` frontmatter, invokable in Cascade as `/<name>`. The rule-form emission (`.windsurf/rules/agent-<name>.md`) still happens, so existing setups keep working.
 
 ### Continue (`continue`)
 
