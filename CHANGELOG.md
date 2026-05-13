@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.8.0 - 2026-05-13
+
+### Added
 - `agnostic-ai.local.yaml` for per-machine overrides; deep-merged over the base (`init` auto-gitignores it) (#128).
 
 ### Changed
