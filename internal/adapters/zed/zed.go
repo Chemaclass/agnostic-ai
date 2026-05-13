@@ -7,9 +7,15 @@
 // `mcpServers`), with a nested `{path, args, env}` command shape. Zed
 // only supports stdio transport natively; HTTP / SSE entries need a
 // local `mcp-remote` bridge and are routed through it automatically.
+//
+// When `outputs.zed.tasks-file` is set, hook specs additionally emit
+// as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
+// configured tasks JSON, runnable on demand from the command palette
+// (Zed has no lifecycle-hook surface).
 package zed
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -26,7 +32,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Zed configs.
@@ -52,7 +58,45 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
+	if err := emitTasks(b.Hooks, emit.OutputTasksFile(cfg, target, ""), dryRun); err != nil {
+		return err
+	}
 	return emitContextServers(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// emitTasks writes one Zed Task per hook spec into the configured
+// tasks JSON file. No-op when the tasks-file is unset, so existing
+// setups are unaffected. Each hook becomes a `sh -c "<command>"` task
+// whose label is the hook's name; the description (when present)
+// prefixes the label so it shows up in the command palette.
+func emitTasks(hooks []spec.Entry, path string, dryRun bool) error {
+	if path == "" || len(hooks) == 0 {
+		return nil
+	}
+	tasks := make([]map[string]any, 0, len(hooks))
+	for _, h := range hooks {
+		cmd, _ := h.Meta["command"].(string)
+		if cmd == "" {
+			continue
+		}
+		label := h.Name
+		if d := h.Description(); d != "" {
+			label = h.Name + " — " + d
+		}
+		tasks = append(tasks, map[string]any{
+			"label":   label,
+			"command": "sh",
+			"args":    []string{"-c", cmd},
+		})
+	}
+	if len(tasks) == 0 {
+		return nil
+	}
+	raw, err := json.MarshalIndent(tasks, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal zed tasks: %w", err)
+	}
+	return emit.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // emitContextServers writes (or merges into) .zed/settings.json with

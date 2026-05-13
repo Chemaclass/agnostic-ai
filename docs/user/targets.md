@@ -16,7 +16,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 | **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
 | **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
 | **amp**         | `.agents/commands/<name>.md` | listed in `AGENTS.md` (or `.agents/commands/skill-<name>.md` w/ opt-in) | `AGENTS.md` (nested per-dir by scope/globs) | - | `.amp/settings.json` (`amp.mcpServers`) |
-| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | - | `.zed/settings.json` (`context_servers`) |
+| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) |
 | **warp**        | inlined in `AGENTS.md` | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
 | **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | `opencode.json` (`mcp`) |
 
@@ -26,8 +26,10 @@ human reads the skill file and follows its instructions.
 
 Hooks run as shell commands on lifecycle events (e.g. `PreToolUse`,
 `PostToolUse`, `SessionStart`). Emitted natively by Claude Code, Codex,
-and Gemini in each tool's own schema. Other targets have no equivalent
-concept and skip with a warning.
+and Gemini in each tool's own schema. Zed picks them up too via the
+opt-in `outputs.zed.tasks-file`, but as on-demand tasks rather than
+event-triggered hooks. Other targets have no equivalent concept and
+skip with a warning.
 
 MCP servers propagate to every target that has a project-scoped MCP file
 (10 of 13 — see the matrix above). Aider, Cline, and Windsurf have no
@@ -189,13 +191,16 @@ Amp's hierarchical `AGENTS.md` shares the same open standard as Codex and Warp. 
 ```
 .rules
 .zed/settings.json                     # when MCP entries exist (merged with any existing user config)
+.zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
 
-Config keys: `outputs.zed.file` (default `.rules`), `outputs.zed.mcp-file` (default `.zed/settings.json`).
+Config keys: `outputs.zed.file` (default `.rules`), `outputs.zed.mcp-file` (default `.zed/settings.json`), `outputs.zed.tasks-file` (default empty — opt-in).
 
 When MCP entries are present, the adapter writes (or updates) `.zed/settings.json` with the `context_servers` map (Zed's key — not `mcpServers`). Each server emits with Zed's nested `command: {path, args, env}` shape plus an empty `settings: {}`. User-managed keys (theme, buffer_font_size, etc.) are preserved across syncs.
 
 Zed only supports stdio transport natively. HTTP / SSE MCP entries auto-bridge through `npx mcp-remote <url>` so they still work — a one-line stderr warning fires when this fallback is taken.
+
+When `outputs.zed.tasks-file` is set, every hook spec emits as a [Zed Task](https://zed.dev/docs/tasks) into that JSON file. Each task uses `sh -c "<hook command>"` so arbitrary one-liners work; the hook's name is the label (with the description appended after an em-dash when present). Zed has no lifecycle-hook surface, so these tasks run on demand from the command palette rather than firing on `PreToolUse` / `PostToolUse` events.
 
 ### Warp (`warp`)
 
