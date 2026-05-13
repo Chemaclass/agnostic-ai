@@ -179,6 +179,81 @@ func TestEmit_MCP_SkipsStdioWithoutCommand(t *testing.T) {
 	}
 }
 
+func TestEmit_TasksFileEmitsHooksAsTasks(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "fmt",
+			Meta: map[string]any{
+				"event":       "PostToolUse",
+				"command":     "gofmt -w .",
+				"description": "format Go on save",
+			},
+		},
+		{
+			Kind: spec.KindHook,
+			Name: "lint",
+			Meta: map[string]any{"event": "Stop", "command": "golangci-lint run"},
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"zed": {TasksFile: ".zed/tasks.json"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".zed/tasks.json"))
+	for _, want := range []string{
+		`"label": "fmt — format Go on save"`,
+		`"label": "lint"`,
+		`"command": "sh"`,
+		`"-c"`,
+		`"gofmt -w ."`,
+		`"golangci-lint run"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_NoTasksFileNoEmit(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{"command": "gofmt"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".zed/tasks.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no tasks file; err=%v", err)
+	}
+}
+
+func TestEmit_TasksSkipsHooksWithoutCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "noop", Meta: map[string]any{"event": "Stop"}},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"zed": {TasksFile: ".zed/tasks.json"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".zed/tasks.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no tasks file when hooks lack command; err=%v", err)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
