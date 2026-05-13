@@ -27,8 +27,10 @@ repositories {
 dependencies {
     intellijPlatform {
         create(IntelliJPlatformType.IntellijIdeaCommunity, providers.gradleProperty("platformVersion").get())
-        // Bundled plugins the agnostic-ai plugin depends on.
-        bundledPlugins("com.intellij.modules.json", "org.jetbrains.plugins.yaml")
+        // Bundled plugins the agnostic-ai plugin depends on. JSON
+        // support ships in the platform itself (no separate plugin),
+        // so only YAML is listed here.
+        bundledPlugins("org.jetbrains.plugins.yaml")
         // Test plugin verifier; used by `verifyPlugin` task.
         pluginVerifier()
         zipSigner()

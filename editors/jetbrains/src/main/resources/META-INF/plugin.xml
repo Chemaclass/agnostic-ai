@@ -30,7 +30,6 @@
     ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.json</depends>
     <depends>org.jetbrains.plugins.yaml</depends>
 
     <extensions defaultExtensionNs="com.intellij">
