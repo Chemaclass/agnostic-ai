@@ -115,6 +115,26 @@ func TestLoadAll_NameFromFilenameIfMissing(t *testing.T) {
 	}
 }
 
+func TestLoadAll_SkillNameFromParentDirWhenFrontmatterMissing(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "my-skill", "SKILL.md"), "skill body without frontmatter")
+
+	cfg := defaultsForTest()
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Name != "my-skill" {
+		t.Errorf("expected name=my-skill (parent dir), got %q", entries[0].Name)
+	}
+	if entries[0].Kind != KindSkill {
+		t.Errorf("expected kind=skill, got %q", entries[0].Kind)
+	}
+}
+
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	dir := t.TempDir()
 	cfg := defaultsForTest()

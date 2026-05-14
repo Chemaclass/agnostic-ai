@@ -305,7 +305,14 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 		}
 		entry.Kind = kind
 		if entry.Name == "" {
-			entry.Name = strings.TrimSuffix(d.Name(), ext)
+			if kind == KindSkill && d.Name() == "SKILL.md" {
+				// Skills nest under `<skill>/SKILL.md` so the parent
+				// directory is the authoritative name, not the filename
+				// stem. Mirrors the special case in assignScopes.
+				entry.Name = filepath.Base(filepath.Dir(path))
+			} else {
+				entry.Name = strings.TrimSuffix(d.Name(), ext)
+			}
 		}
 		entries = append(entries, entry)
 		return nil
