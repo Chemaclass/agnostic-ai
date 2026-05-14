@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.10.0 - 2026-05-14
+
 ### claude
 - Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
 - `.claude/settings.json` preserves user keys (`statusLine`, `enabledPlugins`, etc.) across sync. `import claude` captures them into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top. Survives `.claude/` wipe.
