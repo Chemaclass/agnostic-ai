@@ -136,6 +136,131 @@ func TestEmit_WritesRulesPerFile(t *testing.T) {
 	}
 }
 
+func TestEmit_RuleWithoutMetaHasNoLeadingBlankLineOrSyntheticHeading(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule body line\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/rules/r1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(string(got), "\n") {
+		t.Errorf("rule file starts with blank line: %q", got)
+	}
+	if strings.HasPrefix(string(got), "# r1") {
+		t.Errorf("rule file has synthetic # heading: %q", got)
+	}
+	if string(got) != "rule body line\n" {
+		t.Errorf("expected body-only output, got %q", got)
+	}
+}
+
+func TestEmit_RuleWithMetaRoundTripsFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindRule,
+			Name: "r1",
+			Meta: map[string]any{"name": "r1", "description": "short"},
+			Body: "rule body\n",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/rules/r1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(got)
+	if !strings.HasPrefix(s, "---\n") {
+		t.Errorf("expected frontmatter start, got %q", s)
+	}
+	if !strings.Contains(s, "description: short") {
+		t.Errorf("missing description in frontmatter: %q", s)
+	}
+	if strings.Contains(s, "# r1") {
+		t.Errorf("synthetic # heading must not be injected: %q", s)
+	}
+	if !strings.Contains(s, "rule body") {
+		t.Errorf("missing body: %q", s)
+	}
+}
+
+func TestEmit_AgentWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "reviewer", Body: "do reviews\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/agents/reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(string(got), "\n") {
+		t.Errorf("agent file starts with blank line: %q", got)
+	}
+	if string(got) != "do reviews\n" {
+		t.Errorf("expected body-only output, got %q", got)
+	}
+}
+
+func TestEmit_SkillWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "validator", Body: "skill body\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(string(got), "\n") {
+		t.Errorf("skill file starts with blank line: %q", got)
+	}
+	if string(got) != "skill body\n" {
+		t.Errorf("expected body-only output, got %q", got)
+	}
+}
+
+func TestEmit_CommandWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "deploy", Body: "run deploy\n"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/commands/deploy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(string(got), "\n") {
+		t.Errorf("command file starts with blank line: %q", got)
+	}
+	if string(got) != "run deploy\n" {
+		t.Errorf("expected body-only output, got %q", got)
+	}
+}
+
 func TestEmit_RulesFileOverrideConcatenates(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
