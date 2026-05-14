@@ -33,6 +33,9 @@ func collectDrift(targets []string) ([]driftReport, error) {
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}
+	if err := detectCollisions(cfg, b, targets); err != nil {
+		return nil, err
+	}
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {

@@ -213,11 +213,17 @@ func warnLegacyOnce(path string) {
 		LegacyConfigFileName, ConfigFileName)
 }
 
+// DefaultTargets returns the safe out-of-the-box target list. Codex,
+// Amp, and Warp all default to root AGENTS.md per the community spec;
+// enabling more than one without an `outputs.<target>.file` override
+// triggers an output-collision error. The default picks Codex (which
+// also emits .codex/config.toml). Users who run Amp or Warp instead
+// must add them explicitly and drop or remap the colliders.
 func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"amp", "zed", "warp", "opencode",
+		"zed", "opencode",
 	}
 }
 

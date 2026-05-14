@@ -18,6 +18,13 @@ sources:
 # AI CLIs to emit configs for. Every adapter the tool ships is enabled
 # so the project itself acts as the end-to-end fixture for each emitter.
 # Comment any out to skip.
+#
+# Note: codex, amp, and warp all default to root `AGENTS.md` per the
+# community AGENTS.md spec. Only one can own the root file in a project,
+# so the dogfood set keeps codex (which also emits .codex/config.toml)
+# and drops amp and warp. Real users pick the one matching their CLI.
+# `sync` now fails fast with an output-collision error if more than one
+# is enabled without an `outputs.<target>.file` override.
 targets:
   - claude
   - codex
@@ -28,9 +35,7 @@ targets:
   - cline
   - windsurf
   - continue
-  - amp
   - zed
-  - warp
   - opencode
 
 # Per-target output overrides. Defaults work for everything below;

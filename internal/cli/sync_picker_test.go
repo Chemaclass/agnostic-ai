@@ -136,8 +136,10 @@ func TestSync_AllFlagSkipsPrompt(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
+	// Use the non-colliding default set. amp and warp share root AGENTS.md
+	// with codex, so enabling all three at once is now an explicit error.
 	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
-		[]byte("version: 1\ntargets:\n"+listTargets(allTargetNames())), 0o644); err != nil {
+		[]byte("version: 1\ntargets:\n"+listTargets(nonCollidingTargets())), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -151,6 +153,20 @@ func TestSync_AllFlagSkipsPrompt(t *testing.T) {
 	if !strings.Contains(string(data), "- claude") || !strings.Contains(string(data), "- opencode") {
 		t.Errorf("--all should not narrow targets, got:\n%s", data)
 	}
+}
+
+// nonCollidingTargets is allTargetNames minus amp and warp; both share
+// root AGENTS.md with codex and trip the output-collision guard.
+func nonCollidingTargets() []string {
+	skip := map[string]bool{"amp": true, "warp": true}
+	all := allTargetNames()
+	out := make([]string, 0, len(all))
+	for _, n := range all {
+		if !skip[n] {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 func listTargets(targets []string) string {

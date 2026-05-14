@@ -160,6 +160,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
 	}
+	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+		return err
+	}
 	if backup {
 		adapters.SetBackup(true)
 		defer adapters.SetBackup(false)
@@ -216,6 +219,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
+	}
+	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+		return err
 	}
 	if backup {
 		adapters.SetBackup(true)

@@ -16,10 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - `agnostic-ai init` prompts for targets by default on a TTY. Pipe a comma-separated list, or pass `--all` / `-a` to skip the picker. `-i` / `--interactive` removed.
+- `DefaultTargets()` no longer includes `amp` and `warp`. Both share root `AGENTS.md` with `codex` per the community spec; the safe default keeps `codex` as the sole owner. Users running Amp or Warp must add them explicitly and drop or remap the colliders.
 
 ### Fixed
 - `import claude` keeps preamble before the first `##` and ignores `##` lines inside fenced code blocks.
 - `agnostic-ai.yaml`: only `version` is required. Editors no longer flag a minimal config.
+- `sync` and `sync --check` now fail fast with an `output collision` error when two or more enabled targets emit to the same path (e.g. `codex` + `amp` + `warp` all owning root `AGENTS.md`). Previously silent last-writer-wins caused permanent `--check` drift no matter the write order.
 
 ### Removed
 
