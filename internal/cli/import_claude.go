@@ -16,10 +16,12 @@ const (
 	claudeDir = ".claude"
 	// claudeMainFile is the project-root Claude Code instructions file.
 	claudeMainFile = "CLAUDE.md"
-	// agnosticMainFile is the project-root CLI-agnostic instructions
-	// file. Sits alongside CLAUDE.md / AGENTS.md / GEMINI.md and holds
-	// a verbatim copy of the source CLI's top-level instructions.
-	agnosticMainFile = "AGNOSTIC_AI.md"
+	// agnosticMainFile is the CLI-agnostic instructions file. Lives
+	// under the managed .agnostic-ai/ directory and holds a verbatim
+	// copy of the source CLI's top-level instructions (CLAUDE.md,
+	// AGENTS.md, GEMINI.md, etc.). Keeping it out of the project root
+	// avoids cluttering hand-authored files.
+	agnosticMainFile = ".agnostic-ai/AGNOSTIC_AI.md"
 )
 
 type importCounts struct{ rules, agents, skills, hooks int }
@@ -57,16 +59,18 @@ func importFromClaude(root string, src config.Sources) error {
 	return nil
 }
 
-// mirrorClaudeMainFile mirrors <root>/CLAUDE.md to <root>/AGNOSTIC_AI.md.
+// mirrorClaudeMainFile mirrors <root>/CLAUDE.md to
+// <root>/.agnostic-ai/AGNOSTIC_AI.md.
 func mirrorClaudeMainFile(root string) error {
 	return mirrorMainFile(root, claudeMainFile)
 }
 
 // mirrorMainFile copies <root>/<srcName> byte-for-byte to
-// <root>/AGNOSTIC_AI.md. No-op when the source is absent. Each importer
-// calls this with the target's own top-level instructions filename so
-// the project keeps a CLI-agnostic copy alongside the native file.
-// Later imports overwrite earlier mirrors (last-import wins).
+// <root>/.agnostic-ai/AGNOSTIC_AI.md. No-op when the source is absent.
+// Each importer calls this with the target's own top-level
+// instructions filename so the project keeps a CLI-agnostic copy
+// under the managed directory. Later imports overwrite earlier
+// mirrors (last-import wins).
 func mirrorMainFile(root, srcName string) error {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
@@ -85,6 +89,9 @@ func copyFileIfExists(src, dst string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := os.WriteFile(dst, data, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)

@@ -65,12 +65,12 @@ filename. Run after `init`, in the same project root.
 | `.claude/rules/*.md` (preferred) | `<rules>/<name>.md` (byte-identical copy) |
 | `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section — only when `.claude/rules/` is absent |
 | `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` — only when `.claude/rules/` is absent |
-| `CLAUDE.md` (any form) | `AGNOSTIC_AI.md` at project root (byte-identical copy) |
+| `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (filename derived from event, matcher, and commands so re-imports converge on the same path) |
 
-When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if the directory is empty) so the on-disk rules layout is the single source of truth for rule files. `AGNOSTIC_AI.md` is still written from `CLAUDE.md` so the project keeps a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if the directory is empty) so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` so the project keeps a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
 
 `import codex` walks the project for `AGENTS.md` files at any depth:
 

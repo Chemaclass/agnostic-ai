@@ -154,7 +154,7 @@ Already have `.cursor/rules` or `AGENTS.md`? Pull them in:
 agnostic-ai import cursor         # also: codex, claude, cline, windsurf, continue
 ```
 
-`import claude` prefers `.claude/rules/*.md` (each file → one rule, byte-identical) and falls back to slicing `CLAUDE.md` on `## headings` only when that directory is absent. It also mirrors `CLAUDE.md` to a project-root `AGNOSTIC_AI.md` so you keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+`import claude` prefers `.claude/rules/*.md` (each file → one rule, byte-identical) and falls back to slicing `CLAUDE.md` on `## headings` only when that directory is absent. It also mirrors `CLAUDE.md` to `.agnostic-ai/AGNOSTIC_AI.md` so you keep a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
 
 ## CI gate
 
