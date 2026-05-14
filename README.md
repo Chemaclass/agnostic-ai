@@ -4,7 +4,7 @@
 
 ### **One spec. Every AI CLI. Zero drift.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 9 more, in their native format.
+Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 10 more, in their native format.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
@@ -100,21 +100,22 @@ Same content. Each tool happy. No copy-paste, no drift.
 
 ## Supported targets
 
-| Target         | Agents | Skills | Rules | Hooks | MCPs |
-|----------------|:------:|:------:|:-----:|:-----:|:----:|
-| Claude Code    |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI      |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Gemini CLI     |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Cursor         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| GitHub Copilot |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Aider          |   ◐    |   ◐    |   ✅   |   -   |  -   |
-| Cline          |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Windsurf       |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Continue       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Amp            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Zed            |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
-| Warp           |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
-| OpenCode       |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
+| Target              | Agents | Skills | Rules | Hooks | MCPs |
+|---------------------|:------:|:------:|:-----:|:-----:|:----:|
+| Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Codex CLI           |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Gemini CLI          |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Cursor              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Aider               |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Windsurf            |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Continue            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Amp                 |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Zed                 |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
+| Warp                |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
+| OpenCode            |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
+| Google Antigravity  |   ✅    |   -    |   ✅   |   -   |  -   |
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
 
