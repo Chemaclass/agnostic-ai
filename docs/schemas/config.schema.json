@@ -36,11 +36,7 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "version",
-        "sources",
-        "targets",
-        "outputs",
-        "on-unsupported"
+        "version"
       ]
     },
     "Gitignore": {
@@ -53,10 +49,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "enabled"
-      ]
+      "type": "object"
     },
     "Output": {
       "properties": {
@@ -137,14 +130,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "agents",
-        "skills",
-        "rules",
-        "hooks",
-        "mcps"
-      ]
+      "type": "object"
     }
   },
   "title": "agnostic-ai configuration",

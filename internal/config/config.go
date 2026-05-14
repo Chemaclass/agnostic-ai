@@ -17,13 +17,13 @@ const (
 )
 
 type Config struct {
-	Version       int               `yaml:"version"        json:"version"`
-	Sources       Sources           `yaml:"sources"        json:"sources"`
-	Targets       []string          `yaml:"targets"        json:"targets"`
-	Outputs       map[string]Output `yaml:"outputs"        json:"outputs"`
-	OnUnsupported string            `yaml:"on-unsupported" json:"on-unsupported"`
-	Gitignore     Gitignore         `yaml:"gitignore"      json:"gitignore,omitempty"`
-	AutoSync      *bool             `yaml:"autoSync,omitempty"  json:"autoSync,omitempty"`
+	Version       int               `yaml:"version"                  json:"version"`
+	Sources       Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
+	Targets       []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
+	Outputs       map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
+	OnUnsupported string            `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
+	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
+	AutoSync      *bool             `yaml:"autoSync,omitempty"       json:"autoSync,omitempty"`
 }
 
 // Gitignore controls automatic management of .gitignore entries for the
@@ -31,17 +31,17 @@ type Config struct {
 // managed block in `.gitignore` (created if missing) listing every path
 // the configured adapters would emit.
 type Gitignore struct {
-	Enabled bool `yaml:"enabled"        json:"enabled"`
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// Path overrides the .gitignore location relative to the project root.
-	Path string `yaml:"path,omitempty" json:"path,omitempty"`
+	Path string `yaml:"path,omitempty"    json:"path,omitempty"`
 }
 
 type Sources struct {
-	Agents string `yaml:"agents" json:"agents"`
-	Skills string `yaml:"skills" json:"skills"`
-	Rules  string `yaml:"rules"  json:"rules"`
-	Hooks  string `yaml:"hooks"  json:"hooks"`
-	MCPs   string `yaml:"mcps"   json:"mcps"`
+	Agents string `yaml:"agents,omitempty" json:"agents,omitempty"`
+	Skills string `yaml:"skills,omitempty" json:"skills,omitempty"`
+	Rules  string `yaml:"rules,omitempty"  json:"rules,omitempty"`
+	Hooks  string `yaml:"hooks,omitempty"  json:"hooks,omitempty"`
+	MCPs   string `yaml:"mcps,omitempty"   json:"mcps,omitempty"`
 }
 
 type Output struct {

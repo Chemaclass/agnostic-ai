@@ -8,11 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Playground UX refresh: branded header, sample picker per kind, target chips, per-target file selector with Copy/Download buttons, theme toggle (system/light/dark), preference persistence via localStorage, mobile single-column layout.
+- Source URL shown in `--help` (Long description) and `--version` output.
 
 ### Changed
 
 ### Fixed
 - `import claude` no longer drops preamble before the first `##` heading (saved as a separate rule) and no longer splits rules on `##` lines that live inside fenced code blocks.
+- `agnostic-ai.yaml` schema: `outputs`, `sources`, `targets`, `on-unsupported`, and `gitignore` are now optional (only `version` is required). Editors no longer flag a minimal config as invalid.
 
 ### Removed
 
