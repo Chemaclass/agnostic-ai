@@ -12,35 +12,36 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEmit_RootAgentsMd(t *testing.T) {
+func TestEmit_NoRootAgentsMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
-		{Kind: spec.KindAgent, Name: "ag1", Path: "agents/ag1.md", Body: "agent body",
-			Meta: map[string]any{"description": "agent desc"}},
-		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{"event": "X"}},
+		{Kind: spec.KindAgent, Name: "ag1", Path: "agents/ag1.md", Body: "agent body"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write AGENTS.md by default; sync owns the entry-point. got: %v", err)
+	}
+}
+
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"codex": {RulesFile: "AGENTS.md"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
 	if !strings.Contains(got, "rule body") {
-		t.Errorf("missing rule body in:\n%s", got)
-	}
-	if !strings.Contains(got, "_agent desc_") {
-		t.Errorf("missing agent description in:\n%s", got)
-	}
-	if !strings.Contains(got, "Source: `.agents/agents/ag1.toml`") {
-		t.Errorf("missing agent toml reference in:\n%s", got)
-	}
-	if strings.Contains(got, "agent body") {
-		t.Errorf("agent body must live only in the toml file, not AGENTS.md:\n%s", got)
-	}
-	for _, want := range []string{"<!-- source: rules/r1.md -->", "<!-- source: agents/ag1.md -->"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing provenance %q in:\n%s", want, got)
-		}
+		t.Errorf("legacy rules-file should contain concatenated rule body:\n%s", got)
 	}
 }
 
@@ -121,83 +122,6 @@ func TestEmit_AgentTOML_RespectsAgentsDirOverride(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/agents/scout.toml")); err != nil {
 		t.Errorf("expected toml at custom agents-dir: %v", err)
-	}
-	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(got, "vendor/codex/agents/scout.toml") {
-		t.Errorf("AGENTS.md should reference the override path:\n%s", got)
-	}
-}
-
-func TestEmit_NestedByLayoutScope(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "auth body"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, "backend", "AGENTS.md"))
-	if !strings.Contains(got, "auth body") {
-		t.Errorf("expected scoped AGENTS.md content:\n%s", got)
-	}
-}
-
-func TestEmit_NestedByGlobs(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "root-rule",
-			Meta: map[string]any{"globs": "**/*"}, Body: "root content"},
-		{Kind: spec.KindRule, Name: "src-rule",
-			Meta: map[string]any{"globs": "src/**"}, Body: "src content"},
-		{Kind: spec.KindRule, Name: "tests-rule",
-			Meta: map[string]any{"globs": "tests/**/*.go"}, Body: "tests content"},
-		{Kind: spec.KindRule, Name: "deep-rule",
-			Meta: map[string]any{"globs": "docs/api/**"}, Body: "api content"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-
-	cases := []struct {
-		path, mustContain string
-	}{
-		{"AGENTS.md", "root content"},
-		{"src/AGENTS.md", "src content"},
-		{"tests/AGENTS.md", "tests content"},
-		{"docs/api/AGENTS.md", "api content"},
-	}
-	for _, c := range cases {
-		t.Run(c.path, func(t *testing.T) {
-			got := readFile(t, filepath.Join(dir, c.path))
-			if !strings.Contains(got, c.mustContain) {
-				t.Errorf("%s missing %q:\n%s", c.path, c.mustContain, got)
-			}
-		})
-	}
-}
-
-func TestEmit_SkillsListedInRoot(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindSkill, Name: "yaml-validator",
-			Path: "skills/yaml-validator.md",
-			Meta: map[string]any{"description": "Validate YAML."}},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(got, "## Skills") {
-		t.Errorf("missing Skills section:\n%s", got)
-	}
-	if !strings.Contains(got, "yaml-validator") {
-		t.Errorf("missing skill name:\n%s", got)
-	}
-	if !strings.Contains(got, ".agents/skills/yaml-validator/SKILL.md") {
-		t.Errorf("AGENTS.md should point at the per-skill SKILL.md:\n%s", got)
 	}
 }
 
@@ -375,48 +299,6 @@ func TestEmit_SkillFolder_RespectsSkillsDirOverride(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/skills/explorer/SKILL.md")); err != nil {
 		t.Errorf("expected SKILL.md at custom skills-dir: %v", err)
 	}
-	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(got, "vendor/codex/skills/explorer/SKILL.md") {
-		t.Errorf("AGENTS.md should reference the override path:\n%s", got)
-	}
-}
-
-func TestEmit_AgentsAndSkillsAttachToRootOnly(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "src-rule",
-			Meta: map[string]any{"globs": "src/**"}, Body: "src content"},
-		{Kind: spec.KindAgent, Name: "ag1", Body: "agent body"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	root := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(root, "## Agents") {
-		t.Errorf("agents listing must be in root AGENTS.md: %s", root)
-	}
-	srcDoc := readFile(t, filepath.Join(dir, "src", "AGENTS.md"))
-	if strings.Contains(srcDoc, "## Agents") {
-		t.Errorf("agents listing must not appear in nested AGENTS.md: %s", srcDoc)
-	}
-}
-
-func TestEmit_OutputOverride(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{"codex": {File: "vendor/AGENTS.md"}},
-	}
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "x", Meta: map[string]any{"globs": "src/**"}},
-	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "vendor/src/AGENTS.md")); err != nil {
-		t.Errorf("expected nested override path: %v", err)
-	}
 }
 
 func TestEmit_WritesCommand(t *testing.T) {
@@ -484,7 +366,6 @@ func TestEmit_OutputsCarryProvenanceHeader(t *testing.T) {
 		".agents/skills/sk1/SKILL.md",
 		".codex/prompts/cmd1.md",
 		".codex/config.toml",
-		"AGENTS.md",
 	} {
 		got, err := os.ReadFile(filepath.Join(dir, p))
 		if err != nil {

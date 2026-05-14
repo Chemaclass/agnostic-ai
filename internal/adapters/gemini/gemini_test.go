@@ -17,7 +17,7 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestEmit_RootRulesGoToRootGEMINI(t *testing.T) {
+func TestEmit_NoRootGEMINIMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -26,56 +26,26 @@ func TestEmit_RootRulesGoToRootGEMINI(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, "GEMINI.md"))
-	for _, want := range []string{"# GEMINI.md", "## Rules", "Be terse."} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
-		}
-	}
-}
-
-func TestEmit_ScopedRule_RoutesToNestedGEMINI(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind:  spec.KindRule,
-			Name:  "auth-style",
-			Scope: "backend",
-			Body:  "Validate at boundary.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	nested := readFile(t, filepath.Join(dir, "backend/GEMINI.md"))
-	for _, want := range []string{"GEMINI.md (backend)", "Validate at boundary."} {
-		if !strings.Contains(nested, want) {
-			t.Errorf("missing %q in %s", want, nested)
-		}
-	}
 	if _, err := os.Stat(filepath.Join(dir, "GEMINI.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no root GEMINI.md when only scoped rules exist, err=%v", err)
+		t.Errorf("adapter should not write GEMINI.md by default; sync owns the entry-point, err=%v", err)
 	}
 }
 
-func TestEmit_RuleGlobs_RoutesByPrefix(t *testing.T) {
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindRule,
-			Name: "api-only",
-			Meta: map[string]any{"globs": "docs/api/**"},
-			Body: "API rules.",
-		},
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"gemini": {RulesFile: "GEMINI.md"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "house-style", Body: "Be terse."},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, "docs/api/GEMINI.md"))
-	if !strings.Contains(got, "API rules.") {
-		t.Errorf("expected scoped GEMINI.md by globs prefix: %s", got)
+	got := readFile(t, filepath.Join(dir, "GEMINI.md"))
+	if !strings.Contains(got, "Be terse.") {
+		t.Errorf("legacy rules-file should contain concatenated rule body:\n%s", got)
 	}
 }
 
@@ -107,34 +77,8 @@ func TestEmit_Agent_WritesCommandTOML(t *testing.T) {
 	}
 }
 
-// Root GEMINI.md lists agents but does not duplicate their bodies.
-func TestEmit_RootGEMINI_ListsAgentsWithoutDuplicatingBody(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindAgent,
-			Name: "pr-reviewer",
-			Meta: map[string]any{"description": "Review PRs."},
-			Body: "Long body should NOT appear in GEMINI.md.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	gemini := readFile(t, filepath.Join(dir, "GEMINI.md"))
-	for _, want := range []string{"## Agents", "pr-reviewer", "Review PRs.", ".gemini/commands/pr-reviewer.toml"} {
-		if !strings.Contains(gemini, want) {
-			t.Errorf("missing %q in %s", want, gemini)
-		}
-	}
-	if strings.Contains(gemini, "Long body should NOT appear") {
-		t.Errorf("agent body should not be duplicated in root GEMINI.md: %s", gemini)
-	}
-}
-
-// Skills default to reference-only in root GEMINI.md.
-func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
+// Skills emit no command file by default.
+func TestEmit_Skill_NoCommandByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -148,12 +92,6 @@ func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
-	}
-	gemini := readFile(t, filepath.Join(dir, "GEMINI.md"))
-	for _, want := range []string{"## Skills", "yaml-validator", "Validate YAML."} {
-		if !strings.Contains(gemini, want) {
-			t.Errorf("missing %q in %s", want, gemini)
-		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gemini/commands/yaml-validator.toml")); !os.IsNotExist(err) {
 		t.Errorf("expected no skill command file by default, err=%v", err)

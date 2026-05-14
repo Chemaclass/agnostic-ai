@@ -85,6 +85,31 @@ func WriteFile(path, content string, dryRun bool) error {
 	return emit.WriteFile(path, content, dryRun)
 }
 
+// AgnosticEntryPointPath is the canonical CLI-agnostic entry-point
+// path under .agnostic-ai/ (re-exported from the emit layer for
+// callers in the cli package).
+const AgnosticEntryPointPath = emit.AgnosticEntryPointPath
+
+// EntryPointPath returns the project-relative entry-point file for
+// target, honoring outputs.<target>.file. Returns "" for targets
+// without an entry-point convention.
+func EntryPointPath(cfg *config.Config, target string) string {
+	return emit.EntryPointPath(cfg, target)
+}
+
+// HasLegacyRulesFile reports whether the user opted into the legacy
+// concatenated rules-file layout for target.
+func HasLegacyRulesFile(cfg *config.Config, target string) bool {
+	return emit.HasLegacyRulesFile(cfg, target)
+}
+
+// RenderEntryPoint returns the canonical entry-point content (header
+// + pointer body) shared by .agnostic-ai/AGNOSTIC_AI.md and every
+// per-target entry-point file.
+func RenderEntryPoint(cfg *config.Config) string {
+	return emit.RenderEntryPoint(cfg)
+}
+
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.

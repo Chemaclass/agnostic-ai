@@ -49,9 +49,11 @@ func TestEmit_RuleWithGlobs_WritesScopedInstruction(t *testing.T) {
 	}
 }
 
-// A rule with alwaysApply: true belongs in the main file even if it
-// also has globs (alwaysApply wins). Body is preserved.
-func TestEmit_RuleWithAlwaysApply_GoesToMainFile(t *testing.T) {
+// A rule with alwaysApply: true used to merge into the main file; now
+// the adapter skips per-file emission for it (alwaysApply still wins
+// over globs) and `sync` writes a pointer body at
+// .github/copilot-instructions.md instead.
+func TestEmit_RuleWithAlwaysApply_NoPerFileInstruction(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -66,30 +68,34 @@ func TestEmit_RuleWithAlwaysApply_GoesToMainFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readFile(t, filepath.Join(dir, ".github/copilot-instructions.md"))
-	if !strings.Contains(got, "Use Conventional Commits.") {
-		t.Errorf("main file missing rule body: %s", got)
+	if _, err := os.Stat(filepath.Join(dir, ".github/copilot-instructions.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write .github/copilot-instructions.md by default; sync owns the entry-point, err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/conventional-commits.instructions.md")); !os.IsNotExist(err) {
 		t.Errorf("expected no per-file instruction for alwaysApply rule, err=%v", err)
 	}
 }
 
-// A rule with no globs and no scope is treated as always-on and merged
-// into the main file.
-func TestEmit_RuleWithoutGlobs_GoesToMainFile(t *testing.T) {
+func TestEmit_LegacyRulesFile_WritesAlwaysOnRules(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "house-style", Body: "Be concise."},
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"copilot": {RulesFile: ".github/copilot-instructions.md"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindRule,
+			Name: "conventional-commits",
+			Meta: map[string]any{"alwaysApply": true},
+			Body: "Use Conventional Commits.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-
 	got := readFile(t, filepath.Join(dir, ".github/copilot-instructions.md"))
-	if !strings.Contains(got, "Be concise.") {
-		t.Errorf("main file missing rule body: %s", got)
+	if !strings.Contains(got, "Use Conventional Commits.") {
+		t.Errorf("legacy rules-file should contain always-on rule body:\n%s", got)
 	}
 }
 

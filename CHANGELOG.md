@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Changed
+- **BREAKING**: `sync` now emits a uniform, slim entry-point file for every enabled target — `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.opencode/AGENTS.md`, `.agent/AGENTS.md` — all carrying the same canonical pointer body shared with `.agnostic-ai/AGNOSTIC_AI.md`. The codex / amp / warp / gemini adapters no longer concatenate rule bodies or build a nested `AGENTS.md` / `GEMINI.md` tree, the copilot adapter no longer emits `.github/copilot-instructions.md` as a rules dump, the aider adapter no longer emits `CONVENTIONS.md` as a merged document, and the antigravity adapter no longer writes `.agent/AGENTS.md`. The legacy concatenated layout is opt-in via `outputs.<target>.rules-file`. Closes #153.
+- `sync` now writes `.agnostic-ai/AGNOSTIC_AI.md` from any sync run (was: only `import`).
+- Collision detection now allows multiple targets to share the same entry-point file (e.g. codex + amp + warp all at `AGENTS.md`): a single write with the canonical pointer body. Real collisions where adapters write different content to the same path (e.g. two targets both setting `outputs.<target>.rules-file: AGENTS.md`) still error.
+- `claude` is no longer the odd-one-out: every sync writes `CLAUDE.md` at the project root with the same pointer body as the other targets.
 - `import` prints a next-steps block after every importer, with suggestions to run `sync --check` / `sync` and hints for other detected CLIs to import.
 - `init` next-steps adapt to context: with `--demo` or `--preset` the next step is `sync` (not `import`); detected CLIs are surfaced as suggested `import` follow-ups. Selected targets are echoed back.
 - `init` now writes `.agnostic-ai/.sync-state` to `.gitignore` alongside `agnostic-ai.local.yaml`, so the sync-state file is ignored from the moment the project is scaffolded. Closes #151.

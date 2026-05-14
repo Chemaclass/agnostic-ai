@@ -191,6 +191,15 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			return fmt.Errorf("%s: %w", t, err)
 		}
 	}
+	if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+		if gitignoreOn {
+			adapters.StopRecording()
+		}
+		if !dryRun {
+			adapters.StopCounting()
+		}
+		return err
+	}
 	filesChanged := 0
 	if !dryRun {
 		filesChanged = adapters.StopCounting()
@@ -249,6 +258,21 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		}
 		for _, f := range adapters.StopDetailedRecording() {
 			rec := fileRecord{Target: t, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
+			if f.Action == "skip" {
+				out.Skipped = append(out.Skipped, rec)
+			} else {
+				out.Writes = append(out.Writes, rec)
+			}
+		}
+	}
+
+	adapters.StartDetailedRecording()
+	if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+		adapters.StopDetailedRecording()
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
+	} else {
+		for _, f := range adapters.StopDetailedRecording() {
+			rec := fileRecord{Target: "agnostic-ai", Path: f.Path, Action: f.Action, Bytes: f.Bytes}
 			if f.Action == "skip" {
 				out.Skipped = append(out.Skipped, rec)
 			} else {

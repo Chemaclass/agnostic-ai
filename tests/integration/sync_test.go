@@ -21,6 +21,8 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	}
 
 	expected := []string{
+		".agnostic-ai/AGNOSTIC_AI.md",
+		"CLAUDE.md",
 		".claude/rules/sample-rule.md",
 		"AGENTS.md",
 		"GEMINI.md",
@@ -39,6 +41,21 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 			t.Errorf("missing expected output %s: %v", f, err)
 		}
 	}
+	// Every per-target entry-point shares the canonical pointer body
+	// (byte-identical to AGNOSTIC_AI.md).
+	body, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/AGNOSTIC_AI.md"))
+	if err != nil {
+		t.Fatalf("read AGNOSTIC_AI.md: %v", err)
+	}
+	for _, f := range []string{"CLAUDE.md", "AGENTS.md", "GEMINI.md", "CONVENTIONS.md", ".github/copilot-instructions.md"} {
+		got, err := os.ReadFile(filepath.Join(dir, f))
+		if err != nil {
+			t.Fatalf("read %s: %v", f, err)
+		}
+		if string(got) != string(body) {
+			t.Errorf("%s body should match AGNOSTIC_AI.md byte-for-byte", f)
+		}
+	}
 }
 
 func TestSync_SingleTarget(t *testing.T) {
@@ -53,6 +70,9 @@ func TestSync_SingleTarget(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/sample-rule.md")); err != nil {
 		t.Error("expected .claude/rules/sample-rule.md to exist")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err != nil {
+		t.Errorf("expected CLAUDE.md entry-point when -t claude: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
 		t.Error("expected AGENTS.md NOT to exist when -t claude")

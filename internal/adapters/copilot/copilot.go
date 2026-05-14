@@ -3,8 +3,14 @@
 // Rules with `globs` (or a source-layout scope) emit as per-file
 // `.github/instructions/<name>.instructions.md` with an `applyTo:`
 // frontmatter, matching Copilot's native path-scoped instructions
-// format. Always-on rules (no globs / no scope, or `alwaysApply: true`)
-// merge into `.github/copilot-instructions.md`.
+// format.
+//
+// The `.github/copilot-instructions.md` entry-point is written
+// centrally by `sync` as a slim pointer to the source specs (one body
+// shared with every other target's entry-point file). When
+// `outputs.copilot.rules-file` is set, this adapter instead writes the
+// legacy concatenated always-on-rules layout at that path so users on
+// older workflows keep their behavior.
 //
 // Agents and skills always emit as catch-all instructions
 // (`applyTo: "**"`) with `agent-` or `skill-` filename prefixes so
@@ -22,7 +28,6 @@ import (
 
 const (
 	target                 = "copilot"
-	defaultMainFile        = ".github/copilot-instructions.md"
 	defaultInstructionsDir = ".github/instructions"
 	defaultMCPFile         = ".vscode/mcp.json"
 	instructionFileSuffix  = ".instructions.md"
@@ -45,11 +50,14 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes per-file instructions, the always-on main file, and the
-// `.vscode/mcp.json` when MCP entries exist. When
+// Emit writes per-file instructions, the optional legacy concatenated
+// always-on rules file (only when `outputs.copilot.rules-file` is
+// set), and `.vscode/mcp.json` when MCP entries exist. When
 // `outputs.copilot.chatmodes-dir` is set, also writes one Copilot
 // Custom Chat Mode per agent at that directory; the catch-all
-// instruction-form emission still happens for back-compat.
+// instruction-form emission still happens for back-compat. The
+// `.github/copilot-instructions.md` entry-point is written by `sync`,
+// not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -60,7 +68,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitChatmodes(b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitMainFile(b, cfg, dryRun); err != nil {
+	if err := emitLegacyRulesFile(b, cfg, dryRun); err != nil {
 		return err
 	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaVSCodeServers,
@@ -146,9 +154,15 @@ func writeInstruction(dir, prefix, applyTo string, e spec.Entry, dryRun bool) er
 	return emit.WriteFile(path, renderInstruction(e, applyTo), dryRun)
 }
 
-// emitMainFile writes always-on rules to `.github/copilot-instructions.md`.
-// No file is written when no rule qualifies as always-on.
-func emitMainFile(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+// emitLegacyRulesFile writes always-on rules to the
+// outputs.copilot.rules-file path (when set). No-op when the user has
+// not opted into the legacy concatenated layout; `sync` writes the
+// canonical pointer body to `.github/copilot-instructions.md` instead.
+func emitLegacyRulesFile(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	rulesFile := emit.OutputRulesFile(cfg, target, "")
+	if rulesFile == "" {
+		return nil
+	}
 	alwaysOn := alwaysOnRules(b.Rules)
 	if len(alwaysOn) == 0 {
 		return nil
@@ -160,7 +174,7 @@ func emitMainFile(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, r := range alwaysOn {
 		emit.WriteSection(&sb, r.Name, r)
 	}
-	return emit.WriteFile(emit.OutputFile(cfg, target, defaultMainFile), sb.String(), dryRun)
+	return emit.WriteFile(rulesFile, sb.String(), dryRun)
 }
 
 func alwaysOnRules(rules []spec.Entry) []spec.Entry {

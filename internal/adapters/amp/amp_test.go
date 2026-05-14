@@ -17,9 +17,10 @@ func TestName(t *testing.T) {
 	}
 }
 
-// Default emission writes AGENTS.md (plural), the spec-correct name.
-// The singular AGENT.md is no longer written.
-func TestEmit_WritesAGENTSMd_Plural(t *testing.T) {
+// Default emission no longer writes AGENTS.md at all; sync owns the
+// entry-point write so codex + amp + warp can coexist at a single
+// AGENTS.md path. The singular AGENT.md is never written.
+func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -28,32 +29,29 @@ func TestEmit_WritesAGENTSMd_Plural(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"# AGENTS.md", "rule body", "<!-- source: rules/r1.md -->"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
-		}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write AGENTS.md by default, err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENT.md")); !os.IsNotExist(err) {
 		t.Errorf("singular AGENT.md should not be written, err=%v", err)
 	}
 }
 
-func TestEmit_ScopedRule_RoutesToNestedAGENTSMd(t *testing.T) {
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "Validate at boundary."},
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"amp": {RulesFile: "AGENTS.md"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	nested := readFile(t, filepath.Join(dir, "backend/AGENTS.md"))
-	if !strings.Contains(nested, "Validate at boundary.") {
-		t.Errorf("missing scoped body: %s", nested)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no root AGENTS.md when only scoped rules exist, err=%v", err)
+	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(got, "rule body") {
+		t.Errorf("legacy rules-file should contain concatenated rule body:\n%s", got)
 	}
 }
 
@@ -82,31 +80,6 @@ func TestEmit_Agent_WritesCommandFile(t *testing.T) {
 	}
 }
 
-func TestEmit_AgentsMd_ListsAgentsWithoutDuplicatingBody(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindAgent,
-			Name: "ag",
-			Meta: map[string]any{"description": "Review PRs."},
-			Body: "Long body should NOT appear in AGENTS.md.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"## Agents", "ag", "Review PRs.", ".agents/commands/ag.md"} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
-	}
-	if strings.Contains(agents, "Long body should NOT appear") {
-		t.Errorf("agent body should not be duplicated in AGENTS.md: %s", agents)
-	}
-}
-
 func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -121,12 +94,6 @@ func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"## Skills", "yaml-validator", "Validate YAML."} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/commands/skill-yaml-validator.md")); !os.IsNotExist(err) {
 		t.Errorf("expected no skill command by default, err=%v", err)
@@ -223,25 +190,6 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/amp/commands/ag.md")); err != nil {
 		t.Errorf("expected override path written: %v", err)
-	}
-}
-
-func TestEmit_FileOverride_RespectedForRoot(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"amp": {File: "docs/AGENTS.md"},
-		},
-	}
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "x"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "docs/AGENTS.md")); err != nil {
-		t.Errorf("expected docs/AGENTS.md: %v", err)
 	}
 }
 
