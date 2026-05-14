@@ -20,8 +20,10 @@ pre-commit:
 
 pre-push:
   commands:
-    tests:
-      run: go test -race ./...
+    # Mirrors the CI Lint + Test jobs so a green local push survives the
+    # PR checks. Equivalent to `make preflight`.
+    preflight:
+      run: make preflight
 
 commit-msg:
   commands:

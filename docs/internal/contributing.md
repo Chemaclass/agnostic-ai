@@ -9,15 +9,15 @@ Go 1.23+.
 ```bash
 git clone https://github.com/Chemaclass/agnostic-ai
 cd agnostic-ai
+make tools      # installs golangci-lint + lefthook at CI-pinned versions
+make hooks      # wires lefthook git hooks (pre-commit, pre-push)
 make build      # builds ./agnostic-ai
 make test       # runs all tests
 ```
 
-Optional, to match CI: install [golangci-lint](https://golangci-lint.run/welcome/install/).
-
-```bash
-golangci-lint run
-```
+`make tools` puts binaries in `$(go env GOPATH)/bin`; ensure that is on
+your `$PATH`. `make hooks` then installs lefthook's pre-commit (gofmt
++ golangci-lint + go vet on staged files) and pre-push (`make preflight`).
 
 ## Dev loop
 
@@ -29,10 +29,14 @@ go run ./cmd/agnostic-ai sync --dry-run
 # focused tests
 go test ./internal/adapters/claude -run TestEmit_WritesAgent -v
 
-# before pushing
-make test
-golangci-lint run
+# before pushing — mirrors the CI Lint + Test jobs exactly
+make preflight
 ```
+
+`make preflight` runs `fmt-check` + `vet` + `lint` + `test`. The CI Lint
+job is `golangci-lint` against the same `.golangci.yml`; running
+`make preflight` locally means a green local run will not surface a new
+lint error on the PR.
 
 ## First PR
 
