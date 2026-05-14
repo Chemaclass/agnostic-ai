@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -100,8 +101,10 @@ func copyFileIfExists(src, dst string) error {
 }
 
 // copyMarkdownDir copies every top-level *.md file from srcDir into
-// dstDir byte-for-byte. Subdirectories and non-.md entries are
-// skipped. Caller must ensure srcDir exists.
+// dstDir. Subdirectories and non-.md entries are skipped. The
+// agnostic-ai provenance header (when present) is stripped so a
+// roundtrip does not carry it back into source specs. Caller must
+// ensure srcDir exists.
 func copyMarkdownDir(srcDir, dstDir string) (int, error) {
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
@@ -114,12 +117,33 @@ func copyMarkdownDir(srcDir, dstDir string) (int, error) {
 		}
 		src := filepath.Join(srcDir, e.Name())
 		dst := filepath.Join(dstDir, e.Name())
-		if err := copyFileIfExists(src, dst); err != nil {
+		if err := copyMarkdownFile(src, dst); err != nil {
 			return count, err
 		}
 		count++
 	}
 	return count, nil
+}
+
+// copyMarkdownFile reads src, strips the agnostic-ai provenance header
+// when present, and writes the result to dst. Missing src is a no-op
+// so callers can probe optional paths without pre-checking existence.
+func copyMarkdownFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("read %s: %w", src, err)
+	}
+	out := header.Strip(string(data))
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+	}
+	if err := os.WriteFile(dst, []byte(out), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", dst, err)
+	}
+	return nil
 }
 
 // mkdirAllSources creates each non-empty source directory under root.

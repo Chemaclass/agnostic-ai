@@ -88,6 +88,7 @@ func scopedDir(dir string, e spec.Entry) string {
 
 func defaultFormatRule(e spec.Entry) string {
 	var b strings.Builder
+	b.WriteString(Header(FormatMarkdown) + "\n")
 	b.WriteString("# " + e.Name + "\n\n")
 	b.WriteString(e.Body)
 	return b.String()
@@ -95,6 +96,7 @@ func defaultFormatRule(e spec.Entry) string {
 
 func defaultFormatAgent(e spec.Entry) string {
 	var b strings.Builder
+	b.WriteString(Header(FormatMarkdown) + "\n")
 	b.WriteString("# Agent: " + e.Name + "\n\n")
 	b.WriteString(e.Body)
 	return b.String()
@@ -102,6 +104,7 @@ func defaultFormatAgent(e spec.Entry) string {
 
 func defaultFormatSkill(e spec.Entry) string {
 	var b strings.Builder
+	b.WriteString(Header(FormatMarkdown) + "\n")
 	b.WriteString("# Skill: " + e.Name + "\n\n")
 	b.WriteString(e.Body)
 	return b.String()

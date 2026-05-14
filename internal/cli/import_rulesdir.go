@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -49,7 +50,7 @@ func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCoun
 
 		kind, baseName := classifyRulesDirFile(rel)
 		dstDir := pickKindDir(kind, src)
-		body := stripLeadingHeading(string(data))
+		body := stripLeadingHeading(header.Strip(string(data)))
 		out := filepath.Join(root, dstDir, scopeDir(rel), baseName+".md")
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)

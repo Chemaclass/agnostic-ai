@@ -61,7 +61,7 @@ func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, a.Name+".md")
-		if err := emit.WriteFile(path, renderWorkflow(a), dryRun); err != nil {
+		if err := emit.WriteFile(path, emit.WithHeader(renderWorkflow(a), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}

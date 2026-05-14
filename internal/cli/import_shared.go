@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // extractLeadingItalic returns the inner text of a `_..._` paragraph
@@ -226,6 +228,13 @@ func copyDirTree(srcDir, dstDir string) error {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
+		}
+		// Strip the agnostic-ai provenance header from SKILL.md so a
+		// roundtrip (claude / codex emit -> import) does not bake the
+		// header into the source spec. Sibling assets pass through
+		// byte-for-byte because they are user-authored.
+		if filepath.Base(path) == "SKILL.md" {
+			data = []byte(header.Strip(string(data)))
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)

@@ -84,7 +84,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".toml")
-		if err := emit.WriteFile(path, agentTOML(a), dryRun); err != nil {
+		if err := emit.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
 			return err
 		}
 	}
@@ -98,7 +98,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
-		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(c.Meta, target))+"\n"+c.Body, dryRun); err != nil {
+		body := emit.Frontmatter(emit.ResolveMeta(c.Meta, target)) + "\n" + c.Body
+		if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
