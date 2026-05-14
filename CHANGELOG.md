@@ -7,23 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- `claude` hook specs accept `command:` as a list of strings. Each entry emits as one `{type, command}` entry in the same matcher's inner `hooks` array.
-- Multiple hook specs sharing the same `event` and `matcher` merge into one matcher block at emit time, stacking their commands inside one inner `hooks` array.
-- `import claude` writes one yaml per matcher group instead of one per command, rendering `command:` as a list when the group has multiple inner commands. Round-trips with the new merge-by-event+matcher emit.
-- `import codex` now reads agents from `.agents/agents/*.toml` (and the legacy `.codex/agents/*.toml`), skills from `.agents/skills/<name>/SKILL.md`, hooks from `.codex/config.toml` `[[hooks.<event>]]`, and MCPs from `.codex/config.toml` `[mcp_servers.<name>]`. AGENTS.md import skips the `## Agents` and `## Skills` listing wrappers (real data lives in the TOML and folders).
-- `gemini` hook specs accept `command:` as a list of strings; each entry emits as a separate `{matcher, command}` pair under the same event.
-
-### Dependencies
-- Add `github.com/BurntSushi/toml v1.6.0` for parsing `.codex/config.toml` and `.agents/agents/*.toml` on `import codex`.
+- Hook specs accept `command:` as a list (claude, gemini). Same-event+matcher specs merge into one block on claude.
+- `import codex` reads agents (`.agents/agents/*.toml`, also legacy `.codex/agents/`), skills, hooks, and MCPs from `.codex/config.toml`. Full round-trip.
+- `import claude` writes one yaml per matcher group with `command:` as a list when the group has multiple commands.
 
 ### Changed
-- `claude` now emits rules per-file under `.claude/rules/<name>.md` instead of concatenating into `CLAUDE.md`. A hand-authored `CLAUDE.md` is no longer overwritten on `sync`. Reference per-rule files from `CLAUDE.md` via `@.claude/rules/<name>.md` imports if you want Claude Code to load them. Users on the legacy single-file layout can set `outputs.claude.rules-file: CLAUDE.md` to keep concatenated output.
-- `claude` merges hooks into `.claude/settings.json` instead of overwriting the whole file. Keys outside `hooks` (e.g. `statusLine`, `enabledPlugins`) are preserved on every `sync`.
-- `codex` emits agent TOMLs at `.agents/agents/<name>.toml` (was `.codex/agents/<name>.toml`). Consolidates with `.agents/skills/` under the same root. Override with `outputs.codex.agents-dir`. Existing `.codex/agents/` is left in place on upgrade; delete it manually after running `sync`.
+- `claude` rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
+- `claude` merges into `.claude/settings.json` instead of overwriting. `statusLine`, `enabledPlugins`, and other user keys preserved.
+- `codex` agents move to `.agents/agents/<name>.toml` (was `.codex/agents/`). Delete the old dir after `sync`.
 
 ### Fixed
-- JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`, merged JSON configs) no longer HTML-escape `&`, `<`, `>`. Shell commands like `cmd1 && cmd2` and redirections like `> out.log` now render literally instead of as `&&` / `>`.
-- `gemini` hook emit no longer drops the `command` key when the spec uses a list. Previously `command: [a, b]` produced a malformed `{matcher}` block with no `command`.
+- JSON outputs no longer HTML-escape `&`, `<`, `>`. `cmd1 && cmd2` and `> out.log` render literally.
+- `gemini` hook emit no longer drops `command` when the spec uses a list.
+
+### Dependencies
+- Add `github.com/BurntSushi/toml v1.6.0` for codex TOML parsing.
 
 ## v0.9.0 - 2026-05-14
 
