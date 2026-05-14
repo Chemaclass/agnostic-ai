@@ -50,6 +50,8 @@ project-scoped MCP surface and skip with a warning.
 
 Rules emit one file per spec under `.claude/rules/`. A hand-authored `CLAUDE.md` is never overwritten. Reference per-rule files from `CLAUDE.md` with `@.claude/rules/<name>.md` imports if you want Claude Code to load them.
 
+`agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any other top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads that overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` has been wiped. Re-run `import claude` whenever you add a key to settings.json by hand.
+
 Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.mcp-file` (default `.mcp.json`).
 
 ### Codex (`codex`)

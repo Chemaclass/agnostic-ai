@@ -252,6 +252,94 @@ func TestEmit_PreservesUserKeysInSettings(t *testing.T) {
 	}
 }
 
+func TestEmit_LoadsSettingsOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": ["foo", "bar"]
+}
+`
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	if _, ok := parsed["statusLine"]; !ok {
+		t.Errorf("statusLine missing after sync: %s", raw)
+	}
+	if _, ok := parsed["enabledPlugins"]; !ok {
+		t.Errorf("enabledPlugins missing after sync: %s", raw)
+	}
+	if _, ok := parsed["hooks"]; !ok {
+		t.Errorf("hooks not written: %s", raw)
+	}
+}
+
+func TestEmit_OverlayWithoutHooks(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{"statusLine": {"type": "command", "command": "echo status"}}` + "\n"
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatalf("expected settings.json with overlay-only content: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	if _, ok := parsed["statusLine"]; !ok {
+		t.Errorf("statusLine missing: %s", raw)
+	}
+	if _, ok := parsed["hooks"]; ok {
+		t.Errorf("hooks should be absent without hook specs: %s", raw)
+	}
+}
+
+func TestEmit_NoOverlayNoHooks_SkipsSettings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("settings.json should not be written: %v", err)
+	}
+}
+
 func TestEmit_WritesMCPFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

@@ -235,6 +235,53 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 	}
 }
 
+func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": ["foo", "bar"],
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json"))
+	if err != nil {
+		t.Fatalf("missing overlay: %v", err)
+	}
+	for _, want := range []string{"statusLine", "enabledPlugins"} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("overlay missing %q: %s", want, raw)
+		}
+	}
+	if strings.Contains(string(raw), "\"hooks\"") {
+		t.Errorf("overlay should not carry hooks key: %s", raw)
+	}
+}
+
+func TestImportFromClaude_OnlyHooks_NoOverlay(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")); !os.IsNotExist(err) {
+		t.Errorf("overlay should not exist when only hooks present: %v", err)
+	}
+}
+
 func TestImportFromClaude_MalformedSettings(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), "{not json")

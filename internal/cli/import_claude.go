@@ -46,6 +46,9 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
 		return err
 	}
+	if err := importClaudeSettingsOverlay(root); err != nil {
+		return err
+	}
 	if err := mirrorClaudeMainFile(root); err != nil {
 		return err
 	}
