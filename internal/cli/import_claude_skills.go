@@ -17,8 +17,12 @@ func importClaudeAgents(root, dstDir string) (int, error) {
 	return copyMarkdownDir(src, dstDir)
 }
 
-// importClaudeSkills copies each .claude/skills/<name>/SKILL.md to
-// <dstDir>/<name>/SKILL.md. Other files inside the skill dir are ignored.
+// importClaudeSkills copies each `.claude/skills/<name>/` directory tree
+// byte-for-byte into `<dstDir>/<name>/`. SKILL.md must exist for the
+// skill to be considered; once present, every sibling file (and nested
+// subdirectories such as `scripts/`, `assets/`, helper Python/JS
+// modules, fixtures, etc.) is mirrored verbatim so a roundtrip
+// preserves the full skill payload.
 func importClaudeSkills(root, dstDir string) (int, error) {
 	src := filepath.Join(root, claudeDir, "skills")
 	entries, err := os.ReadDir(src)
@@ -33,21 +37,15 @@ func importClaudeSkills(root, dstDir string) (int, error) {
 		if !e.IsDir() {
 			continue
 		}
-		skillPath := filepath.Join(src, e.Name(), "SKILL.md")
-		data, err := os.ReadFile(skillPath)
-		if errors.Is(err, fs.ErrNotExist) {
+		skillSrc := filepath.Join(src, e.Name())
+		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 			continue
+		} else if err != nil {
+			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
-		if err != nil {
-			return count, fmt.Errorf("read skill %s: %w", e.Name(), err)
-		}
-		out := filepath.Join(dstDir, e.Name())
-		if err := os.MkdirAll(out, 0o755); err != nil {
-			return count, fmt.Errorf("mkdir %s: %w", out, err)
-		}
-		dst := filepath.Join(out, "SKILL.md")
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", dst, err)
+		skillDst := filepath.Join(dstDir, e.Name())
+		if err := copyDirTree(skillSrc, skillDst); err != nil {
+			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
 		count++
 	}

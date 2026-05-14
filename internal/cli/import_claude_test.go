@@ -183,6 +183,53 @@ func TestImportFromClaude_CopiesSkills(t *testing.T) {
 	}
 }
 
+func TestImportFromClaude_CopiesSkillAssets(t *testing.T) {
+	dir := t.TempDir()
+	skillRoot := filepath.Join(dir, ".claude", "skills", "validator")
+	writeFile(t, filepath.Join(skillRoot, "SKILL.md"), "---\nname: validator\n---\nbody\n")
+	writeFile(t, filepath.Join(skillRoot, "scripts", "run.py"), "print('ok')\n")
+	writeFile(t, filepath.Join(skillRoot, "fixtures", "data.json"), `{"k":1}`)
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{"SKILL.md", "scripts/run.py", "fixtures/data.json"} {
+		got, err := os.ReadFile(filepath.Join(dir, "skills", "validator", filepath.FromSlash(rel)))
+		if err != nil {
+			t.Errorf("missing imported skill asset %q: %v", rel, err)
+			continue
+		}
+		want, _ := os.ReadFile(filepath.Join(skillRoot, filepath.FromSlash(rel)))
+		if string(got) != string(want) {
+			t.Errorf("skill asset %q not byte-identical: got %q want %q", rel, got, want)
+		}
+	}
+}
+
+func TestImportFromClaude_PreservesSkillScriptExecutableBit(t *testing.T) {
+	dir := t.TempDir()
+	skillRoot := filepath.Join(dir, ".claude", "skills", "build")
+	writeFile(t, filepath.Join(skillRoot, "SKILL.md"), "---\nname: build\n---\nbody\n")
+	scriptPath := filepath.Join(skillRoot, "run.sh")
+	writeFile(t, scriptPath, "#!/bin/sh\necho hi\n")
+	if err := os.Chmod(scriptPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, "skills", "build", "run.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("executable bit dropped on import: mode=%v", info.Mode().Perm())
+	}
+}
+
 func TestImportFromClaude_ImportsHooks(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

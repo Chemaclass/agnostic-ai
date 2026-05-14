@@ -298,6 +298,31 @@ func TestImportFromCodex_SkillsFromFolders(t *testing.T) {
 	}
 }
 
+func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
+	dir := t.TempDir()
+	skillRoot := filepath.Join(dir, ".agents", "skills", "validator")
+	writeFile(t, filepath.Join(skillRoot, "SKILL.md"),
+		"---\nname: validator\n---\nbody\n")
+	writeFile(t, filepath.Join(skillRoot, "scripts", "run.py"), "print('ok')\n")
+	writeFile(t, filepath.Join(skillRoot, "agents", "openai.yaml"), "interface: cli\n")
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{"SKILL.md", "scripts/run.py", "agents/openai.yaml"} {
+		got, err := os.ReadFile(filepath.Join(dir, "skills", "validator", filepath.FromSlash(rel)))
+		if err != nil {
+			t.Errorf("missing imported skill asset %q: %v", rel, err)
+			continue
+		}
+		want, _ := os.ReadFile(filepath.Join(skillRoot, filepath.FromSlash(rel)))
+		if string(got) != string(want) {
+			t.Errorf("skill asset %q not byte-identical: got %q want %q", rel, got, want)
+		}
+	}
+}
+
 func TestImportFromCodex_HooksAndMCPsFromConfigTOML(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.fs]

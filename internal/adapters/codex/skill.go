@@ -22,14 +22,26 @@ var openaiYAMLKeys = []string{"interface", "policy", "dependencies"}
 //	<skillsDir>/<name>/
 //	  SKILL.md           (required, frontmatter + body)
 //	  agents/openai.yaml (optional, when x-codex provides UI/policy/deps)
+//	  <attached files>   (any sibling files / subdirs in the source skill)
 //
 // The SKILL.md frontmatter is reduced to the two fields Codex requires
 // (`name`, `description`) so the file stays valid against the published
 // schema regardless of what extra metadata the source spec carries.
+//
+// Any other files or subdirectories that live next to the source
+// SKILL.md (helper scripts, fixtures, additional docs) are propagated
+// byte-for-byte into the emitted skill folder. The optional Codex
+// `agents/openai.yaml` overlay derived from `x-codex` is written last
+// so a spec-authored value wins over any verbatim copy of the same
+// path from the source tree.
 func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 	folder := filepath.Join(skillsDir, s.Name)
 
 	if err := emit.WriteFile(filepath.Join(folder, "SKILL.md"), skillMarkdown(s), dryRun); err != nil {
+		return err
+	}
+
+	if err := propagateSkillAssets(s, folder, dryRun); err != nil {
 		return err
 	}
 
@@ -39,6 +51,20 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 		}
 	}
 	return nil
+}
+
+// propagateSkillAssets mirrors every sibling file under the source
+// skill directory into the emitted folder, skipping SKILL.md because
+// the adapter re-renders it from the spec frontmatter. No-op when the
+// source path is unknown (in-memory specs from the playground).
+func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
+	if s.Path == "" {
+		return nil
+	}
+	srcDir := filepath.Dir(s.Path)
+	return emit.CopyTree(srcDir, dstDir, func(rel string) bool {
+		return rel == "SKILL.md"
+	}, dryRun)
 }
 
 func skillMarkdown(s spec.Entry) string {
