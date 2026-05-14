@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- `import` prints a next-steps block after every importer, with suggestions to run `sync --check` / `sync` and hints for other detected CLIs to import.
+- `init` next-steps adapt to context: with `--demo` or `--preset` the next step is `sync` (not `import`); detected CLIs are surfaced as suggested `import` follow-ups. Selected targets are echoed back.
+
 ## v0.12.0 - 2026-05-14
 
 ### Added

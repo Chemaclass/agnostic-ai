@@ -50,6 +50,7 @@ func importFromCopilot(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
 		counts.rules, counts.agents+chatmodes, counts.skills, mcps)
+	printImportNextSteps(root, "copilot")
 	return nil
 }
 

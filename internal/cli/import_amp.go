@@ -36,6 +36,7 @@ func importFromAmp(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d mcps\n", rules, agents, mcps)
+	printImportNextSteps(root, "amp")
 	return nil
 }
 

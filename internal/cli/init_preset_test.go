@@ -136,6 +136,21 @@ func TestInit_PresetDoesNotOverwriteExistingFiles(t *testing.T) {
 	}
 }
 
+func TestInit_PresetSuggestsSyncInNextSteps(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "go", allTargetNames()); err != nil {
+		t.Fatalf("scaffold: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "agnostic-ai sync --check") {
+		t.Errorf("preset scaffold should suggest sync --check:\n%s", out)
+	}
+	if strings.Contains(out, "agnostic-ai import <target>") {
+		t.Errorf("preset scaffold should not show import <target>:\n%s", out)
+	}
+}
+
 func TestAvailablePresets_ListsEmbedded(t *testing.T) {
 	got := availablePresets()
 	for _, want := range []string{"go", "ts-react", "python"} {

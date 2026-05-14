@@ -45,6 +45,7 @@ func importFromGemini(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d mcps, %d hooks\n", rules, agents, mcps, hooks)
+	printImportNextSteps(root, "gemini")
 	return nil
 }
 

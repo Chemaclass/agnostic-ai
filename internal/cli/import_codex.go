@@ -41,6 +41,7 @@ func importFromCodex(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps\n",
 		rules, agents, skills, hooks, mcps)
+	printImportNextSteps(root, "codex")
 	return nil
 }
 

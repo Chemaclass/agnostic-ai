@@ -436,3 +436,48 @@ func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
 		t.Errorf("demo/preset lines should appear before next steps:\n%s", out)
 	}
 }
+
+func TestScaffold_EchoesEnabledTargets(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "", []string{"claude", "codex"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "  enabled: claude, codex\n") {
+		t.Errorf("expected enabled targets line, got:\n%s", buf.String())
+	}
+}
+
+func TestScaffold_SeededSuggestsSyncNotImport(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", true, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "agnostic-ai sync --check") {
+		t.Errorf("seeded scaffold should suggest sync --check:\n%s", out)
+	}
+	if strings.Contains(out, "agnostic-ai import <target>") {
+		t.Errorf("seeded scaffold should not show import <target>:\n%s", out)
+	}
+}
+
+func TestScaffold_DetectsExistingTargetsAndSuggestsImports(t *testing.T) {
+	dir := t.TempDir()
+	// Drop a marker for the codex CLI; init should surface it as a hint.
+	if err := os.MkdirAll(filepath.Join(dir, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "detected existing config:") {
+		t.Errorf("expected detected block:\n%s", out)
+	}
+	if !strings.Contains(out, "agnostic-ai import codex\n") {
+		t.Errorf("expected codex import hint:\n%s", out)
+	}
+}
