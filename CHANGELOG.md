@@ -6,25 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-- Hook specs accept `command:` as a list (claude, gemini). Same-event+matcher specs merge into one block on claude.
-- `import codex` reads agents (`.agents/agents/*.toml`, also legacy `.codex/agents/`), skills, hooks, and MCPs from `.codex/config.toml`. Full round-trip, with unknown agent TOML keys captured under `x-codex` and emitted back unchanged.
-- `import claude` writes one yaml per matcher group with `command:` as a list when the group has multiple commands.
-- `import claude` captures `statusLine`, `enabledPlugins`, and every other non-`hooks` key from `.claude/settings.json` into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads the overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` is wiped.
-- Hook spec filenames now derive from event + matcher slug + 8-char SHA-256 of the canonical content (`event|matcher|<commands>`). Re-imports of the same hook produce the same filename — user edits no longer collide with positional names.
+### claude
+- Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
+- `.claude/settings.json` preserves user keys (`statusLine`, `enabledPlugins`, etc.) across sync. `import claude` captures them into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top. Survives `.claude/` wipe.
+- Hooks merge by `event` + `matcher` into one block; `command:` accepts a string or a list of strings.
 
-### Changed
-- `claude` rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
-- `claude` merges into `.claude/settings.json` instead of overwriting. `statusLine`, `enabledPlugins`, and other user keys preserved.
-- `codex` agents move to `.agents/agents/<name>.toml` (was `.codex/agents/`). Delete the old dir after `sync`.
-- `codex` agent TOML emit passes through every key carried in `x-codex` (typed string, bool, number, []string, inline string table). Future / unknown Codex fields no longer drop on round-trip.
+### codex
+- Agents emit at `.agents/agents/<name>.toml` (was `.codex/agents/`). Override via `outputs.codex.agents-dir`. Delete old dir after sync.
+- `import codex` round-trips agents, skills, hooks, and MCPs. Unknown agent TOML keys land under `x-codex` and emit back unchanged.
 
-### Fixed
-- JSON outputs no longer HTML-escape `&`, `<`, `>`. `cmd1 && cmd2` and `> out.log` render literally.
-- `gemini` hook emit no longer drops `command` when the spec uses a list.
+### gemini
+- `command:` accepts a list of strings; each entry emits as a separate `{matcher, command}` pair.
+- Fix: emit no longer drops `command` when the spec uses a list.
+
+### all
+- Hook spec filenames derive from content hash (`<event>[-<matcher>]-<hash8>.yaml`). Re-imports converge on the same path; user edits no longer collide with positional names.
+- JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`) no longer HTML-escape `&`, `<`, `>`. Shell commands render literally.
 
 ### Dependencies
-- Add `github.com/BurntSushi/toml v1.6.0` for codex TOML parsing.
+- `github.com/BurntSushi/toml` v1.6.0 (codex TOML parsing).
 
 ## v0.9.0 - 2026-05-14
 
