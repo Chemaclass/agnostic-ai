@@ -21,8 +21,24 @@ type syncStateFile struct {
 	FilesChanged int       `json:"files_changed"`
 }
 
+// stateFileGitignoreEntry is the project-relative path of the sync state
+// file as it appears in .gitignore. Forward-slashed because gitignore
+// entries always use forward slashes regardless of OS.
+const stateFileGitignoreEntry = ".agnostic-ai/.sync-state"
+
 func stateFilePath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".agnostic-ai", ".sync-state")
+}
+
+// finalizeGitignore writes the managed .gitignore block from the recorded
+// emit paths plus the sync state file entry. Callers must have called
+// adapters.StartRecording() earlier.
+func finalizeGitignore(cfg *config.Config) error {
+	entries := append(adapters.StopRecording(), stateFileGitignoreEntry)
+	if err := updateGitignore(cfg, normalizeAndSort(entries)); err != nil {
+		return fmt.Errorf("gitignore: %w", err)
+	}
+	return nil
 }
 
 func writeStateFile(projectRoot string, filesChanged int) error {
@@ -196,10 +212,8 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		filesChanged = adapters.StopCounting()
 	}
 	if gitignoreOn {
-		entries := adapters.StopRecording()
-		entries = append(entries, ".agnostic-ai/.sync-state")
-		if err := updateGitignore(cfg, normalizeAndSort(entries)); err != nil {
-			return fmt.Errorf("gitignore: %w", err)
+		if err := finalizeGitignore(cfg); err != nil {
+			return err
 		}
 		summaryf("→ updated .gitignore\n")
 	}
@@ -258,10 +272,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 
 	if gitignoreOn {
-		entries := adapters.StopRecording()
-		entries = append(entries, ".agnostic-ai/.sync-state")
-		if err := updateGitignore(cfg, normalizeAndSort(entries)); err != nil {
-			return fmt.Errorf("gitignore: %w", err)
+		if err := finalizeGitignore(cfg); err != nil {
+			return err
 		}
 	}
 	if !dryRun {
