@@ -13,7 +13,7 @@
 #
 # What it does (in order):
 #   1. Validate inputs and git state (clean tree, on main, in sync with origin).
-#   2. Run go vet, gofmt -s -l, go test ./..., agnostic-ai sync --check.
+#   2. Run go vet, gofmt -s -l, go test ./..., agnostic-ai sync (drift gate).
 #   3. Bump `version` in cmd/agnostic-ai/main.go.
 #   4. Promote [Unreleased] in CHANGELOG.md to [vX.Y.Z] with today's date and
 #      insert a fresh [Unreleased] block above.
@@ -268,8 +268,13 @@ preflight() {
   note "preflight: go test"
   go test ./...
 
-  note "preflight: sync --check (drift gate)"
-  go run ./cmd/agnostic-ai sync --check
+  note "preflight: sync (drift gate)"
+  go run ./cmd/agnostic-ai sync
+  local drift
+  drift="$(git status --porcelain)"
+  if [[ -n "$drift" ]]; then
+    die "sync regenerated files. commit the drift below and rerun:"$'\n'"$drift"
+  fi
 }
 
 # watch_release waits for the release workflow to start, watches it, and
