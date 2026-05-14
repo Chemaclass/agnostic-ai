@@ -3,6 +3,84 @@
   "$id": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json",
   "$ref": "#/$defs/Config",
   "$defs": {
+    "ClaudePermissions": {
+      "properties": {
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ask": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ClaudeSettings": {
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "outputStyle": {
+          "type": "string"
+        },
+        "apiKeyHelper": {
+          "type": "string"
+        },
+        "cleanupPeriodDays": {
+          "type": "integer"
+        },
+        "includeCoAuthoredBy": {
+          "type": "boolean"
+        },
+        "enabledPlugins": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "statusLine": {
+          "$ref": "#/$defs/ClaudeStatusLine"
+        },
+        "permissions": {
+          "$ref": "#/$defs/ClaudePermissions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ClaudeStatusLine": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "padding": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Config": {
       "properties": {
         "version": {
@@ -106,6 +184,9 @@
         },
         "emit-skills-as-commands": {
           "type": "boolean"
+        },
+        "settings": {
+          "$ref": "#/$defs/ClaudeSettings"
         }
       },
       "additionalProperties": false,

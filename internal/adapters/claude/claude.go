@@ -100,7 +100,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	if err := writeSettings(b.Hooks, dir, dryRun); err != nil {
+	if err := writeSettings(b.Hooks, dir, cfg, dryRun); err != nil {
 		return err
 	}
 
@@ -128,42 +128,51 @@ func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
 	}, dryRun)
 }
 
-// writeSettings renders `.claude/settings.json` from the captured
-// overlay (if any) plus the spec-derived hooks block.
+// writeSettings renders `.claude/settings.json` by layering, in order
+// of increasing precedence:
 //
-// Three cases:
+//  1. Overlay captured during `import claude` (covers anything the user
+//     keeps inside `.claude/settings.json` directly).
+//  2. First-class fields from `outputs.claude.settings` in
+//     `agnostic-ai.yaml` (statusLine, permissions, env, model, etc).
+//  3. Spec-derived `hooks` block (always wins for the `hooks` key).
 //
-//   - Overlay present: it acts as the base map; the spec-derived `hooks`
-//     key overwrites whatever `hooks` the overlay carried (always empty
-//     in practice, the importer strips it). The whole document is
-//     written via WriteFile so disk content reflects the captured state
-//     exactly. No disk read of `.claude/settings.json` happens, so
-//     wiping `.claude/` between import and sync is harmless.
-//   - Overlay absent but hooks present: fall back to merging into any
-//     existing settings.json on disk. This preserves keys for users
-//     upgrading from older agnostic-ai versions that never ran the
-//     import overlay step.
-//   - Overlay absent and no hooks: write nothing.
-func writeSettings(hooks []spec.Entry, dir string, dryRun bool) error {
+// Three short-circuits:
+//
+//   - All three layers empty: write nothing.
+//   - Overlay absent but hooks present and config empty: merge into any
+//     existing settings.json on disk so a user-edited statusLine added
+//     directly to `.claude/settings.json` survives until `import claude`
+//     captures it.
+//   - Overlay absent but config layer non-empty: start from an empty
+//     map. Disk is not consulted, so the config is authoritative.
+func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
 	if err != nil {
 		return err
 	}
+	configSettings := buildConfigSettings(cfg)
+	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks {
+	if !overlayOK && !hasHooks && !hasConfig {
 		return nil
 	}
 	path := filepath.Join(dir, "settings.json")
-	if !overlayOK {
-		// Backwards-compat path: no overlay yet, merge into disk so a
-		// user-edited statusLine added directly to .claude/settings.json
-		// survives until they run `import claude` to capture it.
+	if !overlayOK && !hasConfig {
+		// Backwards-compat path: no overlay yet, merge hooks into disk
+		// so user-edited keys survive until `import claude` captures
+		// them into the overlay.
 		return emit.MergeJSONFile(path, buildHookSettings(hooks), dryRun)
 	}
 	doc := overlay
+	if doc == nil {
+		doc = map[string]any{}
+	}
+	for k, v := range configSettings {
+		doc[k] = v
+	}
 	if hasHooks {
-		settings := buildHookSettings(hooks)
-		for k, v := range settings {
+		for k, v := range buildHookSettings(hooks) {
 			doc[k] = v
 		}
 	} else {
