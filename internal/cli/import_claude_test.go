@@ -196,7 +196,7 @@ func TestImportFromClaude_ImportsHooks(t *testing.T) {
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, "hooks", "posttooluse-1-1.yaml")
+	path := filepath.Join(dir, "hooks", "posttooluse-1.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("missing %s: %v", path, err)
@@ -224,9 +224,13 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"posttooluse-1-1.yaml", "posttooluse-1-2.yaml"} {
-		if _, err := os.Stat(filepath.Join(dir, "hooks", name)); err != nil {
-			t.Errorf("missing %s", name)
+	data, err := os.ReadFile(filepath.Join(dir, "hooks", "posttooluse-1.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"- fmt", "- lint", "matcher: Edit"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q in %s", want, data)
 		}
 	}
 }

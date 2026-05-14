@@ -15,8 +15,8 @@
 package claude
 
 import (
-	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -73,11 +73,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	if len(b.Hooks) > 0 {
 		settings := buildHookSettings(b.Hooks)
-		raw, err := emit.MarshalJSONIndent(settings)
-		if err != nil {
-			return fmt.Errorf("hooks settings: %w", err)
-		}
-		if err := emit.WriteFile(filepath.Join(dir, "settings.json"), string(raw)+"\n", dryRun); err != nil {
+		path := filepath.Join(dir, "settings.json")
+		if err := emit.MergeJSONFile(path, settings, dryRun); err != nil {
 			return err
 		}
 	}
@@ -109,21 +106,87 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	return nil
 }
 
+// buildHookSettings renders {"hooks": {<event>: [{"matcher", "hooks": [...]}]}}
+// keyed for `.claude/settings.json`.
+//
+// Specs with the same event and matcher merge into one matcher block:
+// their commands stack inside the inner `hooks` array, matching the
+// Claude Code schema where each matcher entry can run multiple commands.
+// A spec's `command:` field accepts a string or a list of strings; each
+// string becomes one `{type: "command", command: ...}` entry.
 func buildHookSettings(hooks []spec.Entry) map[string]any {
-	byEvent := map[string][]map[string]any{}
+	type matcherKey struct{ event, matcher string }
+
+	byKey := map[matcherKey][]map[string]any{}
+	keyOrder := []matcherKey{}
+
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		matcher, _ := h.Meta["matcher"].(string)
-		command, _ := h.Meta["command"].(string)
 		if event == "" {
 			continue
 		}
-		byEvent[event] = append(byEvent[event], map[string]any{
-			"matcher": matcher,
-			"hooks": []map[string]any{
-				{"type": "command", "command": command},
-			},
+		cmds := hookCommands(h.Meta["command"])
+		if len(cmds) == 0 {
+			continue
+		}
+		k := matcherKey{event: event, matcher: matcher}
+		if _, seen := byKey[k]; !seen {
+			keyOrder = append(keyOrder, k)
+		}
+		for _, cmd := range cmds {
+			byKey[k] = append(byKey[k], map[string]any{"type": "command", "command": cmd})
+		}
+	}
+
+	byEvent := map[string][]map[string]any{}
+	for _, k := range keyOrder {
+		byEvent[k.event] = append(byEvent[k.event], map[string]any{
+			"matcher": k.matcher,
+			"hooks":   byKey[k],
 		})
 	}
+	// Stable iteration: events are emitted by Go in sorted order during
+	// JSON encoding, but matcher groups within an event preserve insert
+	// order. Sort matcher groups by matcher string for deterministic
+	// output across sync runs.
+	for event, groups := range byEvent {
+		sort.SliceStable(groups, func(i, j int) bool {
+			mi, _ := groups[i]["matcher"].(string)
+			mj, _ := groups[j]["matcher"].(string)
+			return mi < mj
+		})
+		byEvent[event] = groups
+	}
 	return map[string]any{"hooks": byEvent}
+}
+
+// hookCommands normalizes a `command:` field that may be a string or a
+// list of strings into a single []string. Empty strings drop out.
+func hookCommands(raw any) []string {
+	switch v := raw.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(v))
+		for _, s := range v {
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }

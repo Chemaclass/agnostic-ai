@@ -28,7 +28,12 @@ type claudeSettings struct {
 }
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
-// hook command into <dstDir>/<event>-<group>-<index>.yaml.
+// matcher group into <dstDir>/<event>-<group>.yaml.
+//
+// A matcher block with multiple inner commands renders as a single yaml
+// whose `command:` field is a list. The emit side merges the same
+// event+matcher specs back into one matcher block, so the round-trip
+// preserves multi-command groups without exploding into N files.
 func importClaudeHooks(root, dstDir string) (int, error) {
 	src := filepath.Join(root, claudeDir, "settings.json")
 	data, err := os.ReadFile(src)
@@ -54,24 +59,35 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	count := 0
 	for _, event := range events {
 		for gi, g := range s.Hooks[event] {
-			for hi, h := range g.Hooks {
-				name := fmt.Sprintf("%s-%d-%d", strings.ToLower(event), gi+1, hi+1)
-				doc := map[string]any{
-					"name":    name,
-					"event":   event,
-					"matcher": g.Matcher,
-					"command": h.Command,
+			cmds := make([]string, 0, len(g.Hooks))
+			for _, h := range g.Hooks {
+				if h.Command != "" {
+					cmds = append(cmds, h.Command)
 				}
-				raw, err := yaml.Marshal(doc)
-				if err != nil {
-					return count, fmt.Errorf("marshal hook %s: %w", name, err)
-				}
-				path := filepath.Join(dstDir, name+".yaml")
-				if err := os.WriteFile(path, raw, 0o644); err != nil {
-					return count, fmt.Errorf("write %s: %w", path, err)
-				}
-				count++
 			}
+			if len(cmds) == 0 {
+				continue
+			}
+			name := fmt.Sprintf("%s-%d", strings.ToLower(event), gi+1)
+			doc := map[string]any{
+				"name":    name,
+				"event":   event,
+				"matcher": g.Matcher,
+			}
+			if len(cmds) == 1 {
+				doc["command"] = cmds[0]
+			} else {
+				doc["command"] = cmds
+			}
+			raw, err := yaml.Marshal(doc)
+			if err != nil {
+				return count, fmt.Errorf("marshal hook %s: %w", name, err)
+			}
+			path := filepath.Join(dstDir, name+".yaml")
+			if err := os.WriteFile(path, raw, 0o644); err != nil {
+				return count, fmt.Errorf("write %s: %w", path, err)
+			}
+			count++
 		}
 	}
 	return count, nil

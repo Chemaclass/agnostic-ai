@@ -140,6 +140,118 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 	}
 }
 
+func TestEmit_MergesHooksBySameEventAndMatcher(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "cmd1",
+		}},
+		{Kind: spec.KindHook, Name: "h2", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "cmd2",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+			Hooks   []struct {
+				Type    string `json:"type"`
+				Command string `json:"command"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	groups := doc.Hooks["PostToolUse"]
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 matcher group, got %d: %s", len(groups), raw)
+	}
+	if len(groups[0].Hooks) != 2 {
+		t.Fatalf("expected 2 commands in matcher group, got %d: %s", len(groups[0].Hooks), raw)
+	}
+	if groups[0].Hooks[0].Command != "cmd1" || groups[0].Hooks[1].Command != "cmd2" {
+		t.Errorf("commands wrong order: %s", raw)
+	}
+}
+
+func TestEmit_HookCommandAsList(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event":   "PreToolUse",
+			"matcher": "Bash",
+			"command": []any{"cmd1", "cmd2", "cmd3"},
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cmd := range []string{"cmd1", "cmd2", "cmd3"} {
+		if !strings.Contains(string(raw), cmd) {
+			t.Errorf("missing %q: %s", cmd, raw)
+		}
+	}
+}
+
+func TestEmit_PreservesUserKeysInSettings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	settingsPath := filepath.Join(dir, ".claude/settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": ["foo", "bar"]
+}
+`
+	if err := os.WriteFile(settingsPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	if _, ok := parsed["statusLine"]; !ok {
+		t.Errorf("statusLine missing after sync: %s", raw)
+	}
+	if _, ok := parsed["enabledPlugins"]; !ok {
+		t.Errorf("enabledPlugins missing after sync: %s", raw)
+	}
+	if _, ok := parsed["hooks"]; !ok {
+		t.Errorf("hooks not written: %s", raw)
+	}
+}
+
 func TestEmit_WritesMCPFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
