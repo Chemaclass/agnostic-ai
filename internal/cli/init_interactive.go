@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -102,14 +104,21 @@ func filterToCanonicalOrder(picked map[string]bool) []string {
 
 // runInteractivePrompt drives the huh multi-select. It is glue around
 // the third-party widget; behavior is verified manually rather than
-// in unit tests.
-func runInteractivePrompt(stderr io.Writer) ([]string, error) {
+// in unit tests. preselected names are pre-ticked on entry.
+func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, error) {
 	opts := make([]huh.Option[string], len(allTargets))
 	for i, t := range allTargets {
 		label := fmt.Sprintf("%-9s %s", t.Name, t.Desc)
 		opts[i] = huh.NewOption(label, t.Name)
 	}
-	var picked []string
+	picked := make([]string, 0, len(preselected))
+	known := map[string]bool{}
+	for _, n := range preselected {
+		if !known[n] && isKnownTarget(n) {
+			known[n] = true
+			picked = append(picked, n)
+		}
+	}
 	form := huh.NewMultiSelect[string]().
 		Title("Select targets to enable").
 		Options(opts...).
@@ -125,4 +134,41 @@ func runInteractivePrompt(stderr io.Writer) ([]string, error) {
 		pickedSet[n] = true
 	}
 	return filterToCanonicalOrder(pickedSet), nil
+}
+
+// targetMarkers maps each canonical target to filesystem paths that
+// indicate the project already uses that CLI. A target is "detected"
+// when at least one of its markers exists. Markers are chosen to be
+// exclusive (no shared root files like AGENTS.md) so detection does not
+// over-tick.
+var targetMarkers = map[string][]string{
+	"claude":   {".claude"},
+	"codex":    {".codex", ".agents/agents"},
+	"gemini":   {".gemini"},
+	"cursor":   {".cursor"},
+	"copilot":  {".github/copilot-instructions.md", ".github/instructions"},
+	"aider":    {".aider.conf.yml", ".aider.conf.yaml"},
+	"cline":    {".clinerules"},
+	"windsurf": {".windsurf"},
+	"continue": {".continue"},
+	"amp":      {".amp"},
+	"zed":      {".zed"},
+	"warp":     {".warp"},
+	"opencode": {".opencode"},
+}
+
+// detectExistingTargets returns the canonical-ordered subset of
+// allTargets whose marker paths exist under root. Used by `init` to
+// pre-tick CLIs the user already has configured.
+func detectExistingTargets(root string) []string {
+	picked := map[string]bool{}
+	for _, t := range allTargets {
+		for _, marker := range targetMarkers[t.Name] {
+			if _, err := os.Stat(filepath.Join(root, marker)); err == nil {
+				picked[t.Name] = true
+				break
+			}
+		}
+	}
+	return filterToCanonicalOrder(picked)
 }

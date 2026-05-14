@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### init
+- `init` pre-ticks any target whose marker is present in the working directory (`.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`, etc.). First-sync picker does the same.
+
 ## v0.10.0 - 2026-05-14
 
 ### claude
