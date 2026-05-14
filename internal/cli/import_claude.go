@@ -6,15 +6,21 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// AgnosticMainFile is the project-root "main instructions" file
-// agnostic-ai mirrors during import. Sits alongside CLAUDE.md /
-// AGENTS.md / GEMINI.md and holds a verbatim copy of the source CLI's
-// top-level instructions.
-const AgnosticMainFile = "AGNOSTIC_AI.md"
+const (
+	// claudeDir is the per-project Claude Code config directory.
+	claudeDir = ".claude"
+	// claudeMainFile is the project-root Claude Code instructions file.
+	claudeMainFile = "CLAUDE.md"
+	// agnosticMainFile is the project-root CLI-agnostic instructions
+	// file. Sits alongside CLAUDE.md / AGENTS.md / GEMINI.md and holds
+	// a verbatim copy of the source CLI's top-level instructions.
+	agnosticMainFile = "AGNOSTIC_AI.md"
+)
 
 type importCounts struct{ rules, agents, skills, hooks int }
 
@@ -40,7 +46,7 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
 		return err
 	}
-	if err := copyClaudeMainFile(root); err != nil {
+	if err := mirrorClaudeMainFile(root); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks\n",
@@ -48,12 +54,20 @@ func importFromClaude(root string, src config.Sources) error {
 	return nil
 }
 
-// copyClaudeMainFile mirrors CLAUDE.md to <root>/AGNOSTIC_AI.md
-// byte-for-byte so projects keep a CLI-agnostic top-level
-// instructions file alongside CLAUDE.md / AGENTS.md / GEMINI.md.
-// No-op when CLAUDE.md is absent.
-func copyClaudeMainFile(root string) error {
-	src := filepath.Join(root, "CLAUDE.md")
+// mirrorClaudeMainFile copies <root>/CLAUDE.md byte-for-byte to
+// <root>/AGNOSTIC_AI.md. No-op when CLAUDE.md is absent.
+func mirrorClaudeMainFile(root string) error {
+	src := filepath.Join(root, claudeMainFile)
+	dst := filepath.Join(root, agnosticMainFile)
+	if err := copyFileIfExists(src, dst); err != nil {
+		return fmt.Errorf("mirror %s: %w", claudeMainFile, err)
+	}
+	return nil
+}
+
+// copyFileIfExists copies src to dst byte-for-byte. Returns nil when
+// src is absent; surfaces every other read/write error.
+func copyFileIfExists(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -61,11 +75,33 @@ func copyClaudeMainFile(root string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
-	dst := filepath.Join(root, AgnosticMainFile)
 	if err := os.WriteFile(dst, data, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
+}
+
+// copyMarkdownDir copies every top-level *.md file from srcDir into
+// dstDir byte-for-byte. Subdirectories and non-.md entries are
+// skipped. Caller must ensure srcDir exists.
+func copyMarkdownDir(srcDir, dstDir string) (int, error) {
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", srcDir, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		src := filepath.Join(srcDir, e.Name())
+		dst := filepath.Join(dstDir, e.Name())
+		if err := copyFileIfExists(src, dst); err != nil {
+			return count, err
+		}
+		count++
+	}
+	return count, nil
 }
 
 // mkdirAllSources creates each non-empty source directory under root.

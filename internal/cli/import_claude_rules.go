@@ -11,15 +11,24 @@ import (
 )
 
 // importClaudeRules imports rules from a Claude Code project. Prefers
-// `.claude/rules/*.md` when present (each file becomes one rule,
-// byte-identical copy). Falls back to splitting CLAUDE.md on `## `
-// headings into one rule per section. Without headings it writes a
-// single rule named after the project directory.
+// `.claude/rules/*.md` (each file becomes one rule, byte-identical
+// copy). Falls back to slicing CLAUDE.md on `## ` headings when the
+// directory is absent. Without headings the slicer writes a single
+// rule named after the project directory.
 func importClaudeRules(root, dstDir string) (int, error) {
-	if n, ok, err := importClaudeRulesDir(root, dstDir); ok || err != nil {
-		return n, err
+	rulesDir := filepath.Join(root, claudeDir, "rules")
+	if dirExists(rulesDir) {
+		return copyMarkdownDir(rulesDir, dstDir)
 	}
-	src := filepath.Join(root, "CLAUDE.md")
+	return sliceClaudeMainFile(root, dstDir)
+}
+
+// sliceClaudeMainFile splits <root>/CLAUDE.md on `## ` headings into
+// one rule file per section in dstDir. Without headings it writes a
+// single rule named after the project directory. No-op when CLAUDE.md
+// is absent or empty.
+func sliceClaudeMainFile(root, dstDir string) (int, error) {
+	src := filepath.Join(root, claudeMainFile)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -41,11 +50,12 @@ func importClaudeRules(root, dstDir string) (int, error) {
 		}
 		return 1, nil
 	}
-	count := 0
+
 	used := map[string]int{}
 	for _, s := range sections {
 		used[s.slug] = 1
 	}
+	count := 0
 	if preamble != "" {
 		slug := preambleSlug(preamble, used)
 		path := filepath.Join(dstDir, slug+".md")
@@ -57,43 +67,11 @@ func importClaudeRules(root, dstDir string) (int, error) {
 	for _, s := range sections {
 		path := filepath.Join(dstDir, s.slug+".md")
 		if err := writeRule(path, s.slug, s.body); err != nil {
-			return 0, err
+			return count, err
 		}
 		count++
 	}
 	return count, nil
-}
-
-// importClaudeRulesDir copies each `.claude/rules/*.md` byte-for-byte
-// to dstDir. Returns (count, true, nil) when the directory exists,
-// regardless of how many .md files it contains. Returns
-// (0, false, nil) when the directory is absent so the caller can fall
-// back to slicing CLAUDE.md.
-func importClaudeRulesDir(root, dstDir string) (int, bool, error) {
-	src := filepath.Join(root, ".claude", "rules")
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, false, nil
-	}
-	if err != nil {
-		return 0, true, fmt.Errorf("read %s: %w", src, err)
-	}
-	count := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(src, e.Name()))
-		if err != nil {
-			return count, true, fmt.Errorf("read rule %s: %w", e.Name(), err)
-		}
-		dst := filepath.Join(dstDir, e.Name())
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			return count, true, fmt.Errorf("write %s: %w", dst, err)
-		}
-		count++
-	}
-	return count, true, nil
 }
 
 var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)

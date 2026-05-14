@@ -114,28 +114,28 @@ func TestImportFromClaude_EmptyClaudeRulesDirSkipsSlicing(t *testing.T) {
 	}
 }
 
-func TestImportFromClaude_WritesAgnosticMainFile(t *testing.T) {
+func TestImportFromClaude_WritesagnosticMainFile(t *testing.T) {
 	dir := t.TempDir()
 	body := "# Project\n\nTop-level instructions.\n\n## conventional-commits\n\nUse feat:.\n"
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), body)
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, AgnosticMainFile))
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
 	if err != nil {
-		t.Fatalf("missing %s: %v", AgnosticMainFile, err)
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
 	}
 	if string(got) != body {
 		t.Errorf("AGNOSTIC_AI.md not byte-identical to CLAUDE.md. got %q", got)
 	}
 }
 
-func TestImportFromClaude_NoAgnosticMainFileWhenClaudeMdMissing(t *testing.T) {
+func TestImportFromClaude_NoagnosticMainFileWhenClaudeMdMissing(t *testing.T) {
 	dir := t.TempDir()
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, AgnosticMainFile)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, agnosticMainFile)); !os.IsNotExist(err) {
 		t.Errorf("expected no AGNOSTIC_AI.md when CLAUDE.md absent: %v", err)
 	}
 }

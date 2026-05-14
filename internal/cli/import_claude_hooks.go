@@ -30,7 +30,7 @@ type claudeSettings struct {
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
 // hook command into <dstDir>/<event>-<group>-<index>.yaml.
 func importClaudeHooks(root, dstDir string) (int, error) {
-	src := filepath.Join(root, ".claude", "settings.json")
+	src := filepath.Join(root, claudeDir, "settings.json")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
