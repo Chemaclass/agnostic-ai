@@ -7,25 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- Playground UX refresh: branded header, sample picker per kind, target chips, per-target file selector with Copy/Download buttons, theme toggle (system/light/dark), preference persistence via localStorage, mobile single-column layout.
-- Source URL shown in `--help` (Long description) and `--version` output.
-- `import claude` now prefers `.claude/rules/*.md` (each file → one rule, byte-identical copy) over slicing `CLAUDE.md`. Slicing only runs when `.claude/rules/` is absent.
-- `import claude` mirrors `CLAUDE.md` to `AGNOSTIC_AI.md` at the project root so projects keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
-- `import codex` mirrors the root `AGENTS.md` to `AGNOSTIC_AI.md`, matching the `import claude` behavior.
-- `import aider`: read `CONVENTIONS.md` (slice on `## ` headings) and mirror it to `AGNOSTIC_AI.md`.
-- `import amp`: read `AGENTS.md` rules, `.agents/commands/*.md` agents, and `amp.mcpServers` entries from `.amp/settings.json`; mirror `AGENTS.md`.
-- `import warp`: read `AGENTS.md` rules, `.warp/workflows/*.yaml` agents (description + tags preserved in frontmatter), and `.warp/.mcp.json` `mcpServers`; mirror `AGENTS.md`.
-- `import gemini`: read root and nested `GEMINI.md` (nested files infer `globs: <scope>/**`), `.gemini/commands/*.toml` agents, and `mcpServers` + `hooks` from `.gemini/settings.json`; mirror root `GEMINI.md`.
-- `import copilot`: prefer `.github/instructions/*.instructions.md` over slicing `.github/copilot-instructions.md`; `agent-*` / `skill-*` filename prefixes route to the matching source dir, and a leading italic paragraph lifts into `description:` frontmatter. Chat modes become agents; `.vscode/mcp.json` becomes MCP specs. Mirror `.github/copilot-instructions.md`.
-- `import opencode`: slice `.opencode/AGENTS.md` for rules, copy `.opencode/commands/*.md` as agents, and translate `opencode.json` `mcp` entries (`command` array → `command` + `args`, `environment` → `env`, `type` dropped). Mirror `.opencode/AGENTS.md`.
-- `import zed`: slice `.rules` for rules, `.zed/tasks.json` → hooks (synthetic `event: OnDemand`), `.zed/settings.json` `context_servers` → MCP specs. Mirror `.rules`.
+- Playground UX refresh: target chips, per-target file selector, theme toggle, mobile layout.
+- Source URL in `--help` and `--version`.
+- `import` for **aider, amp, warp, gemini, copilot, opencode, zed** — full kind coverage where the target supports it.
+- Every importer mirrors the target's main file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.opencode/AGENTS.md`, `.rules`) to `AGNOSTIC_AI.md`. Last import wins.
+- `import claude` prefers `.claude/rules/*.md` over slicing `CLAUDE.md`.
+- `import copilot` lifts a leading italic paragraph into `description:` frontmatter and routes `agent-*` / `skill-*` instruction files to the matching source dir.
 
 ### Changed
-- `agnostic-ai init` now opens the target picker by default when stdin is a TTY (previously required `-i` / `--interactive`). Non-TTY stdin parses a piped comma-separated list, or silently falls back to every supported target when no data arrives. The opt-out flag is now `--all` / `-a`; `-i` / `--interactive` is removed.
+- `agnostic-ai init` prompts for targets by default on a TTY. Pipe a comma-separated list, or pass `--all` / `-a` to skip the picker. `-i` / `--interactive` removed.
 
 ### Fixed
-- `import claude` no longer drops preamble before the first `##` heading (saved as a separate rule) and no longer splits rules on `##` lines that live inside fenced code blocks.
-- `agnostic-ai.yaml` schema: `outputs`, `sources`, `targets`, `on-unsupported`, and `gitignore` are now optional (only `version` is required). Editors no longer flag a minimal config as invalid.
+- `import claude` keeps preamble before the first `##` and ignores `##` lines inside fenced code blocks.
+- `agnostic-ai.yaml`: only `version` is required. Editors no longer flag a minimal config.
 
 ### Removed
 
