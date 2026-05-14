@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `import claude` now prefers `.claude/rules/*.md` (each file → one rule, byte-identical copy) over slicing `CLAUDE.md`. Slicing only runs when `.claude/rules/` is absent.
 - `import claude` mirrors `CLAUDE.md` to `AGNOSTIC_AI.md` at the project root so projects keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 - `import codex` mirrors the root `AGENTS.md` to `AGNOSTIC_AI.md`, matching the `import claude` behavior.
+- `import aider`: read `CONVENTIONS.md` (slice on `## ` headings) and mirror it to `AGNOSTIC_AI.md`.
+- `import amp`: read `AGENTS.md` rules, `.agents/commands/*.md` agents, and `amp.mcpServers` entries from `.amp/settings.json`; mirror `AGENTS.md`.
+- `import warp`: read `AGENTS.md` rules, `.warp/workflows/*.yaml` agents (description + tags preserved in frontmatter), and `.warp/.mcp.json` `mcpServers`; mirror `AGENTS.md`.
+- `import gemini`: read root and nested `GEMINI.md` (nested files infer `globs: <scope>/**`), `.gemini/commands/*.toml` agents, and `mcpServers` + `hooks` from `.gemini/settings.json`; mirror root `GEMINI.md`.
+- `import copilot`: prefer `.github/instructions/*.instructions.md` over slicing `.github/copilot-instructions.md`; `agent-*` / `skill-*` filename prefixes route to the matching source dir, and a leading italic paragraph lifts into `description:` frontmatter. Chat modes become agents; `.vscode/mcp.json` becomes MCP specs. Mirror `.github/copilot-instructions.md`.
+- `import opencode`: slice `.opencode/AGENTS.md` for rules, copy `.opencode/commands/*.md` as agents, and translate `opencode.json` `mcp` entries (`command` array → `command` + `args`, `environment` → `env`, `type` dropped). Mirror `.opencode/AGENTS.md`.
+- `import zed`: slice `.rules` for rules, `.zed/tasks.json` → hooks (synthetic `event: OnDemand`), `.zed/settings.json` `context_servers` → MCP specs. Mirror `.rules`.
 
 ### Changed
 - `agnostic-ai init` now opens the target picker by default when stdin is a TTY (previously required `-i` / `--interactive`). Non-TTY stdin parses a piped comma-separated list, or silently falls back to every supported target when no data arrives. The opt-out flag is now `--all` / `-a`; `-i` / `--interactive` is removed.

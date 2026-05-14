@@ -23,7 +23,10 @@ var rulesDirImporters = map[string]string{
 // importSources lists every source the import command accepts, used in
 // help text and error messages.
 func importSources() string {
-	names := []string{"claude", "codex", "cursor"}
+	names := []string{
+		"aider", "amp", "claude", "codex", "copilot",
+		"cursor", "gemini", "opencode", "warp", "zed",
+	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
 	}
@@ -65,6 +68,20 @@ func runImport(root, source string, src config.Sources) error {
 		return importFromCodex(root, src)
 	case "cursor":
 		return importFromCursor(root, src)
+	case "aider":
+		return importFromAider(root, src)
+	case "amp":
+		return importFromAmp(root, src)
+	case "warp":
+		return importFromWarp(root, src)
+	case "gemini":
+		return importFromGemini(root, src)
+	case "copilot":
+		return importFromCopilot(root, src)
+	case "opencode":
+		return importFromOpencode(root, src)
+	case "zed":
+		return importFromZed(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
