@@ -73,6 +73,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newRenderCmd(),
 		newExplainCmd(),
 		newWhyCmd(),
+		newGraphCmd(),
 	)
 	root.InitDefaultCompletionCmd()
 	return root
