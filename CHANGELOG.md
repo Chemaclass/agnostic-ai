@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 ### Fixed
+- `import claude` no longer drops preamble before the first `##` heading (saved as a separate rule) and no longer splits rules on `##` lines that live inside fenced code blocks.
 
 ### Removed
 

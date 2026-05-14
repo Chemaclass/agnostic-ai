@@ -150,7 +150,7 @@ type codexSection struct {
 // become the actual sections. Italic-only first paragraphs are extracted
 // as descriptions and stripped from the body.
 func codexSectionsFrom(s string) []codexSection {
-	h2 := splitH2Sections(s)
+	_, h2 := splitH2Sections(s)
 	var out []codexSection
 	for _, sec := range h2 {
 		if codexWrapperHeadings[sec.slug] {

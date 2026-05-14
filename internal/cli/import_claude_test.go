@@ -193,12 +193,74 @@ func TestImportFromClaude_HonorsCustomSourceDirs(t *testing.T) {
 
 func TestSlugify_Collisions(t *testing.T) {
 	in := "## Go Style\n\nfoo\n\n## go-style\n\nbar\n"
-	got := splitH2Sections(in)
+	_, got := splitH2Sections(in)
 	if len(got) != 2 {
 		t.Fatalf("expected 2 sections, got %d", len(got))
 	}
 	if got[0].slug != "go-style" || got[1].slug != "go-style-2" {
 		t.Errorf("expected go-style, go-style-2; got %s, %s", got[0].slug, got[1].slug)
+	}
+}
+
+func TestImportFromClaude_PreservesPreamble(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), `# Project Title
+
+Preamble explaining the project before any H2.
+
+## rule-one
+
+Body one.
+`)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "rules", "project-title.md"))
+	if err != nil {
+		t.Fatalf("expected rules/project-title.md (preamble file), got %v", err)
+	}
+	if !strings.Contains(string(data), "Preamble explaining the project") {
+		t.Errorf("preamble lost: %s", data)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-one.md")); err != nil {
+		t.Errorf("missing rule-one.md: %v", err)
+	}
+}
+
+func TestImportFromClaude_PreambleFallbackSlug(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "Bare preamble, no H1.\n\n## rule-one\n\nBody.\n")
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "intro.md")); err != nil {
+		t.Errorf("expected rules/intro.md, got %v", err)
+	}
+}
+
+func TestImportFromClaude_IgnoresH2InsideFencedBlocks(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## rule-one\n\nBody.\n\n"+
+		"```markdown\n## not-a-real-rule\n\nExample inside fence.\n```\n\n"+
+		"## rule-two\n\nBody two.\n")
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "not-a-real-rule.md")); !os.IsNotExist(err) {
+		t.Errorf("phantom rule from fenced block: %v", err)
+	}
+	for _, name := range []string{"rule-one", "rule-two"} {
+		data, err := os.ReadFile(filepath.Join(dir, "rules", name+".md"))
+		if err != nil {
+			t.Fatalf("missing %s: %v", name, err)
+		}
+		if strings.Contains(string(data), "not-a-real-rule") && name == "rule-two" {
+			t.Errorf("%s leaked fenced heading", name)
+		}
+	}
+	one, _ := os.ReadFile(filepath.Join(dir, "rules", "rule-one.md"))
+	if !strings.Contains(string(one), "Example inside fence.") {
+		t.Errorf("rule-one missing fenced example body: %s", one)
 	}
 }
 

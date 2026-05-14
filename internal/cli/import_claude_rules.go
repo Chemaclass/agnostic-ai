@@ -23,7 +23,7 @@ func importClaudeRules(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
 
-	sections := splitH2Sections(string(data))
+	preamble, sections := splitH2Sections(string(data))
 	if len(sections) == 0 {
 		body := strings.TrimSpace(string(data))
 		if body == "" {
@@ -36,32 +36,88 @@ func importClaudeRules(root, dstDir string) (int, error) {
 		}
 		return 1, nil
 	}
+	count := 0
+	used := map[string]int{}
+	for _, s := range sections {
+		used[s.slug] = 1
+	}
+	if preamble != "" {
+		slug := preambleSlug(preamble, used)
+		path := filepath.Join(dstDir, slug+".md")
+		if err := writeRule(path, slug, preamble); err != nil {
+			return 0, err
+		}
+		count++
+	}
 	for _, s := range sections {
 		path := filepath.Join(dstDir, s.slug+".md")
 		if err := writeRule(path, s.slug, s.body); err != nil {
 			return 0, err
 		}
+		count++
 	}
-	return len(sections), nil
+	return count, nil
+}
+
+var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)
+
+// preambleSlug picks a slug for content that precedes the first H2. Uses the
+// first H1 title if present, falls back to "intro". Disambiguates against
+// slugs already used by section headings.
+func preambleSlug(preamble string, used map[string]int) string {
+	base := "intro"
+	if m := h1HeadingRE.FindStringSubmatch(preamble); m != nil {
+		if s := slugify(m[1]); s != "" {
+			base = s
+		}
+	}
+	slug := base
+	for i := 2; used[slug] > 0; i++ {
+		slug = fmt.Sprintf("%s-%d", base, i)
+	}
+	used[slug] = 1
+	return slug
 }
 
 type h2Section struct{ slug, body string }
 
-var h2HeadingRE = regexp.MustCompile(`(?m)^##[ \t]+(.+?)[ \t]*$`)
+var (
+	h2HeadingRE = regexp.MustCompile(`^##[ \t]+(.+?)[ \t]*$`)
+	fenceRE     = regexp.MustCompile("^[ \\t]*(```|~~~)")
+)
 
-// splitH2Sections returns one section per `## heading`. Slug collisions
-// are deduplicated with -2, -3 suffixes. Content before the first heading
-// is discarded.
-func splitH2Sections(s string) []h2Section {
-	idx := h2HeadingRE.FindAllStringSubmatchIndex(s, -1)
-	if len(idx) == 0 {
-		return nil
+// splitH2Sections returns the preamble (content before the first `## heading`)
+// and one section per `## heading`. Slug collisions are deduplicated with
+// -2, -3 suffixes. Headings inside fenced code blocks are ignored so example
+// markdown does not fragment the output.
+func splitH2Sections(s string) (string, []h2Section) {
+	lines := strings.Split(s, "\n")
+	type head struct {
+		line  int
+		title string
 	}
-	out := make([]h2Section, 0, len(idx))
+	var heads []head
+	inFence := false
+	for i, line := range lines {
+		if fenceRE.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if m := h2HeadingRE.FindStringSubmatch(line); m != nil {
+			heads = append(heads, head{i, m[1]})
+		}
+	}
+	if len(heads) == 0 {
+		return strings.TrimSpace(s), nil
+	}
+	preamble := strings.TrimSpace(strings.Join(lines[:heads[0].line], "\n"))
+	out := make([]h2Section, 0, len(heads))
 	used := map[string]int{}
-	for i, m := range idx {
-		title := s[m[2]:m[3]]
-		base := slugify(title)
+	for i, h := range heads {
+		base := slugify(h.title)
 		if base == "" {
 			base = fmt.Sprintf("section-%d", i+1)
 		}
@@ -72,15 +128,15 @@ func splitH2Sections(s string) []h2Section {
 		} else {
 			used[base] = 1
 		}
-		bodyStart := m[1]
-		bodyEnd := len(s)
-		if i+1 < len(idx) {
-			bodyEnd = idx[i+1][0]
+		bodyStart := h.line + 1
+		bodyEnd := len(lines)
+		if i+1 < len(heads) {
+			bodyEnd = heads[i+1].line
 		}
-		body := strings.TrimSpace(s[bodyStart:bodyEnd])
+		body := strings.TrimSpace(strings.Join(lines[bodyStart:bodyEnd], "\n"))
 		out = append(out, h2Section{slug: slug, body: body})
 	}
-	return out
+	return preamble, out
 }
 
 var nonAlphaNumRE = regexp.MustCompile(`[^a-z0-9]+`)
