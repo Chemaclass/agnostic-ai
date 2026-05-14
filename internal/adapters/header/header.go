@@ -1,4 +1,4 @@
-// Package header centralises the agnostic-ai provenance header that
+// Package header centralizes the agnostic-ai provenance header that
 // every generated file should carry. Adapters use it to render the
 // comment line; importers use it to detect and strip the same line
 // during round-trips so source specs do not carry the marker back.
