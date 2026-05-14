@@ -269,7 +269,9 @@ preflight() {
   go test ./...
 
   note "preflight: sync (drift gate)"
-  go run ./cmd/agnostic-ai sync
+  # Redirect stdin so the auto-sync prompt sees non-TTY and skips
+  # without persisting a default into agnostic-ai.yaml.
+  go run ./cmd/agnostic-ai sync </dev/null
   local drift
   drift="$(git status --porcelain)"
   if [[ -n "$drift" ]]; then
