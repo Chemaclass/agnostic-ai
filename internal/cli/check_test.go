@@ -50,7 +50,7 @@ func TestDoctor_Fix_ReconcilesMissingAndStale(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claudeMd := filepath.Join(dir, "CLAUDE.md")
+	claudeMd := filepath.Join(dir, ".claude/rules/r1.md")
 	original, err := os.ReadFile(claudeMd)
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestDoctor_Fix_BackupPreservesHandEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claudeMd := filepath.Join(dir, "CLAUDE.md")
+	claudeMd := filepath.Join(dir, ".claude/rules/r1.md")
 	handEdit := []byte("hand-edited contents\n")
 	if err := os.WriteFile(claudeMd, handEdit, 0o644); err != nil {
 		t.Fatal(err)
@@ -123,7 +123,7 @@ func TestDoctor_DetectsStale(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"),
+	if err := os.WriteFile(filepath.Join(dir, ".claude/rules/r1.md"),
 		[]byte("hand-edited\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +131,6 @@ func TestDoctor_DetectsStale(t *testing.T) {
 	root = NewRootCmd("test")
 	root.SetArgs([]string{"doctor", "-t", "claude"})
 	if err := root.Execute(); err == nil {
-		t.Error("doctor should detect stale CLAUDE.md")
+		t.Error("doctor should detect stale claude rule")
 	}
 }

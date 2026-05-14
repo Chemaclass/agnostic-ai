@@ -71,7 +71,7 @@ func TestExplain_HumanOutputListsConfiguredAndExtras(t *testing.T) {
 	if !strings.Contains(got, "rules/no-console-log.md →") {
 		t.Errorf("missing header arrow: %s", got)
 	}
-	if !strings.Contains(got, "[claude] CLAUDE.md") {
+	if !strings.Contains(got, "[claude] .claude/rules/no-console-log.md") {
 		t.Errorf("expected configured claude contribution: %s", got)
 	}
 	if !strings.Contains(got, "[codex] AGENTS.md") {
@@ -155,8 +155,8 @@ func TestExplain_DoesNotWriteToDisk(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err == nil {
-		t.Error("explain must not write CLAUDE.md to disk")
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/no-console-log.md")); err == nil {
+		t.Error("explain must not write claude rule file to disk")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
 		t.Error("explain must not write AGENTS.md to disk")

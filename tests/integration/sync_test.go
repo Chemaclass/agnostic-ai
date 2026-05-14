@@ -21,7 +21,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	}
 
 	expected := []string{
-		"CLAUDE.md",
+		".claude/rules/sample-rule.md",
 		"AGENTS.md",
 		"GEMINI.md",
 		"CONVENTIONS.md",
@@ -51,8 +51,8 @@ func TestSync_SingleTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err != nil {
-		t.Error("expected CLAUDE.md to exist")
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/sample-rule.md")); err != nil {
+		t.Error("expected .claude/rules/sample-rule.md to exist")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
 		t.Error("expected AGENTS.md NOT to exist when -t claude")

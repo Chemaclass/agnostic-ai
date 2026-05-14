@@ -82,8 +82,8 @@ func TestRender_MultiTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.String()
-	if !strings.Contains(got, "CLAUDE.md") {
-		t.Errorf("missing CLAUDE.md output: %s", got)
+	if !strings.Contains(got, ".claude/rules/no-console-log.md") {
+		t.Errorf("missing claude rules output: %s", got)
 	}
 	if !strings.Contains(got, ".cursor/rules/no-console-log.mdc") {
 		t.Errorf("missing cursor output: %s", got)

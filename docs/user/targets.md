@@ -6,7 +6,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
 |-----------------|---------------------|--------|--------------------------|-------|------|
-| **claude**      | `.claude/agents/`   | `.claude/skills/` | `CLAUDE.md`   | `.claude/settings.json` | `.mcp.json` |
+| **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` |
 | **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) |
 | **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
@@ -43,11 +43,14 @@ project-scoped MCP surface and skip with a warning.
 .claude/
 ├── agents/<name>.md
 ├── skills/<name>/SKILL.md
+├── rules/<name>.md
 └── settings.json
-CLAUDE.md
+.mcp.json
 ```
 
-Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-file` (default `CLAUDE.md`), `outputs.claude.mcp-file` (default `.mcp.json`).
+Rules emit one file per spec under `.claude/rules/`. A hand-authored `CLAUDE.md` is never overwritten. Reference per-rule files from `CLAUDE.md` with `@.claude/rules/<name>.md` imports if you want Claude Code to load them.
+
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.mcp-file` (default `.mcp.json`).
 
 ### Codex (`codex`)
 

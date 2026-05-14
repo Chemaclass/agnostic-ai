@@ -79,9 +79,9 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	// Wait for initial sync.
 	time.Sleep(80 * time.Millisecond)
 
-	claudeMD := filepath.Join(dir, "CLAUDE.md")
+	claudeMD := filepath.Join(dir, ".claude/rules/r1.md")
 	if _, err := os.Stat(claudeMD); err != nil {
-		t.Fatal("initial sync did not produce CLAUDE.md")
+		t.Fatal("initial sync did not produce claude rule")
 	}
 
 	// Remove the file so we can verify re-emit.
@@ -110,7 +110,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	}
 
 	if _, err := os.Stat(claudeMD); err != nil {
-		t.Error("watch did not re-emit CLAUDE.md after spec change")
+		t.Error("watch did not re-emit claude rule after spec change")
 	}
 
 	cancel()
@@ -161,9 +161,9 @@ func TestWatchSync_PollFallback(t *testing.T) {
 
 	time.Sleep(80 * time.Millisecond)
 
-	claudeMD := filepath.Join(dir, "CLAUDE.md")
+	claudeMD := filepath.Join(dir, ".claude/rules/r1.md")
 	if _, err := os.Stat(claudeMD); err != nil {
-		t.Fatal("initial sync did not produce CLAUDE.md")
+		t.Fatal("initial sync did not produce claude rule")
 	}
 	if err := os.Remove(claudeMD); err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestWatchSync_PollFallback(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	if _, err := os.Stat(claudeMD); err != nil {
-		t.Error("polling watch did not re-emit CLAUDE.md after spec change")
+		t.Error("polling watch did not re-emit claude rule after spec change")
 	}
 
 	cancel()

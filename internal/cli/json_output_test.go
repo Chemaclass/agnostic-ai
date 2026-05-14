@@ -118,7 +118,8 @@ func TestSyncJSON_Actions(t *testing.T) {
 	}
 
 	// Modify the file, then sync again: should be "update".
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("hand-edited\n"), 0o644); err != nil {
+	rulePath := filepath.Join(dir, ".claude/rules/r1.md")
+	if err := os.WriteFile(rulePath, []byte("hand-edited\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -136,15 +137,15 @@ func TestSyncJSON_Actions(t *testing.T) {
 	for _, w := range writes {
 		rec := w.(map[string]any)
 		path, _ := rec["path"].(string)
-		if filepath.Base(path) == "CLAUDE.md" {
+		if filepath.Base(path) == "r1.md" {
 			found = true
 			if action, _ := rec["action"].(string); action != "update" {
-				t.Errorf("expected action=update for CLAUDE.md, got %q", action)
+				t.Errorf("expected action=update for r1.md, got %q", action)
 			}
 		}
 	}
 	if !found {
-		t.Error("CLAUDE.md not found in writes after modification")
+		t.Error("r1.md not found in writes after modification")
 	}
 }
 

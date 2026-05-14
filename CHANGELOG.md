@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- `claude` now emits rules per-file under `.claude/rules/<name>.md` instead of concatenating into `CLAUDE.md`. A hand-authored `CLAUDE.md` is no longer overwritten on `sync`. Reference per-rule files from `CLAUDE.md` via `@.claude/rules/<name>.md` imports if you want Claude Code to load them. Users on the legacy single-file layout can set `outputs.claude.rules-file: CLAUDE.md` to keep concatenated output.
+
 ### Fixed
 - JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`, merged JSON configs) no longer HTML-escape `&`, `<`, `>`. Shell commands like `cmd1 && cmd2` and redirections like `> out.log` now render literally instead of as `&&` / `>`.
 

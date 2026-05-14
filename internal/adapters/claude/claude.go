@@ -3,9 +3,15 @@
 // Claude Code natively supports all five spec kinds:
 //   - agents -> <dir>/agents/<name>.md
 //   - skills -> <dir>/skills/<name>/SKILL.md
-//   - rules  -> CLAUDE.md (concatenated)
+//   - rules  -> <dir>/rules/<name>.md (one file per rule)
 //   - hooks  -> <dir>/settings.json
 //   - mcps   -> .mcp.json
+//
+// Rules emit one file per spec under `.claude/rules/` so a hand-authored
+// CLAUDE.md is never clobbered. Reference the per-rule files from CLAUDE.md
+// via `@.claude/rules/<name>.md` imports if you want Claude Code to load
+// them. Set `outputs.claude.rules-file: CLAUDE.md` to fall back to the
+// legacy concatenated single-file layout.
 package claude
 
 import (
@@ -19,10 +25,10 @@ import (
 )
 
 const (
-	target           = "claude"
-	defaultDir       = ".claude"
-	defaultRulesFile = "CLAUDE.md"
-	defaultMCPFile   = ".mcp.json"
+	target          = "claude"
+	defaultDir      = ".claude"
+	defaultRulesDir = ".claude/rules"
+	defaultMCPFile  = ".mcp.json"
 )
 
 var caps = emit.Capabilities{
@@ -46,7 +52,6 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	dir := emit.OutputDir(cfg, target, defaultDir)
-	rulesFile := emit.OutputRulesFile(cfg, target, defaultRulesFile)
 
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, "agents", a.Name+".md")
@@ -62,14 +67,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	if len(b.Rules) > 0 {
-		var sb strings.Builder
-		for _, r := range b.Rules {
-			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
-		}
-		if err := emit.WriteFile(rulesFile, sb.String(), dryRun); err != nil {
-			return err
-		}
+	if err := writeRules(b.Rules, cfg, dryRun); err != nil {
+		return err
 	}
 
 	if len(b.Hooks) > 0 {
@@ -84,6 +83,30 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// writeRules emits rules per-file under `.claude/rules/<name>.md` by
+// default. Setting `outputs.claude.rules-file` switches back to the
+// legacy single-file concatenated layout (typically CLAUDE.md).
+func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
+	if len(rules) == 0 {
+		return nil
+	}
+	if rulesFile := emit.OutputRulesFile(cfg, target, ""); rulesFile != "" {
+		var sb strings.Builder
+		for _, r := range rules {
+			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
+		}
+		return emit.WriteFile(rulesFile, sb.String(), dryRun)
+	}
+	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
+	for _, r := range rules {
+		path := filepath.Join(rulesDir, r.Name+".md")
+		if err := emit.WriteFile(path, "# "+r.Name+"\n\n"+r.Body, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func buildHookSettings(hooks []spec.Entry) map[string]any {

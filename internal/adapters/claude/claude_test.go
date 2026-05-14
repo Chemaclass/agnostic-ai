@@ -55,7 +55,7 @@ func TestEmit_WritesSkillNested(t *testing.T) {
 	}
 }
 
-func TestEmit_WritesRulesIntoClaudeMd(t *testing.T) {
+func TestEmit_WritesRulesPerFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -66,12 +66,46 @@ func TestEmit_WritesRulesIntoClaudeMd(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+
+	for _, p := range []string{".claude/rules/r1.md", ".claude/rules/r2.md"} {
+		got, err := os.ReadFile(filepath.Join(dir, p))
+		if err != nil {
+			t.Fatalf("missing %s: %v", p, err)
+		}
+		if !strings.Contains(string(got), "rule") {
+			t.Errorf("%s missing body: %s", p, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Errorf("CLAUDE.md should not be written by default, got err=%v", err)
+	}
+}
+
+func TestEmit_RulesFileOverrideConcatenates(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"claude": {RulesFile: "CLAUDE.md"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
+		{Kind: spec.KindRule, Name: "r2", Body: "rule two"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	got, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(got), "rule one") || !strings.Contains(string(got), "rule two") {
 		t.Errorf("rules missing: %s", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); !os.IsNotExist(err) {
+		t.Errorf("rules dir should not be written when rules-file is set")
 	}
 }
 

@@ -38,8 +38,8 @@ func TestSync_Only_EmitsSubset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err != nil {
-		t.Errorf("expected CLAUDE.md from --only claude: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); err != nil {
+		t.Errorf("expected .claude/rules/r1.md from --only claude: %v", err)
 	}
 	// cursor should not have been emitted
 	if _, err := os.Stat(filepath.Join(dir, ".cursor")); !os.IsNotExist(err) {
@@ -58,8 +58,8 @@ func TestSync_Except_SkipsTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err != nil {
-		t.Errorf("expected CLAUDE.md when cursor is excepted: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); err != nil {
+		t.Errorf("expected .claude/rules/r1.md when cursor is excepted: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".cursor")); !os.IsNotExist(err) {
 		t.Errorf("expected .cursor absent when --except cursor, got: %v", err)
@@ -114,9 +114,9 @@ func TestRevert_Only_RevertsSubset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claudeMd := filepath.Join(dir, "CLAUDE.md")
-	if _, err := os.Stat(claudeMd); err != nil {
-		t.Fatalf("expected CLAUDE.md after sync: %v", err)
+	claudeRule := filepath.Join(dir, ".claude/rules/r1.md")
+	if _, err := os.Stat(claudeRule); err != nil {
+		t.Fatalf("expected claude rule after sync: %v", err)
 	}
 
 	// revert only claude
@@ -126,8 +126,8 @@ func TestRevert_Only_RevertsSubset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(claudeMd); !os.IsNotExist(err) {
-		t.Errorf("expected CLAUDE.md removed after revert --only claude, err=%v", err)
+	if _, err := os.Stat(claudeRule); !os.IsNotExist(err) {
+		t.Errorf("expected claude rule removed after revert --only claude, err=%v", err)
 	}
 }
 

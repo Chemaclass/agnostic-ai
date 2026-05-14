@@ -91,8 +91,8 @@ func TestSync_Validate_List_OnFixture(t *testing.T) {
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err != nil {
-		t.Error("expected CLAUDE.md after sync -t claude")
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); err != nil {
+		t.Error("expected .claude/rules/r1.md after sync -t claude")
 	}
 }
 
@@ -106,8 +106,8 @@ func TestSync_DryRunDoesNotWrite(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); !os.IsNotExist(err) {
-		t.Error("dry-run should not have produced CLAUDE.md")
+	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); !os.IsNotExist(err) {
+		t.Error("dry-run should not have produced claude rule file")
 	}
 }
 
