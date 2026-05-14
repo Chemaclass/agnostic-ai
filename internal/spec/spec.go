@@ -1,7 +1,8 @@
 // Package spec loads and parses agnostic-ai source specs from disk.
 //
-// Specs come in five kinds (agent, skill, rule, hook, mcp). Markdown specs
-// use YAML frontmatter; hook and mcp specs are pure YAML.
+// Specs come in six kinds (agent, skill, rule, hook, mcp, command).
+// Markdown specs (agent, skill, rule, command) use YAML frontmatter;
+// hook and mcp specs are pure YAML.
 package spec
 
 import (
@@ -23,16 +24,17 @@ type Kind string
 
 // Spec kinds.
 const (
-	KindAgent Kind = "agent"
-	KindSkill Kind = "skill"
-	KindRule  Kind = "rule"
-	KindHook  Kind = "hook"
-	KindMCP   Kind = "mcp"
+	KindAgent   Kind = "agent"
+	KindSkill   Kind = "skill"
+	KindRule    Kind = "rule"
+	KindHook    Kind = "hook"
+	KindMCP     Kind = "mcp"
+	KindCommand Kind = "command"
 )
 
 // AllKinds is the canonical ordering used by adapters that emit
 // per-kind sections.
-var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP}
+var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCommand}
 
 // Entry is a single loaded spec.
 type Entry struct {
@@ -87,11 +89,12 @@ func (e Entry) EffectiveScope() string {
 // Bundle is a pre-bucketed view of loaded entries. Adapters consume this
 // directly to avoid repeated Filter calls.
 type Bundle struct {
-	Agents []Entry
-	Skills []Entry
-	Rules  []Entry
-	Hooks  []Entry
-	MCPs   []Entry
+	Agents   []Entry
+	Skills   []Entry
+	Rules    []Entry
+	Hooks    []Entry
+	MCPs     []Entry
+	Commands []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -110,6 +113,8 @@ func NewBundle(entries []Entry) Bundle {
 			b.Hooks = append(b.Hooks, e)
 		case KindMCP:
 			b.MCPs = append(b.MCPs, e)
+		case KindCommand:
+			b.Commands = append(b.Commands, e)
 		}
 	}
 	return b
@@ -117,12 +122,13 @@ func NewBundle(entries []Entry) Bundle {
 
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
-	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs))
+	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs)+len(b.Commands))
 	out = append(out, b.Agents...)
 	out = append(out, b.Skills...)
 	out = append(out, b.Rules...)
 	out = append(out, b.Hooks...)
 	out = append(out, b.MCPs...)
+	out = append(out, b.Commands...)
 	return out
 }
 
@@ -139,6 +145,8 @@ func (b Bundle) Has(k Kind) bool {
 		return len(b.Hooks) > 0
 	case KindMCP:
 		return len(b.MCPs) > 0
+	case KindCommand:
+		return len(b.Commands) > 0
 	}
 	return false
 }
@@ -175,6 +183,7 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 		b.Rules = mergeEntries(b.Rules, lb.Rules)
 		b.Hooks = mergeEntries(b.Hooks, lb.Hooks)
 		b.MCPs = mergeEntries(b.MCPs, lb.MCPs)
+		b.Commands = mergeEntries(b.Commands, lb.Commands)
 	}
 	return b, nil
 }
@@ -182,24 +191,29 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 func loadLayer(layer Layer) (Bundle, error) {
 	var b Bundle
 	loaders := []struct {
-		dir   string
+		src   string
 		ext   string
 		kind  Kind
 		parse func(string) (Entry, error)
 		into  *[]Entry
 	}{
-		{filepath.Join(layer.Root, layer.Sources.Agents), ".md", KindAgent, parseMarkdown, &b.Agents},
-		{filepath.Join(layer.Root, layer.Sources.Skills), ".md", KindSkill, parseMarkdown, &b.Skills},
-		{filepath.Join(layer.Root, layer.Sources.Rules), ".md", KindRule, parseMarkdown, &b.Rules},
-		{filepath.Join(layer.Root, layer.Sources.Hooks), ".yaml", KindHook, parseYAML, &b.Hooks},
-		{filepath.Join(layer.Root, layer.Sources.MCPs), ".yaml", KindMCP, parseYAML, &b.MCPs},
+		{layer.Sources.Agents, ".md", KindAgent, parseMarkdown, &b.Agents},
+		{layer.Sources.Skills, ".md", KindSkill, parseMarkdown, &b.Skills},
+		{layer.Sources.Rules, ".md", KindRule, parseMarkdown, &b.Rules},
+		{layer.Sources.Hooks, ".yaml", KindHook, parseYAML, &b.Hooks},
+		{layer.Sources.MCPs, ".yaml", KindMCP, parseYAML, &b.MCPs},
+		{layer.Sources.Commands, ".md", KindCommand, parseMarkdown, &b.Commands},
 	}
 	for _, l := range loaders {
-		entries, err := walkDir(l.dir, l.ext, l.kind, l.parse)
+		if l.src == "" {
+			continue
+		}
+		dir := filepath.Join(layer.Root, l.src)
+		entries, err := walkDir(dir, l.ext, l.kind, l.parse)
 		if err != nil {
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
-		assignScopes(entries, l.dir, l.kind)
+		assignScopes(entries, dir, l.kind)
 		for i := range entries {
 			entries[i].Layer = layer.Name
 		}

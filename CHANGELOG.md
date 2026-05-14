@@ -6,7 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### init
+### Added
+- New `command` spec kind. Author slash-prompt files under `commands/*.md`; each emits as a native slash command on supported targets.
+- `claude`: emits `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
+- `codex`: emits `.codex/prompts/<name>.md` (project-tier mirror of `~/.codex/prompts/`). Override via `outputs.codex.commands-dir`.
+- `sources.commands` config key (default `commands`) controls the source directory.
+- `emit.CopyTree` helper added for adapters that mirror file trees with mode preservation; honors capture, dry-run, recording, and backup modes uniformly.
+
+### Changed
+- Spec loader skips kinds whose `sources.<kind>` is empty rather than walking the layer root. Tests that omit a source field no longer pick up unrelated files.
 - `init` pre-ticks any target whose marker is present in the working directory (`.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`, etc.). First-sync picker does the same.
 
 ### claude
@@ -16,9 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### codex
 - `import codex` mirrors each `.agents/skills/<name>/` directory in full, including `agents/openai.yaml` and any helper assets (was: only `SKILL.md`).
 - `sync` propagates skill sibling files into `.agents/skills/<name>/`. The Codex-specific `agents/openai.yaml` derived from `x-codex` still wins over a verbatim source copy of the same path.
-
-### all
-- `emit.CopyTree` helper added for adapters that mirror file trees with mode preservation; honors capture, dry-run, recording, and backup modes uniformly.
 
 ## v0.10.0 - 2026-05-14
 

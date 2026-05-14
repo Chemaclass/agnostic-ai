@@ -170,6 +170,7 @@ func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
 	counts := []kindCount{
 		{spec.KindHook, len(b.Hooks), firstPath(b.Hooks)},
 		{spec.KindMCP, len(b.MCPs), firstPath(b.MCPs)},
+		{spec.KindCommand, len(b.Commands), firstPath(b.Commands)},
 	}
 	enabled := setOf(targets...)
 	var out []validationIssue

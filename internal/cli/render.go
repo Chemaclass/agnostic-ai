@@ -133,6 +133,8 @@ func singleEntryBundle(e spec.Entry) spec.Bundle {
 		b.Hooks = []spec.Entry{e}
 	case spec.KindMCP:
 		b.MCPs = []spec.Entry{e}
+	case spec.KindCommand:
+		b.Commands = []spec.Entry{e}
 	}
 	return b
 }

@@ -1,14 +1,15 @@
 # Spec format
 
-| Kind   | Source                          | Format                      |
-|--------|---------------------------------|-----------------------------|
-| Agent  | `agents/*.md`                   | Markdown + YAML frontmatter |
-| Skill  | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
-| Rule   | `rules/*.md`                    | Markdown + YAML frontmatter |
-| Hook   | `hooks/*.yaml`                  | YAML                        |
-| MCP    | `mcps/*.yaml`                   | YAML                        |
+| Kind    | Source                                    | Format                      |
+|---------|-------------------------------------------|-----------------------------|
+| Agent   | `agents/*.md`                             | Markdown + YAML frontmatter |
+| Skill   | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
+| Rule    | `rules/*.md`                              | Markdown + YAML frontmatter |
+| Hook    | `hooks/*.yaml`                            | YAML                        |
+| MCP     | `mcps/*.yaml`                             | YAML                        |
+| Command | `commands/*.md`                           | Markdown + YAML frontmatter |
 
-Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/` is picked up; any `.yaml` under `hooks/` and `mcps/`.
+Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; any `.yaml` under `hooks/` and `mcps/`.
 
 ## Nested layout: per-directory scope
 
@@ -209,6 +210,37 @@ Targets with native MCP propagation:
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
 
 Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
+
+## Commands
+
+Markdown with optional YAML frontmatter. Each spec becomes one native
+slash command on supported targets.
+
+```markdown
+---
+name: deploy
+description: Deploy the app to staging.
+argument-hint: <env>
+---
+
+Deploy the app to {{env}}.
+
+1. Run tests.
+2. Build artifacts.
+3. Push to the {{env}} environment.
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | no | filename | Command identifier. Becomes the slash name (e.g. `/deploy`). |
+| `description` | no | empty | One-liner shown in slash-command pickers. |
+| `argument-hint` | no | empty | Hint string shown after the command. Claude-only; passes through. |
+
+Any other frontmatter passes through to the target unchanged. Use the
+`x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
+
+Emitted natively by Claude Code (`.claude/commands/<name>.md`) and
+Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
 
 ## Frontmatter rules
 

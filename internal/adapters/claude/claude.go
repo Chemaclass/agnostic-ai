@@ -1,11 +1,12 @@
 // Package claude emits Claude Code configs.
 //
-// Claude Code natively supports all five spec kinds:
-//   - agents -> <dir>/agents/<name>.md
-//   - skills -> <dir>/skills/<name>/SKILL.md
-//   - rules  -> <dir>/rules/<name>.md (one file per rule)
-//   - hooks  -> <dir>/settings.json
-//   - mcps   -> .mcp.json
+// Claude Code natively supports all six spec kinds:
+//   - agents   -> <dir>/agents/<name>.md
+//   - skills   -> <dir>/skills/<name>/SKILL.md
+//   - rules    -> <dir>/rules/<name>.md (one file per rule)
+//   - hooks    -> <dir>/settings.json
+//   - mcps     -> .mcp.json
+//   - commands -> <dir>/commands/<name>.md (slash commands)
 //
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
 // CLAUDE.md is never clobbered. Reference the per-rule files from CLAUDE.md
@@ -29,10 +30,11 @@ import (
 )
 
 const (
-	target          = "claude"
-	defaultDir      = ".claude"
-	defaultRulesDir = ".claude/rules"
-	defaultMCPFile  = ".mcp.json"
+	target             = "claude"
+	defaultDir         = ".claude"
+	defaultRulesDir    = ".claude/rules"
+	defaultCommandsDir = ".claude/commands"
+	defaultMCPFile     = ".mcp.json"
 	// settingsOverlayPath is the project-relative path to the captured
 	// non-hooks portion of `.claude/settings.json`. `agnostic-ai import
 	// claude` writes this file; the emitter loads it and layers the
@@ -45,7 +47,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits Claude Code configs.
@@ -79,6 +81,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 		if err := propagateSkillAssets(s, folder, dryRun); err != nil {
+			return err
+		}
+	}
+
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	for _, c := range b.Commands {
+		path := filepath.Join(commandsDir, c.Name+".md")
+		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(c.Meta, target))+"\n"+c.Body, dryRun); err != nil {
 			return err
 		}
 	}

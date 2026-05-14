@@ -31,11 +31,12 @@ type layerInfo struct {
 }
 
 type specCounts struct {
-	Agents int
-	Skills int
-	Rules  int
-	Hooks  int
-	MCPs   int
+	Agents   int
+	Skills   int
+	Rules    int
+	Hooks    int
+	MCPs     int
+	Commands int
 }
 
 func newStatusCmd() *cobra.Command {
@@ -170,11 +171,12 @@ func buildLayerInfos(projectRoot string, cfg *config.Config) []layerInfo {
 
 func countSpecs(b spec.Bundle) specCounts {
 	return specCounts{
-		Agents: len(b.Agents),
-		Skills: len(b.Skills),
-		Rules:  len(b.Rules),
-		Hooks:  len(b.Hooks),
-		MCPs:   len(b.MCPs),
+		Agents:   len(b.Agents),
+		Skills:   len(b.Skills),
+		Rules:    len(b.Rules),
+		Hooks:    len(b.Hooks),
+		MCPs:     len(b.MCPs),
+		Commands: len(b.Commands),
 	}
 }
 
@@ -215,11 +217,12 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		Path string `json:"path"`
 	}
 	type specJSON struct {
-		Agents int `json:"agents"`
-		Skills int `json:"skills"`
-		Rules  int `json:"rules"`
-		Hooks  int `json:"hooks"`
-		MCPs   int `json:"mcps"`
+		Agents   int `json:"agents"`
+		Skills   int `json:"skills"`
+		Rules    int `json:"rules"`
+		Hooks    int `json:"hooks"`
+		MCPs     int `json:"mcps"`
+		Commands int `json:"commands"`
 	}
 	type statusJSON struct {
 		Project              string      `json:"project"`
@@ -235,11 +238,12 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		Project: r.ProjectName,
 		Layers:  make([]layerJSON, len(r.Layers)),
 		Specs: specJSON{
-			Agents: r.Specs.Agents,
-			Skills: r.Specs.Skills,
-			Rules:  r.Specs.Rules,
-			Hooks:  r.Specs.Hooks,
-			MCPs:   r.Specs.MCPs,
+			Agents:   r.Specs.Agents,
+			Skills:   r.Specs.Skills,
+			Rules:    r.Specs.Rules,
+			Hooks:    r.Specs.Hooks,
+			MCPs:     r.Specs.MCPs,
+			Commands: r.Specs.Commands,
 		},
 		Targets:              r.Targets,
 		FilesChangedLastSync: r.FilesChanged,
@@ -274,6 +278,9 @@ func formatSpecCounts(s specCounts) string {
 	}
 	if s.MCPs > 0 {
 		parts = append(parts, fmt.Sprintf("%d mcps", s.MCPs))
+	}
+	if s.Commands > 0 {
+		parts = append(parts, fmt.Sprintf("%d commands", s.Commands))
 	}
 	if len(parts) == 0 {
 		return "none"

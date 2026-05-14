@@ -37,11 +37,12 @@ type Gitignore struct {
 }
 
 type Sources struct {
-	Agents string `yaml:"agents,omitempty" json:"agents,omitempty"`
-	Skills string `yaml:"skills,omitempty" json:"skills,omitempty"`
-	Rules  string `yaml:"rules,omitempty"  json:"rules,omitempty"`
-	Hooks  string `yaml:"hooks,omitempty"  json:"hooks,omitempty"`
-	MCPs   string `yaml:"mcps,omitempty"   json:"mcps,omitempty"`
+	Agents   string `yaml:"agents,omitempty"   json:"agents,omitempty"`
+	Skills   string `yaml:"skills,omitempty"   json:"skills,omitempty"`
+	Rules    string `yaml:"rules,omitempty"    json:"rules,omitempty"`
+	Hooks    string `yaml:"hooks,omitempty"    json:"hooks,omitempty"`
+	MCPs     string `yaml:"mcps,omitempty"     json:"mcps,omitempty"`
+	Commands string `yaml:"commands,omitempty" json:"commands,omitempty"`
 }
 
 type Output struct {
@@ -231,11 +232,12 @@ func defaults() *Config {
 	return &Config{
 		Version: 1,
 		Sources: Sources{
-			Agents: "agents",
-			Skills: "skills",
-			Rules:  "rules",
-			Hooks:  "hooks",
-			MCPs:   "mcps",
+			Agents:   "agents",
+			Skills:   "skills",
+			Rules:    "rules",
+			Hooks:    "hooks",
+			MCPs:     "mcps",
+			Commands: "commands",
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -257,6 +259,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.MCPs == "" {
 		c.Sources.MCPs = "mcps"
+	}
+	if c.Sources.Commands == "" {
+		c.Sources.Commands = "commands"
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

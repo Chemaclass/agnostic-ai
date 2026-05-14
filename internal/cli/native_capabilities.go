@@ -34,11 +34,12 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 // validator: if a project has hook specs but no enabled target maps
 // to a hook surface, the specs are dead weight.
 var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
-	spec.KindAgent: setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
-	spec.KindSkill: setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
-	spec.KindRule:  setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
-	spec.KindHook:  setOf("claude", "codex", "gemini", "zed"),
-	spec.KindMCP:   setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindAgent:   setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindSkill:   setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindRule:    setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindHook:    setOf("claude", "codex", "gemini", "zed"),
+	spec.KindMCP:     setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode"),
+	spec.KindCommand: setOf("claude", "codex"),
 }
 
 func setOf(items ...string) map[string]struct{} {
