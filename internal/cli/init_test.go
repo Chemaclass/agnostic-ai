@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,17 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+// captureSummary redirects summaryf output for the duration of the
+// test and returns a buffer the caller can inspect.
+func captureSummary(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	prev := logOut
+	buf := &bytes.Buffer{}
+	logOut = buf
+	t.Cleanup(func() { logOut = prev })
+	return buf
+}
 
 func TestScaffold_DefaultBaseDir(t *testing.T) {
 	dir := t.TempDir()
@@ -363,5 +375,64 @@ func TestInitCmd_Interactive_PipedUnknownTarget(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); statErr == nil {
 		t.Error("agnostic-ai.yaml should not be written on validation error")
+	}
+}
+
+func TestScaffold_PrintsNextStepsGuidance(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"✓ initialized agnostic-ai project at .agnostic-ai/",
+		"next steps:",
+		"agnostic-ai import <target>",
+		"agnostic-ai sync",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestScaffold_PrintsCustomBaseInGuidance(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "specs", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "✓ initialized agnostic-ai project at specs/") {
+		t.Errorf("expected custom base label in output:\n%s", buf.String())
+	}
+}
+
+func TestScaffold_PrintsRootBaseInGuidance(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, ".", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "✓ initialized agnostic-ai project at ./") {
+		t.Errorf("expected root base label in output:\n%s", buf.String())
+	}
+}
+
+func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", true, "go", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	demoIdx := strings.Index(out, "seeded one example spec")
+	presetIdx := strings.Index(out, `seeded preset "go"`)
+	nextIdx := strings.Index(out, "next steps:")
+	if demoIdx < 0 || presetIdx < 0 || nextIdx < 0 {
+		t.Fatalf("missing expected lines in output:\n%s", out)
+	}
+	if demoIdx > nextIdx || presetIdx > nextIdx {
+		t.Errorf("demo/preset lines should appear before next steps:\n%s", out)
 	}
 }

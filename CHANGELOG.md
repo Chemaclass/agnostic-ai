@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - `import` now writes `AGNOSTIC_AI.md` to `.agnostic-ai/AGNOSTIC_AI.md` instead of the project root. Delete the old root-level `AGNOSTIC_AI.md` after upgrading. The path is added to the managed `.gitignore` block so `sync --gitignore` excludes it from version control.
+- `init` prints a clearer two-step "next steps" block after scaffolding (`agnostic-ai import <target>` then `agnostic-ai sync`) and confirms the base directory used. Replaces the previous terse one-liner.
 
 ### Fixed
 - `spec`: derive skill name from the parent directory when frontmatter is missing, so `skills/my-skill/SKILL.md` emits to `.claude/skills/my-skill/SKILL.md` instead of `.claude/skills/SKILL/SKILL.md`.
