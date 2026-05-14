@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `spec`: derive skill name from the parent directory when frontmatter is missing, so `skills/my-skill/SKILL.md` emits to `.claude/skills/my-skill/SKILL.md` instead of `.claude/skills/SKILL/SKILL.md`.
+- `claude`: agents, skills, commands, and rules no longer emit a leading blank line when frontmatter is empty (#137).
+- `claude`: per-file rules under `.claude/rules/<name>.md` now round-trip the spec's frontmatter and drop the synthetic `# <name>` heading. Body-only rules emit body-only (#138).
 
 ## v0.11.0 - 2026-05-14
 
