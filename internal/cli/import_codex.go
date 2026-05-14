@@ -23,6 +23,9 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
+		return err
+	}
 	summaryf("imported %d rules\n", n)
 	return nil
 }

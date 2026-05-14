@@ -137,8 +137,8 @@ Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclas
 ## Quickstart
 
 ```bash
-agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/
-agnostic-ai init -i               # same, but pick which targets land in agnostic-ai.yaml
+agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/ — prompts for targets on a TTY
+agnostic-ai init --all            # same, but skip the prompt and enable every supported target
 agnostic-ai init --demo           # same, plus one example spec per folder to learn from
 agnostic-ai sync                  # emit native config for every target
 agnostic-ai sync --dry-run        # preview without writing
@@ -153,6 +153,8 @@ Already have `.cursor/rules` or `AGENTS.md`? Pull them in:
 ```bash
 agnostic-ai import cursor         # also: codex, claude, cline, windsurf, continue
 ```
+
+`import claude` prefers `.claude/rules/*.md` (each file → one rule, byte-identical) and falls back to slicing `CLAUDE.md` on `## headings` only when that directory is absent. It also mirrors `CLAUDE.md` to a project-root `AGNOSTIC_AI.md` so you keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 
 ## CI gate
 

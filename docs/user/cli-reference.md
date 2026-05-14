@@ -18,19 +18,20 @@ agnostic-ai [command] [flags]
 Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic-ai.yaml` exists.
 
 ```bash
-agnostic-ai init                  # default base dir: .agnostic-ai/
+agnostic-ai init                  # default: prompt for targets when stdin is a TTY, base dir .agnostic-ai/
+agnostic-ai init --all            # skip the prompt, enable every supported target
 agnostic-ai init specs            # custom base: specs/{agents,skills,...}/
 agnostic-ai init .                # legacy root-level layout
 agnostic-ai init --demo           # seed each source folder with one example spec
 agnostic-ai init --preset go      # seed idiomatic specs for a stack (go, ts-react, python)
-agnostic-ai init -i               # interactive: pick which targets land in config
+echo "claude,codex" | agnostic-ai init   # non-TTY: pipe a comma-separated target list
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Existing files are never overwritten. |
-| `--preset <name>` | Seed stack-flavored starter specs. Available: `go`, `ts-react`, `python`. Composes with `--demo` and `-i`. Errors on unknown names with the available list. Existing files are never overwritten, so re-running against a partially populated tree is safe. |
-| `-i, --interactive` | Multi-select prompt to pick which targets land in `agnostic-ai.yaml`. Accepts piped comma-separated input for non-TTY use (e.g. `echo "claude,codex" \| agnostic-ai init -i`). |
+| `--preset <name>` | Seed stack-flavored starter specs. Available: `go`, `ts-react`, `python`. Composes with `--demo` and `--all`. Errors on unknown names with the available list. Existing files are never overwritten, so re-running against a partially populated tree is safe. |
+| `-a, --all` | Skip the target picker and enable every supported target in `agnostic-ai.yaml`. Useful for CI or scripted scaffolds. By default, `init` runs a multi-select prompt when stdin is a TTY, parses a piped comma-separated list when stdin is a pipe, and falls back to all targets when stdin is closed. |
 
 The optional positional `[dir]` arg sets the base directory under which
 the source folders are created. The generated `agnostic-ai.yaml`
@@ -61,11 +62,15 @@ filename. Run after `init`, in the same project root.
 
 | Source | Becomes |
 |--------|---------|
-| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section |
-| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` |
+| `.claude/rules/*.md` (preferred) | `<rules>/<name>.md` (byte-identical copy) |
+| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section — only when `.claude/rules/` is absent |
+| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` — only when `.claude/rules/` is absent |
+| `CLAUDE.md` (any form) | `AGNOSTIC_AI.md` at project root (byte-identical copy) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/settings.json` hooks | `<hooks>/<event>-<group>-<index>.yaml` |
+
+When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if the directory is empty) so the on-disk rules layout is the single source of truth for rule files. `AGNOSTIC_AI.md` is still written from `CLAUDE.md` so the project keeps a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 
 `import codex` walks the project for `AGENTS.md` files at any depth:
 
@@ -247,7 +252,7 @@ the config still lists every supported target, `sync` opens an
 interactive multi-select to narrow the list. The selection is persisted
 to `agnostic-ai.yaml` so future syncs skip the prompt.
 
-- **TTY:** multi-select widget (same UI as `init -i`).
+- **TTY:** multi-select widget (same UI as `init`'s default prompt).
 - **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects + persists without a prompt.
 - **Non-TTY with no piped data (CI):** silent fallback — emits every configured target. CI runs keep working without changes.
 - **Bypass:** pass `--all`, `-t`, `--only`, or `--except` to skip the picker for one run.

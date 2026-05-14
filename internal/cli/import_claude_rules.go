@@ -1,62 +1,24 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-// importClaudeRules splits CLAUDE.md on `## ` headings into one rule file
-// per section in dstDir. Without headings it writes a single rule named
-// after the project directory.
+// importClaudeRules imports rules from a Claude Code project. Prefers
+// `.claude/rules/*.md` (each file becomes one rule, byte-identical
+// copy). Falls back to slicing CLAUDE.md on `## ` headings when the
+// directory is absent. Without headings the slicer writes a single
+// rule named after the project directory.
 func importClaudeRules(root, dstDir string) (int, error) {
-	src := filepath.Join(root, "CLAUDE.md")
-	data, err := os.ReadFile(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
+	rulesDir := filepath.Join(root, claudeDir, "rules")
+	if dirExists(rulesDir) {
+		return copyMarkdownDir(rulesDir, dstDir)
 	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
-	}
-
-	preamble, sections := splitH2Sections(string(data))
-	if len(sections) == 0 {
-		body := strings.TrimSpace(string(data))
-		if body == "" {
-			return 0, nil
-		}
-		name := projectSlug(root)
-		path := filepath.Join(dstDir, name+".md")
-		if err := writeRule(path, name, body); err != nil {
-			return 0, err
-		}
-		return 1, nil
-	}
-	count := 0
-	used := map[string]int{}
-	for _, s := range sections {
-		used[s.slug] = 1
-	}
-	if preamble != "" {
-		slug := preambleSlug(preamble, used)
-		path := filepath.Join(dstDir, slug+".md")
-		if err := writeRule(path, slug, preamble); err != nil {
-			return 0, err
-		}
-		count++
-	}
-	for _, s := range sections {
-		path := filepath.Join(dstDir, s.slug+".md")
-		if err := writeRule(path, s.slug, s.body); err != nil {
-			return 0, err
-		}
-		count++
-	}
-	return count, nil
+	return sliceMainFileByH2(root, claudeMainFile, dstDir)
 }
 
 var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)

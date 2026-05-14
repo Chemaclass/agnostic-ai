@@ -18,6 +18,25 @@ func TestImportFromCodex_NoAgentsMd(t *testing.T) {
 	if len(entries) != 0 {
 		t.Errorf("expected empty rules/, got %d entries", len(entries))
 	}
+	if _, err := os.Stat(filepath.Join(dir, agnosticMainFile)); !os.IsNotExist(err) {
+		t.Errorf("expected no AGNOSTIC_AI.md when AGENTS.md absent: %v", err)
+	}
+}
+
+func TestImportFromCodex_MirrorsRootAgentsMd(t *testing.T) {
+	dir := t.TempDir()
+	body := "# Project\n\nTop-level instructions.\n\n## go-style\n\ngofmt clean.\n"
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
+	}
+	if string(got) != body {
+		t.Errorf("AGNOSTIC_AI.md not byte-identical to AGENTS.md. got %q", got)
+	}
 }
 
 func TestImportFromCodex_HandWrittenSplitsByH2(t *testing.T) {
