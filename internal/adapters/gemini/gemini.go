@@ -132,6 +132,8 @@ func buildMCPServer(e spec.Entry) map[string]any {
 // buildHooks groups hook specs by their `event` frontmatter into the
 // Gemini hooks shape: `hooks.<event> = [{matcher, command}, ...]`.
 // `matcher` is omitted when absent so the hook fires unconditionally.
+// A spec's `command:` field accepts a string or a list of strings; each
+// list entry becomes one `{matcher, command}` pair under the same event.
 func buildHooks(hooks []spec.Entry) map[string]any {
 	byEvent := map[string][]map[string]any{}
 	for _, h := range hooks {
@@ -139,23 +141,54 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 		if event == "" {
 			continue
 		}
-		entry := map[string]any{}
-		if matcher, _ := h.Meta["matcher"].(string); matcher != "" {
-			entry["matcher"] = matcher
-		}
-		if cmd, _ := h.Meta["command"].(string); cmd != "" {
-			entry["command"] = cmd
-		}
-		if len(entry) == 0 {
+		matcher, _ := h.Meta["matcher"].(string)
+		cmds := hookCommands(h.Meta["command"])
+		if len(cmds) == 0 {
 			continue
 		}
-		byEvent[event] = append(byEvent[event], entry)
+		for _, cmd := range cmds {
+			entry := map[string]any{"command": cmd}
+			if matcher != "" {
+				entry["matcher"] = matcher
+			}
+			byEvent[event] = append(byEvent[event], entry)
+		}
 	}
 	out := map[string]any{}
 	for k, v := range byEvent {
 		out[k] = v
 	}
 	return out
+}
+
+// hookCommands normalizes a `command:` field that may be a string or a
+// list of strings into a single []string. Empty strings drop out.
+func hookCommands(raw any) []string {
+	switch v := raw.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(v))
+		for _, s := range v {
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {

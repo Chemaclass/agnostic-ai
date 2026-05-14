@@ -12,31 +12,52 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// importFromCodex reads existing Codex config (root AGENTS.md plus any
-// nested <dir>/AGENTS.md) under root and writes specs into the configured
+// importFromCodex reads existing Codex config (AGENTS.md hierarchy,
+// `.agents/agents/*.toml`, `.agents/skills/<name>/SKILL.md`, and
+// `.codex/config.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
-	n, err := importCodexRules(root, filepath.Join(root, src.Rules), src)
+	rules, err := importCodexRules(root, filepath.Join(root, src.Rules), src)
+	if err != nil {
+		return err
+	}
+	agents, err := importCodexAgents(root, filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	skills, err := importCodexSkills(root, filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	hooks, mcps, err := importCodexConfig(root, filepath.Join(root, src.Hooks), filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
 	}
 	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
-	summaryf("imported %d rules\n", n)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps\n",
+		rules, agents, skills, hooks, mcps)
 	return nil
 }
 
-// codexWrapperHeadings are H2 sections produced by our codex emitter that
-// wrap the real rules. Their bodies (the ### children) are what we want;
-// the wrapper itself should not become a rule.
-var codexWrapperHeadings = map[string]bool{
+// codexUnwrapHeadings are H2 sections whose H3 children are the real
+// rules. The wrapper itself should not become a rule, but each `###`
+// child does (e.g. the `## Conventions` listing).
+var codexUnwrapHeadings = map[string]bool{
 	"conventions": true,
-	"agents":      true,
-	"skills":      true,
+}
+
+// codexSkipHeadings are H2 sections produced by the codex emitter as
+// reference listings only; their real data lives in TOML files or
+// folders elsewhere and gets imported separately. The wrapper and every
+// `###` child under it are ignored when scanning AGENTS.md for rules.
+var codexSkipHeadings = map[string]bool{
+	"agents": true,
+	"skills": true,
 }
 
 // importCodexRules walks the project tree for AGENTS.md files and writes
@@ -156,7 +177,10 @@ func codexSectionsFrom(s string) []codexSection {
 	_, h2 := splitH2Sections(s)
 	var out []codexSection
 	for _, sec := range h2 {
-		if codexWrapperHeadings[sec.slug] {
+		if codexSkipHeadings[sec.slug] {
+			continue
+		}
+		if codexUnwrapHeadings[sec.slug] {
 			out = append(out, unwrapH3(sec.body)...)
 			continue
 		}

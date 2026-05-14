@@ -233,6 +233,134 @@ body
 	}
 }
 
+func TestImportFromCodex_AgentsFromTOML(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer.toml"), `name = "reviewer"
+description = "code reviewer"
+model = "gpt-5"
+sandbox_mode = "read-only"
+nickname_candidates = ["Atlas", "Delta"]
+developer_instructions = """
+review code carefully.
+"""
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	for _, want := range []string{
+		"name: reviewer",
+		"description: code reviewer",
+		"model: gpt-5",
+		"sandbox_mode: read-only",
+		"review code carefully.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in:\n%s", want, out)
+		}
+	}
+}
+
+func TestImportFromCodex_LegacyAgentsDirAlsoScanned(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/agents/legacy.toml"),
+		`name = "legacy"
+description = "from old layout"
+developer_instructions = "body"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agents", "legacy.md")); err != nil {
+		t.Errorf("expected agents/legacy.md from .codex/agents fallback: %v", err)
+	}
+}
+
+func TestImportFromCodex_SkillsFromFolders(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents/skills/validator/SKILL.md"),
+		"---\nname: validator\ndescription: validate yaml\n---\n\nvalidate yaml files.\n")
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "skills", "validator", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"name: validator", "validate yaml files."} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("expected %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestImportFromCodex_HooksAndMCPsFromConfigTOML(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.fs]
+command = "npx"
+args = ["server-filesystem"]
+
+[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "gofmt && go vet"
+
+[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "lint"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"posttooluse-1.yaml", "posttooluse-2.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, "hooks", name)); err != nil {
+			t.Errorf("missing hooks/%s: %v", name, err)
+		}
+	}
+	mcp, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"name: fs", "command: npx", "server-filesystem", "type: stdio"} {
+		if !strings.Contains(string(mcp), want) {
+			t.Errorf("expected %q in mcp:\n%s", want, mcp)
+		}
+	}
+}
+
+func TestImportFromCodex_SkipsAgentsAndSkillsWrappers(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), `# AGENTS.md
+
+## Agents
+
+### reviewer
+
+_code reviewer_
+
+Source: `+"`.agents/agents/reviewer.toml`"+`
+
+## Skills
+
+### validator
+
+_validate yaml_
+
+Source: `+"`.agents/skills/validator/SKILL.md`"+`
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"reviewer.md", "validator.md"} {
+		if _, err := os.Stat(filepath.Join(dir, "rules", name)); err == nil {
+			t.Errorf("rules/%s should not be created from Agents/Skills wrapper", name)
+		}
+	}
+}
+
 func TestImportCmd_CodexRoutes(t *testing.T) {
 	dir := t.TempDir()
 	writeMinimalConfig(t, dir, ".agnostic-ai")

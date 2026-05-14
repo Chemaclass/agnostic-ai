@@ -312,6 +312,37 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	}
 }
 
+// A spec's command: may be a list of strings; each entry emits as its
+// own {matcher, command} entry under the same event.
+func TestEmit_Hook_CommandAsList(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "multi",
+			Meta: map[string]any{
+				"event":   "PostToolUse",
+				"matcher": "Edit",
+				"command": []any{"cmd1", "cmd2", "cmd3"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	for _, want := range []string{
+		`"command": "cmd1"`,
+		`"command": "cmd2"`,
+		`"command": "cmd3"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // Hook with no event is skipped (no key to route into).
 func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)
