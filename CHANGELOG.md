@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- New `command` spec kind. Author slash-prompt files under `commands/*.md`; each emits as a native slash command on supported targets.
+- `claude`: emits `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
+- `codex`: emits `.codex/prompts/<name>.md` (project-tier mirror of `~/.codex/prompts/`). Override via `outputs.codex.commands-dir`.
+- `sources.commands` config key (default `commands`) controls the source directory.
+
+### Changed
+- Spec loader skips kinds whose `sources.<kind>` is empty rather than walking the layer root. Tests that omit a source field no longer pick up unrelated files.
+
 ## v0.10.0 - 2026-05-14
 
 ### claude

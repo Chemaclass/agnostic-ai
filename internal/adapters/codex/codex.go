@@ -44,18 +44,20 @@ import (
 )
 
 const (
-	target            = "codex"
-	defaultOutFile    = "AGENTS.md"
-	defaultAgentsDir  = ".agents/agents"
-	defaultSkillsDir  = ".agents/skills"
-	defaultConfigFile = ".codex/config.toml"
+	target             = "codex"
+	defaultOutFile     = "AGENTS.md"
+	defaultAgentsDir   = ".agents/agents"
+	defaultSkillsDir   = ".agents/skills"
+	defaultCommandsDir = ".codex/prompts"
+	defaultConfigFile  = ".codex/config.toml"
 )
 
 var caps = emit.Capabilities{
 	Target: target,
 	// Codex consumes agents, rules, skills (the latter as listings),
-	// plus lifecycle hooks and MCP servers via .codex/config.toml.
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP},
+	// commands (slash prompts under .codex/prompts/), plus lifecycle
+	// hooks and MCP servers via .codex/config.toml.
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits Codex configs.
@@ -89,6 +91,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	for _, s := range b.Skills {
 		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			return err
+		}
+	}
+
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	for _, c := range b.Commands {
+		path := filepath.Join(commandsDir, c.Name+".md")
+		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(c.Meta, target))+"\n"+c.Body, dryRun); err != nil {
 			return err
 		}
 	}

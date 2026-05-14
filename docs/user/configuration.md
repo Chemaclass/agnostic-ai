@@ -38,6 +38,7 @@ sources:
   rules: rules
   hooks: hooks
   mcps: mcps
+  commands: commands
 
 # AI CLIs to emit configs for.
 targets:
@@ -61,11 +62,13 @@ outputs:
   claude:
     dir: .claude                 # default
     rules-file: CLAUDE.md        # default
+    commands-dir: .claude/commands # default. One .md per command (slash prompt).
     mcp-file: .mcp.json          # default
   codex:
     file: AGENTS.md              # default. Hierarchical per scope.
     agents-dir: .agents/agents   # default. One TOML per agent.
     skills-dir: .agents/skills   # default. One folder per skill.
+    commands-dir: .codex/prompts # default. One .md per command (slash prompt).
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:
     file: GEMINI.md                  # default. Hierarchical per scope.

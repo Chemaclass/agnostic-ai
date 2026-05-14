@@ -365,6 +365,54 @@ func TestEmit_OutputOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_WritesCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindCommand,
+			Name: "deploy",
+			Meta: map[string]any{
+				"name":        "deploy",
+				"description": "deploy the app",
+			},
+			Body: "Run the deploy.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/prompts/deploy.md"))
+	if !strings.Contains(got, "Run the deploy.") {
+		t.Errorf("missing body: %s", got)
+	}
+	if !strings.Contains(got, "description: deploy the app") {
+		t.Errorf("missing frontmatter description: %s", got)
+	}
+}
+
+func TestEmit_CommandsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {CommandsDir: "vendor/prompts"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "deploy", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/prompts/deploy.md")); err != nil {
+		t.Errorf("expected commands at override path: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/prompts/deploy.md")); !os.IsNotExist(err) {
+		t.Errorf("default prompts dir should be skipped when override set")
+	}
+}
+
 func TestAdapterName(t *testing.T) {
 	if New().Name() != "codex" {
 		t.Errorf("expected codex, got %s", New().Name())

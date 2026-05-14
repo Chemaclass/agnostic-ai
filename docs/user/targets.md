@@ -4,10 +4,10 @@ Each adapter emits in its tool's native format — separate files where the tool
 
 ## Capability matrix
 
-| Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
-|-----------------|---------------------|--------|--------------------------|-------|------|
-| **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` |
-| **codex**       | `.agents/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) |
+| Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands |
+|-----------------|---------------------|--------|--------------------------|-------|------|----------|
+| **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` |
+| **codex**       | `.agents/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
 | **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
@@ -35,6 +35,11 @@ MCP servers propagate to every target that has a project-scoped MCP file
 (10 of 13 — see the matrix above). Aider, Cline, and Windsurf have no
 project-scoped MCP surface and skip with a warning.
 
+Commands are slash-prompt files authored under `commands/` and emitted to the
+target's native slash-command surface. Supported on Claude Code
+(`.claude/commands/<name>.md`) and Codex (`.codex/prompts/<name>.md`). Other
+targets skip with a warning.
+
 ## Per-target output
 
 ### Claude Code (`claude`)
@@ -44,15 +49,18 @@ project-scoped MCP surface and skip with a warning.
 ├── agents/<name>.md
 ├── skills/<name>/SKILL.md
 ├── rules/<name>.md
+├── commands/<name>.md
 └── settings.json
 .mcp.json
 ```
 
 Rules emit one file per spec under `.claude/rules/`. A hand-authored `CLAUDE.md` is never overwritten. Reference per-rule files from `CLAUDE.md` with `@.claude/rules/<name>.md` imports if you want Claude Code to load them.
 
+Commands emit one file per spec under `.claude/commands/`. Each command becomes a Claude Code slash command (e.g. a spec named `deploy` is invoked as `/deploy`). Frontmatter passes through; the body is the prompt template.
+
 `agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any other top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads that overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` has been wiped. Re-run `import claude` whenever you add a key to settings.json by hand.
 
-Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.mcp-file` (default `.mcp.json`).
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`).
 
 ### Codex (`codex`)
 
@@ -63,16 +71,19 @@ docs/api/AGENTS.md                           # if any rule has globs: docs/api/*
 .agents/agents/<name>.toml                   # one TOML per agent
 .agents/skills/<name>/SKILL.md               # one folder per skill
 .agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
+.codex/prompts/<name>.md                     # one per command (slash prompt)
 .codex/config.toml                           # when hook and/or MCP entries exist
 ```
 
-Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.agents/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks).
+Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.agents/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks).
 
 Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. The `## Agents` section lists each agent with a pointer to its TOML rather than inlining the body, so each agent lives in exactly one place.
 
 Skills follow the [Codex skills layout](https://developers.openai.com/codex/skills): one folder per skill under `.agents/skills/<name>/` with a required `SKILL.md` (frontmatter `name` + `description`, plus the body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an additional `agents/openai.yaml` is written in the skill folder for UI customization and policy declarations. The root `AGENTS.md` lists each skill with a pointer to its `SKILL.md`.
 
 Hooks and MCP servers both land in `.codex/config.toml`. Hook specs route by their `event` frontmatter (e.g. `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into `[[hooks.<event>]]` array-of-tables entries with `matcher` and `command`. MCP servers emit as `[mcp_servers.<name>]` tables — stdio uses `command`/`args`/`env`; HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is agnostic-ai-managed (overwritten on each sync); add unmanaged Codex config to `~/.codex/config.toml` user-global instead.
+
+Commands emit one file per spec under `.codex/prompts/` (project-tier mirror of `~/.codex/prompts/`). Each becomes a Codex slash prompt. Frontmatter passes through; the body is the prompt template.
 
 ### Gemini CLI (`gemini`)
 

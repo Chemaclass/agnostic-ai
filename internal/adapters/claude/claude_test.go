@@ -394,6 +394,60 @@ func TestEmit_MCPFileOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_WritesCommand(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindCommand,
+			Name: "deploy",
+			Meta: map[string]any{
+				"name":        "deploy",
+				"description": "deploy the app",
+			},
+			Body: "Run the deploy.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/commands/deploy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(got)
+	if !strings.Contains(s, "Run the deploy.") {
+		t.Errorf("missing body: %s", s)
+	}
+	if !strings.Contains(s, "description: deploy the app") {
+		t.Errorf("missing frontmatter description: %s", s)
+	}
+}
+
+func TestEmit_CommandsDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"claude": {CommandsDir: "vendor/commands"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "deploy", Body: "x"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/commands/deploy.md")); err != nil {
+		t.Errorf("expected commands at override path: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude/commands/deploy.md")); !os.IsNotExist(err) {
+		t.Errorf("default commands dir should be skipped when override set")
+	}
+}
+
 func TestEmit_OutputOverride(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

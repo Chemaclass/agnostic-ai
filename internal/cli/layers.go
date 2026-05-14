@@ -26,11 +26,12 @@ const (
 // `cfg.Sources` paths.
 func defaultLayerSources() config.Sources {
 	return config.Sources{
-		Agents: "agents",
-		Skills: "skills",
-		Rules:  "rules",
-		Hooks:  "hooks",
-		MCPs:   "mcps",
+		Agents:   "agents",
+		Skills:   "skills",
+		Rules:    "rules",
+		Hooks:    "hooks",
+		MCPs:     "mcps",
+		Commands: "commands",
 	}
 }
 
