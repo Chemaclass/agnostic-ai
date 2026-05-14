@@ -197,7 +197,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
-		entries = append(entries, ".agnostic-ai/.sync-state")
+		entries = append(entries, ".agnostic-ai/.sync-state", ".agnostic-ai/AGNOSTIC_AI.md")
 		if err := updateGitignore(cfg, normalizeAndSort(entries)); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
@@ -259,7 +259,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	if gitignoreOn {
 		entries := adapters.StopRecording()
-		entries = append(entries, ".agnostic-ai/.sync-state")
+		entries = append(entries, ".agnostic-ai/.sync-state", ".agnostic-ai/AGNOSTIC_AI.md")
 		if err := updateGitignore(cfg, normalizeAndSort(entries)); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
