@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -67,8 +68,11 @@ func importCursorRules(root, dstDir string) (int, error) {
 
 // translateCursorRule rewrites a .mdc file as an agnostic rule. Frontmatter
 // is parsed, a name field is injected if absent, and the result is
-// re-marshaled. Body is preserved verbatim.
+// re-marshaled. Body is preserved verbatim except for the agnostic-ai
+// provenance header, which is stripped when present so it does not
+// roundtrip back into the source spec.
 func translateCursorRule(name string, data []byte) ([]byte, error) {
+	data = []byte(header.Strip(string(data)))
 	meta, body := splitMdcFrontmatter(data)
 	if _, ok := meta["name"]; !ok {
 		meta["name"] = name

@@ -46,16 +46,16 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext:         defaultExt,
-		FormatRule:  func(e spec.Entry) string { return mdc(e, true) },
-		FormatAgent: func(e spec.Entry) string { return mdc(e, false) },
-		FormatSkill: func(e spec.Entry) string { return mdc(e, false) },
+		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
+		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
+		FormatSkill: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}
 	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
 		for _, a := range b.Agents {
 			path := commandsDir + "/" + a.Name + ".md"
-			if err := emit.WriteFile(path, command(a), dryRun); err != nil {
+			if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
 				return err
 			}
 		}
