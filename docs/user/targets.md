@@ -7,7 +7,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs |
 |-----------------|---------------------|--------|--------------------------|-------|------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` |
-| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) |
+| **codex**       | `.agents/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` (nested per-dir by globs) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) |
 | **gemini**      | `.gemini/commands/<name>.toml` | listed in `GEMINI.md` (or `.gemini/commands/skill-<name>.toml` w/ opt-in) | `GEMINI.md` (nested per-dir by scope/globs) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` + `.github/copilot-instructions.md` (always-on) | - | `.vscode/mcp.json` |
@@ -58,13 +58,13 @@ Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir
 AGENTS.md
 src/AGENTS.md                                # if any rule has globs: src/**
 docs/api/AGENTS.md                           # if any rule has globs: docs/api/**
-.codex/agents/<name>.toml                    # one TOML per agent
+.agents/agents/<name>.toml                   # one TOML per agent
 .agents/skills/<name>/SKILL.md               # one folder per skill
 .agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
 .codex/config.toml                           # when hook and/or MCP entries exist
 ```
 
-Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.codex/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks).
+Config keys: `outputs.codex.file` (default `AGENTS.md`), `outputs.codex.agents-dir` (default `.agents/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks).
 
 Codex emits a hierarchy of `AGENTS.md` files. Rules with a `globs` frontmatter field that names a fixed directory prefix (e.g. `src/**`, `docs/api/**`) route into that subdirectory. Unscoped rules and all agents go to the root file. The `## Agents` section lists each agent with a pointer to its TOML rather than inlining the body, so each agent lives in exactly one place.
 

@@ -252,7 +252,7 @@ Examples:
 
 For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`,
 `sandbox_mode`, `nickname_candidates`) pass through to the generated
-`.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`,
+`.agents/agents/<name>.toml`. For Codex skills, `x-codex.interface`,
 `x-codex.policy`, and `x-codex.dependencies` trigger an additional
 `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy,
 and tool dependencies.

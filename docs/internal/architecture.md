@@ -57,8 +57,8 @@ mcps/*.yaml   ─┘                        per-entry Scope from source layout)
 ```
 (Config, spec.Bundle) ──► adapter.Emit(bundle, config, dryRun)
         │
-        ├─ claude     .claude/, CLAUDE.md, .mcp.json, .claude/settings.json (hooks)
-        ├─ codex      AGENTS.md (hierarchical), .codex/agents/<name>.toml,
+        ├─ claude     .claude/, .claude/rules/<name>.md, .mcp.json, .claude/settings.json (hooks)
+        ├─ codex      AGENTS.md (hierarchical), .agents/agents/<name>.toml,
         │             .agents/skills/<name>/SKILL.md, .codex/config.toml (hooks + MCP)
         ├─ gemini     GEMINI.md (hierarchical), .gemini/commands/<name>.toml,
         │             .gemini/settings.json (hooks + mcpServers)

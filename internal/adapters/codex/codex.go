@@ -1,4 +1,4 @@
-// Package codex emits AGENTS.md hierarchies, .codex/agents/*.toml files,
+// Package codex emits AGENTS.md hierarchies, .agents/agents/*.toml files,
 // and .agents/skills/<name>/ skill folders for the Codex CLI.
 //
 // The Codex CLI reads AGENTS.md for project conventions and supports
@@ -10,8 +10,10 @@
 //   - "**/*"          -> root
 //   - "**/*.go"       -> root (no fixed prefix)
 //
-// Agents emit as one TOML file per agent under .codex/agents/ (override
+// Agents emit as one TOML file per agent under .agents/agents/ (override
 // via outputs.codex.agents-dir) following the Codex subagents schema.
+// `.agents/` is the community-shared root for subagent definitions: skills
+// live under `.agents/skills/<name>/`, agents under `.agents/agents/<name>.toml`.
 // The root AGENTS.md keeps a `## Agents` reference section listing each
 // agent name, description, and source TOML path so humans browsing the
 // document still see what is available.
@@ -44,7 +46,7 @@ import (
 const (
 	target            = "codex"
 	defaultOutFile    = "AGENTS.md"
-	defaultAgentsDir  = ".codex/agents"
+	defaultAgentsDir  = ".agents/agents"
 	defaultSkillsDir  = ".agents/skills"
 	defaultConfigFile = ".codex/config.toml"
 )
@@ -66,7 +68,7 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes the root AGENTS.md, any nested AGENTS.md files implied by
-// rule globs, and one .codex/agents/<name>.toml per agent.
+// rule globs, and one .agents/agents/<name>.toml per agent.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err

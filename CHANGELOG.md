@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - `claude` now emits rules per-file under `.claude/rules/<name>.md` instead of concatenating into `CLAUDE.md`. A hand-authored `CLAUDE.md` is no longer overwritten on `sync`. Reference per-rule files from `CLAUDE.md` via `@.claude/rules/<name>.md` imports if you want Claude Code to load them. Users on the legacy single-file layout can set `outputs.claude.rules-file: CLAUDE.md` to keep concatenated output.
 - `claude` merges hooks into `.claude/settings.json` instead of overwriting the whole file. Keys outside `hooks` (e.g. `statusLine`, `enabledPlugins`) are preserved on every `sync`.
+- `codex` emits agent TOMLs at `.agents/agents/<name>.toml` (was `.codex/agents/<name>.toml`). Consolidates with `.agents/skills/` under the same root. Override with `outputs.codex.agents-dir`. Existing `.codex/agents/` is left in place on upgrade; delete it manually after running `sync`.
 
 ### Fixed
 - JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`, merged JSON configs) no longer HTML-escape `&`, `<`, `>`. Shell commands like `cmd1 && cmd2` and redirections like `> out.log` now render literally instead of as `&&` / `>`.

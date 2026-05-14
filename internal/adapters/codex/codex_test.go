@@ -30,7 +30,7 @@ func TestEmit_RootAgentsMd(t *testing.T) {
 	if !strings.Contains(got, "_agent desc_") {
 		t.Errorf("missing agent description in:\n%s", got)
 	}
-	if !strings.Contains(got, "Source: `.codex/agents/ag1.toml`") {
+	if !strings.Contains(got, "Source: `.agents/agents/ag1.toml`") {
 		t.Errorf("missing agent toml reference in:\n%s", got)
 	}
 	if strings.Contains(got, "agent body") {
@@ -62,7 +62,7 @@ func TestEmit_AgentTOMLFile(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/agents/pr-reviewer.toml"))
+	got := readFile(t, filepath.Join(dir, ".agents/agents/pr-reviewer.toml"))
 	for _, want := range []string{
 		`name = "pr-reviewer"`,
 		`description = "PR reviewer"`,
@@ -88,7 +88,7 @@ func TestEmit_AgentTOML_NoExtras(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/agents/explorer.toml"))
+	got := readFile(t, filepath.Join(dir, ".agents/agents/explorer.toml"))
 	for _, want := range []string{
 		`name = "explorer"`,
 		`description = "explorer"`, // falls back to name when frontmatter description missing

@@ -124,9 +124,9 @@ are written; empty stubs are skipped):
 ├── agnostic-ai.yaml
 ├── rules/
 │   └── conventional-commits.md
-├── CLAUDE.md                                    # for Claude Code
+├── .claude/rules/<name>.md                      # for Claude Code (project rules)
 ├── AGENTS.md                                    # for Codex / Amp / Warp (shared open standard)
-├── .codex/agents/<name>.toml                    # for Codex subagents
+├── .agents/agents/<name>.toml                   # for Codex subagents
 ├── .agents/commands/<name>.md                   # for Amp slash commands
 ├── GEMINI.md                                    # for Gemini CLI
 ├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands

@@ -64,7 +64,7 @@ outputs:
     mcp-file: .mcp.json          # default
   codex:
     file: AGENTS.md              # default. Hierarchical per scope.
-    agents-dir: .codex/agents    # default. One TOML per agent.
+    agents-dir: .agents/agents   # default. One TOML per agent.
     skills-dir: .agents/skills   # default. One folder per skill.
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:
@@ -161,7 +161,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `codex` | `file` | `AGENTS.md` | Rules document; nested `<dir>/AGENTS.md` files share this base. Lists agents and skills with pointers to their per-target files. |
-| `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). |
+| `codex` | `agents-dir` | `.agents/agents` | One TOML file per agent (Codex subagent schema). |
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
 | `gemini` | `file` | `GEMINI.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/GEMINI.md` files share this base. |
