@@ -131,7 +131,7 @@ func TestGraph_TextMatrixDeterministic(t *testing.T) {
 	if idxA < 0 || idxB < 0 || idxC < 0 {
 		t.Fatalf("missing spec rows in:\n%s", first)
 	}
-	if !(idxA < idxB && idxB < idxC) {
+	if idxA >= idxB || idxB >= idxC {
 		t.Errorf("spec rows not sorted: code-reviewer=%d no-console-log=%d other=%d", idxA, idxB, idxC)
 	}
 }
