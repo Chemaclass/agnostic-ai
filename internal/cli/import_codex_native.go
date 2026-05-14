@@ -74,9 +74,20 @@ func readCodexAgentTOML(path string) (map[string]any, error) {
 	return doc, nil
 }
 
+// codexAgentTopLevel are the keys the codex emitter writes at the TOML
+// root that map to frontmatter top-level slots on round-trip. Everything
+// else gets carried under `x-codex` so unknown / future Codex keys pass
+// through without data loss.
+var codexAgentTopLevel = map[string]bool{
+	"name":                   true,
+	"description":            true,
+	"model":                  true,
+	"developer_instructions": true,
+}
+
 // writeCodexAgentSpec renders a codex agent TOML as an agnostic-ai agent
 // spec (.md with frontmatter + body). Known top-level keys map directly;
-// codex-specific keys land under `x-codex` to round-trip on emit.
+// every other key lands under `x-codex` so the emitter round-trips them.
 func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 	body, _ := doc["developer_instructions"].(string)
 	body = strings.TrimRight(body, "\n")
@@ -89,14 +100,11 @@ func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 		fm["model"] = m
 	}
 	xcodex := map[string]any{}
-	for _, key := range []string{
-		"sandbox_mode", "model_reasoning_effort", "nickname_candidates",
-		"model_reasoning_summary", "model_supports_reasoning_summaries",
-		"approval_policy",
-	} {
-		if v, ok := doc[key]; ok {
-			xcodex[key] = v
+	for key, val := range doc {
+		if codexAgentTopLevel[key] {
+			continue
 		}
+		xcodex[key] = val
 	}
 	if len(xcodex) > 0 {
 		fm["x-codex"] = xcodex
