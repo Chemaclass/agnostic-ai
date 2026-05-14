@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -221,12 +222,14 @@ func TestImportFromClaude_PreservesSkillScriptExecutableBit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := os.Stat(filepath.Join(dir, "skills", "build", "run.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o111 == 0 {
-		t.Errorf("executable bit dropped on import: mode=%v", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, "skills", "build", "run.sh"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			t.Errorf("executable bit dropped on import: mode=%v", info.Mode().Perm())
+		}
 	}
 }
 

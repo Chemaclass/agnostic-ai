@@ -3,6 +3,7 @@ package codex
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -348,12 +349,14 @@ func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
 		}
 	}
 
-	info, err := os.Stat(filepath.Join(dir, ".agents", "skills", "yaml-validator", "scripts", "run.py"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o111 == 0 {
-		t.Errorf("executable bit dropped on emit: mode=%v", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, ".agents", "skills", "yaml-validator", "scripts", "run.py"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			t.Errorf("executable bit dropped on emit: mode=%v", info.Mode().Perm())
+		}
 	}
 }
 
