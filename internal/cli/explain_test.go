@@ -74,9 +74,6 @@ func TestExplain_HumanOutputListsConfiguredAndExtras(t *testing.T) {
 	if !strings.Contains(got, "[claude] .claude/rules/no-console-log.md") {
 		t.Errorf("expected configured claude contribution: %s", got)
 	}
-	if !strings.Contains(got, "[codex] AGENTS.md") {
-		t.Errorf("expected configured codex contribution: %s", got)
-	}
 	if !strings.Contains(got, "would emit if enabled:") {
 		t.Errorf("expected extras header for non-configured targets: %s", got)
 	}

@@ -17,7 +17,7 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestEmit_WritesAgentsMd_WithRules(t *testing.T) {
+func TestEmit_NoAgentsMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -26,11 +26,26 @@ func TestEmit_WritesAgentsMd_WithRules(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".opencode/AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write .opencode/AGENTS.md by default; sync owns the entry-point, err=%v", err)
+	}
+}
+
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"opencode": {RulesFile: ".opencode/AGENTS.md"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	got := readFile(t, filepath.Join(dir, ".opencode/AGENTS.md"))
-	for _, want := range []string{"rule body", "<!-- source: rules/r1.md -->"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
-		}
+	if !strings.Contains(got, "rule body") {
+		t.Errorf("legacy rules-file should contain concatenated rule body:\n%s", got)
 	}
 }
 
@@ -127,8 +142,8 @@ func TestEmit_Agent_OnlyAllowedFrontmatterKeys(t *testing.T) {
 	}
 }
 
-// Skills default to reference-only in AGENTS.md; no commands file.
-func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
+// Skills emit no command file by default.
+func TestEmit_Skill_NoCommandByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -142,12 +157,6 @@ func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, ".opencode/AGENTS.md"))
-	for _, want := range []string{"## Skills", "yaml-validator", "Validate YAML."} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".opencode/commands/yaml-validator.md")); !os.IsNotExist(err) {
 		t.Errorf("expected no skill command file by default, err=%v", err)
@@ -185,33 +194,6 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("missing %q in %s", want, cmd)
 		}
-	}
-}
-
-// AGENTS.md references agents with a pointer to the command file path,
-// rather than duplicating the agent body.
-func TestEmit_AgentsMd_ListsAgentsWithoutDuplicatingBody(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindAgent,
-			Name: "pr-reviewer",
-			Meta: map[string]any{"description": "Review PRs."},
-			Body: "Long body should NOT appear in AGENTS.md.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, ".opencode/AGENTS.md"))
-	for _, want := range []string{"## Agents", "pr-reviewer", "Review PRs.", ".opencode/commands/pr-reviewer.md"} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
-	}
-	if strings.Contains(agents, "Long body should NOT appear") {
-		t.Errorf("agent body should not be duplicated in AGENTS.md: %s", agents)
 	}
 }
 

@@ -17,8 +17,10 @@ func TestName(t *testing.T) {
 	}
 }
 
-// Default emission writes AGENTS.md, replacing the legacy WARP.md filename.
-func TestEmit_WritesAGENTSMd_NotWarpMd(t *testing.T) {
+// Default emission no longer writes AGENTS.md; sync owns the entry-point
+// write so codex + amp + warp can coexist at the same path. Legacy
+// WARP.md is never written.
+func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -27,90 +29,29 @@ func TestEmit_WritesAGENTSMd_NotWarpMd(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"# AGENTS.md", "rule body", "<!-- source: rules/r1.md -->"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
-		}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write AGENTS.md by default, err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "WARP.md")); !os.IsNotExist(err) {
 		t.Errorf("legacy WARP.md should not be written, err=%v", err)
 	}
 }
 
-func TestEmit_ScopedRule_RoutesToNestedAGENTSMd(t *testing.T) {
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "Validate at boundary."},
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"warp": {RulesFile: "AGENTS.md"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	nested := readFile(t, filepath.Join(dir, "backend/AGENTS.md"))
-	if !strings.Contains(nested, "Validate at boundary.") {
-		t.Errorf("missing scoped body: %s", nested)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
-		t.Errorf("no root AGENTS.md when only scoped rules exist, err=%v", err)
-	}
-}
-
-// Warp has no separate slash-command surface, so agents inline their
-// bodies into the root AGENTS.md.
-func TestEmit_Agent_InlinedIntoRootAGENTSMd(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindAgent,
-			Name: "pr-reviewer",
-			Meta: map[string]any{"description": "Review PRs."},
-			Body: "Open the PR. Read it. Comment.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{
-		"## Agents",
-		"Agent: pr-reviewer",
-		"Review PRs.",
-		"Open the PR. Read it. Comment.",
-	} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
-	}
-}
-
-// Skills appear as reference listings (description + source path) since
-// Warp has no skill-execution model. Bodies are NOT inlined to keep the
-// document scannable; users open the source spec to read the skill.
-func TestEmit_Skill_ReferenceOnly(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindSkill,
-			Name: "yaml-validator",
-			Path: "skills/yaml-validator.md",
-			Meta: map[string]any{"description": "Validate YAML."},
-			Body: "Body content - should NOT inline.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"## Skills", "yaml-validator", "Validate YAML.", "skills/yaml-validator.md"} {
-		if !strings.Contains(agents, want) {
-			t.Errorf("missing %q in %s", want, agents)
-		}
-	}
-	if strings.Contains(agents, "should NOT inline") {
-		t.Errorf("skill body should not be inlined: %s", agents)
+	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(got, "rule body") {
+		t.Errorf("legacy rules-file should contain concatenated rule body:\n%s", got)
 	}
 }
 
@@ -159,25 +100,6 @@ func TestEmit_KeepsLegacyWarpMd_WhenUserAuthored(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "WARP.md.bak")); !os.IsNotExist(err) {
 		t.Errorf("no backup should be made for user-authored file, err=%v", err)
-	}
-}
-
-func TestEmit_FileOverride(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"warp": {File: "docs/AGENTS.md"},
-		},
-	}
-	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "r1", Body: "x"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "docs/AGENTS.md")); err != nil {
-		t.Errorf("expected docs/AGENTS.md: %v", err)
 	}
 }
 
@@ -321,42 +243,6 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 		if !strings.Contains(wf, want) {
 			t.Errorf("missing %q in %s", want, wf)
 		}
-	}
-
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(agents, "## Agents") {
-		t.Errorf("missing ## Agents section: %s", agents)
-	}
-	if !strings.Contains(agents, "Run the deploy script.") {
-		t.Errorf("agents reference should include description: %s", agents)
-	}
-	if !strings.Contains(agents, "agents/deploy.md") {
-		t.Errorf("agents reference should include source path: %s", agents)
-	}
-	if strings.Contains(agents, "./scripts/deploy.sh prod") {
-		t.Errorf("agent body should NOT inline when workflows-dir is set: %s", agents)
-	}
-}
-
-func TestEmit_NoWorkflowsDirInlinesAgentsAsBefore(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindAgent,
-			Name: "x",
-			Body: "do the thing",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".warp/workflows")); !os.IsNotExist(err) {
-		t.Errorf("expected no workflows dir; err=%v", err)
-	}
-	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(agents, "do the thing") {
-		t.Errorf("body should inline when workflows-dir unset: %s", agents)
 	}
 }
 

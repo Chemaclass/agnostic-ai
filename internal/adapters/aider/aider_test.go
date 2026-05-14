@@ -13,7 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEmit_WritesConventions(t *testing.T) {
+func TestEmit_NoConventionsByDefault(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -28,6 +28,28 @@ func TestEmit_WritesConventions(t *testing.T) {
 	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, "CONVENTIONS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write CONVENTIONS.md by default; sync owns the entry-point, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".aider.conf.yml")); !os.IsNotExist(err) {
+		t.Fatalf("conf-file should not exist by default, got err=%v", err)
+	}
+}
+
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"aider": {RulesFile: "CONVENTIONS.md"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	got, err := os.ReadFile(filepath.Join(dir, "CONVENTIONS.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -36,16 +58,11 @@ func TestEmit_WritesConventions(t *testing.T) {
 		"rule body",
 		"## Skills",
 		"### sk1",
-		"skills/sk1.md",
 		"<!-- source: rules/r1.md -->",
-		"<!-- source: skills/sk1.md -->",
 	} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".aider.conf.yml")); !os.IsNotExist(err) {
-		t.Fatalf("conf-file should not exist by default, got err=%v", err)
 	}
 }
 

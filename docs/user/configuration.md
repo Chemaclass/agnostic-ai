@@ -58,21 +58,28 @@ targets:
   - antigravity
 
 # Per-target output overrides. Each target accepts only the fields
-# relevant to it. Defaults shown in comments.
+# relevant to it. Defaults shown in comments. The project-root
+# entry-point file (CLAUDE.md, AGENTS.md, GEMINI.md, CONVENTIONS.md,
+# .github/copilot-instructions.md, .opencode/AGENTS.md,
+# .agent/AGENTS.md) is written centrally by `sync` and is not
+# adapter-configurable.
+#
+# Set `outputs.<target>.rules-file: <path>` on any target to opt back
+# into the legacy concatenated rules layout at that path; `sync` then
+# skips the pointer-body write for that target.
 outputs:
   claude:
     dir: .claude                 # default
-    rules-file: CLAUDE.md        # default
+    rules-dir: .claude/rules     # default. One .md per rule.
     commands-dir: .claude/commands # default. One .md per command (slash prompt).
     mcp-file: .mcp.json          # default
+    # rules-file: CLAUDE.md      # opt-in: legacy concatenated rules layout.
   codex:
-    file: AGENTS.md              # default. Hierarchical per scope.
     agents-dir: .agents/agents   # default. One TOML per agent.
     skills-dir: .agents/skills   # default. One folder per skill.
     commands-dir: .codex/prompts # default. One .md per command (slash prompt).
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:
-    file: GEMINI.md                  # default. Hierarchical per scope.
     commands-dir: .gemini/commands   # default. One .toml per agent (and per skill when opted in).
     emit-skills-as-commands: false   # default
     mcp-file: .gemini/settings.json  # default. Holds both mcpServers and hooks.
@@ -80,11 +87,9 @@ outputs:
     rules-dir: .cursor/rules     # default
     mcp-file: .cursor/mcp.json   # default
   copilot:
-    file: .github/copilot-instructions.md   # default. Always-on rules.
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
     mcp-file: .vscode/mcp.json              # default
   aider:
-    file: CONVENTIONS.md         # default
     # Opt-in: also merge .aider.conf.yml so Aider auto-loads CONVENTIONS.md.
     # conf-file: .aider.conf.yml
     # model: gpt-4o
@@ -97,7 +102,6 @@ outputs:
     rules-dir: .continue/rules        # default
     mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
   amp:
-    file: AGENTS.md                 # default. Hierarchical per scope; was AGENT.md.
     commands-dir: .agents/commands  # default. One .md per agent (and per skill when opted in).
     emit-skills-as-commands: false  # default
     mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
@@ -105,15 +109,13 @@ outputs:
     file: .rules                  # default
     mcp-file: .zed/settings.json  # default. context_servers (stdio native, HTTP via mcp-remote).
   warp:
-    file: AGENTS.md             # default. Hierarchical per scope; was WARP.md.
-    mcp-file: .warp/.mcp.json   # default. Standard mcpServers schema.
+    # workflows-dir: .warp/workflows  # opt-in: emit Warp Workflow YAMLs per agent.
+    mcp-file: .warp/.mcp.json     # default. Standard mcpServers schema.
   opencode:
-    file: .opencode/AGENTS.md            # default. Routed under .opencode/ to coexist with Codex.
     commands-dir: .opencode/commands     # default. One .md per agent (and per skill when opted in).
     emit-skills-as-commands: false       # default
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:
-    file: .agent/AGENTS.md              # default. Namespaced to avoid root AGENTS.md collision.
     rules-dir: .agent/rules             # default. One .md per rule and per agent.
 
 # What to do when a spec kind is unsupported by a target
@@ -165,22 +167,23 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | Target | Field | Default | Notes |
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
-| `claude` | `rules-file` | `CLAUDE.md` | Concatenated rules document. |
+| `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule (default). |
+| `claude` | `rules-file` | _empty_ | When set, switches back to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
-| `codex` | `file` | `AGENTS.md` | Rules document; nested `<dir>/AGENTS.md` files share this base. Lists agents and skills with pointers to their per-target files. |
 | `codex` | `agents-dir` | `.agents/agents` | One TOML file per agent (Codex subagent schema). |
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
+| `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
-| `gemini` | `file` | `GEMINI.md` | Root rules + agent/skill references. Hierarchical: nested `<scope>/GEMINI.md` files share this base. |
 | `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
+| `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
 | `gemini` | `mcp-file` | `.gemini/settings.json` | Holds both `mcpServers` and `hooks`. HTTP MCP entries use `httpUrl`. |
 | `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
 | `cursor` | `mcp-file` | `.cursor/mcp.json` | Standard `mcpServers` schema. |
-| `copilot` | `file` | `.github/copilot-instructions.md` | Always-on rules (`alwaysApply: true` or no scope). |
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
+| `copilot` | `rules-file` | _empty_ | When set, writes always-on rules concatenated at that path (legacy layout). `sync` skips the pointer-body write for `copilot`. |
 | `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
-| `aider` | `file` | `CONVENTIONS.md` | Single merged document. |
+| `aider` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path (typically `CONVENTIONS.md`). `sync` skips the pointer-body write for `aider`. |
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
@@ -188,18 +191,21 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
-| `amp` | `file` | `AGENTS.md` | Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `AGENT.md`; legacy file migrated to `AGENT.md.bak` on first sync. |
 | `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). |
 | `amp` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.agents/commands/skill-<name>.md`. |
+| `amp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `amp`. |
 | `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
 | `zed` | `file` | `.rules` | Single merged document. |
 | `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio native; HTTP/SSE auto-bridges via `npx mcp-remote`. |
-| `warp` | `file` | `AGENTS.md` | Hierarchical: nested `<scope>/AGENTS.md` files share this base. Renamed from `WARP.md`; legacy file migrated to `WARP.md.bak` on first sync. |
+| `warp` | `workflows-dir` | _empty_ | When set, each agent emits as a Warp Workflow YAML at `<dir>/<name>.yaml`. |
+| `warp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `warp`. |
 | `warp` | `mcp-file` | `.warp/.mcp.json` | Standard `mcpServers` schema. |
-| `opencode` | `file` | `.opencode/AGENTS.md` | Rules + agent/skill references; routed under `.opencode/` to coexist with Codex. |
 | `opencode` | `commands-dir` | `.opencode/commands` | One `.md` per agent (one per skill when `emit-skills-as-commands: true`). Frontmatter filtered to `description`, `agent`, `model`, `subtask`. |
 | `opencode` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.opencode/commands/skill-<name>.md`. |
+| `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
 | `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
+| `antigravity` | `rules-dir` | `.agent/rules` | One `.md` per rule and per agent. |
+| `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
 
 ## `targets`
 
@@ -259,24 +265,26 @@ Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
 - Output directories are created on demand. Existing files are overwritten.
 - Add generated outputs to `.gitignore` to keep specs as the single source of truth (recommended).
 
-## Output collisions
+## Entry-point files
 
-`codex`, `amp`, and `warp` all default to root `AGENTS.md` per the
-community [agents.md](https://agents.md) spec. Only one adapter can own
-the root file in a project.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a conventional root
+entry-point file for every enabled target (`CLAUDE.md`, `AGENTS.md`,
+`GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`,
+`.opencode/AGENTS.md`, `.agent/AGENTS.md`). All files share the same
+canonical pointer body. Targets that share an entry-point path (codex,
+amp, and warp all at `AGENTS.md`) write the file once; the dedup is
+automatic.
 
-`sync` and `sync --check` fail fast with an `output collision` error
-listing every duplicated path and the targets that emit to it. Resolve
-by either:
+To opt back into the legacy concatenated layout for a target, set
+`outputs.<target>.rules-file: <path>`. The adapter then writes a
+single merged document at `<path>` and `sync` skips the pointer-body
+write for that target so the two do not collide.
 
-1. Dropping one of the colliding targets from `targets:` in `agnostic-ai.yaml`.
-2. Overriding the colliding path on the loser via `outputs.<target>.file`
-   (note: most CLIs only read their canonical filename, so this is
-   rarely useful in practice).
-
-The shipped defaults keep `codex` as the AGENTS.md owner. Users on Amp
-or Warp instead must enable that target explicitly and drop `codex`
-(and any other AGENTS.md owner) from `targets:`.
+Real collisions where two adapters write different content to the
+same path (e.g. both `outputs.codex.rules-file: AGENTS.md` and
+`outputs.amp.rules-file: AGENTS.md`) still fail fast with an
+`output collision` error. Resolve by dropping one of the colliding
+targets from `targets:` or pointing `rules-file` at distinct paths.
 
 ## Precedence
 
