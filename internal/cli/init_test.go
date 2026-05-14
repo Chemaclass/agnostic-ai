@@ -89,7 +89,7 @@ func TestInitCmd_PositionalDirArg(t *testing.T) {
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "specs"})
+	root.SetArgs([]string{"init", "--all", "specs"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init"})
+	root.SetArgs([]string{"init", "--all"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestInitCmd_DemoFlag(t *testing.T) {
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"init", "--demo"})
+	root.SetArgs([]string{"init", "--all", "--demo"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestInitCmd_Interactive_PipedSelection(t *testing.T) {
 
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("claude,codex\n"))
-	root.SetArgs([]string{"init", "-i"})
+	root.SetArgs([]string{"init"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestInitCmd_Interactive_PipedWithDir(t *testing.T) {
 
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("claude\n"))
-	root.SetArgs([]string{"init", "-i", "specs"})
+	root.SetArgs([]string{"init", "specs"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
 
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("claude\n"))
-	root.SetArgs([]string{"init", "-i", "--demo"})
+	root.SetArgs([]string{"init", "--demo"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -324,19 +324,25 @@ func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
 	}
 }
 
-func TestInitCmd_Interactive_PipedEmptyErrors(t *testing.T) {
+func TestInitCmd_PipedEmptyFallsBackToAll(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("\n"))
-	root.SetArgs([]string{"init", "-i"})
-	if err := root.Execute(); err == nil {
-		t.Fatal("expected error for empty piped selection")
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); err == nil {
-		t.Error("agnostic-ai.yaml should not be written on empty selection")
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"  - claude\n", "  - codex\n", "  - opencode\n"} {
+		if !strings.Contains(string(cfg), want) {
+			t.Errorf("config missing %q on fallback:\n%s", want, cfg)
+		}
 	}
 }
 
@@ -347,7 +353,7 @@ func TestInitCmd_Interactive_PipedUnknownTarget(t *testing.T) {
 
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("claude,fnord\n"))
-	root.SetArgs([]string{"init", "-i"})
+	root.SetArgs([]string{"init"})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for unknown target")

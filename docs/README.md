@@ -8,7 +8,7 @@ Start at [user/README.md](user/README.md) for the recommended reading order.
 2. [Spec format](user/spec-format.md): agents, skills, rules, hooks, MCP servers; nested scope; `x-<target>` namespace.
 3. [Targets](user/targets.md): capability matrix and per-target output paths.
 4. [Configuration](user/configuration.md): `agnostic-ai.yaml` schema, including `gitignore` automation.
-5. [CLI reference](user/cli-reference.md): every command and flag, including `sync --watch`, `sync --auto-sync`, `init --demo`, `init -i`, `import <source>`, `revert`, `sync --backup`, `status`, and `--json` machine output.
+5. [CLI reference](user/cli-reference.md): every command and flag, including `sync --watch`, `sync --auto-sync`, `init --demo`, `init --all`, `import <source>`, `revert`, `sync --backup`, `status`, and `--json` machine output.
 
 ## For contributors
 

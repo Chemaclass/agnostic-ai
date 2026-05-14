@@ -200,17 +200,17 @@ When omitted: all 13 adapters above. Comment out entries to disable targets. CLI
 
 ### Interactive target selection
 
-By default, `agnostic-ai init` writes every supported target into the generated config. Most projects only use a handful. Pass `-i` (or `--interactive`) to pick:
+`agnostic-ai init` opens a multi-select prompt when stdin is a TTY so most projects only enable a handful of targets:
 
-    agnostic-ai init -i
+    agnostic-ai init
 
 Use ↑/↓ to move, space to toggle, enter to confirm. The resulting `targets:` list contains only the chosen targets, in canonical order.
 
 For scripted use (CI, integration tests), pipe a comma-separated line of target names instead:
 
-    echo "claude,codex" | agnostic-ai init -i
+    echo "claude,codex" | agnostic-ai init
 
-Unknown names, an empty selection, or a non-TTY stdin without piped data each produce a clear error and leave the working tree untouched.
+Unknown names produce a clear error and leave the working tree untouched. To skip the picker entirely and enable every supported target, pass `--all` (`-a`). A non-TTY stdin with no piped data falls back to the full target list silently — CI invocations keep working without flags.
 
 ## `on-unsupported`
 

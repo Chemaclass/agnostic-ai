@@ -1,20 +1,18 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/x/term"
 )
 
 // This file holds the canonical target list and the selection helpers
-// shared by the default and interactive init flows. selectTargets
-// branches on TTY vs piped input.
+// shared by the default init flow and the first-sync target picker.
+// The TTY-aware multi-mode entry point is selectTargetsForSync in
+// sync_picker.go.
 
 // targetChoice is one selectable AI CLI target shown to the user and
 // written to agnostic-ai.yaml.
@@ -100,27 +98,6 @@ func filterToCanonicalOrder(picked map[string]bool) []string {
 		}
 	}
 	return out
-}
-
-// selectTargets returns the user's chosen subset of allTargets, by
-// canonical name. Branches on whether `in` is a terminal-backed
-// *os.File (run an interactive multi-select via huh) or a plain reader
-// (read one line and parsePipedSelection it). On immediate EOF with
-// no terminal, returns a clear error.
-func selectTargets(in io.Reader, stderr io.Writer) ([]string, error) {
-	if f, ok := in.(*os.File); ok && term.IsTerminal(f.Fd()) {
-		return runInteractivePrompt(stderr)
-	}
-
-	br := bufio.NewReader(in)
-	line, err := br.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	if line == "" {
-		return nil, fmt.Errorf("init -i requires an interactive terminal or piped target list")
-	}
-	return parsePipedSelection(line)
 }
 
 // runInteractivePrompt drives the huh multi-select. It is glue around

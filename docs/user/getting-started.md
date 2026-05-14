@@ -38,17 +38,18 @@ Restart your shell after installing. See `agnostic-ai completion <shell> --help`
 ## Scaffold
 
 ```bash
-agnostic-ai init                 # default base dir: .agnostic-ai/
+agnostic-ai init                 # default: prompt for targets when TTY, base dir .agnostic-ai/
+agnostic-ai init --all           # skip the prompt, enable every supported target
 agnostic-ai init specs           # custom base
 agnostic-ai init .               # legacy root-level layout
 agnostic-ai init --demo          # plus one example spec per source folder
-agnostic-ai init -i              # interactive: pick which targets land in config
+echo "claude,codex" | agnostic-ai init   # non-TTY: pipe a comma-separated target list
 ```
 
 `--demo` seeds each source folder with a minimal example spec so the
-first `sync` produces real output. `-i` (or `--interactive`) prompts
-for which targets to enable; pipe a comma-separated list (`echo
-"claude,codex" | agnostic-ai init -i`) for non-TTY use.
+first `sync` produces real output. By default `init` opens a target
+picker when stdin is a TTY; pipe a comma-separated list for non-TTY use,
+or pass `--all` (`-a`) to skip the picker and enable every target.
 
 The generated `agnostic-ai.yaml` includes a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config automatically.
 

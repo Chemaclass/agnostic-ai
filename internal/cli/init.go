@@ -35,7 +35,7 @@ var presetFS embed.FS
 const presetRoot = "initdata/presets"
 
 func newInitCmd() *cobra.Command {
-	var demo, interactive bool
+	var demo, all bool
 	var preset string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
@@ -43,14 +43,19 @@ func newInitCmd() *cobra.Command {
 		Long: "Creates agnostic-ai.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
+			"When stdin is a terminal, init prompts for which targets to enable; " +
+			"pipe a comma-separated list to skip the prompt, or pass --all / -a " +
+			"to enable every supported target without prompting. " +
 			"Pass --demo to seed each source folder with a minimal example spec. " +
-			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
-			"Pass -i / --interactive to pick which targets land in the config.",
-		Example: `  # Default: scaffold under .agnostic-ai/
+			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python).",
+		Example: `  # Default: scaffold under .agnostic-ai/, prompt for targets when TTY
   agnostic-ai init
 
-  # Pick which targets to enable
-  agnostic-ai init -i
+  # Skip the prompt, enable every supported target
+  agnostic-ai init --all
+
+  # Non-interactive: pipe the target list
+  echo "claude,codex" | agnostic-ai init
 
   # Seed each source folder with one minimal example spec
   agnostic-ai init --demo
@@ -76,22 +81,24 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 			targets := allTargetNames()
-			if interactive {
-				picked, err := selectTargets(cmd.InOrStdin(), cmd.ErrOrStderr())
+			if !all {
+				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr())
 				if err != nil {
 					return err
 				}
-				targets = picked
+				if len(picked) > 0 {
+					targets = picked
+				}
 			}
 			return scaffold(".", base, demo, preset, targets)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
 		"Seed each source folder with a minimal example spec.")
-	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false,
-		"Prompt for which targets to enable instead of writing all.")
+	cmd.Flags().BoolVarP(&all, "all", "a", false,
+		"Skip the target picker and enable every supported target.")
 	cmd.Flags().StringVar(&preset, "preset", "",
-		"Seed stack-flavored starter specs (go, ts-react, python). Composes with --demo and -i.")
+		"Seed stack-flavored starter specs (go, ts-react, python). Composes with --demo and --all.")
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})

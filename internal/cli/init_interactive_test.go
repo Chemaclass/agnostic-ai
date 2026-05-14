@@ -2,8 +2,6 @@ package cli
 
 import (
 	"errors"
-	"io"
-	"os"
 	"strings"
 	"testing"
 )
@@ -58,41 +56,6 @@ func TestParsePipedSelection_Empty(t *testing.T) {
 		if !errors.Is(err, errNoTargets) {
 			t.Errorf("input %q: want errNoTargets, got %v", in, err)
 		}
-	}
-}
-
-func TestSelectTargets_PipedReader(t *testing.T) {
-	got, err := selectTargets(strings.NewReader("claude,codex\n"), io.Discard)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := []string{"claude", "codex"}
-	if !equalStrings(got, want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
-func TestSelectTargets_NonTTYNoData(t *testing.T) {
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = w.Close() // immediate EOF: not a TTY, no data
-	t.Cleanup(func() { _ = r.Close() })
-
-	_, err = selectTargets(r, io.Discard)
-	if err == nil {
-		t.Fatal("expected error when stdin is neither a TTY nor a usable pipe")
-	}
-	if !strings.Contains(err.Error(), "interactive terminal") {
-		t.Errorf("error should mention interactive terminal, got: %v", err)
-	}
-}
-
-func TestSelectTargets_PipedEmptyReturnsErrNoTargets(t *testing.T) {
-	_, err := selectTargets(strings.NewReader("\n"), io.Discard)
-	if !errors.Is(err, errNoTargets) {
-		t.Errorf("want errNoTargets, got %v", err)
 	}
 }
 

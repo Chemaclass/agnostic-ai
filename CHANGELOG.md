@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Source URL shown in `--help` (Long description) and `--version` output.
 
 ### Changed
+- `agnostic-ai init` now opens the target picker by default when stdin is a TTY (previously required `-i` / `--interactive`). Non-TTY stdin parses a piped comma-separated list, or silently falls back to every supported target when no data arrives. The opt-out flag is now `--all` / `-a`; `-i` / `--interactive` is removed.
 
 ### Fixed
 - `import claude` no longer drops preamble before the first `##` heading (saved as a separate rule) and no longer splits rules on `##` lines that live inside fenced code blocks.
