@@ -224,7 +224,7 @@ func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"zed", "opencode",
+		"zed", "opencode", "antigravity",
 	}
 }
 

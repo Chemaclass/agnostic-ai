@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- New `antigravity` adapter for Google Antigravity IDE. Emits `.agent/rules/*.md` (one per rule and per agent) and `.agent/AGENTS.md` (merged document). Supports `KindRule` and `KindAgent`. Skills, hooks, MCPs, and commands are deferred until the upstream preview spec confirms those surfaces. The default file path is `.agent/AGENTS.md` (not the project root) to avoid colliding with Codex, Amp, and Warp when all are enabled together.
+
 ### Changed
 - `import` now writes `AGNOSTIC_AI.md` to `.agnostic-ai/AGNOSTIC_AI.md` instead of the project root. Delete the old root-level `AGNOSTIC_AI.md` after upgrading. The path is added to the managed `.gitignore` block so `sync --gitignore` excludes it from version control.
 - `init` prints a clearer two-step "next steps" block after scaffolding (`agnostic-ai import <target>` then `agnostic-ai sync`) and confirms the base directory used. Replaces the previous terse one-liner.

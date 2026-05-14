@@ -19,6 +19,7 @@ Each adapter emits in its tool's native format — separate files where the tool
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) |
 | **warp**        | inlined in `AGENTS.md` (or `.warp/workflows/<name>.yaml` w/ opt-in) | listed in `AGENTS.md` | `AGENTS.md` (nested per-dir by scope/globs) | - | `.warp/.mcp.json` |
 | **opencode**    | `.opencode/commands/<name>.md` | listed in `.opencode/AGENTS.md` (or `.opencode/commands/skill-<name>.md` w/ opt-in) | `.opencode/AGENTS.md` | - | `opencode.json` (`mcp`) |
+| **antigravity** | as `.md` rule (`agent-<name>.md`) | - | `.agent/rules/*.md` + `.agent/AGENTS.md` | - | - |
 
 Skills emitted to non-Claude targets are reference material. Only Claude
 Code has native skill execution. For all other targets, the agent or
@@ -32,8 +33,8 @@ event-triggered hooks. Other targets have no equivalent concept and
 skip with a warning.
 
 MCP servers propagate to every target that has a project-scoped MCP file
-(10 of 13 — see the matrix above). Aider, Cline, and Windsurf have no
-project-scoped MCP surface and skip with a warning.
+(10 of 14 — see the matrix above). Aider, Cline, Windsurf, and Antigravity
+have no project-scoped MCP surface and skip with a warning.
 
 Commands are slash-prompt files authored under `commands/` and emitted to the
 target's native slash-command surface. Supported on Claude Code
@@ -250,6 +251,20 @@ Config keys: `outputs.opencode.file` (default `.opencode/AGENTS.md`), `outputs.o
 When MCP entries are present, the adapter writes (or updates) `opencode.json` at the project root with a `$schema` link and the `mcp` map. Stdio servers map to `{type: "local", command: [...]}`; HTTP/SSE/remote servers map to `{type: "remote", url, headers}`. Any pre-existing non-managed keys (`theme`, `model`, etc.) are preserved across syncs; only `$schema` and `mcp` are overwritten. Note: drift checks (`sync --check`) read in capture mode and skip the read step, so unrelated user keys may be reported as drift until the next non-check sync — this is by design.
 
 Routed under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`, so both can be enabled together. Each command file carries frontmatter filtered to the OpenCode-supported keys (`description`, `agent`, `model`, `subtask`) — pass `agent`, `model`, or `subtask` through the `x-opencode` namespace in your spec frontmatter to route them into the command file without polluting other targets.
+
+### Google Antigravity (`antigravity`)
+
+```
+.agent/AGENTS.md           # merged rules + agent bodies
+.agent/rules/<name>.md     # one per rule
+.agent/rules/agent-<name>.md  # one per agent
+```
+
+Config keys: `outputs.antigravity.file` (default `.agent/AGENTS.md`), `outputs.antigravity.rules-dir` (default `.agent/rules`).
+
+Antigravity reads project instructions from a top-level AGENTS.md-style file and per-rule files under `.agent/rules/`. The adapter routes rules and agents into those locations. To avoid colliding with Codex, Amp, and Warp (which also default to a root `AGENTS.md`), the default file is `.agent/AGENTS.md`. Override via `outputs.antigravity.file` if your project uses only one AGENTS.md owner and you want to share the root file.
+
+Skills, hooks, MCPs, and commands are not yet confirmed in the Antigravity public preview spec and are skipped with a warning. Add them to your `on-unsupported: silent` config to suppress the warning, or wait for a future release once the upstream spec stabilises.
 
 ## Selecting targets
 

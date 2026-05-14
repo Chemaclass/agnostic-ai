@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -94,19 +95,20 @@ type Adapter interface {
 }
 
 var registry = map[string]Adapter{
-	"claude":   claude.New(),
-	"codex":    codex.New(),
-	"gemini":   gemini.New(),
-	"cursor":   cursor.New(),
-	"copilot":  copilot.New(),
-	"aider":    aider.New(),
-	"cline":    cline.New(),
-	"windsurf": windsurf.New(),
-	"continue": continueai.New(),
-	"amp":      amp.New(),
-	"zed":      zed.New(),
-	"warp":     warp.New(),
-	"opencode": opencode.New(),
+	"claude":      claude.New(),
+	"codex":       codex.New(),
+	"gemini":      gemini.New(),
+	"cursor":      cursor.New(),
+	"copilot":     copilot.New(),
+	"aider":       aider.New(),
+	"cline":       cline.New(),
+	"windsurf":    windsurf.New(),
+	"continue":    continueai.New(),
+	"amp":         amp.New(),
+	"zed":         zed.New(),
+	"warp":        warp.New(),
+	"opencode":    opencode.New(),
+	"antigravity": antigravity.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to

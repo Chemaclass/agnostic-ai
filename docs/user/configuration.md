@@ -55,6 +55,7 @@ targets:
   - zed
   - warp
   - opencode
+  - antigravity
 
 # Per-target output overrides. Each target accepts only the fields
 # relevant to it. Defaults shown in comments.
@@ -111,6 +112,9 @@ outputs:
     commands-dir: .opencode/commands     # default. One .md per agent (and per skill when opted in).
     emit-skills-as-commands: false       # default
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
+  antigravity:
+    file: .agent/AGENTS.md              # default. Namespaced to avoid root AGENTS.md collision.
+    rules-dir: .agent/rules             # default. One .md per rule and per agent.
 
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for any target other than claude).
@@ -136,7 +140,7 @@ autoSync: false
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version. Reserved for future migrations. |
 | `sources` | map | see below | Per-kind source directories (relative to config file). |
-| `targets` | list | all 13 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
+| `targets` | list | all 14 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |

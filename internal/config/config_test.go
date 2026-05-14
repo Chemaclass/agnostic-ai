@@ -85,7 +85,7 @@ func TestDefaultTargets(t *testing.T) {
 	want := []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"zed", "opencode",
+		"zed", "opencode", "antigravity",
 	}
 	targets := DefaultTargets()
 	if len(targets) != len(want) {
