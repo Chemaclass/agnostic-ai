@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Playground UX refresh: branded header, sample picker per kind, target chips, per-target file selector with Copy/Download buttons, theme toggle (system/light/dark), preference persistence via localStorage, mobile single-column layout.
 - Source URL shown in `--help` (Long description) and `--version` output.
+- `import claude` now prefers `.claude/rules/*.md` (each file → one rule, byte-identical copy) over slicing `CLAUDE.md`. Slicing only runs when `.claude/rules/` is absent.
+- `import claude` mirrors `CLAUDE.md` to `AGNOSTIC_AI.md` at the project root so projects keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 
 ### Changed
 - `agnostic-ai init` now opens the target picker by default when stdin is a TTY (previously required `-i` / `--interactive`). Non-TTY stdin parses a piped comma-separated list, or silently falls back to every supported target when no data arrives. The opt-out flag is now `--all` / `-a`; `-i` / `--interactive` is removed.

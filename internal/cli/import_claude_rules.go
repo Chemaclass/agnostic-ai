@@ -10,10 +10,15 @@ import (
 	"strings"
 )
 
-// importClaudeRules splits CLAUDE.md on `## ` headings into one rule file
-// per section in dstDir. Without headings it writes a single rule named
-// after the project directory.
+// importClaudeRules imports rules from a Claude Code project. Prefers
+// `.claude/rules/*.md` when present (each file becomes one rule,
+// byte-identical copy). Falls back to splitting CLAUDE.md on `## `
+// headings into one rule per section. Without headings it writes a
+// single rule named after the project directory.
 func importClaudeRules(root, dstDir string) (int, error) {
+	if n, ok, err := importClaudeRulesDir(root, dstDir); ok || err != nil {
+		return n, err
+	}
 	src := filepath.Join(root, "CLAUDE.md")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -57,6 +62,38 @@ func importClaudeRules(root, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// importClaudeRulesDir copies each `.claude/rules/*.md` byte-for-byte
+// to dstDir. Returns (count, true, nil) when the directory exists,
+// regardless of how many .md files it contains. Returns
+// (0, false, nil) when the directory is absent so the caller can fall
+// back to slicing CLAUDE.md.
+func importClaudeRulesDir(root, dstDir string) (int, bool, error) {
+	src := filepath.Join(root, ".claude", "rules")
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, true, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(src, e.Name()))
+		if err != nil {
+			return count, true, fmt.Errorf("read rule %s: %w", e.Name(), err)
+		}
+		dst := filepath.Join(dstDir, e.Name())
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
+			return count, true, fmt.Errorf("write %s: %w", dst, err)
+		}
+		count++
+	}
+	return count, true, nil
 }
 
 var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)
