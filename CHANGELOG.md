@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Stable `AAI-NNN` error codes prefix every user-facing error. `agnostic-ai explain <AAI-NNN>` prints the code's title, cause, and suggested fix; `--json` emits the same as a flat record. Initial codes: `AAI-001` (spec parse), `AAI-002` (unsupported kind), `AAI-003` (config missing), `AAI-004` (config decode), `AAI-102` (output collision), `AAI-202` (unknown import source), `AAI-301` (unknown sync target), `AAI-302` (mutually exclusive flags). Full list in `docs/user/errors.md`. Closes #163.
+
 ### Changed
 - **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.opencode/AGENTS.md`, `.agent/AGENTS.md`) plus `.agnostic-ai/AGNOSTIC_AI.md` — all byte-identical. Codex / amp / warp / gemini / opencode / aider / antigravity / copilot adapters stop concatenating rules or building nested AGENTS.md/GEMINI.md trees; claude now also gets a root `CLAUDE.md`. Opt back into legacy concat per target via `outputs.<target>.rules-file`. Targets sharing a path (codex + amp + warp at AGENTS.md) dedup to one write. Closes #153.
 - `import` prints a next-steps block: suggested `sync --check` / `sync`, plus hints for other detected CLIs to import.

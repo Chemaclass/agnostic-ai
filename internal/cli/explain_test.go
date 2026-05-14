@@ -173,6 +173,57 @@ func TestExplain_SpecNotFound(t *testing.T) {
 	}
 }
 
+func TestExplain_ErrorCode_Human(t *testing.T) {
+	silence(t)
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"explain", "AAI-001"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "AAI-001:") {
+		t.Errorf("missing code header: %s", got)
+	}
+	if !strings.Contains(got, "Cause:") || !strings.Contains(got, "Fix:") {
+		t.Errorf("missing Cause/Fix sections: %s", got)
+	}
+}
+
+func TestExplain_ErrorCode_JSON(t *testing.T) {
+	silence(t)
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"explain", "AAI-102", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got struct {
+		Version, Command, Code, Title, Cause, Fix string
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if got.Code != "AAI-102" {
+		t.Errorf("code: want AAI-102, got %q", got.Code)
+	}
+	if got.Title == "" || got.Cause == "" || got.Fix == "" {
+		t.Errorf("missing fields: %+v", got)
+	}
+}
+
+func TestExplain_ErrorCode_Unknown(t *testing.T) {
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"explain", "AAI-999"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "unknown error code") {
+		t.Fatalf("expected unknown-code error, got %v", err)
+	}
+}
+
 func TestExplain_AgentSpec(t *testing.T) {
 	dir := setupExplainFixture(t)
 	if err := os.MkdirAll(filepath.Join(dir, "agents"), 0o755); err != nil {

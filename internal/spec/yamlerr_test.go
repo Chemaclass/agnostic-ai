@@ -10,10 +10,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// codePrefix is the AAI-001 prefix that errs.Coded prepends to spec
+// parse errors. Tests assert against the body after the prefix so the
+// error code stays orthogonal to position formatting.
+const codePrefix = "[AAI-001] "
+
 func TestFormatYAMLError_LineAndCol(t *testing.T) {
 	err := errors.New("yaml: line 3: column 5: did not find expected key")
 	got := formatYAMLError("rules/x.md", err, 1).Error()
-	want := "rules/x.md:4:5: did not find expected key"
+	want := codePrefix + "rules/x.md:4:5: did not find expected key"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -22,7 +27,7 @@ func TestFormatYAMLError_LineAndCol(t *testing.T) {
 func TestFormatYAMLError_LineOnly(t *testing.T) {
 	err := errors.New("yaml: line 2: mapping values are not allowed in this context")
 	got := formatYAMLError("hooks/h.yaml", err, 0).Error()
-	want := "hooks/h.yaml:2:1: mapping values are not allowed in this context"
+	want := codePrefix + "hooks/h.yaml:2:1: mapping values are not allowed in this context"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -31,7 +36,7 @@ func TestFormatYAMLError_LineOnly(t *testing.T) {
 func TestFormatYAMLError_Unparseable(t *testing.T) {
 	err := errors.New("totally unrecognized format")
 	got := formatYAMLError("p.md", err, 0).Error()
-	want := "p.md:1:1: totally unrecognized format"
+	want := codePrefix + "p.md:1:1: totally unrecognized format"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -48,7 +53,7 @@ func TestFormatYAMLError_TypeErrorUsesFirstMessage(t *testing.T) {
 		"yaml: line 4: column 1: cannot unmarshal !!str into int",
 	}}
 	got := formatYAMLError("mcps/m.yaml", te, 0).Error()
-	want := "mcps/m.yaml:4:1: cannot unmarshal !!str into int"
+	want := codePrefix + "mcps/m.yaml:4:1: cannot unmarshal !!str into int"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -93,10 +98,11 @@ func TestParseYAML_ErrorIncludesPathAndPosition(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
-	if !strings.HasPrefix(err.Error(), path+":") {
-		t.Errorf("error %q does not start with %q", err.Error(), path+":")
+	if !strings.HasPrefix(err.Error(), codePrefix+path+":") {
+		t.Errorf("error %q does not start with %q", err.Error(), codePrefix+path+":")
 	}
-	parts := strings.SplitN(err.Error(), ":", 4)
+	body := strings.TrimPrefix(err.Error(), codePrefix)
+	parts := strings.SplitN(body, ":", 4)
 	if len(parts) < 4 {
 		t.Errorf("error %q missing line:col envelope", err.Error())
 	}

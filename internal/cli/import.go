@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // rulesDirImporters maps a source name to the rules directory the
@@ -86,5 +87,6 @@ func runImport(root, source string, src config.Sources) error {
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
 	}
-	return fmt.Errorf("unknown source: %q (supported: %s)", source, importSources())
+	return errs.Coded(errs.CodeImportFileUnknown,
+		"unknown source: %q (supported: %s)", source, importSources())
 }

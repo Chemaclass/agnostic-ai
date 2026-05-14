@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // File names recognized by Load.
@@ -123,7 +125,8 @@ func ResolveConfigPath(root string) (path string, legacy bool, err error) {
 	if fileExists(legacyPath) {
 		return legacyPath, true, nil
 	}
-	return "", false, fmt.Errorf("read config: no %s or %s in %s",
+	return "", false, errs.Coded(errs.CodeConfigMissing,
+		"read config: no %s or %s in %s",
 		ConfigFileName, LegacyConfigFileName, root)
 }
 
@@ -135,7 +138,7 @@ func loadInto(cfg *Config, path string) error {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return fmt.Errorf("parse %s: %w", path, err)
+		return errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
 	}
 	return nil
 }
@@ -157,7 +160,7 @@ func loadAndMerge(cfg *Config, basePath, localPath string) error {
 		return fmt.Errorf("re-encode merged config: %w", err)
 	}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return fmt.Errorf("parse merged config: %w", err)
+		return errs.Coded(errs.CodeConfigDecode, "parse merged config: %w", err)
 	}
 	return nil
 }
@@ -172,7 +175,7 @@ func readYAMLMap(path string) (map[string]any, error) {
 		return out, nil
 	}
 	if err := yaml.Unmarshal(data, &out); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
 	}
 	return out, nil
 }
