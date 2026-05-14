@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- `spec`: derive skill name from the parent directory when frontmatter is missing, so `skills/my-skill/SKILL.md` emits to `.claude/skills/my-skill/SKILL.md` instead of `.claude/skills/SKILL/SKILL.md`.
+
 ## v0.11.0 - 2026-05-14
 
 ### Added
