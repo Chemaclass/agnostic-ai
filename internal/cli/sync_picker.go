@@ -51,7 +51,7 @@ func targetsMatchDefault(targets []string) bool {
 // Returns (nil, nil) on a silent fallback — non-TTY with no piped data
 // — so the caller keeps the original targets.
 func firstSyncTargetSelection(root string, in io.Reader, out io.Writer) ([]string, error) {
-	picked, err := selectTargetsForSync(in, out)
+	picked, err := selectTargetsForSync(in, out, detectExistingTargets(root))
 	if err != nil {
 		return nil, err
 	}
@@ -67,16 +67,17 @@ func firstSyncTargetSelection(root string, in io.Reader, out io.Writer) ([]strin
 
 // selectTargetsForSync returns the user's chosen target subset.
 // Branches on input mode:
-//   - TTY: run the same multi-select prompt as `init -i`.
+//   - TTY: run the same multi-select prompt as `init -i`, pre-ticking
+//     preselected names.
 //   - Piped (non-TTY with data on stdin): parse one comma-separated line.
 //   - Neither (non-TTY, no data): return (nil, nil) for silent fallback.
 //
 // Differs from selectTargets (used by `init -i`), which errors instead
 // of returning a silent-fallback signal.
-func selectTargetsForSync(in io.Reader, stderr io.Writer) ([]string, error) {
+func selectTargetsForSync(in io.Reader, stderr io.Writer, preselected []string) ([]string, error) {
 	if f, ok := in.(*os.File); ok {
 		if term.IsTerminal(f.Fd()) {
-			return runInteractivePrompt(stderr)
+			return runInteractivePrompt(stderr, preselected)
 		}
 		if !hasPipedData(f) {
 			return nil, nil
