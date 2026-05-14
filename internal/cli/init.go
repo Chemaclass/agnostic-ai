@@ -183,6 +183,9 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 	if err := ensureLineInGitignore(root, config.LocalOverrideFileName); err != nil {
 		return err
 	}
+	if err := ensureLineInGitignore(root, ".agnostic-ai/.sync-state"); err != nil {
+		return err
+	}
 	if demo {
 		if err := writeDemoFiles(filepath.Join(root, base)); err != nil {
 			return err
@@ -199,19 +202,42 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 	if preset != "" {
 		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", preset)
 	}
-	printNextSteps(base)
+	printNextSteps(root, base, targets, demo || preset != "")
 	return nil
 }
 
-// printNextSteps emits the post-scaffold guidance: a confirmation line
-// with the chosen base dir, followed by the two-step workflow most
-// users want next (import existing CLI config, then sync to targets).
-func printNextSteps(base string) {
+// printNextSteps emits the post-scaffold guidance. seeded reports
+// whether --demo or --preset wrote any source specs, in which case the
+// suggested next step is `sync` (the source dirs are not empty).
+// Otherwise the suggested next step is `import <target>`. Detected
+// CLI configs under root are surfaced as concrete `import` follow-ups.
+func printNextSteps(root, base string, targets []string, seeded bool) {
 	summaryf("✓ initialized agnostic-ai project at %s\n", baseLabel(base))
+	if len(targets) > 0 {
+		summaryf("  enabled: %s\n", strings.Join(targets, ", "))
+	}
 	summaryf("\n")
 	summaryf("next steps:\n")
-	summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
-	summaryf("  agnostic-ai sync              # emit to your configured targets\n")
+	if seeded {
+		summaryf("  agnostic-ai sync --check      # preview what will be written\n")
+		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
+	} else {
+		summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
+		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
+	}
+	detected := detectExistingTargets(root)
+	if len(detected) == 0 {
+		return
+	}
+	summaryf("\n")
+	summaryf("detected existing config:\n")
+	for i, d := range detected {
+		if i >= 3 {
+			summaryf("  (and %d more)\n", len(detected)-3)
+			return
+		}
+		summaryf("  agnostic-ai import %s\n", d)
+	}
 }
 
 // baseLabel renders the user-facing label for the scaffold root. "."

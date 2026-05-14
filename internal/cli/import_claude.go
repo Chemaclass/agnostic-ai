@@ -57,6 +57,7 @@ func importFromClaude(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks\n",
 		c.rules, c.agents, c.skills, c.hooks)
+	printImportNextSteps(root, "claude")
 	return nil
 }
 

@@ -26,6 +26,7 @@ func importFromCursor(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules\n", n)
+	printImportNextSteps(root, "cursor")
 	return nil
 }
 

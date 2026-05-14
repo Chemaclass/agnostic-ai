@@ -23,5 +23,6 @@ func importFromAider(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules\n", n)
+	printImportNextSteps(root, "aider")
 	return nil
 }

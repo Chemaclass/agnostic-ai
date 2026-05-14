@@ -125,6 +125,43 @@ func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
 	}
 }
 
+func TestScaffold_GitignoreContainsLocalOverrideAndSyncState(t *testing.T) {
+	dir := t.TempDir()
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	for _, want := range []string{"agnostic-ai.local.yaml", ".agnostic-ai/.sync-state"} {
+		if !strings.Contains(string(got), want+"\n") {
+			t.Errorf("missing %q in .gitignore:\n%s", want, got)
+		}
+	}
+}
+
+func TestScaffold_GitignoreIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"),
+		[]byte("node_modules/\n.agnostic-ai/.sync-state\nagnostic-ai.local.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := strings.Count(string(got), ".agnostic-ai/.sync-state"); c != 1 {
+		t.Errorf("expected one .sync-state line, got %d:\n%s", c, got)
+	}
+	if c := strings.Count(string(got), "agnostic-ai.local.yaml"); c != 1 {
+		t.Errorf("expected one local-override line, got %d:\n%s", c, got)
+	}
+}
+
 func TestInitCmd_RejectsExtraArgs(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -434,5 +471,50 @@ func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
 	}
 	if demoIdx > nextIdx || presetIdx > nextIdx {
 		t.Errorf("demo/preset lines should appear before next steps:\n%s", out)
+	}
+}
+
+func TestScaffold_EchoesEnabledTargets(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "", []string{"claude", "codex"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "  enabled: claude, codex\n") {
+		t.Errorf("expected enabled targets line, got:\n%s", buf.String())
+	}
+}
+
+func TestScaffold_SeededSuggestsSyncNotImport(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", true, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "agnostic-ai sync --check") {
+		t.Errorf("seeded scaffold should suggest sync --check:\n%s", out)
+	}
+	if strings.Contains(out, "agnostic-ai import <target>") {
+		t.Errorf("seeded scaffold should not show import <target>:\n%s", out)
+	}
+}
+
+func TestScaffold_DetectsExistingTargetsAndSuggestsImports(t *testing.T) {
+	dir := t.TempDir()
+	// Drop a marker for the codex CLI; init should surface it as a hint.
+	if err := os.MkdirAll(filepath.Join(dir, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	buf := captureSummary(t)
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "detected existing config:") {
+		t.Errorf("expected detected block:\n%s", out)
+	}
+	if !strings.Contains(out, "agnostic-ai import codex\n") {
+		t.Errorf("expected codex import hint:\n%s", out)
 	}
 }

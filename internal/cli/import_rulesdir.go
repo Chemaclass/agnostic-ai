@@ -134,5 +134,6 @@ func importFromRulesDir(root, target, srcDir string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills (from %s)\n",
 		c.rules, c.agents, c.skills, target)
+	printImportNextSteps(root, target)
 	return nil
 }
