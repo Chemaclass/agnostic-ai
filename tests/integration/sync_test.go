@@ -59,6 +59,26 @@ func TestSync_SingleTarget(t *testing.T) {
 	}
 }
 
+func TestSync_AddsStateFileToGitignore(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+
+	root := cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	gitignorePath := filepath.Join(dir, ".gitignore")
+	content, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("failed to read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(content), ".agnostic-ai/.sync-state") {
+		t.Errorf("expected .agnostic-ai/.sync-state in .gitignore, got: %s", content)
+	}
+}
+
 func TestValidate_OK(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
@@ -107,7 +127,7 @@ func setupFixture(t *testing.T) string {
 	dir := t.TempDir()
 
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
-		[]byte("version: 1\n"), 0o644))
+		[]byte("version: 1\ngitignore:\n  enabled: true\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, "agents"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, "agents", "sample-agent.md"),
