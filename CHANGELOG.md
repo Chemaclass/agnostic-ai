@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.11.0 - 2026-05-14
+
 ### Added
 - New `command` spec kind. Author slash-prompt files under `commands/*.md`; each emits as a native slash command on supported targets.
 - `claude`: emits `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
