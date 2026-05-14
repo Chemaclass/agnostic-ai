@@ -125,6 +125,43 @@ func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
 	}
 }
 
+func TestScaffold_GitignoreContainsLocalOverrideAndSyncState(t *testing.T) {
+	dir := t.TempDir()
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	for _, want := range []string{"agnostic-ai.local.yaml", ".agnostic-ai/.sync-state"} {
+		if !strings.Contains(string(got), want+"\n") {
+			t.Errorf("missing %q in .gitignore:\n%s", want, got)
+		}
+	}
+}
+
+func TestScaffold_GitignoreIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"),
+		[]byte("node_modules/\n.agnostic-ai/.sync-state\nagnostic-ai.local.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := scaffold(dir, "", false, "", allTargetNames()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := strings.Count(string(got), ".agnostic-ai/.sync-state"); c != 1 {
+		t.Errorf("expected one .sync-state line, got %d:\n%s", c, got)
+	}
+	if c := strings.Count(string(got), "agnostic-ai.local.yaml"); c != 1 {
+		t.Errorf("expected one local-override line, got %d:\n%s", c, got)
+	}
+}
+
 func TestInitCmd_RejectsExtraArgs(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
