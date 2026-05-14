@@ -193,15 +193,35 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 			return err
 		}
 	}
-	summaryf("scaffold complete. edit %s then run `agnostic-ai sync`.\n", scaffoldHint(base, kinds))
 	if demo {
 		summaryf("seeded one example spec per source folder. delete or edit to taste.\n")
 	}
 	if preset != "" {
 		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", preset)
 	}
-	summaryf("import existing AI CLI config with `agnostic-ai import <source>`.\n")
+	printNextSteps(base)
 	return nil
+}
+
+// printNextSteps emits the post-scaffold guidance: a confirmation line
+// with the chosen base dir, followed by the two-step workflow most
+// users want next (import existing CLI config, then sync to targets).
+func printNextSteps(base string) {
+	summaryf("✓ initialized agnostic-ai project at %s\n", baseLabel(base))
+	summaryf("\n")
+	summaryf("next steps:\n")
+	summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
+	summaryf("  agnostic-ai sync              # emit to your configured targets\n")
+}
+
+// baseLabel renders the user-facing label for the scaffold root. "."
+// means the legacy root-level layout, so show the project root instead
+// of a bare dot; any other base gets a trailing slash to read as a dir.
+func baseLabel(base string) string {
+	if base == "" || base == "." {
+		return "./"
+	}
+	return filepath.ToSlash(base) + "/"
 }
 
 // writeDemoFiles mirrors every file under initdata/ into baseDir,
@@ -270,12 +290,4 @@ func writePresetFiles(baseDir, name string) error {
 		}
 		return nil
 	})
-}
-
-func scaffoldHint(base string, kinds []string) string {
-	list := strings.Join(kinds, ",")
-	if base == "" || base == "." {
-		return fmt.Sprintf("{%s}/", list)
-	}
-	return fmt.Sprintf("%s/{%s}/", filepath.ToSlash(base), list)
 }
