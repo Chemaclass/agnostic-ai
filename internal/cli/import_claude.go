@@ -54,13 +54,21 @@ func importFromClaude(root string, src config.Sources) error {
 	return nil
 }
 
-// mirrorClaudeMainFile copies <root>/CLAUDE.md byte-for-byte to
-// <root>/AGNOSTIC_AI.md. No-op when CLAUDE.md is absent.
+// mirrorClaudeMainFile mirrors <root>/CLAUDE.md to <root>/AGNOSTIC_AI.md.
 func mirrorClaudeMainFile(root string) error {
-	src := filepath.Join(root, claudeMainFile)
+	return mirrorMainFile(root, claudeMainFile)
+}
+
+// mirrorMainFile copies <root>/<srcName> byte-for-byte to
+// <root>/AGNOSTIC_AI.md. No-op when the source is absent. Each importer
+// calls this with the target's own top-level instructions filename so
+// the project keeps a CLI-agnostic copy alongside the native file.
+// Later imports overwrite earlier mirrors (last-import wins).
+func mirrorMainFile(root, srcName string) error {
+	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
 	if err := copyFileIfExists(src, dst); err != nil {
-		return fmt.Errorf("mirror %s: %w", claudeMainFile, err)
+		return fmt.Errorf("mirror %s: %w", srcName, err)
 	}
 	return nil
 }

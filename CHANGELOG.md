@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Source URL shown in `--help` (Long description) and `--version` output.
 - `import claude` now prefers `.claude/rules/*.md` (each file → one rule, byte-identical copy) over slicing `CLAUDE.md`. Slicing only runs when `.claude/rules/` is absent.
 - `import claude` mirrors `CLAUDE.md` to `AGNOSTIC_AI.md` at the project root so projects keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+- `import codex` mirrors the root `AGENTS.md` to `AGNOSTIC_AI.md`, matching the `import claude` behavior.
 
 ### Changed
 - `agnostic-ai init` now opens the target picker by default when stdin is a TTY (previously required `-i` / `--interactive`). Non-TTY stdin parses a piped comma-separated list, or silently falls back to every supported target when no data arrives. The opt-out flag is now `--all` / `-a`; `-i` / `--interactive` is removed.
