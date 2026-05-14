@@ -4,7 +4,6 @@ package adapters
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os/exec"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/zed"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -157,9 +157,12 @@ func Resolve(name string) (Adapter, error) {
 		return a, nil
 	}
 	if errors.Is(err, exec.ErrNotFound) {
-		return nil, fmt.Errorf("unknown target: %s (no built-in adapter and no %s%s on PATH)", name, external.BinaryPrefix, name)
+		return nil, errs.Coded(errs.CodeSyncTargetUnknown,
+			"unknown target: %s (no built-in adapter and no %s%s on PATH)",
+			name, external.BinaryPrefix, name)
 	}
-	return nil, fmt.Errorf("unknown target: %s: %w", name, err)
+	return nil, errs.Coded(errs.CodeSyncTargetUnknown,
+		"unknown target: %s: %w", name, err)
 }
 
 // Names returns every registered target name.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -45,18 +46,26 @@ type explainSpecRef struct {
 func newExplainCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
-		Use:   "explain <spec>",
-		Short: "List every output file and section a spec contributes to.",
+		Use:   "explain <spec | AAI-NNN>",
+		Short: "List every output file and section a spec contributes to, or describe an error code.",
 		Long: "Reverse provenance: takes one spec and shows where it lands in " +
 			"each target's emission. Pairs with the `<!-- source: ... -->` " +
-			"forward markers adapters write into merged documents.",
+			"forward markers adapters write into merged documents.\n\n" +
+			"When the argument matches an `AAI-NNN` error code, prints the " +
+			"code's title, cause, and suggested fix instead.",
 		Example: `  # Human-readable
   agnostic-ai explain rules/conventional-commits.md
 
   # Machine-readable, for editor extensions or scripts
-  agnostic-ai explain rules/conventional-commits.md --json`,
+  agnostic-ai explain rules/conventional-commits.md --json
+
+  # Look up an error code
+  agnostic-ai explain AAI-001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if errs.IsCode(args[0]) {
+				return runExplainCode(cmd, errs.Code(args[0]), jsonOut)
+			}
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				return err
@@ -219,6 +228,42 @@ func filterEntries(entries []spec.Entry, excludePath string) []spec.Entry {
 		out = append(out, e)
 	}
 	return out
+}
+
+// explainCodeOutput is the JSON envelope for `explain <AAI-NNN>`.
+type explainCodeOutput struct {
+	Version string `json:"version"`
+	Command string `json:"command"`
+	Code    string `json:"code"`
+	Title   string `json:"title"`
+	Cause   string `json:"cause"`
+	Fix     string `json:"fix"`
+}
+
+// runExplainCode prints the registry entry for an error code, or
+// errors when the code is not registered.
+func runExplainCode(cmd *cobra.Command, code errs.Code, jsonOut bool) error {
+	entry, ok := errs.Lookup(code)
+	if !ok {
+		return fmt.Errorf("unknown error code: %s (see docs/user/errors.md for the canonical list)", code)
+	}
+	if jsonOut {
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(explainCodeOutput{
+			Version: "1",
+			Command: "explain",
+			Code:    string(entry.Code),
+			Title:   entry.Title,
+			Cause:   entry.Cause,
+			Fix:     entry.Fix,
+		})
+	}
+	out := cmd.OutOrStdout()
+	_, _ = fmt.Fprintf(out, "%s: %s\n", entry.Code, entry.Title)
+	_, _ = fmt.Fprintf(out, "\nCause:\n  %s\n", entry.Cause)
+	_, _ = fmt.Fprintf(out, "\nFix:\n  %s\n", entry.Fix)
+	return nil
 }
 
 // emitExplainJSON serializes an explainOutput with stable indentation.

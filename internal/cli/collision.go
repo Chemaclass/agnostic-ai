@@ -7,6 +7,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -45,8 +46,9 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		return nil
 	}
 	sort.Strings(lines)
-	return fmt.Errorf("output collision: targets emit to the same path\n%s\n"+
-		"resolve by dropping one from `targets:` in agnostic-ai.yaml, "+
-		"or override the collider via `outputs.<target>.file`",
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: targets emit to the same path\n%s\n"+
+			"resolve by dropping one from `targets:` in agnostic-ai.yaml, "+
+			"or override the collider via `outputs.<target>.file`",
 		strings.Join(lines, "\n"))
 }

@@ -1,9 +1,9 @@
 package emit
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -47,7 +47,7 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 		msg := fmt.Sprintf("  ! %s: %s not supported, skipped", c.Target, k)
 		switch mode {
 		case OnUnsupportedError:
-			return errors.New(msg)
+			return errs.Coded(errs.CodeUnsupportedKind, "%s", msg)
 		case OnUnsupportedSilent:
 			continue
 		default: // warn

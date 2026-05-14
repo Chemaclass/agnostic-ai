@@ -1,12 +1,13 @@
 package spec
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // formatYAMLError wraps a yaml.v3 parse error in a `path:line:col: msg`
@@ -21,7 +22,7 @@ func formatYAMLError(path string, err error, lineOffset int) error {
 	}
 	msgs := yamlErrorMessages(err)
 	if len(msgs) == 0 {
-		return fmt.Errorf("%s: %s", path, err.Error())
+		return errs.Coded(errs.CodeSpecParse, "%s: %s", path, err.Error())
 	}
 	line, col, body := extractPosition(msgs[0])
 	if line > 0 {
@@ -32,7 +33,7 @@ func formatYAMLError(path string, err error, lineOffset int) error {
 	if col <= 0 {
 		col = 1
 	}
-	return fmt.Errorf("%s:%d:%d: %s", path, line, col, body)
+	return errs.Coded(errs.CodeSpecParse, "%s:%d:%d: %s", path, line, col, body)
 }
 
 // yamlErrorMessages flattens a yaml.v3 error chain into individual

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 func newSyncCmd() *cobra.Command {
@@ -44,10 +46,10 @@ func newSyncCmd() *cobra.Command {
 				return err
 			}
 			if len(only) > 0 && len(except) > 0 {
-				return fmt.Errorf("--only and --except are mutually exclusive")
+				return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
 			}
 			if watch && check {
-				return fmt.Errorf("--watch and --check are incompatible")
+				return errs.Coded(errs.CodeFlagConflict, "--watch and --check are incompatible")
 			}
 
 			cfg, _, err := loadProject(".")
