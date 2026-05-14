@@ -92,7 +92,8 @@ func TestImportFromGemini_ImportsSettings(t *testing.T) {
 	if !strings.Contains(string(mcp), "command: fs-server") {
 		t.Errorf("mcp missing command: %s", mcp)
 	}
-	hook, err := os.ReadFile(filepath.Join(dir, "hooks", "posttooluse-1-1.yaml"))
+	hookPath := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	hook, err := os.ReadFile(hookPath)
 	if err != nil {
 		t.Fatalf("missing hooks file: %v", err)
 	}
@@ -116,7 +117,8 @@ func TestImportFromGemini_HookWithoutCommandOmitsField(t *testing.T) {
 	if err := importFromGemini(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	hook, err := os.ReadFile(filepath.Join(dir, "hooks", "pretooluse-1-1.yaml"))
+	hookPath := findOneHookFile(t, filepath.Join(dir, "hooks"), "pretooluse")
+	hook, err := os.ReadFile(hookPath)
 	if err != nil {
 		t.Fatalf("missing hooks file: %v", err)
 	}

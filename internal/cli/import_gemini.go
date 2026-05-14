@@ -221,9 +221,8 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 }
 
 // writeGeminiHooks writes one yaml per `hooks.<event>[i]` entry into
-// dstDir. Filenames follow the Claude hook convention:
-// `<event>-1-<index>.yaml` (single group since gemini hooks are flat
-// lists per event).
+// dstDir. Filenames come from hookSpecName so the same hook lands at
+// the same path across re-imports.
 func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 	events := make([]string, 0, len(hooks))
 	for e := range hooks {
@@ -236,21 +235,27 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 		if !ok {
 			continue
 		}
-		for i, raw := range entries {
+		for _, raw := range entries {
 			entry, ok := raw.(map[string]any)
 			if !ok {
 				continue
 			}
-			name := fmt.Sprintf("%s-1-%d", strings.ToLower(event), i+1)
+			cmd, _ := entry["command"].(string)
+			matcher, _ := entry["matcher"].(string)
+			var cmds []string
+			if cmd != "" {
+				cmds = []string{cmd}
+			}
+			name := hookSpecName(event, matcher, cmds)
 			doc := map[string]any{
 				"name":  name,
 				"event": event,
 			}
-			if cmd, ok := entry["command"].(string); ok && cmd != "" {
+			if cmd != "" {
 				doc["command"] = cmd
 			}
-			if m, ok := entry["matcher"].(string); ok && m != "" {
-				doc["matcher"] = m
+			if matcher != "" {
+				doc["matcher"] = matcher
 			}
 			raw, err := yaml.Marshal(doc)
 			if err != nil {

@@ -220,11 +220,11 @@ func writeCodexHooks(byEvent map[string][]codexHookEntry, dstDir string) (int, e
 
 	count := 0
 	for _, event := range events {
-		for i, h := range byEvent[event] {
+		for _, h := range byEvent[event] {
 			if h.Command == "" {
 				continue
 			}
-			name := fmt.Sprintf("%s-%d", strings.ToLower(event), i+1)
+			name := hookSpecName(event, h.Matcher, []string{h.Command})
 			doc := map[string]any{
 				"name":    name,
 				"event":   event,

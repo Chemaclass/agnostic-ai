@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,7 +27,8 @@ type claudeSettings struct {
 }
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
-// matcher group into <dstDir>/<event>-<group>.yaml.
+// matcher group into dstDir. Filenames come from hookSpecName so the
+// same hook always lands at the same path across re-imports.
 //
 // A matcher block with multiple inner commands renders as a single yaml
 // whose `command:` field is a list. The emit side merges the same
@@ -58,7 +58,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 
 	count := 0
 	for _, event := range events {
-		for gi, g := range s.Hooks[event] {
+		for _, g := range s.Hooks[event] {
 			cmds := make([]string, 0, len(g.Hooks))
 			for _, h := range g.Hooks {
 				if h.Command != "" {
@@ -68,7 +68,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			if len(cmds) == 0 {
 				continue
 			}
-			name := fmt.Sprintf("%s-%d", strings.ToLower(event), gi+1)
+			name := hookSpecName(event, g.Matcher, cmds)
 			doc := map[string]any{
 				"name":    name,
 				"event":   event,

@@ -196,7 +196,7 @@ func TestImportFromClaude_ImportsHooks(t *testing.T) {
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, "hooks", "posttooluse-1.yaml")
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("missing %s: %v", path, err)
@@ -224,7 +224,8 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 	if err := importFromClaude(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "hooks", "posttooluse-1.yaml"))
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,6 +280,44 @@ func TestImportFromClaude_OnlyHooks_NoOverlay(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")); !os.IsNotExist(err) {
 		t.Errorf("overlay should not exist when only hooks present: %v", err)
+	}
+}
+
+func TestImportFromClaude_HookFilenamesStableAcrossReimport(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "cmd1"}]},
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "cmd2"}]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	first, err := filepath.Glob(filepath.Join(dir, "hooks", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("expected 2 hook files, got %d: %v", len(first), first)
+	}
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	second, err := filepath.Glob(filepath.Join(dir, "hooks", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(second) != 2 {
+		t.Errorf("re-import created duplicates: %v", second)
+	}
+	for i := range first {
+		if first[i] != second[i] {
+			t.Errorf("filename changed across imports: %q vs %q", first[i], second[i])
+		}
 	}
 }
 
@@ -421,6 +460,20 @@ func TestImportCmd_ClaudeWritesIntoConfiguredSources(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
 		t.Errorf("expected .agnostic-ai/rules/r1.md, got %v", err)
 	}
+}
+
+// findOneHookFile returns the single hook yaml whose stem starts with
+// prefix. Tests use it so they do not have to compute hash filenames.
+func findOneHookFile(t *testing.T, dir, prefix string) string {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(dir, prefix+"*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one hook file with prefix %q in %s, got %v", prefix, dir, matches)
+	}
+	return matches[0]
 }
 
 // writeMinimalConfig drops a config that points sources at base/<kind>.

@@ -315,10 +315,12 @@ command = "lint"
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"posttooluse-1.yaml", "posttooluse-2.yaml"} {
-		if _, err := os.Stat(filepath.Join(dir, "hooks", name)); err != nil {
-			t.Errorf("missing hooks/%s: %v", name, err)
-		}
+	matches, err := filepath.Glob(filepath.Join(dir, "hooks", "posttooluse-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("expected 2 PostToolUse hook files, got %d: %v", len(matches), matches)
 	}
 	mcp, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
 	if err != nil {
