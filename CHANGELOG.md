@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## v0.13.0 - 2026-05-15
+
 ### Added
 - Stable `AAI-NNN` error codes on user-facing errors. `agnostic-ai explain <code>` prints title, cause, fix. See `docs/user/errors.md` (#163).
 - `agnostic-ai why <file>` traces an emitted file back to its adapter, source spec(s), output config keys, and last sync timestamp. `--format json` (#164).
