@@ -9,7 +9,6 @@
 package claude
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -75,7 +74,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	if len(b.Hooks) > 0 {
 		settings := buildHookSettings(b.Hooks)
-		raw, err := json.MarshalIndent(settings, "", "  ")
+		raw, err := emit.MarshalJSONIndent(settings)
 		if err != nil {
 			return fmt.Errorf("hooks settings: %w", err)
 		}

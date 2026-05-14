@@ -15,7 +15,6 @@
 package zed
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -92,7 +91,7 @@ func emitTasks(hooks []spec.Entry, path string, dryRun bool) error {
 	if len(tasks) == 0 {
 		return nil
 	}
-	raw, err := json.MarshalIndent(tasks, "", "  ")
+	raw, err := emit.MarshalJSONIndent(tasks)
 	if err != nil {
 		return fmt.Errorf("marshal zed tasks: %w", err)
 	}

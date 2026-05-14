@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`, merged JSON configs) no longer HTML-escape `&`, `<`, `>`. Shell commands like `cmd1 && cmd2` and redirections like `> out.log` now render literally instead of as `&&` / `>`.
+
 ## v0.9.0 - 2026-05-14
 
 ### Added

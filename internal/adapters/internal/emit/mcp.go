@@ -1,7 +1,6 @@
 package emit
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -63,7 +62,7 @@ func MCPDocument(mcps []spec.Entry, schema MCPSchema) (string, error) {
 	default:
 		root["mcpServers"] = servers
 	}
-	raw, err := json.MarshalIndent(root, "", "  ")
+	raw, err := MarshalJSONIndent(root)
 	if err != nil {
 		return "", fmt.Errorf("marshal mcp: %w", err)
 	}

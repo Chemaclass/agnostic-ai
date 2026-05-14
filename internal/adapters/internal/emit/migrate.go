@@ -27,7 +27,7 @@ func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	for k, v := range keys {
 		doc[k] = v
 	}
-	raw, err := json.MarshalIndent(doc, "", "  ")
+	raw, err := MarshalJSONIndent(doc)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
