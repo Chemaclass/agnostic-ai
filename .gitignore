@@ -92,6 +92,7 @@ WARP.md
 .rules
 # Local sync state written by `agnostic-ai sync`.
 .agnostic-ai/.sync-state
+.agnostic-ai/AGNOSTIC_AI.md
 # =============================================================================
 # Release scaffolding
 # =============================================================================
