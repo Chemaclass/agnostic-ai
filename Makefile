@@ -1,7 +1,11 @@
-.PHONY: build test test-race test-shell coverage coverage-html cover lint fmt vet install clean release playground-build playground-serve playground-clean
+.PHONY: build test test-race test-shell coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
+
+# Pinned to match .github/workflows/ci.yml (golangci-lint-action@v9 with version: v2.6).
+GOLANGCI_LINT_VERSION := v2.6.2
+LEFTHOOK_VERSION := v1.10.10
 
 build:
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
@@ -21,8 +25,34 @@ lint:
 fmt:
 	gofmt -w .
 
+fmt-check:
+	@out=$$(gofmt -s -l .); if [ -n "$$out" ]; then \
+		echo "gofmt issues. run 'make fmt'."; \
+		echo "$$out"; \
+		exit 1; \
+	fi
+
 vet:
 	go vet ./...
+
+# preflight runs every gate the CI Lint and Test jobs run, in the same
+# order. Use this before `git push` (or wire it into a pre-push hook via
+# `make hooks`) so PR checks never surface a `make preflight`-fixable
+# error. Mirrors .github/workflows/ci.yml.
+preflight: fmt-check vet lint test
+	@echo "preflight: ok"
+
+# tools installs the developer toolchain pinned to the versions CI uses.
+# Idempotent. Run once after cloning, and again whenever the pins above
+# bump.
+tools:
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	go install github.com/evilmartians/lefthook@$(LEFTHOOK_VERSION)
+
+# hooks installs the lefthook git hooks defined in lefthook.yml. Run
+# once after cloning. Requires `make tools` first.
+hooks:
+	lefthook install
 
 cover:
 	go test -coverprofile=coverage.out ./...
