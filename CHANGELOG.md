@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stable `AAI-NNN` error codes on user-facing errors. `agnostic-ai explain <code>` prints title, cause, fix. See `docs/user/errors.md` (#163).
 - `agnostic-ai why <file>` traces an emitted file back to its adapter, source spec(s), output config keys, and last sync timestamp. `--format json` (#164).
 - `agnostic-ai graph` renders spec → target → file dependencies. Formats: text, mermaid, dot, json. Filters: `--target`, `--spec`, `--kind` (#172).
+- `claude`: first-class `outputs.claude.settings.*` block. Declare `model`, `outputStyle`, `apiKeyHelper`, `cleanupPeriodDays`, `includeCoAuthoredBy`, `enabledPlugins`, `env`, `statusLine`, and `permissions` in `agnostic-ai.yaml` instead of relying on overlay passthrough. Config layers on top of the captured overlay; spec-derived `hooks` block still wins for the `hooks` key (#177).
 
 ### Changed
 - **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point file plus `.agnostic-ai/AGNOSTIC_AI.md`. Opt back into legacy concat via `outputs.<target>.rules-file`. Shared paths dedup to one write (#153).

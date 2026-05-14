@@ -82,7 +82,9 @@ Commands emit one file per spec under `.claude/commands/`. Each command becomes 
 
 `agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any other top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads that overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` has been wiped. Re-run `import claude` whenever you add a key to settings.json by hand.
 
-Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`).
+`outputs.claude.settings.*` declares first-class settings keys (model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, includeCoAuthoredBy). They merge on top of the captured overlay and below the spec-derived hooks block. See [Claude settings](configuration.md#claude-settings).
+
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`), `outputs.claude.settings` (first-class settings block).
 
 ### Codex (`codex`)
 

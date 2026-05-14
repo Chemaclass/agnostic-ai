@@ -170,6 +170,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule (default). |
 | `claude` | `rules-file` | _empty_ | When set, switches back to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
+| `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |
 | `codex` | `agents-dir` | `.agents/agents` | One TOML file per agent (Codex subagent schema). |
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
@@ -258,6 +259,56 @@ Persisted answer to the first-run auto-sync prompt. Three states:
 
 Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
 `--auto-sync=no`. The prompt and persistence are skipped under `--dry-run`.
+
+## Claude settings
+
+The `outputs.claude.settings` block declares first-class
+`.claude/settings.json` keys. agnostic-ai writes each non-empty field
+on top of the captured overlay (from `import claude`) and below the
+spec-derived `hooks` block. Keys you do not set fall through to the
+overlay, so partial adoption is supported.
+
+```yaml
+outputs:
+  claude:
+    settings:
+      model: claude-opus-4-7
+      outputStyle: verbose
+      apiKeyHelper: ./bin/keyhelper.sh
+      cleanupPeriodDays: 30
+      includeCoAuthoredBy: false
+      enabledPlugins:
+        - plugin-a
+        - plugin-b
+      env:
+        FOO: bar
+      statusLine:
+        type: command
+        command: echo status
+        padding: 2
+      permissions:
+        allow:
+          - "Read(*)"
+        deny:
+          - "Shell(rm *)"
+        ask:
+          - "Edit(*)"
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `model` | string | Default model preference for new sessions. |
+| `outputStyle` | string | One of the Claude Code output styles. |
+| `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
+| `cleanupPeriodDays` | integer | Days of conversation history to retain. |
+| `includeCoAuthoredBy` | boolean | Append `Co-Authored-By: Claude` to git commits Claude creates. |
+| `enabledPlugins` | list of strings | Plugin identifiers Claude Code should load. |
+| `env` | map of strings | Environment variables exported into Claude sessions. |
+| `statusLine` | object | `type`, `command`, and optional `padding`. |
+| `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
+
+Any setting not declared here still round-trips through the overlay
+captured during `agnostic-ai import claude`.
 
 ## Path semantics
 

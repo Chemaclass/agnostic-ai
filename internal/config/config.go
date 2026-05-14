@@ -48,24 +48,65 @@ type Sources struct {
 }
 
 type Output struct {
-	Dir                  string `yaml:"dir,omitempty"                      json:"dir,omitempty"`
-	File                 string `yaml:"file,omitempty"                     json:"file,omitempty"`
-	RulesFile            string `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
-	RulesDir             string `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
-	MCPFile              string `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
-	AgentsDir            string `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
-	SkillsDir            string `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
-	InstructionsDir      string `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
-	CommandsDir          string `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
-	ChatmodesDir         string `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
-	WorkflowsDir         string `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
-	AssistantsDir        string `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
-	TasksFile            string `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
-	ConfFile             string `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
-	Model                string `yaml:"model,omitempty"                    json:"model,omitempty"`
-	WeakModel            string `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
-	MCPDir               string `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
-	EmitSkillsAsCommands bool   `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
+	Dir                  string          `yaml:"dir,omitempty"                      json:"dir,omitempty"`
+	File                 string          `yaml:"file,omitempty"                     json:"file,omitempty"`
+	RulesFile            string          `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
+	RulesDir             string          `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	MCPFile              string          `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
+	AgentsDir            string          `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
+	SkillsDir            string          `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
+	InstructionsDir      string          `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
+	CommandsDir          string          `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	ChatmodesDir         string          `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
+	WorkflowsDir         string          `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
+	AssistantsDir        string          `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
+	TasksFile            string          `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
+	ConfFile             string          `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
+	Model                string          `yaml:"model,omitempty"                    json:"model,omitempty"`
+	WeakModel            string          `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
+	MCPDir               string          `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
+	EmitSkillsAsCommands bool            `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
+	Settings             *ClaudeSettings `yaml:"settings,omitempty"                 json:"settings,omitempty"`
+}
+
+// ClaudeSettings is the first-class representation of `.claude/settings.json`
+// keys that agnostic-ai understands schema-side, rather than treating every
+// key as an opaque overlay passthrough. Only the Claude adapter consumes
+// this struct today.
+//
+// Layering at emit time: overlay (captured during `import claude`) is the
+// base; non-zero fields here are written on top; the spec-derived `hooks`
+// block is written last. So a user can either pin a value declaratively in
+// `agnostic-ai.yaml` or leave it inside `.claude/settings.json` and let the
+// overlay carry it.
+type ClaudeSettings struct {
+	Model               string             `yaml:"model,omitempty"               json:"model,omitempty"`
+	OutputStyle         string             `yaml:"outputStyle,omitempty"         json:"outputStyle,omitempty"`
+	APIKeyHelper        string             `yaml:"apiKeyHelper,omitempty"        json:"apiKeyHelper,omitempty"`
+	CleanupPeriodDays   *int               `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
+	IncludeCoAuthoredBy *bool              `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
+	EnabledPlugins      []string           `yaml:"enabledPlugins,omitempty"      json:"enabledPlugins,omitempty"`
+	Env                 map[string]string  `yaml:"env,omitempty"                 json:"env,omitempty"`
+	StatusLine          *ClaudeStatusLine  `yaml:"statusLine,omitempty"          json:"statusLine,omitempty"`
+	Permissions         *ClaudePermissions `yaml:"permissions,omitempty"         json:"permissions,omitempty"`
+}
+
+// ClaudeStatusLine mirrors the `statusLine` block of `.claude/settings.json`.
+// Claude Code accepts a `type` (today only "command") and a `command`
+// string; the optional `padding` field controls leading whitespace.
+type ClaudeStatusLine struct {
+	Type    string `yaml:"type,omitempty"    json:"type,omitempty"`
+	Command string `yaml:"command,omitempty" json:"command,omitempty"`
+	Padding *int   `yaml:"padding,omitempty" json:"padding,omitempty"`
+}
+
+// ClaudePermissions mirrors the `permissions` block. Each list contains
+// tool-pattern strings such as `Read(*)` or `Shell(rm *)`. Claude Code
+// silently drops malformed patterns; agnostic-ai passes through verbatim.
+type ClaudePermissions struct {
+	Allow []string `yaml:"allow,omitempty" json:"allow,omitempty"`
+	Deny  []string `yaml:"deny,omitempty"  json:"deny,omitempty"`
+	Ask   []string `yaml:"ask,omitempty"   json:"ask,omitempty"`
 }
 
 // Load reads the project config from root. It prefers
