@@ -252,6 +252,25 @@ Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
 - Output directories are created on demand. Existing files are overwritten.
 - Add generated outputs to `.gitignore` to keep specs as the single source of truth (recommended).
 
+## Output collisions
+
+`codex`, `amp`, and `warp` all default to root `AGENTS.md` per the
+community [agents.md](https://agents.md) spec. Only one adapter can own
+the root file in a project.
+
+`sync` and `sync --check` fail fast with an `output collision` error
+listing every duplicated path and the targets that emit to it. Resolve
+by either:
+
+1. Dropping one of the colliding targets from `targets:` in `agnostic-ai.yaml`.
+2. Overriding the colliding path on the loser via `outputs.<target>.file`
+   (note: most CLIs only read their canonical filename, so this is
+   rarely useful in practice).
+
+The shipped defaults keep `codex` as the AGENTS.md owner. Users on Amp
+or Warp instead must enable that target explicitly and drop `codex`
+(and any other AGENTS.md owner) from `targets:`.
+
 ## Precedence
 
 Last wins:

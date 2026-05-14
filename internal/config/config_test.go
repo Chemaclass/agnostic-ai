@@ -80,10 +80,12 @@ on-unsupported: error
 }
 
 func TestDefaultTargets(t *testing.T) {
+	// amp and warp are intentionally absent: both share root AGENTS.md
+	// with codex, so the safe default keeps codex as the sole owner.
 	want := []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"amp", "zed", "warp", "opencode",
+		"zed", "opencode",
 	}
 	targets := DefaultTargets()
 	if len(targets) != len(want) {
@@ -96,6 +98,13 @@ func TestDefaultTargets(t *testing.T) {
 	for _, tgt := range targets {
 		if !wantSet[tgt] {
 			t.Errorf("unexpected target %q in DefaultTargets()", tgt)
+		}
+	}
+	for _, banned := range []string{"amp", "warp"} {
+		for _, tgt := range targets {
+			if tgt == banned {
+				t.Errorf("%q must not be in DefaultTargets (collides with codex on AGENTS.md)", banned)
+			}
 		}
 	}
 }
