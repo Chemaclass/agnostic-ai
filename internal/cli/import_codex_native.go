@@ -123,10 +123,11 @@ func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 	return nil
 }
 
-// importCodexSkills walks `<root>/.agents/skills/<name>/SKILL.md` and
-// copies each into `<dstDir>/<name>/SKILL.md` byte-for-byte. The skills
-// emitter writes SKILL.md with frontmatter (`name`, `description`) plus
-// body; that shape round-trips as-is.
+// importCodexSkills walks `<root>/.agents/skills/<name>/` and mirrors
+// each skill folder byte-for-byte into `<dstDir>/<name>/`. Every file
+// under the skill directory — SKILL.md, `agents/openai.yaml`, helper
+// scripts, fixtures, nested subdirectories — is preserved so an import
+// then `sync` keeps the full skill payload intact across all targets.
 func importCodexSkills(root, dstDir string) (int, error) {
 	srcDir := filepath.Join(root, codexSkillsDir)
 	entries, err := os.ReadDir(srcDir)
@@ -141,21 +142,15 @@ func importCodexSkills(root, dstDir string) (int, error) {
 		if !e.IsDir() {
 			continue
 		}
-		src := filepath.Join(srcDir, e.Name(), "SKILL.md")
-		data, err := os.ReadFile(src)
-		if errors.Is(err, fs.ErrNotExist) {
+		skillSrc := filepath.Join(srcDir, e.Name())
+		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 			continue
+		} else if err != nil {
+			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
-		if err != nil {
-			return count, fmt.Errorf("read %s: %w", src, err)
-		}
-		dstSubdir := filepath.Join(dstDir, e.Name())
-		if err := os.MkdirAll(dstSubdir, 0o755); err != nil {
-			return count, fmt.Errorf("mkdir %s: %w", dstSubdir, err)
-		}
-		dst := filepath.Join(dstSubdir, "SKILL.md")
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", dst, err)
+		skillDst := filepath.Join(dstDir, e.Name())
+		if err := copyDirTree(skillSrc, skillDst); err != nil {
+			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
 		count++
 	}

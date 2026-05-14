@@ -6,6 +6,7 @@ package emit
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,6 +165,10 @@ func StopDetailedRecording() []WrittenFile {
 // action (create/update/skip) is determined by comparing against existing
 // content; unchanged files are skipped and not rewritten.
 func WriteFile(path, content string, dryRun bool) error {
+	return writeFileWithMode(path, content, filePerm, dryRun)
+}
+
+func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
 	state.mu.Lock()
 	capturing := state.capturing
 	backup := state.backup
@@ -212,7 +217,7 @@ func WriteFile(path, content string, dryRun bool) error {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 		}
-		if err := os.WriteFile(path, []byte(content), filePerm); err != nil {
+		if err := os.WriteFile(path, []byte(content), mode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		state.mu.Lock()
@@ -228,10 +233,59 @@ func WriteFile(path, content string, dryRun bool) error {
 			}
 		}
 	}
-	if err := os.WriteFile(path, []byte(content), filePerm); err != nil {
+	if err := os.WriteFile(path, []byte(content), mode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// CopyTree mirrors the regular files under srcDir into dstDir,
+// preserving file mode bits so executable scripts keep their +x bit.
+// Empty source dir is a no-op. Symlinks and other irregular entries
+// are skipped silently.
+//
+// Each copied file flows through the same mode pipeline as WriteFile,
+// so dryRun, capture, recording, detailed recording, and backup all
+// behave identically. skip is an optional predicate keyed on the path
+// relative to srcDir (forward slashes). Returning true skips the file
+// — adapters use this to exclude SKILL.md when they re-render the
+// frontmatter themselves and only want sibling assets propagated.
+func CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) error {
+	info, err := os.Stat(srcDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat %s: %w", srcDir, err)
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		if skip != nil && skip(filepath.ToSlash(rel)) {
+			return nil
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		dst := filepath.Join(dstDir, rel)
+		return writeFileWithMode(dst, string(data), fi.Mode().Perm(), dryRun)
+	})
 }
 
 // Frontmatter renders meta as a YAML frontmatter block. Empty meta returns

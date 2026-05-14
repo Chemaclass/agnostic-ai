@@ -3,6 +3,7 @@ package codex
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -303,6 +304,59 @@ func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/explorer/agents/openai.yaml")); err == nil {
 		t.Errorf("agents/openai.yaml should not be written without x-codex extras")
+	}
+}
+
+func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	srcSkill := filepath.Join(dir, ".agnostic-ai", "skills", "yaml-validator")
+	if err := os.MkdirAll(filepath.Join(srcSkill, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "SKILL.md"), []byte("---\nname: yaml-validator\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "scripts", "run.py"), []byte("print('ok')\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "fixtures.json"), []byte(`{"k":1}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Path: filepath.Join(srcSkill, "SKILL.md"),
+			Body: "body",
+			Meta: map[string]any{"description": "Validate YAML."},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{"scripts/run.py", "fixtures.json"} {
+		got, err := os.ReadFile(filepath.Join(dir, ".agents", "skills", "yaml-validator", filepath.FromSlash(rel)))
+		if err != nil {
+			t.Errorf("missing propagated asset %q: %v", rel, err)
+			continue
+		}
+		want, _ := os.ReadFile(filepath.Join(srcSkill, filepath.FromSlash(rel)))
+		if string(got) != string(want) {
+			t.Errorf("asset %q not byte-identical:\ngot:  %q\nwant: %q", rel, got, want)
+		}
+	}
+
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, ".agents", "skills", "yaml-validator", "scripts", "run.py"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			t.Errorf("executable bit dropped on emit: mode=%v", info.Mode().Perm())
+		}
 	}
 }
 

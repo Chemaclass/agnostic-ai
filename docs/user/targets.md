@@ -270,6 +270,8 @@ agnostic-ai sync -t claude,cursor,copilot
 
 CLI flag overrides config. Unknown targets log a warning and skip.
 
+Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries in the picker before confirming.
+
 ## New targets
 
 See [adding-adapters](../internal/adding-adapters.md). ~50 lines plus one registry entry.

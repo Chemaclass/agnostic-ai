@@ -75,8 +75,12 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	for _, s := range b.Skills {
-		path := filepath.Join(dir, "skills", s.Name, "SKILL.md")
+		folder := filepath.Join(dir, "skills", s.Name)
+		path := filepath.Join(folder, "SKILL.md")
 		if err := emit.WriteFile(path, emit.Frontmatter(emit.ResolveMeta(s.Meta, target))+"\n"+s.Body, dryRun); err != nil {
+			return err
+		}
+		if err := propagateSkillAssets(s, folder, dryRun); err != nil {
 			return err
 		}
 	}
@@ -98,6 +102,27 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// propagateSkillAssets mirrors every sibling file under the source
+// skill directory (`<skills-src>/<name>/`) into the emitted skill
+// folder, skipping SKILL.md because the adapter re-renders it from the
+// spec frontmatter. Skills authored in agnostic-ai can ship helper
+// scripts, fixtures, or nested subdirectories alongside SKILL.md; this
+// preserves them across `sync` so the Claude Code skill continues to
+// work after a round-trip.
+//
+// No-op when the source path is unknown (e.g. specs loaded from raw
+// bytes in the WASM playground) so adapters stay safe for in-memory
+// callers.
+func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
+	if s.Path == "" {
+		return nil
+	}
+	srcDir := filepath.Dir(s.Path)
+	return emit.CopyTree(srcDir, dstDir, func(rel string) bool {
+		return rel == "SKILL.md"
+	}, dryRun)
 }
 
 // writeSettings renders `.claude/settings.json` from the captured
