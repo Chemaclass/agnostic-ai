@@ -8,13 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Hook specs accept `command:` as a list (claude, gemini). Same-event+matcher specs merge into one block on claude.
-- `import codex` reads agents (`.agents/agents/*.toml`, also legacy `.codex/agents/`), skills, hooks, and MCPs from `.codex/config.toml`. Full round-trip.
+- `import codex` reads agents (`.agents/agents/*.toml`, also legacy `.codex/agents/`), skills, hooks, and MCPs from `.codex/config.toml`. Full round-trip, with unknown agent TOML keys captured under `x-codex` and emitted back unchanged.
 - `import claude` writes one yaml per matcher group with `command:` as a list when the group has multiple commands.
+- `import claude` captures `statusLine`, `enabledPlugins`, and every other non-`hooks` key from `.claude/settings.json` into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads the overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` is wiped.
+- Hook spec filenames now derive from event + matcher slug + 8-char SHA-256 of the canonical content (`event|matcher|<commands>`). Re-imports of the same hook produce the same filename — user edits no longer collide with positional names.
 
 ### Changed
 - `claude` rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
 - `claude` merges into `.claude/settings.json` instead of overwriting. `statusLine`, `enabledPlugins`, and other user keys preserved.
 - `codex` agents move to `.agents/agents/<name>.toml` (was `.codex/agents/`). Delete the old dir after `sync`.
+- `codex` agent TOML emit passes through every key carried in `x-codex` (typed string, bool, number, []string, inline string table). Future / unknown Codex fields no longer drop on round-trip.
 
 ### Fixed
 - JSON outputs no longer HTML-escape `&`, `<`, `>`. `cmd1 && cmd2` and `> out.log` render literally.
