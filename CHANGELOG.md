@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+- `outputs.codex.shared-subagents` (bool, default `true`). Set to `false` in claude+codex setups to suppress the duplicate `.agents/skills/<name>/SKILL.md` tree — claude already owns those files at `.claude/skills/<name>/`. Closes #194.
+
 ### Changed
 - `spec.Entry` now carries `MetaKeys`, the ordered list of frontmatter keys parsed from source. External adapters receive the same field as `meta_keys` in the JSON envelope (additive; no protocol bump).
 

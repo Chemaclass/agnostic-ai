@@ -77,9 +77,11 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	for _, s := range b.Skills {
-		if err := emitSkill(s, skillsDir, dryRun); err != nil {
-			return err
+	if codexEmitsSkills(cfg) {
+		for _, s := range b.Skills {
+			if err := emitSkill(s, skillsDir, dryRun); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -98,6 +100,24 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	return emitConfigTOML(b, cfg, dryRun)
+}
+
+// codexEmitsSkills reports whether the codex adapter should write the
+// `.agents/skills/<name>/` tree on this sync. Defaults to true so the
+// behavior matches earlier releases when the flag was absent. Users
+// running both `claude` and `codex` can set
+// `outputs.codex.shared-subagents: false` in `agnostic-ai.yaml` to
+// suppress the duplicate `.agents/skills/` emission (skill content
+// already lives at `.claude/skills/<name>/` in that case).
+func codexEmitsSkills(cfg *config.Config) bool {
+	if cfg == nil {
+		return true
+	}
+	o, ok := cfg.Outputs[target]
+	if !ok || o.SharedSubagents == nil {
+		return true
+	}
+	return *o.SharedSubagents
 }
 
 // emitConfigTOML writes `.codex/config.toml` with global config, hooks, and

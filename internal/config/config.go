@@ -91,6 +91,7 @@ type Output struct {
 	WeakModel            string          `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
 	MCPDir               string          `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool            `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
+	SharedSubagents      *bool           `yaml:"shared-subagents,omitempty"         json:"shared-subagents,omitempty"`
 	Settings             *ClaudeSettings `yaml:"settings,omitempty"                 json:"settings,omitempty"`
 	Config               *CodexConfig    `yaml:"config,omitempty"                   json:"config,omitempty"`
 	CollisionPolicy      string          `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
