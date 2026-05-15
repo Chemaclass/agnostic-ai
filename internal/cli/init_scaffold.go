@@ -86,6 +86,9 @@ func scaffold(root, base string, demo bool, preset string, targets []string, dry
 	if err := ensureLineInGitignore(root, ".agnostic-ai/.sync-state"); err != nil {
 		return err
 	}
+	if err := ensureLineInGitignore(root, packsDir+"/"); err != nil {
+		return err
+	}
 	if demo {
 		if err := writeDemoFiles(filepath.Join(root, base)); err != nil {
 			return err

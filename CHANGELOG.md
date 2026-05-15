@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- `packs add` and `init` now auto-add `.agnostic-ai/packs/` to `.gitignore` so pack caches are never accidentally committed. Closes #170.
 
 ### Changed
 
