@@ -73,6 +73,43 @@ func TestAgentTOML_XCodexOverridesTopLevel(t *testing.T) {
 	}
 }
 
+func TestAgentTOML_ToolsFirstClass(t *testing.T) {
+	a := spec.Entry{
+		Kind: spec.KindAgent,
+		Name: "scoped",
+		Body: "Limited tool set.",
+		Meta: map[string]any{
+			"tools": []any{"bash", "edit", "read"},
+		},
+	}
+	got := agentTOML(a)
+	if !strings.Contains(got, `tools = ["bash", "edit", "read"]`) {
+		t.Errorf("missing tools array:\n%s", got)
+	}
+}
+
+func TestAgentTOML_XCodexToolsOverridesTopLevel(t *testing.T) {
+	a := spec.Entry{
+		Kind: spec.KindAgent,
+		Name: "scoped",
+		Body: "x",
+		Meta: map[string]any{
+			"tools": []any{"bash"},
+			"x-codex": map[string]any{
+				"tools": []any{"edit", "read"},
+			},
+		},
+	}
+	got := agentTOML(a)
+	// Only one tools line, with x-codex content winning.
+	if !strings.Contains(got, `tools = ["edit", "read"]`) {
+		t.Errorf("x-codex.tools should win:\n%s", got)
+	}
+	if strings.Count(got, "tools = ") != 1 {
+		t.Errorf("tools should emit exactly once:\n%s", got)
+	}
+}
+
 func TestAgentTOML_NicknameCandidatesIgnoresNonStringSlice(t *testing.T) {
 	a := spec.Entry{
 		Kind: spec.KindAgent,

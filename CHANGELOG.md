@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Claude import: `.claude/commands/*.md` round-trips with frontmatter (`argument-hint`, `model`, `disable-model-invocation`, `description`, `allowed-tools`) (#177).
 - Codex `outputs.codex.config`: first-class block with `notify`, `profiles.<name>`, and `model-providers.<id>` tables (#177).
 - Codex `[mcp_servers.<name>]`: emits `description`, `disabled`, `roots` for `.mcp.json` parity (#177).
+- Codex agent: top-level `tools:` first-classed in agent TOML (#177).
 - Golden snapshot tests for every built-in adapter (#166).
 
 ## v0.13.0 - 2026-05-15
