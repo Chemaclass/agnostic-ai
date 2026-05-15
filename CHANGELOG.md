@@ -5,18 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
-
-### Added
-- `revert --force`: delete adapter-emitted files that lack a `.bak`. Restores the pre-#217 default for users who relied on it. Closes #217.
+- `revert --force`: delete adapter-emitted files without a `.bak` (restores pre-#217 behavior). Closes #217.
 
 ### Changed
-- `cleanup` no longer requires `--backups`. Bare `cleanup` now runs the .bak removal that used to need an explicit flag. `--backups` stays as an explicit alias for scripts. Closes #219.
-- `revert` no longer deletes files that lack a `.bak`. Default now preserves user-authored content that happens to share a path with adapter output (helper scripts next to `SKILL.md`, propagated templates, etc.). Pass `--force` for the old delete-without-bak behavior. Closes #217.
-- `outputs.codex.shared-subagents` default is now conditional: `false` when `claude` is also enabled (avoids duplicating `.claude/skills/` under `.agents/skills/`), `true` when codex is the only target. Explicit setting still wins. Closes #216.
+- `cleanup` defaults to .bak removal; `--backups` kept as alias. Closes #219.
+- `revert` preserves files without a `.bak` (helpers next to `SKILL.md`, propagated templates). Pass `--force` to delete. Closes #217.
+- `outputs.codex.shared-subagents` defaults to `false` when `claude` is enabled (avoids duplicating `.claude/skills/`), `true` when codex is alone. Closes #216.
 
 ### Fixed
-- `doctor` and `doctor --fix` now read the settings overlay in capture mode just like a real sync. Previously a clean sync would be flagged as drift and `--fix` would silently delete overlay-supplied keys (`enabledPlugins`, `statusLine`) from `.claude/settings.json`. Import overlay capture also keeps source key order via `OrderedJSON`. Closes #215.
-- Frontmatter emit no longer strips quotes from scalars containing angle brackets and no longer line-wraps long descriptions at 80 cols. Plain scalars are promoted to double-quoted when they contain `<`/`>` or exceed the wrap threshold, keeping byte-stable round-trip with hand-authored CLI configs. Closes #218.
+- `doctor` reads the settings overlay in capture mode, matching real sync output. `--fix` no longer strips `enabledPlugins` / `statusLine` and no longer reports false drift after a clean sync. Import overlay also keeps source key order. Closes #215.
+- Frontmatter scalars containing `<`/`>` keep their quotes; long descriptions no longer wrap at 80 cols. Closes #218.
 
 ### Removed
 

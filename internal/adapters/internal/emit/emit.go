@@ -484,10 +484,10 @@ func preferDoubleQuotes(n *yaml.Node) {
 		return
 	}
 	if n.Kind == yaml.ScalarNode {
-		switch {
-		case n.Style == yaml.SingleQuotedStyle:
+		switch n.Style {
+		case yaml.SingleQuotedStyle:
 			n.Style = yaml.DoubleQuotedStyle
-		case n.Style == 0:
+		case 0:
 			// Plain style is the zero value in yaml.v3.
 			if needsDoubleQuotePromotion(n.Value) {
 				n.Style = yaml.DoubleQuotedStyle
