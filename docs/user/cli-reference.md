@@ -311,7 +311,11 @@ Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `a
 ## revert
 
 Undo a previous sync. For every file an adapter would emit, restores
-`<path>.bak` if present (and removes the .bak), otherwise removes the file.
+`<path>.bak` when present (and removes the .bak). When there is no
+`.bak`, the file is left in place by default so user-authored content
+that happens to share a path with adapter output (helper scripts next
+to `SKILL.md`, templates inside a propagated skill folder, etc.) is
+not silently deleted. Pass `--force` to delete those unbacked files.
 
 ```bash
 agnostic-ai revert [flags]
@@ -323,21 +327,26 @@ agnostic-ai revert [flags]
 | `--only <list>` | Revert only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
 | `--except <list>` | Revert all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Report intended actions without touching disk |
+| `--force` | Also delete adapter-emitted files that lack a `.bak`. Use with care: removes user-authored files that share a path with adapter output. |
 | `--json` | Output as JSON instead of plain text. |
 
 ```bash
 agnostic-ai sync --backup              # 1. snapshot existing files
 # ...edits or experiments...
-agnostic-ai revert                     # 2. roll back to the snapshot
-agnostic-ai revert --only claude       # 3. roll back only claude
-agnostic-ai revert --except codex      # 4. roll back everything except codex
+agnostic-ai revert                     # 2. restore .bak files, leave unbacked alone
+agnostic-ai revert --force             # 3. also delete generated files without .bak
+agnostic-ai revert --only claude       # roll back only claude
+agnostic-ai revert --except codex      # roll back everything except codex
 agnostic-ai revert --json              # machine-readable output
 ```
 
-The `--json` output uses the same schema as `sync --json`. Actions are `"restore"` (`.bak` was applied), `"remove"` (file was deleted), or `"skip"` (file was already absent).
+The `--json` output uses the same schema as `sync --json`. Actions are
+`"restore"` (`.bak` was applied), `"remove"` (file was deleted),
+`"preserve"` (file kept because no `.bak` exists and `--force` was not
+set), or `"skip"` (file was already absent).
 
-Without a prior `--backup`, `revert` removes the generated files;
-nothing is restored.
+Without a prior `--backup`, `revert` becomes a no-op unless `--force`
+is also passed — protecting helper files from accidental deletion.
 
 ## doctor
 

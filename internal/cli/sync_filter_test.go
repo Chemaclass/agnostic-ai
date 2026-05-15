@@ -119,15 +119,16 @@ func TestRevert_Only_RevertsSubset(t *testing.T) {
 		t.Fatalf("expected claude rule after sync: %v", err)
 	}
 
-	// revert only claude
+	// revert only claude (with --force so adapter-emitted rules without
+	// .bak are deleted; without --force the new default preserves them)
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"revert", "--only", "claude"})
+	root.SetArgs([]string{"revert", "--only", "claude", "--force"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	if _, err := os.Stat(claudeRule); !os.IsNotExist(err) {
-		t.Errorf("expected claude rule removed after revert --only claude, err=%v", err)
+		t.Errorf("expected claude rule removed after revert --only claude --force, err=%v", err)
 	}
 }
 

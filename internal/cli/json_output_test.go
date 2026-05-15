@@ -259,7 +259,7 @@ func TestRevertJSON_Shape(t *testing.T) {
 	}
 
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"revert", "-t", "claude", "--json"})
+	root.SetArgs([]string{"revert", "-t", "claude", "--json", "--force"})
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	if err := root.Execute(); err != nil {
