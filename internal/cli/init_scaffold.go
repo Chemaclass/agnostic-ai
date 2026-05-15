@@ -27,6 +27,7 @@ func renderConfig(base string, targets []string) string {
 	fmt.Fprintf(&sb, "  rules: %srules\n", prefix)
 	fmt.Fprintf(&sb, "  hooks: %shooks\n", prefix)
 	fmt.Fprintf(&sb, "  mcps: %smcps\n", prefix)
+	fmt.Fprintf(&sb, "  commands: %scommands\n", prefix)
 	sb.WriteString("\ntargets:\n")
 	for _, t := range targets {
 		fmt.Fprintf(&sb, "  - %s\n", t)
@@ -53,7 +54,7 @@ func scaffold(root, base string, demo bool, preset string, targets []string, dry
 	if base == "" {
 		base = defaultBaseDir
 	}
-	kinds := []string{"agents", "skills", "rules", "hooks", "mcps"}
+	kinds := []string{"agents", "skills", "rules", "hooks", "mcps", "commands"}
 	if dryRun {
 		fmt.Printf("create: %s\n", cfgPath)
 		for _, k := range kinds {

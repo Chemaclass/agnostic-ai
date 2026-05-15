@@ -26,7 +26,7 @@ func TestScaffold_DefaultBaseDir(t *testing.T) {
 	if err := scaffold(dir, "", false, "", allTargetNames(), false); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
 		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); err != nil {
 			t.Errorf("missing .agnostic-ai/%s", d)
 		}
@@ -45,7 +45,7 @@ func TestScaffold_CustomBaseDir(t *testing.T) {
 	if err := scaffold(dir, "specs", false, "", allTargetNames(), false); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
 		if _, err := os.Stat(filepath.Join(dir, "specs", d)); err != nil {
 			t.Errorf("missing specs/%s", d)
 		}
@@ -64,7 +64,7 @@ func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 	if err := scaffold(dir, ".", false, "", allTargetNames(), false); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
 		if _, err := os.Stat(filepath.Join(dir, d)); err != nil {
 			t.Errorf("missing %s at root", d)
 		}
@@ -225,7 +225,7 @@ func TestScaffold_NoDemo_LeavesFoldersEmpty(t *testing.T) {
 	if err := scaffold(dir, "", false, "", allTargetNames(), false); err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
+	for _, kind := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
 		entries, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", kind))
 		if err != nil {
 			t.Fatal(err)

@@ -10,7 +10,7 @@ import (
 )
 
 // defaultBaseDir is the default parent directory for scaffolded source
-// folders (agents, skills, rules, hooks, mcps).
+// folders (agents, skills, rules, hooks, mcps, commands).
 const defaultBaseDir = ".agnostic-ai"
 
 // demoFS holds one minimal sample spec per source kind. Used by
