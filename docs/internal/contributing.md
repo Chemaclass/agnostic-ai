@@ -2,120 +2,75 @@
 
 Short version: [/CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-## Dev setup
+## Setup
 
 Go 1.23+.
 
 ```bash
 git clone https://github.com/Chemaclass/agnostic-ai
 cd agnostic-ai
-make tools      # installs golangci-lint + lefthook at CI-pinned versions
-make hooks      # wires lefthook git hooks (pre-commit, pre-push)
+make tools      # golangci-lint + lefthook at CI-pinned versions
+make hooks      # lefthook pre-commit (gofmt + lint + vet) + pre-push (make preflight)
 make build      # builds ./agnostic-ai
-make test       # runs all tests
+make test
 ```
 
-`make tools` puts binaries in `$(go env GOPATH)/bin`; ensure that is on
-your `$PATH`. `make hooks` then installs lefthook's pre-commit (gofmt
-+ golangci-lint + go vet on staged files) and pre-push (`make preflight`).
+`make tools` puts binaries in `$(go env GOPATH)/bin` — ensure it is on `$PATH`.
 
 ## Dev loop
 
 ```bash
-# edit code, then:
-make build && ./agnostic-ai validate
-go run ./cmd/agnostic-ai sync --dry-run
-
-# focused tests
-go test ./internal/adapters/claude -run TestEmit_WritesAgent -v
-
-# before pushing — mirrors the CI Lint + Test jobs exactly
-make preflight
+# edit, then:
+go run ./cmd/agnostic-ai sync --dry-run        # preview emit
+go test ./internal/adapters/claude -run TestEmit_WritesAgent -v   # focused test
+make preflight                                 # mirrors CI Lint + Test
 ```
 
-`make preflight` runs `fmt-check` + `vet` + `lint` + `test`. The CI Lint
-job is `golangci-lint` against the same `.golangci.yml`; running
-`make preflight` locally means a green local run will not surface a new
-lint error on the PR.
+A green `make preflight` locally means no new lint or test surprise on the PR.
 
 ## First PR
 
-1. Pick a `good first issue` (typo, error message, missing test, small flag).
-2. Branch: `git checkout -b fix/short-description`.
-3. Edit code. Add or update `foo_test.go` next to `foo.go`.
-4. Run `go test ./...`.
-5. Commit with Conventional Commits: `git commit -m "fix(config): include path in error when config file is missing"`.
-6. Push, open PR, fill template, link issue with `Closes #123`.
+1. Pick a `good first issue`.
+2. Branch: `fix/short-description`.
+3. Edit. Add or update `foo_test.go` next to `foo.go`.
+4. `go test ./...`.
+5. Commit with Conventional Commits.
+6. Push, open PR with template, link issue (`Closes #123`).
 
-## Code conventions
+## Conventions
 
-- `gofmt` clean. `goimports` for imports.
-- Stdlib first. New deps must earn their place.
-- Adapters stateless. Construct via `New()`.
-- Adapters share helpers via `internal/adapters/internal/emit`. They never import each other.
-- Test names describe behavior: `TestEmit_WritesAgentFile`, not `TestEmit1`.
-- One concern per PR.
-- Wrap errors with file context: `fmt.Errorf("%s: %w", path, err)`.
-
-## Tests
-
-- Unit tests next to code: `foo.go` + `foo_test.go`.
-- Adapter tests use `t.TempDir()` and `os.Chdir`. Restore cwd in cleanup.
-- No mocks. Test against stdlib and `gopkg.in/yaml.v3` directly.
-- Race detector must pass: CI runs `go test -race ./...`.
+| Topic | Rule |
+|---|---|
+| Format | `gofmt` clean, `goimports` grouping |
+| Deps | Stdlib first. New dep needs justification |
+| Adapters | Stateless. `New()` constructor. Never import each other; share via `internal/adapters/internal/emit/` |
+| Tests | Behavior names. `t.TempDir()` + `testutil.Chdir(t, dir)`. No mocks |
+| Errors | Wrap with file/operation context: `fmt.Errorf("%s: %w", path, err)` |
+| CHANGELOG | Update `[Unreleased]` for user-visible changes |
 
 ## Debugging
 
 ```bash
-go run ./cmd/agnostic-ai sync --dry-run    # output without writing
-go run ./cmd/agnostic-ai list              # confirm specs loaded
-go run ./cmd/agnostic-ai validate          # parse-check only
-go run ./cmd/agnostic-ai sync -t claude --dry-run  # one adapter
+go run ./cmd/agnostic-ai sync --dry-run        # output without writing
+go run ./cmd/agnostic-ai list                  # confirm specs loaded
+go run ./cmd/agnostic-ai validate              # parse-check only
+go run ./cmd/agnostic-ai sync -t claude --dry-run   # one adapter
 ```
 
-For unexpected adapter behavior, write a unit test calling `Emit` with a small spec slice.
-
-## Common pitfalls
-
-| Pitfall | Fix |
-|---|---|
-| Forgetting to register a new adapter | Update `internal/adapters/adapter.go`, `internal/config/config.go`, `internal/cli/init.go` |
-| Importing one adapter from another | Share via `internal/adapters/internal/emit` |
-| Testing with live cwd | Use `t.TempDir()` and `os.Chdir` |
-| Skipping docs update | Update `docs/user/` or `README.md` in the same PR |
-| Drive-by formatting in feature PRs | Open a separate `chore: gofmt` PR |
+Unexpected adapter behavior: write a unit test calling `Emit` with a small spec slice.
 
 ## Commits
 
-Conventional Commits required:
+Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Subject under 72 chars. Body explains *why*.
 
-| Prefix | Use |
-|---|---|
-| `feat:` | new feature, adapter, spec kind, flag |
-| `fix:` | bug fix |
-| `docs:` | docs only |
-| `refactor:` | no behavior change |
-| `test:` | tests only |
-| `chore:` | build, deps, CI |
+## Triage
 
-Subject under 72 chars. Body explains *why*.
-
-## Reviewing PRs
-
-Triagers:
-
-- Triage within 7 days. Apply labels (`bug`, `enhancement`, `good first issue`, `help wanted`).
-- Require tests for behavior changes; docs for user-visible changes.
+- 7-day target. Apply labels (`bug`, `enhancement`, `good first issue`, `help wanted`).
+- Tests required for behavior changes. Docs for user-visible changes.
 - Squash-merge.
 
-## Releasing
+## See also
 
-See [release-process.md](release-process.md).
-
-## Decision log
-
-Add non-obvious architectural calls to [decisions.md](decisions.md) with context, options, rationale.
-
-## Questions
-
-Open a Discussion. Do not file an issue.
+- [Release process](release-process.md)
+- [Decision log](decisions.md) — add non-obvious architectural calls.
+- Questions: open a Discussion.

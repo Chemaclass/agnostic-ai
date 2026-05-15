@@ -2,54 +2,33 @@
 
 ## Versioning
 
-Semantic Versioning. Pre-1.0:
+Semantic Versioning. Pre-1.0: minor bumps may break spec format; patches are bug-fix only. Breaking changes go in `CHANGELOG.md`.
 
-- Minor bumps may break spec format
-- Patch bumps are bug-fix only
-- Document breaking changes in `CHANGELOG.md`
-
-## Cutting a release
-
-Use the script:
+## Cut a release
 
 ```bash
-scripts/release.sh vX.Y.Z              # full run: bump, tag, push
+scripts/release.sh vX.Y.Z              # bump + tag + push
 scripts/release.sh vX.Y.Z --dry-run    # preview only
 scripts/release.sh vX.Y.Z --no-push    # commit + tag locally
 ```
 
 The script:
 
-1. Validates clean tree, on `main`, in sync with `origin/main`, tag does not exist.
+1. Validates clean tree, on `main`, in sync with `origin/main`, tag absent.
 2. Runs `gofmt -s -l`, `go vet`, `go test ./...`, `agnostic-ai sync --check`.
 3. Bumps `version` in `cmd/agnostic-ai/main.go`.
-4. Promotes `[Unreleased]` in `CHANGELOG.md` to `vX.Y.Z` (no brackets) with today's date and inserts a fresh `[Unreleased]` block above. Format: `## vX.Y.Z - YYYY-MM-DD`.
-5. Commits `chore(release): vX.Y.Z` and tags `vX.Y.Z` (annotated).
-6. Pushes `main` and the tag. CI fires GoReleaser. The workflow first runs `scripts/release-notes.sh` to build `NOTES.md` from the matching `CHANGELOG.md` section, then runs `goreleaser release --release-notes=NOTES.md` so the published GitHub Release body matches the changelog from creation. No post-hoc edit.
+4. Promotes `[Unreleased]` to `## vX.Y.Z - YYYY-MM-DD` (no brackets), inserts a fresh empty `[Unreleased]` block.
+5. Commits `chore(release): vX.Y.Z`, creates annotated tag `vX.Y.Z`.
+6. Pushes `main` + tag. CI runs GoReleaser; release notes come from `scripts/release-notes.sh` against the matching `CHANGELOG.md` section.
 
-Manual fallback (only if the script can't run):
-
-1. Update `version` in `cmd/agnostic-ai/main.go`
-2. Update `CHANGELOG.md`. Format the new section as `## vX.Y.Z - YYYY-MM-DD` (no brackets around the version).
-3. `git commit -m "chore(release): vX.Y.Z"`
-4. `git tag vX.Y.Z`
-5. `git push origin main --tags`
-
-## Cross-compile manually
-
-```bash
-make release
-ls dist/
-```
-
-## Distribution channels
+## Distribution
 
 | Channel | Notes |
 |---|---|
 | GitHub Releases | raw binaries, primary |
-| Homebrew tap | `chemaclass/tap/agnostic-ai`, formula updated by CI |
-| Go install | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
+| Homebrew tap | `chemaclass/tap/agnostic-ai`, formula auto-updated by CI |
+| `go install` | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 
 ## Backporting
 
-Cherry-pick fixes for the previous minor onto a `release/X.Y` branch; tag `vX.Y.Zpatch`.
+Cherry-pick fixes for the previous minor onto `release/X.Y`. Tag `vX.Y.Zpatch`.

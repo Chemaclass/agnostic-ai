@@ -7,7 +7,6 @@ Add a new AI CLI target (`foo`):
 `internal/adapters/foo/foo.go`:
 
 ```go
-// Package foo emits FOO.md for the Foo CLI.
 package foo
 
 import (
@@ -45,10 +44,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 }
 ```
 
-For a target that wants per-rule files instead of one merged doc, swap
-`emit.MergedDocument` for `emit.RulesDirectory` (see Cursor / Cline /
-Windsurf for examples). Both helpers honor `spec.Entry.Scope` for nested
-output.
+For per-rule files instead of one merged doc, swap `emit.MergedDocument` for `emit.RulesDirectory` (see Cursor / Cline / Windsurf). Both honor `spec.Entry.Scope`.
 
 ## 2. Register
 
@@ -58,61 +54,45 @@ output.
 import "github.com/chemaclass/agnostic-ai/internal/adapters/foo"
 
 var registry = map[string]Adapter{
-    // ...existing
     "foo": foo.New(),
 }
 ```
 
-Update default targets in `internal/config/config.go` and `internal/cli/init.go`.
+Add to default targets in `internal/config/config.go` and `internal/cli/init.go`.
 
-## 3. Document capabilities
+## 3. Document
 
-Edit `docs/user/targets.md`:
+- Add a row to `docs/user/targets.md` capability matrix + per-target output section.
+- Update `README.md` capability table.
 
-- Add a row to the capability matrix
-- Add a per-target output section
+## 4. Wire config
 
-Update `README.md` capability matrix to match.
+Use shared resolvers; never hand-roll output paths:
 
-## 4. Add config support
+- `emit.OutputFile(cfg, target, fallback)` — single-document outputs
+- `emit.OutputDir(cfg, target, fallback)` — parent dir
+- `emit.OutputRulesDir(cfg, target, fallback)` — per-rule dir adapter
+- `emit.OutputRulesFile(cfg, target, fallback)` — merged rules file
+- `emit.OutputMCPFile(cfg, target, fallback)` — MCP propagation
+- `emit.OutputAgentsDir(cfg, target, fallback)` — per-agent files
+- `emit.OutputSkillsDir(cfg, target, fallback)` — per-skill files/folders
+- `emit.OutputCommandsDir(cfg, target, fallback)` — slash-command dirs
+- `emit.OutputInstructionsDir(cfg, target, fallback)` — Copilot-style scoped rules
+- `emit.EmitSkillsAsCommands(cfg, target)` — opt-in flag for skills-as-commands
 
-Output paths come from `cfg.Outputs[target]`. Use the shared resolvers
-rather than hand-rolling per adapter:
+New field on `config.Output`? Add once, reuse.
 
-- `emit.OutputFile(cfg, target, fallback)` for single-document outputs
-- `emit.OutputDir(cfg, target, fallback)` for a parent dir
-- `emit.OutputRulesDir(cfg, target, fallback)` for a rules-directory adapter
-- `emit.OutputRulesFile(cfg, target, fallback)` for the merged rules file
-- `emit.OutputMCPFile(cfg, target, fallback)` for MCP propagation
-- `emit.OutputAgentsDir(cfg, target, fallback)` for per-agent files
-- `emit.OutputSkillsDir(cfg, target, fallback)` for per-skill files / folders
-- `emit.OutputCommandsDir(cfg, target, fallback)` for slash-command directories
-- `emit.OutputInstructionsDir(cfg, target, fallback)` for Copilot-style scoped-rule directories
-- `emit.EmitSkillsAsCommands(cfg, target)` for the opt-in flag that emits skills as slash commands
+## 5. Shared helpers
 
-If a target needs a new field on `config.Output`, add it once and reuse.
+- `emit.GroupRulesByScope(rules)` + `emit.RouteScope(r)` — route rules to `<scope>/AGENTS.md` / `<scope>/GEMINI.md` hierarchies.
+- `emit.WriteSection(sb, heading, e)` — inlined `### heading`. `emit.WriteReference(sb, e, sourcePath)` — pointer when the definition lives elsewhere.
+- `emit.WriteTOMLString` / `WriteTOMLMultiline` / `WriteTOMLStringArray` / `EscapeTOMLBasic` — TOML emit.
+- `emit.Frontmatter(meta)` — render YAML frontmatter.
+- `emit.ResolveMeta(meta, target)` — flatten `x-<target>` overrides as top-level keys.
+- `emit.MigrateLegacyFile(cfg, target, legacyName, defaultNewPath, dryRun)` — rename old outputs across releases.
+- `emit.IsCapturing()` — check capture mode before any non-`WriteFile` side effect.
 
-## Shared helpers for hierarchical / slash-command adapters
-
-- `emit.GroupRulesByScope(rules)` + `emit.RouteScope(r)` route rules to
-  `<scope>/AGENTS.md` / `<scope>/GEMINI.md` style hierarchies
-  (Codex, Gemini, Amp, Warp).
-- `emit.WriteSection(sb, heading, e)` renders an inlined `### heading`
-  block; `emit.WriteReference(sb, e, sourcePath)` renders a reference
-  pointer (no body) when the real definition lives in a separate file.
-- `emit.WriteTOMLString` / `WriteTOMLMultiline` / `WriteTOMLStringArray`
-  / `EscapeTOMLBasic` build TOML emission (Codex agents, Gemini commands).
-- `emit.Frontmatter(meta)` renders a YAML frontmatter block.
-- `emit.ResolveMeta(meta, target)` flattens the spec's `x-<target>`
-  namespace so adapters read the target's overrides as top-level keys.
-- `emit.MigrateLegacyFile(cfg, target, legacyName, defaultNewPath, dryRun)`
-  renames a previously generated file aside when the default output
-  name changes across releases. Honors capture mode and dry-run.
-- `emit.IsCapturing()` reports whether `sync --check` / `revert` is
-  observing emission; adapters with filesystem side-effects beyond
-  `WriteFile` should consult it before mutating the tree.
-
-## 5. Add tests
+## 6. Tests
 
 `internal/adapters/foo/foo_test.go`:
 
@@ -139,19 +119,15 @@ func TestEmit_WritesExpectedFile(t *testing.T) {
 }
 ```
 
-Also extend `internal/adapters/adapter_test.go` so the registry test
-sees the new name.
+Extend `internal/adapters/adapter_test.go` so the registry test sees the new name.
 
-## 6. Handle unsupported kinds
+## 7. Unsupported kinds
 
-For kinds the target lacks (e.g. hooks, MCPs), omit them from
-`caps.Supports`. `emit.ReportUnsupported` then warns / errors per the
-user's `on-unsupported` setting.
+Omit from `caps.Supports`. `emit.ReportUnsupported` warns/errors per the user's `on-unsupported` setting.
 
-## 7. MCP propagation (optional)
+## 8. MCP propagation (optional)
 
-If the target reads a project-local MCP server config, use the shared
-helper for the JSON-map schemas it covers:
+If the target has a project-local MCP config:
 
 ```go
 return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
@@ -160,27 +136,18 @@ return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 
 Built-in schemas:
 
-- `MCPSchemaServersMap`: `{"mcpServers": {...}}` (Claude, Cursor, Warp)
-- `MCPSchemaVSCodeServers`: `{"servers": {...}}` with `type` per server (Copilot / VS Code)
+- `MCPSchemaServersMap` — `{"mcpServers": {...}}` (Claude, Cursor, Warp)
+- `MCPSchemaVSCodeServers` — `{"servers": {...}}` with `type` per server (Copilot / VS Code)
 
-Targets with non-trivial shapes (Codex TOML, Gemini `httpUrl`, Amp
-`amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp` map,
-Continue one-YAML-per-server) emit custom — see each adapter for the
-pattern. Use `emit.MergeJSONFile` to preserve unrelated user keys in
-shared JSON files (Gemini, Amp, Zed, OpenCode). Use `emit.OutputMCPDir`
-for one-file-per-server adapters (Continue).
+Non-trivial shapes (Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp`, Continue one-YAML-per-server) emit custom — see each adapter. Use `emit.MergeJSONFile` to preserve unrelated user keys. Use `emit.OutputMCPDir` for one-file-per-server.
 
-## 8. Hook propagation (optional)
+## 9. Hooks (optional)
 
-If the target supports lifecycle hooks, emit them alongside MCPs in the
-same project-tier file (Codex: `.codex/config.toml`; Gemini:
-`.gemini/settings.json`). Group entries by `Meta["event"]`; skip entries
-without one. Pass-through event names — let the user write
-`PreToolUse`/`BeforeTool`/etc. per the target's own docs.
+Emit alongside MCPs in the target's project-tier file (Codex: `.codex/config.toml`; Gemini: `.gemini/settings.json`). Group by `Meta["event"]`; skip entries without one. Pass-through event names verbatim.
 
 ## Conventions
 
 - Adapter packages never import other adapters. Share via `internal/adapters/internal/emit`.
-- Adapters are stateless. No globals; construct via `New()`.
-- Frontmatter passes through unless the target needs transformation (e.g. Cursor `.mdc`).
-- Generated files belong in the project's `.gitignore` template (or rely on `gitignore.enabled: true`).
+- Stateless. No globals; `New()` only.
+- Frontmatter passes through unless target needs transformation (e.g. Cursor `.mdc`).
+- Generated files belong in `.gitignore` (or rely on `gitignore.enabled: true`).

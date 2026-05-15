@@ -1,32 +1,30 @@
 # Roadmap
 
-Tracked here at a high level. Concrete work happens in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
+High-level directions. Concrete work in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
 
-## Layered configuration
+## Layered configuration (shipped)
 
-Shipped. Three layers, low- to high-precedence:
+Three layers, low → high precedence:
 
-- **user-global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): one source of truth across every project on the machine.
-- **project** (`agnostic-ai.yaml` `sources`): the repo's checked-in specs.
-- **project-user** (`<project>/.agnostic-ai.local/`, gitignored): per-developer overrides on top of project.
+- **user-global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): cross-project source of truth.
+- **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
+- **project-user** (`<project>/.agnostic-ai.local/`, gitignored): per-developer overrides.
 
-Higher layer wins on `(Kind, Name)` collision. New names append. Adapters stay layer-agnostic; merge happens in `spec.LoadLayered`. Optional layers load only when their root exists. See [docs/user/configuration.md](../user/configuration.md#layered-specs).
+Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See [configuration.md](../user/configuration.md#layered-specs).
 
-## Shipped in v0.4
+## Shipped
 
-- ~~Watch mode for tight authoring loops.~~ Shipped: `sync --watch` (200 ms poll, Ctrl+C exits).
-- ~~Agent-managed auto-sync.~~ Shipped: `sync --auto-sync=yes|no` plus a first-run TTY prompt; persists `autoSync` in `agnostic-ai.yaml`.
-- ~~Onboarding examples in fresh projects.~~ Shipped: `init --demo`.
-- ~~Interactive target selection.~~ Shipped: `init` prompts by default on a TTY; pass `--all` / `-a` to skip the picker.
-- ~~Codex subagents and skills.~~ Shipped: `.agents/agents/<name>.toml` and `.agents/skills/<name>/SKILL.md`.
-- ~~Promote import to a top-level command.~~ Shipped: `import <source>` (replaces `init --from`).
+- Watch mode (`sync --watch`, fsnotify, `--watch-poll` fallback).
+- Auto-sync (`sync --auto-sync=yes|no`, first-run TTY prompt, persisted as `autoSync`).
+- Onboarding (`init --demo`, `init --preset <name>`).
+- Interactive target selection (`init` TTY picker, `--all` to skip).
+- Codex subagents + skills (`.agents/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
+- Top-level `import <source>` (and multi-source: `import claude codex`).
+- `doctor --fix [--backup]`.
+- MCP for 10/13 targets. Aider/Cline/Windsurf lack project-scoped MCP.
+- Hooks beyond Claude: Codex `.codex/config.toml`, Gemini `.gemini/settings.json`.
 
-## Other directions
+## Open
 
-Filed as issues:
-
-- More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)). Recently shipped: Amp, Zed, Warp, OpenCode.
-- Richer `import <source>` importers. Shipped: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
-- ~~`doctor` improvements (drift fixes, not only detection).~~ Shipped: `doctor --fix [--backup]`.
-- More MCP-aware targets. Shipped for 10 of 13: Claude (`.mcp.json`), Cursor (`.cursor/mcp.json`), Copilot (`.vscode/mcp.json`), Codex (`.codex/config.toml`), Gemini (`.gemini/settings.json`), Continue (`.continue/mcpServers/*.yaml`), Amp (`.amp/settings.json`), Zed (`.zed/settings.json`), Warp (`.warp/.mcp.json`), OpenCode (`opencode.json`). Aider/Cline/Windsurf have no project-scoped MCP surface.
-- Hooks beyond Claude. Shipped: Codex (`.codex/config.toml` `[[hooks.<event>]]`) and Gemini (`.gemini/settings.json` `hooks`). Other targets have no equivalent.
+- More adapters (open a PR; see [adding-adapters.md](adding-adapters.md)).
+- Richer importers per source.
