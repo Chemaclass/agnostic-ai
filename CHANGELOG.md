@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 ### Changed
+- `outputs.codex.shared-subagents` default is now conditional: `false` when `claude` is also enabled (avoids duplicating `.claude/skills/` under `.agents/skills/`), `true` when codex is the only target. Explicit setting still wins. Closes #216.
 
 ### Fixed
 - `doctor` and `doctor --fix` now read the settings overlay in capture mode just like a real sync. Previously a clean sync would be flagged as drift and `--fix` would silently delete overlay-supplied keys (`enabledPlugins`, `statusLine`) from `.claude/settings.json`. Import overlay capture also keeps source key order via `OrderedJSON`. Closes #215.
