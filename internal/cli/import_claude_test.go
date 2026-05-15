@@ -25,11 +25,12 @@ func writeFile(t *testing.T, path, content string) {
 // matching the importer test fixtures.
 func rootSources() config.Sources {
 	return config.Sources{
-		Agents: "agents",
-		Skills: "skills",
-		Rules:  "rules",
-		Hooks:  "hooks",
-		MCPs:   "mcps",
+		Agents:   "agents",
+		Skills:   "skills",
+		Rules:    "rules",
+		Hooks:    "hooks",
+		MCPs:     "mcps",
+		Commands: "commands",
 	}
 }
 
@@ -524,6 +525,42 @@ func findOneHookFile(t *testing.T, dir, prefix string) string {
 		t.Fatalf("expected exactly one hook file with prefix %q in %s, got %v", prefix, dir, matches)
 	}
 	return matches[0]
+}
+
+func TestImportFromClaude_PreservesCommandFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	cmdBody := `---
+description: Fix a bug
+argument-hint: <bug-id>
+model: claude-sonnet-4-6
+allowed-tools: [Read, Edit]
+disable-model-invocation: false
+---
+
+Fix the bug at $ARGUMENTS.
+`
+	writeFile(t, filepath.Join(dir, ".claude/commands/fix-bug.md"), cmdBody)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "commands", "fix-bug.md")
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("missing %s: %v", out, err)
+	}
+	got := string(data)
+	for _, want := range []string{
+		"description: Fix a bug",
+		"argument-hint: <bug-id>",
+		"model: claude-sonnet-4-6",
+		"allowed-tools:",
+		"disable-model-invocation: false",
+		"Fix the bug at $ARGUMENTS.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
 }
 
 // writeMinimalConfig drops a config that points sources at base/<kind>.
