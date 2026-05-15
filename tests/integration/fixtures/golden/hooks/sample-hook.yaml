@@ -1,0 +1,5 @@
+name: sample-hook
+description: A sample hook for golden snapshot tests.
+event: PostToolUse
+matcher: "Edit"
+command: "echo edited"

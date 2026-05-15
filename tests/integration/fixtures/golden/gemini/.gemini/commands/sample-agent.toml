@@ -1,0 +1,4 @@
+description = "A sample agent for golden snapshot tests."
+prompt = """
+You are a sample agent used in golden tests.
+"""

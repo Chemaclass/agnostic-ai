@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - `sync` now runs as an atomic transaction. If any adapter fails mid-run, all files written so far are restored to their pre-sync state. New files are deleted; overwritten files are restored from their original content. (#162)
+- Snapshot golden tests for every built-in adapter under `tests/integration/`. Regenerate with `UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden`. CI fails on adapter output drift. (#166)
 
 ## v0.13.0 - 2026-05-15
 
