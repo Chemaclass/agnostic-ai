@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `revert --force`: delete adapter-emitted files that lack a `.bak`. Restores the pre-#217 default for users who relied on it. Closes #217.
 
 ### Changed
+- `cleanup` no longer requires `--backups`. Bare `cleanup` now runs the .bak removal that used to need an explicit flag. `--backups` stays as an explicit alias for scripts. Closes #219.
 - `revert` no longer deletes files that lack a `.bak`. Default now preserves user-authored content that happens to share a path with adapter output (helper scripts next to `SKILL.md`, propagated templates, etc.). Pass `--force` for the old delete-without-bak behavior. Closes #217.
 - `outputs.codex.shared-subagents` default is now conditional: `false` when `claude` is also enabled (avoids duplicating `.claude/skills/` under `.agents/skills/`), `true` when codex is the only target. Explicit setting still wins. Closes #216.
 
