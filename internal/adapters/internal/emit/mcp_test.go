@@ -148,6 +148,65 @@ func TestMCPDocument_Roots(t *testing.T) {
 	}
 }
 
+func TestMCPDocument_SSETransport(t *testing.T) {
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "events",
+			Meta: map[string]any{
+				"type": "sse",
+				"url":  "https://example.com/sse",
+				"headers": map[string]any{
+					"Authorization": "Bearer abc",
+				},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "https://example.com/sse") {
+		t.Errorf("missing sse url: %s", got)
+	}
+	if !strings.Contains(got, "Bearer abc") {
+		t.Errorf("missing sse header: %s", got)
+	}
+	// VSCode schema preserves the type discriminator.
+	gotVS, err := MCPDocument(mcps, MCPSchemaVSCodeServers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(gotVS, `"type": "sse"`) {
+		t.Errorf("vscode schema should preserve type sse: %s", gotVS)
+	}
+}
+
+func TestMCPDocument_StdioTypeOnlyWhenVSCodeSchema(t *testing.T) {
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y"}},
+		},
+	}
+	gotMap, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ServersMap schema omits the type discriminator for stdio (default).
+	if strings.Contains(gotMap, `"type"`) {
+		t.Errorf("servers-map schema should not emit type for stdio default: %s", gotMap)
+	}
+	gotVS, err := MCPDocument(mcps, MCPSchemaVSCodeServers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(gotVS, `"type": "stdio"`) {
+		t.Errorf("vscode schema must emit type stdio: %s", gotVS)
+	}
+}
+
 func TestMCPDocument_EmptySkips(t *testing.T) {
 	got, err := MCPDocument(nil, MCPSchemaServersMap)
 	if err != nil {
