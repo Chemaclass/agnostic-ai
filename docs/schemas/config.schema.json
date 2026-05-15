@@ -112,6 +112,33 @@
             "$ref": "#/$defs/CodexProfile"
           },
           "type": "object"
+        },
+        "model-providers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CodexModelProvider"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CodexModelProvider": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "base-url": {
+          "type": "string"
+        },
+        "wire-api": {
+          "type": "string"
+        },
+        "api-key-env": {
+          "type": "string"
+        },
+        "env-key": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

@@ -372,6 +372,7 @@ outputs:
 | `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
 | `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
 | `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
+| `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
 
 ## Path semantics
 

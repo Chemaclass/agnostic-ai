@@ -149,8 +149,22 @@ type CodexConfig struct {
 	ModelReasoningEffort  string                  `yaml:"model-reasoning-effort,omitempty"  json:"model-reasoning-effort,omitempty"`
 	ModelReasoningSummary string                  `yaml:"model-reasoning-summary,omitempty" json:"model-reasoning-summary,omitempty"`
 	HistoryPersistence    string                  `yaml:"history-persistence,omitempty"     json:"history-persistence,omitempty"`
-	Notify                []string                `yaml:"notify,omitempty"                  json:"notify,omitempty"`
-	Profiles              map[string]CodexProfile `yaml:"profiles,omitempty"                json:"profiles,omitempty"`
+	Notify                []string                      `yaml:"notify,omitempty"                  json:"notify,omitempty"`
+	Profiles              map[string]CodexProfile       `yaml:"profiles,omitempty"                json:"profiles,omitempty"`
+	ModelProviders        map[string]CodexModelProvider `yaml:"model-providers,omitempty"         json:"model-providers,omitempty"`
+}
+
+// CodexModelProvider mirrors a `[model_providers.<id>]` table in
+// `.codex/config.toml`. Each provider declares how Codex talks to a model
+// backend (OpenAI-compatible, Azure, Ollama, custom OSS endpoints, ...).
+// `Name` and `BaseURL` are usually required; the other fields fill in
+// transport details.
+type CodexModelProvider struct {
+	Name      string `yaml:"name,omitempty"        json:"name,omitempty"`
+	BaseURL   string `yaml:"base-url,omitempty"    json:"base-url,omitempty"`
+	WireAPI   string `yaml:"wire-api,omitempty"    json:"wire-api,omitempty"`
+	APIKeyEnv string `yaml:"api-key-env,omitempty" json:"api-key-env,omitempty"`
+	EnvKey    string `yaml:"env-key,omitempty"     json:"env-key,omitempty"`
 }
 
 // CodexProfile mirrors a `[profiles.<name>]` table in `.codex/config.toml`.
