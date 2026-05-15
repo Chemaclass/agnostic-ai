@@ -388,8 +388,12 @@ func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 			t.Errorf("overlay missing %q: %s", want, raw)
 		}
 	}
-	if strings.Contains(string(raw), "\"hooks\"") {
-		t.Errorf("overlay should not carry hooks key: %s", raw)
+	// Hooks key is retained as a `null` sentinel so writeSettings can
+	// restore hooks to the author's original position (#227). The
+	// sentinel is overwritten with the spec-derived hook map on every
+	// sync.
+	if !strings.Contains(string(raw), `"hooks": null`) {
+		t.Errorf("overlay should carry hooks: null sentinel for position preservation: %s", raw)
 	}
 }
 
@@ -432,6 +436,50 @@ func TestImportFromClaude_OverlayPreservesKeyOrder(t *testing.T) {
 	idxCmd := strings.Index(statusBlock, `"command"`)
 	if idxType < 0 || idxCmd <= idxType {
 		t.Errorf("statusLine inner keys re-ordered (want type before command):\n%s", statusBlock)
+	}
+}
+
+// TestImportFromClaude_HooksFirstSurvivesRoundTrip regresses #227.
+// Source settings.json with hooks before statusLine/enabledPlugins
+// must round-trip with the same top-level key order. Before #227,
+// hooks was stripped from the overlay on import and always re-appended
+// last by writeSettings, so this order was destroyed.
+func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	settings := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
+    ]
+  },
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": {"plugin-a": true}
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+
+	srcs := rootSources()
+	if err := importFromClaude(dir, srcs); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Sources: srcs}
+	bundle, err := spec.LoadBundle(dir, cfg)
+	if err != nil {
+		t.Fatalf("LoadBundle: %v", err)
+	}
+	if err := (claude.Adapter{}).Emit(bundle, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	idxHooks := strings.Index(s, `"hooks"`)
+	idxStatus := strings.Index(s, `"statusLine"`)
+	idxPlugins := strings.Index(s, `"enabledPlugins"`)
+	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
+		t.Errorf("expected hooks < statusLine < enabledPlugins (author order), got:\n%s", s)
 	}
 }
 

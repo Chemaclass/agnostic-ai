@@ -29,9 +29,9 @@ func claudeOverlayPath(root string) string {
 	return filepath.Join(root, claudeOverlayDir, claudeOverlayFile)
 }
 
-// importClaudeSettingsOverlay reads `.claude/settings.json` under root,
-// strips the `hooks` key (which is captured separately as yaml specs),
-// and writes the remainder to `.agnostic-ai/overlays/claude.settings.json`.
+// importClaudeSettingsOverlay reads `.claude/settings.json` under root
+// and writes it to `.agnostic-ai/overlays/claude.settings.json` with the
+// `hooks` value replaced by a null sentinel.
 //
 // The overlay file becomes the authoritative source of non-hook settings
 // (statusLine, enabledPlugins, model overrides, anything the user has
@@ -39,6 +39,11 @@ func claudeOverlayPath(root string) string {
 // the hook output on top, and writes the result. Without the overlay,
 // wiping `.claude/` between import and sync would lose every non-hook
 // key.
+//
+// The hooks key is kept as a `null` sentinel rather than deleted so the
+// overlay preserves the author's original key position. `writeSettings`
+// overwrites the sentinel with the spec-derived hook map on every sync,
+// keeping hooks at the position the user authored (#227).
 //
 // Returns nil when settings.json is missing or contains only `hooks`,
 // so a fresh project does not get a surprise empty overlay file.
@@ -55,8 +60,12 @@ func importClaudeSettingsOverlay(root string) error {
 	if err := json.Unmarshal(data, doc); err != nil {
 		return fmt.Errorf("parse %s: %w", src, err)
 	}
-	doc.Delete("hooks")
-	if doc.Len() == 0 {
+	hadHooks := false
+	if _, ok := doc.Get("hooks"); ok {
+		hadHooks = true
+		doc.SetRaw("hooks", json.RawMessage(`null`))
+	}
+	if doc.Len() == 0 || (hadHooks && doc.Len() == 1) {
 		return nil
 	}
 	raw, err := adapters.MarshalJSONIndent(doc)
