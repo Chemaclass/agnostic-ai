@@ -154,22 +154,37 @@ func TestFrontmatterOrdered_QuotesScalarsWithAngleBrackets(t *testing.T) {
 	}
 }
 
-// TestFrontmatterOrdered_DoesNotWrapLongDescriptions regresses
-// DEFECT 6 of #218. yaml.v3's encoder wraps plain scalars at 80
-// columns; promoting long values to double-quoted style suppresses the
-// wrap so a single-line description: stays on one line round-trip.
-func TestFrontmatterOrdered_DoesNotWrapLongDescriptions(t *testing.T) {
+// TestFrontmatterOrdered_PreservesPlainScalar regresses #226. A short
+// hand-authored plain scalar must round-trip unchanged through the
+// emitter (no double quotes, no folding).
+func TestFrontmatterOrdered_PreservesPlainScalar(t *testing.T) {
+	got := FrontmatterOrdered(
+		map[string]any{"description": "Review code changes for quality."},
+		[]string{"description"},
+	)
+	if !strings.Contains(got, "description: Review code changes for quality.\n") {
+		t.Errorf("expected plain scalar preserved, got:\n%s", got)
+	}
+	if strings.Contains(got, `description: "`) {
+		t.Errorf("plain scalar was force-quoted, got:\n%s", got)
+	}
+}
+
+// TestFrontmatterOrdered_PreservesLongPlainDescriptions regresses #226.
+// Long plain scalars stay plain on round-trip: yaml.v3 v3.0.1 does not
+// auto-wrap plain scalars, so promoting them to double-quoted would
+// only add noise to byte-stable diffs after `import -> sync`.
+func TestFrontmatterOrdered_PreservesLongPlainDescriptions(t *testing.T) {
 	long := "Execute the implementation planning workflow using the plan template to generate design artifacts."
 	got := FrontmatterOrdered(
 		map[string]any{"description": long},
 		[]string{"description"},
 	)
-	// One single line per key, no continuation indent.
-	if strings.Contains(got, "\n  to generate") {
-		t.Errorf("description line-wrapped (yaml continuation indent leaked):\n%s", got)
+	if strings.Contains(got, `"`+long+`"`) {
+		t.Errorf("long plain description was force-quoted, want plain:\n%s", got)
 	}
-	if !strings.Contains(got, `"`+long+`"`) {
-		t.Errorf("expected long description wrapped in double quotes, got:\n%s", got)
+	if !strings.Contains(got, "description: "+long+"\n") {
+		t.Errorf("expected plain `description: <long>` on one line, got:\n%s", got)
 	}
 }
 
