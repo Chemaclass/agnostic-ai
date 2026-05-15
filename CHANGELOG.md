@@ -7,19 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- MCP spec frontmatter now supports `description`, `disabled`, and `roots` fields. All adapters that emit MCP JSON will include these in their output. (#177)
-- Codex adapter: first-class `outputs.codex.config` block. Declare `sandbox`, `approval-policy`, `model`, `model-reasoning-effort`, `model-reasoning-summary`, and `history-persistence` in `agnostic-ai.yaml` instead of hand-editing `.codex/config.toml`. (#177)
-- `sync --plan` prints a structured per-target summary (added/changed counts) without writing any files. Useful for previewing what sync would do before committing. (#161)
-- `import all` detects every AI CLI config present in the project and imports from each in one shot. (#160)
-- `init --from <cli>` scaffolds a project and imports from an existing CLI config in a single command. Accepts any import source, including `all`. (#160)
-- `agnostic-ai install-hook` installs a `.git/hooks/pre-commit` script that runs `sync --check` on every commit. `--shared` writes to `.githooks/` and sets `core.hooksPath` so the hook is committed with the project. (#169)
-- `sync` now runs as an atomic transaction. If any adapter fails mid-run, all files written so far are restored to their pre-sync state. New files are deleted; overwritten files are restored from their original content. (#162)
-- Snapshot golden tests for every built-in adapter under `tests/integration/`. Regenerate with `UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden`. CI fails on adapter output drift. (#166)
-- `init --dry-run` prints the files and directories that would be scaffolded without touching disk. (#158)
-- `import --dry-run` prints the spec files that would be created without writing them. (#158)
-- `agnostic-ai lint` command with semantic checks beyond schema validation: LINT001 (empty spec), LINT002 (hook collision), LINT003 (duplicate spec name), LINT004 (dead spec — kind not supported by any enabled target). `--strict` treats warnings as errors for CI gating. (#171)
-- `sync.collision-policy` config key: `prompt` (default, current behavior), `prefer-spec` (skip collision check, CI-safe), `fail` (hard error). Per-target override via `outputs.<target>.collision-policy`. Non-interactive stdin appends a CI hint when policy is `prompt`. (#167)
-- `doctor` is now a unified 6-step diagnostic: installed AI CLIs, config validity, unsupported spec kinds, sync drift, MCP command resolution, and a concrete next-step suggestion. Subcommands `doctor mcp`, `doctor install`, and `doctor config` run individual checks. `--json` emits a machine-readable drift report. (#159)
+- `sync --plan`: per-target added/changed counts without writing files. (#161)
+- `sync`: atomic transaction — partial writes roll back on any adapter failure. (#162)
+- `sync.collision-policy` config key: `prompt` (default), `prefer-spec`, `fail`. Per-target override via `outputs.<target>.collision-policy`. (#167)
+- `import all`: detects every AI CLI config present and imports each in one shot. (#160)
+- `init --from <cli>`: scaffold + import from an existing CLI in one command. (#160)
+- `init --dry-run` / `import --dry-run`: preview without writing. (#158)
+- `agnostic-ai lint`: semantic checks — LINT001 empty spec, LINT002 hook collision, LINT003 duplicate name, LINT004 dead spec. `--strict` for CI. (#171)
+- `agnostic-ai doctor`: unified 6-step diagnostic with subcommands `mcp`, `install`, `config`. `--json` for machine-readable output. (#159)
+- `agnostic-ai install-hook`: installs `.git/hooks/pre-commit` running `sync --check`. `--shared` commits the hook via `.githooks/`. (#169)
+- MCP spec: `description`, `disabled`, and `roots` frontmatter fields. (#177)
+- Codex: `outputs.codex.config` block for `sandbox`, `approval-policy`, `model`, `model-reasoning-effort`, `model-reasoning-summary`, `history-persistence`. (#177)
+- Golden snapshot tests for every built-in adapter. Regenerate with `UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden`. (#166)
 
 ## v0.13.0 - 2026-05-15
 
