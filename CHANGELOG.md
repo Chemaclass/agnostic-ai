@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+## v0.16.0 - 2026-05-15
+
+### Changed
 - `sync`: uses `AGNOSTIC_AI.md` as the entry-point body source and distributes its content to `CLAUDE.md`, `AGENTS.md`, etc. Seeds the template when absent. Preserves content written by `import <target>`.
 - `AGNOSTIC_AI.md` is no longer auto-added to `.gitignore`; commit it as a source file.
 - `outputs` key in `agnostic-ai.yaml` is fully optional; omitted when empty in the JSON envelope sent to external adapters.
