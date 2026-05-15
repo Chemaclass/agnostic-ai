@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+## v0.20.0 - 2026-05-16
+
 ### Fixed
 - Frontmatter emit no longer force-quotes plain `description:` scalars. yaml.v3 does not auto-wrap plain scalars, so long descriptions round-trip on one line without added quotes. Closes #226.
 
