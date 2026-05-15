@@ -4,39 +4,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+- `doctor --check-globs`: opt-in flag rules whose `globs:` matches no path in the working tree. Closes #208.
+- `cleanup --backups`: removes `*.bak` left by `sync --backup`. Closes #197.
+- `outputs.codex.shared-subagents` (default `true`): set `false` in claude+codex setups to drop the duplicate `.agents/skills/` tree. Closes #194.
+- `spec.Entry.MetaKeys` exposes source frontmatter key order; external adapters receive it as `meta_keys` (additive, no protocol bump).
+
 ### Changed
-- Capability warnings (`on-unsupported: warn` path) collapse to one line per (target, kind) tuple per process, carry the number of specs that would have been skipped, and end with a one-line suppression hint pointing at `on-unsupported: silent`. `sync --watch` resets the dedup state between runs. Closes #204.
-- `agnostic-ai import --dry-run` no longer dumps every file body; emits `would write <path>` per file plus a count summary. Matches `sync --plan`'s reviewable shape. Closes #205.
-- `doctor` drift output splits per-target results into "missing" (next sync creates) and "stale — edited locally since last sync" (next sync overwrites) buckets so users can tell apart "needs sync" from "your edits will vanish on sync". Closes #207.
+- Frontmatter emit preserves source key order, uses 2-space sequence indent, prefers double quotes. Closes #190, #191, #193.
+- `.claude/settings.json` keeps overlay key order, emits `{type, command}` / `{matcher, hooks}` in documented order, events in lifecycle sequence (`PreToolUse` before `PostToolUse`). `MergeJSONFile` (codex / opencode) inherits the same. Closes #192.
+- Capability warnings (`on-unsupported: warn`) collapse to one line per (target, kind) with a count + `on-unsupported: silent` hint. `sync --watch` resets between runs. Closes #204.
+- `import --dry-run` lists paths + count instead of dumping file bodies. Matches `sync --plan`. Closes #205.
+- `doctor` drift splits into "missing" vs "stale — edited locally since last sync". Closes #207.
 
 ### Fixed
-- `doctor` no longer false-positives drift on `.claude/settings.json` immediately after `sync`. The OrderedJSON round-trip from #192 made the read→merge→write cycle byte-stable; regression tests cover overlay-only, hooks-only, and overlay+hooks shapes. Closes #200.
-
-### Added
-- `agnostic-ai doctor --check-globs`: opt-in check that flags rules whose `globs:` pattern matches no path in the working tree. Skips `.git`, `.agnostic-ai`, `node_modules`, `vendor`. Closes #208.
-- `outputs.codex.shared-subagents` (bool, default `true`). Set to `false` in claude+codex setups to suppress the duplicate `.agents/skills/<name>/SKILL.md` tree — claude already owns those files at `.claude/skills/<name>/`. Closes #194.
-- `agnostic-ai cleanup --backups`: walks the project root and removes every `*.bak` file `sync --backup` left behind. `.git/` and `.agnostic-ai/` are skipped. Supports `--dry-run`. Closes #197.
-- docs/user/getting-started.md: recommended adoption workflow (split `import` and `sync` into two reviewable commits). Closes #196.
+- emit: normalize trailing newlines to exactly one `\n`. Closes #195.
+- `doctor` no longer false-positives drift on `.claude/settings.json` after sync (OrderedJSON round-trip is now byte-stable). Closes #200.
 
 ### Docs
-- README: rewrite "byte-identical" round-trip claim to describe the actual content-preserving guarantee (provenance marker + canonical formatting). Closes #201.
-- README: target table now distinguishes native paths (loaded by the upstream tool out of the box) from convention paths (loaded via wiring like `@.claude/rules/<name>.md` references or VS Code settings). Closes #202.
-- AGNOSTIC_AI.md template gains a "Target-specific overlays" section so users discover `.agnostic-ai/overlays/<target>.settings.json`. Closes #203.
-- docs/user/spec-format.md hooks section shows how `event` / `matcher` / `command` render into Claude, Codex, and Gemini native shapes. Closes #206.
-- docs/user/getting-started.md documents the import scope boundary (helper scripts referenced from settings.json are not captured — commit them in git instead). Closes #209.
-- docs/user/getting-started.md adds a `.agnostic-ai/.sync-state` reference (what it stores, who reads it, whether to commit it). Closes #210.
-- docs/user/spec-format.md skills section announces nested skill helper files (round-trip verbatim including executable bits). Closes #211.
-
-### Changed
-- `spec.Entry` now carries `MetaKeys`, the ordered list of frontmatter keys parsed from source. External adapters receive the same field as `meta_keys` in the JSON envelope (additive; no protocol bump).
-
-### Fixed
-- emit: normalize trailing newlines on every written artifact so files end with exactly one `\n`. Removes the spurious blank line appended by upstream concatenations and stabilizes round-trip diffs. Closes #195.
-- emit: frontmatter rendering preserves source key order, forces 2-space sequence indent, and prefers double quotes over single. Removes the bulk of the cosmetic diff noise produced on round-trip through `import` + `sync`. Closes #190, #191, #193.
-- `claude`: `.claude/settings.json` preserves the overlay's key order on sync, nests `{type, command}` and `{matcher, hooks}` in the documented order, and emits events in Claude Code's lifecycle sequence (`PreToolUse` before `PostToolUse`, etc.). `MergeJSONFile` (used by codex / opencode shared blocks) gains the same order-preserving behaviour. Closes #192.
+- README: rewrite "byte-identical" round-trip claim to match reality (content-preserving; marker + canonical formatting applied). Closes #201.
+- README: target table separates native from convention paths. Closes #202.
+- README + getting-started: recommended adoption workflow (split `import` and `sync` into two commits). Closes #196.
+- AGNOSTIC_AI.md template: new "Target-specific overlays" section. Closes #203.
+- spec-format hooks: render-to-target schema mapping (Claude / Codex / Gemini). Closes #206.
+- spec-format skills: nested helper files round-trip verbatim. Closes #211.
+- getting-started: import scope boundary + `.agnostic-ai/.sync-state` reference. Closes #209, #210.
 
 ### Tests
-- claude import: regression test for the provenance-marker round-trip — re-importing after a sync that wrote `<!-- Generated by agnostic-ai -->` strips the marker and restores the byte-identical source spec. Closes #198.
+- claude import: provenance-marker round-trip stays marker-free across sync ↔ import cycles. Closes #198.
 
 ## v0.17.0 - 2026-05-15
 
