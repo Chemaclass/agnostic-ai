@@ -1,28 +1,34 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// writeAgnosticEntryPoints writes the canonical
-// `.agnostic-ai/AGNOSTIC_AI.md` plus the conventional root entry-point
-// file for each enabled target (CLAUDE.md, AGENTS.md, GEMINI.md, ...).
-// All files share the same pointer body so collision-prone paths
-// (e.g. codex + amp both at AGENTS.md) are deduplicated to a single
-// write.
+// writeAgnosticEntryPoints distributes the canonical entry-point body to
+// every enabled target's native file (CLAUDE.md, AGENTS.md, GEMINI.md, ...).
+//
+// The body source is .agnostic-ai/AGNOSTIC_AI.md:
+//   - If it exists, its content (header stripped) is used as-is. This lets
+//     `import <target>` seed the file and have sync propagate that content.
+//   - If it is absent, the generated template body is written to
+//     AGNOSTIC_AI.md first, then distributed to targets.
 //
 // Targets that opted into the legacy concatenated rules-file layout
-// via `outputs.<target>.rules-file` are skipped here: the adapter
-// owns the entry-point write in that case so the pointer body does
-// not clobber the concatenated content.
+// via `outputs.<target>.rules-file` are skipped: the adapter owns the
+// entry-point write in that case.
 func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool) error {
-	body := adapters.RenderEntryPoint(cfg)
-	if err := adapters.WriteFile(adapters.AgnosticEntryPointPath, body, dryRun); err != nil {
-		return fmt.Errorf("write %s: %w", adapters.AgnosticEntryPointPath, err)
+	body, err := resolveAgnosticBody(cfg, dryRun)
+	if err != nil {
+		return err
 	}
+	rendered := header.With(body, header.FormatMarkdown)
 	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
 	for _, t := range targets {
 		if adapters.HasLegacyRulesFile(cfg, t) {
@@ -33,9 +39,28 @@ func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool)
 			continue
 		}
 		seen[path] = true
-		if err := adapters.WriteFile(path, body, dryRun); err != nil {
+		if err := adapters.WriteFile(path, rendered, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", path, err)
 		}
 	}
 	return nil
+}
+
+// resolveAgnosticBody returns the raw (no header) body for entry-point files.
+// When AGNOSTIC_AI.md exists its content drives all targets; when absent the
+// template is generated, written to AGNOSTIC_AI.md, and returned.
+func resolveAgnosticBody(cfg *config.Config, dryRun bool) (string, error) {
+	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
+	if err == nil {
+		return header.Strip(string(data)), nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
+	}
+	body := adapters.EntryPointBody(cfg)
+	rendered := header.With(body, header.FormatMarkdown)
+	if err := adapters.WriteFile(adapters.AgnosticEntryPointPath, rendered, dryRun); err != nil {
+		return "", fmt.Errorf("write %s: %w", adapters.AgnosticEntryPointPath, err)
+	}
+	return body, nil
 }

@@ -7,10 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 ### Changed
+- `sync`: reads `.agnostic-ai/AGNOSTIC_AI.md` as the entry-point body source instead of regenerating the template each run. When the file is absent the template is generated and seeded; when present its content (header stripped) is distributed to every enabled target (`CLAUDE.md`, `AGENTS.md`, etc.). This means `import <target>` → `sync` now preserves the imported instructions.
 
 ### Fixed
+- `sync` no longer overwrites `AGNOSTIC_AI.md` when it was populated by `import <target>`, preventing loss of imported project instructions.
 
 ### Removed
+- `AGNOSTIC_AI.md` is no longer added to `.gitignore` by `sync`; it is now a source file meant to be committed.
 
 ## v0.15.1 - 2026-05-15
 

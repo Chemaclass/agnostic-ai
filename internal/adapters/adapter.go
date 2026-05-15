@@ -113,6 +113,13 @@ func HasLegacyRulesFile(cfg *config.Config, target string) bool {
 	return emit.HasLegacyRulesFile(cfg, target)
 }
 
+// EntryPointBody returns the raw (no header) pointer body for entry-point
+// files. Use when the caller needs to prepend its own header or compare
+// against existing content.
+func EntryPointBody(cfg *config.Config) string {
+	return emit.EntryPointBody(cfg)
+}
+
 // RenderEntryPoint returns the canonical entry-point content (header
 // + pointer body) shared by .agnostic-ai/AGNOSTIC_AI.md and every
 // per-target entry-point file.
