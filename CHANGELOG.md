@@ -5,8 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
-- `packs add` and `init` now auto-add `.agnostic-ai/packs/` to `.gitignore` so pack caches are never accidentally committed. Closes #170.
-- `agnostic-ai lsp`: Language Server Protocol server on stdio. Pushes lint diagnostics on file open/change/save. Works with Neovim, VS Code, Helix, Zed via generic LSP config. Closes #168.
+- `agnostic-ai lsp`: LSP server on stdio; pushes lint diagnostics on open/change/save. Closes #168.
+- `packs add` / `init`: auto-add `.agnostic-ai/packs/` to `.gitignore`. Closes #170.
+- `doctor` / `sync --check`: now detect drift in `AGNOSTIC_AI.md` and target entry-point files (`CLAUDE.md`, `AGENTS.md`, etc.).
 
 ### Changed
 

@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // driftReport summarizes per-target drift between source specs and on-disk
@@ -23,9 +27,10 @@ func (r driftReport) hasDrift() bool {
 }
 
 // collectDrift runs each target adapter in capture mode and compares each
-// would-be file against disk. No files are written.
+// would-be file against disk. Also checks entry-point files (CLAUDE.md,
+// AGENTS.md, AGNOSTIC_AI.md). No files are written.
 func collectDrift(targets []string) ([]driftReport, error) {
-	reports := make([]driftReport, 0, len(targets))
+	reports := make([]driftReport, 0, len(targets)+1)
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
@@ -65,7 +70,60 @@ func collectDrift(targets []string) ([]driftReport, error) {
 		}
 		reports = append(reports, rep)
 	}
+	epRep, err := collectEntryPointDrift(cfg, targets)
+	if err != nil {
+		return nil, err
+	}
+	reports = append(reports, epRep)
 	return reports, nil
+}
+
+// collectEntryPointDrift checks whether AGNOSTIC_AI.md and every enabled
+// target's native entry-point file (CLAUDE.md, AGENTS.md, etc.) match what
+// sync would write. The body source is AGNOSTIC_AI.md when it exists;
+// otherwise the template body is used.
+func collectEntryPointDrift(cfg *config.Config, targets []string) (driftReport, error) {
+	rep := driftReport{Target: "agnostic-ai"}
+
+	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
+	var body string
+	if err == nil {
+		body = header.Strip(string(data))
+	} else if errors.Is(err, fs.ErrNotExist) {
+		body = adapters.EntryPointBody(cfg)
+		rendered := header.With(body, header.FormatMarkdown)
+		rep.Missing = append(rep.Missing, adapters.CapturedFile{
+			Path:    adapters.AgnosticEntryPointPath,
+			Content: rendered,
+		})
+	} else {
+		return rep, fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
+	}
+
+	rendered := header.With(body, header.FormatMarkdown)
+	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
+	for _, t := range targets {
+		if adapters.HasLegacyRulesFile(cfg, t) {
+			continue
+		}
+		path := adapters.EntryPointPath(cfg, t)
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		disk, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				rep.Missing = append(rep.Missing, adapters.CapturedFile{Path: path, Content: rendered})
+				continue
+			}
+			return rep, fmt.Errorf("read %s: %w", path, err)
+		}
+		if string(disk) != rendered {
+			rep.Stale = append(rep.Stale, adapters.CapturedFile{Path: path, Content: rendered})
+		}
+	}
+	return rep, nil
 }
 
 // printDrift prints a per-target summary. Returns true if any drift exists.

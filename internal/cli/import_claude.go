@@ -60,6 +60,8 @@ func importFromClaude(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d commands\n",
 		c.rules, c.agents, c.skills, c.hooks, c.commands)
+	summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
+		agnosticMainFile, claudeMainFile)
 	printImportNextSteps(root, "claude")
 	return nil
 }
