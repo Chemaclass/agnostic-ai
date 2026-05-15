@@ -1,8 +1,6 @@
 # Changelog
 
-All notable changes to this project are documented here.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -17,12 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## v0.14.2 - 2026-05-15
 
 ### Added
-- `import`: accept multiple sources (`agnostic-ai import claude codex`). `.agnostic-ai/AGNOSTIC_AI.md` mirrors the last argument's top-level instructions file (last-wins). `all` still must be used alone.
+- `import`: accept multiple sources (`agnostic-ai import claude codex`). `AGNOSTIC_AI.md` mirrors last source (last-wins). `all` stays exclusive.
 
 ## v0.14.1 - 2026-05-15
 
 ### Added
-- `init`: scaffold `commands/` source folder and include `sources.commands` in `agnostic-ai.yaml`.
+- `init`: scaffold `commands/` source folder and `sources.commands` entry.
 
 ## v0.14.0 - 2026-05-15
 
@@ -30,88 +28,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `sync --plan`: per-target diff summary without writing (#161).
 - `sync`: atomic transaction; partial writes roll back on failure (#162).
 - `sync.collision-policy`: `prompt`, `prefer-spec`, `fail` (#167).
-- `import all`: detect and import every installed CLI in one shot (#160).
-- `init --from <cli>`: scaffold + import in one command (#160).
-- `init --dry-run`, `import --dry-run`: preview without writing (#158).
+- `import all`: detect and import every installed CLI (#160).
+- `init --from <cli>`, `init --dry-run`, `import --dry-run` (#158, #160).
 - `agnostic-ai lint`: LINT001–LINT005 semantic checks, `--strict` (#171, #177).
-- `agnostic-ai doctor`: diagnostic with `mcp`, `install`, `config` subcommands, `--json` (#159).
-- `agnostic-ai install-hook`: pre-commit hook running `sync --check`, `--shared` for `.githooks/` (#169).
+- `agnostic-ai doctor`: `mcp` / `install` / `config` subcommands, `--json` (#159).
+- `agnostic-ai install-hook`: pre-commit `sync --check`, `--shared` for `.githooks/` (#169).
 - MCP spec: `description`, `disabled`, `roots` (#177).
-- Claude import: `.claude/commands/*.md` round-trips with frontmatter (`argument-hint`, `model`, `disable-model-invocation`, `description`, `allowed-tools`) (#177).
-- Codex `outputs.codex.config`: first-class block with `notify`, `profiles.<name>`, and `model-providers.<id>` tables (#177).
-- Codex `[mcp_servers.<name>]`: emits `description`, `disabled`, `roots` for `.mcp.json` parity (#177).
+- Claude import: `.claude/commands/*.md` round-trips frontmatter (#177).
+- Codex `outputs.codex.config`: first-class `notify`, `profiles.<name>`, `model-providers.<id>` (#177).
+- Codex `[mcp_servers.<name>]`: `description`, `disabled`, `roots` (#177).
 - Codex agent: top-level `tools:` first-classed in agent TOML (#177).
-- Golden snapshot tests for every built-in adapter (#166).
+- Golden snapshot tests per adapter (#166).
 
 ## v0.13.0 - 2026-05-15
 
 ### Added
-- Stable `AAI-NNN` error codes on user-facing errors. `agnostic-ai explain <code>` prints title, cause, fix. See `docs/user/errors.md` (#163).
-- `agnostic-ai why <file>` traces an emitted file back to its adapter, source spec(s), output config keys, and last sync timestamp. `--format json` (#164).
-- `agnostic-ai graph` renders spec → target → file dependencies. Formats: text, mermaid, dot, json. Filters: `--target`, `--spec`, `--kind` (#172).
-- `claude`: first-class `outputs.claude.settings.*` block. Declare `model`, `outputStyle`, `apiKeyHelper`, `cleanupPeriodDays`, `includeCoAuthoredBy`, `enabledPlugins`, `env`, `statusLine`, and `permissions` in `agnostic-ai.yaml` instead of relying on overlay passthrough. Config layers on top of the captured overlay; spec-derived `hooks` block still wins for the `hooks` key (#177).
+- `AAI-NNN` error codes; `agnostic-ai explain <code>` (#163).
+- `agnostic-ai why <file>` traces a file back to adapter/specs/config/timestamp, `--format json` (#164).
+- `agnostic-ai graph` spec → target → file. Formats: text, mermaid, dot, json. Filters: `--target`, `--spec`, `--kind` (#172).
+- `claude`: first-class `outputs.claude.settings.*` block (`model`, `outputStyle`, `apiKeyHelper`, etc.). Layers over captured overlay; spec hooks still win for `hooks` key (#177).
 
 ### Changed
-- **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point file plus `.agnostic-ai/AGNOSTIC_AI.md`. Opt back into legacy concat via `outputs.<target>.rules-file`. Shared paths dedup to one write (#153).
-- `import` prints next-steps with suggested `sync` and hints for other detected CLIs.
-- `init` next-steps adapt to context. `--demo` / `--preset` jump to `sync`; detected CLIs surface as `import` hints.
-- `init` adds `.agnostic-ai/.sync-state` to `.gitignore` on scaffold (#151).
-- Provenance header shortened to `Generated by agnostic-ai`. Old files still recognized.
+- **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point plus `.agnostic-ai/AGNOSTIC_AI.md`. Opt back into legacy concat via `outputs.<target>.rules-file` (#153).
+- `import` next-steps suggest `sync` + hint other detected CLIs.
+- `init` next-steps adapt to context.
+- `init` adds `.agnostic-ai/.sync-state` to `.gitignore` (#151).
+- Provenance header shortened to `Generated by agnostic-ai`.
 
 ## v0.12.0 - 2026-05-14
 
 ### Added
-- New `antigravity` adapter for Google Antigravity IDE. Supports `rule` and `agent` kinds. Emits `.agent/rules/*.md` (one file per item) and `.agent/AGENTS.md` (merged). Output goes to `.agent/` to avoid colliding with Codex, Amp, and Warp when multiple adapters are active.
+- `antigravity` adapter (Google Antigravity IDE). Supports `rule` + `agent`. Emits `.agent/rules/*.md` and `.agent/AGENTS.md`.
 
 ### Changed
-- `import` writes `AGNOSTIC_AI.md` to `.agnostic-ai/AGNOSTIC_AI.md` instead of the project root. Delete the old root-level file after upgrading. `sync --gitignore` excludes the new path automatically.
-- `init` prints a two-step next-steps block after scaffolding: run `agnostic-ai import <target>`, then `agnostic-ai sync`. Also confirms the base directory used.
-- All adapter outputs that support comments now start with a `Generated by agnostic-ai. Do not edit by hand.` header. Markdown uses an HTML comment below any frontmatter; TOML/YAML use `#` comments; JSON files are unchanged. Importers strip the header on round-trip. Closes #140.
+- `import` writes `AGNOSTIC_AI.md` to `.agnostic-ai/` instead of project root. Delete old root file after upgrading.
+- `init` two-step next-steps: `import <target>` then `sync`.
+- Adapter outputs now start with `Generated by agnostic-ai. Do not edit by hand.` header. Importers strip on round-trip. Closes #140.
 
 ### Fixed
-- `spec`: derive skill name from parent directory when frontmatter is absent. `skills/my-skill/SKILL.md` now emits to `.claude/skills/my-skill/SKILL.md` instead of `.claude/skills/SKILL/SKILL.md`.
-- `claude`: agents, skills, commands, and rules no longer emit a leading blank line when frontmatter is empty (#137).
-- `claude`: per-file rules under `.claude/rules/<name>.md` now round-trip the spec's frontmatter and drop the synthetic `# <name>` heading. Body-only rules emit body-only (#138).
+- `spec`: derive skill name from parent directory when frontmatter absent.
+- `claude`: no leading blank line when frontmatter empty (#137).
+- `claude`: per-file rules round-trip frontmatter, drop synthetic `# <name>` heading (#138).
 
 ## v0.11.0 - 2026-05-14
 
 ### Added
-- New `command` spec kind. Author slash-prompt files under `commands/*.md`; each emits as a native slash command on supported targets.
-- `claude`: emits `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
-- `codex`: emits `.codex/prompts/<name>.md` (project-tier mirror of `~/.codex/prompts/`). Override via `outputs.codex.commands-dir`.
-- `sources.commands` config key (default `commands`) controls the source directory.
-- `emit.CopyTree` helper added for adapters that mirror file trees with mode preservation; honors capture, dry-run, recording, and backup modes uniformly.
+- New `command` spec kind. `commands/*.md` emits per-target slash commands.
+- `claude`: `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
+- `codex`: `.codex/prompts/<name>.md`. Override via `outputs.codex.commands-dir`.
+- `sources.commands` config key (default `commands`).
+- `emit.CopyTree` for mirroring file trees (honors capture/dry-run/recording/backup).
 
 ### Changed
-- Spec loader skips kinds whose `sources.<kind>` is empty rather than walking the layer root. Tests that omit a source field no longer pick up unrelated files.
-- `init` pre-ticks any target whose marker is present in the working directory (`.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`, etc.). First-sync picker does the same.
+- Spec loader skips kinds whose `sources.<kind>` is empty rather than walking the layer root.
+- `init` pre-ticks targets whose marker exists (`.claude/`, `.codex/`, etc.).
 
 ### claude
-- `import claude` mirrors each skill directory in full. Helper scripts, fixtures, and nested subdirectories alongside `SKILL.md` are copied byte-for-byte into the source skills dir (was: only `SKILL.md`).
-- `sync` propagates every sibling file under a source skill folder into `.claude/skills/<name>/`. Frontmatter on `SKILL.md` is still re-rendered from the spec; everything else is copied verbatim with file mode bits preserved (executable scripts stay executable).
+- `import claude` mirrors full skill dirs (helper scripts, fixtures, subdirs) byte-for-byte.
+- `sync` propagates skill sibling files into `.claude/skills/<name>/`. Mode bits preserved.
 
 ### codex
-- `import codex` mirrors each `.agents/skills/<name>/` directory in full, including `agents/openai.yaml` and any helper assets (was: only `SKILL.md`).
-- `sync` propagates skill sibling files into `.agents/skills/<name>/`. The Codex-specific `agents/openai.yaml` derived from `x-codex` still wins over a verbatim source copy of the same path.
+- `import codex` mirrors full `.agents/skills/<name>/` (including `agents/openai.yaml` + assets).
+- `sync` propagates skill sibling files. `x-codex`-derived `agents/openai.yaml` wins over source copy at same path.
 
 ## v0.10.0 - 2026-05-14
 
 ### claude
-- Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` no longer touched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concatenated layout.
-- `.claude/settings.json` preserves user keys (`statusLine`, `enabledPlugins`, etc.) across sync. `import claude` captures them into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top. Survives `.claude/` wipe.
-- Hooks merge by `event` + `matcher` into one block; `command:` accepts a string or a list of strings.
+- Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` untouched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concat.
+- `.claude/settings.json` preserves user keys across sync. `import claude` captures into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top.
+- Hooks merge by `event` + `matcher`; `command:` accepts string or list.
 
 ### codex
-- Agents emit at `.agents/agents/<name>.toml` (was `.codex/agents/`). Override via `outputs.codex.agents-dir`. Delete old dir after sync.
-- `import codex` round-trips agents, skills, hooks, and MCPs. Unknown agent TOML keys land under `x-codex` and emit back unchanged.
+- Agents emit at `.agents/agents/<name>.toml` (was `.codex/agents/`). Override via `outputs.codex.agents-dir`.
+- `import codex` round-trips agents/skills/hooks/MCPs. Unknown TOML keys land under `x-codex`.
 
 ### gemini
-- `command:` accepts a list of strings; each entry emits as a separate `{matcher, command}` pair.
-- Fix: emit no longer drops `command` when the spec uses a list.
+- `command:` accepts list; each entry emits as separate `{matcher, command}` pair.
+- Fix: emit no longer drops `command` when spec uses a list.
 
 ### all
-- Hook spec filenames derive from content hash (`<event>[-<matcher>]-<hash8>.yaml`). Re-imports converge on the same path; user edits no longer collide with positional names.
-- JSON outputs (`.claude/settings.json`, `.zed/tasks.json`, `.mcp.json`) no longer HTML-escape `&`, `<`, `>`. Shell commands render literally.
+- Hook spec filenames derive from content hash (`<event>[-<matcher>]-<hash8>.yaml`). Re-imports converge.
+- JSON outputs no longer HTML-escape `&`, `<`, `>`.
 
 ### Dependencies
 - `github.com/BurntSushi/toml` v1.6.0 (codex TOML parsing).
@@ -119,177 +116,155 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## v0.9.0 - 2026-05-14
 
 ### Added
-- Playground UX refresh: target chips, per-target file selector, theme toggle, mobile layout.
-- Source URL in `--help` and `--version`.
-- `import` for **aider, amp, warp, gemini, copilot, opencode, zed** — full kind coverage where the target supports it.
-- Every importer mirrors the target's main file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.opencode/AGENTS.md`, `.rules`) to `AGNOSTIC_AI.md`. Last import wins.
+- Playground UX: target chips, per-target file selector, theme toggle, mobile layout.
+- Source URL in `--help` / `--version`.
+- `import` for **aider, amp, warp, gemini, copilot, opencode, zed** (full kind coverage where supported).
+- Every importer mirrors target's main file to `AGNOSTIC_AI.md`. Last import wins.
 - `import claude` prefers `.claude/rules/*.md` over slicing `CLAUDE.md`.
-- `import copilot` lifts a leading italic paragraph into `description:` frontmatter and routes `agent-*` / `skill-*` instruction files to the matching source dir.
+- `import copilot` lifts leading italic into `description:`; routes `agent-*` / `skill-*` files to matching source dir.
 
 ### Changed
-- `agnostic-ai init` prompts for targets by default on a TTY. Pipe a comma-separated list, or pass `--all` / `-a` to skip the picker. `-i` / `--interactive` removed.
-- `DefaultTargets()` no longer includes `amp` and `warp`. Both share root `AGENTS.md` with `codex` per the community spec; the safe default keeps `codex` as the sole owner. Users running Amp or Warp must add them explicitly and drop or remap the colliders.
+- `init` prompts for targets by default on TTY. Pipe a list, or `--all` / `-a` to skip. `-i` / `--interactive` removed.
+- `DefaultTargets()` no longer includes `amp` and `warp` (collide with codex on root `AGENTS.md`).
 
 ### Fixed
-- `import claude` keeps preamble before the first `##` and ignores `##` lines inside fenced code blocks.
-- `agnostic-ai.yaml`: only `version` is required. Editors no longer flag a minimal config.
-- `sync` and `sync --check` now fail fast with an `output collision` error when two or more enabled targets emit to the same path (e.g. `codex` + `amp` + `warp` all owning root `AGENTS.md`). Previously silent last-writer-wins caused permanent `--check` drift no matter the write order.
-
-### Removed
+- `import claude` keeps preamble before first `##`; ignores `##` inside fenced blocks.
+- `agnostic-ai.yaml`: only `version` required.
+- `sync` / `sync --check` fail fast with `output collision` when two targets write the same path.
 
 ## v0.8.0 - 2026-05-13
 
 ### Added
-- `agnostic-ai.local.yaml` for per-machine overrides; deep-merged over the base (`init` auto-gitignores it) (#128).
+- `agnostic-ai.local.yaml` per-machine overrides; deep-merged over base. Auto-gitignored by `init` (#128).
 
 ### Changed
-- Renamed config file `agnostic.config.yaml` → `agnostic-ai.yaml`. Legacy filename still loads with a deprecation warning (#128).
+- Renamed `agnostic.config.yaml` → `agnostic-ai.yaml`. Legacy still loads with deprecation warning (#128).
 
 ## v0.7.0 - 2026-05-13
 
 ### Added
-- New CLI commands: `new <kind> <name>` scaffolds a single spec (#31); `render <spec> [--target <t>...]` prints emission to stdout (#31); `explain <spec>` lists every output a spec contributes to, `--json` envelope (#40); `init --preset <go|ts-react|python>` seeds stack-flavored starter specs (#47).
-- `sync --watch-poll` to force the polling backend on network mounts / container volumes (#36).
-- Editor integrations: VS Code extension at `editors/vscode/` (#44), JetBrains plugin at `editors/jetbrains/` (#101) — both ship schema validation, command/Tools entries, codelens/banner with `Render to <target>`, and a drift status indicator polling `sync --check --json`. Pre-commit hook recipes for `pre-commit` / `lefthook` / `husky` at `docs/user/git-hooks.md` (#39). WebAssembly playground at `docs/playground/` running fully client-side (#43).
-- Validation & diagnostics: `validate` rejects unknown hook `event:` values with the supported list inline (#112) and warns when hook/MCP specs have no consumer among enabled targets (#114). `doctor` resolves every stdio MCP `command:` on PATH and prints install hints for missing npx/uvx/python/docker (#113).
-- Per-target opt-in native surfaces (existing rule-form emission preserved everywhere):
-  - **Copilot**: `outputs.copilot.chatmodes-dir` emits each agent as a Custom Chat Mode (#105).
-  - **Cursor**: `outputs.cursor.commands-dir` emits each agent as a Custom Command (#104).
-  - **Cline**: `outputs.cline.workflows-dir` emits each agent as a Workflow invokable as `/<name>.md` (#106).
-  - **Windsurf**: `outputs.windsurf.workflows-dir` emits each agent as a Workflow invokable in Cascade as `/<name>` (#107).
-  - **Continue**: `outputs.continue.assistants-dir` emits each agent as a local Assistant YAML (`schema: v1`) (#108).
-  - **Zed**: `outputs.zed.tasks-file` emits each hook as a Zed Task (`sh -c "<command>"`) into `tasks.json`; hooks now count as natively supported by Zed in `validate` (#109).
-  - **Warp**: `outputs.warp.workflows-dir` emits each agent as a Workflow YAML; `AGENTS.md` `## Agents` switches to reference pointers (#110).
+- `new <kind> <name>` scaffolds a single spec (#31).
+- `render <spec> [--target <t>...]` prints emission to stdout (#31).
+- `explain <spec>` lists every output a spec contributes to, `--json` (#40).
+- `init --preset <go|ts-react|python>` (#47).
+- `sync --watch-poll` forces polling backend (#36).
+- VS Code extension `editors/vscode/` (#44); JetBrains plugin `editors/jetbrains/` (#101). Schema validation, render commands, drift status indicator.
+- Pre-commit recipes (pre-commit/lefthook/husky) at `docs/user/git-hooks.md` (#39).
+- WASM playground at `docs/playground/` (#43).
+- `validate` rejects unknown hook `event:` with supported list (#112); warns on hook/MCP with no consumer (#114).
+- `doctor` resolves stdio MCP `command:` on PATH; install hints for missing npx/uvx/python/docker (#113).
+- Per-target opt-in native surfaces (existing rule emission preserved): Copilot Custom Chat Modes (#105), Cursor Custom Commands (#104), Cline Workflows (#106), Windsurf Workflows (#107), Continue Assistants (#108), Zed Tasks (#109), Warp Workflows (#110).
 
 ### Changed
-- `sync --watch` reaction time: swapped 200 ms mtime polling for fsnotify with a 50 ms debounce (sub-100 ms re-sync, idle CPU at zero); polling backend kept as automatic fallback (#36).
+- `sync --watch`: fsnotify + 50 ms debounce (sub-100 ms re-sync, zero idle CPU). Polling kept as fallback (#36).
 - Code of Conduct contact: `conduct@chemaclass.dev` → `agnostic-ai@chemaclass.es`.
 
 ## v0.6.0 - 2026-05-12
 
 ### Changed
-- **Breaking:** Amp default file `AGENT.md` (singular) → `AGENTS.md` (plural, per Sourcegraph Amp's owner's manual). Legacy auto-renamed to `AGENT.md.bak` on first sync when agnostic-generated; user-authored files left alone. Roll back with `agnostic-ai revert`. (#67)
-- **Breaking:** Warp default file `WARP.md` → `AGENTS.md` (per Warp's current Rules docs / open AGENTS.md standard). Legacy auto-renamed to `WARP.md.bak` on first sync when agnostic-generated. (#68)
-- Go toolchain bumped to 1.24 (required by `invopop/jsonschema` 0.14 and `charmbracelet/x/term` 0.2.2). (#76)
+- **BREAKING**: Amp default `AGENT.md` → `AGENTS.md` (per Sourcegraph spec). Legacy auto-renamed to `AGENT.md.bak` (#67).
+- **BREAKING**: Warp default `WARP.md` → `AGENTS.md` (per Warp Rules / AGENTS.md standard). Legacy auto-renamed to `WARP.md.bak` (#68).
+- Go toolchain bumped to 1.24 (#76).
 
 ### Added
-- **Native multi-file emission** for ◐ adapters that support it natively:
-  - **Copilot** (#64): `.github/instructions/<name>.instructions.md` per scoped rule, `applyTo:` from `globs`/scope; always-on rules stay in `.github/copilot-instructions.md`; agents/skills as catch-all `applyTo: "**"`. New `outputs.copilot.instructions-dir`.
-  - **Gemini** (#65): hierarchical `GEMINI.md` per scope + `.gemini/commands/<name>.toml` slash commands. Root `GEMINI.md` indexes agents/skills via pointer sections (no body duplication). New `outputs.gemini.commands-dir`, `outputs.gemini.emit-skills-as-commands`.
-  - **OpenCode** (#66): `.opencode/commands/<name>.md` per agent with filtered frontmatter (`description`/`agent`/`model`/`subtask`). New `outputs.opencode.commands-dir`, `outputs.opencode.emit-skills-as-commands`.
-  - **Amp** (#67): hierarchical `AGENTS.md` + `.agents/commands/<name>.md` slash commands. New `outputs.amp.commands-dir`, `outputs.amp.emit-skills-as-commands`.
-  - **Warp** (#68): hierarchical `AGENTS.md` (agents inlined, no commands surface upstream).
-- **Hooks + MCP propagation** for adapters that natively support them:
-  - **Codex** (#78): `.codex/config.toml` with `[[hooks.<event>]]` (SessionStart/Stop/UserPromptSubmit/Pre/PostToolUse/Pre/PostCompact) and `[mcp_servers.<name>]` (stdio: command/args/env; http/sse: url/bearer_token_env_var/http_headers).
-  - **Gemini** (#79): `.gemini/settings.json` with `mcpServers` (uses `httpUrl` for HTTP, not `url`) and `hooks.<event>` (BeforeTool/AfterTool/SessionStart/etc.).
-  - **Continue** (#80): one YAML per server at `.continue/mcpServers/<name>.yaml`. New `outputs.continue.mcp-dir`.
-  - **Amp** (#81): `.amp/settings.json` `amp.mcpServers` (workspace approval required on first use).
-  - **Zed** (#82): `.zed/settings.json` `context_servers` (nested `command: {path, args, env}` shape; HTTP auto-bridges via `npx mcp-remote`).
-  - **Warp** (#83): `.warp/.mcp.json` (standard `mcpServers` schema).
-  - **OpenCode** (#84): `opencode.json` `mcp` map with `type: "local"|"remote"` and combined command array. JSON files merge with existing user keys.
-- Shared `emit` helpers introduced across the series: `MigrateLegacyFile`/`ProvenanceMarker`/`IsCapturing` for cross-release renames; `MergeJSONFile` for read-merge-write into shared project JSON; `WriteReference` for index-style merged docs; `GroupRulesByScope`/`RouteScope` for hierarchical adapters; `WriteTOMLString`/`Multiline`/`StringArray`/`InlineStringTable`/`EscapeTOMLBasic` for TOML emission; `StringSlice`/`StringMap` for `any`-coercion of YAML meta fields. New `config.Output` fields: `instructions-dir`, `commands-dir`, `mcp-dir`, `emit-skills-as-commands`.
-- `sync --json`, `sync --check --json`, `revert --json`, `doctor --json`: stable JSON output `{version, command, writes, skipped, errors}` with per-file `target`/`path`/`action`/`bytes`. Schema versioned at `"1"`. Documented in `docs/user/cli-reference.md`.
-- `agnostic-ai status`: project name, active layers, spec counts, configured targets, last sync timestamp + files-changed count, drift count. `--json` for machine output. Exits 0 even when drifted (use `sync --check` for CI gating).
-- **First-sync target picker** (#92): on the first `sync` where the config still lists every supported target, an interactive multi-select prompts for which targets to enable; the selection is persisted back to `agnostic.config.yaml`. Non-TTY runs accept piped input (`echo "claude,codex" | agnostic-ai sync`) or silently fall back to emitting every target. New `--all` flag bypasses the picker. Helps avoid surprise files in the working tree and resolves drift from adapters that share an output path (e.g. Codex/Amp/Warp all writing `AGENTS.md`).
+- Native multi-file emission for ◐ adapters:
+  - **Copilot** (#64): `.github/instructions/<name>.instructions.md` per scoped rule.
+  - **Gemini** (#65): hierarchical `GEMINI.md` + `.gemini/commands/<name>.toml`.
+  - **OpenCode** (#66): `.opencode/commands/<name>.md` per agent.
+  - **Amp** (#67): hierarchical `AGENTS.md` + `.agents/commands/<name>.md`.
+  - **Warp** (#68): hierarchical `AGENTS.md` (agents inlined).
+- Hooks + MCP propagation: Codex `.codex/config.toml` (#78), Gemini `.gemini/settings.json` (#79), Continue `.continue/mcpServers/<name>.yaml` (#80), Amp `.amp/settings.json` (#81), Zed `.zed/settings.json` (#82), Warp `.warp/.mcp.json` (#83), OpenCode `opencode.json` (#84).
+- Shared emit helpers: `MigrateLegacyFile`, `MergeJSONFile`, `WriteReference`, `GroupRulesByScope`, TOML writers. New `config.Output` fields: `instructions-dir`, `commands-dir`, `mcp-dir`, `emit-skills-as-commands`.
+- `sync --json`, `sync --check --json`, `revert --json`, `doctor --json` (schema v1).
+- `agnostic-ai status`: project name, layers, spec counts, targets, last sync, drift count. `--json`.
+- First-sync target picker (#92): interactive multi-select when config still lists every target. Selection persisted.
 
 ## v0.5.0 - 2026-05-07
 
 ### Added
-- `sync --only <targets>` and `sync --except <targets>`: filter which configured targets are emitted. `--only` restricts to the named subset; `--except` runs all configured targets except the named ones. Both flags are mutually exclusive, validate names against the configured targets list, and are honored by `--watch` and `--check`. `revert` gains the same flags for symmetry.
-- `agnostic-ai validate --fix`: rewrite source spec files to fix autofixable issues. Today it backfills missing `name:` frontmatter (deriving the value from the filename, or the parent directory name for skills under `<skill>/SKILL.md`) without disturbing any other frontmatter or body byte. The plain `validate` command now lists detected issues with a `*` marker for autofixable ones and a hint to rerun with `--fix`.
-- Plugin protocol (v1) for external adapters. Any binary on `PATH` named `agnostic-ai-adapter-<target>` is automatically discovered when `<target>` is listed in `agnostic.config.yaml`. The host pipes a JSON document of specs and config to stdin and reads back a JSON document of files/warnings/errors on stdout, then writes the files through the same emit layer that handles capture/backup/dry-run. Protocol stable at `protocol_version: 1`, documented in `docs/internal/plugin-protocol.md`. Reference Go helpers (`external.DecodeInput`, `external.EncodeOutput`) live in `internal/adapters/external/`.
-- `adapters.Resolve(name)`: single lookup site that returns built-in adapters first and falls back to PATH-discovered external adapters. `sync`, `doctor`, and `revert` route through it.
-- `agnostic-ai packs add|remove|update|list`: install shareable spec packs from Git URLs or local directories. Packs land under `.agnostic-ai/packs/<name>/`, are pinned in `agnostic.packs.lock`, and load as a layer between user-global and project so any project-local entry overrides a pack-supplied one. `agnostic-ai packs add github.com/foo/bar@v1.2.0` clones the repo (`--depth 1`), strips `.git`, and records the resolved commit sha in the lockfile. New docs at `docs/user/packs.md` (consumer) and `docs/internal/pack-authors.md` (publisher).
-- `docs/user/ci.md`: dedicated CI page covering `sync --check` and the official `chemaclass/agnostic-ai-action@v1` GitHub Action (3-line drop-in snippet, version pinning, cached binary, drift summary in the job log).
-- `completion bash|zsh|fish|powershell`: generate shell completion scripts. Tab-completing `--target` reads `agnostic.config.yaml` and falls back to the full default target list when no config is found.
-- JSON Schema published at `docs/schemas/config.schema.json` (generated from Go structs) and `docs/schemas/spec.schema.json` (hand-authored). Editors with the YAML Language Server validate `agnostic.config.yaml` and spec frontmatter automatically.
-- `agnostic.config.yaml` generated by `init` now includes a `yaml-language-server` schema hint so VS Code / JetBrains / Neovim validate it without manual configuration.
+- `sync --only <targets>` / `sync --except <targets>` filters (mutually exclusive). `revert` gains same flags.
+- `agnostic-ai validate --fix`: rewrite specs for autofixable issues (backfills missing `name:` from filename / parent dir). Plain `validate` flags fixable issues with `*`.
+- Plugin protocol v1 for external adapters (`agnostic-ai-adapter-<target>` on PATH; JSON over stdin/stdout). Docs at `docs/internal/plugin-protocol.md`.
+- `adapters.Resolve(name)`: lookup site with built-in → external fallback.
+- `agnostic-ai packs add|remove|update|list`: shareable spec packs from Git URLs. Pinned in `agnostic.packs.lock`. Load as a layer between user-global and project.
+- `docs/user/ci.md`: dedicated CI page + `chemaclass/agnostic-ai-action@v1`.
+- `completion bash|zsh|fish|powershell`.
+- JSON schemas at `docs/schemas/config.schema.json` (generated) and `spec.schema.json` (hand-authored).
+- `init` injects `yaml-language-server` schema hint into generated config.
 
 ### Changed
-- GitHub Release body built from `CHANGELOG.md` via `scripts/release-notes.sh` and passed to `goreleaser release --release-notes=NOTES.md`. No post-hoc `gh release edit`.
-- `promote_changelog` writes dated headings as `## vX.Y.Z - YYYY-MM-DD` (no brackets), matching prior history. `## [Unreleased]` keeps brackets.
-- CI lint job upgraded to `golangci/golangci-lint-action@v9` with `golangci-lint v2.6`. `.golangci.yml` migrated to v2 schema (`version: "2"`, `linters.default: none`, `formatters` section for `gofmt`/`goimports`).
+- GitHub Release body built from `CHANGELOG.md` via `scripts/release-notes.sh`. No post-hoc `gh release edit`.
+- `promote_changelog` writes `## vX.Y.Z - YYYY-MM-DD` (no brackets). `## [Unreleased]` keeps brackets.
+- CI lint upgraded to `golangci-lint v2.6`.
 
 ### Fixed
-- Spec frontmatter parse errors now report `path:line:col: message` (with column 1 when the YAML parser does not provide one) and the line number is shifted by one for markdown frontmatter so it points at the offending line in the source file. Previously a malformed YAML block was silently treated as plain body, producing an empty `meta` and confusing downstream emission.
-- `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z` heading forms.
+- Spec frontmatter parse errors report `path:line:col`. Malformed YAML no longer silently treated as body.
+- `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z`.
 
 ## v0.4.0 - 2026-05-05
 
 ### Added
-- `sync --watch`: re-emit on spec or config changes. Polls every 200 ms; Ctrl+C exits cleanly. Incompatible with `--check`.
-- `sync --auto-sync=yes|no`: on first sync, prompt (TTY) or follow the flag to write an `auto-sync` rule spec telling agents to run `agnostic-ai sync` when specs change. Answer persisted to `agnostic.config.yaml`; skipped in `--dry-run`.
-- `init --demo`: seed each source folder with one example spec so a fresh project produces real output on the first `sync`.
-- `init -i` / `--interactive`: multi-select prompt to pick which targets land in `agnostic.config.yaml`. Accepts piped comma-separated input for non-TTY use.
-- `import <source>`: translate an existing AI CLI config into agnostic specs. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
-- Codex subagent emission: agents emit to `.codex/agents/<name>.toml`. `x-codex` frontmatter fields (`model`, `sandbox_mode`, etc.) pass through to the TOML. Override path with `outputs.codex.agents-dir`.
-- Codex skill emission: each skill gets its own `.agents/skills/<name>/SKILL.md` folder. `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` emit an additional `agents/openai.yaml`. Override path with `outputs.codex.skills-dir`.
-- `--help` examples on every command showing the common workflow.
+- `sync --watch`: re-emit on changes (200 ms poll; Ctrl+C exits). Incompatible with `--check`.
+- `sync --auto-sync=yes|no`: first-sync TTY prompt; writes auto-sync rule spec; persists answer to config.
+- `init --demo`: seed one example spec per source folder.
+- `init -i` / `--interactive`: multi-select target picker.
+- `import <source>`: translate existing CLI config into specs. Sources: `claude`, `codex`, `cursor`, `cline`, `windsurf`, `continue`.
+- Codex subagents: `.codex/agents/<name>.toml`. `x-codex` frontmatter passes through.
+- Codex skills: `.agents/skills/<name>/SKILL.md`. `x-codex.interface`/`policy`/`dependencies` add `agents/openai.yaml`.
+- `--help` examples on every command.
 
 ### Changed
-- `init` scaffolds source folders under `.agnostic-ai/` by default (was project root). Pass a positional arg to override; use `init .` for the old layout.
-- `sync` skips writing empty stub files when a target has no content. A fresh `init` + `sync` leaves the project root clean.
-- `list` and `validate` print a hint to stderr when no specs are loaded.
-- Codex `AGENTS.md` lists agents with a pointer to their TOML instead of inlining the body.
+- `init` scaffolds under `.agnostic-ai/` by default. `init .` for legacy root layout.
+- `sync` skips empty stub files.
+- `list` / `validate` print hint when no specs loaded.
+- Codex `AGENTS.md` lists agents as pointers, not inlined bodies.
 
 ### Removed
-- `init --from <source>` flag. Use `init` then `import <source>` instead.
+- `init --from <source>` flag. Use `init` then `import <source>`.
 
 ## v0.3.0 - 2026-05-04
 
 ### Added
-- MCP servers as a first-class spec kind. New `mcps/*.yaml` source dir; one file per server with `command`/`args`/`env` (stdio) or `url`/`headers` (http/sse). Adapters that propagate MCP: Claude Code (`.mcp.json`), Cursor (`.cursor/mcp.json`), GitHub Copilot (`.vscode/mcp.json`, VS Code shape with per-server `type`). Other targets skip with a warning. Output paths overridable via `outputs.<target>.mcp-file`.
-- `agnostic-ai sync --backup`: copy each existing target file to `<path>.bak` before overwriting. Backup is opt-in (off by default) and skipped when the new content matches the existing file.
-- `agnostic-ai revert`: undo a previous sync. For each file the adapters would emit, restores `<path>.bak` if present (and removes the .bak); otherwise removes the file. Use with `--dry-run` to preview.
-- Auto-managed `.gitignore` block. Set `gitignore.enabled: true` in `agnostic.config.yaml` (or `agnostic-ai sync --gitignore on`) and `sync` rewrites a marked block listing every generated path. Lines outside the block are preserved; re-running with no spec changes is a no-op.
-- Provenance markers in merged outputs. Each `###` section in `AGENTS.md` (Codex), `CONVENTIONS.md` (Aider), `GEMINI.md`, and `.github/copilot-instructions.md` now opens with an `<!-- source: <relpath> -->` HTML comment naming the originating spec. Invisible in rendered Markdown, but lets readers and adapter authors trace any line back to its source file.
-- Nested rules scoping. Specs placed in subdirectories (`rules/backend/auth.md`) carry an implicit `scope` derived from layout. Per-directory adapters route output accordingly: Codex `<scope>/AGENTS.md` (overrides globs-based routing when set), Cursor `<scope>/.cursor/rules/`, Cline `<scope>/.clinerules/`, Windsurf and Continue similarly. Single-document targets merge as before. Frontmatter `scope:` accepted as a fallback.
-- Four new adapters: `amp` (Sourcegraph Amp, `AGENT.md`), `zed` (Zed editor, `.rules`), `warp` (Warp terminal, `WARP.md`), `opencode` (OpenCode, `.opencode/AGENTS.md` to avoid clashing with Codex). Each supports rules, agents, skills via the merged-document layout. Output paths overridable via `outputs.<target>.file`.
-- `agnostic-ai init --from cursor`: import an existing Cursor project. Reads `.cursor/rules/*.mdc`, translates each into `rules/<name>.md`, and writes a cursor-only `agnostic.config.yaml`. Frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) passes through verbatim; `name:` is injected from the filename when missing. Round-trips cleanly back to `.cursor/rules/*.mdc` on the next `sync`.
-- `agnostic-ai init --from codex`: import an existing Codex project. Walks the tree for `AGENTS.md` files (root + nested), translates each `## section` into a rule under `rules/`, and infers `globs:` for nested files (e.g. `src/AGENTS.md` → `globs: src/**`) so a subsequent `sync` routes rules back to the correct nested file. Handles both hand-written and agnostic-emitted `AGENTS.md` shapes: `## Conventions` / `## Agents` / `## Skills` wrappers are unwrapped into their `###` children, and a single-line italic (`_text_`) immediately under a rule heading is extracted as the rule's `description`. Slug collisions across files are deduplicated.
+- MCP servers as first-class spec kind (`mcps/*.yaml`). Propagates to Claude (`.mcp.json`), Cursor, Copilot (VS Code shape). Other targets warn.
+- `sync --backup`: copy each existing file to `<path>.bak`. Opt-in. Skipped on no-op writes.
+- `agnostic-ai revert`: restore `.bak` if present, otherwise remove. `--dry-run` to preview.
+- Auto-managed `.gitignore` block. `gitignore.enabled: true` (or `sync --gitignore on`); lines outside block preserved.
+- Provenance markers: each `###` section in merged docs opens with `<!-- source: <relpath> -->`.
+- Nested rule scoping. Subdir specs (`rules/backend/auth.md`) carry implicit scope; per-dir adapters route accordingly.
+- New adapters: `amp` (`AGENT.md`), `zed` (`.rules`), `warp` (`WARP.md`), `opencode` (`.opencode/AGENTS.md`).
+- `init --from cursor`: import `.cursor/rules/*.mdc` (frontmatter passes through).
+- `init --from codex`: walk for `AGENTS.md` at any depth; translate each `## section` into a rule with inferred `globs:`.
 
 ## v0.2.0 - 2026-05-04
 
 ### Added
-- Skill emission: rules-directory adapters (Cursor, Cline, Windsurf, Continue) now write each skill as its own rule file. Merged-document adapters (Codex, Gemini, Copilot, Aider) list skills in a `## Skills` section with name, description, and source path.
-- Merged-document outputs (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carry a generated-by header so downstream tools and humans see they are produced by `agnostic-ai sync`.
-- `internal/testutil` package with `Chdir` and `TempCwd` helpers for tests that change the process working directory.
-- `.github/dependabot.yml`: weekly updates for `gomod` and `github-actions`.
-- `SECURITY.md`: vulnerability reporting via GitHub private security advisories, 90-day disclosure.
-- Roadmap doc (`docs/internal/roadmap.md`) covering the planned user-global and project-user configuration layers.
+- Skill emission: rules-dir adapters write per skill file; merged-doc adapters list under `## Skills`.
+- Generated-by header on merged-document outputs.
+- `internal/testutil` with `Chdir` / `TempCwd`.
+- `.github/dependabot.yml` weekly updates.
+- `SECURITY.md`.
+- Roadmap doc.
 
 ### Changed
-- README simplified: install, quickstart, build-from-source, commands, and spec-format details moved into `docs/`. README now links into the docs tree.
-- README aligned with the AGENTS.md open standard and lists the standards the project rides on.
-- `internal/cli/import_claude.go` (308 LOC) split into one file per concern: rules, skills+agents, hooks. `root.go` command builders moved into `sync.go`, `validate.go`, `list.go`, `init.go`. No behavior change.
-- CI test step writes a coverage profile and uploads it to Codecov from the Ubuntu runner.
-- `make build` now passes `-trimpath -ldflags="-s -w"` for reproducible, smaller binaries.
-- `Makefile` adds convenience targets: `lint`, `fmt`, `vet`, `cover`.
-- Codex `routeDir` and nested-glob tests converted to `t.Run` subtests for cleaner failure reports.
+- README simplified; details moved into `docs/`.
+- README aligned with AGENTS.md open standard.
+- `internal/cli/import_claude.go` split into per-concern files. No behavior change.
+- CI writes coverage profile; uploads to Codecov.
+- `make build` adds `-trimpath -ldflags="-s -w"`.
+- Makefile gains `lint`, `fmt`, `vet`, `cover`.
 
 ### Fixed
-- CI Test step on the Windows runner: pinned to `bash` so PowerShell stops mis-parsing `-coverprofile=coverage.out`.
+- CI Windows runner pinned to `bash`.
 
 ## v0.1.0 - 2026-05-04
 
 ### Added
-- `agnostic-ai init --from claude`: import existing `CLAUDE.md`, `.claude/agents/`, `.claude/skills/`, and `.claude/settings.json` into agnostic source specs. Lowers adoption friction for users with populated Claude Code configs.
-- `agnostic-ai sync --check` and `agnostic-ai doctor`: detect drift between source specs and emitted target files. Use as CI gate.
-- `x-<target>` frontmatter namespace: per-adapter extensions (e.g. `x-claude:`, `x-cursor:`) flatten for the matching target and are stripped for others.
-- Initial Go scaffold.
-- Adapters for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue.
+- Initial release: adapters for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue.
 - Commands: `init`, `sync`, `validate`, `list`.
-- User and contributor docs under `docs/`.
-- OSS community files: CONTRIBUTING, CODE_OF_CONDUCT, GOVERNANCE.
-- GitHub issue/PR templates, CI and release workflows, GoReleaser, golangci-lint config.
-- `Dockerfile` (distroless, static) and `.dockerignore`.
-- `lefthook.yml` for git hooks (gofmt, golangci-lint, conventional-commits, pre-push tests).
-- `Taskfile.yml` for [go-task](https://taskfile.dev) users.
-- `.editorconfig` and `.gitattributes`.
-- `.github/CODEOWNERS` for PR review routing.
-- `renovate.json` for dependency updates.
-- Integration tests under `tests/integration/`.
-- Dogfood specs at project root (`agents/`, `skills/`, `rules/`, `hooks/`).
-- `docs/examples/agnostic.config.yaml` covering every config knob.
+- `init --from claude`: import existing `CLAUDE.md` + `.claude/` config.
+- `sync --check` and `doctor` for drift detection.
+- `x-<target>` frontmatter namespace.
+- Docs, examples, integration tests, dogfood specs.
+- OSS scaffolding: CONTRIBUTING, COC, GOVERNANCE, issue/PR templates, CI, GoReleaser, golangci-lint, Dockerfile, lefthook, Taskfile, dependabot/renovate.
 
 [Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/HEAD...HEAD
