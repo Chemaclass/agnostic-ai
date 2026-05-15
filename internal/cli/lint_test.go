@@ -73,7 +73,7 @@ func TestLintHookCollisions_NoFindingsOnCleanHooks(t *testing.T) {
 func TestLintDuplicateNames_FlagsSameKindAndName(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "style", Path: "rules/style.md"},
-		{Kind: spec.KindAgent, Name: "style", Path: "agents/style.md"}, // different kind — OK
+		{Kind: spec.KindAgent, Name: "style", Path: "agents/style.md"},         // different kind — OK
 		{Kind: spec.KindRule, Name: "style", Path: "rules/overrides/style.md"}, // duplicate
 	}
 	findings := lintDuplicateNames(entries)

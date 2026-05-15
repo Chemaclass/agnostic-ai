@@ -101,7 +101,7 @@ func MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
 				sb.WriteString("_" + d + "_\n\n")
 			}
 			if s.Path != "" {
-				sb.WriteString("Source: `" + s.Path + "`\n\n")
+				sb.WriteString("Source: `" + filepath.ToSlash(s.Path) + "`\n\n")
 			}
 		}
 	}

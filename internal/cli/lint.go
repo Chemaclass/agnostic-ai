@@ -14,7 +14,7 @@ type lintSeverity int
 
 const (
 	lintWarn  lintSeverity = iota // non-zero exit only when --strict
-	lintError                      // always non-zero exit
+	lintError                     // always non-zero exit
 )
 
 func (s lintSeverity) String() string {

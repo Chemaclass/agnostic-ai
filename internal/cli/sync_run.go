@@ -198,14 +198,14 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 // would change: how many files are missing (added) or stale (changed).
 func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-	defer w.Flush()
 	for _, r := range reports {
 		if !r.hasDrift() {
-			fmt.Fprintf(w, "[%s]\tno changes\n", r.Target)
+			_, _ = fmt.Fprintf(w, "[%s]\tno changes\n", r.Target)
 			continue
 		}
-		fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d\n", r.Target, len(r.Missing), len(r.Stale))
+		_, _ = fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d\n", r.Target, len(r.Missing), len(r.Stale))
 	}
+	_ = w.Flush()
 }
 
 // printSyncCheckJSON emits a JSON result for `sync --check`. Files that need

@@ -45,7 +45,7 @@ func installPreCommitHook(root string, shared bool, out io.Writer) error {
 		if err := exec.Command("git", "-C", root, "config", "core.hooksPath", ".githooks").Run(); err != nil {
 			return fmt.Errorf("git config core.hooksPath: %w", err)
 		}
-		fmt.Fprintf(out, "✓ installed %s (core.hooksPath → .githooks)\n", hookPath)
+		_, _ = fmt.Fprintf(out, "✓ installed %s (core.hooksPath → .githooks)\n", hookPath)
 		return nil
 	}
 	gitDir, err := findGitDir(root)
@@ -60,7 +60,7 @@ func installPreCommitHook(root string, shared bool, out io.Writer) error {
 	if err := writeOrAppendHook(hookPath); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "✓ installed %s\n", hookPath)
+	_, _ = fmt.Fprintf(out, "✓ installed %s\n", hookPath)
 	return nil
 }
 

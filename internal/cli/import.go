@@ -113,9 +113,9 @@ func importAll(root string, src config.Sources) error {
 	}
 	var errs []string
 	for _, t := range detected {
-		fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
+		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
 		if err := runImport(root, t, src); err != nil {
-			fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
+			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
 			errs = append(errs, t)
 		}
 	}
