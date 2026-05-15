@@ -46,6 +46,9 @@ func agentTOML(a spec.Entry) string {
 	if v := stringOr(meta, "sandbox_mode", ""); v != "" {
 		emit.WriteTOMLString(&sb, "sandbox_mode", v)
 	}
+	if tools := stringSlice(meta["tools"]); len(tools) > 0 {
+		emit.WriteTOMLStringArray(&sb, "tools", tools)
+	}
 	if names := stringSlice(meta["nickname_candidates"]); len(names) > 0 {
 		emit.WriteTOMLStringArray(&sb, "nickname_candidates", names)
 	}
@@ -63,6 +66,7 @@ var codexAgentEmittedKeys = map[string]bool{
 	"model":                  true,
 	"model_reasoning_effort": true,
 	"sandbox_mode":           true,
+	"tools":                  true,
 	"nickname_candidates":    true,
 }
 
