@@ -275,6 +275,9 @@
         "emit-skills-as-commands": {
           "type": "boolean"
         },
+        "shared-subagents": {
+          "type": "boolean"
+        },
         "settings": {
           "$ref": "#/$defs/ClaudeSettings"
         },

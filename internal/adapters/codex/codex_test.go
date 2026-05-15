@@ -152,6 +152,44 @@ func TestEmit_SkillFolderLayout(t *testing.T) {
 	}
 }
 
+func TestEmit_SharedSubagentsFalse_SkipsSkillEmission(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	off := false
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {SharedSubagents: &off},
+	}}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf(".agents/skills should be skipped when shared-subagents is false: %v", err)
+	}
+}
+
+func TestEmit_SharedSubagentsTrue_EmitsSkills(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	on := true
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {SharedSubagents: &on},
+	}}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("expected SKILL.md when shared-subagents=true: %v", err)
+	}
+}
+
 func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

@@ -55,20 +55,56 @@ func StringMap(v any) map[string]string {
 //
 // Adapter-owned keys overwrite top-level keys with the same name.
 func ResolveMeta(meta map[string]any, target string) map[string]any {
+	out, _ := ResolveMetaOrdered(meta, nil, target)
+	return out
+}
+
+// ResolveMetaOrdered is ResolveMeta with a source key-order hint.
+// Returns the resolved map and the ordered keys derived by walking
+// `keys` first (skipping `x-*` entries that get flattened), then
+// appending unhinted top-level keys in alphabetical order, then any
+// keys nested under `x-<target>` that did not already appear.
+//
+// Callers that loaded the spec from disk should pass `entry.MetaKeys`
+// so the emitted frontmatter preserves the author's intent. Callers
+// that built `meta` programmatically pass nil and get alphabetical
+// order (deterministic across runs).
+func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[string]any, []string) {
 	if len(meta) == 0 {
-		return meta
+		return meta, keys
 	}
 	out := make(map[string]any, len(meta))
-	for k, v := range meta {
+	outKeys := make([]string, 0, len(meta))
+	seen := make(map[string]bool, len(meta))
+	appendKV := func(k string, v any) {
+		if _, dup := out[k]; dup {
+			out[k] = v
+			return
+		}
+		out[k] = v
+		outKeys = append(outKeys, k)
+		seen[k] = true
+	}
+	walked := make(map[string]bool, len(meta))
+	for _, k := range keys {
+		walked[k] = true
 		if strings.HasPrefix(k, XPrefix) {
 			continue
 		}
-		out[k] = v
+		if v, ok := meta[k]; ok {
+			appendKV(k, v)
+		}
+	}
+	for k, v := range meta {
+		if walked[k] || strings.HasPrefix(k, XPrefix) || seen[k] {
+			continue
+		}
+		appendKV(k, v)
 	}
 	if nested, ok := meta[XPrefix+target].(map[string]any); ok {
 		for nk, nv := range nested {
-			out[nk] = nv
+			appendKV(nk, nv)
 		}
 	}
-	return out
+	return out, outKeys
 }

@@ -32,4 +32,3 @@ No native skill execution. Reference only; invoke by reading the source file.
 _A sample skill for golden snapshot tests._
 
 Source: `skills/sample-skill/SKILL.md`
-

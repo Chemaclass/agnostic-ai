@@ -19,7 +19,7 @@ func TestCapture_SuppressesIOAndRecordsContent(t *testing.T) {
 	if len(files) != 1 {
 		t.Fatalf("expected 1 captured file, got %d", len(files))
 	}
-	if files[0].Path != path || files[0].Content != "hello" {
+	if files[0].Path != path || files[0].Content != "hello\n" {
 		t.Errorf("captured = %+v", files[0])
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {

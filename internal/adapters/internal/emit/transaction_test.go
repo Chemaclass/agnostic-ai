@@ -64,8 +64,8 @@ func TestTransaction_CommitPreservesWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "new" {
-		t.Errorf("expected new content after commit, got %q", got)
+	if string(got) != "new\n" {
+		t.Errorf("expected new content after commit (normalized newline), got %q", got)
 	}
 }
 
@@ -124,8 +124,8 @@ func TestTransaction_CommitClearsLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "v1" {
-		t.Errorf("file should still hold v1 after stale rollback, got %q", got)
+	if string(got) != "v1\n" {
+		t.Errorf("file should still hold v1 after stale rollback (normalized newline), got %q", got)
 	}
 }
 

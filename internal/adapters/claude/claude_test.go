@@ -581,6 +581,76 @@ func TestEmit_OverlayWithoutHooks(t *testing.T) {
 	}
 }
 
+func TestEmit_OverlayKeyOrderSurvivesSync(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{
+  "hooks": {"PreToolUse": []},
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": {"plugin-a": true}
+}
+`
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	idxHooks := strings.Index(s, `"hooks"`)
+	idxStatus := strings.Index(s, `"statusLine"`)
+	idxPlugins := strings.Index(s, `"enabledPlugins"`)
+	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
+		t.Errorf("expected hooks < statusLine < enabledPlugins order, got:\n%s", s)
+	}
+	// Inner keys of statusLine (an overlay-owned block) must preserve
+	// source order: type before command.
+	statusBlock := extractBlock(s, `"statusLine":`)
+	idxType := strings.Index(statusBlock, `"type":`)
+	idxCmd := strings.Index(statusBlock, `"command":`)
+	if idxType < 0 || idxCmd <= idxType {
+		t.Errorf("statusLine nested keys re-ordered (want type before command), block:\n%s", statusBlock)
+	}
+}
+
+// extractBlock returns the substring of doc starting from the position
+// of key up to the matching closing brace at the same nesting level.
+// Best-effort; returns the doc tail when the brace search fails.
+func extractBlock(doc, key string) string {
+	i := strings.Index(doc, key)
+	if i < 0 {
+		return ""
+	}
+	tail := doc[i:]
+	depth := 0
+	for j, r := range tail {
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return tail[:j+1]
+			}
+		}
+	}
+	return tail
+}
+
 func TestEmit_NoOverlayNoHooks_SkipsSettings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

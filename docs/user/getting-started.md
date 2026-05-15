@@ -84,6 +84,35 @@ agnostic-ai sync                  # fan out to every target in the config
 writes spec files. The default `init` config enables every target, so
 one `sync` covers them all. To narrow output, edit the `targets:` list.
 
+#### Recommended adoption workflow
+
+On a real project the first sync after `import` rewrites every
+generated file (the agnostic-ai header lands at the top, key order is
+normalized, etc.). Reviewing those moves together with the imported
+specs is hard. Split the work into two commits so the diff is
+reviewable:
+
+```bash
+# 1. Capture existing CLI config into agnostic-ai specs
+agnostic-ai init
+agnostic-ai import claude          # or codex / cursor / cline / ...
+git add .agnostic-ai/ agnostic-ai.yaml AGNOSTIC_AI.md
+git commit -m "chore(agnostic-ai): import existing claude config"
+
+# 2. Regenerate every target's files from the imported specs
+agnostic-ai sync
+git add -A
+git commit -m "chore(agnostic-ai): regenerate per-target configs (no semantic change)"
+```
+
+Reviewers focus on the first commit (semantic content) and skim the
+second (cosmetic regeneration). When mixing imports from multiple
+CLIs, run each `import` + commit pair before the final `sync`.
+
+Tip: `agnostic-ai sync --backup` keeps a `.bak` next to each
+overwritten file so you can `revert` if the regeneration looks wrong.
+Clear them once you are happy with `agnostic-ai cleanup --backups`.
+
 ## First rule
 
 `rules/conventional-commits.md`:

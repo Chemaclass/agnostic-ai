@@ -77,6 +77,9 @@ outputs:
   codex:
     agents-dir: .agents/agents   # default. One TOML per agent.
     skills-dir: .agents/skills   # default. One folder per skill.
+    # shared-subagents: false    # opt-out: skip .agents/skills/ emission when claude also
+    #                            # owns them at .claude/skills/<name>/. Set to false in a
+    #                            # claude+codex setup to drop the duplicate skill tree.
     commands-dir: .codex/prompts # default. One .md per command (slash prompt).
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:

@@ -71,10 +71,10 @@ func skillMarkdown(s spec.Entry) string {
 	if desc == "" {
 		desc = s.Name
 	}
-	front := emit.Frontmatter(map[string]any{
+	front := emit.FrontmatterOrdered(map[string]any{
 		"name":        s.Name,
 		"description": desc,
-	})
+	}, []string{"name", "description"})
 	body := strings.TrimSpace(s.Body)
 	if body == "" {
 		return front + "\n"

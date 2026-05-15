@@ -20,6 +20,15 @@ func TestParseMarkdownBytes_RuleWithFrontmatter(t *testing.T) {
 	if e.Body != "rule body line one.\n" {
 		t.Errorf("body: %q", e.Body)
 	}
+	want := []string{"name", "description", "globs", "alwaysApply"}
+	if len(e.MetaKeys) != len(want) {
+		t.Fatalf("MetaKeys len: want %d got %d (%v)", len(want), len(e.MetaKeys), e.MetaKeys)
+	}
+	for i, k := range want {
+		if e.MetaKeys[i] != k {
+			t.Errorf("MetaKeys[%d]: want %q got %q (full %v)", i, k, e.MetaKeys[i], e.MetaKeys)
+		}
+	}
 }
 
 func TestParseMarkdownBytes_NoFrontmatter(t *testing.T) {
