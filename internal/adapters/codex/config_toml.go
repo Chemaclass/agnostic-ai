@@ -36,7 +36,7 @@ func hasCodexConfig(cfg *config.CodexConfig) bool {
 	}
 	return cfg.Sandbox != "" || cfg.ApprovalPolicy != "" || cfg.Model != "" ||
 		cfg.ModelReasoningEffort != "" || cfg.ModelReasoningSummary != "" ||
-		cfg.HistoryPersistence != ""
+		cfg.HistoryPersistence != "" || len(cfg.Notify) > 0 || len(cfg.Profiles) > 0
 }
 
 // writeCodexConfigFields emits the first-class `.codex/config.toml` scalars
@@ -60,12 +60,47 @@ func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig) {
 	if cfg.ModelReasoningSummary != "" {
 		emit.WriteTOMLString(sb, "model_reasoning_summary", cfg.ModelReasoningSummary)
 	}
+	if len(cfg.Notify) > 0 {
+		emit.WriteTOMLStringArray(sb, "notify", cfg.Notify)
+	}
 	if cfg.HistoryPersistence != "" {
 		sb.WriteString("\n[history]\n")
 		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
 	}
+	writeCodexProfiles(sb, cfg.Profiles)
 	if hasCodexConfig(cfg) {
 		sb.WriteString("\n")
+	}
+}
+
+// writeCodexProfiles emits each `[profiles.<name>]` table sorted by name for
+// deterministic output. Empty fields are skipped so the profile only carries
+// the overrides the user actually set.
+func writeCodexProfiles(sb *strings.Builder, profiles map[string]config.CodexProfile) {
+	if len(profiles) == 0 {
+		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(profiles)) {
+		p := profiles[name]
+		sb.WriteString("\n[profiles." + name + "]\n")
+		if p.Model != "" {
+			emit.WriteTOMLString(sb, "model", p.Model)
+		}
+		if p.Sandbox != "" {
+			emit.WriteTOMLString(sb, "sandbox", p.Sandbox)
+		}
+		if p.ApprovalPolicy != "" {
+			emit.WriteTOMLString(sb, "approval_policy", p.ApprovalPolicy)
+		}
+		if p.ModelReasoningEffort != "" {
+			emit.WriteTOMLString(sb, "model_reasoning_effort", p.ModelReasoningEffort)
+		}
+		if p.ModelReasoningSummary != "" {
+			emit.WriteTOMLString(sb, "model_reasoning_summary", p.ModelReasoningSummary)
+		}
+		if p.ModelProvider != "" {
+			emit.WriteTOMLString(sb, "model_provider", p.ModelProvider)
+		}
 	}
 }
 

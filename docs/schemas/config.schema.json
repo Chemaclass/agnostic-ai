@@ -100,6 +100,42 @@
         },
         "history-persistence": {
           "type": "string"
+        },
+        "notify": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CodexProfile"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CodexProfile": {
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "sandbox": {
+          "type": "string"
+        },
+        "approval-policy": {
+          "type": "string"
+        },
+        "model-reasoning-effort": {
+          "type": "string"
+        },
+        "model-reasoning-summary": {
+          "type": "string"
+        },
+        "model-provider": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
