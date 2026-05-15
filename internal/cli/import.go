@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -49,6 +50,9 @@ func newImportCmd() *cobra.Command {
   # Migrate from Cursor (.cursor/rules/*.mdc -> rules/*.md)
   agnostic-ai import cursor
 
+  # Import from every detected AI CLI in one shot
+  agnostic-ai import all
+
   # Preview what would be imported without writing
   agnostic-ai import claude --dry-run`,
 		Args: cobra.ExactArgs(1),
@@ -70,6 +74,8 @@ func newImportCmd() *cobra.Command {
 // runImport dispatches to the per-source importer.
 func runImport(root, source string, src config.Sources) error {
 	switch source {
+	case "all":
+		return importAll(root, src)
 	case "claude":
 		return importFromClaude(root, src)
 	case "codex":
@@ -95,5 +101,26 @@ func runImport(root, source string, src config.Sources) error {
 		return importFromRulesDir(root, source, srcDir, src)
 	}
 	return errs.Coded(errs.CodeImportFileUnknown,
-		"unknown source: %q (supported: %s)", source, importSources())
+		"unknown source: %q (supported: %s, all)", source, importSources())
+}
+
+// importAll detects every AI CLI present in root and imports from each.
+func importAll(root string, src config.Sources) error {
+	detected := detectExistingTargets(root)
+	if len(detected) == 0 {
+		fmt.Println("no known AI CLI configs detected")
+		return nil
+	}
+	var errs []string
+	for _, t := range detected {
+		fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
+		if err := runImport(root, t, src); err != nil {
+			fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
+			errs = append(errs, t)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("import failed for: %s", strings.Join(errs, ", "))
+	}
+	return nil
 }

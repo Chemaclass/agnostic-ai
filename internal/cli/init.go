@@ -2,8 +2,11 @@ package cli
 
 import (
 	"embed"
+	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // defaultBaseDir is the default parent directory for scaffolded source
@@ -19,7 +22,7 @@ var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
 	var demo, all, dryRun bool
-	var preset string
+	var preset, fromCLI string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
@@ -30,9 +33,16 @@ func newInitCmd() *cobra.Command {
 			"pipe a comma-separated list to skip the prompt, or pass --all / -a " +
 			"to enable every supported target without prompting. " +
 			"Pass --demo to seed each source folder with a minimal example spec. " +
-			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python).",
+			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
+			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
 		Example: `  # Default: scaffold under .agnostic-ai/, prompt for targets when TTY
   agnostic-ai init
+
+  # Scaffold and import existing Claude Code config in one step
+  agnostic-ai init --from claude
+
+  # Scaffold and import from every detected AI CLI
+  agnostic-ai init --from all
 
   # Skip the prompt, enable every supported target
   agnostic-ai init --all
@@ -76,7 +86,17 @@ func newInitCmd() *cobra.Command {
 					targets = picked
 				}
 			}
-			return scaffold(".", base, demo, preset, targets, dryRun)
+			if err := scaffold(".", base, demo, preset, targets, dryRun); err != nil {
+				return err
+			}
+			if fromCLI == "" || dryRun {
+				return nil
+			}
+			cfg, err := config.Load(".")
+			if err != nil {
+				return fmt.Errorf("load config after init: %w", err)
+			}
+			return runImport(".", fromCLI, cfg.Sources)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
@@ -87,6 +107,8 @@ func newInitCmd() *cobra.Command {
 		"Seed stack-flavored starter specs (go, ts-react, python). Composes with --demo and --all.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Print files that would be scaffolded without writing.")
+	cmd.Flags().StringVar(&fromCLI, "from", "",
+		"After scaffolding, import existing config from this CLI (e.g. claude, cursor, all).")
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})
