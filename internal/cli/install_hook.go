@@ -34,34 +34,50 @@ func newInstallHookCmd() *cobra.Command {
 
 func installPreCommitHook(root string, shared bool, out io.Writer) error {
 	if shared {
-		dir := filepath.Join(root, ".githooks")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("mkdir %s: %w", dir, err)
-		}
-		hookPath := filepath.Join(dir, "pre-commit")
-		if err := writeOrAppendHook(hookPath); err != nil {
-			return err
-		}
-		if err := exec.Command("git", "-C", root, "config", "core.hooksPath", ".githooks").Run(); err != nil {
-			return fmt.Errorf("git config core.hooksPath: %w", err)
-		}
-		_, _ = fmt.Fprintf(out, "✓ installed %s (core.hooksPath → .githooks)\n", hookPath)
-		return nil
+		return installSharedHook(root, out)
 	}
+	return installLocalHook(root, out)
+}
+
+// installSharedHook writes .githooks/pre-commit and sets core.hooksPath so the
+// hook lives in the repo and runs for every collaborator.
+func installSharedHook(root string, out io.Writer) error {
+	hookPath, err := writeHookAt(filepath.Join(root, ".githooks"))
+	if err != nil {
+		return err
+	}
+	if err := exec.Command("git", "-C", root, "config", "core.hooksPath", ".githooks").Run(); err != nil {
+		return fmt.Errorf("git config core.hooksPath: %w", err)
+	}
+	_, _ = fmt.Fprintf(out, "✓ installed %s (core.hooksPath → .githooks)\n", hookPath)
+	return nil
+}
+
+// installLocalHook writes .git/hooks/pre-commit, scoped to the local clone.
+func installLocalHook(root string, out io.Writer) error {
 	gitDir, err := findGitDir(root)
 	if err != nil {
 		return err
 	}
-	hooksDir := filepath.Join(gitDir, "hooks")
-	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", hooksDir, err)
-	}
-	hookPath := filepath.Join(hooksDir, "pre-commit")
-	if err := writeOrAppendHook(hookPath); err != nil {
+	hookPath, err := writeHookAt(filepath.Join(gitDir, "hooks"))
+	if err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(out, "✓ installed %s\n", hookPath)
 	return nil
+}
+
+// writeHookAt ensures dir exists and writes the pre-commit hook into it,
+// returning the hook's full path.
+func writeHookAt(dir string) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	hookPath := filepath.Join(dir, "pre-commit")
+	if err := writeOrAppendHook(hookPath); err != nil {
+		return "", err
+	}
+	return hookPath, nil
 }
 
 // writeOrAppendHook writes the agnostic-ai sync --check line to path.
