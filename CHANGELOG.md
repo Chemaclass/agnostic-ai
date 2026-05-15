@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `agnostic-ai install-hook`: pre-commit hook running `sync --check`, `--shared` for `.githooks/` (#169).
 - MCP spec: `description`, `disabled`, `roots` (#177).
 - Codex `outputs.codex.config`: first-class block with `notify` and `profiles.<name>` tables (#177).
+- Codex `[mcp_servers.<name>]`: emits `description`, `disabled`, `roots` for `.mcp.json` parity (#177).
 - Golden snapshot tests for every built-in adapter (#166).
 
 ## v0.13.0 - 2026-05-15
