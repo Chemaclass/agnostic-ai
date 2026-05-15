@@ -126,7 +126,8 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 }
 
 // writeMCPServerTable emits one `[mcp_servers.<name>]` table with the
-// transport-appropriate keys.
+// transport-appropriate keys plus the shared description/disabled/roots
+// fields that mirror the `.mcp.json` schema.
 func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	sb.WriteString("[mcp_servers." + m.Name + "]\n")
 
@@ -152,7 +153,43 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 		}
 		emit.WriteTOMLInlineStringTable(sb, "http_headers", emit.StringMap(m.Meta["headers"]))
 	}
+	writeMCPSharedFields(sb, m.Meta)
 	sb.WriteString("\n")
+}
+
+// writeMCPSharedFields emits description, disabled, and roots — the keys
+// .mcp.json supports across every transport — into the current
+// `[mcp_servers.<name>]` table. Roots renders as an array of inline tables.
+func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
+	if desc, _ := meta["description"].(string); desc != "" {
+		emit.WriteTOMLString(sb, "description", desc)
+	}
+	if disabled, _ := meta["disabled"].(bool); disabled {
+		sb.WriteString("disabled = true\n")
+	}
+	raw, _ := meta["roots"].([]any)
+	if len(raw) == 0 {
+		return
+	}
+	sb.WriteString("roots = [")
+	first := true
+	for _, r := range raw {
+		root, _ := r.(map[string]any)
+		uri, _ := root["uri"].(string)
+		if uri == "" {
+			continue
+		}
+		if !first {
+			sb.WriteString(", ")
+		}
+		first = false
+		sb.WriteString(`{ uri = "` + emit.EscapeTOMLBasic(uri) + `"`)
+		if name, _ := root["name"].(string); name != "" {
+			sb.WriteString(`, name = "` + emit.EscapeTOMLBasic(name) + `"`)
+		}
+		sb.WriteString(" }")
+	}
+	sb.WriteString("]\n")
 }
 
 func writeHookSectionsFromMap(sb *strings.Builder, byEvent map[string][]spec.Entry) {

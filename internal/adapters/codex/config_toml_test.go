@@ -166,6 +166,59 @@ func TestEmit_ConfigToml_NoFileWhenNoMCPOrHooks(t *testing.T) {
 	}
 }
 
+func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":     "npx",
+				"description": "Filesystem MCP",
+				"disabled":    true,
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`description = "Filesystem MCP"`,
+		"disabled = true",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_MCP_Roots(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"roots": []any{
+					map[string]any{"uri": "file:///workspace", "name": "workspace"},
+					map[string]any{"uri": "file:///tmp"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `roots = [{ uri = "file:///workspace", name = "workspace" }, { uri = "file:///tmp" }]`) {
+		t.Errorf("missing roots inline array in:\n%s", got)
+	}
+}
+
 // MCP env values with backslashes / quotes survive the TOML round-trip.
 func TestEmit_MCP_EnvEscapesQuotesAndBackslashes(t *testing.T) {
 	dir := testutil.TempCwd(t)
