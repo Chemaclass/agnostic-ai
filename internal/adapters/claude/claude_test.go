@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -769,6 +770,70 @@ func TestEmit_SettingsJSONIsByteStableAcrossSyncs(t *testing.T) {
 	}
 	if string(first) != string(second) {
 		t.Errorf("settings.json drifts on second sync (doctor/sync loop).\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+}
+
+// TestEmit_CapturePreservesOverlay regresses #215. The capture path
+// (used by `sync --check` and `doctor`) must read the overlay just
+// like a real sync so the captured bytes match the on-disk file.
+// Previously `loadSettingsOverlay` short-circuited on emit.IsCapturing()
+// and dropped overlay-supplied keys (statusLine, enabledPlugins), causing
+// `doctor --fix` to silently delete user data and `doctor` to report
+// false drift right after a clean sync.
+func TestEmit_CapturePreservesOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{
+  "enabledPlugins": {"plugin-a": true},
+  "statusLine": {"type": "command", "command": "echo status"}
+}
+`
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+
+	// Real sync first, capture disk bytes.
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("sync emit: %v", err)
+	}
+	disk, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture-mode emit, compare against disk.
+	emit.StartCapture()
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		emit.StopCapture()
+		t.Fatalf("capture emit: %v", err)
+	}
+	files := emit.StopCapture()
+	var captured string
+	for _, f := range files {
+		if filepath.Base(f.Path) == "settings.json" {
+			captured = f.Content
+			break
+		}
+	}
+	if captured == "" {
+		t.Fatalf("capture produced no settings.json; files=%+v", files)
+	}
+	if string(disk) != captured {
+		t.Errorf("capture diverges from disk\nDISK:\n%s\nCAPTURE:\n%s", disk, captured)
+	}
+	for _, key := range []string{`"enabledPlugins"`, `"statusLine"`, `"hooks"`} {
+		if !strings.Contains(captured, key) {
+			t.Errorf("captured output missing %s:\n%s", key, captured)
+		}
 	}
 }
 
