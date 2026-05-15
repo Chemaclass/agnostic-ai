@@ -97,7 +97,7 @@ AGENTS.md                                    # canonical entry-point pointer bod
 .codex/config.toml                           # when hook and/or MCP entries exist
 ```
 
-Config keys: `outputs.codex.agents-dir` (default `.agents/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.shared-subagents` (default `true`; set to `false` to skip the `.agents/skills/<name>/` tree when claude is also enabled and owns the skills at `.claude/skills/`), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks), `outputs.codex.rules-file` (unset; setting it writes a legacy concatenated rules document at that path and `sync` skips the pointer-body write for `codex`).
+Config keys: `outputs.codex.agents-dir` (default `.agents/agents`), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.shared-subagents` (default `false` when `claude` is also in `targets` to avoid duplicating `.claude/skills/<name>/`, `true` when codex is alone; set explicitly to override), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks), `outputs.codex.rules-file` (unset; setting it writes a legacy concatenated rules document at that path and `sync` skips the pointer-body write for `codex`).
 
 The project-root `AGENTS.md` is written by `sync` with the canonical pointer body. Codex still loads rules from the spec source directory referenced in that pointer; per-directory `AGENTS.md` scoping (e.g. `src/AGENTS.md` from `globs: src/**`) is no longer emitted by default. Use `outputs.codex.rules-file: AGENTS.md` if you need the legacy concatenated single-file layout back.
 

@@ -190,6 +190,71 @@ func TestEmit_SharedSubagentsTrue_EmitsSkills(t *testing.T) {
 	}
 }
 
+// TestEmit_SharedSubagents_DefaultOffWithClaude regresses #216.
+// When both claude and codex are configured, .agents/skills/ duplicates
+// the byte-identical .claude/skills/ tree and codex does not natively
+// read it. The conditional default skips emission so a fresh project
+// gets one skill tree, not two.
+func TestEmit_SharedSubagents_DefaultOffWithClaude(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf(".agents/skills should be skipped by default when claude is also enabled: %v", err)
+	}
+}
+
+// TestEmit_SharedSubagents_DefaultOnAlone verifies the conditional
+// default still emits .agents/skills/ when codex is the only target,
+// so a codex-only project gets the community-shared layout.
+func TestEmit_SharedSubagents_DefaultOnAlone(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Targets: []string{"codex"}}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("expected SKILL.md when codex is the only target: %v", err)
+	}
+}
+
+// TestEmit_SharedSubagents_ExplicitTrueOverridesDefaultOff verifies that
+// a user explicitly setting `outputs.codex.shared-subagents: true` wins
+// over the conditional default even when claude is also enabled.
+func TestEmit_SharedSubagents_ExplicitTrueOverridesDefaultOff(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	on := true
+	cfg := &config.Config{
+		Targets: []string{"claude", "codex"},
+		Outputs: map[string]config.Output{
+			"codex": {SharedSubagents: &on},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
+			Meta: map[string]any{"description": "Validate YAML."}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("explicit shared-subagents=true should override default-off: %v", err)
+	}
+}
+
 func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
