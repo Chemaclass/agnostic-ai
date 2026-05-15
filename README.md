@@ -110,13 +110,14 @@ Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. H
 Homebrew:
 
 ```bash
-brew install Chemaclass/tap/agnostic-ai
+brew install Chemaclass/tap/agnostic-ai   # first install
+brew update && brew upgrade agnostic-ai   # update to latest
 ```
 
 Go:
 
 ```bash
-go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
+go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest   # install or update
 ```
 
 Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest). Curl one-liner: [getting started](docs/user/getting-started.md).
@@ -124,10 +125,18 @@ Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclas
 ## Quickstart
 
 ```bash
+agnostic-ai init --demo   # scaffold specs with one example per folder
+agnostic-ai sync          # emit native config for every target
+```
+
+That's it. Edit specs under `.agnostic-ai/`, run `sync` again.
+
+<details>
+<summary><b>More commands &amp; options</b></summary>
+
+```bash
 agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/ — prompts for targets on a TTY
 agnostic-ai init --all            # same, but skip the prompt and enable every supported target
-agnostic-ai init --demo           # same, plus one example spec per folder to learn from
-agnostic-ai sync                  # emit native config for every target
 agnostic-ai sync --dry-run        # preview without writing
 agnostic-ai sync --watch          # re-emit on spec changes (Ctrl+C to exit)
 agnostic-ai sync --auto-sync=yes  # write a rule telling agents to run sync on spec changes
@@ -142,6 +151,8 @@ agnostic-ai import cursor         # also: codex, claude, cline, windsurf, contin
 ```
 
 `import claude` prefers `.claude/rules/*.md` (each file → one rule, byte-identical) and falls back to slicing `CLAUDE.md` on `## headings` only when that directory is absent. It also mirrors `CLAUDE.md` to `.agnostic-ai/AGNOSTIC_AI.md` so you keep a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
+
+</details>
 
 ## CI gate
 
