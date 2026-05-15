@@ -248,6 +248,72 @@ func TestEmit_CodexConfig_ModelReasoningAndHistory(t *testing.T) {
 	}
 }
 
+func TestEmit_CodexConfig_Notify(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {
+				Config: &config.CodexConfig{
+					Notify: []string{"python3", "/etc/codex/notify.py"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `notify = ["python3", "/etc/codex/notify.py"]`) {
+		t.Errorf("missing notify array in:\n%s", got)
+	}
+}
+
+func TestEmit_CodexConfig_Profiles(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {
+				Config: &config.CodexConfig{
+					Profiles: map[string]config.CodexProfile{
+						"work": {
+							Model:          "o4-mini",
+							Sandbox:        "workspace-write",
+							ApprovalPolicy: "on-failure",
+						},
+						"oss": {
+							Model:         "gpt-oss-20b",
+							ModelProvider: "ollama",
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		"[profiles.oss]",
+		`model = "gpt-oss-20b"`,
+		`model_provider = "ollama"`,
+		"[profiles.work]",
+		`model = "o4-mini"`,
+		`sandbox = "workspace-write"`,
+		`approval_policy = "on-failure"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	// Sort order: oss before work alphabetically.
+	if strings.Index(got, "[profiles.oss]") > strings.Index(got, "[profiles.work]") {
+		t.Error("expected profiles to emit in sorted order (oss before work)")
+	}
+}
+
 func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

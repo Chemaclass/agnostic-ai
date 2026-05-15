@@ -351,6 +351,15 @@ outputs:
       model-reasoning-effort: high
       model-reasoning-summary: auto
       history-persistence: project
+      notify: ["python3", "/etc/codex/notify.py"]
+      profiles:
+        work:
+          model: o4-mini
+          sandbox: workspace-write
+          approval-policy: on-failure
+        oss:
+          model: gpt-oss-20b
+          model-provider: ollama
 ```
 
 | Field | Type | Notes |
@@ -361,6 +370,8 @@ outputs:
 | `model-reasoning-effort` | string | Reasoning effort level for o-series models: `low`, `medium`, `high`. |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
 | `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
+| `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
+| `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
 
 ## Path semantics
 

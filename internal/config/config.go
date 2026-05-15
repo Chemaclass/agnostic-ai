@@ -143,12 +143,27 @@ type ClaudePermissions struct {
 // sync. Keys not listed here (e.g. user-specific overrides) belong in the
 // user-global `~/.codex/config.toml` which Codex merges last.
 type CodexConfig struct {
+	Sandbox               string                  `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
+	ApprovalPolicy        string                  `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`
+	Model                 string                  `yaml:"model,omitempty"                   json:"model,omitempty"`
+	ModelReasoningEffort  string                  `yaml:"model-reasoning-effort,omitempty"  json:"model-reasoning-effort,omitempty"`
+	ModelReasoningSummary string                  `yaml:"model-reasoning-summary,omitempty" json:"model-reasoning-summary,omitempty"`
+	HistoryPersistence    string                  `yaml:"history-persistence,omitempty"     json:"history-persistence,omitempty"`
+	Notify                []string                `yaml:"notify,omitempty"                  json:"notify,omitempty"`
+	Profiles              map[string]CodexProfile `yaml:"profiles,omitempty"                json:"profiles,omitempty"`
+}
+
+// CodexProfile mirrors a `[profiles.<name>]` table in `.codex/config.toml`.
+// Codex resolves a profile by name (`codex --profile work`) and overlays its
+// fields on top of the top-level defaults. Empty fields fall through to the
+// top-level config.
+type CodexProfile struct {
+	Model                 string `yaml:"model,omitempty"                   json:"model,omitempty"`
 	Sandbox               string `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
 	ApprovalPolicy        string `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`
-	Model                 string `yaml:"model,omitempty"                   json:"model,omitempty"`
 	ModelReasoningEffort  string `yaml:"model-reasoning-effort,omitempty"  json:"model-reasoning-effort,omitempty"`
 	ModelReasoningSummary string `yaml:"model-reasoning-summary,omitempty" json:"model-reasoning-summary,omitempty"`
-	HistoryPersistence    string `yaml:"history-persistence,omitempty"     json:"history-persistence,omitempty"`
+	ModelProvider         string `yaml:"model-provider,omitempty"          json:"model-provider,omitempty"`
 }
 
 // Load reads the project config from root. It prefers
