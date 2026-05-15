@@ -67,7 +67,7 @@ func TestOrderedJSON_PreservesTopLevelKeyOrder(t *testing.T) {
 	// statusLine inner keys must NOT be alpha-sorted (type before command).
 	idxType := strings.Index(s, `"type"`)
 	idxCmd := strings.Index(s, `"command"`)
-	if !(idxType >= 0 && idxCmd > idxType) {
+	if idxType < 0 || idxCmd <= idxType {
 		t.Errorf("nested key order lost (type should precede command):\n%s", s)
 	}
 }

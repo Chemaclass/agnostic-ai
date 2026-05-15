@@ -295,11 +295,7 @@ func buildHookSettings(hooks []spec.Entry) map[string]any {
 	}
 
 	byEvent := map[string][]map[string]any{}
-	eventOrder := []string{}
 	for _, k := range keyOrder {
-		if _, seen := byEvent[k.event]; !seen {
-			eventOrder = append(eventOrder, k.event)
-		}
 		byEvent[k.event] = append(byEvent[k.event], map[string]any{
 			"matcher": k.matcher,
 			"hooks":   byKey[k],

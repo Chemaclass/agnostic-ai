@@ -93,9 +93,9 @@ func TestFrontmatter_WithFields(t *testing.T) {
 
 func TestFrontmatterOrdered_PreservesSourceKeyOrder(t *testing.T) {
 	meta := map[string]any{
-		"name":         "changelog-keeper",
-		"model":        "haiku",
-		"description":  "Keeps changelog tidy",
+		"name":          "changelog-keeper",
+		"model":         "haiku",
+		"description":   "Keeps changelog tidy",
 		"allowed_tools": []string{"Read", "Edit"},
 	}
 	keys := []string{"name", "model", "description", "allowed_tools"}
@@ -107,7 +107,7 @@ func TestFrontmatterOrdered_PreservesSourceKeyOrder(t *testing.T) {
 	if idxName < 0 || idxDesc < 0 || idxTools < 0 {
 		t.Fatalf("missing keys in output: %q", got)
 	}
-	if !(idxName < idxDesc && idxDesc < idxTools) {
+	if idxName >= idxDesc || idxDesc >= idxTools {
 		t.Errorf("expected name<description<allowed_tools order, got:\n%s", got)
 	}
 }
@@ -145,7 +145,7 @@ func TestFrontmatterOrdered_UnhintedKeysAppendAlphabetically(t *testing.T) {
 	idxName := strings.Index(got, "name:")
 	idxAlpha := strings.Index(got, "alpha:")
 	idxZeta := strings.Index(got, "zeta:")
-	if !(idxName < idxAlpha && idxAlpha < idxZeta) {
+	if idxName >= idxAlpha || idxAlpha >= idxZeta {
 		t.Errorf("expected hinted-then-alpha order, got:\n%s", got)
 	}
 }

@@ -614,7 +614,7 @@ func TestEmit_OverlayKeyOrderSurvivesSync(t *testing.T) {
 	idxHooks := strings.Index(s, `"hooks"`)
 	idxStatus := strings.Index(s, `"statusLine"`)
 	idxPlugins := strings.Index(s, `"enabledPlugins"`)
-	if !(idxHooks >= 0 && idxStatus > idxHooks && idxPlugins > idxStatus) {
+	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
 		t.Errorf("expected hooks < statusLine < enabledPlugins order, got:\n%s", s)
 	}
 	// Inner keys of statusLine (an overlay-owned block) must preserve
@@ -622,7 +622,7 @@ func TestEmit_OverlayKeyOrderSurvivesSync(t *testing.T) {
 	statusBlock := extractBlock(s, `"statusLine":`)
 	idxType := strings.Index(statusBlock, `"type":`)
 	idxCmd := strings.Index(statusBlock, `"command":`)
-	if !(idxType >= 0 && idxCmd > idxType) {
+	if idxType < 0 || idxCmd <= idxType {
 		t.Errorf("statusLine nested keys re-ordered (want type before command), block:\n%s", statusBlock)
 	}
 }
