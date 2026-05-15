@@ -113,6 +113,28 @@ Tip: `agnostic-ai sync --backup` keeps a `.bak` next to each
 overwritten file so you can `revert` if the regeneration looks wrong.
 Clear them once you are happy with `agnostic-ai cleanup --backups`.
 
+#### What `import` does NOT capture
+
+`import <cli>` translates rules, agents, skills, hooks, commands, and a
+target-specific `settings.json`-style overlay into agnostic specs. Anything
+else under the target's directory (`.claude/statusline.sh`, helper scripts
+referenced from `settings.json`, ad-hoc config files) is **out of scope** —
+keep those files in git alongside `.agnostic-ai/` so they survive a fresh
+checkout. Helper files inside a skill directory (e.g. `.claude/skills/
+yaml-validator/check.mjs`) are the exception: they round-trip via the
+nested skill layout described in [Skills](spec-format.md#skills).
+
+#### `.agnostic-ai/.sync-state`
+
+After every `sync` agnostic-ai writes `.agnostic-ai/.sync-state` with a
+JSON document recording the last sync timestamp and number of files
+changed. It is consumed by `agnostic-ai status` to surface "last sync at
+…" and by `doctor` to tell the never-synced state apart from
+post-sync-edits. The file is auto-added to the managed `.gitignore`
+block, so do not commit it. Deleting it is safe — the next `sync`
+regenerates it; the only effect is `status` reports "never synced" until
+that next run.
+
 ## First rule
 
 `rules/conventional-commits.md`:

@@ -357,6 +357,7 @@ agnostic-ai doctor --fix --backup   # save .bak of hand-edits before overwrite
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--fix` | Write missing/stale files. In-sync files untouched. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
+| `--check-globs` | Flag rules whose `globs:` pattern matches no files in the working tree. Off by default (some monorepos ship globs for paths added later). |
 | `--json` | Output drift report as JSON. Same schema as `sync --check --json`. |
 
 Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to

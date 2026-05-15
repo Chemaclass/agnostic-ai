@@ -4,10 +4,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Changed
+- Capability warnings (`on-unsupported: warn` path) collapse to one line per (target, kind) tuple per process, carry the number of specs that would have been skipped, and end with a one-line suppression hint pointing at `on-unsupported: silent`. `sync --watch` resets the dedup state between runs. Closes #204.
+- `agnostic-ai import --dry-run` no longer dumps every file body; emits `would write <path>` per file plus a count summary. Matches `sync --plan`'s reviewable shape. Closes #205.
+- `doctor` drift output splits per-target results into "missing" (next sync creates) and "stale — edited locally since last sync" (next sync overwrites) buckets so users can tell apart "needs sync" from "your edits will vanish on sync". Closes #207.
+
+### Fixed
+- `doctor` no longer false-positives drift on `.claude/settings.json` immediately after `sync`. The OrderedJSON round-trip from #192 made the read→merge→write cycle byte-stable; regression tests cover overlay-only, hooks-only, and overlay+hooks shapes. Closes #200.
+
 ### Added
+- `agnostic-ai doctor --check-globs`: opt-in check that flags rules whose `globs:` pattern matches no path in the working tree. Skips `.git`, `.agnostic-ai`, `node_modules`, `vendor`. Closes #208.
 - `outputs.codex.shared-subagents` (bool, default `true`). Set to `false` in claude+codex setups to suppress the duplicate `.agents/skills/<name>/SKILL.md` tree — claude already owns those files at `.claude/skills/<name>/`. Closes #194.
 - `agnostic-ai cleanup --backups`: walks the project root and removes every `*.bak` file `sync --backup` left behind. `.git/` and `.agnostic-ai/` are skipped. Supports `--dry-run`. Closes #197.
 - docs/user/getting-started.md: recommended adoption workflow (split `import` and `sync` into two reviewable commits). Closes #196.
+
+### Docs
+- README: rewrite "byte-identical" round-trip claim to describe the actual content-preserving guarantee (provenance marker + canonical formatting). Closes #201.
+- README: target table now distinguishes native paths (loaded by the upstream tool out of the box) from convention paths (loaded via wiring like `@.claude/rules/<name>.md` references or VS Code settings). Closes #202.
+- AGNOSTIC_AI.md template gains a "Target-specific overlays" section so users discover `.agnostic-ai/overlays/<target>.settings.json`. Closes #203.
+- docs/user/spec-format.md hooks section shows how `event` / `matcher` / `command` render into Claude, Codex, and Gemini native shapes. Closes #206.
+- docs/user/getting-started.md documents the import scope boundary (helper scripts referenced from settings.json are not captured — commit them in git instead). Closes #209.
+- docs/user/getting-started.md adds a `.agnostic-ai/.sync-state` reference (what it stores, who reads it, whether to commit it). Closes #210.
+- docs/user/spec-format.md skills section announces nested skill helper files (round-trip verbatim including executable bits). Closes #211.
 
 ### Changed
 - `spec.Entry` now carries `MetaKeys`, the ordered list of frontmatter keys parsed from source. External adapters receive the same field as `meta_keys` in the JSON envelope (additive; no protocol bump).

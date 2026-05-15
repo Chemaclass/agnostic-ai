@@ -68,13 +68,17 @@ func newImportCmd() *cobra.Command {
 			}
 			importDryRun = dryRun
 			defer func() { importDryRun = false }()
+			if dryRun {
+				resetImportDryRunPaths()
+				defer reportImportDryRun()
+			}
 			if len(args) == 1 {
 				return runImport(".", args[0], cfg.Sources)
 			}
 			return runImportMany(".", args, cfg.Sources)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print specs that would be imported without writing.")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
 	return cmd
 }
 

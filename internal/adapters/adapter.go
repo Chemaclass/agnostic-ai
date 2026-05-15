@@ -54,6 +54,11 @@ func SetBackup(b bool) { emit.SetBackup(b) }
 // this to suppress warnings under --quiet.
 func SetWarner(w io.Writer) { emit.Warner = w }
 
+// ResetCapabilityWarnings clears the per-process dedup state for
+// `on-unsupported: warn`. `sync --watch` calls this between runs so a
+// second run after a fix re-prints any still-failing warnings.
+func ResetCapabilityWarnings() { emit.ResetCapabilityWarnings() }
+
 // StartRecording begins collecting written paths alongside real writes.
 // Unlike capture mode it does not suppress IO. Used by `sync` to learn
 // every emitted path in a single pass for follow-up actions like

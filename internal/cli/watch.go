@@ -10,6 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -99,6 +100,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			fmt.Fprintf(os.Stderr, "! watch: %v\n", err)
 		case <-fire:
 			summaryf("→ change detected, re-syncing\n")
+			adapters.ResetCapabilityWarnings()
 			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
