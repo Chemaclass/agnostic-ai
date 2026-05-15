@@ -109,6 +109,9 @@
         },
         "autoSync": {
           "type": "boolean"
+        },
+        "sync": {
+          "$ref": "#/$defs/SyncConfig"
         }
       },
       "additionalProperties": false,
@@ -187,6 +190,9 @@
         },
         "settings": {
           "$ref": "#/$defs/ClaudeSettings"
+        },
+        "collision-policy": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -210,6 +216,15 @@
           "type": "string"
         },
         "commands": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncConfig": {
+      "properties": {
+        "collision-policy": {
           "type": "string"
         }
       },

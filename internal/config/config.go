@@ -26,6 +26,31 @@ type Config struct {
 	OnUnsupported string            `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
 	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	AutoSync      *bool             `yaml:"autoSync,omitempty"       json:"autoSync,omitempty"`
+	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
+}
+
+// SyncConfig holds declarative knobs for the sync command. Settings here
+// are applied globally; per-target overrides live in outputs.<target>.
+type SyncConfig struct {
+	// CollisionPolicy controls what happens when two enabled targets would
+	// emit to the same output path. Accepted values:
+	//   prompt      (default) error with a resolution hint; refuses non-interactive stdin
+	//   prefer-spec skip the collision pre-flight; let the last adapter win
+	//   fail        hard error with no resolution hint
+	CollisionPolicy string `yaml:"collision-policy,omitempty" json:"collision-policy,omitempty"`
+}
+
+// EffectiveCollisionPolicy returns the resolved collision policy for the
+// given target. The per-target outputs.<target>.collision-policy wins over
+// sync.collision-policy when set; empty values fall back to "prompt".
+func (c *Config) EffectiveCollisionPolicy(target string) string {
+	if o, ok := c.Outputs[target]; ok && o.CollisionPolicy != "" {
+		return o.CollisionPolicy
+	}
+	if c.Sync.CollisionPolicy != "" {
+		return c.Sync.CollisionPolicy
+	}
+	return "prompt"
 }
 
 // Gitignore controls automatic management of .gitignore entries for the
@@ -67,6 +92,7 @@ type Output struct {
 	MCPDir               string          `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool            `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 	Settings             *ClaudeSettings `yaml:"settings,omitempty"                 json:"settings,omitempty"`
+	CollisionPolicy      string          `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
 }
 
 // ClaudeSettings is the first-class representation of `.claude/settings.json`

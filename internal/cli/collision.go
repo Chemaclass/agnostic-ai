@@ -2,8 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+
+	"github.com/charmbracelet/x/term"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -11,14 +14,26 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// detectCollisions returns an error when two or more targets emit to the
-// same output path. AGENTS.md is a community-shared file consumed by
-// Codex, Amp, Warp, OpenCode and Zed; enabling more than one adapter
-// that owns the same default path causes silent last-writer-wins, and
-// `sync --check` then reports perpetual drift no matter the write order.
-// Force the user to pick: drop a target, or override the colliding path
-// via outputs.<target>.file in agnostic-ai.yaml.
+// detectCollisions checks whether two or more targets emit to the same
+// output path and applies cfg.Sync.CollisionPolicy to decide what to do:
+//
+//   - prompt (default): error with a resolution hint. On non-interactive
+//     stdin an extra CI hint is appended.
+//   - prefer-spec: skip the collision check; let the last adapter win.
+//   - fail: hard error with no resolution hint.
+//
+// AGENTS.md is the canonical example: Codex, Amp, Warp, OpenCode, and Zed
+// all default to that file. Enabling more than one causes silent
+// last-writer-wins and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error {
+	policy := cfg.Sync.CollisionPolicy
+	if policy == "" {
+		policy = "prompt"
+	}
+	if policy == "prefer-spec" {
+		return nil
+	}
+
 	owners := map[string][]string{}
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
@@ -46,9 +61,19 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		return nil
 	}
 	sort.Strings(lines)
-	return errs.Coded(errs.CodeOutputCollision,
-		"output collision: targets emit to the same path\n%s\n"+
-			"resolve by dropping one from `targets:` in agnostic-ai.yaml, "+
-			"or override the collider via `outputs.<target>.file`",
-		strings.Join(lines, "\n"))
+
+	if policy == "fail" {
+		return errs.Coded(errs.CodeOutputCollision,
+			"output collision: targets emit to the same path\n%s",
+			strings.Join(lines, "\n"))
+	}
+
+	// prompt: error with resolution hint
+	msg := "output collision: targets emit to the same path\n%s\n" +
+		"resolve by dropping one from `targets:` in agnostic-ai.yaml, " +
+		"or override the collider via `outputs.<target>.file`"
+	if !term.IsTerminal(os.Stdin.Fd()) {
+		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
+	}
+	return errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
 }

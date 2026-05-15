@@ -147,6 +147,7 @@ autoSync: false
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
 | `autoSync` | bool | unset | Whether `sync` keeps the `auto-sync` rule spec. Set by the first-run prompt or `sync --auto-sync=yes\|no`. Unset means the prompt has not yet fired. |
+| `sync` | map | see below | Sync-level knobs. See [`sync`](#sync). |
 
 ## `sources`
 
@@ -225,6 +226,28 @@ For scripted use (CI, integration tests), pipe a comma-separated line of target 
     echo "claude,codex" | agnostic-ai init
 
 Unknown names produce a clear error and leave the working tree untouched. To skip the picker entirely and enable every supported target, pass `--all` (`-a`). A non-TTY stdin with no piped data falls back to the full target list silently — CI invocations keep working without flags.
+
+## `sync`
+
+Sync-level knobs applied globally. Per-target overrides live in `outputs.<target>`.
+
+### `sync.collision-policy`
+
+Controls what happens when two enabled targets would emit to the same output path.
+
+| Value | Behavior |
+|-------|----------|
+| `prompt` | Error with a resolution hint. Default. On non-interactive stdin (CI), appends a hint to set a non-interactive policy. |
+| `prefer-spec` | Skip the collision pre-flight. Let the last adapter win. Use this in CI when you intentionally enable overlapping targets and accept last-writer-wins. |
+| `fail` | Hard error with no resolution hint. |
+
+Per-target override: `outputs.<target>.collision-policy`.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  collision-policy: prefer-spec   # CI-safe: skip collision check
+```
 
 ## `on-unsupported`
 
@@ -333,9 +356,10 @@ write for that target so the two do not collide.
 
 Real collisions where two adapters write different content to the
 same path (e.g. both `outputs.codex.rules-file: AGENTS.md` and
-`outputs.amp.rules-file: AGENTS.md`) still fail fast with an
-`output collision` error. Resolve by dropping one of the colliding
-targets from `targets:` or pointing `rules-file` at distinct paths.
+`outputs.amp.rules-file: AGENTS.md`) fail fast with an
+`output collision` error by default. Set `sync.collision-policy: prefer-spec`
+to skip the check and let the last adapter win, which is useful in CI.
+See [`sync.collision-policy`](#synccollision-policy).
 
 ## Precedence
 

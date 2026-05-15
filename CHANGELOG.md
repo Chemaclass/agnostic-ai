@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `init --dry-run` prints the files and directories that would be scaffolded without touching disk. (#158)
 - `import --dry-run` prints the spec files that would be created without writing them. (#158)
 - `agnostic-ai lint` command with semantic checks beyond schema validation: LINT001 (empty spec), LINT002 (hook collision), LINT003 (duplicate spec name), LINT004 (dead spec — kind not supported by any enabled target). `--strict` treats warnings as errors for CI gating. (#171)
+- `sync.collision-policy` config key: `prompt` (default, current behavior), `prefer-spec` (skip collision check, CI-safe), `fail` (hard error). Per-target override via `outputs.<target>.collision-policy`. Non-interactive stdin appends a CI hint when policy is `prompt`. (#167)
 
 ## v0.13.0 - 2026-05-15
 

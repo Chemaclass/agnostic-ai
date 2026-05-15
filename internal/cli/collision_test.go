@@ -71,3 +71,62 @@ func TestSync_NoCollisionForDisjointTargets(t *testing.T) {
 		t.Errorf("claude+codex should not collide: %v", err)
 	}
 }
+
+func TestSync_CollisionPolicyPreferSpec_SkipsCheck(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	if err := os.WriteFile(cfgPath, []byte(`version: 1
+gitignore:
+  enabled: false
+sync:
+  collision-policy: prefer-spec
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "codex,amp"})
+	// prefer-spec skips collision pre-flight; sync should succeed.
+	if err := root.Execute(); err != nil {
+		t.Errorf("prefer-spec should skip collision check, got: %v", err)
+	}
+}
+
+func TestSync_CollisionPolicyFail_HardError(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	if err := os.WriteFile(cfgPath, []byte(`version: 1
+gitignore:
+  enabled: false
+sync:
+  collision-policy: fail
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "codex,amp"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected collision error with policy=fail")
+	}
+	if !strings.Contains(err.Error(), "output collision") {
+		t.Errorf("expected 'output collision' in error, got: %v", err)
+	}
+}
