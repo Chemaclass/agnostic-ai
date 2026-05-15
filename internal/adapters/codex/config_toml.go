@@ -36,7 +36,8 @@ func hasCodexConfig(cfg *config.CodexConfig) bool {
 	}
 	return cfg.Sandbox != "" || cfg.ApprovalPolicy != "" || cfg.Model != "" ||
 		cfg.ModelReasoningEffort != "" || cfg.ModelReasoningSummary != "" ||
-		cfg.HistoryPersistence != "" || len(cfg.Notify) > 0 || len(cfg.Profiles) > 0
+		cfg.HistoryPersistence != "" || len(cfg.Notify) > 0 ||
+		len(cfg.Profiles) > 0 || len(cfg.ModelProviders) > 0
 }
 
 // writeCodexConfigFields emits the first-class `.codex/config.toml` scalars
@@ -67,9 +68,38 @@ func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig) {
 		sb.WriteString("\n[history]\n")
 		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
 	}
+	writeCodexModelProviders(sb, cfg.ModelProviders)
 	writeCodexProfiles(sb, cfg.Profiles)
 	if hasCodexConfig(cfg) {
 		sb.WriteString("\n")
+	}
+}
+
+// writeCodexModelProviders emits each `[model_providers.<id>]` table sorted
+// by id for deterministic output. Empty fields are skipped so each provider
+// only carries the keys the user actually set.
+func writeCodexModelProviders(sb *strings.Builder, providers map[string]config.CodexModelProvider) {
+	if len(providers) == 0 {
+		return
+	}
+	for _, id := range slices.Sorted(maps.Keys(providers)) {
+		p := providers[id]
+		sb.WriteString("\n[model_providers." + id + "]\n")
+		if p.Name != "" {
+			emit.WriteTOMLString(sb, "name", p.Name)
+		}
+		if p.BaseURL != "" {
+			emit.WriteTOMLString(sb, "base_url", p.BaseURL)
+		}
+		if p.WireAPI != "" {
+			emit.WriteTOMLString(sb, "wire_api", p.WireAPI)
+		}
+		if p.APIKeyEnv != "" {
+			emit.WriteTOMLString(sb, "api_key_env", p.APIKeyEnv)
+		}
+		if p.EnvKey != "" {
+			emit.WriteTOMLString(sb, "env_key", p.EnvKey)
+		}
 	}
 }
 

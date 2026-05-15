@@ -367,6 +367,53 @@ func TestEmit_CodexConfig_Profiles(t *testing.T) {
 	}
 }
 
+func TestEmit_CodexConfig_ModelProviders(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {
+				Config: &config.CodexConfig{
+					ModelProviders: map[string]config.CodexModelProvider{
+						"ollama": {
+							Name:    "Ollama",
+							BaseURL: "http://localhost:11434/v1",
+							WireAPI: "responses",
+						},
+						"azure": {
+							Name:      "Azure",
+							BaseURL:   "https://my.openai.azure.com/openai",
+							WireAPI:   "responses",
+							APIKeyEnv: "AZURE_OPENAI_API_KEY",
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		"[model_providers.azure]",
+		`name = "Azure"`,
+		`base_url = "https://my.openai.azure.com/openai"`,
+		`api_key_env = "AZURE_OPENAI_API_KEY"`,
+		"[model_providers.ollama]",
+		`name = "Ollama"`,
+		`base_url = "http://localhost:11434/v1"`,
+		`wire_api = "responses"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Index(got, "[model_providers.azure]") > strings.Index(got, "[model_providers.ollama]") {
+		t.Error("expected model providers to emit in sorted order (azure before ollama)")
+	}
+}
+
 func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
