@@ -56,6 +56,19 @@ args:
 env:
   GITHUB_PERSONAL_ACCESS_TOKEN: \${GITHUB_TOKEN}
 `,
+  command: `---
+name: review
+description: Review the current branch diff for bugs, style, and test coverage.
+---
+
+Review the diff since the last commit:
+
+1. List files changed.
+2. Surface bugs, edge cases, and style violations.
+3. Check test coverage for new behavior.
+
+Cite \`file:line\` for every finding. Lead with highest-impact issues.
+`,
 };
 
 const DEFAULT_TARGETS = ["claude", "codex", "cursor", "gemini"];
