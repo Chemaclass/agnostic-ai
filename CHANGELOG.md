@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+## v0.17.0 - 2026-05-15
+
 ### Added
 - `agnostic-ai lsp`: LSP server on stdio; pushes lint diagnostics on open/change/save. Closes #168.
 - `packs add` / `init`: auto-add `.agnostic-ai/packs/` to `.gitignore`. Closes #170.
