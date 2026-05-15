@@ -463,21 +463,58 @@ func orderedMetaKeys(meta map[string]any, hint []string) []string {
 	return append(out, rest...)
 }
 
-// preferDoubleQuotes walks a yaml.Node tree and promotes single-quoted
-// scalars to double-quoted. yaml.v3's default style for a scalar that
-// needs quoting (e.g. one starting with `[`) is single quotes; CLI
-// configs typically author them as double quotes, so the round-trip
-// diff stays clean.
+// preferDoubleQuotes walks a yaml.Node tree and normalises scalar style
+// for round-trip stability with hand-authored CLI configs:
+//
+//   - Single-quoted scalars are promoted to double-quoted (yaml.v3
+//     defaults to single quotes when a scalar must be quoted, e.g.
+//     starts with `[`; CLI authors typically use double quotes).
+//   - Plain scalars whose value contains angle brackets are promoted
+//     to double-quoted. Authors commonly wrap things like
+//     `<feature-or-problem-statement>` in quotes for readability;
+//     yaml.v3 would otherwise emit them as bare plain scalars and
+//     break the byte-for-byte round trip. (Closes part of #218.)
+//   - Plain scalars longer than wrapWidthThreshold are promoted to
+//     double-quoted so the encoder does not line-wrap them at the
+//     default 80-col limit. Quoted-style scalars bypass auto-wrap in
+//     yaml.v3 even though there is no public SetWidth knob. (Closes
+//     part of #218.)
 func preferDoubleQuotes(n *yaml.Node) {
 	if n == nil {
 		return
 	}
-	if n.Kind == yaml.ScalarNode && n.Style == yaml.SingleQuotedStyle {
-		n.Style = yaml.DoubleQuotedStyle
+	if n.Kind == yaml.ScalarNode {
+		switch {
+		case n.Style == yaml.SingleQuotedStyle:
+			n.Style = yaml.DoubleQuotedStyle
+		case n.Style == 0:
+			// Plain style is the zero value in yaml.v3.
+			if needsDoubleQuotePromotion(n.Value) {
+				n.Style = yaml.DoubleQuotedStyle
+			}
+		}
 	}
 	for _, c := range n.Content {
 		preferDoubleQuotes(c)
 	}
+}
+
+// wrapWidthThreshold is the length at which we promote a plain scalar
+// to a double-quoted scalar so yaml.v3 does not line-wrap it. Held
+// well below the encoder's 80-col default to account for the leading
+// `key: ` and the surrounding indent of nested mappings.
+const wrapWidthThreshold = 60
+
+// needsDoubleQuotePromotion reports whether a plain scalar value should
+// be re-emitted as double-quoted to keep the round trip byte-stable.
+// Triggers on angle brackets (commonly hand-quoted in CLI configs) and
+// on values long enough that yaml.v3 would otherwise insert a line
+// wrap.
+func needsDoubleQuotePromotion(s string) bool {
+	if len(s) > wrapWidthThreshold {
+		return true
+	}
+	return strings.ContainsAny(s, "<>")
 }
 
 // Warner accepts capability warnings. Defaults to writing to os.Stderr.

@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Fixed
 - `doctor` and `doctor --fix` now read the settings overlay in capture mode just like a real sync. Previously a clean sync would be flagged as drift and `--fix` would silently delete overlay-supplied keys (`enabledPlugins`, `statusLine`) from `.claude/settings.json`. Import overlay capture also keeps source key order via `OrderedJSON`. Closes #215.
+- Frontmatter emit no longer strips quotes from scalars containing angle brackets and no longer line-wraps long descriptions at 80 cols. Plain scalars are promoted to double-quoted when they contain `<`/`>` or exceed the wrap threshold, keeping byte-stable round-trip with hand-authored CLI configs. Closes #218.
 
 ### Removed
 

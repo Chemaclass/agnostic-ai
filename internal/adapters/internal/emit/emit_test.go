@@ -139,6 +139,40 @@ func TestFrontmatterOrdered_PromotesSingleToDoubleQuotes(t *testing.T) {
 	}
 }
 
+// TestFrontmatterOrdered_QuotesScalarsWithAngleBrackets regresses
+// DEFECT 5 of #218. yaml.v3 would otherwise emit a hand-quoted
+// "<feature-or-problem-statement>" as a bare plain scalar, breaking
+// byte-stable round-trip with source files that wrap such values in
+// quotes for readability.
+func TestFrontmatterOrdered_QuotesScalarsWithAngleBrackets(t *testing.T) {
+	got := FrontmatterOrdered(
+		map[string]any{"argument-hint": "<feature-or-problem-statement>"},
+		[]string{"argument-hint"},
+	)
+	if !strings.Contains(got, `"<feature-or-problem-statement>"`) {
+		t.Errorf("expected angle-bracket scalar wrapped in double quotes, got:\n%s", got)
+	}
+}
+
+// TestFrontmatterOrdered_DoesNotWrapLongDescriptions regresses
+// DEFECT 6 of #218. yaml.v3's encoder wraps plain scalars at 80
+// columns; promoting long values to double-quoted style suppresses the
+// wrap so a single-line description: stays on one line round-trip.
+func TestFrontmatterOrdered_DoesNotWrapLongDescriptions(t *testing.T) {
+	long := "Execute the implementation planning workflow using the plan template to generate design artifacts."
+	got := FrontmatterOrdered(
+		map[string]any{"description": long},
+		[]string{"description"},
+	)
+	// One single line per key, no continuation indent.
+	if strings.Contains(got, "\n  to generate") {
+		t.Errorf("description line-wrapped (yaml continuation indent leaked):\n%s", got)
+	}
+	if !strings.Contains(got, `"`+long+`"`) {
+		t.Errorf("expected long description wrapped in double quotes, got:\n%s", got)
+	}
+}
+
 func TestFrontmatterOrdered_UnhintedKeysAppendAlphabetically(t *testing.T) {
 	meta := map[string]any{"zeta": 1, "alpha": 2, "name": "foo"}
 	got := FrontmatterOrdered(meta, []string{"name"})
