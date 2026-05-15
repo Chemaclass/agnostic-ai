@@ -193,6 +193,8 @@ env:
 | `env` | no | empty | Environment variables passed to the server. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
+| `disabled` | no | `false` | When `true`, passes `disabled: true` to targets that support it (Claude Code, Cursor, Copilot). |
+| `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
 Targets with native MCP propagation:
 

@@ -176,6 +176,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
+| `codex` | `config` | _empty_ | First-class block for `.codex/config.toml` global keys. See [Codex config](#codex-config). |
 | `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
@@ -332,6 +333,34 @@ outputs:
 
 Any setting not declared here still round-trips through the overlay
 captured during `agnostic-ai import claude`.
+
+## Codex config
+
+The `outputs.codex.config` block declares first-class `.codex/config.toml`
+global keys. agnostic-ai writes these into the project-tier config on each
+sync. Keys not listed here belong in the user-global `~/.codex/config.toml`
+which Codex merges last.
+
+```yaml
+outputs:
+  codex:
+    config:
+      model: o4-mini
+      sandbox: workspace
+      approval-policy: on-failure
+      model-reasoning-effort: high
+      model-reasoning-summary: auto
+      history-persistence: project
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `model` | string | Model identifier Codex uses for this project. |
+| `sandbox` | string | Sandbox profile (e.g. `workspace`). |
+| `approval-policy` | string | When Codex asks for approval: `never`, `on-failure`, or `always`. |
+| `model-reasoning-effort` | string | Reasoning effort level for o-series models: `low`, `medium`, `high`. |
+| `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
+| `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
 
 ## Path semantics
 
