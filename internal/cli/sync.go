@@ -125,7 +125,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
-	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
+	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
