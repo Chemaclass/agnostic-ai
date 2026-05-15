@@ -59,7 +59,7 @@ func importCursorRules(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("translate %s: %w", e.Name(), err)
 		}
 		dst := filepath.Join(dstDir, name+".md")
-		if err := os.WriteFile(dst, translated, 0o644); err != nil {
+		if err := importWriteFile(dst, translated, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++

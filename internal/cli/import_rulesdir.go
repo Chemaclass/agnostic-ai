@@ -52,14 +52,14 @@ func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCoun
 		dstDir := pickKindDir(kind, src)
 		body := stripLeadingHeading(header.Strip(string(data)))
 		out := filepath.Join(root, dstDir, scopeDir(rel), baseName+".md")
-		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
 		content := fmt.Sprintf("---\nname: %s\n---\n\n%s", baseName, body)
 		if !strings.HasSuffix(content, "\n") {
 			content += "\n"
 		}
-		if err := os.WriteFile(out, []byte(content), 0o644); err != nil {
+		if err := importWriteFile(out, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
 		switch kind {

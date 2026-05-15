@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,7 +76,7 @@ func writeScopedRule(dstDir, name, globs, body string) error {
 	fm.WriteString(strings.TrimRight(body, "\n"))
 	fm.WriteString("\n")
 	path := filepath.Join(dstDir, name+".md")
-	if err := os.WriteFile(path, []byte(fm.String()), 0o644); err != nil {
+	if err := importWriteFile(path, []byte(fm.String()), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

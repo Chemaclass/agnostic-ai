@@ -18,7 +18,7 @@ const defaultBaseDir = ".agnostic-ai"
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
-	var demo, all bool
+	var demo, all, dryRun bool
 	var preset string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
@@ -47,6 +47,9 @@ func newInitCmd() *cobra.Command {
   agnostic-ai init --preset go
   agnostic-ai init --preset ts-react
 
+  # Preview what would be scaffolded without writing
+  agnostic-ai init --dry-run --all
+
   # Legacy root-level layout (agents/, skills/, rules/, ... at project root)
   agnostic-ai init .
 
@@ -73,7 +76,7 @@ func newInitCmd() *cobra.Command {
 					targets = picked
 				}
 			}
-			return scaffold(".", base, demo, preset, targets)
+			return scaffold(".", base, demo, preset, targets, dryRun)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
@@ -82,6 +85,8 @@ func newInitCmd() *cobra.Command {
 		"Skip the target picker and enable every supported target.")
 	cmd.Flags().StringVar(&preset, "preset", "",
 		"Seed stack-flavored starter specs (go, ts-react, python). Composes with --demo and --all.")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
+		"Print files that would be scaffolded without writing.")
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})

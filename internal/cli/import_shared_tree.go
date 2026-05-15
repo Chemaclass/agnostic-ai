@@ -27,7 +27,7 @@ func copyDirTree(srcDir, dstDir string) error {
 		}
 		target := filepath.Join(dstDir, rel)
 		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
+			return importMkdirAll(target, 0o755)
 		}
 		if !d.Type().IsRegular() {
 			return nil
@@ -47,10 +47,10 @@ func copyDirTree(srcDir, dstDir string) error {
 		if filepath.Base(path) == "SKILL.md" {
 			data = []byte(header.Strip(string(data)))
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
 		}
-		if err := os.WriteFile(target, data, info.Mode().Perm()); err != nil {
+		if err := importWriteFile(target, data, info.Mode().Perm()); err != nil {
 			return fmt.Errorf("write %s: %w", target, err)
 		}
 		return nil

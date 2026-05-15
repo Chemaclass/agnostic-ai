@@ -37,20 +37,40 @@ func renderConfig(base string, targets []string) string {
 
 // scaffold creates agnostic-ai.yaml at root and the source-folder tree
 // under base. targets is written verbatim to the targets: block;
-// callers must supply at least one entry.
-func scaffold(root, base string, demo bool, preset string, targets []string) error {
+// callers must supply at least one entry. When dryRun is true, no files
+// are written and the planned paths are printed instead.
+func scaffold(root, base string, demo bool, preset string, targets []string, dryRun bool) error {
 	cfgPath := filepath.Join(root, config.ConfigFileName)
-	if _, err := os.Stat(cfgPath); err == nil {
-		return fmt.Errorf("%s already exists", config.ConfigFileName)
-	}
-	if _, err := os.Stat(filepath.Join(root, config.LegacyConfigFileName)); err == nil {
-		return fmt.Errorf("%s already exists (legacy name; rename to %s)",
-			config.LegacyConfigFileName, config.ConfigFileName)
+	if !dryRun {
+		if _, err := os.Stat(cfgPath); err == nil {
+			return fmt.Errorf("%s already exists", config.ConfigFileName)
+		}
+		if _, err := os.Stat(filepath.Join(root, config.LegacyConfigFileName)); err == nil {
+			return fmt.Errorf("%s already exists (legacy name; rename to %s)",
+				config.LegacyConfigFileName, config.ConfigFileName)
+		}
 	}
 	if base == "" {
 		base = defaultBaseDir
 	}
 	kinds := []string{"agents", "skills", "rules", "hooks", "mcps"}
+	if dryRun {
+		fmt.Printf("create: %s\n", cfgPath)
+		for _, k := range kinds {
+			fmt.Printf("mkdir:  %s\n", filepath.Join(root, base, k))
+		}
+		if demo {
+			if err := listDemoFiles(filepath.Join(root, base)); err != nil {
+				return err
+			}
+		}
+		if preset != "" {
+			if err := listPresetFiles(filepath.Join(root, base), preset); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for _, k := range kinds {
 		if err := os.MkdirAll(filepath.Join(root, base, k), 0o755); err != nil {
 			return err
@@ -83,6 +103,42 @@ func scaffold(root, base string, demo bool, preset string, targets []string) err
 	}
 	printNextSteps(root, base, targets, demo || preset != "")
 	return nil
+}
+
+// listDemoFiles prints the paths that writeDemoFiles would create.
+func listDemoFiles(baseDir string) error {
+	return fs.WalkDir(demoFS, "initdata", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel("initdata", path)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("create: %s\n", filepath.Join(baseDir, filepath.FromSlash(rel)))
+		return nil
+	})
+}
+
+// listPresetFiles prints the paths that writePresetFiles would create.
+func listPresetFiles(baseDir, preset string) error {
+	return fs.WalkDir(presetFS, filepath.Join("initdata/presets", preset), func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(filepath.Join("initdata/presets", preset), path)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("create: %s\n", filepath.Join(baseDir, filepath.FromSlash(rel)))
+		return nil
+	})
 }
 
 // printNextSteps emits the post-scaffold guidance. seeded reports

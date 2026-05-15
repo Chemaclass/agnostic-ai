@@ -62,10 +62,10 @@ func importClaudeSettingsOverlay(root string) error {
 		return fmt.Errorf("marshal overlay: %w", err)
 	}
 	dst := claudeOverlayPath(root)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := os.WriteFile(dst, append(raw, '\n'), 0o644); err != nil {
+	if err := importWriteFile(dst, append(raw, '\n'), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil

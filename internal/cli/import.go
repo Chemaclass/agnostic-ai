@@ -36,6 +36,7 @@ func importSources() string {
 }
 
 func newImportCmd() *cobra.Command {
+	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "import <source>",
 		Short: "Import existing config from another AI CLI into this project's source directories.",
@@ -46,7 +47,10 @@ func newImportCmd() *cobra.Command {
   agnostic-ai import claude
 
   # Migrate from Cursor (.cursor/rules/*.mdc -> rules/*.md)
-  agnostic-ai import cursor`,
+  agnostic-ai import cursor
+
+  # Preview what would be imported without writing
+  agnostic-ai import claude --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source := args[0]
@@ -54,9 +58,12 @@ func newImportCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
 			}
+			importDryRun = dryRun
+			defer func() { importDryRun = false }()
 			return runImport(".", source, cfg.Sources)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print specs that would be imported without writing.")
 	return cmd
 }
 

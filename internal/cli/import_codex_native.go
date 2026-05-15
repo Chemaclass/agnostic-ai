@@ -117,7 +117,7 @@ func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 	out := "---\n" + string(raw) + "---\n\n" + body + "\n"
 
 	path := filepath.Join(dstDir, name+".md")
-	if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+	if err := importWriteFile(path, []byte(out), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
@@ -233,7 +233,7 @@ func writeCodexHooks(byEvent map[string][]codexHookEntry, dstDir string) (int, e
 				return count, fmt.Errorf("marshal hook %s: %w", name, err)
 			}
 			path := filepath.Join(dstDir, name+".yaml")
-			if err := os.WriteFile(path, raw, 0o644); err != nil {
+			if err := importWriteFile(path, raw, 0o644); err != nil {
 				return count, fmt.Errorf("write %s: %w", path, err)
 			}
 			count++
@@ -280,7 +280,7 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
 		}
 		path := filepath.Join(dstDir, name+".yaml")
-		if err := os.WriteFile(path, raw, 0o644); err != nil {
+		if err := importWriteFile(path, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", path, err)
 		}
 		count++

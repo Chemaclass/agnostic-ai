@@ -263,7 +263,7 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 				return count, fmt.Errorf("marshal hook %s: %w", name, err)
 			}
 			path := filepath.Join(dstDir, name+".yaml")
-			if err := os.WriteFile(path, raw, 0o644); err != nil {
+			if err := importWriteFile(path, raw, 0o644); err != nil {
 				return count, fmt.Errorf("write %s: %w", path, err)
 			}
 			count++

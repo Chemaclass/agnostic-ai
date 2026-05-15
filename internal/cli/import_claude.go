@@ -92,10 +92,10 @@ func copyFileIfExists(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := os.WriteFile(dst, data, 0o644); err != nil {
+	if err := importWriteFile(dst, data, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
@@ -138,10 +138,10 @@ func copyMarkdownFile(src, dst string) error {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
 	out := header.Strip(string(data))
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := os.WriteFile(dst, []byte(out), 0o644); err != nil {
+	if err := importWriteFile(dst, []byte(out), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
@@ -153,7 +153,7 @@ func mkdirAllSources(root string, dirs ...string) error {
 		if d == "" {
 			continue
 		}
-		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+		if err := importMkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", d, err)
 		}
 	}
