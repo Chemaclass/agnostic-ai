@@ -46,7 +46,7 @@ type Input struct {
 // without bumping ProtocolVersion.
 type ConfigEnvelope struct {
 	Sources       config.Sources           `json:"sources"`
-	Outputs       map[string]config.Output `json:"outputs"`
+	Outputs       map[string]config.Output `json:"outputs,omitempty"`
 	OnUnsupported string                   `json:"on_unsupported"`
 	Targets       []string                 `json:"targets"`
 	Raw           map[string]any           `json:"raw,omitempty"`

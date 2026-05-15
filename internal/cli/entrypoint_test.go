@@ -13,11 +13,7 @@ import (
 )
 
 func TestResolveAgnosticBody_SeedsTemplateWhenAbsent(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.TempCwd(t)
 	cfg := &config.Config{Sources: config.Sources{Rules: ".agnostic-ai/rules"}}
 
 	body, err := resolveAgnosticBody(cfg, false)
@@ -40,18 +36,11 @@ func TestResolveAgnosticBody_SeedsTemplateWhenAbsent(t *testing.T) {
 }
 
 func TestResolveAgnosticBody_UsesExistingContent(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.TempCwd(t)
 	custom := "# My Project\n\nCustom instructions here.\n"
-	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte(custom), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg := &config.Config{}
+	writeAgnosticFile(t, custom)
 
-	body, err := resolveAgnosticBody(cfg, false)
+	body, err := resolveAgnosticBody(&config.Config{}, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -61,19 +50,11 @@ func TestResolveAgnosticBody_UsesExistingContent(t *testing.T) {
 }
 
 func TestResolveAgnosticBody_StripsHeaderFromExisting(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.TempCwd(t)
 	rawBody := "# My Project\n\nInstructions.\n"
-	withHeader := header.With(rawBody, header.FormatMarkdown)
-	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte(withHeader), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg := &config.Config{}
+	writeAgnosticFile(t, header.With(rawBody, header.FormatMarkdown))
 
-	body, err := resolveAgnosticBody(cfg, false)
+	body, err := resolveAgnosticBody(&config.Config{}, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,15 +67,9 @@ func TestResolveAgnosticBody_StripsHeaderFromExisting(t *testing.T) {
 }
 
 func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
+	dir := testutil.TempCwd(t)
 	custom := "# Project\n\nMy instructions.\n"
-	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte(custom), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeAgnosticFile(t, custom)
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
 
 	if err := writeAgnosticEntryPoints(cfg, []string{"claude", "codex"}, false); err != nil {
@@ -112,18 +87,11 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 }
 
 func TestWriteAgnosticEntryPoints_AgnosticFileNotOverwrittenWhenExists(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.TempCwd(t)
 	custom := "# My instructions\n"
-	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte(custom), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg := &config.Config{}
+	writeAgnosticFile(t, custom)
 
-	if err := writeAgnosticEntryPoints(cfg, nil, false); err != nil {
+	if err := writeAgnosticEntryPoints(&config.Config{}, nil, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
@@ -132,5 +100,15 @@ func TestWriteAgnosticEntryPoints_AgnosticFileNotOverwrittenWhenExists(t *testin
 	}
 	if string(data) != custom {
 		t.Errorf("AGNOSTIC_AI.md was overwritten; got:\n%s", data)
+	}
+}
+
+func writeAgnosticFile(t *testing.T, content string) {
+	t.Helper()
+	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
