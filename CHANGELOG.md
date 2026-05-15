@@ -12,7 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Removed
 
-## v0.18.0 - 2026-05-15
+## v0.18.0 - 2026-05-16
 
 ### Added
 - `doctor --check-globs`: opt-in flag rules whose `globs:` matches no path in the working tree. Closes #208.
