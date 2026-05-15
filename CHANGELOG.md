@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `import all`: detects every AI CLI config present and imports each in one shot. (#160)
 - `init --from <cli>`: scaffold + import from an existing CLI in one command. (#160)
 - `init --dry-run` / `import --dry-run`: preview without writing. (#158)
-- `agnostic-ai lint`: semantic checks — LINT001 empty spec, LINT002 hook collision, LINT003 duplicate name, LINT004 dead spec. `--strict` for CI. (#171)
+- `agnostic-ai lint`: semantic checks — LINT001 empty spec, LINT002 hook collision, LINT003 duplicate name, LINT004 dead spec, LINT005 matcher on non-tool event. `--strict` for CI. (#171, #177)
 - `agnostic-ai doctor`: unified 6-step diagnostic with subcommands `mcp`, `install`, `config`. `--json` for machine-readable output. (#159)
 - `agnostic-ai install-hook`: installs `.git/hooks/pre-commit` running `sync --check`. `--shared` commits the hook via `.githooks/`. (#169)
 - MCP spec: `description`, `disabled`, and `roots` frontmatter fields. (#177)
