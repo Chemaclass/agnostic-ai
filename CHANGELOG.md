@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Fixed
 - emit: normalize trailing newlines on every written artifact so files end with exactly one `\n`. Removes the spurious blank line appended by upstream concatenations and stabilizes round-trip diffs. Closes #195.
 - emit: frontmatter rendering preserves source key order, forces 2-space sequence indent, and prefers double quotes over single. Removes the bulk of the cosmetic diff noise produced on round-trip through `import` + `sync`. Closes #190, #191, #193.
+- `claude`: `.claude/settings.json` preserves the overlay's key order on sync, nests `{type, command}` and `{matcher, hooks}` in the documented order, and emits events in Claude Code's lifecycle sequence (`PreToolUse` before `PostToolUse`, etc.). `MergeJSONFile` (used by codex / opencode shared blocks) gains the same order-preserving behaviour. Closes #192.
 
 ## v0.17.0 - 2026-05-15
 

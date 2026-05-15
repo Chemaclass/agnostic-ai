@@ -26,7 +26,9 @@ import (
 func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	doc := readExistingJSON(path, dryRun)
 	for k, v := range keys {
-		doc[k] = v
+		if err := doc.Set(k, v); err != nil {
+			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
+		}
 	}
 	raw, err := MarshalJSONIndent(doc)
 	if err != nil {
@@ -35,17 +37,21 @@ func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	return WriteFile(path, string(raw)+"\n", dryRun)
 }
 
-func readExistingJSON(path string, dryRun bool) map[string]any {
+// readExistingJSON parses path as an OrderedJSON. Missing files,
+// malformed JSON, or non-object documents return an empty OrderedJSON
+// so callers can layer their managed keys unconditionally. Source key
+// order is preserved on the round-trip via OrderedJSON.
+func readExistingJSON(path string, dryRun bool) *OrderedJSON {
 	if dryRun || IsCapturing() {
-		return map[string]any{}
+		return NewOrderedJSON()
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return map[string]any{}
+		return NewOrderedJSON()
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil || doc == nil {
-		return map[string]any{}
+	doc := NewOrderedJSON()
+	if err := json.Unmarshal(data, doc); err != nil {
+		return NewOrderedJSON()
 	}
 	return doc
 }

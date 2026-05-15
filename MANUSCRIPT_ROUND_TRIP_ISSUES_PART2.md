@@ -2,7 +2,9 @@
 
 Follow-up to `MANUSCRIPT_ROUND_TRIP_ISSUES.md` (issues #190–#198 filed). Same fixture: [manuscript](https://github.com/JesusValeraDev/manuscript). Additional issues surfaced from deeper testing: doctor/sync interaction, capability warnings, import scope, docs accuracy.
 
-Ordered by severity. Each item ready to file as a separate issue.
+Ordered by severity. Each item ready to file as a separate issue. Cross-references to related closed issues are called out where the existing work covered part of the problem space but left gaps.
+
+> **Dropped from this batch**: "Spec name collision detection" — duplicate of closed #171 (Deeper spec linting), which already lists `"Output collision: two specs would write the same path on disk"` as a planned check.
 
 ---
 
@@ -117,6 +119,7 @@ Or strike the ✅ for non-native paths until the upstream tool supports them.
 ## Issue 13 — `settings.json` has two sources of truth (split overlay) 🟡
 
 **Severity**: medium (mental model / authoring confusion)
+**Related**: closed #177 ("Claude + Codex adapter excellence") proposes promoting `enabledPlugins` / `outputStyle` / `statusLine` to first-class fields. This issue is the docs/UX counterpart — even before those promotions ship, the overlay path needs documentation.
 
 ### Observation
 
@@ -138,9 +141,10 @@ Short-term: at minimum add an entry under "Where the specs live" in the AGNOSTIC
 
 ---
 
-## Issue 14 — Capability warnings are noisy and unactionable 🟡
+## Issue 14 — Capability warnings are noisy and unactionable (sync emit path) 🟡
 
 **Severity**: low-medium (UX)
+**Related**: closed #114 added a per-kind summary at *validate* time. This issue is about the *sync* emit path, which still prints one warning line per spec with no dedup and no suppression hint.
 
 ### Repro
 
@@ -170,19 +174,29 @@ Group by (target, kind) tuple. Include suppression hint.
 
 ---
 
-## Issue 15 — `import --dry-run` dumps full file contents (7641 lines for manuscript) 🟡
+## Issue 15 — `import --dry-run` dumps full file contents (11939 lines for manuscript) 🟡
 
 **Severity**: medium (UX, unreviewable output)
+**Related**: closed #161 shipped `sync --plan` (per-target counts) and `sync --json`. Sync side is now fine. `import --dry-run` was not part of that PR and still dumps every file body.
 
 ### Repro
 
 ```bash
-agnostic-ai import claude --dry-run | wc -l   # 7641
+agnostic-ai import claude --dry-run | wc -l   # 11939
 ```
 
-Output is every imported file's body separated by `--- path ---` headers. Equivalent to `cat`-ing all 75 files. Useless for "what will change?" review; user can just look at source files directly.
+Output is every importable file's body separated by `--- path ---` headers. Equivalent to `cat`-ing all 75 files. Useless for "what will change?" review; user can just look at source files directly.
 
-### Useful dry-run output (proposed)
+For comparison: `sync --plan` already produces the right shape —
+
+```
+[claude]  no changes
+[codex]   no changes
+```
+
+`import` needs the equivalent.
+
+### Useful import dry-run output (proposed)
 
 ```
 Would import 75 specs into .agnostic-ai/:
@@ -203,13 +217,12 @@ Files that would be written (paths only):
 Pass --verbose to see full content.
 ```
 
-Same applies to `sync --dry-run` (currently 13633 lines for manuscript).
-
 ### Fix
 
-- Default dry-run: summary + path list.
+- Default `import --dry-run`: summary + path list (mirror `sync --plan` shape).
 - `--verbose`: full content.
-- Optional `--diff`: only files where output ≠ existing on-disk content.
+- Optional `--diff`: only specs where output ≠ existing on-disk content under `.agnostic-ai/`.
+- Match `import` to `sync` flag set: `--plan`, `--json`.
 
 ---
 
@@ -252,52 +265,58 @@ Document for every spec kind × every target.
 
 ---
 
-## Issue 17 — `doctor` doesn't check cross-target body drift 🟡
+## Issue 17 — `doctor` drift message conflates source-drift with user-edited-generated-file 🟡
 
-**Severity**: low (would-be feature)
+**Severity**: low (existing detection works; message clarity gap)
+**Related**: closed #159 extended `doctor` into the unified diagnostic. Detection works correctly.
 
-### Scenario
+### Observation
 
-User edits `CLAUDE.md` directly (forgetting it's generated) to add a project note. Next sync clobbers the edit. If they don't sync for a while, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` can all silently drift apart from `AGNOSTIC_AI.md`.
+`doctor` DOES catch the case where a user edits `CLAUDE.md` directly:
+
+```bash
+echo "EDITED" >> CLAUDE.md
+agnostic-ai doctor
+# Sync drift:
+# ✗ agnostic-ai: drift
+# drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`
+```
+
+But the message lumps every cause under one label:
+
+- Spec edit in `.agnostic-ai/` (legitimate, sync emits new files).
+- Output file edited by user (footgun, sync silently clobbers).
+- Sync state stale (sync never ran for current spec).
+- Per-target adapter bug (#10 above).
+
+User sees `✗ agnostic-ai: drift` and runs `sync`. If the cause was case 2 (footgun), their edits vanish silently.
 
 ### Fix
 
-In `agnostic-ai doctor`, beyond per-target drift, also check that every target's root entry-point body equals `AGNOSTIC_AI.md`. Report cross-target drift separately:
+Split the doctor drift section into causes:
 
 ```
-Cross-target consistency:
-  ✓ AGENTS.md matches AGNOSTIC_AI.md
-  ✗ CLAUDE.md drifted (10 lines added since last sync)
-    Run `agnostic-ai sync` to overwrite local edits, or move the edits into .agnostic-ai/AGNOSTIC_AI.md first.
+Sync drift:
+  ✗ Local edits to generated files:
+      CLAUDE.md (10 lines added since last sync)
+      .claude/agents/reviewer.md (3 lines changed)
+    Move these edits into .agnostic-ai/ before re-syncing.
+  ✓ Source specs vs last sync: clean
+  ✓ Adapter consistency: clean
 ```
 
-Helps catch the "I edited the wrong file" footgun.
+Each cause gets a different remediation hint. Optional `doctor --explain` prints a diff for each drifted file so the user knows what they would lose.
+
+### Bonus
+
+Cross-target body drift detection — verify that root entry-point files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) share the body in `AGNOSTIC_AI.md`. Currently checked transitively (any drift gets flagged), but not surfaced as its own category.
 
 ---
 
-## Issue 18 — Spec name collision detection missing 🟡
-
-**Severity**: low (currently theoretical, easy to hit)
-
-### Scenario
-
-Manuscript has skill named `fix`. If user adds agent named `fix` (or command, or hook), both emit to different paths (`.claude/skills/fix/SKILL.md` vs `.claude/agents/fix.md`) — fine. But Cursor flattens everything to `.cursor/rules/<name>.mdc`, and other adapters may too. Different kinds, same name = silent overwrite.
-
-### Fix
-
-`agnostic-ai validate` (or `doctor`) should check for name collisions across kinds and warn:
-
-```
-! Collision risk: spec name "fix" used as both skill and agent.
-  Cursor (.cursor/rules/fix.mdc): only one will survive.
-  Rename one or set outputs.cursor.skill-prefix: "skill-".
-```
-
----
-
-## Issue 19 — `globs:` patterns not validated against repo paths 🟡
+## Issue 18 — `globs:` patterns not validated against repo paths 🟡
 
 **Severity**: low (silent failure mode)
+**Related**: closed #171 (Deeper spec linting) covers dead-spec, hook-collision, output-collision, unreachable-rule, stale-reference. It does not include "glob matches no files in working tree" — this issue adds that check to the planned lint set.
 
 ### Scenario
 
@@ -317,7 +336,7 @@ Off by default (some monorepos have intentionally unmatched globs for future fea
 
 ---
 
-## Issue 20 — `import` doesn't capture arbitrary `.claude/*.sh` or sidecar files 🟡
+## Issue 19 — `import` doesn't capture arbitrary `.claude/*.sh` or sidecar files 🟡
 
 **Severity**: low (scope clarification)
 
@@ -335,7 +354,7 @@ Recommendation: (a) — document the scope boundary in `docs/user/getting-starte
 
 ---
 
-## Issue 21 — `.agnostic-ai/.sync-state` purpose, format, and lifecycle undocumented 🟢
+## Issue 20 — `.agnostic-ai/.sync-state` purpose, format, and lifecycle undocumented 🟢
 
 **Severity**: low (docs)
 
@@ -356,9 +375,10 @@ One short page in `docs/internal/` or a section in `docs/user/configuration.md`:
 
 ---
 
-## Issue 22 — Skill helper file preservation is undocumented (positive finding) 🟢
+## Issue 21 — Skill helper file preservation is undocumented (positive finding) 🟢
 
 **Severity**: low (docs gap, but works correctly)
+**Related**: closed #177 mentions "Nested skill assets ... keep file-mode bits both directions" — implementation depth. This issue is the docs counterpart: the feature works, but no user-facing documentation announces it.
 
 ### What works
 
@@ -383,31 +403,32 @@ Tells users this is a supported feature instead of an accident.
 
 ## Summary
 
-| # | Severity | Type | Title |
-|---|---|---|---|
-| 10 | 🔴 high | bug | `doctor` and `sync` disagree on `.claude/settings.json` (drift loop) |
-| 11 | 🟡 med | docs | README "byte-identical" claim is overstated |
-| 12 | 🟡 med | docs | Target table misleads on native-path support |
-| 13 | 🟡 med | design | `settings.json` has two sources of truth |
-| 14 | 🟡 low-med | UX | Capability warnings duplicated and unactionable |
-| 15 | 🟡 med | UX | `import --dry-run` dumps full file contents |
-| 16 | 🟡 low | docs | Hooks → multi-target schema mapping undocumented |
-| 17 | 🟡 low | feature | `doctor` doesn't check cross-target body drift |
-| 18 | 🟡 low | validate | Spec name collision detection missing |
-| 19 | 🟡 low | validate | `globs:` patterns not validated against repo paths |
-| 20 | 🟡 low | scope | `import` doesn't capture arbitrary sidecar files |
-| 21 | 🟢 low | docs | `.agnostic-ai/.sync-state` undocumented |
-| 22 | 🟢 low | docs | Skill helper file preservation undocumented |
+12 issues total (one dropped — see top of file).
+
+| # | Severity | Type | Title | Related |
+|---|---|---|---|---|
+| 10 | 🔴 high | bug | `doctor` and `sync` disagree on `.claude/settings.json` (drift loop) | — |
+| 11 | 🟡 med | docs | README "byte-identical" claim is overstated | — |
+| 12 | 🟡 med | docs | Target table misleads on native-path support | — |
+| 13 | 🟡 med | design | `settings.json` has two sources of truth | #177 |
+| 14 | 🟡 low-med | UX | Capability warnings noisy/unactionable at sync emit | #114 |
+| 15 | 🟡 med | UX | `import --dry-run` dumps full file contents | #161 |
+| 16 | 🟡 low | docs | Hooks → multi-target schema mapping undocumented | — |
+| 17 | 🟡 low | UX | `doctor` drift message lumps all causes together | #159 |
+| 18 | 🟡 low | validate | `globs:` patterns not validated against repo paths | #171 |
+| 19 | 🟡 low | scope | `import` doesn't capture arbitrary sidecar files | — |
+| 20 | 🟢 low | docs | `.agnostic-ai/.sync-state` undocumented | — |
+| 21 | 🟢 low | docs | Skill helper file preservation undocumented | #177 |
 
 ### Recommended fix order
 
 1. **#10** — high severity, makes `doctor` unusable as a CI gate. Fix first.
 2. **#11, #12** — docs correctness. Low effort, high trust impact.
-3. **#15** — every user who runs `--dry-run` hits this. Trivial fix.
-4. **#14** — small UX polish, dedup loop.
+3. **#15** — every user who runs `import --dry-run` hits this. Mirror `sync --plan` shape.
+4. **#14** — sync-time capability warning dedup, complements closed #114.
 5. **#13, #16** — docs for power users.
-6. **#17, #18, #19** — `doctor` and `validate` enhancements. Group into one PR.
-7. **#20, #21, #22** — docs cleanup pass.
+6. **#17, #18** — `doctor` / lint enhancements building on closed #159, #171.
+7. **#19, #20, #21** — docs / scope cleanup pass.
 
 ### Reproduction (still valid from Part 1)
 

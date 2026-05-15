@@ -18,6 +18,7 @@ package claude
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -166,17 +167,21 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 	}
 	doc := overlay
 	if doc == nil {
-		doc = map[string]any{}
+		doc = emit.NewOrderedJSON()
 	}
-	for k, v := range configSettings {
-		doc[k] = v
+	// Layer the config-derived keys. New keys append at the end; existing
+	// keys keep their author-chosen position.
+	for _, k := range orderedConfigKeys(configSettings) {
+		if err := doc.Set(k, configSettings[k]); err != nil {
+			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
+		}
 	}
 	if hasHooks {
-		for k, v := range buildHookSettings(hooks) {
-			doc[k] = v
+		if err := doc.Set("hooks", hookSettingsJSON(hooks)); err != nil {
+			return fmt.Errorf("claude settings: marshal hooks: %w", err)
 		}
 	} else {
-		delete(doc, "hooks")
+		doc.Delete("hooks")
 	}
 	raw, err := emit.MarshalJSONIndent(doc)
 	if err != nil {
@@ -185,13 +190,34 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 	return emit.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
+// orderedConfigKeys returns the keys of `configSettings` in a stable
+// emit order. agnostic-ai-managed keys land in a canonical sequence so
+// the diff stays predictable when none of them exist in the overlay yet.
+func orderedConfigKeys(m map[string]any) []string {
+	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,includeCoAuthoredBy"
+	out := make([]string, 0, len(m))
+	seen := make(map[string]bool, len(m))
+	for _, k := range strings.Split(canonical, ",") {
+		if _, ok := m[k]; ok && !seen[k] {
+			out = append(out, k)
+			seen[k] = true
+		}
+	}
+	for k := range m {
+		if !seen[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 // loadSettingsOverlay reads the captured settings overlay from
 // `.agnostic-ai/overlays/claude.settings.json`. Returns (doc, true, nil)
 // when the overlay exists and parses, (nil, false, nil) when it is
 // absent, and (nil, false, err) on a parse failure or unexpected read
 // error. Skips disk in dryRun and capture modes so deterministic check
 // passes do not depend on the working tree.
-func loadSettingsOverlay(dryRun bool) (map[string]any, bool, error) {
+func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 	if dryRun || emit.IsCapturing() {
 		return nil, false, nil
 	}
@@ -202,12 +228,9 @@ func loadSettingsOverlay(dryRun bool) (map[string]any, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
+	doc := emit.NewOrderedJSON()
+	if err := json.Unmarshal(data, doc); err != nil {
 		return nil, false, err
-	}
-	if doc == nil {
-		doc = map[string]any{}
 	}
 	return doc, true, nil
 }
@@ -272,16 +295,17 @@ func buildHookSettings(hooks []spec.Entry) map[string]any {
 	}
 
 	byEvent := map[string][]map[string]any{}
+	eventOrder := []string{}
 	for _, k := range keyOrder {
+		if _, seen := byEvent[k.event]; !seen {
+			eventOrder = append(eventOrder, k.event)
+		}
 		byEvent[k.event] = append(byEvent[k.event], map[string]any{
 			"matcher": k.matcher,
 			"hooks":   byKey[k],
 		})
 	}
-	// Stable iteration: events are emitted by Go in sorted order during
-	// JSON encoding, but matcher groups within an event preserve insert
-	// order. Sort matcher groups by matcher string for deterministic
-	// output across sync runs.
+	// Sort matcher groups by matcher string for deterministic output.
 	for event, groups := range byEvent {
 		sort.SliceStable(groups, func(i, j int) bool {
 			mi, _ := groups[i]["matcher"].(string)
@@ -291,6 +315,106 @@ func buildHookSettings(hooks []spec.Entry) map[string]any {
 		byEvent[event] = groups
 	}
 	return map[string]any{"hooks": byEvent}
+}
+
+// hookSettingsJSON returns the `"hooks"` block as ordered JSON so the
+// resulting settings.json mirrors Claude Code's lifecycle order
+// (Pre before Post, etc.), with `{type, command}` and `{matcher, hooks}`
+// in the order CLAUDE.md examples use. Returns nil when no hooks emit.
+func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
+	doc := emit.NewOrderedJSON()
+	type matcherKey struct{ event, matcher string }
+	byKey := map[matcherKey][]hookCommandEntry{}
+	keyOrder := []matcherKey{}
+	for _, h := range hooks {
+		event, _ := h.Meta["event"].(string)
+		matcher, _ := h.Meta["matcher"].(string)
+		if event == "" {
+			continue
+		}
+		cmds := hookCommands(h.Meta["command"])
+		if len(cmds) == 0 {
+			continue
+		}
+		k := matcherKey{event: event, matcher: matcher}
+		if _, seen := byKey[k]; !seen {
+			keyOrder = append(keyOrder, k)
+		}
+		for _, cmd := range cmds {
+			byKey[k] = append(byKey[k], hookCommandEntry{Type: "command", Command: cmd})
+		}
+	}
+	byEvent := map[string][]matcherGroup{}
+	eventOrder := []string{}
+	for _, k := range keyOrder {
+		if _, seen := byEvent[k.event]; !seen {
+			eventOrder = append(eventOrder, k.event)
+		}
+		byEvent[k.event] = append(byEvent[k.event], matcherGroup{Matcher: k.matcher, Hooks: byKey[k]})
+	}
+	for event, groups := range byEvent {
+		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
+		byEvent[event] = groups
+	}
+	for _, event := range orderedHookEvents(eventOrder) {
+		_ = doc.Set(event, byEvent[event])
+	}
+	return doc
+}
+
+// hookCommandEntry mirrors the `{type, command}` JSON object Claude Code
+// expects inside a matcher group's `hooks` array. Using a struct lets
+// `encoding/json` emit the fields in declaration order rather than the
+// alpha-sorted order map iteration would produce.
+type hookCommandEntry struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+}
+
+// matcherGroup mirrors the `{matcher, hooks}` JSON object in
+// settings.json's hook event arrays. Same rationale as
+// hookCommandEntry: ordered struct fields beat sorted map keys.
+type matcherGroup struct {
+	Matcher string             `json:"matcher"`
+	Hooks   []hookCommandEntry `json:"hooks"`
+}
+
+// hookEventLifecycleOrder names the canonical sequence Claude Code
+// documentation uses when listing hook events. Events that appear in
+// the user's spec but are not in this list fall through to the tail in
+// the order they were first encountered.
+var hookEventLifecycleOrder = []string{
+	"SessionStart",
+	"UserPromptSubmit",
+	"PreToolUse",
+	"PostToolUse",
+	"Notification",
+	"PreCompact",
+	"Stop",
+	"SubagentStop",
+	"SessionEnd",
+}
+
+func orderedHookEvents(seen []string) []string {
+	have := make(map[string]bool, len(seen))
+	for _, e := range seen {
+		have[e] = true
+	}
+	out := make([]string, 0, len(seen))
+	emitted := make(map[string]bool, len(seen))
+	for _, e := range hookEventLifecycleOrder {
+		if have[e] {
+			out = append(out, e)
+			emitted[e] = true
+		}
+	}
+	for _, e := range seen {
+		if !emitted[e] {
+			out = append(out, e)
+			emitted[e] = true
+		}
+	}
+	return out
 }
 
 // hookCommands normalizes a `command:` field that may be a string or a
