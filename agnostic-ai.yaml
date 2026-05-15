@@ -13,6 +13,7 @@ sources:
   skills: .agnostic-ai/skills
   rules: .agnostic-ai/rules
   hooks: .agnostic-ai/hooks
+  commands: .agnostic-ai/commands
   mcps: .agnostic-ai/mcps
 
 # AI CLIs to emit configs for. Every adapter the tool ships is enabled
@@ -50,3 +51,4 @@ outputs:
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent
+autoSync: false
