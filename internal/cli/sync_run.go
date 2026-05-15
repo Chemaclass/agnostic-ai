@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -191,6 +192,20 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		}
 	}
 	return emitJSON(cmd, out)
+}
+
+// printSyncPlan prints a human-readable per-target summary of what sync
+// would change: how many files are missing (added) or stale (changed).
+func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+	defer w.Flush()
+	for _, r := range reports {
+		if !r.hasDrift() {
+			fmt.Fprintf(w, "[%s]\tno changes\n", r.Target)
+			continue
+		}
+		fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d\n", r.Target, len(r.Missing), len(r.Stale))
+	}
 }
 
 // printSyncCheckJSON emits a JSON result for `sync --check`. Files that need

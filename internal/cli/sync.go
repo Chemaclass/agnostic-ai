@@ -15,7 +15,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, backup, watch, watchPoll, jsonOut, allTargets bool
+	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets bool
 	var gitignoreFlag, autoSyncFlag string
 
 	cmd := &cobra.Command{
@@ -38,6 +38,9 @@ func newSyncCmd() *cobra.Command {
 
   # Back up each existing file to <path>.bak before overwriting
   agnostic-ai sync --backup
+
+  # Structured per-target diff (added/changed counts) without writing
+  agnostic-ai sync --plan
 
   # Machine-readable output for CI dashboards and editor extensions
   agnostic-ai sync --json`,
@@ -76,6 +79,14 @@ func newSyncCmd() *cobra.Command {
 				return err
 			}
 
+			if plan {
+				reports, err := collectDrift(effective)
+				if err != nil {
+					return err
+				}
+				printSyncPlan(cmd, reports)
+				return nil
+			}
 			if check {
 				reports, err := collectDrift(effective)
 				if err != nil {
@@ -113,6 +124,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&except, "except", nil, "Emit all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
+	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
