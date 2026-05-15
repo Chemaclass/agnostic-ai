@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Snapshot golden tests for every built-in adapter under `tests/integration/`. Regenerate with `UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden`. CI fails on adapter output drift. (#166)
 - `init --dry-run` prints the files and directories that would be scaffolded without touching disk. (#158)
 - `import --dry-run` prints the spec files that would be created without writing them. (#158)
+- `agnostic-ai lint` command with semantic checks beyond schema validation: LINT001 (empty spec), LINT002 (hook collision), LINT003 (duplicate spec name), LINT004 (dead spec — kind not supported by any enabled target). `--strict` treats warnings as errors for CI gating. (#171)
 
 ## v0.13.0 - 2026-05-15
 
