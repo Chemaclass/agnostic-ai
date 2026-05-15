@@ -170,9 +170,9 @@ func defaultPlaygroundConfig(targets []string) *config.Config {
 	return &config.Config{
 		Version: 1,
 		Sources: config.Sources{
-			Agents: ".agnostic-ai/agents",
-			Skills: ".agnostic-ai/skills",
-			Rules:  ".agnostic-ai/rules",
+			Agents:   ".agnostic-ai/agents",
+			Skills:   ".agnostic-ai/skills",
+			Rules:    ".agnostic-ai/rules",
 			Hooks:    ".agnostic-ai/hooks",
 			MCPs:     ".agnostic-ai/mcps",
 			Commands: ".agnostic-ai/commands",
