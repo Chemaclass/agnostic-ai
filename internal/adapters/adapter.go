@@ -85,6 +85,16 @@ func WriteFile(path, content string, dryRun bool) error {
 	return emit.WriteFile(path, content, dryRun)
 }
 
+// StartTransaction begins recording pre-write file state so that Rollback
+// can undo all writes if a sync pass fails partway through.
+func StartTransaction() { emit.StartTransaction() }
+
+// Commit clears the transaction log after a successful sync.
+func Commit() { emit.Commit() }
+
+// Rollback undoes all file writes recorded since StartTransaction.
+func Rollback() error { return emit.Rollback() }
+
 // AgnosticEntryPointPath is the canonical CLI-agnostic entry-point
 // path under .agnostic-ai/ (re-exported from the emit layer for
 // callers in the cli package).

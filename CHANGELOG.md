@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `sync` now runs as an atomic transaction. If any adapter fails mid-run, all files written so far are restored to their pre-sync state. New files are deleted; overwritten files are restored from their original content. (#162)
+
 ## v0.13.0 - 2026-05-15
 
 ### Added

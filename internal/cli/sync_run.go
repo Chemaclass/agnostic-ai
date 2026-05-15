@@ -37,7 +37,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 	return os.WriteFile(p, data, 0o644)
 }
 
-func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -59,6 +59,17 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	if !dryRun {
 		adapters.StartCounting()
+		adapters.StartTransaction()
+		defer func() {
+			if retErr != nil {
+				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
+				if rbErr := adapters.Rollback(); rbErr != nil {
+					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
+				}
+			} else {
+				adapters.Commit()
+			}
+		}()
 	}
 	for _, t := range effectiveTargets {
 		adapter, err := adapters.Resolve(t)

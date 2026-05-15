@@ -4,6 +4,7 @@
 package emit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,6 +28,13 @@ type CapturedFile struct {
 	Content string
 }
 
+// txEntry records the pre-write state of one file for transaction rollback.
+// content is nil when the file did not exist before the write.
+type txEntry struct {
+	path    string
+	content []byte
+}
+
 // WrittenFile is one write event recorded during detailed recording mode.
 // Action is "create" (new file), "update" (existing file with changed
 // content), or "skip" (existing file with identical content, not rewritten).
@@ -41,16 +49,18 @@ type WrittenFile struct {
 // every read in WriteFile takes the same mutex so go test -race stays
 // clean and library reuse from concurrent goroutines is safe.
 var state struct {
-	mu        sync.Mutex
-	capturing bool
-	captured  []CapturedFile
-	backup    bool
-	recording bool
-	recorded  []string
-	counting  bool
-	counted   int
-	detailing bool
-	detailed  []WrittenFile
+	mu          sync.Mutex
+	capturing   bool
+	captured    []CapturedFile
+	backup      bool
+	recording   bool
+	recorded    []string
+	counting    bool
+	counted     int
+	detailing   bool
+	detailed    []WrittenFile
+	transacting bool
+	txLog       []txEntry
 }
 
 // SetBackup toggles backup mode. When enabled, WriteFile copies an
@@ -157,6 +167,51 @@ func StopDetailedRecording() []WrittenFile {
 	return out
 }
 
+// StartTransaction begins recording pre-write file state so that Rollback
+// can undo all writes if a sync pass fails partway through. Commit clears
+// the log on success.
+func StartTransaction() {
+	state.mu.Lock()
+	state.transacting = true
+	state.txLog = nil
+	state.mu.Unlock()
+}
+
+// Commit clears the transaction log and disables transaction mode. Call
+// after a successful sync to release the log.
+func Commit() {
+	state.mu.Lock()
+	state.transacting = false
+	state.txLog = nil
+	state.mu.Unlock()
+}
+
+// Rollback undoes all file writes recorded since StartTransaction. New files
+// are removed; overwritten files are restored from their pre-write content.
+// All entries are attempted; errors are joined and returned.
+func Rollback() error {
+	state.mu.Lock()
+	log := state.txLog
+	state.txLog = nil
+	state.transacting = false
+	state.mu.Unlock()
+
+	var errs []error
+	for i := len(log) - 1; i >= 0; i-- {
+		e := log[i]
+		if e.content == nil {
+			if err := os.Remove(e.path); err != nil && !os.IsNotExist(err) {
+				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+			}
+		} else {
+			if err := os.WriteFile(e.path, e.content, filePerm); err != nil {
+				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // WriteFile creates parent directories as needed and writes content to path.
 // When dryRun is true the file is not written; the path and content are
 // printed to stdout instead. When capture mode is active, the call is
@@ -174,6 +229,7 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 	backup := state.backup
 	recording := state.recording
 	detailing := state.detailing
+	transacting := state.transacting
 	if capturing {
 		state.captured = append(state.captured, CapturedFile{Path: path, Content: content})
 	}
@@ -212,6 +268,16 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 		default:
 			action = "update"
 		}
+		// Log pre-write state for rollback (only for actual writes, not skips).
+		if transacting {
+			var pre []byte
+			if action == "update" {
+				pre = existing
+			}
+			state.mu.Lock()
+			state.txLog = append(state.txLog, txEntry{path: path, content: pre})
+			state.mu.Unlock()
+		}
 		if backup && action == "update" {
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
@@ -224,6 +290,20 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 		state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action})
 		state.mu.Unlock()
 		return nil
+	}
+
+	// Log pre-write state for rollback.
+	if transacting {
+		pre, readErr := os.ReadFile(path)
+		state.mu.Lock()
+		switch {
+		case readErr == nil:
+			state.txLog = append(state.txLog, txEntry{path: path, content: pre})
+		case os.IsNotExist(readErr):
+			state.txLog = append(state.txLog, txEntry{path: path, content: nil})
+		}
+		// Other read errors: skip logging; the write below will also fail.
+		state.mu.Unlock()
 	}
 
 	if backup {
