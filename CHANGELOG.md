@@ -18,6 +18,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `agnostic-ai cleanup --backups`: walks the project root and removes every `*.bak` file `sync --backup` left behind. `.git/` and `.agnostic-ai/` are skipped. Supports `--dry-run`. Closes #197.
 - docs/user/getting-started.md: recommended adoption workflow (split `import` and `sync` into two reviewable commits). Closes #196.
 
+### Docs
+- README: rewrite "byte-identical" round-trip claim to describe the actual content-preserving guarantee (provenance marker + canonical formatting). Closes #201.
+- README: target table now distinguishes native paths (loaded by the upstream tool out of the box) from convention paths (loaded via wiring like `@.claude/rules/<name>.md` references or VS Code settings). Closes #202.
+- AGNOSTIC_AI.md template gains a "Target-specific overlays" section so users discover `.agnostic-ai/overlays/<target>.settings.json`. Closes #203.
+- docs/user/spec-format.md hooks section shows how `event` / `matcher` / `command` render into Claude, Codex, and Gemini native shapes. Closes #206.
+- docs/user/getting-started.md documents the import scope boundary (helper scripts referenced from settings.json are not captured — commit them in git instead). Closes #209.
+- docs/user/getting-started.md adds a `.agnostic-ai/.sync-state` reference (what it stores, who reads it, whether to commit it). Closes #210.
+- docs/user/spec-format.md skills section announces nested skill helper files (round-trip verbatim including executable bits). Closes #211.
+
 ### Changed
 - `spec.Entry` now carries `MetaKeys`, the ordered list of frontmatter keys parsed from source. External adapters receive the same field as `meta_keys` in the JSON envelope (additive; no protocol bump).
 

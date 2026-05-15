@@ -85,7 +85,7 @@ skills/yaml-validator/SKILL.md
 skills/yaml-validator/schema.yaml
 ```
 
-Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories are ignored by agnostic-ai but available to Claude Code at runtime.
+Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories (scripts, templates, fixtures, nested subdirectories) are copied verbatim to the same relative location under each target's skills dir — useful for shipping a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the skill body references. Executable bits are preserved both directions through import + sync.
 
 ```markdown
 ---
@@ -166,6 +166,55 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `Notification` | When Claude Code surfaces a system notification. |
 
 Emitted natively by Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), and Gemini (`.gemini/settings.json` `hooks` — uses event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
+
+### How agnostic-ai frontmatter renders per target
+
+Agnostic-ai hook spec:
+
+```yaml
+event: PostToolUse
+matcher: Bash(git commit*)
+command: echo "tests please"
+```
+
+Renders to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {"type": "command", "command": "echo \"tests please\""}
+        ]
+      }
+    ]
+  }
+}
+```
+
+Renders to `.codex/config.toml`:
+
+```toml
+[[hooks.PostToolUse]]
+matcher = "Bash(git commit*)"
+command = "echo \"tests please\""
+```
+
+Renders to `.gemini/settings.json`:
+
+```json
+{
+  "hooks": {
+    "AfterTool": [
+      {"matcher": "Bash(git commit*)", "command": "echo \"tests please\""}
+    ]
+  }
+}
+```
+
+When `command` is a list, each entry becomes a separate hook entry (Claude) or a separate `[[hooks.<event>]]` block (Codex).
 
 ## MCP servers
 
