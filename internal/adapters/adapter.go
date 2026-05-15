@@ -32,6 +32,17 @@ import (
 // emit tree can consume capture output.
 type CapturedFile = emit.CapturedFile
 
+// OrderedJSON mirrors emit.OrderedJSON so the CLI layer can read and
+// write settings.json overlays without losing source key order.
+type OrderedJSON = emit.OrderedJSON
+
+// NewOrderedJSON returns an empty OrderedJSON ready for Set / Get.
+func NewOrderedJSON() *OrderedJSON { return emit.NewOrderedJSON() }
+
+// MarshalJSONIndent renders v as indented JSON without HTML escaping,
+// preserving OrderedJSON insertion order when v is an OrderedJSON.
+func MarshalJSONIndent(v any) ([]byte, error) { return emit.MarshalJSONIndent(v) }
+
 // WrittenFile mirrors emit.WrittenFile so callers outside the internal
 // emit tree can consume detailed recording output.
 type WrittenFile = emit.WrittenFile

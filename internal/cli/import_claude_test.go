@@ -393,6 +393,48 @@ func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 	}
 }
 
+// TestImportFromClaude_OverlayPreservesKeyOrder regresses #215.
+// importClaudeSettingsOverlay used to round-trip through map[string]any,
+// which alpha-sorts every key on json.Marshal. The captured overlay
+// therefore lost the user's authored key order, and downstream
+// `doctor --fix` writes propagated the alpha-sorted form back.
+// OrderedJSON adoption keeps statusLine before enabledPlugins, and
+// inner statusLine fields type before command, byte-for-byte.
+func TestImportFromClaude_OverlayPreservesKeyOrder(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "statusLine": {"type": "command", "command": "echo status"},
+  "enabledPlugins": {"plugin-a": true},
+  "hooks": {}
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json"))
+	if err != nil {
+		t.Fatalf("missing overlay: %v", err)
+	}
+	s := string(raw)
+	idxStatus := strings.Index(s, `"statusLine"`)
+	idxPlugins := strings.Index(s, `"enabledPlugins"`)
+	if idxStatus < 0 || idxPlugins <= idxStatus {
+		t.Errorf("overlay re-ordered top-level keys (want statusLine before enabledPlugins):\n%s", s)
+	}
+	statusBlock := s
+	if i := strings.Index(s, `"statusLine"`); i >= 0 {
+		statusBlock = s[i:]
+		if j := strings.Index(statusBlock, "}"); j >= 0 {
+			statusBlock = statusBlock[:j+1]
+		}
+	}
+	idxType := strings.Index(statusBlock, `"type"`)
+	idxCmd := strings.Index(statusBlock, `"command"`)
+	if idxType < 0 || idxCmd <= idxType {
+		t.Errorf("statusLine inner keys re-ordered (want type before command):\n%s", statusBlock)
+	}
+}
+
 func TestImportFromClaude_OnlyHooks_NoOverlay(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

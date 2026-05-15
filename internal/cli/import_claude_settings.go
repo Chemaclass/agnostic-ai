@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 const (
@@ -49,15 +51,15 @@ func importClaudeSettingsOverlay(root string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
+	doc := adapters.NewOrderedJSON()
+	if err := json.Unmarshal(data, doc); err != nil {
 		return fmt.Errorf("parse %s: %w", src, err)
 	}
-	delete(doc, "hooks")
-	if len(doc) == 0 {
+	doc.Delete("hooks")
+	if doc.Len() == 0 {
 		return nil
 	}
-	raw, err := json.MarshalIndent(doc, "", "  ")
+	raw, err := adapters.MarshalJSONIndent(doc)
 	if err != nil {
 		return fmt.Errorf("marshal overlay: %w", err)
 	}

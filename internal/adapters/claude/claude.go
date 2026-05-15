@@ -215,10 +215,13 @@ func orderedConfigKeys(m map[string]any) []string {
 // `.agnostic-ai/overlays/claude.settings.json`. Returns (doc, true, nil)
 // when the overlay exists and parses, (nil, false, nil) when it is
 // absent, and (nil, false, err) on a parse failure or unexpected read
-// error. Skips disk in dryRun and capture modes so deterministic check
-// passes do not depend on the working tree.
+// error. Skips disk in dryRun so `--dry-run` previews remain pure.
+// Capture mode (used by `sync --check` and `doctor`) still reads the
+// overlay because it is a project-source input under `.agnostic-ai/`,
+// not a previously emitted output — skipping it would cause capture
+// output to diverge from real sync output and trigger false drift.
 func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
-	if dryRun || emit.IsCapturing() {
+	if dryRun {
 		return nil, false, nil
 	}
 	data, err := os.ReadFile(settingsOverlayPath)
