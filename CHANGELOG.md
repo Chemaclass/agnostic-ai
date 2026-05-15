@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Fixed
+- emit: normalize trailing newlines on every written artifact so files end with exactly one `\n`. Removes the spurious blank line appended by upstream concatenations and stabilizes round-trip diffs. Closes #195.
+
 ## v0.17.0 - 2026-05-15
 
 ### Added

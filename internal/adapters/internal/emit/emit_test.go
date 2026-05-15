@@ -17,8 +17,44 @@ func TestWriteFile_CreatesNestedDirs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "hello" {
-		t.Errorf("expected 'hello', got %q", got)
+	if string(got) != "hello\n" {
+		t.Errorf("expected 'hello\\n' (normalized trailing newline), got %q", got)
+	}
+}
+
+func TestWriteFile_NormalizesTrailingNewlines(t *testing.T) {
+	dir := t.TempDir()
+	cases := []struct{ name, in, want string }{
+		{"no-newline", "hello", "hello\n"},
+		{"single-newline", "hello\n", "hello\n"},
+		{"double-newline", "hello\n\n", "hello\n"},
+		{"many-newlines", "hello\n\n\n\n", "hello\n"},
+		{"empty", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, tc.name+".txt")
+			if err := WriteFile(path, tc.in, false); err != nil {
+				t.Fatal(err)
+			}
+			if tc.want == "" {
+				got, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(got) != 0 {
+					t.Errorf("empty in -> want empty file, got %q", got)
+				}
+				return
+			}
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("in=%q want=%q got=%q", tc.in, tc.want, got)
+			}
+		})
 	}
 }
 

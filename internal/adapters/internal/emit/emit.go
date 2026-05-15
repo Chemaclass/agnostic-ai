@@ -220,7 +220,20 @@ func Rollback() error {
 // action (create/update/skip) is determined by comparing against existing
 // content; unchanged files are skipped and not rewritten.
 func WriteFile(path, content string, dryRun bool) error {
-	return writeFileWithMode(path, content, filePerm, dryRun)
+	return writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, dryRun)
+}
+
+// normalizeTrailingNewline collapses any run of trailing newlines into
+// exactly one. Empty content stays empty. Applied to emitted text
+// artifacts so a body that ends with one `\n` does not gain a spurious
+// blank line just because an upstream concatenation appended an extra
+// separator. CopyTree intentionally bypasses this so propagated assets
+// stay byte-identical.
+func normalizeTrailingNewline(content string) string {
+	if content == "" {
+		return content
+	}
+	return strings.TrimRight(content, "\n") + "\n"
 }
 
 func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {

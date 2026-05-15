@@ -29,15 +29,17 @@ func TestWriteFile_BackupCreatesBakWhenContentDiffers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "new" {
-		t.Errorf("expected new content, got %q", got)
+	if string(got) != "new\n" {
+		t.Errorf("expected new content (normalized newline), got %q", got)
 	}
 }
 
 func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
-	if err := os.WriteFile(path, []byte("same"), 0o644); err != nil {
+	// File on disk already ends with normalized trailing newline so the
+	// no-op compare path matches what WriteFile normalizes the input to.
+	if err := os.WriteFile(path, []byte("same\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	SetBackup(true)
