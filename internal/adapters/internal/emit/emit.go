@@ -220,6 +220,10 @@ func Rollback() error {
 // action (create/update/skip) is determined by comparing against existing
 // content; unchanged files are skipped and not rewritten.
 func WriteFile(path, content string, dryRun bool) error {
+	// Normalize to exactly one trailing newline so the emitter does not
+	// produce spurious blank-line diffs when marshaled content already
+	// ends with "\n".
+	content = strings.TrimRight(content, "\n") + "\n"
 	return writeFileWithMode(path, content, filePerm, dryRun)
 }
 
