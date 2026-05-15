@@ -10,11 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newCleanupCmd builds `agnostic-ai cleanup`, currently scoped to
-// removing the `.bak` files `sync --backup` leaves on disk. Reserved
-// for future cleanup modes (orphan generated files, stale sync-state,
-// etc.); pass `--backups` explicitly so a future invocation without
-// flags can either bundle every mode or stay a no-op.
+// newCleanupCmd builds `agnostic-ai cleanup`. With no flags it removes
+// `.bak` files left by `sync --backup` (currently the only cleanup
+// mode). `--backups` stays as an explicit opt-in for scripts that want
+// the legacy flag form; it has no effect on behavior today. When more
+// cleanup modes ship in the future, a bare `cleanup` may opt into
+// running every mode while the explicit `--backups` flag continues to
+// scope cleanup to .bak removal.
 func newCleanupCmd() *cobra.Command {
 	var (
 		backups bool
@@ -25,24 +27,25 @@ func newCleanupCmd() *cobra.Command {
 		Short: "Remove agnostic-ai-generated leftovers (currently: .bak files).",
 		Long: `cleanup removes housekeeping leftovers from previous agnostic-ai runs.
 
-Today only --backups is supported. It walks the project root, finds every
-file ending in '.bak' (the form ` + "`sync --backup`" + ` writes), and removes
-them. ` + "`.git/`" + ` and ` + "`.agnostic-ai/`" + ` are skipped.
+Today only .bak cleanup is supported. It walks the project root, finds
+every file ending in '.bak' (the form ` + "`sync --backup`" + ` writes), and
+removes them. ` + "`.git/`" + ` and ` + "`.agnostic-ai/`" + ` are skipped.
 
 Pair with --dry-run to preview the deletions without touching disk.`,
 		Example: `  # Preview which .bak files would be removed
-  agnostic-ai cleanup --backups --dry-run
+  agnostic-ai cleanup --dry-run
 
-  # Remove every .bak under the project root
+  # Remove every .bak under the project root (no flag needed)
+  agnostic-ai cleanup
+
+  # Explicit form for scripts that prefer to spell the mode out
   agnostic-ai cleanup --backups`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !backups {
-				return fmt.Errorf("nothing to do: pass --backups (other modes not yet implemented)")
-			}
+			_ = backups
 			return runCleanupBackups(".", dryRun)
 		},
 	}
-	cmd.Flags().BoolVar(&backups, "backups", false, "Remove *.bak files left by `sync --backup`")
+	cmd.Flags().BoolVar(&backups, "backups", false, "Explicit form of the default cleanup mode (.bak removal). Kept for scripts; bare `cleanup` does the same thing today.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report intended deletions without touching disk")
 	return cmd
 }

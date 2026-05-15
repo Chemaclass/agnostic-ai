@@ -54,6 +54,30 @@ func TestRunCleanupBackups_DryRunListsButDoesNotDelete(t *testing.T) {
 	}
 }
 
+// TestCleanupCmd_BareInvocationRemovesBakFiles regresses #219.
+// Pre-#219, `agnostic-ai cleanup` errored out with "nothing to do:
+// pass --backups". Since --backups is the only mode, bare cleanup
+// should just do the default thing.
+func TestCleanupCmd_BareInvocationRemovesBakFiles(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	path := filepath.Join(dir, "CLAUDE.md.bak")
+	if err := os.WriteFile(path, []byte("backup"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"cleanup"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("bare cleanup should succeed, got: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected .bak removed by bare cleanup, err=%v", err)
+	}
+}
+
 func TestRunCleanupBackups_SkipsGitAndAgnosticDirs(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

@@ -111,7 +111,7 @@ CLIs, run each `import` + commit pair before the final `sync`.
 
 Tip: `agnostic-ai sync --backup` keeps a `.bak` next to each
 overwritten file so you can `revert` if the regeneration looks wrong.
-Clear them once you are happy with `agnostic-ai cleanup --backups`.
+Clear them once you are happy with `agnostic-ai cleanup`.
 
 #### What `import` does NOT capture
 
