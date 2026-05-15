@@ -16,5 +16,3 @@ Steps:
    - If a new target was added but its output is missing, the user has not synced yet.
 3. Never edit emitted files by hand. They are derived state. Always fix the spec or the adapter, then re-sync.
 4. Report findings as: `<target>: <one-line cause> -> <suggested action>`.
-
-Bypass the read of existing files when running under capture mode (`sync --check`) so the captured snapshot reflects the bundle alone.
