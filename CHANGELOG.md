@@ -7,13 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- `init`: scaffold `commands/` source folder and include `sources.commands` in `agnostic-ai.yaml`.
 
 ### Changed
 
 ### Fixed
 
 ### Removed
+
+## v0.14.1 - 2026-05-15
+
+### Added
+- `init`: scaffold `commands/` source folder and include `sources.commands` in `agnostic-ai.yaml`.
 
 ## v0.14.0 - 2026-05-15
 
