@@ -93,43 +93,88 @@ func newDoctorCmd() *cobra.Command {
 	var fix, backup, jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Diagnose drift between specs and emitted target files.",
-		Long: "doctor compares what `sync` would emit against the files on disk.\n" +
-			"Reports missing outputs and hand-edits. Exits non-zero on any drift.\n" +
-			"Use as a CI gate or after rebases.\n\n" +
-			"With --fix, doctor reconciles drift by writing the missing or stale\n" +
-			"files. Pair with --backup to copy each existing file to <path>.bak\n" +
-			"before overwriting hand-edits.",
-		Example: `  # Diagnose drift (CI gate)
+		Short: "Unified diagnostic: config, CLIs, spec health, and drift.",
+		Long: "doctor runs a prioritized punch list:\n" +
+			"  1. Detect installed AI CLIs on PATH.\n" +
+			"  2. Validate agnostic-ai.yaml config.\n" +
+			"  3. Report unsupported spec kinds per target.\n" +
+			"  4. Compare what sync would emit against files on disk (drift).\n" +
+			"  5. Check MCP server command binaries.\n" +
+			"  6. Suggest a concrete next step.\n\n" +
+			"Exits non-zero on any drift. Subcommands run individual checks.",
+		Example: `  # Full diagnostic (CI gate)
   agnostic-ai doctor
 
   # Reconcile drift in place, keeping a .bak of each hand-edited file
   agnostic-ai doctor --fix --backup
 
   # Machine-readable drift report for CI dashboards
-  agnostic-ai doctor --json`,
+  agnostic-ai doctor --json
+
+  # Check only MCP command resolution
+  agnostic-ai doctor mcp
+
+  # Check only installed AI CLIs
+  agnostic-ai doctor install`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// JSON mode: emit only the drift report, skip human-readable sections.
+			if jsonOut {
+				reports, err := collectDrift(targets)
+				if err != nil {
+					return err
+				}
+				return printDoctorJSON(cmd, reports)
+			}
+
+			configOK := doctorConfigOK()
+
+			// 1. Installed CLIs
+			reportInstalledCLIs(cmd)
+
+			// 2. Config check
+			cmd.Println()
+			cmd.Println("Config:")
+			if !configOK {
+				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
+				doctorNextStep(cmd, false, false)
+				return fmt.Errorf("no config found")
+			}
+			cfg, _, err := loadProject(".")
+			if err != nil {
+				cmd.Printf("  ✗ %v\n", err)
+				doctorNextStep(cmd, false, false)
+				return err
+			}
+			cmd.Printf("  ✓ agnostic-ai.yaml valid (version %d, %d target(s))\n", cfg.Version, len(cfg.Targets))
+
+			// 3. Unsupported kinds
+			reportUnsupportedKinds(cmd, cfg)
+
+			// 4. Drift
+			cmd.Println()
+			cmd.Println("Sync drift:")
 			reports, err := collectDrift(targets)
 			if err != nil {
 				return err
 			}
-			if jsonOut {
-				return printDoctorJSON(cmd, reports)
-			}
-			if !printDrift(reports) {
-				reportMCPCommandResolution(cmd)
-				return nil
-			}
-			if !fix {
-				reportMCPCommandResolution(cmd)
-				return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
-			}
-			fixed, err := fixDrift(reports, backup)
-			if err != nil {
-				return err
-			}
-			summaryf("→ reconciled %d file(s)\n", fixed)
+			hasDrift := printDrift(reports)
+
+			// 5. MCP resolution
 			reportMCPCommandResolution(cmd)
+
+			// 6. Next step
+			doctorNextStep(cmd, hasDrift, true)
+
+			if hasDrift {
+				if !fix {
+					return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
+				}
+				fixed, err := fixDrift(reports, backup)
+				if err != nil {
+					return err
+				}
+				summaryf("→ reconciled %d file(s)\n", fixed)
+			}
 			return nil
 		},
 	}
@@ -138,6 +183,9 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	registerTargetCompletion(cmd)
+	cmd.AddCommand(newDoctorMCPCmd())
+	cmd.AddCommand(newDoctorInstallCmd())
+	cmd.AddCommand(newDoctorConfigCmd())
 	return cmd
 }
 
