@@ -152,6 +152,58 @@ function test_promote_changelog_errors_without_unreleased() {
   rm -f "$tmp"
 }
 
+# ---- unreleased_has_content --------------------------------------------------
+
+function test_unreleased_has_content_detects_bullet() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+- something new
+
+## v0.1.0 - 2026-01-01
+EOF
+  unreleased_has_content "$tmp"
+  assert_equals 0 $?
+  rm -f "$tmp"
+}
+
+function test_unreleased_has_content_rejects_empty_subsections() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.1.0 - 2026-01-01
+EOF
+  unreleased_has_content "$tmp"
+  assert_equals 1 $?
+  rm -f "$tmp"
+}
+
+function test_unreleased_has_content_rejects_blank_section() {
+  local tmp
+  tmp="$(mktemp)"
+  printf '## [Unreleased]\n\n## v0.1.0 - 2026-01-01\n' > "$tmp"
+  unreleased_has_content "$tmp"
+  assert_equals 1 $?
+  rm -f "$tmp"
+}
+
 # ---- extract_changelog_section ----------------------------------------------
 
 function test_extract_changelog_section_returns_body_only() {

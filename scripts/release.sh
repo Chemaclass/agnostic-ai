@@ -71,6 +71,38 @@ bump_version_in_file() {
   ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
+# commits_since_last_tag — echoes the count of commits between the most
+# recent annotated tag and HEAD. Echoes 0 when no tag exists yet (e.g.
+# fresh repo) so the caller treats every commit as releasable.
+commits_since_last_tag() {
+  local last
+  last="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+  if [[ -z "$last" ]]; then
+    git rev-list --count HEAD
+    return 0
+  fi
+  git rev-list --count "${last}..HEAD"
+}
+
+# unreleased_has_content <CHANGELOG path> — returns 0 when the
+# `## [Unreleased]` section has at least one non-blank, non-subsection
+# line before the next `## ` heading. Subsection headings (`### Added`,
+# `### Changed`, ...) are scaffolding and do not count as content.
+unreleased_has_content() {
+  local file="$1"
+  awk '
+    BEGIN { in_section=0; has=0 }
+    /^## \[Unreleased\]/ { in_section=1; next }
+    in_section && /^## / { exit }
+    in_section {
+      if ($0 ~ /^[[:space:]]*$/) next
+      if ($0 ~ /^### /) next
+      has=1; exit
+    }
+    END { exit has ? 0 : 1 }
+  ' "$file"
+}
+
 # promote_changelog <CHANGELOG path> <vX.Y.Z> <YYYY-MM-DD> — promotes the
 # existing [Unreleased] block to a dated `## vX.Y.Z - date` heading and
 # inserts a fresh empty [Unreleased] block above. Brackets stay on
@@ -194,7 +226,7 @@ main() {
   [[ $DRY_RUN -eq 1 ]] && note "mode:    dry-run (no writes, no commits, no push)"
   [[ $NO_PUSH -eq 1 && $DRY_RUN -eq 0 ]] && note "mode:    --no-push (commit + tag only)"
 
-  preflight "$VERSION"
+  preflight "$VERSION" "$changelog"
 
   note "bump: $current -> $plain"
   if [[ $DRY_RUN -eq 0 ]]; then
@@ -236,7 +268,7 @@ require_cmd() {
 
 # preflight gates the release on git state and code health.
 preflight() {
-  local version="$1"
+  local version="$1" changelog="$2"
   note "preflight: tools"
   require_cmd git go awk
 
@@ -255,6 +287,16 @@ preflight() {
 
   if git rev-parse "$version" >/dev/null 2>&1; then
     die "tag $version already exists"
+  fi
+
+  note "preflight: releasable changes"
+  local count
+  count="$(commits_since_last_tag)"
+  if [[ "$count" -eq 0 ]]; then
+    die "no commits since the last release. nothing to ship."
+  fi
+  if ! unreleased_has_content "$changelog"; then
+    die "CHANGELOG [Unreleased] is empty. add an entry under Added/Changed/Fixed/Removed before releasing."
   fi
 
   note "preflight: gofmt"
