@@ -6,25 +6,67 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // renderConfigTOML builds the `.codex/config.toml` body from the bundle's
-// hook and MCP entries. Each MCP entry emits as a `[mcp_servers.<name>]`
-// table; each hook entry emits as an `[[hooks.<event>]]` array-of-tables
-// element. Returns "" when there is no valid output to write (e.g. all
-// hooks lack an `event` and no MCP entries).
-func renderConfigTOML(hooks, mcps []spec.Entry) string {
+// hook and MCP entries plus any first-class config fields. Each MCP entry
+// emits as a `[mcp_servers.<name>]` table; each hook entry emits as an
+// `[[hooks.<event>]]` array-of-tables element. Returns "" when there is no
+// valid output to write.
+func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig) string {
 	byEvent := groupHooksByEvent(hooks)
-	if len(byEvent) == 0 && !anyNamedMCP(mcps) {
+	hasContent := len(byEvent) > 0 || anyNamedMCP(mcps) || hasCodexConfig(cfg)
+	if !hasContent {
 		return ""
 	}
 	var sb strings.Builder
 	sb.WriteString(emit.Header(emit.FormatTOML) + "\n")
 
+	writeCodexConfigFields(&sb, cfg)
 	writeMCPServers(&sb, mcps)
 	writeHookSectionsFromMap(&sb, byEvent)
 	return sb.String()
+}
+
+func hasCodexConfig(cfg *config.CodexConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	return cfg.Sandbox != "" || cfg.ApprovalPolicy != "" || cfg.Model != "" ||
+		cfg.ModelReasoningEffort != "" || cfg.ModelReasoningSummary != "" ||
+		cfg.HistoryPersistence != ""
+}
+
+// writeCodexConfigFields emits the first-class `.codex/config.toml` scalars
+// when set in `outputs.codex.config`.
+func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Model != "" {
+		emit.WriteTOMLString(sb, "model", cfg.Model)
+	}
+	if cfg.Sandbox != "" {
+		emit.WriteTOMLString(sb, "sandbox", cfg.Sandbox)
+	}
+	if cfg.ApprovalPolicy != "" {
+		emit.WriteTOMLString(sb, "approval_policy", cfg.ApprovalPolicy)
+	}
+	if cfg.ModelReasoningEffort != "" {
+		emit.WriteTOMLString(sb, "model_reasoning_effort", cfg.ModelReasoningEffort)
+	}
+	if cfg.ModelReasoningSummary != "" {
+		emit.WriteTOMLString(sb, "model_reasoning_summary", cfg.ModelReasoningSummary)
+	}
+	if cfg.HistoryPersistence != "" {
+		sb.WriteString("\n[history]\n")
+		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
+	}
+	if hasCodexConfig(cfg) {
+		sb.WriteString("\n")
+	}
 }
 
 func anyNamedMCP(mcps []spec.Entry) bool {

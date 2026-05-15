@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- MCP spec frontmatter now supports `description`, `disabled`, and `roots` fields. All adapters that emit MCP JSON will include these in their output. (#177)
+- Codex adapter: first-class `outputs.codex.config` block. Declare `sandbox`, `approval-policy`, `model`, `model-reasoning-effort`, `model-reasoning-summary`, and `history-persistence` in `agnostic-ai.yaml` instead of hand-editing `.codex/config.toml`. (#177)
 - `sync --plan` prints a structured per-target summary (added/changed counts) without writing any files. Useful for previewing what sync would do before committing. (#161)
 - `import all` detects every AI CLI config present in the project and imports from each in one shot. (#160)
 - `init --from <cli>` scaffolds a project and imports from an existing CLI config in a single command. Accepts any import source, including `all`. (#160)

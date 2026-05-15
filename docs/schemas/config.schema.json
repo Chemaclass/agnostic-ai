@@ -81,6 +81,30 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CodexConfig": {
+      "properties": {
+        "sandbox": {
+          "type": "string"
+        },
+        "approval-policy": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "model-reasoning-effort": {
+          "type": "string"
+        },
+        "model-reasoning-summary": {
+          "type": "string"
+        },
+        "history-persistence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Config": {
       "properties": {
         "version": {
@@ -190,6 +214,9 @@
         },
         "settings": {
           "$ref": "#/$defs/ClaudeSettings"
+        },
+        "config": {
+          "$ref": "#/$defs/CodexConfig"
         },
         "collision-policy": {
           "type": "string"

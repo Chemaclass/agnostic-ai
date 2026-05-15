@@ -188,3 +188,78 @@ func TestEmit_MCP_EnvEscapesQuotesAndBackslashes(t *testing.T) {
 		t.Errorf("expected escaped env value, got: %s", got)
 	}
 }
+
+func TestEmit_CodexConfig_SandboxAndApprovalPolicy(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {
+				Config: &config.CodexConfig{
+					Sandbox:        "workspace-write",
+					ApprovalPolicy: "on-failure",
+					Model:          "o4-mini",
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`sandbox = "workspace-write"`,
+		`approval_policy = "on-failure"`,
+		`model = "o4-mini"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_CodexConfig_ModelReasoningAndHistory(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {
+				Config: &config.CodexConfig{
+					ModelReasoningEffort:  "medium",
+					ModelReasoningSummary: "auto",
+					HistoryPersistence:    "enabled",
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`model_reasoning_effort = "medium"`,
+		`model_reasoning_summary = "auto"`,
+		"[history]",
+		`persistence = "enabled"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {Config: &config.CodexConfig{}},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/config.toml")); !os.IsNotExist(err) {
+		t.Error("expected no config.toml when CodexConfig is empty")
+	}
+}

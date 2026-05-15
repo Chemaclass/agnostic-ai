@@ -92,6 +92,7 @@ type Output struct {
 	MCPDir               string          `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool            `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 	Settings             *ClaudeSettings `yaml:"settings,omitempty"                 json:"settings,omitempty"`
+	Config               *CodexConfig    `yaml:"config,omitempty"                   json:"config,omitempty"`
 	CollisionPolicy      string          `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
 }
 
@@ -133,6 +134,21 @@ type ClaudePermissions struct {
 	Allow []string `yaml:"allow,omitempty" json:"allow,omitempty"`
 	Deny  []string `yaml:"deny,omitempty"  json:"deny,omitempty"`
 	Ask   []string `yaml:"ask,omitempty"   json:"ask,omitempty"`
+}
+
+// CodexConfig is the first-class representation of `.codex/config.toml` keys
+// that agnostic-ai manages. Only the Codex adapter reads this struct.
+//
+// These fields are written into the project-tier `.codex/config.toml` on each
+// sync. Keys not listed here (e.g. user-specific overrides) belong in the
+// user-global `~/.codex/config.toml` which Codex merges last.
+type CodexConfig struct {
+	Sandbox               string `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
+	ApprovalPolicy        string `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`
+	Model                 string `yaml:"model,omitempty"                   json:"model,omitempty"`
+	ModelReasoningEffort  string `yaml:"model-reasoning-effort,omitempty"  json:"model-reasoning-effort,omitempty"`
+	ModelReasoningSummary string `yaml:"model-reasoning-summary,omitempty" json:"model-reasoning-summary,omitempty"`
+	HistoryPersistence    string `yaml:"history-persistence,omitempty"     json:"history-persistence,omitempty"`
 }
 
 // Load reads the project config from root. It prefers

@@ -99,13 +99,17 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	return emitConfigTOML(b, cfg, dryRun)
 }
 
-// emitConfigTOML writes `.codex/config.toml` with hooks and MCP servers
-// when either is present. Codex's project-tier config.toml is
+// emitConfigTOML writes `.codex/config.toml` with global config, hooks, and
+// MCP servers when any content exists. Codex's project-tier config.toml is
 // agnostic-ai-managed: overwrite on each sync. Users who want to add
 // non-managed Codex config keys should set them in the user-global
 // `~/.codex/config.toml` instead.
 func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	body := renderConfigTOML(b.Hooks, b.MCPs)
+	var codexCfg *config.CodexConfig
+	if o, ok := cfg.Outputs[target]; ok {
+		codexCfg = o.Config
+	}
+	body := renderConfigTOML(b.Hooks, b.MCPs, codexCfg)
 	if body == "" {
 		return nil
 	}
