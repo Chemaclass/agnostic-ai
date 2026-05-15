@@ -55,7 +55,15 @@ type Entry struct {
 	// outside the layered loader (legacy path).
 	Layer string
 	Meta  map[string]any
-	Body  string
+	// MetaKeys preserves the order in which keys appeared in the source
+	// frontmatter (or pure YAML for hooks/MCPs). Adapters pass this to
+	// emit.DocumentOrdered / emit.FrontmatterOrdered so a round-trip
+	// through agnostic-ai keeps the author's key order. Nil for entries
+	// built programmatically (e.g. WASM playground inputs without a
+	// preserved key order); emit falls back to alphabetical order in
+	// that case.
+	MetaKeys []string
+	Body     string
 }
 
 // Description returns the entry's description from frontmatter, or "" if
@@ -330,34 +338,33 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 //
 // The data must be UTF-8 with optional `---` frontmatter on top.
 func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
-	meta, body, err := splitFrontmatter(normalizeLineEndings(data))
+	meta, keys, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
 		return Entry{}, err
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Kind: kind,
-		Name: name,
-		Meta: meta,
-		Body: body,
+		Kind:     kind,
+		Name:     name,
+		Meta:     meta,
+		MetaKeys: keys,
+		Body:     body,
 	}, nil
 }
 
 // ParseYAMLBytes parses an in-memory hook or MCP spec (pure YAML, no
 // frontmatter) and returns the Entry.
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
-	var meta map[string]any
-	if err := yaml.Unmarshal(data, &meta); err != nil {
+	meta, keys, err := decodeYAMLOrdered(data)
+	if err != nil {
 		return Entry{}, err
-	}
-	if meta == nil {
-		meta = map[string]any{}
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Kind: kind,
-		Name: name,
-		Meta: meta,
+		Kind:     kind,
+		Name:     name,
+		Meta:     meta,
+		MetaKeys: keys,
 	}, nil
 }
 
@@ -366,17 +373,18 @@ func parseMarkdown(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, body, err := splitFrontmatter(normalizeLineEndings(data))
+	meta, keys, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
 		// Frontmatter starts at line 2 (line 1 is the opening `---`).
 		return Entry{}, formatYAMLError(path, err, 1)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Path: path,
-		Name: name,
-		Meta: meta,
-		Body: body,
+		Path:     path,
+		Name:     name,
+		Meta:     meta,
+		MetaKeys: keys,
+		Body:     body,
 	}, nil
 }
 
@@ -385,16 +393,67 @@ func parseYAML(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	var meta map[string]any
-	if err := yaml.Unmarshal(data, &meta); err != nil {
+	meta, keys, err := decodeYAMLOrdered(data)
+	if err != nil {
 		return Entry{}, formatYAMLError(path, err, 0)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Path: path,
-		Name: name,
-		Meta: meta,
+		Path:     path,
+		Name:     name,
+		Meta:     meta,
+		MetaKeys: keys,
 	}, nil
+}
+
+// decodeYAMLOrdered parses a YAML document into both a map and an
+// ordered key slice so adapters can re-emit the frontmatter in source
+// order. Empty input returns an empty map and nil keys.
+func decodeYAMLOrdered(data []byte) (map[string]any, []string, error) {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return nil, nil, err
+	}
+	meta, keys := nodeToOrderedMap(&node)
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	return meta, keys, nil
+}
+
+// nodeToOrderedMap converts a YAML mapping node to (map, ordered keys).
+// Non-mapping inputs return (nil, nil); the DocumentNode wrapper is
+// peeled when present. Errors decoding individual values cause the
+// affected key to be dropped silently — yaml.Unmarshal would have
+// already surfaced the syntactic failure at parse time.
+func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string) {
+	if n == nil {
+		return nil, nil
+	}
+	if n.Kind == yaml.DocumentNode {
+		if len(n.Content) == 0 {
+			return nil, nil
+		}
+		return nodeToOrderedMap(n.Content[0])
+	}
+	if n.Kind != yaml.MappingNode {
+		return nil, nil
+	}
+	meta := make(map[string]any, len(n.Content)/2)
+	keys := make([]string, 0, len(n.Content)/2)
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		keyNode := n.Content[i]
+		valNode := n.Content[i+1]
+		var v any
+		if err := valNode.Decode(&v); err != nil {
+			continue
+		}
+		if _, dup := meta[keyNode.Value]; !dup {
+			keys = append(keys, keyNode.Value)
+		}
+		meta[keyNode.Value] = v
+	}
+	return meta, keys
 }
 
 // normalizeLineEndings converts CRLF to LF so the frontmatter splitter
@@ -407,32 +466,29 @@ func normalizeLineEndings(b []byte) []byte {
 }
 
 // splitFrontmatter parses a leading `---` block as YAML and returns the
-// remaining body. A file that does not start with `---`, or whose
-// closing `---` is missing, is treated as body-only with empty meta
-// (this matches the legacy behavior). Malformed YAML inside a fully
-// delimited block is surfaced as an error rather than silently
+// remaining body along with the ordered map of frontmatter keys. A file
+// that does not start with `---`, or whose closing `---` is missing,
+// is treated as body-only with empty meta. Malformed YAML inside a
+// fully delimited block is surfaced as an error rather than silently
 // swallowed.
-func splitFrontmatter(data []byte) (map[string]any, string, error) {
+func splitFrontmatter(data []byte) (map[string]any, []string, string, error) {
 	const delim = "---"
 	empty := map[string]any{}
 
 	if !bytes.HasPrefix(data, []byte(delim)) {
-		return empty, string(data), nil
+		return empty, nil, string(data), nil
 	}
 	rest := data[len(delim):]
 	idx := bytes.Index(rest, []byte("\n"+delim))
 	if idx < 0 {
-		return empty, string(data), nil
+		return empty, nil, string(data), nil
 	}
 	yamlPart := rest[:idx]
 	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
 
-	var meta map[string]any
-	if err := yaml.Unmarshal(yamlPart, &meta); err != nil {
-		return nil, "", err
+	meta, keys, err := decodeYAMLOrdered(yamlPart)
+	if err != nil {
+		return nil, nil, "", err
 	}
-	if meta == nil {
-		meta = empty
-	}
-	return meta, string(body), nil
+	return meta, keys, string(body), nil
 }

@@ -86,7 +86,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
-		body := emit.Frontmatter(emit.ResolveMeta(c.Meta, target)) + "\n" + c.Body
+		rmeta, rkeys := emit.ResolveMetaOrdered(c.Meta, c.MetaKeys, target)
+		body := emit.FrontmatterOrdered(rmeta, rkeys) + "\n" + c.Body
 		if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}

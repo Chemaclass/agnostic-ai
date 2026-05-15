@@ -91,6 +91,65 @@ func TestFrontmatter_WithFields(t *testing.T) {
 	}
 }
 
+func TestFrontmatterOrdered_PreservesSourceKeyOrder(t *testing.T) {
+	meta := map[string]any{
+		"name":         "changelog-keeper",
+		"model":        "haiku",
+		"description":  "Keeps changelog tidy",
+		"allowed_tools": []string{"Read", "Edit"},
+	}
+	keys := []string{"name", "model", "description", "allowed_tools"}
+	got := FrontmatterOrdered(meta, keys)
+	// name must appear before description and allowed_tools.
+	idxName := strings.Index(got, "name:")
+	idxDesc := strings.Index(got, "description:")
+	idxTools := strings.Index(got, "allowed_tools:")
+	if idxName < 0 || idxDesc < 0 || idxTools < 0 {
+		t.Fatalf("missing keys in output: %q", got)
+	}
+	if !(idxName < idxDesc && idxDesc < idxTools) {
+		t.Errorf("expected name<description<allowed_tools order, got:\n%s", got)
+	}
+}
+
+func TestFrontmatterOrdered_TwoSpaceArrayIndent(t *testing.T) {
+	got := FrontmatterOrdered(
+		map[string]any{"allowed_tools": []string{"Read", "Edit"}},
+		[]string{"allowed_tools"},
+	)
+	// yaml.v3 default is 4 spaces; the helper forces 2.
+	if !strings.Contains(got, "\n  - Read\n  - Edit\n") {
+		t.Errorf("expected 2-space sequence indent, got:\n%s", got)
+	}
+	if strings.Contains(got, "    - Read") {
+		t.Errorf("expected no 4-space indent, got:\n%s", got)
+	}
+}
+
+func TestFrontmatterOrdered_PromotesSingleToDoubleQuotes(t *testing.T) {
+	got := FrontmatterOrdered(
+		map[string]any{"argument-hint": "[findings-file-or-scope]"},
+		[]string{"argument-hint"},
+	)
+	if !strings.Contains(got, `"[findings-file-or-scope]"`) {
+		t.Errorf("expected double-quoted scalar, got:\n%s", got)
+	}
+	if strings.Contains(got, `'[findings-file-or-scope]'`) {
+		t.Errorf("expected no single-quoted scalar, got:\n%s", got)
+	}
+}
+
+func TestFrontmatterOrdered_UnhintedKeysAppendAlphabetically(t *testing.T) {
+	meta := map[string]any{"zeta": 1, "alpha": 2, "name": "foo"}
+	got := FrontmatterOrdered(meta, []string{"name"})
+	idxName := strings.Index(got, "name:")
+	idxAlpha := strings.Index(got, "alpha:")
+	idxZeta := strings.Index(got, "zeta:")
+	if !(idxName < idxAlpha && idxAlpha < idxZeta) {
+		t.Errorf("expected hinted-then-alpha order, got:\n%s", got)
+	}
+}
+
 func TestStartCounting_CountsRealWrites(t *testing.T) {
 	dir := t.TempDir()
 	StartCounting()

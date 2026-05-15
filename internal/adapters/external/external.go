@@ -65,13 +65,14 @@ type SpecsEnvelope struct {
 // fields mirror spec.Entry but use snake_case for cross-language
 // adapter implementations.
 type SpecEntry struct {
-	Kind  string         `json:"kind"`
-	Name  string         `json:"name"`
-	Path  string         `json:"path"`
-	Scope string         `json:"scope,omitempty"`
-	Layer string         `json:"layer,omitempty"`
-	Meta  map[string]any `json:"meta,omitempty"`
-	Body  string         `json:"body,omitempty"`
+	Kind     string         `json:"kind"`
+	Name     string         `json:"name"`
+	Path     string         `json:"path"`
+	Scope    string         `json:"scope,omitempty"`
+	Layer    string         `json:"layer,omitempty"`
+	Meta     map[string]any `json:"meta,omitempty"`
+	MetaKeys []string       `json:"meta_keys,omitempty"`
+	Body     string         `json:"body,omitempty"`
 }
 
 // Output is the JSON document the adapter writes to its stdout.
@@ -176,13 +177,14 @@ func entriesToWire(entries []spec.Entry) []SpecEntry {
 	out := make([]SpecEntry, len(entries))
 	for i, e := range entries {
 		out[i] = SpecEntry{
-			Kind:  string(e.Kind),
-			Name:  e.Name,
-			Path:  e.Path,
-			Scope: e.Scope,
-			Layer: e.Layer,
-			Meta:  e.Meta,
-			Body:  e.Body,
+			Kind:     string(e.Kind),
+			Name:     e.Name,
+			Path:     e.Path,
+			Scope:    e.Scope,
+			Layer:    e.Layer,
+			Meta:     e.Meta,
+			MetaKeys: e.MetaKeys,
+			Body:     e.Body,
 		}
 	}
 	return out

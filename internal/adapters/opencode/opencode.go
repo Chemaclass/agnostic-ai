@@ -171,7 +171,7 @@ func commandFile(e spec.Entry) string {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, commandFrontmatterKeys)
 	var sb strings.Builder
-	sb.WriteString(emit.Frontmatter(front))
+	sb.WriteString(emit.FrontmatterOrdered(front, commandFrontmatterKeys))
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String()

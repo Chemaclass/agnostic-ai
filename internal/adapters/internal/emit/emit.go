@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -382,20 +383,101 @@ func CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) er
 }
 
 // Frontmatter renders meta as a YAML frontmatter block. Empty meta returns
-// an empty string.
+// an empty string. Keys are emitted in alphabetical order; callers that
+// need to preserve source key ordering should use FrontmatterOrdered.
 func Frontmatter(meta map[string]any) string {
+	return FrontmatterOrdered(meta, nil)
+}
+
+// FrontmatterOrdered renders meta as a YAML frontmatter block with keys
+// emitted in the given order. Keys missing from `keys` are appended
+// alphabetically. Empty meta returns "".
+//
+// Co-fixes three round-trip noise sources versus the legacy
+// `yaml.Marshal(map)` path:
+//
+//   - Source key order is preserved (frontmatter authored with
+//     `name` first stays with `name` first instead of being sorted
+//     to the bottom by the YAML library).
+//   - Sequence indent is forced to 2 spaces (yaml.v3 default is 4).
+//   - Single-quoted scalars are promoted to double quotes, matching
+//     the convention used by hand-authored CLI configs.
+func FrontmatterOrdered(meta map[string]any, keys []string) string {
 	if len(meta) == 0 {
 		return ""
 	}
-	data, err := yaml.Marshal(meta)
-	if err != nil {
+	ordered := orderedMetaKeys(meta, keys)
+	root := &yaml.Node{Kind: yaml.MappingNode}
+	for _, k := range ordered {
+		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: k}
+		valNode := &yaml.Node{}
+		if err := valNode.Encode(meta[k]); err != nil {
+			return ""
+		}
+		preferDoubleQuotes(valNode)
+		root.Content = append(root.Content, keyNode, valNode)
+	}
+	var buf strings.Builder
+	enc := yaml.NewEncoder(&yamlWriter{b: &buf})
+	enc.SetIndent(2)
+	if err := enc.Encode(root); err != nil {
+		_ = enc.Close()
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString("---\n")
-	b.Write(data)
-	b.WriteString("---\n")
-	return b.String()
+	if err := enc.Close(); err != nil {
+		return ""
+	}
+	var out strings.Builder
+	out.WriteString("---\n")
+	out.WriteString(buf.String())
+	out.WriteString("---\n")
+	return out.String()
+}
+
+// yamlWriter adapts strings.Builder to io.Writer so the YAML encoder
+// can stream into it without an intermediate bytes.Buffer.
+type yamlWriter struct{ b *strings.Builder }
+
+func (w *yamlWriter) Write(p []byte) (int, error) { return w.b.Write(p) }
+
+// orderedMetaKeys returns the union of meta's keys with `hint` consulted
+// first (preserving the caller's preferred order) and any remaining keys
+// appended in alphabetical order. Keys in hint that are absent from
+// meta are skipped.
+func orderedMetaKeys(meta map[string]any, hint []string) []string {
+	seen := make(map[string]bool, len(meta))
+	out := make([]string, 0, len(meta))
+	for _, k := range hint {
+		if _, ok := meta[k]; ok && !seen[k] {
+			out = append(out, k)
+			seen[k] = true
+		}
+	}
+	rest := make([]string, 0, len(meta))
+	for k := range meta {
+		if !seen[k] {
+			rest = append(rest, k)
+		}
+	}
+	sort.Strings(rest)
+	return append(out, rest...)
+}
+
+// preferDoubleQuotes walks a yaml.Node tree and promotes single-quoted
+// scalars to double-quoted. yaml.v3's default style for a scalar that
+// needs quoting (e.g. one starting with `[`) is single quotes; CLI
+// configs typically author them as double quotes, so the round-trip
+// diff stays clean.
+func preferDoubleQuotes(n *yaml.Node) {
+	if n == nil {
+		return
+	}
+	if n.Kind == yaml.ScalarNode && n.Style == yaml.SingleQuotedStyle {
+		n.Style = yaml.DoubleQuotedStyle
+	}
+	for _, c := range n.Content {
+		preferDoubleQuotes(c)
+	}
 }
 
 // Warner accepts capability warnings. Defaults to writing to os.Stderr.

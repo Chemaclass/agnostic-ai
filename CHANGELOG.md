@@ -4,8 +4,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Changed
+- `spec.Entry` now carries `MetaKeys`, the ordered list of frontmatter keys parsed from source. External adapters receive the same field as `meta_keys` in the JSON envelope (additive; no protocol bump).
+
 ### Fixed
 - emit: normalize trailing newlines on every written artifact so files end with exactly one `\n`. Removes the spurious blank line appended by upstream concatenations and stabilizes round-trip diffs. Closes #195.
+- emit: frontmatter rendering preserves source key order, forces 2-space sequence indent, and prefers double quotes over single. Removes the bulk of the cosmetic diff noise produced on round-trip through `import` + `sync`. Closes #190, #191, #193.
 
 ## v0.17.0 - 2026-05-15
 
