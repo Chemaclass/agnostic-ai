@@ -126,7 +126,14 @@ func collectEntryPointDrift(cfg *config.Config, targets []string) (driftReport, 
 	return rep, nil
 }
 
-// printDrift prints a per-target summary. Returns true if any drift exists.
+// printDrift prints a per-target summary. Splits drift into two named
+// buckets so users can tell apart:
+//
+//   - missing: generated file does not exist yet (next sync creates it)
+//   - stale:   generated file on disk differs from what sync would emit
+//     (almost always a local hand-edit; next sync clobbers it)
+//
+// Returns true if any drift exists.
 func printDrift(reports []driftReport) bool {
 	any := false
 	for _, r := range reports {
@@ -136,11 +143,17 @@ func printDrift(reports []driftReport) bool {
 		}
 		any = true
 		summaryf("✗ %s: drift\n", r.Target)
-		for _, f := range r.Missing {
-			verbosef("    missing: %s\n", f.Path)
+		if len(r.Missing) > 0 {
+			summaryf("    %d file(s) missing (run `agnostic-ai sync` to create):\n", len(r.Missing))
+			for _, f := range r.Missing {
+				summaryf("      - %s\n", f.Path)
+			}
 		}
-		for _, f := range r.Stale {
-			verbosef("    stale:   %s\n", f.Path)
+		if len(r.Stale) > 0 {
+			summaryf("    %d file(s) edited locally since last sync (sync will overwrite — move edits into .agnostic-ai/ first):\n", len(r.Stale))
+			for _, f := range r.Stale {
+				summaryf("      - %s\n", f.Path)
+			}
 		}
 	}
 	return any
