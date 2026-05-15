@@ -41,6 +41,40 @@ func TestEmit_WritesAgent(t *testing.T) {
 	}
 }
 
+func TestEmit_PreservesArbitraryAgentFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent,
+		Name: "reviewer",
+		Body: "do reviews",
+		Meta: map[string]any{
+			"name":              "reviewer",
+			"description":       "code reviewer",
+			"custom-vendor-key": "vendor-value",
+			"tools":             []any{"Read", "Edit"},
+		},
+	}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".claude/agents/reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	for _, want := range []string{
+		"custom-vendor-key: vendor-value",
+		"tools:",
+		"do reviews",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 func TestEmit_WritesSkillNested(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -53,6 +87,45 @@ func TestEmit_WritesSkillNested(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/skills/validator/SKILL.md")); err != nil {
 		t.Error("expected nested skill file")
+	}
+}
+
+func TestEmit_PreservesArbitrarySkillFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindSkill,
+		Name: "validator",
+		Body: "skill body",
+		Meta: map[string]any{
+			"name":               "validator",
+			"description":        "validate stuff",
+			"custom-vendor-key":  "vendor-value",
+			"experimental-flags": []any{"a", "b"},
+			"nested": map[string]any{
+				"deep": "value",
+			},
+		},
+	}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	for _, want := range []string{
+		"custom-vendor-key: vendor-value",
+		"experimental-flags:",
+		"nested:",
+		"deep: value",
+		"skill body",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
 	}
 }
 
