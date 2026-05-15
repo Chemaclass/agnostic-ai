@@ -59,7 +59,8 @@ func runGolden(t *testing.T, target string) {
 	}
 
 	output := diffSnaps(before, snapFiles(t, dir))
-	delete(output, filepath.FromSlash(".agnostic-ai/.sync-state"))
+	// snapFiles uses filepath.ToSlash so all keys use forward slashes.
+	delete(output, ".agnostic-ai/.sync-state")
 
 	expectedDir := filepath.Join(packageDir, "fixtures", "golden", target)
 
