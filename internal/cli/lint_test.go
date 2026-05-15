@@ -116,3 +116,45 @@ func TestLintDeadSpecs_NoFindingWhenTargetSupports(t *testing.T) {
 		t.Errorf("expected 0 findings when target supports kind, got %d", len(got))
 	}
 }
+
+func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
+	hooks := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "bad", Path: "hooks/bad.yaml",
+			Meta: map[string]any{"event": "SessionStart", "matcher": "Bash"},
+		},
+		{
+			Kind: spec.KindHook, Name: "ok", Path: "hooks/ok.yaml",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit"},
+		},
+		{
+			Kind: spec.KindHook, Name: "no-matcher", Path: "hooks/nm.yaml",
+			Meta: map[string]any{"event": "SessionStart"},
+		},
+	}
+	findings := lintHookMatcherMisuse(hooks)
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 matcher-misuse finding, got %d", len(findings))
+	}
+	f := findings[0]
+	if f.Code != "LINT005" {
+		t.Errorf("expected code LINT005, got %s", f.Code)
+	}
+	if f.Severity != lintWarn {
+		t.Errorf("expected warn severity, got %s", f.Severity)
+	}
+	if f.Path != "hooks/bad.yaml" {
+		t.Errorf("expected path hooks/bad.yaml, got %s", f.Path)
+	}
+}
+
+func TestLintHookMatcherMisuse_NoFindingsOnCleanHooks(t *testing.T) {
+	hooks := []spec.Entry{
+		{Kind: spec.KindHook, Name: "a", Path: "hooks/a.yaml", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash"}},
+		{Kind: spec.KindHook, Name: "b", Path: "hooks/b.yaml", Meta: map[string]any{"event": "AfterTool", "matcher": "shell"}},
+		{Kind: spec.KindHook, Name: "c", Path: "hooks/c.yaml", Meta: map[string]any{"event": "SessionStart"}},
+	}
+	if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+		t.Errorf("expected 0 findings on clean hooks, got %d", len(got))
+	}
+}

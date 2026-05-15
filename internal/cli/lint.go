@@ -66,6 +66,7 @@ func newLintCmd() *cobra.Command {
 			findings = append(findings, lintHookCollisions(b.Hooks)...)
 			findings = append(findings, lintDuplicateNames(entries)...)
 			findings = append(findings, lintDeadSpecs(entries, cfg.Targets)...)
+			findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -195,6 +196,34 @@ func lintDeadSpecs(entries []spec.Entry, targets []string) []lintFinding {
 			Severity: lintWarn,
 			Path:     e.Path,
 			Message:  msg,
+		})
+	}
+	return out
+}
+
+// lintHookMatcherMisuse flags hook specs whose event does not consume a
+// matcher but still set one. The matcher is silently ignored by the native
+// CLI, so the spec author likely intended a different event or should drop
+// the matcher (LINT005, warn).
+func lintHookMatcherMisuse(hooks []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, h := range hooks {
+		event, _ := h.Meta["event"].(string)
+		matcher, _ := h.Meta["matcher"].(string)
+		if event == "" || matcher == "" {
+			continue
+		}
+		if _, ok := matcherAcceptingEvents[event]; ok {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT005",
+			Severity: lintWarn,
+			Path:     h.Path,
+			Message: fmt.Sprintf(
+				"matcher %q set but event %q does not consume a matcher; drop the matcher or use a tool-call event (e.g. PreToolUse, PostToolUse)",
+				matcher, event,
+			),
 		})
 	}
 	return out

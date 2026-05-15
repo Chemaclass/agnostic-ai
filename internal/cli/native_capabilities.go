@@ -29,6 +29,14 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	),
 }
 
+// matcherAcceptingEvents lists the hook events whose native CLI consumes a
+// matcher field. Events outside this set ignore matchers entirely; setting
+// one is a no-op the user likely did not intend.
+var matcherAcceptingEvents = setOf(
+	"PreToolUse", "PostToolUse", // claude, codex
+	"BeforeTool", "AfterTool", // gemini
+)
+
 // targetsSupportingKind lists the targets whose adapter actually
 // emits non-empty output for the given kind. Used by the orphan-kind
 // validator: if a project has hook specs but no enabled target maps
