@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.18.0 - 2026-05-15
+
+### Added
 - `doctor --check-globs`: opt-in flag rules whose `globs:` matches no path in the working tree. Closes #208.
 - `cleanup --backups`: removes `*.bak` left by `sync --backup`. Closes #197.
 - `outputs.codex.shared-subagents` (default `true`): set `false` in claude+codex setups to drop the duplicate `.agents/skills/` tree. Closes #194.
@@ -313,4 +323,5 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Docs, examples, integration tests, dogfood specs.
 - OSS scaffolding: CONTRIBUTING, COC, GOVERNANCE, issue/PR templates, CI, GoReleaser, golangci-lint, Dockerfile, lefthook, Taskfile, dependabot/renovate.
 
-[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/HEAD...HEAD
+[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.18.0...HEAD
+[v0.18.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.17.0...v0.18.0
