@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -319,6 +320,31 @@ func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
 		want, _ := os.ReadFile(filepath.Join(skillRoot, filepath.FromSlash(rel)))
 		if string(got) != string(want) {
 			t.Errorf("skill asset %q not byte-identical: got %q want %q", rel, got, want)
+		}
+	}
+}
+
+func TestImportFromCodex_PreservesSkillScriptExecutableBit(t *testing.T) {
+	dir := t.TempDir()
+	skillRoot := filepath.Join(dir, ".agents", "skills", "build")
+	writeFile(t, filepath.Join(skillRoot, "SKILL.md"), "---\nname: build\n---\nbody\n")
+	scriptPath := filepath.Join(skillRoot, "run.sh")
+	writeFile(t, scriptPath, "#!/bin/sh\necho hi\n")
+	if err := os.Chmod(scriptPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, "skills", "build", "run.sh"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			t.Errorf("executable bit dropped on import: mode=%v", info.Mode().Perm())
 		}
 	}
 }
