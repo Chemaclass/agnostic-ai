@@ -13,7 +13,7 @@ import (
 
 func newRevertCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, jsonOut bool
+	var dryRun, jsonOut, force bool
 
 	cmd := &cobra.Command{
 		Use:   "revert",
@@ -21,14 +21,19 @@ func newRevertCmd() *cobra.Command {
 		Long: "revert reverses the effect of `sync` for every target.\n" +
 			"For each file the matching adapter would emit:\n" +
 			"  - if <path>.bak exists, the .bak content is restored and the .bak removed\n" +
-			"  - otherwise the file is removed (it did not exist before sync)\n" +
-			"Pair with `sync --backup` so the .bak trail exists. Without backups,\n" +
-			"revert simply deletes the generated files.",
+			"  - otherwise the file is left in place to protect user-authored content\n" +
+			"    that happens to share a path with an adapter-emitted file (e.g. a\n" +
+			"    helper script next to SKILL.md). Pass --force to delete unbacked files.\n" +
+			"Pair with `sync --backup` so the .bak trail exists for the files you want\n" +
+			"restored to their pre-sync content.",
 		Example: `  # Preview what would be reverted
   agnostic-ai revert --dry-run
 
-  # Restore .bak files where they exist; remove generated files otherwise
+  # Restore .bak files where they exist; leave unbacked files alone
   agnostic-ai revert
+
+  # Also remove files that have no .bak (old default behavior)
+  agnostic-ai revert --force
 
   # Revert only Claude and Cursor
   agnostic-ai revert --only claude,cursor
@@ -56,7 +61,7 @@ func newRevertCmd() *cobra.Command {
 			}
 
 			if jsonOut {
-				return runRevertJSON(cmd, effective, dryRun)
+				return runRevertJSON(cmd, effective, dryRun, force)
 			}
 
 			for _, t := range effective {
@@ -75,11 +80,26 @@ func newRevertCmd() *cobra.Command {
 				}
 				files := adapters.StopCapture()
 				summaryf("← revert %s\n", t)
+				var restored, removed, preserved int
 				for _, f := range files {
-					if _, err := revertOne(f.Path, dryRun); err != nil {
+					action, err := revertOne(f.Path, dryRun, force)
+					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
 					}
+					switch action {
+					case "restore":
+						restored++
+					case "remove":
+						removed++
+					case "preserve":
+						preserved++
+					}
 				}
+				if preserved > 0 {
+					summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
+				}
+				_ = restored
+				_ = removed
 			}
 			return nil
 		},
@@ -89,14 +109,20 @@ func newRevertCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&except, "except", nil, "Revert all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report intended actions without touching disk")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
+	cmd.Flags().BoolVar(&force, "force", false, "Also delete adapter-emitted files that lack a .bak (use with care: removes user-authored files that share a path with adapter output)")
 	registerTargetCompletion(cmd)
 	return cmd
 }
 
-// revertOne restores path from path+".bak" if the backup exists, else
-// removes path. Missing files at either location are ignored.
-// Returns the action taken: "restore", "remove", or "skip" (file absent).
-func revertOne(path string, dryRun bool) (string, error) {
+// revertOne restores path from path+".bak" when the backup exists. When
+// there is no .bak the default is to leave path alone ("preserve") so a
+// user-authored file that happens to share a path with adapter output
+// (e.g. a helper script propagated into a skill folder) is not silently
+// deleted. Pass force=true to delete unbacked files (old behavior).
+// Missing source files are reported as "skip".
+//
+// Returns the action taken: "restore", "remove", "preserve", or "skip".
+func revertOne(path string, dryRun, force bool) (string, error) {
 	bak := path + ".bak"
 	data, err := os.ReadFile(bak)
 	switch {
@@ -117,6 +143,14 @@ func revertOne(path string, dryRun bool) (string, error) {
 		return "", fmt.Errorf("read backup %s: %w", bak, err)
 	}
 
+	if !force {
+		if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
+			return "skip", nil
+		}
+		verbosef("    preserve: %s (no .bak; pass --force to delete)\n", path)
+		return "preserve", nil
+	}
+
 	if dryRun {
 		verbosef("    remove:  %s\n", path)
 		return "remove", nil
@@ -132,8 +166,8 @@ func revertOne(path string, dryRun bool) (string, error) {
 }
 
 // runRevertJSON performs the revert and emits a JSON result describing each
-// file restored, removed, or skipped per target.
-func runRevertJSON(cmd *cobra.Command, targets []string, dryRun bool) error {
+// file restored, removed, preserved, or skipped per target.
+func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) error {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return err
@@ -154,13 +188,13 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun bool) error {
 		}
 		files := adapters.StopCapture()
 		for _, f := range files {
-			action, err := revertOne(f.Path, dryRun)
+			action, err := revertOne(f.Path, dryRun, force)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 				continue
 			}
 			rec := fileRecord{Target: t, Path: f.Path, Action: action, Bytes: 0}
-			if action == "skip" {
+			if action == "skip" || action == "preserve" {
 				out.Skipped = append(out.Skipped, rec)
 			} else {
 				out.Writes = append(out.Writes, rec)

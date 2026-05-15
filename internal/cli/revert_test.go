@@ -19,7 +19,7 @@ func TestRevertOne_RestoresFromBak(t *testing.T) {
 	if err := os.WriteFile(path+".bak", []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := revertOne(path, false); err != nil {
+	if _, err := revertOne(path, false, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
@@ -34,7 +34,36 @@ func TestRevertOne_RestoresFromBak(t *testing.T) {
 	}
 }
 
-func TestRevertOne_RemovesWhenNoBak(t *testing.T) {
+// TestRevertOne_PreservesWhenNoBak regresses #217. The pre-#217 default
+// removed any adapter-emitted file lacking a .bak, which also wiped
+// user-authored helpers (check.mjs, *.template) that share a path with
+// adapter output. The new default preserves those files; pass --force
+// to opt back into delete-without-bak.
+func TestRevertOne_PreservesWhenNoBak(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	path := filepath.Join(dir, "CLAUDE.md")
+	if err := os.WriteFile(path, []byte("user-authored"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	action, err := revertOne(path, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action != "preserve" {
+		t.Errorf("expected preserve, got %q", action)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("file was removed despite no --force: %v", err)
+	}
+	if string(got) != "user-authored" {
+		t.Errorf("file content changed: %q", got)
+	}
+}
+
+func TestRevertOne_ForceRemovesWhenNoBak(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -42,11 +71,15 @@ func TestRevertOne_RemovesWhenNoBak(t *testing.T) {
 	if err := os.WriteFile(path, []byte("generated"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := revertOne(path, false); err != nil {
+	action, err := revertOne(path, false, true)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if action != "remove" {
+		t.Errorf("expected remove, got %q", action)
+	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Errorf("expected file removed, got err=%v", err)
+		t.Errorf("expected file removed under --force, got err=%v", err)
 	}
 }
 
@@ -58,7 +91,7 @@ func TestRevertOne_DryRunNoSideEffects(t *testing.T) {
 	if err := os.WriteFile(path, []byte("generated"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := revertOne(path, true); err != nil {
+	if _, err := revertOne(path, true, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -70,12 +103,12 @@ func TestRevertOne_MissingFileIsNoop(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	if _, err := revertOne(filepath.Join(dir, "ghost.md"), false); err != nil {
+	if _, err := revertOne(filepath.Join(dir, "ghost.md"), false, false); err != nil {
 		t.Errorf("unexpected error reverting missing file: %v", err)
 	}
 }
 
-func TestRevertCmd_RemovesGeneratedRules(t *testing.T) {
+func TestRevertCmd_ForceRemovesGeneratedRules(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -97,12 +130,55 @@ func TestRevertCmd_RemovesGeneratedRules(t *testing.T) {
 	}
 
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"revert", "-t", "claude"})
+	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(rulePath); !os.IsNotExist(err) {
-		t.Errorf("expected claude rule removed after revert, err=%v", err)
+		t.Errorf("expected claude rule removed after revert --force, err=%v", err)
+	}
+}
+
+// TestRevertCmd_PreservesUserAuthoredHelpers regresses #217. A helper
+// file that lives in a skill folder alongside SKILL.md (e.g. check.mjs)
+// gets propagated to the emit dir by sync and therefore appears in the
+// capture list at revert time. Without a .bak, the old default
+// silently deleted those files. The new default leaves them in place.
+func TestRevertCmd_PreservesUserAuthoredHelpers(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	skillSrc := filepath.Join(dir, "skills", "i18n-parity")
+	if err := os.MkdirAll(skillSrc, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillSrc, "SKILL.md"),
+		[]byte("---\nname: i18n-parity\ndescription: parity\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillSrc, "check.mjs"),
+		[]byte("// user helper\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	emitted := filepath.Join(dir, ".claude/skills/i18n-parity/check.mjs")
+	if _, err := os.Stat(emitted); err != nil {
+		t.Fatalf("sync did not propagate helper: %v", err)
+	}
+
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(emitted); err != nil {
+		t.Errorf("revert deleted user-authored helper without --force: %v", err)
 	}
 }
 
