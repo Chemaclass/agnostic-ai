@@ -39,10 +39,12 @@ func importSources() string {
 func newImportCmd() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "import <source>",
-		Short: "Import existing config from another AI CLI into this project's source directories.",
-		Long: "Reads agnostic-ai.yaml to resolve source paths, then translates an " +
-			"existing AI CLI configuration into agnostic specs. Sources: " + importSources() + ".",
+		Use:   "import <source>...",
+		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
+		Long: "Reads agnostic-ai.yaml to resolve source paths, then translates " +
+			"existing AI CLI configurations into agnostic specs. Sources: " + importSources() + ". " +
+			"Pass multiple sources to import from each in order; `.agnostic-ai/AGNOSTIC_AI.md` " +
+			"reflects the last source's top-level instructions file (last-wins).",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
@@ -50,21 +52,26 @@ func newImportCmd() *cobra.Command {
   # Migrate from Cursor (.cursor/rules/*.mdc -> rules/*.md)
   agnostic-ai import cursor
 
+  # Import from multiple CLIs in one shot (AGNOSTIC_AI.md = AGENTS.md, last-wins)
+  agnostic-ai import claude codex
+
   # Import from every detected AI CLI in one shot
   agnostic-ai import all
 
   # Preview what would be imported without writing
   agnostic-ai import claude --dry-run`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			source := args[0]
 			cfg, err := config.Load(".")
 			if err != nil {
 				return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
 			}
 			importDryRun = dryRun
 			defer func() { importDryRun = false }()
-			return runImport(".", source, cfg.Sources)
+			if len(args) == 1 {
+				return runImport(".", args[0], cfg.Sources)
+			}
+			return runImportMany(".", args, cfg.Sources)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print specs that would be imported without writing.")
@@ -102,6 +109,46 @@ func runImport(root, source string, src config.Sources) error {
 	}
 	return errs.Coded(errs.CodeImportFileUnknown,
 		"unknown source: %q (supported: %s, all)", source, importSources())
+}
+
+// runImportMany imports from each named source in order. `.agnostic-ai/
+// AGNOSTIC_AI.md` ends up mirroring the last source's top-level
+// instructions file (last-wins). Sources are validated up-front so a
+// typo on arg N fails before any writes happen.
+func runImportMany(root string, sources []string, src config.Sources) error {
+	for _, s := range sources {
+		if s == "all" {
+			return errs.Coded(errs.CodeImportFileUnknown,
+				"`all` cannot be combined with other sources")
+		}
+		if !isKnownImportSource(s) {
+			return errs.Coded(errs.CodeImportFileUnknown,
+				"unknown source: %q (supported: %s, all)", s, importSources())
+		}
+	}
+	var failed []string
+	for _, s := range sources {
+		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+		if err := runImport(root, s, src); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
+			failed = append(failed, s)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("import failed for: %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// isKnownImportSource reports whether source is dispatched by runImport.
+func isKnownImportSource(source string) bool {
+	switch source {
+	case "claude", "codex", "cursor", "aider", "amp", "warp",
+		"gemini", "copilot", "opencode", "zed":
+		return true
+	}
+	_, ok := rulesDirImporters[source]
+	return ok
 }
 
 // importAll detects every AI CLI present in root and imports from each.

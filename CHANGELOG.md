@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `import`: accept multiple sources (`agnostic-ai import claude codex`). `.agnostic-ai/AGNOSTIC_AI.md` mirrors the last argument's top-level instructions file (last-wins). `all` still must be used alone.
 
 ### Changed
 

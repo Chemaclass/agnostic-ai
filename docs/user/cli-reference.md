@@ -46,17 +46,24 @@ Translate an existing AI CLI configuration into agnostic specs. Reads
 into those directories.
 
 ```bash
-agnostic-ai import claude     # CLAUDE.md, .claude/{agents,skills,settings.json}
-agnostic-ai import codex      # AGENTS.md (root + nested)
-agnostic-ai import cursor     # .cursor/rules/*.mdc
-agnostic-ai import cline      # .clinerules/
-agnostic-ai import windsurf   # .windsurf/rules/
-agnostic-ai import continue   # .continue/rules/
+agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,settings.json}
+agnostic-ai import codex          # AGENTS.md (root + nested)
+agnostic-ai import claude codex   # multiple sources; AGNOSTIC_AI.md reflects the last (last-wins)
+agnostic-ai import cursor         # .cursor/rules/*.mdc
+agnostic-ai import cline          # .clinerules/
+agnostic-ai import windsurf       # .windsurf/rules/
+agnostic-ai import continue       # .continue/rules/
 ```
 
 `import` does not modify `targets:` or any other config field; only
 spec files under `sources:` are touched. Re-running overwrites by
 filename. Run after `init`, in the same project root.
+
+Pass multiple sources to import from each in order. Each importer
+mirrors its target's top-level instructions file to
+`.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument
+wins. `all` cannot be combined with other sources; it auto-detects every
+CLI present in the project.
 
 `import claude`:
 

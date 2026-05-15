@@ -55,6 +55,59 @@ func TestImportAll_ImportsDetectedCLI(t *testing.T) {
 	}
 }
 
+func TestImport_MultipleSources_LastWinsAgnosticMainFile(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"),
+		[]byte("# Claude top-level\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"),
+		[]byte("# Codex top-level\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "claude", "codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("import claude codex: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"))
+	if err != nil {
+		t.Fatalf("read AGNOSTIC_AI.md: %v", err)
+	}
+	if string(got) != "# Codex top-level\n" {
+		t.Errorf("AGNOSTIC_AI.md should reflect last source (codex), got %q", got)
+	}
+}
+
+func TestImport_MultipleSources_UnknownSourceFailsEarly(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "claude", "nope"})
+	if err := root.Execute(); err == nil {
+		t.Error("expected error for unknown source in multi-arg import")
+	}
+}
+
+func TestImport_MultipleSources_AllRejectsCombined(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "all", "claude"})
+	if err := root.Execute(); err == nil {
+		t.Error("expected error when combining `all` with other sources")
+	}
+}
+
 func TestInitFrom_ScaffoldsAndImports(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
