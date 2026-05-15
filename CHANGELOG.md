@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Changed
+- `scripts/release.sh`: refuse to cut a release when no commits exist past the last tag or when `CHANGELOG [Unreleased]` has no entries. Prevents shipping an identical binary or empty release notes.
+
 ## v0.15.0 - 2026-05-15
 
 ### Added
