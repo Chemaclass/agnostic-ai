@@ -161,7 +161,7 @@ func printDrift(reports []driftReport) bool {
 
 func newDoctorCmd() *cobra.Command {
 	var targets []string
-	var fix, backup, jsonOut bool
+	var fix, backup, jsonOut, checkGlobs bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Unified diagnostic: config, CLIs, spec health, and drift.",
@@ -230,6 +230,15 @@ func newDoctorCmd() *cobra.Command {
 			}
 			hasDrift := printDrift(reports)
 
+			// 4b. Optional: globs that match nothing in the working tree.
+			if checkGlobs {
+				cmd.Println()
+				cmd.Println("Glob coverage:")
+				if err := reportUnmatchedGlobs(cmd, "."); err != nil {
+					return err
+				}
+			}
+
 			// 5. MCP resolution
 			reportMCPCommandResolution(cmd)
 
@@ -253,6 +262,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
+	cmd.Flags().BoolVar(&checkGlobs, "check-globs", false, "Flag rules whose `globs:` pattern matches no files in the working tree")
 	registerTargetCompletion(cmd)
 	cmd.AddCommand(newDoctorMCPCmd())
 	cmd.AddCommand(newDoctorInstallCmd())

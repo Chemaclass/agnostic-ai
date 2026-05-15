@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `doctor` no longer false-positives drift on `.claude/settings.json` immediately after `sync`. The OrderedJSON round-trip from #192 made the read→merge→write cycle byte-stable; regression tests cover overlay-only, hooks-only, and overlay+hooks shapes. Closes #200.
 
 ### Added
+- `agnostic-ai doctor --check-globs`: opt-in check that flags rules whose `globs:` pattern matches no path in the working tree. Skips `.git`, `.agnostic-ai`, `node_modules`, `vendor`. Closes #208.
 - `outputs.codex.shared-subagents` (bool, default `true`). Set to `false` in claude+codex setups to suppress the duplicate `.agents/skills/<name>/SKILL.md` tree — claude already owns those files at `.claude/skills/<name>/`. Closes #194.
 - `agnostic-ai cleanup --backups`: walks the project root and removes every `*.bak` file `sync --backup` left behind. `.git/` and `.agnostic-ai/` are skipped. Supports `--dry-run`. Closes #197.
 - docs/user/getting-started.md: recommended adoption workflow (split `import` and `sync` into two reviewable commits). Closes #196.
