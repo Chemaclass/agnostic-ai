@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.14.0 - 2026-05-15
+
+### Added
 - `sync --plan`: per-target diff summary without writing (#161).
 - `sync`: atomic transaction; partial writes roll back on failure (#162).
 - `sync.collision-policy`: `prompt`, `prefer-spec`, `fail` (#167).
