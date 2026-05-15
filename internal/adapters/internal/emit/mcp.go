@@ -39,7 +39,8 @@ func WriteMCPFile(mcps []spec.Entry, schema MCPSchema, path string, dryRun bool)
 // MCPDocument renders an MCP server config file from bundle MCP entries.
 //
 // Each entry's frontmatter accepts: type (stdio|http|sse, default stdio),
-// command, args, env, url, headers. Empty entries are skipped.
+// command, args, env, url, headers, description, disabled, roots.
+// Empty entries are skipped.
 func MCPDocument(mcps []spec.Entry, schema MCPSchema) (string, error) {
 	servers := map[string]map[string]any{}
 	for _, e := range mcps {
@@ -96,10 +97,46 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 	if env := mapField(e.Meta, "env"); len(env) > 0 {
 		out["env"] = env
 	}
+	if desc := stringField(e.Meta, "description"); desc != "" {
+		out["description"] = desc
+	}
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		out["disabled"] = true
+	}
+	if roots := buildRoots(e.Meta); len(roots) > 0 {
+		out["roots"] = roots
+	}
 	if schema == MCPSchemaVSCodeServers {
 		out["type"] = transport
 	}
 	return out
+}
+
+// buildRoots constructs the `roots` array from spec meta. Each element is
+// a map with at least a `uri` key; `name` is optional.
+func buildRoots(meta map[string]any) []map[string]any {
+	raw, _ := meta["roots"].([]any)
+	if len(raw) == 0 {
+		return nil
+	}
+	roots := make([]map[string]any, 0, len(raw))
+	for _, r := range raw {
+		m, _ := r.(map[string]any)
+		if m == nil {
+			continue
+		}
+		entry := map[string]any{}
+		if uri, _ := m["uri"].(string); uri != "" {
+			entry["uri"] = uri
+		}
+		if name, _ := m["name"].(string); name != "" {
+			entry["name"] = name
+		}
+		if len(entry) > 0 {
+			roots = append(roots, entry)
+		}
+	}
+	return roots
 }
 
 func stringField(m map[string]any, key string) string {

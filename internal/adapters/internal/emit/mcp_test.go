@@ -97,6 +97,57 @@ func TestMCPDocument_HTTPTransport(t *testing.T) {
 	}
 }
 
+func TestMCPDocument_DescriptionAndDisabled(t *testing.T) {
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "myserver",
+			Meta: map[string]any{
+				"command":     "npx",
+				"description": "My server",
+				"disabled":    true,
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	srv := parsed["mcpServers"].(map[string]any)["myserver"].(map[string]any)
+	if srv["description"] != "My server" {
+		t.Errorf("description not emitted: %v", got)
+	}
+	if srv["disabled"] != true {
+		t.Errorf("disabled not emitted: %v", got)
+	}
+}
+
+func TestMCPDocument_Roots(t *testing.T) {
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"roots": []any{
+					map[string]any{"uri": "file:///workspace", "name": "workspace"},
+				},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "file:///workspace") {
+		t.Errorf("roots uri not emitted: %s", got)
+	}
+}
+
 func TestMCPDocument_EmptySkips(t *testing.T) {
 	got, err := MCPDocument(nil, MCPSchemaServersMap)
 	if err != nil {
