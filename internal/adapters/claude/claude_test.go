@@ -651,6 +651,127 @@ func extractBlock(doc, key string) string {
 	return tail
 }
 
+func TestEmit_SettingsJSONIsByteStable_ComplexOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(rm*)",
+        "hooks": [
+          {"type": "command", "command": "echo blocked"}
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "echo status"
+  },
+  "enabledPlugins": {"plugin-a": true}
+}
+`
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo edited",
+		}},
+		{Kind: spec.KindHook, Name: "h2", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Write", "command": "echo wrote",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 1: %v", err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 2: %v", err)
+	}
+	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Errorf("complex settings.json drifts on second sync.\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+}
+
+func TestEmit_SettingsJSONIsByteStableNoOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 1: %v", err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 2: %v", err)
+	}
+	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Errorf("settings.json drifts on second sync without overlay (MergeJSONFile path).\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+}
+
+func TestEmit_SettingsJSONIsByteStableAcrossSyncs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `{
+  "statusLine": {"type": "command", "command": "echo status"}
+}
+`
+	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 1: %v", err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit 2: %v", err)
+	}
+	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Errorf("settings.json drifts on second sync (doctor/sync loop).\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+}
+
 func TestEmit_NoOverlayNoHooks_SkipsSettings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

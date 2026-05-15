@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Fixed
+- `doctor` no longer false-positives drift on `.claude/settings.json` immediately after `sync`. The OrderedJSON round-trip from #192 made the read→merge→write cycle byte-stable; regression tests cover overlay-only, hooks-only, and overlay+hooks shapes. Closes #200.
+
 ### Added
 - `outputs.codex.shared-subagents` (bool, default `true`). Set to `false` in claude+codex setups to suppress the duplicate `.agents/skills/<name>/SKILL.md` tree — claude already owns those files at `.claude/skills/<name>/`. Closes #194.
 - `agnostic-ai cleanup --backups`: walks the project root and removes every `*.bak` file `sync --backup` left behind. `.git/` and `.agnostic-ai/` are skipped. Supports `--dry-run`. Closes #197.
