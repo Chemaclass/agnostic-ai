@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Changed
+- Capability warnings (`on-unsupported: warn` path) collapse to one line per (target, kind) tuple per process, carry the number of specs that would have been skipped, and end with a one-line suppression hint pointing at `on-unsupported: silent`. `sync --watch` resets the dedup state between runs. Closes #204.
+
 ### Fixed
 - `doctor` no longer false-positives drift on `.claude/settings.json` immediately after `sync`. The OrderedJSON round-trip from #192 made the read→merge→write cycle byte-stable; regression tests cover overlay-only, hooks-only, and overlay+hooks shapes. Closes #200.
 
