@@ -40,6 +40,9 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	if err := importCodexConfigOverlay(root); err != nil {
+		return err
+	}
 	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}

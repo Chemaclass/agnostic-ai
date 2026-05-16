@@ -414,6 +414,81 @@ func TestEmit_CodexConfig_ModelProviders(t *testing.T) {
 	}
 }
 
+// Overlay carries user-authored keys outside hooks/mcp_servers and is
+// concatenated before the spec-derived sections.
+func TestEmit_CodexConfig_OverlayLayered(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `model = "gpt-5"
+
+[profiles.work]
+model = "gpt-5"
+`
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx"},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`model = "gpt-5"`,
+		`[profiles.work]`,
+		`[mcp_servers.fs]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Index(got, "[profiles.work]") > strings.Index(got, "[mcp_servers.fs]") {
+		t.Error("overlay should precede spec-derived mcp_servers section")
+	}
+}
+
+// Overlay-set scalars must not be duplicated by outputs.codex.config
+// (TOML forbids duplicate top-level keys).
+func TestEmit_CodexConfig_OverlayWinsOnDuplicate(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := `model = "from-overlay"
+`
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {Config: &config.CodexConfig{Model: "from-cfg", Sandbox: "workspace-write"}},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if strings.Count(got, "model = ") != 1 {
+		t.Errorf("expected exactly one model line (overlay wins), got:\n%s", got)
+	}
+	if !strings.Contains(got, `model = "from-overlay"`) {
+		t.Errorf("expected overlay model value to win:\n%s", got)
+	}
+	if !strings.Contains(got, `sandbox = "workspace-write"`) {
+		t.Errorf("expected outputs.codex.config.sandbox to still emit:\n%s", got)
+	}
+}
+
 func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

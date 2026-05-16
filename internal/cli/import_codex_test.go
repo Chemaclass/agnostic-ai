@@ -414,6 +414,76 @@ Source: `+"`.agents/skills/validator/SKILL.md`"+`
 	}
 }
 
+func TestImportFromCodex_WritesConfigOverlay(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `model = "gpt-5"
+sandbox = "workspace-write"
+approval_policy = "on-failure"
+notify = ["say"]
+
+[history]
+persistence = "save-all"
+
+[model_providers.azure]
+name = "Azure"
+base_url = "https://example.com"
+
+[profiles.work]
+model = "gpt-5"
+
+[mcp_servers.fs]
+command = "npx"
+
+[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "gofmt"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"))
+	if err != nil {
+		t.Fatalf("missing overlay: %v", err)
+	}
+	out := string(overlay)
+	for _, want := range []string{
+		`model = "gpt-5"`,
+		`sandbox = "workspace-write"`,
+		`approval_policy = "on-failure"`,
+		`notify = ["say"]`,
+		`[history]`,
+		`persistence = "save-all"`,
+		`[model_providers.azure]`,
+		`[profiles.work]`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("overlay missing %q in:\n%s", want, out)
+		}
+	}
+	for _, never := range []string{`[mcp_servers.fs]`, `[[hooks.PostToolUse]]`} {
+		if strings.Contains(out, never) {
+			t.Errorf("overlay should not carry managed key %q:\n%s", never, out)
+		}
+	}
+}
+
+func TestImportFromCodex_NoOverlayWhenOnlyManagedKeys(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.fs]
+command = "npx"
+
+[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "gofmt"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml")); !os.IsNotExist(err) {
+		t.Errorf("expected no overlay when only hooks+mcp_servers present, got: %v", err)
+	}
+}
+
 func TestImportFromCodex_PreservesCommands(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nargument-hint: <ver>\ndescription: release helper\n---\n\nrelease body\n"

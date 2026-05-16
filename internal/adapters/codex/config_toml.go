@@ -10,21 +10,30 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// renderConfigTOML builds the `.codex/config.toml` body from the bundle's
-// hook and MCP entries plus any first-class config fields. Each MCP entry
-// emits as a `[mcp_servers.<name>]` table; each hook entry emits as an
-// `[[hooks.<event>]]` array-of-tables element. Returns "" when there is no
-// valid output to write.
-func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig) string {
+// renderConfigTOML builds the `.codex/config.toml` body from the captured
+// overlay, the bundle's hook and MCP entries, and any first-class config
+// fields. The overlay (carrying user-authored keys outside hooks/mcp_servers)
+// is written first; then first-class scalars from `outputs.codex.config`
+// (skipping any key the overlay already defines); then MCP server tables;
+// then hook sections. Returns "" when there is no valid output to write.
+func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
 	byEvent := groupHooksByEvent(hooks)
-	hasContent := len(byEvent) > 0 || anyNamedMCP(mcps) || hasCodexConfig(cfg)
+	hasContent := len(byEvent) > 0 || anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
 	if !hasContent {
 		return ""
 	}
 	var sb strings.Builder
 	sb.WriteString(emit.Header(emit.FormatTOML) + "\n")
 
-	writeCodexConfigFields(&sb, cfg)
+	if overlayBody != "" {
+		sb.WriteString(overlayBody)
+		if !strings.HasSuffix(overlayBody, "\n") {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+
+	writeCodexConfigFields(&sb, cfg, overlayKeys)
 	writeMCPServers(&sb, mcps)
 	writeHookSectionsFromMap(&sb, byEvent)
 	return sb.String()
@@ -41,36 +50,57 @@ func hasCodexConfig(cfg *config.CodexConfig) bool {
 }
 
 // writeCodexConfigFields emits the first-class `.codex/config.toml` scalars
-// when set in `outputs.codex.config`.
-func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig) {
+// when set in `outputs.codex.config`. Keys present in overlayKeys are
+// skipped so the overlay's value wins on a conflict; this matches the
+// claude adapter's overlay-first layering and keeps TOML duplicate-key
+// errors from appearing in the emitted file.
+func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig, overlayKeys map[string]bool) {
 	if cfg == nil {
 		return
 	}
-	if cfg.Model != "" {
+	wrote := false
+	if cfg.Model != "" && !overlayKeys["model"] {
 		emit.WriteTOMLString(sb, "model", cfg.Model)
+		wrote = true
 	}
-	if cfg.Sandbox != "" {
+	if cfg.Sandbox != "" && !overlayKeys["sandbox"] {
 		emit.WriteTOMLString(sb, "sandbox", cfg.Sandbox)
+		wrote = true
 	}
-	if cfg.ApprovalPolicy != "" {
+	if cfg.ApprovalPolicy != "" && !overlayKeys["approval_policy"] {
 		emit.WriteTOMLString(sb, "approval_policy", cfg.ApprovalPolicy)
+		wrote = true
 	}
-	if cfg.ModelReasoningEffort != "" {
+	if cfg.ModelReasoningEffort != "" && !overlayKeys["model_reasoning_effort"] {
 		emit.WriteTOMLString(sb, "model_reasoning_effort", cfg.ModelReasoningEffort)
+		wrote = true
 	}
-	if cfg.ModelReasoningSummary != "" {
+	if cfg.ModelReasoningSummary != "" && !overlayKeys["model_reasoning_summary"] {
 		emit.WriteTOMLString(sb, "model_reasoning_summary", cfg.ModelReasoningSummary)
+		wrote = true
 	}
-	if len(cfg.Notify) > 0 {
+	if len(cfg.Notify) > 0 && !overlayKeys["notify"] {
 		emit.WriteTOMLStringArray(sb, "notify", cfg.Notify)
+		wrote = true
 	}
-	if cfg.HistoryPersistence != "" {
+	if cfg.HistoryPersistence != "" && !overlayKeys["history"] {
 		sb.WriteString("\n[history]\n")
 		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
+		wrote = true
 	}
-	writeCodexModelProviders(sb, cfg.ModelProviders)
-	writeCodexProfiles(sb, cfg.Profiles)
-	if hasCodexConfig(cfg) {
+	if !overlayKeys["model_providers"] {
+		writeCodexModelProviders(sb, cfg.ModelProviders)
+		if len(cfg.ModelProviders) > 0 {
+			wrote = true
+		}
+	}
+	if !overlayKeys["profiles"] {
+		writeCodexProfiles(sb, cfg.Profiles)
+		if len(cfg.Profiles) > 0 {
+			wrote = true
+		}
+	}
+	if wrote {
 		sb.WriteString("\n")
 	}
 }

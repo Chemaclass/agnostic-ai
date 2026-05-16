@@ -26,7 +26,13 @@
 package codex
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -39,6 +45,13 @@ const (
 	defaultSkillsDir   = ".agents/skills"
 	defaultCommandsDir = ".codex/prompts"
 	defaultConfigFile  = ".codex/config.toml"
+	// configOverlayPath is the project-relative path to the captured
+	// non-hooks/non-mcp portion of `.codex/config.toml`. `agnostic-ai
+	// import codex` writes this file; the emitter prepends it before
+	// the spec-derived hooks + MCP sections so a re-sync from a fresh
+	// checkout still carries the user's first-class Codex keys (model,
+	// sandbox, profiles, model_providers, history, notify, ...).
+	configOverlayPath = ".agnostic-ai/overlays/codex.config.toml"
 )
 
 var caps = emit.Capabilities{
@@ -129,20 +142,50 @@ func codexEmitsSkills(cfg *config.Config) bool {
 	return true
 }
 
-// emitConfigTOML writes `.codex/config.toml` with global config, hooks, and
-// MCP servers when any content exists. Codex's project-tier config.toml is
-// agnostic-ai-managed: overwrite on each sync. Users who want to add
-// non-managed Codex config keys should set them in the user-global
-// `~/.codex/config.toml` instead.
+// emitConfigTOML writes `.codex/config.toml` with the captured overlay,
+// first-class config, hooks, and MCP servers when any content exists.
+// The project-tier config.toml is agnostic-ai-managed: overwrite on each
+// sync. The overlay (`.agnostic-ai/overlays/codex.config.toml`) carries
+// every user-authored key outside hooks/mcp_servers so a wipe of
+// `.codex/` between import and sync does not destroy them.
 func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	var codexCfg *config.CodexConfig
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
 	}
-	body := renderConfigTOML(b.Hooks, b.MCPs, codexCfg)
+	overlay, overlayKeys, err := loadConfigOverlay(dryRun)
+	if err != nil {
+		return err
+	}
+	body := renderConfigTOML(b.Hooks, b.MCPs, codexCfg, overlay, overlayKeys)
 	if body == "" {
 		return nil
 	}
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
 	return emit.WriteFile(path, body, dryRun)
+}
+
+// loadConfigOverlay returns the overlay body bytes and the set of
+// top-level keys it defines. Returns ("", nil, nil) when the overlay is
+// absent. Skips disk in dryRun so `--dry-run` previews remain pure.
+func loadConfigOverlay(dryRun bool) (string, map[string]bool, error) {
+	if dryRun {
+		return "", nil, nil
+	}
+	data, err := os.ReadFile(configOverlayPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil, nil
+	}
+	if err != nil {
+		return "", nil, fmt.Errorf("read %s: %w", configOverlayPath, err)
+	}
+	doc := map[string]any{}
+	if _, err := toml.Decode(string(data), &doc); err != nil {
+		return "", nil, fmt.Errorf("parse %s: %w", configOverlayPath, err)
+	}
+	keys := make(map[string]bool, len(doc))
+	for k := range doc {
+		keys[k] = true
+	}
+	return string(data), keys, nil
 }
