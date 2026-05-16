@@ -17,7 +17,7 @@ import (
 // `.codex/config.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
 	rules, err := importCodexRules(root, filepath.Join(root, src.Rules), src)
@@ -36,11 +36,15 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	commands, err := importCodexCommands(root, filepath.Join(root, src.Commands))
+	if err != nil {
+		return err
+	}
 	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps\n",
-		rules, agents, skills, hooks, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
+		rules, agents, skills, hooks, mcps, commands)
 	printImportNextSteps(root, "codex")
 	return nil
 }

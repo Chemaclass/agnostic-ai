@@ -414,6 +414,33 @@ Source: `+"`.agents/skills/validator/SKILL.md`"+`
 	}
 }
 
+func TestImportFromCodex_PreservesCommands(t *testing.T) {
+	dir := t.TempDir()
+	body := "---\nargument-hint: <ver>\ndescription: release helper\n---\n\nrelease body\n"
+	writeFile(t, filepath.Join(dir, ".codex/prompts/release.md"), body)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "commands", "release.md"))
+	if err != nil {
+		t.Fatalf("missing commands/release.md: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("command not byte-identical:\ngot:\n%s\nwant:\n%s", got, body)
+	}
+}
+
+func TestImportFromCodex_NoCommandsDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(dir, "commands"))
+	if len(entries) != 0 {
+		t.Errorf("expected empty commands/, got %d entries", len(entries))
+	}
+}
+
 func TestImportCmd_CodexRoutes(t *testing.T) {
 	dir := t.TempDir()
 	writeMinimalConfig(t, dir, ".agnostic-ai")
