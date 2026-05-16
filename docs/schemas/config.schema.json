@@ -194,9 +194,6 @@
         "gitignore": {
           "$ref": "#/$defs/Gitignore"
         },
-        "autoSync": {
-          "type": "boolean"
-        },
         "sync": {
           "$ref": "#/$defs/SyncConfig"
         }

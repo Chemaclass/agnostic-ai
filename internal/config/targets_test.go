@@ -28,14 +28,14 @@ func readConfig(t *testing.T, dir string) string {
 
 func TestPersistTargets_ReplacesExistingBlock(t *testing.T) {
 	dir := t.TempDir()
-	writeConfig(t, dir, "version: 1\n\ntargets:\n  - claude\n  - codex\n  - gemini\n\nautoSync: false\n")
+	writeConfig(t, dir, "version: 1\n\ntargets:\n  - claude\n  - codex\n  - gemini\n\non-unsupported: warn\n")
 
 	if err := config.PersistTargets(dir, []string{"claude", "cursor"}); err != nil {
 		t.Fatal(err)
 	}
 
 	got := readConfig(t, dir)
-	want := "version: 1\n\ntargets:\n  - claude\n  - cursor\n\nautoSync: false\n"
+	want := "version: 1\n\ntargets:\n  - claude\n  - cursor\n\non-unsupported: warn\n"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}

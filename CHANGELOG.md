@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Removed
+- `autoSync` config field, `sync --auto-sync=yes|no` flag, first-run auto-sync prompt, and the generated `auto-sync` rule spec. The feature added a separate prompt, flag, and persisted config field for marginal value; agents already have the `docs-sync` rule and `run-sync-check` skill to decide when to re-sync. Existing `autoSync:` keys in user configs are silently ignored.
+
 ## v0.20.0 - 2026-05-16
 
 ### Fixed

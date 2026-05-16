@@ -25,7 +25,6 @@ type Config struct {
 	Outputs       map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
 	OnUnsupported string            `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
 	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
-	AutoSync      *bool             `yaml:"autoSync,omitempty"       json:"autoSync,omitempty"`
 	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
 }
 

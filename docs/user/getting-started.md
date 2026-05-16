@@ -231,21 +231,6 @@ specific container volumes), `sync` falls back to a 200 ms poll. Force
 the poll backend with `--watch-poll`. Ctrl+C exits cleanly. Incompatible
 with `--check`.
 
-## Auto-sync rule
-
-On the first `sync` in a TTY, `agnostic-ai` offers to write an
-`auto-sync` rule spec instructing agents to run `agnostic-ai sync`
-whenever specs change. Skip the prompt with the flag:
-
-```bash
-agnostic-ai sync --auto-sync=yes   # write the rule, persist autoSync: true
-agnostic-ai sync --auto-sync=no    # skip, persist autoSync: false
-```
-
-The answer is saved to `agnostic-ai.yaml` as `autoSync: true|false`
-so the prompt fires only once. `--dry-run` skips the prompt and the
-persistence step.
-
 ## Auto-manage .gitignore
 
 Add to `agnostic-ai.yaml` to keep generated paths out of git:
