@@ -98,20 +98,20 @@ func runUpgrade(out io.Writer, doRun, checkOnly bool, currentVersion string) err
 		return nil
 	}
 	if info.Latest != "" && info.Version != "" && versionsEqual(info.Version, info.Latest) {
-		fmt.Fprintf(out, "\nAlready on latest (%s). Nothing to do.\n", info.Latest)
+		_, _ = fmt.Fprintf(out, "\nAlready on latest (%s). Nothing to do.\n", info.Latest)
 		return nil
 	}
 	if !doRun {
 		if info.Command != "" {
-			fmt.Fprintf(out, "\nRun: %s\n", info.Command)
-			fmt.Fprintf(out, "Or re-run with --run to execute.\n")
+			_, _ = fmt.Fprintf(out, "\nRun: %s\n", info.Command)
+			_, _ = fmt.Fprintf(out, "Or re-run with --run to execute.\n")
 		}
 		return nil
 	}
 	if info.Command == "" {
 		return fmt.Errorf("upgrade: install method unknown; download a release from https://github.com/Chemaclass/agnostic-ai/releases")
 	}
-	fmt.Fprintf(out, "\n→ %s\n", info.Command)
+	_, _ = fmt.Fprintf(out, "\n→ %s\n", info.Command)
 	return execShell(info.Command)
 }
 
@@ -260,7 +260,7 @@ func fetchLatestRelease(timeout time.Duration) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("github releases api: %s", resp.Status)
 	}
@@ -286,21 +286,21 @@ func execShell(command string) error {
 }
 
 func printUpgradeInfo(out io.Writer, info upgradeInfo) {
-	fmt.Fprintf(out, "Install method: %s\n", info.Method)
-	fmt.Fprintf(out, "Binary:         %s\n", info.Path)
+	_, _ = fmt.Fprintf(out, "Install method: %s\n", info.Method)
+	_, _ = fmt.Fprintf(out, "Binary:         %s\n", info.Path)
 	if info.Version != "" {
-		fmt.Fprintf(out, "Installed:      %s\n", info.Version)
+		_, _ = fmt.Fprintf(out, "Installed:      %s\n", info.Version)
 	}
 	if info.Latest != "" {
-		fmt.Fprintf(out, "Latest:         %s\n", info.Latest)
+		_, _ = fmt.Fprintf(out, "Latest:         %s\n", info.Latest)
 	}
 	if len(info.Shadows) > 0 {
-		fmt.Fprintf(out, "PATH shadows:\n")
+		_, _ = fmt.Fprintf(out, "PATH shadows:\n")
 		for _, s := range info.Shadows {
-			fmt.Fprintf(out, "  - %s\n", s)
+			_, _ = fmt.Fprintf(out, "  - %s\n", s)
 		}
 	}
 	for _, n := range info.Notes {
-		fmt.Fprintf(out, "! %s\n", n)
+		_, _ = fmt.Fprintf(out, "! %s\n", n)
 	}
 }
