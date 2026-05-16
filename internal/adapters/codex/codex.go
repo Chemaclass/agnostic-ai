@@ -102,7 +102,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
 		rmeta, rkeys := emit.ResolveMetaOrdered(c.Meta, c.MetaKeys, target)
-		body := emit.FrontmatterOrdered(rmeta, rkeys) + "\n" + c.Body
+		body := emit.FrontmatterStyled(rmeta, rkeys, c.MetaStyles) + "\n" + c.Body
 		if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}

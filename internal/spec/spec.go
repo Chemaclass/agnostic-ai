@@ -63,7 +63,15 @@ type Entry struct {
 	// preserved key order); emit falls back to alphabetical order in
 	// that case.
 	MetaKeys []string
-	Body     string
+	// MetaStyles records the YAML scalar style of each top-level
+	// frontmatter value as it appeared in source. Adapters pass this to
+	// emit.FrontmatterStyled / emit.DocumentStyled so a value that the
+	// author hand-quoted with double quotes stays double-quoted on
+	// re-emit, while a plain scalar stays plain. Nil for entries built
+	// programmatically (e.g. WASM playground) and for keys whose source
+	// style was the YAML default (PlainStyle, value 0).
+	MetaStyles map[string]yaml.Style
+	Body       string
 }
 
 // Description returns the entry's description from frontmatter, or "" if
@@ -338,33 +346,35 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 //
 // The data must be UTF-8 with optional `---` frontmatter on top.
 func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
-	meta, keys, body, err := splitFrontmatter(normalizeLineEndings(data))
+	meta, keys, styles, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
 		return Entry{}, err
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Kind:     kind,
-		Name:     name,
-		Meta:     meta,
-		MetaKeys: keys,
-		Body:     body,
+		Kind:       kind,
+		Name:       name,
+		Meta:       meta,
+		MetaKeys:   keys,
+		MetaStyles: styles,
+		Body:       body,
 	}, nil
 }
 
 // ParseYAMLBytes parses an in-memory hook or MCP spec (pure YAML, no
 // frontmatter) and returns the Entry.
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
-	meta, keys, err := decodeYAMLOrdered(data)
+	meta, keys, styles, err := decodeYAMLOrdered(data)
 	if err != nil {
 		return Entry{}, err
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Kind:     kind,
-		Name:     name,
-		Meta:     meta,
-		MetaKeys: keys,
+		Kind:       kind,
+		Name:       name,
+		Meta:       meta,
+		MetaKeys:   keys,
+		MetaStyles: styles,
 	}, nil
 }
 
@@ -373,18 +383,19 @@ func parseMarkdown(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, keys, body, err := splitFrontmatter(normalizeLineEndings(data))
+	meta, keys, styles, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
 		// Frontmatter starts at line 2 (line 1 is the opening `---`).
 		return Entry{}, formatYAMLError(path, err, 1)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Path:     path,
-		Name:     name,
-		Meta:     meta,
-		MetaKeys: keys,
-		Body:     body,
+		Path:       path,
+		Name:       name,
+		Meta:       meta,
+		MetaKeys:   keys,
+		MetaStyles: styles,
+		Body:       body,
 	}, nil
 }
 
@@ -393,54 +404,61 @@ func parseYAML(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, keys, err := decodeYAMLOrdered(data)
+	meta, keys, styles, err := decodeYAMLOrdered(data)
 	if err != nil {
 		return Entry{}, formatYAMLError(path, err, 0)
 	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Path:     path,
-		Name:     name,
-		Meta:     meta,
-		MetaKeys: keys,
+		Path:       path,
+		Name:       name,
+		Meta:       meta,
+		MetaKeys:   keys,
+		MetaStyles: styles,
 	}, nil
 }
 
-// decodeYAMLOrdered parses a YAML document into both a map and an
-// ordered key slice so adapters can re-emit the frontmatter in source
-// order. Empty input returns an empty map and nil keys.
-func decodeYAMLOrdered(data []byte) (map[string]any, []string, error) {
+// decodeYAMLOrdered parses a YAML document into a map, an ordered key
+// slice, and per-key value styles so adapters can re-emit the
+// frontmatter in source order with the author's original scalar style
+// (plain vs. double-quoted, etc.). Empty input returns empty map and
+// nil keys/styles.
+func decodeYAMLOrdered(data []byte) (map[string]any, []string, map[string]yaml.Style, error) {
 	var node yaml.Node
 	if err := yaml.Unmarshal(data, &node); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	meta, keys := nodeToOrderedMap(&node)
+	meta, keys, styles := nodeToOrderedMap(&node)
 	if meta == nil {
 		meta = map[string]any{}
 	}
-	return meta, keys, nil
+	return meta, keys, styles, nil
 }
 
-// nodeToOrderedMap converts a YAML mapping node to (map, ordered keys).
-// Non-mapping inputs return (nil, nil); the DocumentNode wrapper is
-// peeled when present. Errors decoding individual values cause the
-// affected key to be dropped silently — yaml.Unmarshal would have
-// already surfaced the syntactic failure at parse time.
-func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string) {
+// nodeToOrderedMap converts a YAML mapping node to (map, ordered keys,
+// per-key value styles). Non-mapping inputs return (nil, nil, nil); the
+// DocumentNode wrapper is peeled when present. Errors decoding
+// individual values cause the affected key to be dropped silently —
+// yaml.Unmarshal would have already surfaced the syntactic failure at
+// parse time. The styles map only carries entries for scalar values
+// whose Style was non-default; missing keys mean "let the encoder
+// choose" at re-emit time.
+func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.Style) {
 	if n == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if n.Kind == yaml.DocumentNode {
 		if len(n.Content) == 0 {
-			return nil, nil
+			return nil, nil, nil
 		}
 		return nodeToOrderedMap(n.Content[0])
 	}
 	if n.Kind != yaml.MappingNode {
-		return nil, nil
+		return nil, nil, nil
 	}
 	meta := make(map[string]any, len(n.Content)/2)
 	keys := make([]string, 0, len(n.Content)/2)
+	var styles map[string]yaml.Style
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		keyNode := n.Content[i]
 		valNode := n.Content[i+1]
@@ -452,8 +470,14 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string) {
 			keys = append(keys, keyNode.Value)
 		}
 		meta[keyNode.Value] = v
+		if valNode.Kind == yaml.ScalarNode && valNode.Style != 0 {
+			if styles == nil {
+				styles = make(map[string]yaml.Style)
+			}
+			styles[keyNode.Value] = valNode.Style
+		}
 	}
-	return meta, keys
+	return meta, keys, styles
 }
 
 // normalizeLineEndings converts CRLF to LF so the frontmatter splitter
@@ -471,24 +495,24 @@ func normalizeLineEndings(b []byte) []byte {
 // is treated as body-only with empty meta. Malformed YAML inside a
 // fully delimited block is surfaced as an error rather than silently
 // swallowed.
-func splitFrontmatter(data []byte) (map[string]any, []string, string, error) {
+func splitFrontmatter(data []byte) (map[string]any, []string, map[string]yaml.Style, string, error) {
 	const delim = "---"
 	empty := map[string]any{}
 
 	if !bytes.HasPrefix(data, []byte(delim)) {
-		return empty, nil, string(data), nil
+		return empty, nil, nil, string(data), nil
 	}
 	rest := data[len(delim):]
 	idx := bytes.Index(rest, []byte("\n"+delim))
 	if idx < 0 {
-		return empty, nil, string(data), nil
+		return empty, nil, nil, string(data), nil
 	}
 	yamlPart := rest[:idx]
 	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
 
-	meta, keys, err := decodeYAMLOrdered(yamlPart)
+	meta, keys, styles, err := decodeYAMLOrdered(yamlPart)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
-	return meta, keys, string(body), nil
+	return meta, keys, styles, string(body), nil
 }

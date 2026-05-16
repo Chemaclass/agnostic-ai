@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestWriteFile_CreatesNestedDirs(t *testing.T) {
@@ -139,18 +141,37 @@ func TestFrontmatterOrdered_PromotesSingleToDoubleQuotes(t *testing.T) {
 	}
 }
 
-// TestFrontmatterOrdered_QuotesScalarsWithAngleBrackets regresses
-// DEFECT 5 of #218. yaml.v3 would otherwise emit a hand-quoted
-// "<feature-or-problem-statement>" as a bare plain scalar, breaking
-// byte-stable round-trip with source files that wrap such values in
-// quotes for readability.
-func TestFrontmatterOrdered_QuotesScalarsWithAngleBrackets(t *testing.T) {
-	got := FrontmatterOrdered(
+// TestFrontmatterStyled_PreservesSourceDoubleQuotes covers the source
+// side of round-trip: when the value came from a file that wrapped
+// `<feature>` in double quotes, the emitted scalar must stay double-
+// quoted. The styles map carries that information from the spec
+// loader.
+func TestFrontmatterStyled_PreservesSourceDoubleQuotes(t *testing.T) {
+	got := FrontmatterStyled(
 		map[string]any{"argument-hint": "<feature-or-problem-statement>"},
 		[]string{"argument-hint"},
+		map[string]yaml.Style{"argument-hint": yaml.DoubleQuotedStyle},
 	)
 	if !strings.Contains(got, `"<feature-or-problem-statement>"`) {
-		t.Errorf("expected angle-bracket scalar wrapped in double quotes, got:\n%s", got)
+		t.Errorf("expected DoubleQuotedStyle to flow through, got:\n%s", got)
+	}
+}
+
+// TestFrontmatterStyled_PreservesPlainAngleBrackets is the inverse
+// case: a plain `<ver>` source must stay plain instead of being
+// auto-promoted to double-quoted. Regresses round-trip drift where
+// `argument-hint: <ver>` got re-emitted as `argument-hint: "<ver>"`.
+func TestFrontmatterStyled_PreservesPlainAngleBrackets(t *testing.T) {
+	got := FrontmatterStyled(
+		map[string]any{"argument-hint": "<ver>"},
+		[]string{"argument-hint"},
+		nil,
+	)
+	if !strings.Contains(got, "argument-hint: <ver>\n") {
+		t.Errorf("expected plain <ver>, got:\n%s", got)
+	}
+	if strings.Contains(got, `"<ver>"`) {
+		t.Errorf("plain scalar was force-quoted, got:\n%s", got)
 	}
 }
 

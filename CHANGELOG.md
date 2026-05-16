@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Claude `.claude/settings.json` always emits the hooks block via ordered JSON now, even on the first sync of a fresh project. Inner objects keep `{matcher, hooks}` and `{type, command}` in lifecycle order instead of the alpha-sorted `{command, type}` / `{hooks, matcher}` that the legacy `MergeJSONFile` path produced. Existing user-edited keys in `settings.json` continue to survive until the next `import claude` captures them into the overlay.
 
 ### Fixed
+- Frontmatter scalar styles now round-trip: a hand-authored plain `argument-hint: <ver>` stays plain on re-emit instead of being force-quoted to `"<ver>"`, and a hand-authored double-quoted scalar stays double-quoted. The spec loader captures per-key value styles into a new `Entry.MetaStyles` map and the emitter (`FrontmatterStyled` / `DocumentStyled`) replays them. The legacy angle-bracket auto-promotion in `preferDoubleQuotes` is dropped; explicit source-style preservation makes it unnecessary.
 
 ### Removed
 

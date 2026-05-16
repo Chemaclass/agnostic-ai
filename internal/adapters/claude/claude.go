@@ -70,7 +70,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, "agents", a.Name+".md")
-		body := emit.WithHeader(emit.DocumentOrdered(a.Meta, a.MetaKeys, a.Body, target), emit.FormatMarkdown)
+		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, s := range b.Skills {
 		folder := filepath.Join(dir, "skills", s.Name)
 		path := filepath.Join(folder, "SKILL.md")
-		body := emit.WithHeader(emit.DocumentOrdered(s.Meta, s.MetaKeys, s.Body, target), emit.FormatMarkdown)
+		body := emit.WithHeader(emit.DocumentStyled(s.Meta, s.MetaKeys, s.MetaStyles, s.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
-		body := emit.WithHeader(emit.DocumentOrdered(c.Meta, c.MetaKeys, c.Body, target), emit.FormatMarkdown)
+		body := emit.WithHeader(emit.DocumentStyled(c.Meta, c.MetaKeys, c.MetaStyles, c.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	for _, r := range rules {
 		path := filepath.Join(rulesDir, r.Name+".md")
-		body := emit.WithHeader(emit.DocumentOrdered(r.Meta, r.MetaKeys, r.Body, target), emit.FormatMarkdown)
+		body := emit.WithHeader(emit.DocumentStyled(r.Meta, r.MetaKeys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

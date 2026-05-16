@@ -23,6 +23,35 @@ import (
 //
 // This is the canonical 10/10 round-trip check. If anyone regresses an
 // import or emit path between claude and codex, this test breaks first.
+// TestRoundTrip_CommandPlainAngleBracketsStayPlain regresses the
+// `argument-hint: <ver>` drift the audit identified: a plain
+// angle-bracket scalar in a source command must stay plain after
+// import + sync, instead of being auto-promoted to double-quoted.
+func TestRoundTrip_CommandPlainAngleBracketsStayPlain(t *testing.T) {
+	dir := t.TempDir()
+	source := "---\nargument-hint: <ver>\ndescription: release helper\n---\n\nbody\n"
+	must(t, os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Project\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".claude/commands"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".claude/commands/release.md"), []byte(source), 0o644))
+	testutil.Chdir(t, dir)
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte("version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\n  commands: .agnostic-ai/commands\ntargets:\n  - claude\ngitignore:\n  enabled: false\n"), 0o644))
+
+	runCmd(t, "import", "claude")
+	runCmd(t, "sync", "-t", "claude")
+
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/commands/release.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "argument-hint: <ver>\n") {
+		t.Errorf("plain `argument-hint: <ver>` was re-quoted after round-trip:\n%s", got)
+	}
+	if strings.Contains(string(got), `"<ver>"`) {
+		t.Errorf("source plain scalar was promoted to double-quoted on emit:\n%s", got)
+	}
+}
+
 func TestRoundTrip_ClaudeCodexClaude(t *testing.T) {
 	dir := t.TempDir()
 	seedClaudeNative(t, dir)

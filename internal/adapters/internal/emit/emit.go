@@ -393,16 +393,30 @@ func Frontmatter(meta map[string]any) string {
 // emitted in the given order. Keys missing from `keys` are appended
 // alphabetically. Empty meta returns "".
 //
-// Co-fixes three round-trip noise sources versus the legacy
-// `yaml.Marshal(map)` path:
-//
-//   - Source key order is preserved (frontmatter authored with
-//     `name` first stays with `name` first instead of being sorted
-//     to the bottom by the YAML library).
-//   - Sequence indent is forced to 2 spaces (yaml.v3 default is 4).
-//   - Single-quoted scalars are promoted to double quotes, matching
-//     the convention used by hand-authored CLI configs.
+// Equivalent to FrontmatterStyled(meta, keys, nil): when no source
+// styles are available the emitter still preserves source key order
+// and forces 2-space sequence indent, and still promotes
+// single-quoted scalars to double-quoted (yaml.v3's quoted default).
 func FrontmatterOrdered(meta map[string]any, keys []string) string {
+	return FrontmatterStyled(meta, keys, nil)
+}
+
+// FrontmatterStyled renders meta as a YAML frontmatter block. `keys`
+// hints at source order; missing keys are appended alphabetically.
+// `styles` carries per-key value styles captured at parse time so
+// scalars round-trip byte-equivalently:
+//
+//   - A double-quoted source scalar stays double-quoted.
+//   - A plain source scalar stays plain (no auto-promotion to quotes,
+//     even when the value contains characters like `<` that look like
+//     they want quoting).
+//   - Single-quoted source scalars get promoted to double-quoted,
+//     matching the convention used by hand-authored CLI configs.
+//   - Keys missing from styles fall through to yaml.v3's encoder
+//     default, which is plain whenever the value is unambiguous.
+//
+// Empty meta returns "".
+func FrontmatterStyled(meta map[string]any, keys []string, styles map[string]yaml.Style) string {
 	if len(meta) == 0 {
 		return ""
 	}
@@ -414,6 +428,7 @@ func FrontmatterOrdered(meta map[string]any, keys []string) string {
 		if err := valNode.Encode(meta[k]); err != nil {
 			return ""
 		}
+		applySourceStyle(valNode, styles[k])
 		preferDoubleQuotes(valNode)
 		root.Content = append(root.Content, keyNode, valNode)
 	}
@@ -432,6 +447,17 @@ func FrontmatterOrdered(meta map[string]any, keys []string) string {
 	out.WriteString(buf.String())
 	out.WriteString("---\n")
 	return out.String()
+}
+
+// applySourceStyle stamps a non-zero source style onto a scalar leaf so
+// the encoder reproduces the author's quoting. No-op for zero (plain),
+// for non-scalar nodes, and for nodes whose value has nested structure
+// where forcing a scalar style would be invalid.
+func applySourceStyle(n *yaml.Node, style yaml.Style) {
+	if n == nil || style == 0 || n.Kind != yaml.ScalarNode {
+		return
+	}
+	n.Style = style
 }
 
 // yamlWriter adapts strings.Builder to io.Writer so the YAML encoder
@@ -463,37 +489,19 @@ func orderedMetaKeys(meta map[string]any, hint []string) []string {
 	return append(out, rest...)
 }
 
-// preferDoubleQuotes walks a yaml.Node tree and normalises scalar style
-// for round-trip stability with hand-authored CLI configs:
-//
-//   - Single-quoted scalars are promoted to double-quoted (yaml.v3
-//     defaults to single quotes when a scalar must be quoted, e.g.
-//     starts with `[`; CLI authors typically use double quotes).
-//   - Plain scalars whose value contains angle brackets are promoted
-//     to double-quoted. Authors commonly wrap things like
-//     `<feature-or-problem-statement>` in quotes for readability;
-//     yaml.v3 would otherwise emit them as bare plain scalars and
-//     break the byte-for-byte round trip. (Closes part of #218.)
-//
-// Plain scalars otherwise stay plain. yaml.v3 does not auto-wrap plain
-// scalars at any column width, so long descriptions emit on one line
-// without quotes. Forcing them to double-quoted broke round-trip with
-// hand-authored sources that use plain scalars for `description:`
-// (#226).
+// preferDoubleQuotes walks a yaml.Node tree and promotes single-quoted
+// scalars to double-quoted (yaml.v3 defaults to single quotes when a
+// scalar must be quoted, e.g. starts with `[`; CLI authors typically
+// use double quotes). Plain scalars stay plain — source-level style
+// preservation now flows through MetaStyles / applySourceStyle, so
+// the previous angle-bracket auto-promotion is unnecessary and was
+// breaking round-trip for hand-authored plain `<ver>` scalars.
 func preferDoubleQuotes(n *yaml.Node) {
 	if n == nil {
 		return
 	}
-	if n.Kind == yaml.ScalarNode {
-		switch n.Style {
-		case yaml.SingleQuotedStyle:
-			n.Style = yaml.DoubleQuotedStyle
-		case 0:
-			// Plain style is the zero value in yaml.v3.
-			if strings.ContainsAny(n.Value, "<>") {
-				n.Style = yaml.DoubleQuotedStyle
-			}
-		}
+	if n.Kind == yaml.ScalarNode && n.Style == yaml.SingleQuotedStyle {
+		n.Style = yaml.DoubleQuotedStyle
 	}
 	for _, c := range n.Content {
 		preferDoubleQuotes(c)

@@ -9,7 +9,7 @@ import (
 )
 
 func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
-	meta, keys, body, err := splitFrontmatter([]byte("hello world"))
+	meta, keys, _, body, err := splitFrontmatter([]byte("hello world"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
 
 func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
 	input := []byte("---\nname: foo\ndescription: bar\n---\nbody here\n")
-	meta, keys, body, err := splitFrontmatter(input)
+	meta, keys, _, body, err := splitFrontmatter(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
 
 func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
 	input := []byte("---\n---\nbody only\n")
-	meta, _, body, err := splitFrontmatter(input)
+	meta, _, _, body, err := splitFrontmatter(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
 
 func TestSplitFrontmatter_MalformedYAML(t *testing.T) {
 	input := []byte("---\n: : :\n---\nbody\n")
-	if _, _, _, err := splitFrontmatter(input); err == nil {
+	if _, _, _, _, err := splitFrontmatter(input); err == nil {
 		t.Fatal("expected error on malformed yaml")
 	}
 }
