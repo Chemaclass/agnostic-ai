@@ -4,7 +4,7 @@
 
 ### **One spec. Every AI CLI. Zero drift.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 10 more, in their native format.
+Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 10 more in their native format.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
@@ -19,14 +19,16 @@ Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, 
 
 You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools next quarter? Rewrite everything.
 
-agnostic-ai keeps **one source of truth** in plain Markdown + YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects.
+agnostic-ai keeps **one source of truth** in plain Markdown + YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects, in its native location, byte-stable across runs.
+
+- **Stateless adapters.** Same input, same output. Diffable, reviewable.
+- **Uniform entry-point.** One pointer body shared across every target's root file.
+- **Round-trip safe.** Provenance marker + style preservation keeps `import → sync` byte-stable.
+- **Scoped rules.** `rules/backend/auth.md` routes to `.cursor/rules/backend/auth.mdc`, `.github/instructions/auth.instructions.md` with `applyTo: backend/**`, etc.
 
 ## How it works
 
-<img width="1472" height="536" alt="image" src="https://github.com/user-attachments/assets/c065913b-67d9-4759-b584-56dca79a6a14" />
-
-
-## See it work
+<img width="1472" height="536" alt="diagram" src="https://github.com/user-attachments/assets/c065913b-67d9-4759-b584-56dca79a6a14" />
 
 Drop one file in `.agnostic-ai/rules/conventional-commits.md`:
 
@@ -43,9 +45,7 @@ Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 
 Run `agnostic-ai sync`. Two layers emit per target:
 
-**1. Slim entry-point** at the project root, body shared across targets.
-
-`CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
+**1. Slim entry-point** at the project root, body shared across targets. `CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
 
 ```markdown
 # AI Project Conventions
@@ -55,9 +55,7 @@ a copy of this body from its native entry-point so a single source of
 truth drives every target.
 ```
 
-**2. Native per-rule file** in each target's documented location, frontmatter + body verbatim from the source.
-
-`.cursor/rules/conventional-commits.mdc`:
+**2. Native per-rule file** in each target's documented location, frontmatter + body verbatim from the source. `.cursor/rules/conventional-commits.mdc`:
 
 ```markdown
 ---
@@ -70,7 +68,7 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`. Per-rule files emit only where the target supports them. The provenance marker tells importers not to round-trip the file back into source.
+Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`.
 
 ## Supported targets
 
@@ -93,29 +91,16 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
 
-> Native vs convention: a ✅ in the table means agnostic-ai emits the file in the location that target documents. Not every cell describes a path the upstream tool loads automatically.
-> - **Claude Code**: `.claude/agents/`, `.claude/skills/`, `.claude/settings.json` are native. `.claude/rules/<name>.md` is a convention — load each rule by referencing `@.claude/rules/<name>.md` from `CLAUDE.md` (the entry-point body sync writes already does this).
-> - **Codex CLI**: `.codex/config.toml` is project-scoped convention; Codex CLI today reads `~/.codex/config.toml` user-global. `.agents/agents/*.toml` follows the [community AGENTS.md subagents spec](https://developers.openai.com/codex/subagents).
-> - **GitHub Copilot**: `.github/copilot-instructions.md` is native. `.github/instructions/<name>.instructions.md` is the path-scoped convention Copilot supports via VS Code settings.
->
-> See `docs/user/targets.md` for per-target conventions and how to wire the convention paths into the upstream tool.
+A ✅ means the file lands where the target documents. Not every cell is a path the upstream tool auto-loads — see [targets](docs/user/targets.md) for which paths are native vs. convention and how to wire conventions into each tool.
 
 ## Install
 
-Homebrew:
-
 ```bash
-brew install Chemaclass/tap/agnostic-ai   # first install
-brew update && brew upgrade agnostic-ai   # update to latest
+brew install Chemaclass/tap/agnostic-ai                              # Homebrew
+go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 
-Go:
-
-```bash
-go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest   # install or update
-```
-
-Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest). Curl one-liner: [getting started](docs/user/getting-started.md).
+Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest).
 
 ## Quickstart
 
@@ -124,67 +109,43 @@ agnostic-ai init --demo   # scaffold specs with one example per folder
 agnostic-ai sync          # emit native config for every target
 ```
 
-That's it. Edit specs under `.agnostic-ai/`, run `sync` again.
-
-<details>
-<summary><b>More commands &amp; options</b></summary>
+Edit specs under `.agnostic-ai/`, run `sync` again. Already have `.cursor/rules` or `AGENTS.md`?
 
 ```bash
-agnostic-ai init                  # scaffold .agnostic-ai/{agents,skills,rules,hooks,mcps}/ — prompts for targets on a TTY
-agnostic-ai init --all            # same, but skip the prompt and enable every supported target
-agnostic-ai sync --dry-run        # preview without writing
-agnostic-ai sync --watch          # re-emit on spec changes (Ctrl+C to exit)
-agnostic-ai revert                # undo last sync
-agnostic-ai status                # show project config, spec counts, and sync state
+agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, continue, ...
 ```
 
-Already have `.cursor/rules` or `AGENTS.md`? Pull them in:
-
-```bash
-agnostic-ai import cursor         # also: codex, claude, cline, windsurf, continue
-```
-
-`import claude` prefers `.claude/rules/*.md` (each file → one rule, content-preserving — the provenance marker is stripped on the way in, frontmatter and body land verbatim) and falls back to slicing `CLAUDE.md` on `## headings` only when that directory is absent. It also mirrors `CLAUDE.md` to `.agnostic-ai/AGNOSTIC_AI.md` so you keep a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
-
-> Round-trip note: a sync after import re-applies the provenance marker and normalizes formatting (frontmatter key order from source, 2-space sequence indent, double-quoted scalars, single trailing newline). The next import strips the marker again, so source specs stay marker-free.
-
-</details>
-
-## CI gate
-
-Drop the official action into any workflow to fail PRs that drift from
-source specs:
+CI gate — fail PRs that drift from source specs:
 
 ```yaml
 - uses: chemaclass/agnostic-ai-action@v1
-  with:
-    command: check
+  with: { command: check }
 ```
-
-See [CI docs](docs/user/ci.md) for version pinning and `sync` / `doctor`
-modes. Catch drift earlier with a [pre-commit hook](docs/user/git-hooks.md)
-(pre-commit, lefthook, or husky).
-
-## What you get
-
-- **Stateless adapters.** Same input, same output. Diffable, reviewable, regeneratable.
-- **Uniform entry-point.** Every target's root file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, …) is a slim pointer to the source dir. Targets sharing a path (codex + amp + warp at `AGENTS.md`) write once. Opt back into legacy concat via `outputs.<target>.rules-file`.
-- **Provenance markers.** Every generated file carries `<!-- Generated by agnostic-ai -->` so importers can round-trip safely.
-- **Scoped per-file rules.** `rules/backend/auth.md` routes to `backend/.cursor/rules/auth.mdc`, `.github/instructions/auth.instructions.md` with `applyTo: backend/**`, etc.
-- **Auto `.gitignore`.** Opt-in block listing every generated path. Re-runs are no-ops.
-- **Backups & revert.** `--backup` writes `.bak` before overwrite. `revert` puts everything back.
 
 ## Documentation
 
-- **[Getting started](docs/user/getting-started.md)** · first rule, first sync, in 2 minutes.
-- **[Spec format](docs/user/spec-format.md)** · frontmatter reference for agents, skills, rules, hooks, MCPs.
-- **[Targets](docs/user/targets.md)** · what each adapter emits and where.
-- **[Configuration](docs/user/configuration.md)** · `agnostic-ai.yaml` reference.
-- **[CLI reference](docs/user/cli-reference.md)** · every flag, every command.
-- **[Playground](https://chemaclass.github.io/agnostic-ai/)** · paste a spec in your browser, see what every adapter emits live (WASM, runs offline).
-- **[Editor extensions](editors/)** · VS Code (shipped), JetBrains (planned).
-- **[Examples](docs/examples/)** · drop-in templates.
-- **[Contributing](docs/internal/)** · architecture, adding adapters, release process.
+**Get started**
+- [Getting started](docs/user/getting-started.md) — first rule, first sync, in 2 minutes
+- [Spec format](docs/user/spec-format.md) — frontmatter reference for every kind
+- [Examples](docs/examples/) — drop-in templates
+
+**Reference**
+- [Targets](docs/user/targets.md) — what each adapter emits and where
+- [Configuration](docs/user/configuration.md) — `agnostic-ai.yaml` reference
+- [CLI reference](docs/user/cli-reference.md) — every flag, every command
+- [Errors](docs/user/errors.md) — error code lookup
+
+**Workflows**
+- [CI gate](docs/user/ci.md) — drift checks on every PR
+- [Git hooks](docs/user/git-hooks.md) — pre-commit, lefthook, husky recipes
+- [Packs](docs/user/packs.md) — share spec bundles across repos
+
+**Tools**
+- [Playground](https://chemaclass.github.io/agnostic-ai/) — paste a spec, see what every adapter emits (WASM, runs offline)
+- [Editor extensions](editors/) — VS Code (shipped), JetBrains (planned)
+
+**Contributing**
+- [Architecture & roadmap](docs/internal/) — adapter pattern, adding targets, release process
 
 ---
 
