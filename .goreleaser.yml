@@ -73,8 +73,6 @@ homebrew_casks:
     directory: Casks
     homepage: https://github.com/Chemaclass/agnostic-ai
     description: Sync agent prompts, skills, rules, and hooks across AI coding tools
-    url:
-      verified: github.com/Chemaclass/agnostic-ai/
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
