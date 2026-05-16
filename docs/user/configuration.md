@@ -133,12 +133,6 @@ on-unsupported: warn   # warn | error | silent
 gitignore:
   enabled: false
   path: .gitignore   # default
-
-# Persisted answer to the first-run auto-sync prompt. Set by
-# `sync --auto-sync=yes|no` or interactively on first sync. When true,
-# `sync` writes an `auto-sync` rule spec telling agents to run
-# `agnostic-ai sync` whenever specs change.
-autoSync: false
 ```
 
 ## Top-level fields
@@ -151,7 +145,6 @@ autoSync: false
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
-| `autoSync` | bool | unset | Whether `sync` keeps the `auto-sync` rule spec. Set by the first-run prompt or `sync --auto-sync=yes\|no`. Unset means the prompt has not yet fired. |
 | `sync` | map | see below | Sync-level knobs. See [`sync`](#sync). |
 
 ## `sources`
@@ -275,19 +268,6 @@ Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for 
 The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged).
 
 Override per-run with `--gitignore on|off` on `sync`.
-
-## `autoSync`
-
-Persisted answer to the first-run auto-sync prompt. Three states:
-
-| Value | Meaning |
-|-------|---------|
-| unset | Prompt has not fired. On a TTY, the next `sync` asks; non-TTY runs are silent. |
-| `true` | Agents are expected to run `agnostic-ai sync` when specs change. The `auto-sync` rule spec under `sources.rules` carries the instruction. |
-| `false` | User opted out. No prompt on subsequent syncs. |
-
-Set non-interactively with `agnostic-ai sync --auto-sync=yes` or
-`--auto-sync=no`. The prompt and persistence are skipped under `--dry-run`.
 
 ## Claude settings
 

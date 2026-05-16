@@ -16,7 +16,7 @@ import (
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
 	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets bool
-	var gitignoreFlag, autoSyncFlag string
+	var gitignoreFlag string
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -100,11 +100,6 @@ func newSyncCmd() *cobra.Command {
 				}
 				return nil
 			}
-			if !dryRun {
-				if err := handleAutoSync(".", autoSyncFlag, cmd.InOrStdin(), cmd.OutOrStdout()); err != nil {
-					return err
-				}
-			}
 			if watchPoll && !watch {
 				return fmt.Errorf("--watch-poll requires --watch")
 			}
@@ -129,7 +124,6 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
-	cmd.Flags().StringVar(&autoSyncFlag, "auto-sync", "", "Enable agent-managed auto-sync: 'yes' or 'no'")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	registerTargetCompletion(cmd)

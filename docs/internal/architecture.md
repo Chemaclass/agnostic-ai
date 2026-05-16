@@ -6,7 +6,7 @@
 agnostic-ai/
 ├── cmd/agnostic-ai/main.go         # entry point
 ├── internal/
-│   ├── cli/                        # cobra commands; gitignore helper; watch loop; auto-sync prompt
+│   ├── cli/                        # cobra commands; gitignore helper; watch loop
 │   ├── config/                     # agnostic-ai.yaml loader
 │   ├── spec/                       # spec loader (md+frontmatter, yaml) with per-dir scope
 │   └── adapters/
@@ -97,7 +97,7 @@ Stateless. `New()` once, `Emit` per sync.
 
 ### `config.Config`
 
-Mirrors `agnostic-ai.yaml`. Holds `Sources`, `Outputs`, `Gitignore`, `AutoSync` (`*bool`; `nil` = prompt not fired).
+Mirrors `agnostic-ai.yaml`. Holds `Sources`, `Outputs`, `Gitignore`, `Sync`.
 
 ## Registry
 

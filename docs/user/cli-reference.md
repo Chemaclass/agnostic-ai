@@ -248,7 +248,6 @@ agnostic-ai sync [flags]
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Keep the process alive and re-emit on spec or config changes. Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll on filesystems where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--watch-poll` | Force the polling backend (200 ms) even when fsnotify is available. Use on network mounts or container volumes where fsnotify misses events. Requires `--watch`. |
-| `--auto-sync <yes\|no>` | Persist an answer to the first-run auto-sync prompt. Writes an `auto-sync` rule spec instructing agents to run `agnostic-ai sync` when specs change. Persists `autoSync: true/false` to `agnostic-ai.yaml`. Skipped under `--dry-run`. Without the flag, on a TTY, `sync` prompts once. |
 | `--all` | Emit every configured target without running the first-sync target picker. Useful for ad-hoc full emission or scripted runs that should bypass interactive prompts. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
@@ -274,7 +273,6 @@ agnostic-ai sync --dry-run             # preview
 agnostic-ai sync --check               # CI gate: fail if outputs are stale
 agnostic-ai sync --backup              # leave a .bak trail for revert
 agnostic-ai sync --watch               # re-emit on spec changes; Ctrl+C exits
-agnostic-ai sync --auto-sync=yes       # opt in to agent-managed auto-sync
 agnostic-ai sync --json                # machine-readable output
 agnostic-ai sync --check --json        # machine-readable drift report
 ```

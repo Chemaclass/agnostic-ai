@@ -51,4 +51,3 @@ outputs:
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent
-autoSync: false

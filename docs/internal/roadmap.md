@@ -15,7 +15,6 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 ## Shipped
 
 - Watch mode (`sync --watch`, fsnotify, `--watch-poll` fallback).
-- Auto-sync (`sync --auto-sync=yes|no`, first-run TTY prompt, persisted as `autoSync`).
 - Onboarding (`init --demo`, `init --preset <name>`).
 - Interactive target selection (`init` TTY picker, `--all` to skip).
 - Codex subagents + skills (`.agents/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
