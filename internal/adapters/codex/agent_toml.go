@@ -2,6 +2,7 @@ package codex
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -21,8 +22,11 @@ import (
 //	sandbox_mode           (optional, from x-codex)
 //	nickname_candidates    (optional, []string from x-codex)
 //
-// Other Codex agent fields (mcp_servers, skills.config) are not yet
-// translated; pass them through `x-codex` raw if needed in a follow-up.
+// Agent-scoped `mcp_servers` and other nested-table fields pass through
+// `x-codex` verbatim: the importer captures them under `x-codex.<key>`,
+// and the emitter renders nested-table maps as `[<key>.<inner>]` blocks
+// so they round-trip byte-equivalently. See writeXCodexExtras for the
+// scalar-vs-table emission order.
 func agentTOML(a spec.Entry) string {
 	meta := emit.ResolveMeta(a.Meta, target)
 
@@ -72,23 +76,66 @@ var codexAgentEmittedKeys = map[string]bool{
 
 // writeXCodexExtras walks `meta["x-codex"]` (when present) and emits
 // every key not already in codexAgentEmittedKeys. Supports the common
-// TOML value shapes: strings, bools, numbers, string arrays, and inline
-// string tables.
+// TOML value shapes: strings, bools, numbers, string arrays, inline
+// string tables, and nested tables (e.g. `mcp_servers.<name>`).
+//
+// Nested-table values emit last so the file stays TOML-valid: bare
+// key-value pairs must come before any `[section]` header inside the
+// document.
 func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 	x, ok := raw["x-codex"].(map[string]any)
 	if !ok {
 		return
 	}
-	keys := make([]string, 0, len(x))
-	for k := range x {
+	var inlineKeys, tableKeys []string
+	for k, v := range x {
 		if codexAgentEmittedKeys[k] {
 			continue
 		}
-		keys = append(keys, k)
+		if isNestedTableMap(v) {
+			tableKeys = append(tableKeys, k)
+		} else {
+			inlineKeys = append(inlineKeys, k)
+		}
 	}
-	slices.Sort(keys)
-	for _, k := range keys {
+	slices.Sort(inlineKeys)
+	slices.Sort(tableKeys)
+	for _, k := range inlineKeys {
 		writeTOMLAny(sb, k, x[k])
+	}
+	for _, k := range tableKeys {
+		writeNestedTableMap(sb, k, x[k].(map[string]any))
+	}
+}
+
+// isNestedTableMap reports whether v is a non-empty map[string]any whose
+// values are themselves map[string]any. Such values must emit as
+// `[<key>.<inner>]` tables rather than inline tables so codex-side
+// schemas (`mcp_servers`, `skills.config`) decode correctly.
+func isNestedTableMap(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok || len(m) == 0 {
+		return false
+	}
+	for _, vv := range m {
+		if _, ok := vv.(map[string]any); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// writeNestedTableMap renders one `[key.inner]` block per inner key,
+// sorted by name. Each block's scalar fields go through writeTOMLAny so
+// strings, arrays, and inline tables of strings round-trip without
+// inventing new encodings.
+func writeNestedTableMap(sb *strings.Builder, key string, m map[string]any) {
+	for _, name := range slices.Sorted(maps.Keys(m)) {
+		inner, _ := m[name].(map[string]any)
+		sb.WriteString("\n[" + key + "." + name + "]\n")
+		for _, ik := range slices.Sorted(maps.Keys(inner)) {
+			writeTOMLAny(sb, ik, inner[ik])
+		}
 	}
 }
 

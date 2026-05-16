@@ -1,10 +1,16 @@
 package codex
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestAgentTOML_EscapesQuotesAndBackslashes(t *testing.T) {
@@ -107,6 +113,112 @@ func TestAgentTOML_XCodexToolsOverridesTopLevel(t *testing.T) {
 	}
 	if strings.Count(got, "tools = ") != 1 {
 		t.Errorf("tools should emit exactly once:\n%s", got)
+	}
+}
+
+// Agent-scoped mcp_servers passes through x-codex as a nested table so
+// codex consumers see real `[mcp_servers.<name>]` headers instead of a
+// flattened inline table (which codex would reject).
+func TestAgentTOML_XCodexMCPServersEmitsAsNestedTable(t *testing.T) {
+	a := spec.Entry{
+		Kind: spec.KindAgent,
+		Name: "ag",
+		Body: "x",
+		Meta: map[string]any{
+			"x-codex": map[string]any{
+				"mcp_servers": map[string]any{
+					"fs": map[string]any{
+						"command": "npx",
+						"args":    []any{"server-filesystem", "."},
+						"env":     map[string]any{"PATH": "/usr/bin"},
+					},
+				},
+			},
+		},
+	}
+	got := agentTOML(a)
+	for _, want := range []string{
+		"[mcp_servers.fs]",
+		`command = "npx"`,
+		`args = ["server-filesystem", "."]`,
+		`env = { PATH = "/usr/bin" }`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	// Scalar lines must come before the [mcp_servers.*] header.
+	scalarIdx := strings.Index(got, `description = `)
+	tableIdx := strings.Index(got, "[mcp_servers.fs]")
+	if scalarIdx == -1 || tableIdx == -1 || scalarIdx > tableIdx {
+		t.Errorf("nested table must follow top-level scalars (TOML rule):\n%s", got)
+	}
+}
+
+func TestAgentTOML_XCodexNestedTablesSortedDeterministically(t *testing.T) {
+	a := spec.Entry{
+		Kind: spec.KindAgent,
+		Name: "ag",
+		Body: "x",
+		Meta: map[string]any{
+			"x-codex": map[string]any{
+				"mcp_servers": map[string]any{
+					"zeta":  map[string]any{"command": "z"},
+					"alpha": map[string]any{"command": "a"},
+				},
+			},
+		},
+	}
+	got := agentTOML(a)
+	if strings.Index(got, "[mcp_servers.alpha]") > strings.Index(got, "[mcp_servers.zeta]") {
+		t.Errorf("nested tables must emit in sorted order:\n%s", got)
+	}
+}
+
+// Full emit -> decode round-trip: agent.toml with embedded
+// `[mcp_servers.fs]` decodes back into the original Go map shape so the
+// import path sees the same values it would on a fresh project.
+func TestEmit_Agent_XCodexMCPServersDecodesBackToInput(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "scoped",
+			Body: "do things",
+			Meta: map[string]any{
+				"description": "scoped agent",
+				"x-codex": map[string]any{
+					"mcp_servers": map[string]any{
+						"fs": map[string]any{
+							"command": "npx",
+							"args":    []any{"server-filesystem", "."},
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, ".agents/agents/scoped.toml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if _, err := toml.Decode(string(data), &doc); err != nil {
+		t.Fatalf("emitted TOML did not decode: %v\n%s", err, data)
+	}
+	mcps, _ := doc["mcp_servers"].(map[string]any)
+	fs, _ := mcps["fs"].(map[string]any)
+	if got, _ := fs["command"].(string); got != "npx" {
+		t.Errorf("command lost on round-trip, got %q\n%s", got, data)
+	}
+	args, _ := fs["args"].([]any)
+	if len(args) != 2 || args[0] != "server-filesystem" {
+		t.Errorf("args lost on round-trip, got %v\n%s", args, data)
 	}
 }
 

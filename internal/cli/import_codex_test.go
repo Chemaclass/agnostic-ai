@@ -266,6 +266,44 @@ review code carefully.
 	}
 }
 
+// Agent TOML with an embedded [mcp_servers.X] table must round-trip
+// through the x-codex passthrough so the codex emitter regenerates it
+// byte-equivalently on the next sync.
+func TestImportFromCodex_AgentsRoundTripsEmbeddedMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents/agents/scoped.toml"), `name = "scoped"
+description = "scoped agent"
+developer_instructions = "do things"
+
+[mcp_servers.fs]
+command = "npx"
+args = ["server-filesystem", "."]
+
+[mcp_servers.fs.env]
+PATH = "/usr/bin"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "agents", "scoped.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	for _, want := range []string{
+		"x-codex:",
+		"mcp_servers:",
+		"fs:",
+		"command: npx",
+		"server-filesystem",
+		"PATH:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in imported agent spec:\n%s", want, out)
+		}
+	}
+}
+
 func TestImportFromCodex_LegacyAgentsDirAlsoScanned(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/agents/legacy.toml"),

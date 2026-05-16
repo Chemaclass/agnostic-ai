@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `import claude` now reads `.mcp.json` and writes one yaml per `mcpServers.<name>` entry into the mcps source dir. Previously the file was skipped, so MCP servers configured in a Claude Code project were silently dropped during import and never round-tripped to other adapters.
 
 ### Changed
+- Codex agent TOML now emits agent-scoped `[mcp_servers.<name>]` (and any other nested-table) keys carried under the spec's `x-codex` passthrough. Previously `writeXCodexExtras` only handled scalars, arrays, and inline string tables, so a `[mcp_servers.fs]` block inside an imported agent.toml would be silently lost on the next sync. Nested-table values emit last in the agent file so the document stays TOML-valid.
 - Claude `.claude/settings.json` always emits the hooks block via ordered JSON now, even on the first sync of a fresh project. Inner objects keep `{matcher, hooks}` and `{type, command}` in lifecycle order instead of the alpha-sorted `{command, type}` / `{hooks, matcher}` that the legacy `MergeJSONFile` path produced. Existing user-edited keys in `settings.json` continue to survive until the next `import claude` captures them into the overlay.
 
 ### Fixed
