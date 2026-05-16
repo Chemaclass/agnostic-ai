@@ -4,6 +4,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.21.0 - 2026-05-16
+
 ### Changed
 - Goreleaser config migrated from deprecated `brews:` to `homebrew_casks:`. Releases now publish to the tap as casks (`Casks/agnostic-ai.rb`) with a post-install hook removing the macOS quarantine attribute. The legacy `Formula/agnostic-ai.rb` stops receiving updates on the next release. Closes #225.
 
