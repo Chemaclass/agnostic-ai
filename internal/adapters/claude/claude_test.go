@@ -730,7 +730,7 @@ func TestEmit_SettingsJSONIsByteStableNoOverlay(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(first) != string(second) {
-		t.Errorf("settings.json drifts on second sync without overlay (MergeJSONFile path).\nfirst:\n%s\nsecond:\n%s", first, second)
+		t.Errorf("settings.json drifts on second sync without overlay.\nfirst:\n%s\nsecond:\n%s", first, second)
 	}
 }
 

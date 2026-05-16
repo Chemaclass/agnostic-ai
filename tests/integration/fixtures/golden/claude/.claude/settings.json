@@ -2,13 +2,13 @@
   "hooks": {
     "PostToolUse": [
       {
+        "matcher": "Edit",
         "hooks": [
           {
-            "command": "echo edited",
-            "type": "command"
+            "type": "command",
+            "command": "echo edited"
           }
-        ],
-        "matcher": "Edit"
+        ]
       }
     ]
   }

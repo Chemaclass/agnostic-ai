@@ -133,21 +133,19 @@ func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
 // of increasing precedence:
 //
 //  1. Overlay captured during `import claude` (covers anything the user
-//     keeps inside `.claude/settings.json` directly).
+//     keeps inside `.claude/settings.json` directly). When the overlay
+//     is absent, the existing `.claude/settings.json` on disk is used as
+//     the base instead so user-edited keys survive until `import claude`
+//     captures them.
 //  2. First-class fields from `outputs.claude.settings` in
 //     `agnostic-ai.yaml` (statusLine, permissions, env, model, etc).
-//  3. Spec-derived `hooks` block (always wins for the `hooks` key).
+//  3. Spec-derived `hooks` block, emitted via ordered JSON so
+//     `{type, command}` and `{matcher, hooks}` stay in lifecycle order
+//     instead of alpha-sorted map order.
 //
-// Three short-circuits:
-//
-//   - All three layers empty: write nothing.
-//   - Overlay absent but hooks present and config empty: merge into any
-//     existing settings.json on disk so a user-edited statusLine added
-//     directly to `.claude/settings.json` survives until `import claude`
-//     captures it.
-//   - Overlay absent but config layer non-empty: start from an empty
-//     map. Disk is not consulted, so the config is authoritative.
+// Short-circuit: all three layers empty -> write nothing.
 func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
+	path := filepath.Join(dir, "settings.json")
 	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
 	if err != nil {
 		return err
@@ -158,19 +156,20 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 	if !overlayOK && !hasHooks && !hasConfig {
 		return nil
 	}
-	path := filepath.Join(dir, "settings.json")
-	if !overlayOK && !hasConfig {
-		// Backwards-compat path: no overlay yet, merge hooks into disk
-		// so user-edited keys survive until `import claude` captures
-		// them into the overlay.
-		return emit.MergeJSONFile(path, buildHookSettings(hooks), dryRun)
-	}
 	doc := overlay
 	if doc == nil {
-		doc = emit.NewOrderedJSON()
+		// No overlay yet: fall back to the existing settings.json on
+		// disk so a user-edited statusLine survives until `import
+		// claude` captures it. Skip in dryRun and capture to keep
+		// previews and `sync --check` reproducible from sources.
+		doc, err = loadSettingsFromDisk(path, dryRun)
+		if err != nil {
+			return err
+		}
+		if doc == nil {
+			doc = emit.NewOrderedJSON()
+		}
 	}
-	// Layer the config-derived keys. New keys append at the end; existing
-	// keys keep their author-chosen position.
 	for _, k := range orderedConfigKeys(configSettings) {
 		if err := doc.Set(k, configSettings[k]); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
@@ -188,6 +187,28 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 		return err
 	}
 	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+// loadSettingsFromDisk reads an existing `.claude/settings.json` as the
+// base when no captured overlay is available. Returns (nil, nil) when
+// the file is absent, in dryRun, or under capture so the path is
+// reproducible from sources.
+func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
+	if dryRun || emit.IsCapturing() {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	doc := emit.NewOrderedJSON()
+	if err := json.Unmarshal(data, doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return doc, nil
 }
 
 // orderedConfigKeys returns the keys of `configSettings` in a stable
@@ -262,58 +283,6 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 		}
 	}
 	return nil
-}
-
-// buildHookSettings renders {"hooks": {<event>: [{"matcher", "hooks": [...]}]}}
-// keyed for `.claude/settings.json`.
-//
-// Specs with the same event and matcher merge into one matcher block:
-// their commands stack inside the inner `hooks` array, matching the
-// Claude Code schema where each matcher entry can run multiple commands.
-// A spec's `command:` field accepts a string or a list of strings; each
-// string becomes one `{type: "command", command: ...}` entry.
-func buildHookSettings(hooks []spec.Entry) map[string]any {
-	type matcherKey struct{ event, matcher string }
-
-	byKey := map[matcherKey][]map[string]any{}
-	keyOrder := []matcherKey{}
-
-	for _, h := range hooks {
-		event, _ := h.Meta["event"].(string)
-		matcher, _ := h.Meta["matcher"].(string)
-		if event == "" {
-			continue
-		}
-		cmds := hookCommands(h.Meta["command"])
-		if len(cmds) == 0 {
-			continue
-		}
-		k := matcherKey{event: event, matcher: matcher}
-		if _, seen := byKey[k]; !seen {
-			keyOrder = append(keyOrder, k)
-		}
-		for _, cmd := range cmds {
-			byKey[k] = append(byKey[k], map[string]any{"type": "command", "command": cmd})
-		}
-	}
-
-	byEvent := map[string][]map[string]any{}
-	for _, k := range keyOrder {
-		byEvent[k.event] = append(byEvent[k.event], map[string]any{
-			"matcher": k.matcher,
-			"hooks":   byKey[k],
-		})
-	}
-	// Sort matcher groups by matcher string for deterministic output.
-	for event, groups := range byEvent {
-		sort.SliceStable(groups, func(i, j int) bool {
-			mi, _ := groups[i]["matcher"].(string)
-			mj, _ := groups[j]["matcher"].(string)
-			return mi < mj
-		})
-		byEvent[event] = groups
-	}
-	return map[string]any{"hooks": byEvent}
 }
 
 // hookSettingsJSON returns the `"hooks"` block as ordered JSON so the
