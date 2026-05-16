@@ -97,6 +97,7 @@ A ✅ means the file lands where the target documents. Not every cell is a path 
 
 ```bash
 brew install Chemaclass/tap/agnostic-ai                              # Homebrew
+brew upgrade Chemaclass/tap/agnostic-ai                              # upgrade later
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 

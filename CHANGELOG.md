@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
+- README: document `brew upgrade Chemaclass/tap/agnostic-ai` for upgrading existing installs.
+
 ### Changed
 
 ### Fixed
