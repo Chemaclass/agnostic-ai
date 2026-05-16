@@ -61,22 +61,25 @@ changelog:
     - title: Others
       order: 999
 
-brews:
+homebrew_casks:
   - name: agnostic-ai
+    binaries:
+      - agnostic-ai
     repository:
       owner: Chemaclass
       name: homebrew-tap
       branch: master
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: https://github.com/Chemaclass/agnostic-ai
     description: Sync agent prompts, skills, rules, and hooks across AI coding tools
-    license: MIT
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
     commit_msg_template: "feat: bump {{ .ProjectName }} to {{ .Tag }}"
-    test: |
-      system "#{bin}/agnostic-ai", "--help"
-    install: |
-      bin.install "agnostic-ai"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/agnostic-ai"]
+          end
