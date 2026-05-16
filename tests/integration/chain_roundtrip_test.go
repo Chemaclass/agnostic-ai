@@ -12,8 +12,8 @@ import (
 
 // TestRoundTrip_ClaudeCodexClaude exercises the full chain:
 //
-//   claude native -> import claude -> sync -t codex -> wipe specs
-//   -> import codex -> sync -t claude
+//	claude native -> import claude -> sync -t codex -> wipe specs
+//	-> import codex -> sync -t claude
 //
 // Every kind that both adapters support (agents, skills, rules, hooks,
 // MCPs, commands) must survive the chain semantically. The test asserts
@@ -101,8 +101,8 @@ func TestRoundTrip_ClaudeCodexClaude(t *testing.T) {
 
 // TestRoundTrip_CodexClaudeCodex exercises the inverse chain:
 //
-//   codex native -> import codex -> sync -t claude -> wipe specs
-//   -> import claude -> sync -t codex
+//	codex native -> import codex -> sync -t claude -> wipe specs
+//	-> import claude -> sync -t codex
 //
 // The codex overlay must carry every non-managed `.codex/config.toml`
 // key through the chain so the final config.toml still has the

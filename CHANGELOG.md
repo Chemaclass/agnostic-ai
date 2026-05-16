@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.22.0 - 2026-05-17
+
+### Added
 - Chained round-trip integration tests covering `claude → import → sync codex → wipe specs → import → sync claude` (and the inverse codex-first chain). Each kind that both adapters support (agents, skills, rules, hooks, MCPs, commands) must survive the full chain semantically. The codex chain additionally asserts that the captured overlay carries `model`, `[profiles.*]`, and other non-managed `.codex/config.toml` keys through both syncs.
 - `import codex` now reads `.codex/prompts/*.md` and writes them byte-for-byte into the commands source dir. Previously the directory was skipped, so any user-authored Codex slash prompts were silently dropped during import and overwritten on the next `sync --target codex`.
 - `import codex` captures every `.codex/config.toml` key outside `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. The codex emitter layers the overlay before the spec-derived sections on each sync, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any future Codex keys survive a wipe of `.codex/` between import and sync. Mirrors the existing claude settings overlay.
