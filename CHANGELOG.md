@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 - `import codex` now reads `.codex/prompts/*.md` and writes them byte-for-byte into the commands source dir. Previously the directory was skipped, so any user-authored Codex slash prompts were silently dropped during import and overwritten on the next `sync --target codex`.
 - `import codex` captures every `.codex/config.toml` key outside `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. The codex emitter layers the overlay before the spec-derived sections on each sync, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any future Codex keys survive a wipe of `.codex/` between import and sync. Mirrors the existing claude settings overlay.
+- `import claude` now reads `.mcp.json` and writes one yaml per `mcpServers.<name>` entry into the mcps source dir. Previously the file was skipped, so MCP servers configured in a Claude Code project were silently dropped during import and never round-tripped to other adapters.
 
 ### Changed
 - Claude `.claude/settings.json` always emits the hooks block via ordered JSON now, even on the first sync of a fresh project. Inner objects keep `{matcher, hooks}` and `{type, command}` in lifecycle order instead of the alpha-sorted `{command, type}` / `{hooks, matcher}` that the legacy `MergeJSONFile` path produced. Existing user-edited keys in `settings.json` continue to survive until the next `import claude` captures them into the overlay.

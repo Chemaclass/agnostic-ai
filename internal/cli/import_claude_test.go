@@ -730,6 +730,48 @@ Fix the bug at $ARGUMENTS.
 	}
 }
 
+func TestImportFromClaude_ImportsMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, claudeMCPFile), `{
+  "mcpServers": {
+    "fs": {"command": "npx", "args": ["server-filesystem"]},
+    "github": {"type": "http", "url": "https://api.githubcopilot.com/mcp/"}
+  }
+}`)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	fs, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/fs.yaml: %v", err)
+	}
+	for _, want := range []string{"name: fs", "command: npx", "server-filesystem"} {
+		if !strings.Contains(string(fs), want) {
+			t.Errorf("missing %q in fs.yaml:\n%s", want, fs)
+		}
+	}
+	gh, err := os.ReadFile(filepath.Join(dir, "mcps", "github.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/github.yaml: %v", err)
+	}
+	for _, want := range []string{"name: github", "type: http", "url: https://api.githubcopilot.com/mcp/"} {
+		if !strings.Contains(string(gh), want) {
+			t.Errorf("missing %q in github.yaml:\n%s", want, gh)
+		}
+	}
+}
+
+func TestImportFromClaude_NoMCPFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(dir, "mcps"))
+	if len(entries) != 0 {
+		t.Errorf("expected empty mcps/, got %d entries", len(entries))
+	}
+}
+
 // writeMinimalConfig drops a config that points sources at base/<kind>.
 func writeMinimalConfig(t *testing.T, dir, base string) {
 	t.Helper()

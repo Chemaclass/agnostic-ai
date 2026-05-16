@@ -25,13 +25,13 @@ const (
 	agnosticMainFile = ".agnostic-ai/AGNOSTIC_AI.md"
 )
 
-type importCounts struct{ rules, agents, skills, hooks, commands int }
+type importCounts struct{ rules, agents, skills, hooks, mcps, commands int }
 
 // importFromClaude reads existing Claude Code config (CLAUDE.md and
 // .claude/) under root and writes specs into the configured source
 // directories.
 func importFromClaude(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.Commands); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
 
@@ -49,6 +49,9 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
 		return err
 	}
+	if c.mcps, err = importClaudeMCP(root, filepath.Join(root, src.MCPs)); err != nil {
+		return err
+	}
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands)); err != nil {
 		return err
 	}
@@ -58,8 +61,8 @@ func importFromClaude(root string, src config.Sources) error {
 	if err := mirrorClaudeMainFile(root); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d commands\n",
-		c.rules, c.agents, c.skills, c.hooks, c.commands)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
+		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
 	summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
 		agnosticMainFile, claudeMainFile)
 	printImportNextSteps(root, "claude")
