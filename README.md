@@ -101,7 +101,7 @@ brew upgrade Chemaclass/tap/agnostic-ai                              # upgrade l
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 
-Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest).
+Or grab a prebuilt binary from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
 
 ## Quickstart
 
