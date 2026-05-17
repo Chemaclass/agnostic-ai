@@ -31,6 +31,12 @@ func codexOverlayPath(root string) string {
 	return filepath.Join(root, codexOverlayDir, codexOverlayFile)
 }
 
+// codexOverlayRelPath returns the overlay path relative to the project
+// root, suitable for printing in import summary lines.
+func codexOverlayRelPath() string {
+	return filepath.Join(codexOverlayDir, codexOverlayFile)
+}
+
 // importCodexConfigOverlay reads `.codex/config.toml` under root, drops
 // the `hooks` and `mcp_servers` keys (the spec-derived sections), and
 // writes the remainder to `.agnostic-ai/overlays/codex.config.toml`.
@@ -43,37 +49,38 @@ func codexOverlayPath(root string) string {
 // MCP sections. Without the overlay, a wipe of `.codex/` between
 // import and sync would destroy every non-managed key.
 //
-// Returns nil when config.toml is missing or contains only `hooks`
-// and/or `mcp_servers`, so a fresh project does not get a surprise
-// empty overlay file.
-func importCodexConfigOverlay(root string) error {
+// Returns (false, nil) when config.toml is missing or contains only
+// `hooks` and/or `mcp_servers`, so a fresh project does not get a
+// surprise empty overlay file. Returns (true, nil) when the overlay
+// was actually written.
+func importCodexConfigOverlay(root string) (bool, error) {
 	src := filepath.Join(root, codexConfigTOML)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", src, err)
+		return false, fmt.Errorf("read %s: %w", src, err)
 	}
 	doc := map[string]any{}
 	if _, err := toml.Decode(string(data), &doc); err != nil {
-		return fmt.Errorf("parse %s: %w", src, err)
+		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	delete(doc, "hooks")
 	delete(doc, "mcp_servers")
 	if len(doc) == 0 {
-		return nil
+		return false, nil
 	}
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
-		return fmt.Errorf("encode overlay: %w", err)
+		return false, fmt.Errorf("encode overlay: %w", err)
 	}
 	dst := codexOverlayPath(root)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
+		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
-	return nil
+	return true, nil
 }

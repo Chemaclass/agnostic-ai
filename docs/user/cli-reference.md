@@ -46,8 +46,8 @@ Translate an existing AI CLI configuration into agnostic specs. Reads
 into those directories.
 
 ```bash
-agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,settings.json}
-agnostic-ai import codex          # AGENTS.md (root + nested)
+agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,commands,settings.json,rules}, .mcp.json
+agnostic-ai import codex          # AGENTS.md (root + nested), .codex/{prompts,config.toml}
 agnostic-ai import claude codex   # multiple sources; AGNOSTIC_AI.md reflects the last (last-wins)
 agnostic-ai import cursor         # .cursor/rules/*.mdc
 agnostic-ai import cline          # .clinerules/
@@ -75,11 +75,14 @@ CLI present in the project.
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
+| `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
 | `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (filename derived from event, matcher, and commands so re-imports converge on the same path) |
+| `.claude/settings.json` non-hook keys | `.agnostic-ai/overlays/claude.settings.json` (captures statusLine, enabledPlugins, model overrides, and any other top-level keys so `sync -t claude` reproduces the full settings.json after `.claude/` is wiped) |
+| `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server; round-trips to every MCP-aware target on the next `sync`) |
 
 When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if the directory is empty) so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` so the project keeps a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
 
-`import codex` walks the project for `AGENTS.md` files at any depth:
+`import codex` walks the project for `AGENTS.md` files at any depth and reads the rest of the Codex tree:
 
 | Source | Becomes |
 |--------|---------|
@@ -88,8 +91,21 @@ When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if t
 | `<dir>/AGENTS.md` (nested) | `<rules>/<slug>.md` with inferred `globs: <dir>/**` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
+| `.agents/agents/*.toml` | `<agents>/<name>.md` |
+| `.agents/skills/<name>/SKILL.md` (+ `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved) |
+| `.codex/config.toml` `[[hooks.<event>]]` | `<hooks>/<event>-<hash8>.yaml` (one spec per entry) |
+| `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
+| `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped; the codex emitter prepends this overlay before the spec-derived sections on each sync) |
+| `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy) |
 
 Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories, the configured source directories, `node_modules/`, and `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files.
+
+**Overlay precedence.**
+
+- **Codex**: when both the captured overlay and `outputs.codex.config.*` declare the same key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`), the overlay wins on conflict and the first-class key is dropped to avoid a TOML duplicate-key error.
+- **Claude**: the opposite. `outputs.claude.settings.*` overrides the overlay for any key it declares, so changes you make in `agnostic-ai.yaml` always reach `.claude/settings.json`. Re-run `import claude` to refresh the overlay whenever you hand-edit `.claude/settings.json`.
+
+Keys declared in only one place are passed through unchanged either way.
 
 `import cursor`:
 

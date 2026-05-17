@@ -40,7 +40,8 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := importCodexConfigOverlay(root); err != nil {
+	overlaySeeded, err := importCodexConfigOverlay(root)
+	if err != nil {
 		return err
 	}
 	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
@@ -48,6 +49,10 @@ func importFromCodex(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
 		rules, agents, skills, hooks, mcps, commands)
+	if overlaySeeded {
+		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
+			codexOverlayRelPath(), codexConfigTOML)
+	}
 	printImportNextSteps(root, "codex")
 	return nil
 }

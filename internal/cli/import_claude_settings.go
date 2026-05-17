@@ -45,20 +45,21 @@ func claudeOverlayPath(root string) string {
 // overwrites the sentinel with the spec-derived hook map on every sync,
 // keeping hooks at the position the user authored (#227).
 //
-// Returns nil when settings.json is missing or contains only `hooks`,
-// so a fresh project does not get a surprise empty overlay file.
-func importClaudeSettingsOverlay(root string) error {
+// Returns (false, nil) when settings.json is missing or contains only
+// `hooks`, so a fresh project does not get a surprise empty overlay
+// file. Returns (true, nil) when the overlay was actually written.
+func importClaudeSettingsOverlay(root string) (bool, error) {
 	src := filepath.Join(root, claudeDir, "settings.json")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", src, err)
+		return false, fmt.Errorf("read %s: %w", src, err)
 	}
 	doc := adapters.NewOrderedJSON()
 	if err := json.Unmarshal(data, doc); err != nil {
-		return fmt.Errorf("parse %s: %w", src, err)
+		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	hadHooks := false
 	if _, ok := doc.Get("hooks"); ok {
@@ -66,18 +67,24 @@ func importClaudeSettingsOverlay(root string) error {
 		doc.SetRaw("hooks", json.RawMessage(`null`))
 	}
 	if doc.Len() == 0 || (hadHooks && doc.Len() == 1) {
-		return nil
+		return false, nil
 	}
 	raw, err := adapters.MarshalJSONIndent(doc)
 	if err != nil {
-		return fmt.Errorf("marshal overlay: %w", err)
+		return false, fmt.Errorf("marshal overlay: %w", err)
 	}
 	dst := claudeOverlayPath(root)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, append(raw, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
+		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
-	return nil
+	return true, nil
+}
+
+// claudeOverlayRelPath returns the overlay path relative to the project
+// root, suitable for printing in import summary lines.
+func claudeOverlayRelPath() string {
+	return filepath.Join(claudeOverlayDir, claudeOverlayFile)
 }
