@@ -97,13 +97,27 @@ A ✅ means the file lands where the target documents. Not every cell is a path 
 
 ```bash
 brew install Chemaclass/tap/agnostic-ai                              # Homebrew
-brew upgrade Chemaclass/tap/agnostic-ai                              # upgrade later
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 
 Or grab a prebuilt binary from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
 
-Already installed? `agnostic-ai upgrade` detects how the binary was installed (Homebrew, `go install`, raw binary) and prints the matching upgrade command. Add `--run` to exec it, `--check` to diagnose `PATH` shadowing when an older copy of the binary keeps winning lookup.
+## Upgrade
+
+```bash
+agnostic-ai upgrade           # print the upgrade command for the current install
+agnostic-ai upgrade --run     # exec the detected upgrade command
+agnostic-ai upgrade --check   # diagnose install location + PATH shadowing
+```
+
+Detects whether the running binary came from Homebrew, `go install`, or a raw download, then prints (or runs) the matching upgrade command. `--check` flags any other `agnostic-ai` on `PATH` that would shadow the resolved executable — the common reason `brew upgrade` reports "already up-to-date" but `agnostic-ai --version` keeps showing an older release.
+
+Direct package-manager commands work too:
+
+```bash
+brew update && brew upgrade Chemaclass/tap/agnostic-ai               # Homebrew
+go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
+```
 
 ## Quickstart
 
