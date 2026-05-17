@@ -55,7 +55,8 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands)); err != nil {
 		return err
 	}
-	if err := importClaudeSettingsOverlay(root); err != nil {
+	overlaySeeded, err := importClaudeSettingsOverlay(root)
+	if err != nil {
 		return err
 	}
 	if err := mirrorClaudeMainFile(root); err != nil {
@@ -65,6 +66,10 @@ func importFromClaude(root string, src config.Sources) error {
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
 	summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
 		agnosticMainFile, claudeMainFile)
+	if overlaySeeded {
+		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
+			claudeOverlayRelPath(), claudeDir)
+	}
 	printImportNextSteps(root, "claude")
 	return nil
 }

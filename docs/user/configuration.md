@@ -317,7 +317,10 @@ outputs:
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
 Any setting not declared here still round-trips through the overlay
-captured during `agnostic-ai import claude`.
+captured during `agnostic-ai import claude` (written to
+`.agnostic-ai/overlays/claude.settings.json`). When both the overlay
+and `outputs.claude.settings.*` declare the same key, the
+first-class config block wins.
 
 ## Codex config
 
@@ -358,6 +361,16 @@ outputs:
 | `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
 | `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
 | `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
+
+The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml`
+(captured by `agnostic-ai import codex`) and prepends its body before
+the spec-derived `[[hooks.*]]` and `[mcp_servers.*]` sections. The
+overlay carries every other `.codex/config.toml` key the user has
+configured (`model`, `sandbox`, `approval_policy`, `notify`,
+`[history]`, `[profiles.*]`, `[model_providers.*]`, …) so a wipe of
+`.codex/` between `import` and `sync` no longer drops them. On
+conflict with `outputs.codex.config.*` the overlay wins and the
+first-class key is dropped to keep the TOML valid.
 
 ## Path semantics
 

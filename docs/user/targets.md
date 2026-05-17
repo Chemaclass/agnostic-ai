@@ -82,6 +82,8 @@ Commands emit one file per spec under `.claude/commands/`. Each command becomes 
 
 `agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any other top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` reads that overlay and layers the spec-derived `hooks` key on top, so a re-sync from a fresh checkout reproduces the full settings.json even after `.claude/` has been wiped. Re-run `import claude` whenever you add a key to settings.json by hand.
 
+`import claude` also reads `.mcp.json` and writes one spec under `<mcps>/<name>.yaml` per `mcpServers.<name>` entry. The next `sync` then distributes those MCP servers to every other target that supports them (codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode).
+
 `outputs.claude.settings.*` declares first-class settings keys (model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, includeCoAuthoredBy). They merge on top of the captured overlay and below the spec-derived hooks block. See [Claude settings](configuration.md#claude-settings).
 
 Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`), `outputs.claude.settings` (first-class settings block).
@@ -106,6 +108,8 @@ Skills follow the [Codex skills layout](https://developers.openai.com/codex/skil
 Hooks and MCP servers both land in `.codex/config.toml`. Hook specs route by their `event` frontmatter (e.g. `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into `[[hooks.<event>]]` array-of-tables entries with `matcher` and `command`. MCP servers emit as `[mcp_servers.<name>]` tables — stdio uses `command`/`args`/`env`; HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is agnostic-ai-managed (overwritten on each sync); add unmanaged Codex config to `~/.codex/config.toml` user-global instead.
 
 Commands emit one file per spec under `.codex/prompts/` (project-tier mirror of `~/.codex/prompts/`). Each becomes a Codex slash prompt. Frontmatter passes through; the body is the prompt template.
+
+`agnostic-ai import codex` captures `.codex/config.toml` minus the `hooks` and `mcp_servers` keys (which round-trip through specs) into `.agnostic-ai/overlays/codex.config.toml`. `sync -t codex` prepends that overlay before the spec-derived hook and MCP sections, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any other Codex key survive a wipe of `.codex/` between import and sync. On conflict with `outputs.codex.config.*` the overlay wins and the first-class key is dropped to keep TOML valid. `import codex` also reads `.codex/prompts/*.md` and writes them byte-for-byte to `<commands>/`, so user-authored slash prompts round-trip instead of being silently overwritten on the next sync.
 
 ### Gemini CLI (`gemini`)
 
