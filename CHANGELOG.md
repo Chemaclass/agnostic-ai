@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
+- `agnostic-ai upgrade` command: detects how the running binary was installed (Homebrew, `go install`, raw binary) and prints (or, with `--run`, execs) the matching upgrade command. `--check` mode reports detection details and warns about other `agnostic-ai` binaries on `PATH` shadowing the resolved executable, the common cause of "I already upgraded but `--version` still shows the old release". Best-effort GitHub API check pins down the latest published tag so the report can tell you you are already current.
+- README + `docs/user/cli-reference.md`: documented the new command and the install-method detection rules.
 - README: document `brew upgrade Chemaclass/tap/agnostic-ai` for upgrading existing installs.
 
 ### Changed

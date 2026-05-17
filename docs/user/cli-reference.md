@@ -444,6 +444,24 @@ After installing, restart your shell (or `source` the completion file). Tab-comp
 
 Run `agnostic-ai completion <shell> --help` for shell-specific setup instructions.
 
+## upgrade
+
+Detect how the running binary was installed and report (or run) the matching upgrade command. Does not self-replace the binary: package managers stay in charge of installed versions.
+
+```bash
+agnostic-ai upgrade           # print the upgrade command for the current install
+agnostic-ai upgrade --check   # diagnose install location + PATH shadowing, exit
+agnostic-ai upgrade --run     # exec the detected upgrade command
+```
+
+Detection:
+
+- `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` → `brew update && brew upgrade Chemaclass/tap/agnostic-ai`
+- `$GOBIN` or `$GOPATH/bin` (defaults to `$HOME/go/bin`) → `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`
+- Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
+
+If another `agnostic-ai` binary on `PATH` shadows the resolved executable, `upgrade` lists each shadow so you can remove the stale copy. Common cause: a Homebrew install behind an older `~/go/bin/agnostic-ai` or `/usr/local/bin/agnostic-ai`, where `brew upgrade` correctly reports the brew copy is current but `agnostic-ai --version` keeps resolving to the older binary.
+
 ## help
 
 ```bash

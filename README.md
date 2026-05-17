@@ -101,7 +101,9 @@ brew upgrade Chemaclass/tap/agnostic-ai                              # upgrade l
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 
-Or grab a prebuilt binary from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest).
+Or grab a prebuilt binary from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
+
+Already installed? `agnostic-ai upgrade` detects how the binary was installed (Homebrew, `go install`, raw binary) and prints the matching upgrade command. Add `--run` to exec it, `--check` to diagnose `PATH` shadowing when an older copy of the binary keeps winning lookup.
 
 ## Quickstart
 
