@@ -372,6 +372,17 @@ configured (`model`, `sandbox`, `approval_policy`, `notify`,
 conflict with `outputs.codex.config.*` the overlay wins and the
 first-class key is dropped to keep the TOML valid.
 
+## Watched inputs
+
+`sync --watch` re-emits whenever any of the following change on disk:
+
+- `agnostic-ai.yaml` (and `agnostic-ai.local.yaml` when present)
+- every directory listed under `sources` (agents, skills, rules, hooks, mcps, commands)
+- `.agnostic-ai.local/` (the project-user spec layer)
+- `.agnostic-ai/overlays/` — captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit the overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, …) and watch re-runs `sync` within the 50 ms debounce window.
+
+See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounce details.
+
 ## Path semantics
 
 - All `sources`/`outputs` paths are relative to the directory holding `agnostic-ai.yaml`.
