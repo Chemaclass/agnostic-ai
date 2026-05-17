@@ -6,13 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
-- `agnostic-ai upgrade` command: prints the right upgrade command for the install method (Homebrew, `go install`, binary). `--run` execs it. `--check` flags `PATH`-shadowed copies.
-- Integration tests verify `sync --check` and `doctor --fix` are zero-drift no-ops after `import claude` / `import codex` / both. Catches future regressions in the overlay encoders that would otherwise show up as perpetual "drift detected" reports in CI. Closes #232.
+- `agnostic-ai upgrade` command: prints upgrade command per install method (Homebrew, `go install`, binary). `--run` execs it. `--check` flags `PATH`-shadowed copies.
+- Integration tests: `sync --check` and `doctor --fix` are zero-drift no-ops after `import claude` / `import codex` / both. Closes #232.
 - README: `brew upgrade` line + releases page link.
-- Docs: `targets.md`, `configuration.md`, and `cli-reference.md` now describe the v0.22 import-side changes (`import codex` reading `.codex/prompts/*.md` + capturing `.codex/config.toml` into `.agnostic-ai/overlays/codex.config.toml`, `import claude` reading `.mcp.json`) with overlay-precedence rules called out per target.
-- Import summary now prints a `→ <overlay> seeded from <native>` line for both `import claude` (claude settings overlay) and `import codex` (codex config overlay) when the overlay file is actually written. Closes #231.
-- `sync --watch` now watches `.agnostic-ai/overlays/` so hand-edits to `claude.settings.json` or `codex.config.toml` trigger a re-emit within the 50 ms debounce window. Documented as a watched input in `cli-reference.md` + `configuration.md`. Closes #234.
-- Integration tests cover six round-trip edge cases: re-running `import claude` overwrites (does not double-stomp) the captured overlay; an empty `.codex/config.toml` creates no overlay file and emits no `.codex/config.toml`; an overlay+first-class collision on `codex.config.*` resolves to overlay-wins; an MCP server with `env` + a separate http MCP server with `headers` survive claude→codex→claude; folded (`>`) and literal (`|`) frontmatter scalars keep their style after import+sync; and a skill with nested assets (executable script, `agents/openai.yaml`, fixtures subdir) round-trips through claude→codex→claude with the exec bit intact. Closes #233.
+- Docs (`targets.md`, `configuration.md`, `cli-reference.md`): v0.22 import-side changes (`import codex` reads `.codex/prompts/*.md` + captures `.codex/config.toml` overlay, `import claude` reads `.mcp.json`) with per-target overlay precedence.
+- Import summary prints `→ <overlay> seeded from <native>` for `import claude` and `import codex` when overlay file written. Closes #231.
+- `sync --watch` watches `.agnostic-ai/overlays/`: hand-edits to `claude.settings.json` / `codex.config.toml` trigger re-emit within 50 ms debounce. Documented in `cli-reference.md` + `configuration.md`. Closes #234.
+- Integration tests for six round-trip edge cases: re-run `import claude` overwrites overlay (no double-stomp); empty `.codex/config.toml` writes no overlay; overlay+first-class collision on `codex.config.*` resolves overlay-wins; MCP server with `env` + http MCP with `headers` survive claude→codex→claude; folded (`>`) / literal (`|`) frontmatter scalars keep style after import+sync; skill with nested assets (exec script, `agents/openai.yaml`, fixtures subdir) round-trips claude→codex→claude with exec bit intact. Closes #233.
 
 ### Changed
 
