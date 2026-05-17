@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+## v0.23.0 - 2026-05-17
+
 ### Added
 
 - `agnostic-ai upgrade` command: prints upgrade command per install method (Homebrew, `go install`, binary). `--run` execs it. `--check` flags `PATH`-shadowed copies.
