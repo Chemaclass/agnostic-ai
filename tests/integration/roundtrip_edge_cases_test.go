@@ -3,6 +3,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -299,13 +300,14 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 	runCmd(t, "import", "claude")
 	runCmd(t, "sync", "-t", "codex")
 
-	// Verify codex received the assets including the exec bit.
+	// Verify codex received the assets including the exec bit (Unix only;
+	// Windows filesystems do not surface POSIX exec bits via os.FileMode).
 	codexScript := filepath.Join(dir, ".agents/skills/runner/scripts/run.sh")
 	info, err := os.Stat(codexScript)
 	if err != nil {
 		t.Fatalf("codex skill script missing: %v", err)
 	}
-	if info.Mode().Perm()&0o111 == 0 {
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("codex skill script lost exec bit: mode=%v", info.Mode())
 	}
 	for _, asset := range []string{
@@ -328,7 +330,7 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("claude skill script missing after round-trip: %v", err)
 	}
-	if info.Mode().Perm()&0o111 == 0 {
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("claude skill script lost exec bit after round-trip: mode=%v", info.Mode())
 	}
 	for _, asset := range []string{
