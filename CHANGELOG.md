@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 - `agnostic-ai upgrade` command: prints the right upgrade command for the install method (Homebrew, `go install`, binary). `--run` execs it. `--check` flags `PATH`-shadowed copies.
+- Integration tests verify `sync --check` and `doctor --fix` are zero-drift no-ops after `import claude` / `import codex` / both. Catches future regressions in the overlay encoders that would otherwise show up as perpetual "drift detected" reports in CI. Closes #232.
 - README: `brew upgrade` line + releases page link.
 - Docs: `targets.md`, `configuration.md`, and `cli-reference.md` now describe the v0.22 import-side changes (`import codex` reading `.codex/prompts/*.md` + capturing `.codex/config.toml` into `.agnostic-ai/overlays/codex.config.toml`, `import claude` reading `.mcp.json`) with overlay-precedence rules called out per target.
 - Import summary now prints a `→ <overlay> seeded from <native>` line for both `import claude` (claude settings overlay) and `import codex` (codex config overlay) when the overlay file is actually written. Closes #231.
