@@ -12,10 +12,6 @@ import (
 )
 
 const (
-	// codexOverlayDir is the project-relative directory where importers
-	// stash captured per-target settings so they survive a wipe of the
-	// native config tree between `import` and `sync`.
-	codexOverlayDir = ".agnostic-ai/overlays"
 	// codexOverlayFile is the captured non-hooks/non-mcp-servers portion
 	// of `.codex/config.toml`. The emitter loads it and concatenates it
 	// before the spec-derived hooks + mcp_servers sections so a re-sync
@@ -24,6 +20,10 @@ const (
 	// other top-level keys the user had configured.
 	codexOverlayFile = "codex.config.toml"
 )
+
+// codexOverlayDir is an alias for the shared overlay directory. Kept
+// as a separate identifier so call sites read codex-scoped.
+const codexOverlayDir = agnosticOverlayDir
 
 // codexOverlayPath returns the project-relative path to the captured
 // Codex config overlay.

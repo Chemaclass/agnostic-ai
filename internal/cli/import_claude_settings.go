@@ -12,16 +12,16 @@ import (
 )
 
 const (
-	// claudeOverlayDir is the project-relative directory where importers
-	// stash captured per-target settings so they survive a wipe of the
-	// native config tree between `import` and `sync`.
-	claudeOverlayDir = ".agnostic-ai/overlays"
 	// claudeOverlayFile is the captured non-hooks portion of
 	// `.claude/settings.json`. The emitter uses it as the base document
 	// when writing settings.json, layering the spec-derived `hooks` key
 	// on top.
 	claudeOverlayFile = "claude.settings.json"
 )
+
+// claudeOverlayDir is an alias for the shared overlay directory.
+// Kept as a separate identifier so call sites read claude-scoped.
+const claudeOverlayDir = agnosticOverlayDir
 
 // claudeOverlayPath returns the project-relative path to the captured
 // Claude settings overlay.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -188,6 +189,131 @@ func TestWatchSync_PollFallback(t *testing.T) {
 	}
 	if _, err := os.Stat(claudeMD); err != nil {
 		t.Error("polling watch did not re-emit claude rule after spec change")
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestWatchDirs_IncludesOverlayDir asserts that watchDirs lists the
+// captured overlay directory so hand-edits to claude.settings.json /
+// codex.config.toml trigger a re-emit in `sync --watch`.
+func TestWatchDirs_IncludesOverlayDir(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+
+	if err := os.MkdirAll(filepath.Join(dir, agnosticOverlayDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(".", agnosticOverlayDir)
+	found := false
+	for _, p := range watchDirs(".", cfg) {
+		if p == want {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("watchDirs missing %s\ngot %v", want, watchDirs(".", cfg))
+	}
+}
+
+// TestWatchDirs_OmitsOverlayDirWhenAbsent makes sure we do not register
+// a non-existent overlay dir (would surface as a setup error on some
+// platforms). Only watch when the directory has actually been created.
+func TestWatchDirs_OmitsOverlayDirWhenAbsent(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(".", agnosticOverlayDir)
+	for _, p := range watchDirs(".", cfg) {
+		if p == want {
+			t.Errorf("watchDirs should not list %s when it does not exist", want)
+		}
+	}
+}
+
+// TestWatchSync_ReEmitsOnCodexOverlayChange exercises the end-to-end
+// watch loop: edit the codex config overlay and confirm the codex
+// adapter re-emits .codex/config.toml within the debounce window. Pinned
+// to the polling backend so the test is deterministic on every platform
+// (fsnotify event delivery on Linux CI is occasionally flaky).
+func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	overlay := filepath.Join(dir, agnosticOverlayDir)
+	if err := os.MkdirAll(overlay, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlayFile := filepath.Join(overlay, codexOverlayFile)
+	if err := os.WriteFile(overlayFile, []byte("model = \"o4-mini\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		// forcePoll=true: deterministic across platforms.
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, false, false, "off", true)
+	}()
+
+	codexConfig := filepath.Join(dir, ".codex", "config.toml")
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(codexConfig); err == nil && len(data) > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	first, err := os.ReadFile(codexConfig)
+	if err != nil {
+		t.Fatalf("initial sync did not produce codex config: %v", err)
+	}
+	if !strings.Contains(string(first), "o4-mini") {
+		t.Fatalf("initial codex config missing overlay content:\n%s", first)
+	}
+
+	// Remove the emitted file so we can verify re-emit fires.
+	if err := os.Remove(codexConfig); err != nil {
+		t.Fatal(err)
+	}
+
+	// Edit the overlay → polling backend should detect the mtime change.
+	time.Sleep(30 * time.Millisecond)
+	if err := os.WriteFile(overlayFile, []byte("model = \"o4-2025\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(codexConfig); err == nil && strings.Contains(string(data), "o4-2025") {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	data, err := os.ReadFile(codexConfig)
+	if err != nil {
+		t.Fatalf("watch did not re-emit codex config after overlay edit: %v", err)
+	}
+	if !strings.Contains(string(data), "o4-2025") {
+		t.Errorf("re-emitted codex config still has old overlay content:\n%s", data)
 	}
 
 	cancel()

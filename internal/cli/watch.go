@@ -18,6 +18,12 @@ import (
 // rename-into-place, multi-file save) into a single re-sync.
 const debounceWindow = 50 * time.Millisecond
 
+// agnosticOverlayDir is the project-relative directory where importers
+// stash captured per-target settings so they survive a wipe of the
+// native config tree between `import` and `sync`. Watched by `sync
+// --watch` so hand-edits to the overlay trigger a re-emit.
+const agnosticOverlayDir = ".agnostic-ai/overlays"
+
 // watchSync runs an initial sync, then re-runs whenever a watched path
 // changes. When forcePoll is false it tries fsnotify and falls back to
 // polling if the watcher cannot be created.
@@ -210,6 +216,9 @@ func isIgnoredEvent(ev fsnotify.Event) bool {
 }
 
 // watchDirs returns the config file and source directories to watch.
+// Includes `.agnostic-ai/overlays/` so hand-edits to the captured
+// per-target overlays (claude.settings.json, codex.config.toml) trigger
+// a re-emit just like spec changes do.
 func watchDirs(root string, cfg *config.Config) []string {
 	paths := []string{}
 	if cfgPath, _, err := config.ResolveConfigPath(root); err == nil {
@@ -233,6 +242,10 @@ func watchDirs(root string, cfg *config.Config) []string {
 	pu := filepath.Join(root, defaultProjectUser)
 	if dirExists(pu) {
 		paths = append(paths, pu)
+	}
+	overlay := filepath.Join(root, agnosticOverlayDir)
+	if dirExists(overlay) {
+		paths = append(paths, overlay)
 	}
 	return paths
 }
