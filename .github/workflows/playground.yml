@@ -42,7 +42,7 @@ jobs:
           gzip -c docs/playground/agnostic-ai.wasm | wc -c | awk '{printf "wasm gzipped: %d bytes\n", $1}'
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/playground
 
