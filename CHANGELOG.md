@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 ### Changed
+- `sync` footer reports only files that actually changed in both default and `-v` modes. Detailed recording (which short-circuits identical content) is now the sole counter. The previous over-count (every write attempt, even no-op rewrites) is gone.
 
 ### Fixed
 

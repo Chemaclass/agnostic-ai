@@ -73,7 +73,6 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		adapters.StartRecording()
 	}
 	if !dryRun {
-		adapters.StartCounting()
 		adapters.StartTransaction()
 		defer func() {
 			if retErr != nil {
@@ -86,55 +85,59 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 		}()
 	}
-	detailed := verbosity >= levelVerbose && !dryRun
-	var detailedChanged int
-	for _, t := range effectiveTargets {
-		adapter, err := adapters.Resolve(t)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "! %v\n", err)
-			continue
-		}
-		if detailed {
-			adapters.StartDetailedRecording()
-		}
-		if err := adapter.Emit(b, cfg, dryRun); err != nil {
-			if detailed {
-				adapters.StopDetailedRecording()
+	verbose := verbosity >= levelVerbose
+	filesChanged := 0
+	if !dryRun {
+		for _, t := range effectiveTargets {
+			adapter, err := adapters.Resolve(t)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "! %v\n", err)
+				continue
 			}
+			adapters.StartDetailedRecording()
+			if err := adapter.Emit(b, cfg, dryRun); err != nil {
+				adapters.StopDetailedRecording()
+				if gitignoreOn {
+					adapters.StopRecording()
+				}
+				return fmt.Errorf("%s: %w", t, err)
+			}
+			created, updated, skipped := classifyDetailedWrites(adapters.StopDetailedRecording())
+			filesChanged += created + updated
+			if verbose {
+				verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
+			}
+		}
+		adapters.StartDetailedRecording()
+		if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+			adapters.StopDetailedRecording()
 			if gitignoreOn {
 				adapters.StopRecording()
 			}
-			if !dryRun {
-				adapters.StopCounting()
+			return err
+		}
+		created, updated, _ := classifyDetailedWrites(adapters.StopDetailedRecording())
+		filesChanged += created + updated
+	} else {
+		for _, t := range effectiveTargets {
+			adapter, err := adapters.Resolve(t)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "! %v\n", err)
+				continue
 			}
-			return fmt.Errorf("%s: %w", t, err)
+			if err := adapter.Emit(b, cfg, dryRun); err != nil {
+				if gitignoreOn {
+					adapters.StopRecording()
+				}
+				return fmt.Errorf("%s: %w", t, err)
+			}
 		}
-		if detailed {
-			created, updated, skipped := classifyDetailedWrites(adapters.StopDetailedRecording())
-			detailedChanged += created + updated
-			verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
-		} else {
-			verbosef("→ emit %s\n", t)
+		if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+			if gitignoreOn {
+				adapters.StopRecording()
+			}
+			return err
 		}
-	}
-	if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
-		if gitignoreOn {
-			adapters.StopRecording()
-		}
-		if !dryRun {
-			adapters.StopCounting()
-		}
-		return err
-	}
-	filesChanged := 0
-	if !dryRun {
-		filesChanged = adapters.StopCounting()
-	}
-	if detailed {
-		// Detailed recording short-circuits writes when content is unchanged,
-		// but the global counter increments before that check fires. Use the
-		// detailed totals for an accurate "files changed" figure.
-		filesChanged = detailedChanged
 	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
