@@ -35,8 +35,6 @@ func verbosef(format string, a ...any) {
 	_, _ = fmt.Fprintf(logOut, format, a...)
 }
 
-// Status symbols for the active log sink and stderr.
-func tick() string     { return term.Tick(logOut) }
-func cross() string    { return term.Cross(logOut) }
-func bangErr() string  { return term.Bang(os.Stderr) }
-func crossErr() string { return term.Cross(os.Stderr) }
+// Status symbols for the active log sink.
+func tick() string  { return term.Tick(logOut) }
+func cross() string { return term.Cross(logOut) }
