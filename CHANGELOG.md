@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Changed
 - Capability warnings group by kind across all targets in one line: `! 5 hooks unsupported by cursor, copilot, aider, ...` replaces eight near-identical per-target lines. Suppression hint prints once per flush.
+- `sync -v` prints per-target `created / updated / unchanged` counts and a footer that counts only files that actually changed (skips unchanged content via detailed recording).
 
 ## v0.23.0 - 2026-05-17
 

@@ -74,14 +74,21 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 		}()
 	}
+	detailed := verbosity >= levelVerbose && !dryRun
+	var detailedChanged int
 	for _, t := range effectiveTargets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "! %v\n", err)
 			continue
 		}
-		verbosef("→ emit %s\n", t)
+		if detailed {
+			adapters.StartDetailedRecording()
+		}
 		if err := adapter.Emit(b, cfg, dryRun); err != nil {
+			if detailed {
+				adapters.StopDetailedRecording()
+			}
 			if gitignoreOn {
 				adapters.StopRecording()
 			}
@@ -89,6 +96,13 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 				adapters.StopCounting()
 			}
 			return fmt.Errorf("%s: %w", t, err)
+		}
+		if detailed {
+			created, updated, skipped := classifyDetailedWrites(adapters.StopDetailedRecording())
+			detailedChanged += created + updated
+			verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
+		} else {
+			verbosef("→ emit %s\n", t)
 		}
 	}
 	if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
@@ -103,6 +117,12 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	filesChanged := 0
 	if !dryRun {
 		filesChanged = adapters.StopCounting()
+	}
+	if detailed {
+		// Detailed recording short-circuits writes when content is unchanged,
+		// but the global counter increments before that check fires. Use the
+		// detailed totals for an accurate "files changed" figure.
+		filesChanged = detailedChanged
 	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
@@ -120,6 +140,20 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	adapters.FlushCapabilityWarnings()
 	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
 	return nil
+}
+
+func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
+	for _, f := range files {
+		switch f.Action {
+		case "create":
+			created++
+		case "update":
+			updated++
+		case "skip":
+			skipped++
+		}
+	}
+	return
 }
 
 func printSyncSummary(targets, files int, elapsed time.Duration, dryRun bool) {
