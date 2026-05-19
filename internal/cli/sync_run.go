@@ -40,6 +40,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
 	start := time.Now()
+	adapters.ResetCapabilityWarnings()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -116,6 +117,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}
+	adapters.FlushCapabilityWarnings()
 	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
 	return nil
 }
@@ -150,6 +152,8 @@ func shortDuration(d time.Duration) string {
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+	adapters.ResetCapabilityWarnings()
+	defer adapters.ResetCapabilityWarnings()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
