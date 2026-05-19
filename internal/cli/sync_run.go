@@ -15,22 +15,34 @@ import (
 )
 
 type syncStateFile struct {
-	SyncedAt     time.Time `json:"synced_at"`
-	FilesChanged int       `json:"files_changed"`
+	SyncedAt       time.Time `json:"synced_at"`
+	FilesChanged   int       `json:"files_changed"`
+	WarningsDigest string    `json:"warnings_digest,omitempty"`
 }
 
 func stateFilePath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".agnostic-ai", ".sync-state")
 }
 
-func writeStateFile(projectRoot string, filesChanged int) error {
+func readStateFile(projectRoot string) syncStateFile {
+	var s syncStateFile
+	data, err := os.ReadFile(stateFilePath(projectRoot))
+	if err != nil {
+		return s
+	}
+	_ = json.Unmarshal(data, &s)
+	return s
+}
+
+func writeStateFile(projectRoot string, filesChanged int, warningsDigest string) error {
 	p := stateFilePath(projectRoot)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
 	}
 	data, err := json.Marshal(syncStateFile{
-		SyncedAt:     time.Now().UTC(),
-		FilesChanged: filesChanged,
+		SyncedAt:       time.Now().UTC(),
+		FilesChanged:   filesChanged,
+		WarningsDigest: warningsDigest,
 	})
 	if err != nil {
 		return err
@@ -132,12 +144,21 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		}
 		summaryf("→ updated .gitignore\n")
 	}
+	digest := adapters.CapabilityWarningsDigest()
+	prev := readStateFile(root)
+	if digest != "" && digest == prev.WarningsDigest {
+		n := adapters.PendingCapabilityWarningsCount()
+		summaryf("  (%d capability warning%s unchanged since last sync; delete %s to re-show)\n",
+			n, plural(n), stateFilePath(root))
+		adapters.ResetCapabilityWarnings()
+	} else {
+		adapters.FlushCapabilityWarnings()
+	}
 	if !dryRun {
-		if err := writeStateFile(root, filesChanged); err != nil {
+		if err := writeStateFile(root, filesChanged, digest); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}
-	adapters.FlushCapabilityWarnings()
 	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
 	return nil
 }
@@ -254,7 +275,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		}
 	}
 	if !dryRun {
-		if err := writeStateFile(root, len(out.Writes)); err != nil {
+		// JSON path does not print warnings, so preserve the previous
+		// digest so the next non-JSON run can still sticky-suppress.
+		prevDigest := readStateFile(root).WarningsDigest
+		if err := writeStateFile(root, len(out.Writes), prevDigest); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}

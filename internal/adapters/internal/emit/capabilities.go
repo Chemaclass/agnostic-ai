@@ -1,7 +1,10 @@
 package emit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -122,6 +125,43 @@ func ResetCapabilityWarnings() {
 	capabilityWarnState.mu.Lock()
 	capabilityWarnState.pending = nil
 	capabilityWarnState.mu.Unlock()
+}
+
+// CapabilityWarningsDigest returns a stable hex digest of the currently
+// buffered warnings, suitable for comparing across sync runs to suppress
+// unchanged repeats. Returns "" when no warnings are pending.
+func CapabilityWarningsDigest() string {
+	capabilityWarnState.mu.Lock()
+	defer capabilityWarnState.mu.Unlock()
+	if len(capabilityWarnState.pending) == 0 {
+		return ""
+	}
+	seen := map[string]bool{}
+	keys := make([]string, 0, len(capabilityWarnState.pending))
+	for _, p := range capabilityWarnState.pending {
+		k := fmt.Sprintf("%s\x00%s\x00%d", p.target, p.kind, p.count)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	sum := sha256.Sum256([]byte(strings.Join(keys, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+// PendingCapabilityWarningsCount returns how many distinct (target, kind)
+// pairs are currently buffered. Used to decide whether to print a short
+// suppression notice when sticky-suppressing repeats.
+func PendingCapabilityWarningsCount() int {
+	capabilityWarnState.mu.Lock()
+	defer capabilityWarnState.mu.Unlock()
+	seen := map[string]bool{}
+	for _, p := range capabilityWarnState.pending {
+		seen[p.target+"\x00"+string(p.kind)] = true
+	}
+	return len(seen)
 }
 
 func countKind(b spec.Bundle, k spec.Kind) int {

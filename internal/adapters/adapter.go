@@ -74,6 +74,15 @@ func ResetCapabilityWarnings() { emit.ResetCapabilityWarnings() }
 // sync pass.
 func FlushCapabilityWarnings() { emit.FlushCapabilityWarnings() }
 
+// CapabilityWarningsDigest returns a stable hex digest of the currently
+// buffered capability warnings, "" when none. Used by sync to suppress
+// unchanged warning sets across runs.
+func CapabilityWarningsDigest() string { return emit.CapabilityWarningsDigest() }
+
+// PendingCapabilityWarningsCount returns the number of distinct
+// (target, kind) capability warnings currently buffered.
+func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarningsCount() }
+
 // StartRecording begins collecting written paths alongside real writes.
 // Unlike capture mode it does not suppress IO. Used by `sync` to learn
 // every emitted path in a single pass for follow-up actions like

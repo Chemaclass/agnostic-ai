@@ -102,6 +102,46 @@ func TestReportUnsupported_SilentSkipsAll(t *testing.T) {
 	}
 }
 
+func TestCapabilityWarningsDigest_StableAcrossOrder(t *testing.T) {
+	swapWarner(t)
+	bA := spec.Bundle{Hooks: []spec.Entry{{Name: "h"}, {Name: "h2"}}}
+	for _, target := range []string{"aider", "cline"} {
+		caps := Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule}}
+		_ = ReportUnsupported(caps, bA, OnUnsupportedWarn)
+	}
+	first := CapabilityWarningsDigest()
+	ResetCapabilityWarnings()
+	// Reverse the order of adapters; digest must be identical.
+	for _, target := range []string{"cline", "aider"} {
+		caps := Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule}}
+		_ = ReportUnsupported(caps, bA, OnUnsupportedWarn)
+	}
+	second := CapabilityWarningsDigest()
+	if first == "" || first != second {
+		t.Errorf("digest must be stable across input order, got %q vs %q", first, second)
+	}
+}
+
+func TestCapabilityWarningsDigest_EmptyWhenNoPending(t *testing.T) {
+	swapWarner(t)
+	if got := CapabilityWarningsDigest(); got != "" {
+		t.Errorf("expected empty digest with no pending warnings, got %q", got)
+	}
+}
+
+func TestCapabilityWarningsDigest_ChangesWithCount(t *testing.T) {
+	swapWarner(t)
+	caps := Capabilities{Target: "aider", Supports: []spec.Kind{spec.KindRule}}
+	_ = ReportUnsupported(caps, spec.Bundle{Hooks: []spec.Entry{{Name: "h"}}}, OnUnsupportedWarn)
+	one := CapabilityWarningsDigest()
+	ResetCapabilityWarnings()
+	_ = ReportUnsupported(caps, spec.Bundle{Hooks: []spec.Entry{{Name: "h"}, {Name: "h2"}}}, OnUnsupportedWarn)
+	two := CapabilityWarningsDigest()
+	if one == two {
+		t.Errorf("digest must change when count changes, got identical %q", one)
+	}
+}
+
 func TestReportUnsupported_FlushClearsBuffer(t *testing.T) {
 	buf := swapWarner(t)
 	caps := Capabilities{Target: "aider", Supports: []spec.Kind{spec.KindRule}}

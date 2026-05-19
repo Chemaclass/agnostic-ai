@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `sync -v` prints per-target `created / updated / unchanged` counts and a footer that counts only files that actually changed (skips unchanged content via detailed recording).
 - Status symbols are colorized on tty (`✓` green, `!` yellow, `✗` red). Honors `NO_COLOR=1`. Pipes and redirects stay plain.
 - `sync --watch` banner shows path count and backend: `→ watching 9 paths (fsnotify) · Ctrl+C to exit`. Each re-sync is preceded by a timestamped event line (`[HH:MM:SS] change · <path>`).
+- Capability warnings sticky-suppress when unchanged: the SHA-256 of the buffered `(target, kind, count)` set is stored in `.agnostic-ai/.sync-state` and compared on the next run. Repeat runs print a single-line reminder instead of the full block. Delete the state file to re-show.
 
 ## v0.23.0 - 2026-05-17
 
