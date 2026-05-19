@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -59,11 +60,12 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 		return err
 	}
 
-	summaryf("→ watching for changes (Ctrl+C to exit)\n")
+	printWatchBanner(len(w.WatchList()), "fsnotify")
 
 	var (
-		debounce *time.Timer
-		fire     = make(chan struct{}, 1)
+		debounce  *time.Timer
+		fire      = make(chan struct{}, 1)
+		lastEvent string
 	)
 	defer func() {
 		if debounce != nil {
@@ -82,6 +84,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			if isIgnoredEvent(ev) {
 				continue
 			}
+			lastEvent = ev.Name
 			// New directory under a watched root: add it so children
 			// emit events too. fsnotify is not recursive on its own.
 			if ev.Op&fsnotify.Create != 0 {
@@ -105,7 +108,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			}
 			fmt.Fprintf(os.Stderr, "! watch: %v\n", err)
 		case <-fire:
-			summaryf("→ change detected, re-syncing\n")
+			printWatchEvent(lastEvent)
 			adapters.ResetCapabilityWarnings()
 			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
@@ -132,7 +135,7 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	summaryf("→ watching for changes (Ctrl+C to exit)\n")
+	printWatchBanner(len(watched), "poll")
 
 	for {
 		select {
@@ -143,8 +146,9 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 			if !mtimesChanged(snapshot, curr) {
 				continue
 			}
+			changed := firstChangedPath(snapshot, curr)
 			snapshot = curr
-			summaryf("→ change detected, re-syncing\n")
+			printWatchEvent(changed)
 			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
@@ -154,6 +158,46 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 			}
 		}
 	}
+}
+
+// printWatchBanner shows a one-line header at watch start. Mode is
+// "fsnotify" or "poll" so users can tell which backend is active.
+func printWatchBanner(dirs int, mode string) {
+	summaryf("→ watching %d path%s (%s) · Ctrl+C to exit\n", dirs, plural(dirs), mode)
+}
+
+// printWatchEvent prints a timestamped one-liner per debounced change
+// burst. path is shown relative to cwd when possible to keep the line
+// short.
+func printWatchEvent(path string) {
+	stamp := time.Now().Format("15:04:05")
+	rel := path
+	if cwd, err := os.Getwd(); err == nil {
+		if r, err := filepath.Rel(cwd, path); err == nil && !strings.HasPrefix(r, "..") {
+			rel = r
+		}
+	}
+	if rel == "" {
+		summaryf("[%s] change detected · re-syncing\n", stamp)
+		return
+	}
+	summaryf("[%s] change · %s\n", stamp, rel)
+}
+
+// firstChangedPath returns one representative path from a poll-mode
+// snapshot diff so the user has something concrete to see.
+func firstChangedPath(prev, curr map[string]time.Time) string {
+	for k, t := range curr {
+		if prev[k] != t {
+			return k
+		}
+	}
+	for k := range prev {
+		if _, ok := curr[k]; !ok {
+			return k
+		}
+	}
+	return ""
 }
 
 // addWatchPaths registers a file or directory and (for directories) every
