@@ -4,6 +4,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+- `sync` prints success footer: `✓ synced N targets · M files · Xms`. Suppressed by `--quiet` and `--json`.
+
 ## v0.23.0 - 2026-05-17
 
 ### Added

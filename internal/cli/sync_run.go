@@ -39,6 +39,7 @@ func writeStateFile(projectRoot string, filesChanged int) error {
 }
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
+	start := time.Now()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -115,7 +116,35 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}
+	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
 	return nil
+}
+
+func printSyncSummary(targets, files int, elapsed time.Duration, dryRun bool) {
+	verb := "synced"
+	if dryRun {
+		verb = "would sync"
+	}
+	summaryf("✓ %s %d target%s · %d file%s · %s\n",
+		verb, targets, plural(targets), files, plural(files), shortDuration(elapsed))
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func shortDuration(d time.Duration) string {
+	switch {
+	case d < time.Millisecond:
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	case d < time.Second:
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	default:
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
 }
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
