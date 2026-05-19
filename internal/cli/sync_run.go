@@ -161,8 +161,8 @@ func printSyncSummary(targets, files int, elapsed time.Duration, dryRun bool) {
 	if dryRun {
 		verb = "would sync"
 	}
-	summaryf("✓ %s %d target%s · %d file%s · %s\n",
-		verb, targets, plural(targets), files, plural(files), shortDuration(elapsed))
+	summaryf("%s %s %d target%s · %d file%s · %s\n",
+		tick(), verb, targets, plural(targets), files, plural(files), shortDuration(elapsed))
 }
 
 func plural(n int) string {

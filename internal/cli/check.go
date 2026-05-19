@@ -138,11 +138,11 @@ func printDrift(reports []driftReport) bool {
 	any := false
 	for _, r := range reports {
 		if !r.hasDrift() {
-			verbosef("✓ %s: in sync\n", r.Target)
+			verbosef("%s %s: in sync\n", tick(), r.Target)
 			continue
 		}
 		any = true
-		summaryf("✗ %s: drift\n", r.Target)
+		summaryf("%s %s: drift\n", cross(), r.Target)
 		if len(r.Missing) > 0 {
 			summaryf("    %d file(s) missing (run `agnostic-ai sync` to create):\n", len(r.Missing))
 			for _, f := range r.Missing {

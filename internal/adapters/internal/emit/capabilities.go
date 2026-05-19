@@ -7,6 +7,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/term"
 )
 
 // Capabilities declares which spec kinds an adapter supports natively.
@@ -105,10 +106,11 @@ func FlushCapabilityWarnings() {
 		}
 		groups[k] = append(groups[k], p.target)
 	}
+	bang := term.Bang(Warner)
 	for _, k := range order {
 		targets := groups[k]
-		_, _ = fmt.Fprintf(Warner, "  ! %d %s unsupported by %s\n",
-			k.n, pluralizeKind(k.k, k.n), strings.Join(targets, ", "))
+		_, _ = fmt.Fprintf(Warner, "  %s %d %s unsupported by %s\n",
+			bang, k.n, pluralizeKind(k.k, k.n), strings.Join(targets, ", "))
 	}
 	_, _ = fmt.Fprintln(Warner, "    fix: set `on-unsupported: silent` in agnostic-ai.yaml to hide these")
 	capabilityWarnState.pending = nil
