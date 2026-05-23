@@ -5,12 +5,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
-- `init` prompts on TTY to enable the gitignore managed block, persisting `gitignore.enabled: true` to the rendered config when the user opts in. Non-interactive runs default to off; pass `--gitignore` to flip on without a prompt.
+- `init --gitignore` flag, plus TTY prompt to enable the managed gitignore block.
+- `.agnostic-ai/scripts/<tool>/<basename>` stashes hook script bodies; sync rebuilds `.<target>/hooks/` on every run so `.<tool>/` can stay gitignored.
+- Codex import reads `.codex/hooks.json` alongside `config.toml`; previously skipped.
+- Sync warns before overwriting hand-authored entry-point files (no agnostic-ai header).
 
 ### Changed
-- `sync` footer reports only files that actually changed in both default and `-v` modes. Detailed recording (which short-circuits identical content) is now the sole counter. The previous over-count (every write attempt, even no-op rewrites) is gone.
+- `sync` footer counts only files that actually changed.
+- Hook command paths rewrite `.<sibling>/hooks/` → `.<target>/hooks/` per target.
+- Codex agent filenames canonicalise to dash-case; underscore form preserved via `x-codex.name`. Claude + codex variants merge onto one spec.
+- Codex overlay capture preserves multi-line TOML literals and key order (text-level strip instead of decode/encode).
 
 ### Fixed
+- Codex emit: multi-command hook arrays now emit one `[[hooks.<event>]]` block per command (was dropping `command` entirely).
+- Claude settings.json: `timeout` and `statusMessage` round-trip.
+- Claude import: spurious "AGNOSTIC_AI.md seeded" log only prints when the mirror actually wrote.
+- Codex AGENTS.md shred skips rules that already exist from a prior import.
 
 ### Removed
 
