@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -50,12 +51,14 @@ func TestMaterializeHookScript_CopiesSourceToolStashIntoTargetHooks(t *testing.T
 	if string(out) != string(body) {
 		t.Errorf("body mismatch: %q vs %q", out, body)
 	}
-	info, err := os.Stat(filepath.Join(dir, ".codex/hooks/protect-files.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o100 == 0 {
-		t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, ".codex/hooks/protect-files.sh"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o100 == 0 {
+			t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
+		}
 	}
 }
 

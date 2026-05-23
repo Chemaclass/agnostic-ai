@@ -446,12 +446,14 @@ func TestImportFromClaude_CapturesHookScriptBodies(t *testing.T) {
 	if string(got) != body {
 		t.Errorf("body mismatch: %q vs %q", got, body)
 	}
-	info, err := os.Stat(dst)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o100 == 0 {
-		t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o100 == 0 {
+			t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
+		}
 	}
 }
 
