@@ -115,7 +115,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.<target>/hooks/`. The lookup keys off
 // the spec's original `command:` path so a script imported via claude
-// still materialises when the same hook syncs out to claude.
+// still materializes when the same hook syncs out to claude.
 //
 // Hooks whose command field is a free-form shell expression carry no
 // stashed body and skip silently — there is nothing to copy.

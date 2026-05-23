@@ -55,9 +55,9 @@ func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool)
 
 // warnOnHandAuthoredEntryPoint prints a single-line warning when path
 // exists, has non-empty content, and lacks the agnostic-ai provenance
-// marker. The marker is the same one `header.Has` uses to recognise a
+// marker. The marker is the same one `header.Has` uses to recognize a
 // generated file. Read errors are swallowed: sync proceeds with the
-// overwrite either way (preserving the historic behaviour) but a quiet
+// overwrite either way (preserving the historic behavior) but a quiet
 // I/O failure does not block the user.
 func warnOnHandAuthoredEntryPoint(path string) {
 	data, err := os.ReadFile(path)

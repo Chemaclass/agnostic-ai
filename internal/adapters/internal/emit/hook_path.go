@@ -1,4 +1,4 @@
-// Package emit hook_path normalises hook command paths so a spec
+// Package emit hook_path normalizes hook command paths so a spec
 // authored against one tool's hooks directory still runs when emitted
 // to a different target.
 //
@@ -11,7 +11,7 @@
 //
 // `RewriteHookPath` rewrites the leading `.<other-tool>/hooks/` segment
 // to `.<target>/hooks/` whenever it sees a sibling-tool prefix. Paths
-// that do not start with one of the recognised prefixes pass through
+// that do not start with one of the recognized prefixes pass through
 // unchanged so absolute paths, project-relative scripts (`scripts/x.sh`),
 // and arbitrary commands (`gofmt`, `bash -c '…'`) keep their author's
 // intent.
@@ -20,7 +20,7 @@ package emit
 import "strings"
 
 // hookSiblingPrefixes enumerates the per-tool hook directories the
-// rewriter recognises. Anything outside this list is treated as user
+// rewriter recognizes. Anything outside this list is treated as user
 // content and left untouched.
 var hookSiblingPrefixes = []string{
 	".claude/hooks/",
@@ -28,9 +28,9 @@ var hookSiblingPrefixes = []string{
 	".gemini/hooks/",
 }
 
-// RewriteHookPath returns cmd with a recognised sibling-tool hook
+// RewriteHookPath returns cmd with a recognized sibling-tool hook
 // directory prefix replaced by `.<target>/hooks/`. When cmd does not
-// start with any recognised prefix it is returned unchanged so non-hook
+// start with any recognized prefix it is returned unchanged so non-hook
 // commands stay verbatim.
 func RewriteHookPath(cmd, target string) string {
 	if cmd == "" || target == "" {

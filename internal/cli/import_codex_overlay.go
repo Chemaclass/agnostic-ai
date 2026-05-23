@@ -79,7 +79,7 @@ func importCodexConfigOverlay(root string) (bool, error) {
 
 	// Text-level strip preserves multi-line string literals, comments,
 	// blank lines, and key ordering that a decode/encode round-trip
-	// would otherwise normalise away. Falling back to encoding via the
+	// would otherwise normalize away. Falling back to encoding via the
 	// TOML library only happens when the text strip cannot produce a
 	// valid overlay (e.g. malformed input the parser still accepted).
 	filtered := stripCodexSpecManagedSections(string(data))
@@ -108,12 +108,13 @@ func importCodexConfigOverlay(root string) (bool, error) {
 // `[mcp_servers.<name>]` table from raw TOML while leaving every other
 // byte intact. This preserves multi-line string literals, comments, and
 // the author's original key ordering — qualities the BurntSushi encoder
-// normalises away on a decode/encode round-trip.
+// normalizes away on a decode/encode round-trip.
 //
 // A section runs from its `[…]` header line up to (but not including)
 // the next header line or end-of-file. Lines inside a multi-line string
-// (`"""…"""` or `'''…'''`) are never treated as section headers, so a
-// `[bracketed]` example inside a docstring will not split the value.
+// (triple-double or triple-single-quote literals) are never treated as
+// section headers, so a `[bracketed]` example inside a docstring will
+// not split the value.
 func stripCodexSpecManagedSections(raw string) string {
 	var out strings.Builder
 	out.Grow(len(raw))
@@ -122,7 +123,7 @@ func stripCodexSpecManagedSections(raw string) string {
 	skipping := false
 	inMultiline := ""
 	for i, line := range lines {
-		// Track whether we're inside a `"""…"""` or `'''…'''` block.
+		// Track whether we're inside a triple-quoted block.
 		// Section-header detection must not fire on lines that are
 		// part of a string value.
 		if inMultiline != "" {
@@ -151,11 +152,11 @@ func stripCodexSpecManagedSections(raw string) string {
 	return collapseBlankLineRuns(out.String())
 }
 
-// openMultilineDelimiter returns `"""` or `'''` when line opens a
-// multi-line string that does not close on the same line; otherwise it
-// returns the empty string. The check is deliberately simple: TOML
-// multi-line strings rarely appear in the codex overlay (the only common
-// case is `developer_instructions = """…"""`).
+// openMultilineDelimiter returns the triple-quote delimiter that opens
+// line when it does not close on the same line; otherwise it returns
+// the empty string. The check is deliberately simple: TOML multi-line
+// strings rarely appear in the codex overlay (the only common case is
+// developer_instructions).
 func openMultilineDelimiter(line string) string {
 	for _, delim := range []string{`"""`, `'''`} {
 		first := strings.Index(line, delim)

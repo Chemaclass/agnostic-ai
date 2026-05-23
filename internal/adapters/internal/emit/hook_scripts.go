@@ -1,4 +1,4 @@
-// Package emit hook_scripts materialises hook script bodies stored
+// Package emit hook_scripts materializes hook script bodies stored
 // under `.agnostic-ai/scripts/` into the target's `.<target>/hooks/`
 // directory at emit time. Pairing this with `RewriteHookPath` lets a
 // project keep `.<tool>/` gitignored: a fresh checkout reconstructs the
@@ -70,7 +70,7 @@ func MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
 }
 
 // SourceToolFromHookCommand extracts the leading `.<tool>/hooks/`
-// segment from cmd. Returns ("", false) when cmd is not a recognised
+// segment from cmd. Returns ("", false) when cmd is not a recognized
 // sibling-tool hook path. Used by adapters to remember the spec origin
 // before RewriteHookPath rewrites it to their own prefix.
 func SourceToolFromHookCommand(cmd string) (string, bool) {
