@@ -36,6 +36,9 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	if err := captureHookScripts(root, "codex"); err != nil {
+		return err
+	}
 	commands, err := importCodexCommands(root, filepath.Join(root, src.Commands))
 	if err != nil {
 		return err

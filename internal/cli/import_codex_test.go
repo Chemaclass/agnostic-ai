@@ -509,6 +509,30 @@ command = "fmt"
 	}
 }
 
+// Hook script bodies under `.codex/hooks/` capture into
+// `.agnostic-ai/scripts/codex/` for reconstruction on next sync.
+func TestImportFromCodex_CapturesHookScriptBodies(t *testing.T) {
+	dir := t.TempDir()
+	body := "#!/usr/bin/env bash\necho codex hook\n"
+	if err := os.MkdirAll(filepath.Join(dir, ".codex", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".codex", "hooks", "format-php.sh"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, ".agnostic-ai", "scripts", "codex", "format-php.sh")
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("expected stashed script body: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("body mismatch: %q vs %q", got, body)
+	}
+}
+
 func TestImportFromCodex_SkipsAgentsAndSkillsWrappers(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "AGENTS.md"), `# AGENTS.md

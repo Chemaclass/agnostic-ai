@@ -105,7 +105,32 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
+	if err := materializeHookScripts(b.Hooks, dryRun); err != nil {
+		return err
+	}
+
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// materializeHookScripts copies each hook's stashed script body from
+// `.agnostic-ai/scripts/` into `.<target>/hooks/`. The lookup keys off
+// the spec's original `command:` path so a script imported via claude
+// still materialises when the same hook syncs out to claude.
+//
+// Hooks whose command field is a free-form shell expression carry no
+// stashed body and skip silently — there is nothing to copy.
+func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+	for _, h := range hooks {
+		cmds := hookCommands(h.Meta["command"])
+		for _, raw := range cmds {
+			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
+			rewritten := emit.RewriteHookPath(raw, target)
+			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // propagateSkillAssets mirrors every sibling file under the source

@@ -41,6 +41,9 @@ func importFromGemini(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	if err := captureHookScripts(root, "gemini"); err != nil {
+		return err
+	}
 	if err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}

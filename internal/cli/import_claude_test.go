@@ -396,6 +396,39 @@ func TestImportFromClaude_PreservesHookTimeoutAndStatusMessage(t *testing.T) {
 	}
 }
 
+// Hook script bodies under `.claude/hooks/` are captured into
+// `.agnostic-ai/scripts/claude/` so a gitignored .claude/ tree can be
+// reconstructed by the next `sync`. Executable bit must survive the
+// copy.
+func TestImportFromClaude_CapturesHookScriptBodies(t *testing.T) {
+	dir := t.TempDir()
+	body := "#!/usr/bin/env bash\necho protect\n"
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "protect-files.sh"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, ".agnostic-ai", "scripts", "claude", "protect-files.sh")
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("expected stashed script body: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("body mismatch: %q vs %q", got, body)
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
+	}
+}
+
 func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

@@ -49,6 +49,9 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
 		return err
 	}
+	if err := captureHookScripts(root, "claude"); err != nil {
+		return err
+	}
 	if c.mcps, err = importClaudeMCP(root, filepath.Join(root, src.MCPs)); err != nil {
 		return err
 	}

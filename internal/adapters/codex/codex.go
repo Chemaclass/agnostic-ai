@@ -112,7 +112,27 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	return emitConfigTOML(b, cfg, dryRun)
+	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
+		return err
+	}
+	return materializeHookScripts(b.Hooks, dryRun)
+}
+
+// materializeHookScripts copies each hook's stashed script body from
+// `.agnostic-ai/scripts/` into `.codex/hooks/` so the emitted
+// config.toml has the actual script alongside the path it references.
+func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+	for _, h := range hooks {
+		cmds := hookCommands(h.Meta["command"])
+		for _, raw := range cmds {
+			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
+			rewritten := emit.RewriteHookPath(raw, target)
+			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // codexEmitsSkills reports whether the codex adapter should write the
