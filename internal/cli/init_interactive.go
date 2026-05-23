@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/term"
 )
 
 // This file holds the canonical target list and the selection helpers
@@ -134,6 +135,38 @@ func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, err
 		pickedSet[n] = true
 	}
 	return filterToCanonicalOrder(pickedSet), nil
+}
+
+// promptGitignoreEnable asks the user whether to enable
+// gitignore.enabled in the rendered config. Only TTY stdin runs the
+// confirm widget; piped or closed stdin falls back to false so CI
+// flows stay deterministic (use the --gitignore flag to flip it on
+// non-interactively).
+func promptGitignoreEnable(in io.Reader, stderr io.Writer) (bool, error) {
+	f, ok := in.(*os.File)
+	if !ok || !term.IsTerminal(f.Fd()) {
+		return false, nil
+	}
+	return runGitignoreConfirm(stderr)
+}
+
+// runGitignoreConfirm drives the huh confirm widget. Defaults to false
+// because most teams commit emitted target files (CLAUDE.md, AGENTS.md,
+// .cursor/, ...) so non-agnostic-ai users still see the project
+// conventions without running `sync`.
+func runGitignoreConfirm(stderr io.Writer) (bool, error) {
+	_ = stderr
+	picked := false
+	form := huh.NewConfirm().
+		Title("Ignore generated target files in .gitignore?").
+		Description("`sync` will keep a managed block of every emitted target path. Off by default; flip on if your team treats emitted files as build artifacts.").
+		Affirmative("Yes, ignore them").
+		Negative("No, commit them").
+		Value(&picked)
+	if err := form.Run(); err != nil {
+		return false, err
+	}
+	return picked, nil
 }
 
 // targetMarkers maps each canonical target to filesystem paths that

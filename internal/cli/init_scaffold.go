@@ -13,7 +13,9 @@ import (
 // renderConfig builds agnostic-ai.yaml with source paths nested under
 // base and the given targets list. base="." writes paths at the
 // project root. Targets are emitted in the order provided.
-func renderConfig(base string, targets []string) string {
+// gitignoreEnabled adds `gitignore: { enabled: true }` so `sync` writes
+// the managed block listing every adapter-emitted path.
+func renderConfig(base string, targets []string, gitignoreEnabled bool) string {
 	prefix := ""
 	if base != "" && base != "." {
 		prefix = filepath.ToSlash(base) + "/"
@@ -33,6 +35,9 @@ func renderConfig(base string, targets []string) string {
 		fmt.Fprintf(&sb, "  - %s\n", t)
 	}
 	sb.WriteString("\non-unsupported: warn\n")
+	if gitignoreEnabled {
+		sb.WriteString("\ngitignore:\n  enabled: true\n")
+	}
 	return sb.String()
 }
 
@@ -40,7 +45,9 @@ func renderConfig(base string, targets []string) string {
 // under base. targets is written verbatim to the targets: block;
 // callers must supply at least one entry. When dryRun is true, no files
 // are written and the planned paths are printed instead.
-func scaffold(root, base string, demo bool, preset string, targets []string, dryRun bool) error {
+// gitignoreEnabled is persisted into the rendered config so `sync` keeps
+// the .gitignore managed block in sync with emitted target paths.
+func scaffold(root, base string, demo bool, preset string, targets []string, dryRun, gitignoreEnabled bool) error {
 	cfgPath := filepath.Join(root, config.ConfigFileName)
 	if !dryRun {
 		if _, err := os.Stat(cfgPath); err == nil {
@@ -77,7 +84,7 @@ func scaffold(root, base string, demo bool, preset string, targets []string, dry
 			return err
 		}
 	}
-	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets)), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets, gitignoreEnabled)), 0o644); err != nil {
 		return err
 	}
 	if err := ensureLineInGitignore(root, config.LocalOverrideFileName); err != nil {

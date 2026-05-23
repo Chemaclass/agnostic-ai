@@ -269,6 +269,12 @@ The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< a
 
 Override per-run with `--gitignore on|off` on `sync`.
 
+### Picking the default at `init`
+
+`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files; pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt — pass `--gitignore` to opt in:
+
+    agnostic-ai init --all --gitignore
+
 ## Claude settings
 
 The `outputs.claude.settings` block declares first-class

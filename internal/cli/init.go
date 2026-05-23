@@ -21,7 +21,7 @@ const defaultBaseDir = ".agnostic-ai"
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
-	var demo, all, dryRun bool
+	var demo, all, dryRun, gitignore bool
 	var preset, fromCLI string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
@@ -86,7 +86,15 @@ func newInitCmd() *cobra.Command {
 					targets = picked
 				}
 			}
-			if err := scaffold(".", base, demo, preset, targets, dryRun); err != nil {
+			gitignoreEnabled := gitignore
+			if !cmd.Flags().Lookup("gitignore").Changed && !all {
+				picked, err := promptGitignoreEnable(cmd.InOrStdin(), cmd.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+				gitignoreEnabled = picked
+			}
+			if err := scaffold(".", base, demo, preset, targets, dryRun, gitignoreEnabled); err != nil {
 				return err
 			}
 			if fromCLI == "" || dryRun {
@@ -109,6 +117,8 @@ func newInitCmd() *cobra.Command {
 		"Print files that would be scaffolded without writing.")
 	cmd.Flags().StringVar(&fromCLI, "from", "",
 		"After scaffolding, import existing config from this CLI (e.g. claude, cursor, all).")
+	cmd.Flags().BoolVar(&gitignore, "gitignore", false,
+		"Persist gitignore.enabled=true so `sync` keeps a managed .gitignore block of every emitted target path. When unset and stdin is a TTY, init prompts.")
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})
