@@ -13,7 +13,9 @@ import (
 // renderConfig builds agnostic-ai.yaml with source paths nested under
 // base and the given targets list. base="." writes paths at the
 // project root. Targets are emitted in the order provided.
-func renderConfig(base string, targets []string) string {
+// gitignoreEnabled adds `gitignore: { enabled: true }` so `sync` writes
+// the managed block listing every adapter-emitted path.
+func renderConfig(base string, targets []string, gitignoreEnabled bool) string {
 	prefix := ""
 	if base != "" && base != "." {
 		prefix = filepath.ToSlash(base) + "/"
@@ -33,79 +35,136 @@ func renderConfig(base string, targets []string) string {
 		fmt.Fprintf(&sb, "  - %s\n", t)
 	}
 	sb.WriteString("\non-unsupported: warn\n")
+	if gitignoreEnabled {
+		sb.WriteString("\ngitignore:\n  enabled: true\n")
+	}
 	return sb.String()
 }
 
-// scaffold creates agnostic-ai.yaml at root and the source-folder tree
-// under base. targets is written verbatim to the targets: block;
-// callers must supply at least one entry. When dryRun is true, no files
-// are written and the planned paths are printed instead.
-func scaffold(root, base string, demo bool, preset string, targets []string, dryRun bool) error {
-	cfgPath := filepath.Join(root, config.ConfigFileName)
-	if !dryRun {
-		if _, err := os.Stat(cfgPath); err == nil {
-			return fmt.Errorf("%s already exists", config.ConfigFileName)
-		}
-		if _, err := os.Stat(filepath.Join(root, config.LegacyConfigFileName)); err == nil {
-			return fmt.Errorf("%s already exists (legacy name; rename to %s)",
-				config.LegacyConfigFileName, config.ConfigFileName)
-		}
+// scaffoldOptions groups the knobs scaffold uses to materialize a fresh
+// project. Bundled in a struct so call sites (the init command and a
+// dozen tests) self-document via named fields rather than a positional
+// list of bools.
+type scaffoldOptions struct {
+	// Root is the project directory that receives agnostic-ai.yaml and
+	// the .gitignore lines. Almost always ".".
+	Root string
+	// Base is the parent directory for the source-folder tree
+	// (agents/, skills/, ...). Empty defaults to defaultBaseDir;
+	// "." writes the folders at Root.
+	Base string
+	// Targets is written verbatim to the targets: block. Callers must
+	// supply at least one entry.
+	Targets []string
+	// Preset, when set, seeds idiomatic specs for a stack ("go",
+	// "ts-react", "python"). Composes with Demo.
+	Preset string
+	// Demo seeds one minimal example spec per source folder.
+	Demo bool
+	// DryRun prints the planned filesystem changes without touching
+	// disk.
+	DryRun bool
+	// GitignoreEnabled persists gitignore.enabled: true into the
+	// rendered config so subsequent `sync` runs maintain the managed
+	// .gitignore block.
+	GitignoreEnabled bool
+}
+
+// scaffoldKinds is the source-folder set every scaffold creates. Order
+// does not matter on disk but is preserved for stable dry-run output.
+var scaffoldKinds = []string{"agents", "skills", "rules", "hooks", "mcps", "commands"}
+
+// scaffold creates agnostic-ai.yaml at Root and the source-folder tree
+// under Base. See scaffoldOptions for the per-field contract.
+func scaffold(opts scaffoldOptions) error {
+	if opts.Base == "" {
+		opts.Base = defaultBaseDir
 	}
-	if base == "" {
-		base = defaultBaseDir
-	}
-	kinds := []string{"agents", "skills", "rules", "hooks", "mcps", "commands"}
-	if dryRun {
-		fmt.Printf("create: %s\n", cfgPath)
-		for _, k := range kinds {
-			fmt.Printf("mkdir:  %s\n", filepath.Join(root, base, k))
-		}
-		if demo {
-			if err := listDemoFiles(filepath.Join(root, base)); err != nil {
-				return err
-			}
-		}
-		if preset != "" {
-			if err := listPresetFiles(filepath.Join(root, base), preset); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	for _, k := range kinds {
-		if err := os.MkdirAll(filepath.Join(root, base, k), 0o755); err != nil {
+	cfgPath := filepath.Join(opts.Root, config.ConfigFileName)
+	if !opts.DryRun {
+		if err := ensureNoExistingConfig(opts.Root, cfgPath); err != nil {
 			return err
 		}
 	}
-	if err := os.WriteFile(cfgPath, []byte(renderConfig(base, targets)), 0o644); err != nil {
-		return err
+	if opts.DryRun {
+		return scaffoldDryRun(opts, cfgPath)
 	}
-	if err := ensureLineInGitignore(root, config.LocalOverrideFileName); err != nil {
-		return err
+	return scaffoldWrite(opts, cfgPath)
+}
+
+// ensureNoExistingConfig refuses to overwrite an existing project. The
+// legacy filename gets a tailored rename hint.
+func ensureNoExistingConfig(root, cfgPath string) error {
+	if _, err := os.Stat(cfgPath); err == nil {
+		return fmt.Errorf("%s already exists", config.ConfigFileName)
 	}
-	if err := ensureLineInGitignore(root, ".agnostic-ai/.sync-state"); err != nil {
-		return err
+	if _, err := os.Stat(filepath.Join(root, config.LegacyConfigFileName)); err == nil {
+		return fmt.Errorf("%s already exists (legacy name; rename to %s)",
+			config.LegacyConfigFileName, config.ConfigFileName)
 	}
-	if err := ensureLineInGitignore(root, packsDir+"/"); err != nil {
-		return err
+	return nil
+}
+
+// scaffoldDryRun prints the filesystem changes scaffold would make
+// without touching disk.
+func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
+	fmt.Printf("create: %s\n", cfgPath)
+	for _, k := range scaffoldKinds {
+		fmt.Printf("mkdir:  %s\n", filepath.Join(opts.Root, opts.Base, k))
 	}
-	if demo {
-		if err := writeDemoFiles(filepath.Join(root, base)); err != nil {
+	baseDir := filepath.Join(opts.Root, opts.Base)
+	if opts.Demo {
+		if err := listDemoFiles(baseDir); err != nil {
 			return err
 		}
 	}
-	if preset != "" {
-		if err := writePresetFiles(filepath.Join(root, base), preset); err != nil {
+	if opts.Preset != "" {
+		if err := listPresetFiles(baseDir, opts.Preset); err != nil {
 			return err
 		}
 	}
-	if demo {
+	return nil
+}
+
+// scaffoldWrite materializes the scaffold on disk and prints the
+// post-scaffold guidance.
+func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
+	baseDir := filepath.Join(opts.Root, opts.Base)
+	for _, k := range scaffoldKinds {
+		if err := os.MkdirAll(filepath.Join(baseDir, k), 0o755); err != nil {
+			return err
+		}
+	}
+	cfgBody := renderConfig(opts.Base, opts.Targets, opts.GitignoreEnabled)
+	if err := os.WriteFile(cfgPath, []byte(cfgBody), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", cfgPath, err)
+	}
+	for _, entry := range []string{
+		config.LocalOverrideFileName,
+		".agnostic-ai/.sync-state",
+		packsDir + "/",
+	} {
+		if err := ensureLineInGitignore(opts.Root, entry); err != nil {
+			return err
+		}
+	}
+	if opts.Demo {
+		if err := writeDemoFiles(baseDir); err != nil {
+			return err
+		}
+	}
+	if opts.Preset != "" {
+		if err := writePresetFiles(baseDir, opts.Preset); err != nil {
+			return err
+		}
+	}
+	if opts.Demo {
 		summaryf("seeded one example spec per source folder. delete or edit to taste.\n")
 	}
-	if preset != "" {
-		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", preset)
+	if opts.Preset != "" {
+		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", opts.Preset)
 	}
-	printNextSteps(root, base, targets, demo || preset != "")
+	printNextSteps(opts.Root, opts.Base, opts.Targets, opts.Demo || opts.Preset != "")
 	return nil
 }
 

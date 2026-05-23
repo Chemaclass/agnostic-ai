@@ -47,7 +47,7 @@ func TestInit_PresetPythonSeeds(t *testing.T) {
 func assertPresetSeeds(t *testing.T, preset string) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, preset, allTargetNames(), false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Preset: preset, Targets: allTargetNames()}); err != nil {
 		t.Fatalf("scaffold: %v", err)
 	}
 	got := walkFiles(t, filepath.Join(dir, ".agnostic-ai"))
@@ -89,7 +89,7 @@ func TestInit_PresetUnknownErrors(t *testing.T) {
 
 func TestInit_PresetComposesWithDemo(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", true, "go", allTargetNames(), false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Preset: "go", Targets: allTargetNames()}); err != nil {
 		t.Fatalf("scaffold: %v", err)
 	}
 	got := walkFiles(t, filepath.Join(dir, ".agnostic-ai"))
@@ -139,7 +139,7 @@ func TestInit_PresetDoesNotOverwriteExistingFiles(t *testing.T) {
 func TestInit_PresetSuggestsSyncInNextSteps(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", false, "go", allTargetNames(), false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Preset: "go", Targets: allTargetNames()}); err != nil {
 		t.Fatalf("scaffold: %v", err)
 	}
 	out := buf.String()
