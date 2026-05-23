@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.25.0 - 2026-05-23
+
+### Added
 - `init --gitignore` flag, plus TTY prompt to enable the managed gitignore block.
 - `.agnostic-ai/scripts/<tool>/<basename>` stashes hook script bodies; sync rebuilds `.<target>/hooks/` on every run so `.<tool>/` can stay gitignored.
 - Codex import reads `.codex/hooks.json` alongside `config.toml`; previously skipped.
@@ -21,8 +31,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Claude settings.json: `timeout` and `statusMessage` round-trip.
 - Claude import: spurious "AGNOSTIC_AI.md seeded" log only prints when the mirror actually wrote.
 - Codex AGENTS.md shred skips rules that already exist from a prior import.
-
-### Removed
 
 ## v0.24.0 - 2026-05-19
 
