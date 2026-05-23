@@ -422,6 +422,93 @@ command = "lint"
 	}
 }
 
+// Some Codex installs keep hooks in a standalone .codex/hooks.json
+// alongside config.toml. The schema matches Claude's settings.json hook
+// block: hooks[<event>][n].{matcher, hooks[m].{type, command, timeout,
+// statusMessage}}. Import should pick up that file, preserve timeout
+// and statusMessage, and dedupe against any duplicate entries in
+// config.toml.
+func TestImportFromCodex_HooksFromHooksJSON(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": ".codex/hooks/protect-files.sh", "timeout": 5, "statusMessage": "Checking protected files"}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": ".codex/hooks/format-php.sh", "timeout": 30}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	pre := findOneHookFile(t, filepath.Join(dir, "hooks"), "pretooluse")
+	preData, _ := os.ReadFile(pre)
+	for _, want := range []string{
+		"matcher: Bash|apply_patch|Edit|Write",
+		"command: .codex/hooks/protect-files.sh",
+		"timeout: 5",
+		"statusMessage: Checking protected files",
+	} {
+		if !strings.Contains(string(preData), want) {
+			t.Errorf("expected %q in PreToolUse spec:\n%s", want, preData)
+		}
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	postData, _ := os.ReadFile(post)
+	for _, want := range []string{
+		"matcher: apply_patch|Edit|Write",
+		"command: .codex/hooks/format-php.sh",
+		"timeout: 30",
+	} {
+		if !strings.Contains(string(postData), want) {
+			t.Errorf("expected %q in PostToolUse spec:\n%s", want, postData)
+		}
+	}
+}
+
+// When both hooks.json and config.toml carry the same event/matcher/command,
+// keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
+func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt", "timeout": 30}]}
+    ]
+  }
+}`)
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "fmt"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "hooks", "posttooluse-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one PostToolUse spec after dedupe, got %d: %v", len(matches), matches)
+	}
+	data, _ := os.ReadFile(matches[0])
+	if !strings.Contains(string(data), "timeout: 30") {
+		t.Errorf("dedupe should keep hooks.json variant carrying timeout:\n%s", data)
+	}
+}
+
 func TestImportFromCodex_SkipsAgentsAndSkillsWrappers(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "AGENTS.md"), `# AGENTS.md

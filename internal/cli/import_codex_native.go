@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -19,6 +20,7 @@ import (
 var codexAgentDirs = []string{".agents/agents", ".codex/agents"}
 
 const (
+	codexDir        = ".codex"
 	codexSkillsDir  = ".agents/skills"
 	codexConfigTOML = ".codex/config.toml"
 )
@@ -165,8 +167,10 @@ type codexConfigDoc struct {
 }
 
 type codexHookEntry struct {
-	Matcher string `toml:"matcher"`
-	Command string `toml:"command"`
+	Matcher       string `toml:"matcher"`
+	Command       string `toml:"command"`
+	Timeout       int    `toml:"timeout"`
+	StatusMessage string `toml:"statusMessage"`
 }
 
 type codexMCPEntry struct {
@@ -178,68 +182,187 @@ type codexMCPEntry struct {
 	HTTPHeaders       map[string]string `toml:"http_headers"`
 }
 
-// importCodexConfig reads `<root>/.codex/config.toml` and writes one
-// yaml per `[[hooks.<event>]]` entry to hooksDst and one yaml per
-// `[mcp_servers.<name>]` table to mcpsDst. Returns (hooks, mcps).
+// importCodexConfig reads `<root>/.codex/config.toml` plus the
+// standalone `<root>/.codex/hooks.json` (if present) and writes one
+// yaml per discovered hook to hooksDst and one yaml per `[mcp_servers.<name>]`
+// table to mcpsDst. Hooks declared in both files are deduped by
+// (event, matcher, command); the hooks.json variant wins because it
+// can carry timeout + statusMessage.
+//
+// Returns (hooks, mcps).
 func importCodexConfig(root, hooksDst, mcpsDst string) (int, int, error) {
-	path := filepath.Join(root, codexConfigTOML)
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, 0, nil
-	}
+	hooksByKey, mcpServers, err := readCodexConfigTOML(root)
 	if err != nil {
-		return 0, 0, fmt.Errorf("read %s: %w", path, err)
+		return 0, 0, err
 	}
-	var doc codexConfigDoc
-	if _, err := toml.Decode(string(data), &doc); err != nil {
-		return 0, 0, fmt.Errorf("parse %s: %w", path, err)
+	if err := mergeCodexHooksJSON(root, hooksByKey); err != nil {
+		return 0, 0, err
 	}
 
-	hooks, err := writeCodexHooks(doc.Hooks, hooksDst)
+	hooks, err := writeCodexHooksFromMap(hooksByKey, hooksDst)
 	if err != nil {
 		return hooks, 0, err
 	}
-	mcps, err := writeCodexMCPs(doc.MCPServers, mcpsDst)
+	mcps, err := writeCodexMCPs(mcpServers, mcpsDst)
 	if err != nil {
 		return hooks, mcps, err
 	}
 	return hooks, mcps, nil
 }
 
-func writeCodexHooks(byEvent map[string][]codexHookEntry, dstDir string) (int, error) {
-	events := make([]string, 0, len(byEvent))
-	for e := range byEvent {
-		events = append(events, e)
-	}
-	sort.Strings(events)
+// codexHookKey identifies a hook for dedupe across sources. Hooks with
+// the same (event, matcher, command) are considered the same entry.
+type codexHookKey struct {
+	event, matcher, command string
+}
 
-	count := 0
-	for _, event := range events {
-		for _, h := range byEvent[event] {
+// codexHookSlot is the merged hook representation built up by reading
+// every codex hook source. The order field preserves discovery order
+// so emitted spec files stay byte-stable across re-imports.
+type codexHookSlot struct {
+	order         int
+	entry         codexHookEntry
+	event         string
+	fromHooksJSON bool
+}
+
+// readCodexConfigTOML reads `.codex/config.toml` and returns a
+// dedupe-keyed map of hooks plus the MCP servers section. The dedupe key
+// uses (event, matcher, command) so the standalone hooks.json layer can
+// overwrite TOML-defined entries that carry less information.
+func readCodexConfigTOML(root string) (map[codexHookKey]*codexHookSlot, map[string]codexMCPEntry, error) {
+	hooks := map[codexHookKey]*codexHookSlot{}
+	path := filepath.Join(root, codexConfigTOML)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return hooks, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc codexConfigDoc
+	if _, err := toml.Decode(string(data), &doc); err != nil {
+		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, event := range sortedMapKeys(doc.Hooks) {
+		for _, h := range doc.Hooks[event] {
 			if h.Command == "" {
 				continue
 			}
-			name := hookSpecName(event, h.Matcher, []string{h.Command})
-			doc := map[string]any{
-				"name":    name,
-				"event":   event,
-				"command": h.Command,
+			k := codexHookKey{event: event, matcher: h.Matcher, command: h.Command}
+			if _, exists := hooks[k]; exists {
+				continue
 			}
-			if h.Matcher != "" {
-				doc["matcher"] = h.Matcher
-			}
-			raw, err := yaml.Marshal(doc)
-			if err != nil {
-				return count, fmt.Errorf("marshal hook %s: %w", name, err)
-			}
-			path := filepath.Join(dstDir, name+".yaml")
-			if err := importWriteFile(path, raw, 0o644); err != nil {
-				return count, fmt.Errorf("write %s: %w", path, err)
-			}
-			count++
+			hooks[k] = &codexHookSlot{order: len(hooks), entry: h, event: event}
 		}
 	}
+	return hooks, doc.MCPServers, nil
+}
+
+// mergeCodexHooksJSON layers `.codex/hooks.json` over the config.toml
+// dedupe map. When the same (event, matcher, command) appears in both,
+// the JSON entry wins so timeout + statusMessage propagate even when
+// the TOML copy carried only matcher + command.
+func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) error {
+	path := filepath.Join(root, codexDir, "hooks.json")
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	var s claudeSettings // identical shape: hooks[<event>][n].{matcher, hooks[m].{...}}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, event := range sortedMapKeys(s.Hooks) {
+		for _, g := range s.Hooks[event] {
+			for _, h := range g.Hooks {
+				if h.Command == "" {
+					continue
+				}
+				k := codexHookKey{event: event, matcher: g.Matcher, command: h.Command}
+				slot, exists := hooks[k]
+				entry := codexHookEntry{
+					Matcher:       g.Matcher,
+					Command:       h.Command,
+					Timeout:       h.Timeout,
+					StatusMessage: h.StatusMessage,
+				}
+				if !exists {
+					hooks[k] = &codexHookSlot{
+						order:         len(hooks),
+						entry:         entry,
+						event:         event,
+						fromHooksJSON: true,
+					}
+					continue
+				}
+				slot.entry = entry
+				slot.fromHooksJSON = true
+			}
+		}
+	}
+	return nil
+}
+
+// writeCodexHooksFromMap emits one yaml per discovered hook. Hooks are
+// written in (event, order) order so a re-import produces byte-stable
+// output regardless of which source file changed.
+func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string) (int, error) {
+	slots := make([]*codexHookSlot, 0, len(hooks))
+	for _, slot := range hooks {
+		slots = append(slots, slot)
+	}
+	sort.SliceStable(slots, func(i, j int) bool {
+		if slots[i].event != slots[j].event {
+			return slots[i].event < slots[j].event
+		}
+		return slots[i].order < slots[j].order
+	})
+
+	count := 0
+	for _, slot := range slots {
+		h := slot.entry
+		name := hookSpecName(slot.event, h.Matcher, []string{h.Command})
+		doc := map[string]any{
+			"name":    name,
+			"event":   slot.event,
+			"command": h.Command,
+		}
+		if h.Matcher != "" {
+			doc["matcher"] = h.Matcher
+		}
+		if h.Timeout != 0 {
+			doc["timeout"] = h.Timeout
+		}
+		if h.StatusMessage != "" {
+			doc["statusMessage"] = h.StatusMessage
+		}
+		raw, err := yaml.Marshal(doc)
+		if err != nil {
+			return count, fmt.Errorf("marshal hook %s: %w", name, err)
+		}
+		path := filepath.Join(dstDir, name+".yaml")
+		if err := importWriteFile(path, raw, 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", path, err)
+		}
+		count++
+	}
 	return count, nil
+}
+
+// sortedMapKeys returns a copy of map[string]V's keys sorted for
+// deterministic iteration. Local to the codex importer to avoid
+// colliding with the validate.go variant that takes a set.
+func sortedMapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error) {
