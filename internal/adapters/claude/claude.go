@@ -304,12 +304,19 @@ func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
 		if len(cmds) == 0 {
 			continue
 		}
+		timeout := hookIntMeta(h.Meta, "timeout")
+		statusMessage, _ := h.Meta["statusMessage"].(string)
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
 		for _, cmd := range cmds {
-			byKey[k] = append(byKey[k], hookCommandEntry{Type: "command", Command: cmd})
+			byKey[k] = append(byKey[k], hookCommandEntry{
+				Type:          "command",
+				Command:       cmd,
+				Timeout:       timeout,
+				StatusMessage: statusMessage,
+			})
 		}
 	}
 	byEvent := map[string][]matcherGroup{}
@@ -334,9 +341,16 @@ func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
 // expects inside a matcher group's `hooks` array. Using a struct lets
 // `encoding/json` emit the fields in declaration order rather than the
 // alpha-sorted order map iteration would produce.
+//
+// `Timeout` and `StatusMessage` are optional Claude schema fields that
+// propagate from the spec's `timeout` / `statusMessage` Meta keys. They
+// `omitempty` so specs that don't set them produce the historic minimal
+// `{type, command}` payload.
 type hookCommandEntry struct {
-	Type    string `json:"type"`
-	Command string `json:"command"`
+	Type          string `json:"type"`
+	Command       string `json:"command"`
+	Timeout       int    `json:"timeout,omitempty"`
+	StatusMessage string `json:"statusMessage,omitempty"`
 }
 
 // matcherGroup mirrors the `{matcher, hooks}` JSON object in
@@ -383,6 +397,29 @@ func orderedHookEvents(seen []string) []string {
 		}
 	}
 	return out
+}
+
+// hookIntMeta extracts an integer field from a hook spec's Meta map.
+// YAML decodes numerics as int/int64/float64 depending on representation,
+// so each plausible concrete type is checked. Returns 0 when the key is
+// absent, an unparseable string, or any other type.
+func hookIntMeta(meta map[string]any, key string) int {
+	switch v := meta[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case string:
+		var n int
+		_, err := fmt.Sscanf(v, "%d", &n)
+		if err != nil {
+			return 0
+		}
+		return n
+	}
+	return 0
 }
 
 // hookCommands normalizes a `command:` field that may be a string or a

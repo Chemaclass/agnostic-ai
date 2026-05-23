@@ -364,6 +364,38 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 	}
 }
 
+// timeout and statusMessage are first-class Claude hook fields that
+// must round-trip through the spec, not be silently dropped during
+// import. Spec is the source of truth; on next sync the emit side
+// re-populates the fields from these Meta keys.
+func TestImportFromClaude_PreservesHookTimeoutAndStatusMessage(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit|Write", "hooks": [
+        {"type": "command", "command": "fmt", "timeout": 30, "statusMessage": "Formatting"},
+        {"type": "command", "command": "lint", "timeout": 30, "statusMessage": "Formatting"}
+      ]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"timeout: 30", "statusMessage: Formatting"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q in %s", want, data)
+		}
+	}
+}
+
 func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

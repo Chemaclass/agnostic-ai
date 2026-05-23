@@ -394,6 +394,62 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 	}
 }
 
+// Per-hook timeout (seconds) and statusMessage are first-class Claude
+// schema fields. When the spec carries them via Meta they must propagate
+// to every emitted `hooks[].{...}` object so behavior survives a
+// round-trip.
+func TestEmit_HookTimeoutAndStatusMessagePropagate(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{
+				"event":         "PostToolUse",
+				"matcher":       "Edit|Write",
+				"command":       []any{"a.sh", "b.sh"},
+				"timeout":       30,
+				"statusMessage": "Running formatters",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+			Hooks   []struct {
+				Type          string `json:"type"`
+				Command       string `json:"command"`
+				Timeout       int    `json:"timeout"`
+				StatusMessage string `json:"statusMessage"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	groups := doc.Hooks["PostToolUse"]
+	if len(groups) != 1 || len(groups[0].Hooks) != 2 {
+		t.Fatalf("expected 1 matcher group with 2 hooks, got: %s", raw)
+	}
+	for _, h := range groups[0].Hooks {
+		if h.Timeout != 30 {
+			t.Errorf("expected timeout=30 on every hook, got %d (%s)", h.Timeout, h.Command)
+		}
+		if h.StatusMessage != "Running formatters" {
+			t.Errorf("expected statusMessage to propagate, got %q (%s)", h.StatusMessage, h.Command)
+		}
+	}
+}
+
 func TestEmit_MergesHooksBySameEventAndMatcher(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

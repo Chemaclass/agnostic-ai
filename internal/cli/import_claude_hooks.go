@@ -13,8 +13,10 @@ import (
 )
 
 type claudeHookCommand struct {
-	Type    string `json:"type"`
-	Command string `json:"command"`
+	Type          string `json:"type"`
+	Command       string `json:"command"`
+	Timeout       int    `json:"timeout,omitempty"`
+	StatusMessage string `json:"statusMessage,omitempty"`
 }
 
 type claudeHookGroup struct {
@@ -60,9 +62,18 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	for _, event := range events {
 		for _, g := range s.Hooks[event] {
 			cmds := make([]string, 0, len(g.Hooks))
+			timeout := 0
+			statusMessage := ""
 			for _, h := range g.Hooks {
-				if h.Command != "" {
-					cmds = append(cmds, h.Command)
+				if h.Command == "" {
+					continue
+				}
+				cmds = append(cmds, h.Command)
+				if h.Timeout != 0 && timeout == 0 {
+					timeout = h.Timeout
+				}
+				if h.StatusMessage != "" && statusMessage == "" {
+					statusMessage = h.StatusMessage
 				}
 			}
 			if len(cmds) == 0 {
@@ -78,6 +89,12 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				doc["command"] = cmds[0]
 			} else {
 				doc["command"] = cmds
+			}
+			if timeout != 0 {
+				doc["timeout"] = timeout
+			}
+			if statusMessage != "" {
+				doc["statusMessage"] = statusMessage
 			}
 			raw, err := yaml.Marshal(doc)
 			if err != nil {
