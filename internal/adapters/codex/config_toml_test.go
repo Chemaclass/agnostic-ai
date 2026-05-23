@@ -113,6 +113,42 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	}
 }
 
+// A hook spec carrying a command array emits one [[hooks.<event>]] block per command.
+// Same matcher + event share the array; codex's TOML schema has a single command field.
+func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "post-format",
+			Meta: map[string]any{
+				"event":   "PostToolUse",
+				"matcher": "Edit|Write",
+				"command": []any{".codex/hooks/format-php.sh", ".codex/hooks/format-phel.sh"},
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`command = ".codex/hooks/format-php.sh"`,
+		`command = ".codex/hooks/format-phel.sh"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Count(got, "[[hooks.PostToolUse]]") != 2 {
+		t.Errorf("expected 2 [[hooks.PostToolUse]] blocks for 2-command array, got:\n%s", got)
+	}
+	if strings.Count(got, `matcher = "Edit|Write"`) != 2 {
+		t.Errorf("expected matcher repeated for each block, got:\n%s", got)
+	}
+}
+
 // Hooks with no event are skipped.
 func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)

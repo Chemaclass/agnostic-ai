@@ -272,13 +272,54 @@ func groupHooksByEvent(hooks []spec.Entry) map[string][]spec.Entry {
 	return out
 }
 
+// writeHookSection emits one `[[hooks.<event>]]` array-of-tables block
+// per command. Codex's TOML hook schema accepts a single command per
+// entry, so a spec with `command: [a, b]` expands to two blocks sharing
+// the same matcher. A spec with no command at all is skipped — emitting
+// an empty block would corrupt the file.
 func writeHookSection(sb *strings.Builder, event string, h spec.Entry) {
-	sb.WriteString("[[hooks." + event + "]]\n")
-	if matcher, _ := h.Meta["matcher"].(string); matcher != "" {
-		emit.WriteTOMLString(sb, "matcher", matcher)
+	matcher, _ := h.Meta["matcher"].(string)
+	cmds := hookCommands(h.Meta["command"])
+	if len(cmds) == 0 {
+		return
 	}
-	if cmd, _ := h.Meta["command"].(string); cmd != "" {
+	for _, cmd := range cmds {
+		sb.WriteString("[[hooks." + event + "]]\n")
+		if matcher != "" {
+			emit.WriteTOMLString(sb, "matcher", matcher)
+		}
 		emit.WriteTOMLString(sb, "command", cmd)
+		sb.WriteString("\n")
 	}
-	sb.WriteString("\n")
+}
+
+// hookCommands normalizes a spec's `command:` value (string, []string,
+// or []any) into a slice of non-empty strings. Mirrors the helper used
+// by the claude + gemini adapters; kept private here to avoid a shared
+// import cycle.
+func hookCommands(raw any) []string {
+	switch v := raw.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		out := make([]string, 0, len(v))
+		for _, s := range v {
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
