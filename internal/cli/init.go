@@ -29,9 +29,11 @@ func newInitCmd() *cobra.Command {
 		Long: "Creates agnostic-ai.yaml plus source folders. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
-			"When stdin is a terminal, init prompts for which targets to enable; " +
-			"pipe a comma-separated list to skip the prompt, or pass --all / -a " +
-			"to enable every supported target without prompting. " +
+			"When stdin is a terminal, init prompts for which targets to enable " +
+			"and whether to keep a managed .gitignore block of every emitted target path; " +
+			"pipe a comma-separated list to skip the target prompt, or pass --all / -a " +
+			"to skip both prompts and enable every supported target. " +
+			"Pass --gitignore to opt into the managed .gitignore block without a prompt. " +
 			"Pass --demo to seed each source folder with a minimal example spec. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
@@ -49,6 +51,9 @@ func newInitCmd() *cobra.Command {
 
   # Non-interactive: pipe the target list
   echo "claude,codex" | agnostic-ai init
+
+  # Enable the managed .gitignore block without prompting
+  agnostic-ai init --all --gitignore
 
   # Seed each source folder with one minimal example spec
   agnostic-ai init --demo
@@ -86,15 +91,19 @@ func newInitCmd() *cobra.Command {
 					targets = picked
 				}
 			}
-			gitignoreEnabled := gitignore
-			if !cmd.Flags().Lookup("gitignore").Changed && !all {
-				picked, err := promptGitignoreEnable(cmd.InOrStdin(), cmd.ErrOrStderr())
-				if err != nil {
-					return err
-				}
-				gitignoreEnabled = picked
+			gitignoreEnabled, err := resolveGitignoreChoice(cmd, all, gitignore)
+			if err != nil {
+				return err
 			}
-			if err := scaffold(".", base, demo, preset, targets, dryRun, gitignoreEnabled); err != nil {
+			if err := scaffold(scaffoldOptions{
+				Root:             ".",
+				Base:             base,
+				Targets:          targets,
+				Preset:           preset,
+				Demo:             demo,
+				DryRun:           dryRun,
+				GitignoreEnabled: gitignoreEnabled,
+			}); err != nil {
 				return err
 			}
 			if fromCLI == "" || dryRun {
@@ -123,4 +132,18 @@ func newInitCmd() *cobra.Command {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})
 	return cmd
+}
+
+// resolveGitignoreChoice picks the effective gitignore.enabled value
+// for a single init invocation:
+//
+//   - explicit --gitignore wins (any value the user typed sticks),
+//   - --all skips the prompt and falls back to the flag default,
+//   - otherwise the TTY confirm prompt drives the choice; non-TTY stdin
+//     silently defaults to false so CI flows stay deterministic.
+func resolveGitignoreChoice(cmd *cobra.Command, all, flagValue bool) (bool, error) {
+	if cmd.Flags().Changed("gitignore") || all {
+		return flagValue, nil
+	}
+	return promptGitignoreEnable(cmd.InOrStdin())
 }

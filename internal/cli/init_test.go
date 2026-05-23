@@ -23,7 +23,7 @@ func captureSummary(t *testing.T) *bytes.Buffer {
 
 func TestScaffold_DefaultBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
@@ -42,7 +42,7 @@ func TestScaffold_DefaultBaseDir(t *testing.T) {
 
 func TestScaffold_CustomBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "specs", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "specs", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
@@ -61,7 +61,7 @@ func TestScaffold_CustomBaseDir(t *testing.T) {
 
 func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, ".", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: ".", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
@@ -80,7 +80,7 @@ func TestScaffold_BaseDirDot_WritesAtRoot(t *testing.T) {
 
 func TestScaffold_NestedBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, filepath.Join("config", "ai"), false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: filepath.Join("config", "ai"), Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "config", "ai", "agents")); err != nil {
@@ -127,7 +127,7 @@ func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
 
 func TestScaffold_GitignoreContainsLocalOverrideAndSyncState(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
@@ -147,7 +147,7 @@ func TestScaffold_GitignoreIdempotent(t *testing.T) {
 		[]byte("node_modules/\n.agnostic-ai/.sync-state\nagnostic-ai.local.yaml\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
@@ -176,7 +176,7 @@ func TestInitCmd_RejectsExtraArgs(t *testing.T) {
 
 func TestScaffold_Demo_SeedsOneFilePerKind(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", true, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	wantFiles := map[string]string{
@@ -208,7 +208,7 @@ func TestScaffold_Demo_DoesNotOverwriteExistingFiles(t *testing.T) {
 	if err := os.WriteFile(custom, []byte("user content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := scaffold(dir, "", true, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(custom)
@@ -222,7 +222,7 @@ func TestScaffold_Demo_DoesNotOverwriteExistingFiles(t *testing.T) {
 
 func TestScaffold_NoDemo_LeavesFoldersEmpty(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	for _, kind := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
@@ -257,7 +257,7 @@ func TestScaffold_RefusesIfConfigExists(t *testing.T) {
 		[]byte("version: 1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err == nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err == nil {
 		t.Error("expected error when config already exists")
 	}
 }
@@ -471,7 +471,7 @@ func TestInitCmd_Interactive_PipedUnknownTarget(t *testing.T) {
 func TestScaffold_PrintsNextStepsGuidance(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -490,7 +490,7 @@ func TestScaffold_PrintsNextStepsGuidance(t *testing.T) {
 func TestScaffold_PrintsCustomBaseInGuidance(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "specs", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "specs", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "✓ initialized agnostic-ai project at specs/") {
@@ -501,7 +501,7 @@ func TestScaffold_PrintsCustomBaseInGuidance(t *testing.T) {
 func TestScaffold_PrintsRootBaseInGuidance(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, ".", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: ".", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "✓ initialized agnostic-ai project at ./") {
@@ -512,7 +512,7 @@ func TestScaffold_PrintsRootBaseInGuidance(t *testing.T) {
 func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", true, "go", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Preset: "go", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -530,7 +530,7 @@ func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
 func TestScaffold_EchoesEnabledTargets(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", false, "", []string{"claude", "codex"}, false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: []string{"claude", "codex"}}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "  enabled: claude, codex\n") {
@@ -541,7 +541,7 @@ func TestScaffold_EchoesEnabledTargets(t *testing.T) {
 func TestScaffold_SeededSuggestsSyncNotImport(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", true, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -560,7 +560,7 @@ func TestScaffold_DetectsExistingTargetsAndSuggestsImports(t *testing.T) {
 		t.Fatal(err)
 	}
 	buf := captureSummary(t)
-	if err := scaffold(dir, "", false, "", allTargetNames(), false, false); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

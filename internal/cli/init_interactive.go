@@ -142,20 +142,15 @@ func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, err
 // confirm widget; piped or closed stdin falls back to false so CI
 // flows stay deterministic (use the --gitignore flag to flip it on
 // non-interactively).
-func promptGitignoreEnable(in io.Reader, stderr io.Writer) (bool, error) {
+//
+// Defaults to false because most teams commit emitted target files
+// (CLAUDE.md, AGENTS.md, .cursor/, ...) so non-agnostic-ai users still
+// see the project conventions without running `sync`.
+func promptGitignoreEnable(in io.Reader) (bool, error) {
 	f, ok := in.(*os.File)
 	if !ok || !term.IsTerminal(f.Fd()) {
 		return false, nil
 	}
-	return runGitignoreConfirm(stderr)
-}
-
-// runGitignoreConfirm drives the huh confirm widget. Defaults to false
-// because most teams commit emitted target files (CLAUDE.md, AGENTS.md,
-// .cursor/, ...) so non-agnostic-ai users still see the project
-// conventions without running `sync`.
-func runGitignoreConfirm(stderr io.Writer) (bool, error) {
-	_ = stderr
 	picked := false
 	form := huh.NewConfirm().
 		Title("Ignore generated target files in .gitignore?").
