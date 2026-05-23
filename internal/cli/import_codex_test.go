@@ -511,6 +511,74 @@ command = "fmt"
 
 // Hook script bodies under `.codex/hooks/` capture into
 // `.agnostic-ai/scripts/codex/` for reconstruction on next sync.
+// Codex agent TOML files conventionally use underscored names
+// (\`name = "changelog_keeper"\`). Claude convention is dashed
+// (\`changelog-keeper.md\`). When both tools define the same agent the
+// importer must collapse them onto a single canonical dashed filename
+// so the project does not carry duplicate specs.
+func TestImportFromCodex_AgentNameDashUnderscoreCollisionDedupes(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate prior claude import: agent already at dashed filename.
+	if err := os.MkdirAll(filepath.Join(dir, "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	claudeBody := "---\nname: changelog-keeper\ndescription: Claude version\n---\n\nClaude-authored agent body.\n"
+	writeFile(t, filepath.Join(dir, "agents", "changelog-keeper.md"), claudeBody)
+
+	// Now run codex import with a TOML file using the underscore variant.
+	writeFile(t, filepath.Join(dir, ".agents/agents/changelog-keeper.toml"), `name = "changelog_keeper"
+description = "Codex version"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Codex hint.
+"""
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "agents", "changelog*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one merged spec, got %d: %v", len(matches), matches)
+	}
+	merged, _ := os.ReadFile(matches[0])
+	if !strings.Contains(string(merged), "name: changelog-keeper") {
+		t.Errorf("merged spec should keep canonical dashed name:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "Claude-authored agent body.") {
+		t.Errorf("merged spec should retain claude body:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "name: changelog_keeper") {
+		t.Errorf("codex underscore identifier should land under x-codex.name:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "model_reasoning_effort: medium") {
+		t.Errorf("merged spec should pick up codex-specific x-codex keys:\n%s", merged)
+	}
+}
+
+// A codex-only project (no prior claude import) still benefits from
+// canonical dashed filenames so a later claude pass does not create
+// the duplicate.
+func TestImportFromCodex_AgentFilenameCanonicalisedToDashes(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents/agents/foo.toml"), `name = "foo_bar"
+description = "x"
+developer_instructions = """body"""
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agents", "foo-bar.md")); err != nil {
+		t.Errorf("expected dashed filename, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agents", "foo_bar.md")); err == nil {
+		t.Errorf("expected no underscored duplicate spec")
+	}
+}
+
 func TestImportFromCodex_CapturesHookScriptBodies(t *testing.T) {
 	dir := t.TempDir()
 	body := "#!/usr/bin/env bash\necho codex hook\n"

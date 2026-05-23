@@ -51,21 +51,40 @@ func importCodexAgents(root, dstDir string) (int, error) {
 			if err != nil {
 				return count, err
 			}
-			name := strings.TrimSuffix(e.Name(), ".toml")
+			tomlName := strings.TrimSuffix(e.Name(), ".toml")
 			if n, _ := doc["name"].(string); n != "" {
-				name = n
+				tomlName = n
 			}
-			if seen[name] {
+			// Canonicalise filename to dash-case so claude-imported
+			// `changelog-keeper.md` and codex-imported
+			// `changelog_keeper` resolve to the same spec on disk.
+			// The original underscore form is preserved verbatim in
+			// the frontmatter's `name:` field so codex emit keeps the
+			// TOML `name = "changelog_keeper"` value Codex expects.
+			canonical := canonicalSpecSlug(tomlName)
+			if seen[canonical] {
 				continue
 			}
-			seen[name] = true
-			if err := writeCodexAgentSpec(dstDir, name, doc); err != nil {
+			seen[canonical] = true
+
+			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc)
+			if err != nil {
 				return count, err
 			}
-			count++
+			if wrote {
+				count++
+			}
 		}
 	}
 	return count, nil
+}
+
+// canonicalSpecSlug returns name with `_` rewritten to `-` and the
+// result lowercased. Used to dedupe filenames between tools that pick
+// different separator conventions (claude uses dashes, codex uses
+// underscores).
+func canonicalSpecSlug(name string) string {
+	return strings.ToLower(strings.ReplaceAll(name, "_", "-"))
 }
 
 func readCodexAgentTOML(path string) (map[string]any, error) {
@@ -87,14 +106,50 @@ var codexAgentTopLevel = map[string]bool{
 	"developer_instructions": true,
 }
 
-// writeCodexAgentSpec renders a codex agent TOML as an agnostic-ai agent
-// spec (.md with frontmatter + body). Known top-level keys map directly;
-// every other key lands under `x-codex` so the emitter round-trips them.
-func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
+// mergeOrWriteCodexAgentSpec writes a codex agent spec at
+// `<dstDir>/<canonical>.md`. When a claude-imported file already lives
+// at that path the codex-specific keys (`x-codex.*` and any missing
+// top-level fields) are layered into it without overwriting the body or
+// the existing `name:` slug. Returns (wrote, err) where `wrote` is true
+// for both fresh writes and merges so the caller still counts the spec.
+//
+// Filename canonicalisation collapses claude's dashed convention and
+// codex's underscored convention onto the same on-disk file so a
+// project that imports both tools no longer carries duplicate specs
+// (changelog-keeper.md + changelog_keeper.md). When the codex `name`
+// differs from the canonical slug it lands under `x-codex.name` so the
+// codex emitter still produces TOML with the runtime-expected
+// underscored identifier.
+func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any) (bool, error) {
+	path := filepath.Join(dstDir, canonical+".md")
+	existing, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return true, writeCodexAgentSpec(path, canonical, codexName, doc)
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	merged, err := mergeCodexAgentIntoExisting(string(existing), codexName, doc)
+	if err != nil {
+		return false, err
+	}
+	if err := importWriteFile(path, []byte(merged), 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	return true, nil
+}
+
+// writeCodexAgentSpec renders a codex agent TOML as a fresh
+// agnostic-ai spec under path. Known top-level keys map directly into
+// the frontmatter; every other key lands under `x-codex`. `name:` uses
+// the canonical (dash) slug so the on-disk filename and frontmatter
+// stay aligned; when the codex runtime name differs it is preserved
+// under `x-codex.name`.
+func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any) error {
 	body, _ := doc["developer_instructions"].(string)
 	body = strings.TrimRight(body, "\n")
 
-	fm := map[string]any{"name": name}
+	fm := map[string]any{"name": canonical}
 	if d, _ := doc["description"].(string); d != "" {
 		fm["description"] = d
 	}
@@ -108,21 +163,95 @@ func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 		}
 		xcodex[key] = val
 	}
+	if codexName != "" && codexName != canonical {
+		xcodex["name"] = codexName
+	}
 	if len(xcodex) > 0 {
 		fm["x-codex"] = xcodex
 	}
 
 	raw, err := yaml.Marshal(fm)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", name, err)
+		return fmt.Errorf("marshal %s: %w", canonical, err)
 	}
 	out := "---\n" + string(raw) + "---\n\n" + body + "\n"
 
-	path := filepath.Join(dstDir, name+".md")
 	if err := importWriteFile(path, []byte(out), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// mergeCodexAgentIntoExisting parses an already-imported agent spec
+// (claude origin) and layers codex-specific frontmatter on top without
+// disturbing the body or existing top-level keys. Only the keys the
+// codex TOML actually provides get written, so claude's richer body
+// + description survive even when both tools defined the agent.
+func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any) (string, error) {
+	front, body, ok := splitCodexAgentFrontmatter(existing)
+	if !ok {
+		return existing, nil
+	}
+	fm := map[string]any{}
+	if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+		return "", fmt.Errorf("parse existing frontmatter: %w", err)
+	}
+	if _, has := fm["description"]; !has {
+		if d, _ := doc["description"].(string); d != "" {
+			fm["description"] = d
+		}
+	}
+	if _, has := fm["model"]; !has {
+		if m, _ := doc["model"].(string); m != "" {
+			fm["model"] = m
+		}
+	}
+	xcodex, _ := fm["x-codex"].(map[string]any)
+	if xcodex == nil {
+		xcodex = map[string]any{}
+	}
+	for key, val := range doc {
+		if codexAgentTopLevel[key] {
+			continue
+		}
+		if _, present := xcodex[key]; !present {
+			xcodex[key] = val
+		}
+	}
+	if codexName != "" {
+		if canonical, _ := fm["name"].(string); codexName != canonical {
+			if _, present := xcodex["name"]; !present {
+				xcodex["name"] = codexName
+			}
+		}
+	}
+	if len(xcodex) > 0 {
+		fm["x-codex"] = xcodex
+	}
+	raw, err := yaml.Marshal(fm)
+	if err != nil {
+		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
+	return "---\n" + string(raw) + "---\n\n" + body, nil
+}
+
+// splitCodexAgentFrontmatter returns the YAML between the first two `---`
+// delimiters and the markdown body following them. Returns (_, _,
+// false) when the input does not open with a frontmatter block.
+func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
+	if !strings.HasPrefix(doc, "---\n") {
+		return "", "", false
+	}
+	rest := doc[len("---\n"):]
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return "", "", false
+	}
+	front := rest[:end]
+	body := rest[end+len("\n---"):]
+	body = strings.TrimPrefix(body, "\n")
+	body = strings.TrimPrefix(body, "\n")
+	return front, body, true
 }
 
 // importCodexSkills walks `<root>/.agents/skills/<name>/` and mirrors
