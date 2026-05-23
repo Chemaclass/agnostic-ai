@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -23,6 +24,11 @@ import (
 // Targets that opted into the legacy concatenated rules-file layout
 // via `outputs.<target>.rules-file` are skipped: the adapter owns the
 // entry-point write in that case.
+//
+// A hand-authored entry-point file (no agnostic-ai provenance marker)
+// triggers a one-line warning before the overwrite so the user knows
+// their content is about to be replaced. This is the same heuristic
+// the importer uses to skip files it did not write.
 func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool) error {
 	body, err := resolveAgnosticBody(cfg, dryRun)
 	if err != nil {
@@ -39,11 +45,34 @@ func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool)
 			continue
 		}
 		seen[path] = true
+		warnOnHandAuthoredEntryPoint(path)
 		if err := adapters.WriteFile(path, rendered, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", path, err)
 		}
 	}
 	return nil
+}
+
+// warnOnHandAuthoredEntryPoint prints a single-line warning when path
+// exists, has non-empty content, and lacks the agnostic-ai provenance
+// marker. The marker is the same one `header.Has` uses to recognise a
+// generated file. Read errors are swallowed: sync proceeds with the
+// overwrite either way (preserving the historic behaviour) but a quiet
+// I/O failure does not block the user.
+func warnOnHandAuthoredEntryPoint(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	body := strings.TrimSpace(string(data))
+	if body == "" {
+		return
+	}
+	if header.Has(string(data)) {
+		return
+	}
+	summaryf("  ! %s appears hand-authored (no agnostic-ai header) — overwriting with the canonical pointer body. Move custom content into %s first to keep it.\n",
+		path, adapters.AgnosticEntryPointPath)
 }
 
 // resolveAgnosticBody returns the raw (no header) body for entry-point files.
