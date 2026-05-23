@@ -616,6 +616,46 @@ command = "gofmt"
 	}
 }
 
+// TOML multi-line string literals (developer_instructions, prompt
+// templates, ...) must round-trip through the overlay as-is. The
+// BurntSushi encoder would otherwise collapse them to single-line
+// `"...\n..."` form and the user's hand-formatted instructions would
+// disappear on the next sync.
+func TestImportFromCodex_PreservesMultiLineStringLiteral(t *testing.T) {
+	dir := t.TempDir()
+	original := `commit_attribution = ""
+model = "gpt-5"
+
+developer_instructions = """
+This is the project repository. Treat AGENTS.md as the source of truth.
+
+Multi-line instruction.
+"""
+
+[features]
+codex_hooks = true
+`
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), original)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(overlay), `developer_instructions = """`) {
+		t.Errorf("overlay collapsed multi-line literal:\n%s", overlay)
+	}
+	if strings.Contains(string(overlay), `\n`) {
+		t.Errorf("overlay should not carry escaped newlines:\n%s", overlay)
+	}
+	for _, want := range []string{"This is the project repository.", "Multi-line instruction."} {
+		if !strings.Contains(string(overlay), want) {
+			t.Errorf("overlay missing original line %q:\n%s", want, overlay)
+		}
+	}
+}
+
 func TestImportFromCodex_NoOverlayWhenOnlyManagedKeys(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.fs]
