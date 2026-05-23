@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,56 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+// A hand-authored entry-point file (no agnostic-ai provenance marker)
+// must trigger a one-line warning before sync overwrites it so the
+// user knows their content is about to be replaced.
+func TestWriteAgnosticEntryPoints_WarnsBeforeOverwritingHandAuthored(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	// Pre-existing root CLAUDE.md without provenance header.
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# My Hand-Written CLAUDE.md\n\nKeep me.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeAgnosticFile(t, "# Pointer body\n")
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	cfg := &config.Config{Targets: []string{"claude"}}
+	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "CLAUDE.md appears hand-authored") {
+		t.Errorf("expected hand-authored warning, got:\n%s", buf.String())
+	}
+}
+
+// A subsequent sync with a generated header on disk must NOT trigger
+// the warning — the file is already managed.
+func TestWriteAgnosticEntryPoints_NoWarnWhenGeneratedHeaderPresent(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	managed := header.With("# Pointer body\n", header.FormatMarkdown)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(managed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeAgnosticFile(t, "# Pointer body\n")
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	cfg := &config.Config{Targets: []string{"claude"}}
+	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "appears hand-authored") {
+		t.Errorf("expected no warning on already-managed file, got:\n%s", buf.String())
+	}
+}
 
 func TestResolveAgnosticBody_SeedsTemplateWhenAbsent(t *testing.T) {
 	testutil.TempCwd(t)

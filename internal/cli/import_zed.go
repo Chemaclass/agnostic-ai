@@ -40,7 +40,7 @@ func importFromZed(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, zedMainFile); err != nil {
+	if _, err := mirrorMainFile(root, zedMainFile); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d hooks, %d mcps\n", rules, hooks, mcps)

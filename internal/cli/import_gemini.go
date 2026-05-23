@@ -41,7 +41,10 @@ func importFromGemini(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, geminiMainFile); err != nil {
+	if err := captureHookScripts(root, "gemini"); err != nil {
+		return err
+	}
+	if _, err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d mcps, %d hooks\n", rules, agents, mcps, hooks)

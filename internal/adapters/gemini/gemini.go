@@ -64,7 +64,27 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
+	if err := emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+		return err
+	}
+	return materializeHookScripts(b.Hooks, dryRun)
+}
+
+// materializeHookScripts copies each hook's stashed script body from
+// `.agnostic-ai/scripts/` into `.gemini/hooks/` so the emitted
+// settings.json has the actual script alongside the path it references.
+func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+	for _, h := range hooks {
+		cmds := hookCommands(h.Meta["command"])
+		for _, raw := range cmds {
+			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
+			rewritten := emit.RewriteHookPath(raw, target)
+			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // emitSettings writes (or merges into) .gemini/settings.json with the
@@ -148,7 +168,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			continue
 		}
 		for _, cmd := range cmds {
-			entry := map[string]any{"command": cmd}
+			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
 			if matcher != "" {
 				entry["matcher"] = matcher
 			}

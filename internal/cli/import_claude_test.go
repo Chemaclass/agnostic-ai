@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -361,6 +362,96 @@ func TestImportFromClaude_MultipleHookCommandsPerGroup(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("expected %q in %s", want, data)
 		}
+	}
+}
+
+// timeout and statusMessage are first-class Claude hook fields that
+// must round-trip through the spec, not be silently dropped during
+// import. Spec is the source of truth; on next sync the emit side
+// re-populates the fields from these Meta keys.
+func TestImportFromClaude_PreservesHookTimeoutAndStatusMessage(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit|Write", "hooks": [
+        {"type": "command", "command": "fmt", "timeout": 30, "statusMessage": "Formatting"},
+        {"type": "command", "command": "lint", "timeout": 30, "statusMessage": "Formatting"}
+      ]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"timeout: 30", "statusMessage: Formatting"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q in %s", want, data)
+		}
+	}
+}
+
+// Hook script bodies under `.claude/hooks/` are captured into
+// `.agnostic-ai/scripts/claude/` so a gitignored .claude/ tree can be
+// reconstructed by the next `sync`. Executable bit must survive the
+// copy.
+// The claude importer previously claimed "AGNOSTIC_AI.md seeded from
+// CLAUDE.md" even when the project had no root CLAUDE.md (the common
+// case when claude rules live entirely in `.claude/`). Verify the line
+// only prints when the mirror actually wrote.
+func TestImportFromClaude_SkipsMainFileSummaryWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	// No root CLAUDE.md, but settings.json forces import to run.
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), `{"includeCoAuthoredBy": false}`)
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "AGNOSTIC_AI.md seeded from CLAUDE.md") {
+		t.Errorf("summary should not claim AGNOSTIC_AI.md was seeded when CLAUDE.md is absent:\n%s", buf.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no AGNOSTIC_AI.md when no source existed, err=%v", err)
+	}
+}
+
+func TestImportFromClaude_CapturesHookScriptBodies(t *testing.T) {
+	dir := t.TempDir()
+	body := "#!/usr/bin/env bash\necho protect\n"
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "protect-files.sh"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, ".agnostic-ai", "scripts", "claude", "protect-files.sh")
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("expected stashed script body: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("body mismatch: %q vs %q", got, body)
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("expected executable bit preserved, got %v", info.Mode().Perm())
 	}
 }
 

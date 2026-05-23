@@ -19,7 +19,7 @@ func importFromAider(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, aiderMainFile); err != nil {
+	if _, err := mirrorMainFile(root, aiderMainFile); err != nil {
 		return err
 	}
 	summaryf("imported %d rules\n", n)

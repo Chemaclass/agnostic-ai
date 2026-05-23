@@ -36,8 +36,17 @@ func agentTOML(a spec.Entry) string {
 		instructions = description
 	}
 
+	// Codex agent names use underscores by convention; the agnostic
+	// spec stores the canonical dash-cased filename. `x-codex.name`
+	// overrides the on-disk slug so the emitted TOML carries the
+	// runtime identifier (e.g. `changelog_keeper`) Codex expects.
+	runtimeName := a.Name
+	if v := xCodexString(a.Meta, "name"); v != "" {
+		runtimeName = v
+	}
+
 	var sb strings.Builder
-	emit.WriteTOMLString(&sb, "name", a.Name)
+	emit.WriteTOMLString(&sb, "name", runtimeName)
 	emit.WriteTOMLString(&sb, "description", description)
 	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
 
@@ -176,6 +185,17 @@ func toStringMap(m map[string]any) map[string]string {
 		}
 	}
 	return out
+}
+
+// xCodexString returns meta["x-codex"][key] as a string. Returns ""
+// when x-codex is absent, not a map, or the value is not a string.
+func xCodexString(meta map[string]any, key string) string {
+	x, ok := meta["x-codex"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	s, _ := x[key].(string)
+	return s
 }
 
 func stringOr(meta map[string]any, key, fallback string) string {

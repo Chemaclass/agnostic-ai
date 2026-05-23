@@ -13,6 +13,29 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// The on-disk spec filename canonicalises to dash-case (so claude and
+// codex collapse onto one file) but the emitted TOML must carry the
+// codex runtime identifier — typically an underscored name. `x-codex.name`
+// is the override hook for this divergence.
+func TestAgentTOML_UsesXCodexNameForRuntimeIdentifier(t *testing.T) {
+	a := spec.Entry{
+		Kind: spec.KindAgent,
+		Name: "changelog-keeper",
+		Body: "instructions",
+		Meta: map[string]any{
+			"description": "changelog agent",
+			"x-codex":     map[string]any{"name": "changelog_keeper"},
+		},
+	}
+	got := agentTOML(a)
+	if !strings.Contains(got, `name = "changelog_keeper"`) {
+		t.Errorf("expected x-codex.name to override emitted runtime name:\n%s", got)
+	}
+	if strings.Contains(got, `name = "changelog-keeper"`) {
+		t.Errorf("unexpected dashed name still emitted:\n%s", got)
+	}
+}
+
 func TestAgentTOML_EscapesQuotesAndBackslashes(t *testing.T) {
 	a := spec.Entry{
 		Kind: spec.KindAgent,

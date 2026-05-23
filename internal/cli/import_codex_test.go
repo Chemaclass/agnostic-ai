@@ -422,6 +422,217 @@ command = "lint"
 	}
 }
 
+// Some Codex installs keep hooks in a standalone .codex/hooks.json
+// alongside config.toml. The schema matches Claude's settings.json hook
+// block: hooks[<event>][n].{matcher, hooks[m].{type, command, timeout,
+// statusMessage}}. Import should pick up that file, preserve timeout
+// and statusMessage, and dedupe against any duplicate entries in
+// config.toml.
+func TestImportFromCodex_HooksFromHooksJSON(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": ".codex/hooks/protect-files.sh", "timeout": 5, "statusMessage": "Checking protected files"}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": ".codex/hooks/format-php.sh", "timeout": 30}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	pre := findOneHookFile(t, filepath.Join(dir, "hooks"), "pretooluse")
+	preData, _ := os.ReadFile(pre)
+	for _, want := range []string{
+		"matcher: Bash|apply_patch|Edit|Write",
+		"command: .codex/hooks/protect-files.sh",
+		"timeout: 5",
+		"statusMessage: Checking protected files",
+	} {
+		if !strings.Contains(string(preData), want) {
+			t.Errorf("expected %q in PreToolUse spec:\n%s", want, preData)
+		}
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	postData, _ := os.ReadFile(post)
+	for _, want := range []string{
+		"matcher: apply_patch|Edit|Write",
+		"command: .codex/hooks/format-php.sh",
+		"timeout: 30",
+	} {
+		if !strings.Contains(string(postData), want) {
+			t.Errorf("expected %q in PostToolUse spec:\n%s", want, postData)
+		}
+	}
+}
+
+// When both hooks.json and config.toml carry the same event/matcher/command,
+// keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
+func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt", "timeout": 30}]}
+    ]
+  }
+}`)
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[[hooks.PostToolUse]]
+matcher = "Edit"
+command = "fmt"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "hooks", "posttooluse-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one PostToolUse spec after dedupe, got %d: %v", len(matches), matches)
+	}
+	data, _ := os.ReadFile(matches[0])
+	if !strings.Contains(string(data), "timeout: 30") {
+		t.Errorf("dedupe should keep hooks.json variant carrying timeout:\n%s", data)
+	}
+}
+
+// Hook script bodies under `.codex/hooks/` capture into
+// `.agnostic-ai/scripts/codex/` for reconstruction on next sync.
+// Codex agent TOML files conventionally use underscored names
+// (\`name = "changelog_keeper"\`). Claude convention is dashed
+// (\`changelog-keeper.md\`). When both tools define the same agent the
+// importer must collapse them onto a single canonical dashed filename
+// so the project does not carry duplicate specs.
+func TestImportFromCodex_AgentNameDashUnderscoreCollisionDedupes(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate prior claude import: agent already at dashed filename.
+	if err := os.MkdirAll(filepath.Join(dir, "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	claudeBody := "---\nname: changelog-keeper\ndescription: Claude version\n---\n\nClaude-authored agent body.\n"
+	writeFile(t, filepath.Join(dir, "agents", "changelog-keeper.md"), claudeBody)
+
+	// Now run codex import with a TOML file using the underscore variant.
+	writeFile(t, filepath.Join(dir, ".agents/agents/changelog-keeper.toml"), `name = "changelog_keeper"
+description = "Codex version"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Codex hint.
+"""
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "agents", "changelog*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one merged spec, got %d: %v", len(matches), matches)
+	}
+	merged, _ := os.ReadFile(matches[0])
+	if !strings.Contains(string(merged), "name: changelog-keeper") {
+		t.Errorf("merged spec should keep canonical dashed name:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "Claude-authored agent body.") {
+		t.Errorf("merged spec should retain claude body:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "name: changelog_keeper") {
+		t.Errorf("codex underscore identifier should land under x-codex.name:\n%s", merged)
+	}
+	if !strings.Contains(string(merged), "model_reasoning_effort: medium") {
+		t.Errorf("merged spec should pick up codex-specific x-codex keys:\n%s", merged)
+	}
+}
+
+// A codex-only project (no prior claude import) still benefits from
+// canonical dashed filenames so a later claude pass does not create
+// the duplicate.
+func TestImportFromCodex_AgentFilenameCanonicalisedToDashes(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents/agents/foo.toml"), `name = "foo_bar"
+description = "x"
+developer_instructions = """body"""
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agents", "foo-bar.md")); err != nil {
+		t.Errorf("expected dashed filename, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "agents", "foo_bar.md")); err == nil {
+		t.Errorf("expected no underscored duplicate spec")
+	}
+}
+
+// AGENTS.md sharding splits the doc into one rule per H2 section. When
+// a claude-imported rule already lives at the canonical filename the
+// codex importer must skip (not overwrite) so claude's curated rule
+// survives. A warning makes the dedupe visible.
+func TestImportFromCodex_SkipsExistingRuleFromPriorImport(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate a prior claude import that wrote .agnostic-ai/rules/php.md.
+	if err := os.MkdirAll(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	claudeBody := "---\nname: php\ndescription: Claude PHP rule\n---\n\nClaude PHP body.\n"
+	writeFile(t, filepath.Join(dir, "rules", "php.md"), claudeBody)
+
+	// Now an AGENTS.md authored under codex provides a `## PHP` section.
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "## PHP\n\nCodex PHP body.\n")
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "rules", "php.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "Claude PHP body.") {
+		t.Errorf("expected claude body preserved, got:\n%s", got)
+	}
+	if strings.Contains(string(got), "Codex PHP body.") {
+		t.Errorf("codex body should not overwrite claude rule:\n%s", got)
+	}
+}
+
+func TestImportFromCodex_CapturesHookScriptBodies(t *testing.T) {
+	dir := t.TempDir()
+	body := "#!/usr/bin/env bash\necho codex hook\n"
+	if err := os.MkdirAll(filepath.Join(dir, ".codex", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".codex", "hooks", "format-php.sh"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, ".agnostic-ai", "scripts", "codex", "format-php.sh")
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("expected stashed script body: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("body mismatch: %q vs %q", got, body)
+	}
+}
+
 func TestImportFromCodex_SkipsAgentsAndSkillsWrappers(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "AGENTS.md"), `# AGENTS.md
@@ -501,6 +712,46 @@ command = "gofmt"
 	for _, never := range []string{`[mcp_servers.fs]`, `[[hooks.PostToolUse]]`} {
 		if strings.Contains(out, never) {
 			t.Errorf("overlay should not carry managed key %q:\n%s", never, out)
+		}
+	}
+}
+
+// TOML multi-line string literals (developer_instructions, prompt
+// templates, ...) must round-trip through the overlay as-is. The
+// BurntSushi encoder would otherwise collapse them to single-line
+// `"...\n..."` form and the user's hand-formatted instructions would
+// disappear on the next sync.
+func TestImportFromCodex_PreservesMultiLineStringLiteral(t *testing.T) {
+	dir := t.TempDir()
+	original := `commit_attribution = ""
+model = "gpt-5"
+
+developer_instructions = """
+This is the project repository. Treat AGENTS.md as the source of truth.
+
+Multi-line instruction.
+"""
+
+[features]
+codex_hooks = true
+`
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), original)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(overlay), `developer_instructions = """`) {
+		t.Errorf("overlay collapsed multi-line literal:\n%s", overlay)
+	}
+	if strings.Contains(string(overlay), `\n`) {
+		t.Errorf("overlay should not carry escaped newlines:\n%s", overlay)
+	}
+	for _, want := range []string{"This is the project repository.", "Multi-line instruction."} {
+		if !strings.Contains(string(overlay), want) {
+			t.Errorf("overlay missing original line %q:\n%s", want, overlay)
 		}
 	}
 }

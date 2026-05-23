@@ -36,6 +36,9 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	if err := captureHookScripts(root, "codex"); err != nil {
+		return err
+	}
 	commands, err := importCodexCommands(root, filepath.Join(root, src.Commands))
 	if err != nil {
 		return err
@@ -44,7 +47,7 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
+	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
@@ -269,6 +272,17 @@ func dedupSlug(used map[string]int, slug string) string {
 }
 
 func writeCodexRule(dstDir, name, description, globs, body string) error {
+	path := filepath.Join(dstDir, name+".md")
+
+	// A claude-imported rule already at this slug owns the canonical
+	// content; emit a one-line skip notice and keep the existing spec
+	// rather than blindly overwriting it with the AGENTS.md slice. The
+	// user can merge by hand if codex's body has unique content.
+	if existing, err := os.ReadFile(path); err == nil && len(existing) > 0 {
+		summaryf("  ! skipped %s — already exists (likely from a prior import); review codex AGENTS.md for unique content to merge by hand\n", path)
+		return nil
+	}
+
 	var fm strings.Builder
 	fm.WriteString("---\nname: " + name + "\n")
 	if description != "" {
@@ -281,7 +295,6 @@ func writeCodexRule(dstDir, name, description, globs, body string) error {
 	fm.WriteString(strings.TrimRight(body, "\n"))
 	fm.WriteString("\n")
 
-	path := filepath.Join(dstDir, name+".md")
 	if err := importWriteFile(path, []byte(fm.String()), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}

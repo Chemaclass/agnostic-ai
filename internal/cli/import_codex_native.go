@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -19,6 +20,7 @@ import (
 var codexAgentDirs = []string{".agents/agents", ".codex/agents"}
 
 const (
+	codexDir        = ".codex"
 	codexSkillsDir  = ".agents/skills"
 	codexConfigTOML = ".codex/config.toml"
 )
@@ -49,21 +51,40 @@ func importCodexAgents(root, dstDir string) (int, error) {
 			if err != nil {
 				return count, err
 			}
-			name := strings.TrimSuffix(e.Name(), ".toml")
+			tomlName := strings.TrimSuffix(e.Name(), ".toml")
 			if n, _ := doc["name"].(string); n != "" {
-				name = n
+				tomlName = n
 			}
-			if seen[name] {
+			// Canonicalise filename to dash-case so claude-imported
+			// `changelog-keeper.md` and codex-imported
+			// `changelog_keeper` resolve to the same spec on disk.
+			// The original underscore form is preserved verbatim in
+			// the frontmatter's `name:` field so codex emit keeps the
+			// TOML `name = "changelog_keeper"` value Codex expects.
+			canonical := canonicalSpecSlug(tomlName)
+			if seen[canonical] {
 				continue
 			}
-			seen[name] = true
-			if err := writeCodexAgentSpec(dstDir, name, doc); err != nil {
+			seen[canonical] = true
+
+			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc)
+			if err != nil {
 				return count, err
 			}
-			count++
+			if wrote {
+				count++
+			}
 		}
 	}
 	return count, nil
+}
+
+// canonicalSpecSlug returns name with `_` rewritten to `-` and the
+// result lowercased. Used to dedupe filenames between tools that pick
+// different separator conventions (claude uses dashes, codex uses
+// underscores).
+func canonicalSpecSlug(name string) string {
+	return strings.ToLower(strings.ReplaceAll(name, "_", "-"))
 }
 
 func readCodexAgentTOML(path string) (map[string]any, error) {
@@ -85,14 +106,50 @@ var codexAgentTopLevel = map[string]bool{
 	"developer_instructions": true,
 }
 
-// writeCodexAgentSpec renders a codex agent TOML as an agnostic-ai agent
-// spec (.md with frontmatter + body). Known top-level keys map directly;
-// every other key lands under `x-codex` so the emitter round-trips them.
-func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
+// mergeOrWriteCodexAgentSpec writes a codex agent spec at
+// `<dstDir>/<canonical>.md`. When a claude-imported file already lives
+// at that path the codex-specific keys (`x-codex.*` and any missing
+// top-level fields) are layered into it without overwriting the body or
+// the existing `name:` slug. Returns (wrote, err) where `wrote` is true
+// for both fresh writes and merges so the caller still counts the spec.
+//
+// Filename canonicalisation collapses claude's dashed convention and
+// codex's underscored convention onto the same on-disk file so a
+// project that imports both tools no longer carries duplicate specs
+// (changelog-keeper.md + changelog_keeper.md). When the codex `name`
+// differs from the canonical slug it lands under `x-codex.name` so the
+// codex emitter still produces TOML with the runtime-expected
+// underscored identifier.
+func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any) (bool, error) {
+	path := filepath.Join(dstDir, canonical+".md")
+	existing, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return true, writeCodexAgentSpec(path, canonical, codexName, doc)
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	merged, err := mergeCodexAgentIntoExisting(string(existing), codexName, doc)
+	if err != nil {
+		return false, err
+	}
+	if err := importWriteFile(path, []byte(merged), 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	return true, nil
+}
+
+// writeCodexAgentSpec renders a codex agent TOML as a fresh
+// agnostic-ai spec under path. Known top-level keys map directly into
+// the frontmatter; every other key lands under `x-codex`. `name:` uses
+// the canonical (dash) slug so the on-disk filename and frontmatter
+// stay aligned; when the codex runtime name differs it is preserved
+// under `x-codex.name`.
+func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any) error {
 	body, _ := doc["developer_instructions"].(string)
 	body = strings.TrimRight(body, "\n")
 
-	fm := map[string]any{"name": name}
+	fm := map[string]any{"name": canonical}
 	if d, _ := doc["description"].(string); d != "" {
 		fm["description"] = d
 	}
@@ -106,21 +163,95 @@ func writeCodexAgentSpec(dstDir, name string, doc map[string]any) error {
 		}
 		xcodex[key] = val
 	}
+	if codexName != "" && codexName != canonical {
+		xcodex["name"] = codexName
+	}
 	if len(xcodex) > 0 {
 		fm["x-codex"] = xcodex
 	}
 
 	raw, err := yaml.Marshal(fm)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", name, err)
+		return fmt.Errorf("marshal %s: %w", canonical, err)
 	}
 	out := "---\n" + string(raw) + "---\n\n" + body + "\n"
 
-	path := filepath.Join(dstDir, name+".md")
 	if err := importWriteFile(path, []byte(out), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// mergeCodexAgentIntoExisting parses an already-imported agent spec
+// (claude origin) and layers codex-specific frontmatter on top without
+// disturbing the body or existing top-level keys. Only the keys the
+// codex TOML actually provides get written, so claude's richer body
+// + description survive even when both tools defined the agent.
+func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any) (string, error) {
+	front, body, ok := splitCodexAgentFrontmatter(existing)
+	if !ok {
+		return existing, nil
+	}
+	fm := map[string]any{}
+	if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+		return "", fmt.Errorf("parse existing frontmatter: %w", err)
+	}
+	if _, has := fm["description"]; !has {
+		if d, _ := doc["description"].(string); d != "" {
+			fm["description"] = d
+		}
+	}
+	if _, has := fm["model"]; !has {
+		if m, _ := doc["model"].(string); m != "" {
+			fm["model"] = m
+		}
+	}
+	xcodex, _ := fm["x-codex"].(map[string]any)
+	if xcodex == nil {
+		xcodex = map[string]any{}
+	}
+	for key, val := range doc {
+		if codexAgentTopLevel[key] {
+			continue
+		}
+		if _, present := xcodex[key]; !present {
+			xcodex[key] = val
+		}
+	}
+	if codexName != "" {
+		if canonical, _ := fm["name"].(string); codexName != canonical {
+			if _, present := xcodex["name"]; !present {
+				xcodex["name"] = codexName
+			}
+		}
+	}
+	if len(xcodex) > 0 {
+		fm["x-codex"] = xcodex
+	}
+	raw, err := yaml.Marshal(fm)
+	if err != nil {
+		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
+	return "---\n" + string(raw) + "---\n\n" + body, nil
+}
+
+// splitCodexAgentFrontmatter returns the YAML between the first two `---`
+// delimiters and the markdown body following them. Returns (_, _,
+// false) when the input does not open with a frontmatter block.
+func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
+	if !strings.HasPrefix(doc, "---\n") {
+		return "", "", false
+	}
+	rest := doc[len("---\n"):]
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return "", "", false
+	}
+	front := rest[:end]
+	body := rest[end+len("\n---"):]
+	body = strings.TrimPrefix(body, "\n")
+	body = strings.TrimPrefix(body, "\n")
+	return front, body, true
 }
 
 // importCodexSkills walks `<root>/.agents/skills/<name>/` and mirrors
@@ -165,8 +296,10 @@ type codexConfigDoc struct {
 }
 
 type codexHookEntry struct {
-	Matcher string `toml:"matcher"`
-	Command string `toml:"command"`
+	Matcher       string `toml:"matcher"`
+	Command       string `toml:"command"`
+	Timeout       int    `toml:"timeout"`
+	StatusMessage string `toml:"statusMessage"`
 }
 
 type codexMCPEntry struct {
@@ -178,68 +311,187 @@ type codexMCPEntry struct {
 	HTTPHeaders       map[string]string `toml:"http_headers"`
 }
 
-// importCodexConfig reads `<root>/.codex/config.toml` and writes one
-// yaml per `[[hooks.<event>]]` entry to hooksDst and one yaml per
-// `[mcp_servers.<name>]` table to mcpsDst. Returns (hooks, mcps).
+// importCodexConfig reads `<root>/.codex/config.toml` plus the
+// standalone `<root>/.codex/hooks.json` (if present) and writes one
+// yaml per discovered hook to hooksDst and one yaml per `[mcp_servers.<name>]`
+// table to mcpsDst. Hooks declared in both files are deduped by
+// (event, matcher, command); the hooks.json variant wins because it
+// can carry timeout + statusMessage.
+//
+// Returns (hooks, mcps).
 func importCodexConfig(root, hooksDst, mcpsDst string) (int, int, error) {
-	path := filepath.Join(root, codexConfigTOML)
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, 0, nil
-	}
+	hooksByKey, mcpServers, err := readCodexConfigTOML(root)
 	if err != nil {
-		return 0, 0, fmt.Errorf("read %s: %w", path, err)
+		return 0, 0, err
 	}
-	var doc codexConfigDoc
-	if _, err := toml.Decode(string(data), &doc); err != nil {
-		return 0, 0, fmt.Errorf("parse %s: %w", path, err)
+	if err := mergeCodexHooksJSON(root, hooksByKey); err != nil {
+		return 0, 0, err
 	}
 
-	hooks, err := writeCodexHooks(doc.Hooks, hooksDst)
+	hooks, err := writeCodexHooksFromMap(hooksByKey, hooksDst)
 	if err != nil {
 		return hooks, 0, err
 	}
-	mcps, err := writeCodexMCPs(doc.MCPServers, mcpsDst)
+	mcps, err := writeCodexMCPs(mcpServers, mcpsDst)
 	if err != nil {
 		return hooks, mcps, err
 	}
 	return hooks, mcps, nil
 }
 
-func writeCodexHooks(byEvent map[string][]codexHookEntry, dstDir string) (int, error) {
-	events := make([]string, 0, len(byEvent))
-	for e := range byEvent {
-		events = append(events, e)
-	}
-	sort.Strings(events)
+// codexHookKey identifies a hook for dedupe across sources. Hooks with
+// the same (event, matcher, command) are considered the same entry.
+type codexHookKey struct {
+	event, matcher, command string
+}
 
-	count := 0
-	for _, event := range events {
-		for _, h := range byEvent[event] {
+// codexHookSlot is the merged hook representation built up by reading
+// every codex hook source. The order field preserves discovery order
+// so emitted spec files stay byte-stable across re-imports.
+type codexHookSlot struct {
+	order         int
+	entry         codexHookEntry
+	event         string
+	fromHooksJSON bool
+}
+
+// readCodexConfigTOML reads `.codex/config.toml` and returns a
+// dedupe-keyed map of hooks plus the MCP servers section. The dedupe key
+// uses (event, matcher, command) so the standalone hooks.json layer can
+// overwrite TOML-defined entries that carry less information.
+func readCodexConfigTOML(root string) (map[codexHookKey]*codexHookSlot, map[string]codexMCPEntry, error) {
+	hooks := map[codexHookKey]*codexHookSlot{}
+	path := filepath.Join(root, codexConfigTOML)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return hooks, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc codexConfigDoc
+	if _, err := toml.Decode(string(data), &doc); err != nil {
+		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, event := range sortedMapKeys(doc.Hooks) {
+		for _, h := range doc.Hooks[event] {
 			if h.Command == "" {
 				continue
 			}
-			name := hookSpecName(event, h.Matcher, []string{h.Command})
-			doc := map[string]any{
-				"name":    name,
-				"event":   event,
-				"command": h.Command,
+			k := codexHookKey{event: event, matcher: h.Matcher, command: h.Command}
+			if _, exists := hooks[k]; exists {
+				continue
 			}
-			if h.Matcher != "" {
-				doc["matcher"] = h.Matcher
-			}
-			raw, err := yaml.Marshal(doc)
-			if err != nil {
-				return count, fmt.Errorf("marshal hook %s: %w", name, err)
-			}
-			path := filepath.Join(dstDir, name+".yaml")
-			if err := importWriteFile(path, raw, 0o644); err != nil {
-				return count, fmt.Errorf("write %s: %w", path, err)
-			}
-			count++
+			hooks[k] = &codexHookSlot{order: len(hooks), entry: h, event: event}
 		}
 	}
+	return hooks, doc.MCPServers, nil
+}
+
+// mergeCodexHooksJSON layers `.codex/hooks.json` over the config.toml
+// dedupe map. When the same (event, matcher, command) appears in both,
+// the JSON entry wins so timeout + statusMessage propagate even when
+// the TOML copy carried only matcher + command.
+func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) error {
+	path := filepath.Join(root, codexDir, "hooks.json")
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	var s claudeSettings // identical shape: hooks[<event>][n].{matcher, hooks[m].{...}}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, event := range sortedMapKeys(s.Hooks) {
+		for _, g := range s.Hooks[event] {
+			for _, h := range g.Hooks {
+				if h.Command == "" {
+					continue
+				}
+				k := codexHookKey{event: event, matcher: g.Matcher, command: h.Command}
+				slot, exists := hooks[k]
+				entry := codexHookEntry{
+					Matcher:       g.Matcher,
+					Command:       h.Command,
+					Timeout:       h.Timeout,
+					StatusMessage: h.StatusMessage,
+				}
+				if !exists {
+					hooks[k] = &codexHookSlot{
+						order:         len(hooks),
+						entry:         entry,
+						event:         event,
+						fromHooksJSON: true,
+					}
+					continue
+				}
+				slot.entry = entry
+				slot.fromHooksJSON = true
+			}
+		}
+	}
+	return nil
+}
+
+// writeCodexHooksFromMap emits one yaml per discovered hook. Hooks are
+// written in (event, order) order so a re-import produces byte-stable
+// output regardless of which source file changed.
+func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string) (int, error) {
+	slots := make([]*codexHookSlot, 0, len(hooks))
+	for _, slot := range hooks {
+		slots = append(slots, slot)
+	}
+	sort.SliceStable(slots, func(i, j int) bool {
+		if slots[i].event != slots[j].event {
+			return slots[i].event < slots[j].event
+		}
+		return slots[i].order < slots[j].order
+	})
+
+	count := 0
+	for _, slot := range slots {
+		h := slot.entry
+		name := hookSpecName(slot.event, h.Matcher, []string{h.Command})
+		doc := map[string]any{
+			"name":    name,
+			"event":   slot.event,
+			"command": h.Command,
+		}
+		if h.Matcher != "" {
+			doc["matcher"] = h.Matcher
+		}
+		if h.Timeout != 0 {
+			doc["timeout"] = h.Timeout
+		}
+		if h.StatusMessage != "" {
+			doc["statusMessage"] = h.StatusMessage
+		}
+		raw, err := yaml.Marshal(doc)
+		if err != nil {
+			return count, fmt.Errorf("marshal hook %s: %w", name, err)
+		}
+		path := filepath.Join(dstDir, name+".yaml")
+		if err := importWriteFile(path, raw, 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", path, err)
+		}
+		count++
+	}
 	return count, nil
+}
+
+// sortedMapKeys returns a copy of map[string]V's keys sorted for
+// deterministic iteration. Local to the codex importer to avoid
+// colliding with the validate.go variant that takes a set.
+func sortedMapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error) {
