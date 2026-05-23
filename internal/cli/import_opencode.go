@@ -35,7 +35,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, opencodeMainFile); err != nil {
+	if _, err := mirrorMainFile(root, opencodeMainFile); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d mcps\n", rules, agents, mcps)

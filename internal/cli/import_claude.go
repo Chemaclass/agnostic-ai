@@ -62,13 +62,16 @@ func importFromClaude(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorClaudeMainFile(root); err != nil {
+	mainSeeded, err := mirrorClaudeMainFile(root)
+	if err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
-	summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
-		agnosticMainFile, claudeMainFile)
+	if mainSeeded {
+		summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
+			agnosticMainFile, claudeMainFile)
+	}
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
@@ -78,43 +81,48 @@ func importFromClaude(root string, src config.Sources) error {
 }
 
 // mirrorClaudeMainFile mirrors <root>/CLAUDE.md to
-// <root>/.agnostic-ai/AGNOSTIC_AI.md.
-func mirrorClaudeMainFile(root string) error {
+// <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns (true, nil) when the
+// mirror actually wrote so callers can suppress a misleading summary
+// line on a CLAUDE.md-less project.
+func mirrorClaudeMainFile(root string) (bool, error) {
 	return mirrorMainFile(root, claudeMainFile)
 }
 
 // mirrorMainFile copies <root>/<srcName> byte-for-byte to
-// <root>/.agnostic-ai/AGNOSTIC_AI.md. No-op when the source is absent.
-// Each importer calls this with the target's own top-level
-// instructions filename so the project keeps a CLI-agnostic copy
-// under the managed directory. Later imports overwrite earlier
+// <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns (false, nil) when the
+// source is absent so the caller can skip its "seeded from <src>"
+// summary line. Each importer calls this with the target's own
+// top-level instructions filename so the project keeps a CLI-agnostic
+// copy under the managed directory. Later imports overwrite earlier
 // mirrors (last-import wins).
-func mirrorMainFile(root, srcName string) error {
+func mirrorMainFile(root, srcName string) (bool, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
-	if err := copyFileIfExists(src, dst); err != nil {
-		return fmt.Errorf("mirror %s: %w", srcName, err)
+	wrote, err := copyFileIfExists(src, dst)
+	if err != nil {
+		return false, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
-	return nil
+	return wrote, nil
 }
 
-// copyFileIfExists copies src to dst byte-for-byte. Returns nil when
-// src is absent; surfaces every other read/write error.
-func copyFileIfExists(src, dst string) error {
+// copyFileIfExists copies src to dst byte-for-byte. Returns (false,
+// nil) when src is absent so the caller can distinguish a real copy
+// from a no-op; surfaces every other read/write error.
+func copyFileIfExists(src, dst string) (bool, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", src, err)
+		return false, fmt.Errorf("read %s: %w", src, err)
 	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, data, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
+		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
-	return nil
+	return true, nil
 }
 
 // copyMarkdownDir copies every top-level *.md file from srcDir into

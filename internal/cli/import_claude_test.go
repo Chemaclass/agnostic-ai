@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -400,6 +401,31 @@ func TestImportFromClaude_PreservesHookTimeoutAndStatusMessage(t *testing.T) {
 // `.agnostic-ai/scripts/claude/` so a gitignored .claude/ tree can be
 // reconstructed by the next `sync`. Executable bit must survive the
 // copy.
+// The claude importer previously claimed "AGNOSTIC_AI.md seeded from
+// CLAUDE.md" even when the project had no root CLAUDE.md (the common
+// case when claude rules live entirely in `.claude/`). Verify the line
+// only prints when the mirror actually wrote.
+func TestImportFromClaude_SkipsMainFileSummaryWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	// No root CLAUDE.md, but settings.json forces import to run.
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), `{"includeCoAuthoredBy": false}`)
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "AGNOSTIC_AI.md seeded from CLAUDE.md") {
+		t.Errorf("summary should not claim AGNOSTIC_AI.md was seeded when CLAUDE.md is absent:\n%s", buf.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no AGNOSTIC_AI.md when no source existed, err=%v", err)
+	}
+}
+
 func TestImportFromClaude_CapturesHookScriptBodies(t *testing.T) {
 	dir := t.TempDir()
 	body := "#!/usr/bin/env bash\necho protect\n"

@@ -47,7 +47,7 @@ func importFromCodex(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if err := mirrorMainFile(root, "AGENTS.md"); err != nil {
+	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
