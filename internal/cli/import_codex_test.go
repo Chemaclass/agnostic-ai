@@ -579,6 +579,38 @@ developer_instructions = """body"""
 	}
 }
 
+// AGENTS.md sharding splits the doc into one rule per H2 section. When
+// a claude-imported rule already lives at the canonical filename the
+// codex importer must skip (not overwrite) so claude's curated rule
+// survives. A warning makes the dedupe visible.
+func TestImportFromCodex_SkipsExistingRuleFromPriorImport(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate a prior claude import that wrote .agnostic-ai/rules/php.md.
+	if err := os.MkdirAll(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	claudeBody := "---\nname: php\ndescription: Claude PHP rule\n---\n\nClaude PHP body.\n"
+	writeFile(t, filepath.Join(dir, "rules", "php.md"), claudeBody)
+
+	// Now an AGENTS.md authored under codex provides a `## PHP` section.
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "## PHP\n\nCodex PHP body.\n")
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "rules", "php.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "Claude PHP body.") {
+		t.Errorf("expected claude body preserved, got:\n%s", got)
+	}
+	if strings.Contains(string(got), "Codex PHP body.") {
+		t.Errorf("codex body should not overwrite claude rule:\n%s", got)
+	}
+}
+
 func TestImportFromCodex_CapturesHookScriptBodies(t *testing.T) {
 	dir := t.TempDir()
 	body := "#!/usr/bin/env bash\necho codex hook\n"
