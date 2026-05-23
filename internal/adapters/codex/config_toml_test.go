@@ -149,6 +149,36 @@ func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
 	}
 }
 
+// A hook spec authored against another tool's hooks directory must
+// rewrite the `.<sibling>/hooks/` prefix to `.codex/hooks/` so the
+// emitted config.toml points at a path that actually exists under the
+// codex tree.
+func TestEmit_Hook_RewritesSiblingHookPathToCodex(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{
+				"event":   "PreToolUse",
+				"matcher": "Edit",
+				"command": ".claude/hooks/protect-files.sh",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `command = ".codex/hooks/protect-files.sh"`) {
+		t.Errorf("expected sibling claude path rewritten to .codex/hooks/, got:\n%s", got)
+	}
+	if strings.Contains(got, ".claude/hooks/") {
+		t.Errorf("emitted toml still references .claude/hooks/:\n%s", got)
+	}
+}
+
 // Hooks with no event are skipped.
 func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)

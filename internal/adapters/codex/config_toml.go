@@ -288,7 +288,7 @@ func writeHookSection(sb *strings.Builder, event string, h spec.Entry) {
 		if matcher != "" {
 			emit.WriteTOMLString(sb, "matcher", matcher)
 		}
-		emit.WriteTOMLString(sb, "command", cmd)
+		emit.WriteTOMLString(sb, "command", emit.RewriteHookPath(cmd, target))
 		sb.WriteString("\n")
 	}
 }

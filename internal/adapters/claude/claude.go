@@ -313,7 +313,7 @@ func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
 		for _, cmd := range cmds {
 			byKey[k] = append(byKey[k], hookCommandEntry{
 				Type:          "command",
-				Command:       cmd,
+				Command:       emit.RewriteHookPath(cmd, target),
 				Timeout:       timeout,
 				StatusMessage: statusMessage,
 			})

@@ -148,7 +148,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			continue
 		}
 		for _, cmd := range cmds {
-			entry := map[string]any{"command": cmd}
+			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
 			if matcher != "" {
 				entry["matcher"] = matcher
 			}

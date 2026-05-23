@@ -450,6 +450,39 @@ func TestEmit_HookTimeoutAndStatusMessagePropagate(t *testing.T) {
 	}
 }
 
+// A hook spec authored against another tool's hooks directory must
+// rewrite the `.<sibling>/hooks/` prefix to `.claude/hooks/` so the
+// emitted settings.json points at the path inside the Claude tree.
+func TestEmit_Hook_RewritesSiblingHookPathToClaude(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{
+				"event":   "PreToolUse",
+				"matcher": "Edit",
+				"command": ".codex/hooks/protect-files.sh",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `".claude/hooks/protect-files.sh"`) {
+		t.Errorf("expected sibling codex path rewritten to .claude/hooks/, got:\n%s", raw)
+	}
+	if strings.Contains(string(raw), ".codex/hooks/") {
+		t.Errorf("emitted settings.json still references .codex/hooks/:\n%s", raw)
+	}
+}
+
 func TestEmit_MergesHooksBySameEventAndMatcher(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
