@@ -252,8 +252,9 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 			}
 			name := hookSpecName(event, matcher, cmds)
 			doc := map[string]any{
-				"name":  name,
-				"event": event,
+				"name":   name,
+				"event":  event,
+				"target": "gemini",
 			}
 			if cmd != "" {
 				doc["command"] = cmd

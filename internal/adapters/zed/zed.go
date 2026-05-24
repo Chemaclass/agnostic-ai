@@ -57,7 +57,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
-	if err := emitTasks(b.Hooks, emit.OutputTasksFile(cfg, target, ""), dryRun); err != nil {
+	if err := emitTasks(b.HooksFor(target), emit.OutputTasksFile(cfg, target, ""), dryRun); err != nil {
 		return err
 	}
 	return emitContextServers(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

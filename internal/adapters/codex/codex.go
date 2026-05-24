@@ -115,7 +115,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
 		return err
 	}
-	return materializeHookScripts(b.Hooks, dryRun)
+	return materializeHookScripts(b.HooksFor(target), dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from
@@ -177,7 +177,7 @@ func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	body := renderConfigTOML(b.Hooks, b.MCPs, codexCfg, overlay, overlayKeys)
+	body := renderConfigTOML(b.HooksFor(target), b.MCPs, codexCfg, overlay, overlayKeys)
 	if body == "" {
 		return nil
 	}

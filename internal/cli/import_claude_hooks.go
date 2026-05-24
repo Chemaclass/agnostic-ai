@@ -84,6 +84,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				"name":    name,
 				"event":   event,
 				"matcher": g.Matcher,
+				"target":  "claude",
 			}
 			if len(cmds) == 1 {
 				doc["command"] = cmds[0]

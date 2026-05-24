@@ -67,7 +67,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
 		return err
 	}
-	return materializeHookScripts(b.Hooks, dryRun)
+	return materializeHookScripts(b.HooksFor(target), dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from
@@ -95,7 +95,7 @@ func emitSettings(b spec.Bundle, path string, dryRun bool) error {
 	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
 		keys["mcpServers"] = servers
 	}
-	if hooks := buildHooks(b.Hooks); len(hooks) > 0 {
+	if hooks := buildHooks(b.HooksFor(target)); len(hooks) > 0 {
 		keys["hooks"] = hooks
 	}
 	if len(keys) == 0 {

@@ -101,11 +101,12 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	if err := writeSettings(b.Hooks, dir, cfg, dryRun); err != nil {
+	hooks := b.HooksFor(target)
+	if err := writeSettings(hooks, dir, cfg, dryRun); err != nil {
 		return err
 	}
 
-	if err := materializeHookScripts(b.Hooks, dryRun); err != nil {
+	if err := materializeHookScripts(hooks, dryRun); err != nil {
 		return err
 	}
 

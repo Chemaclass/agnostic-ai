@@ -81,6 +81,47 @@ func (e Entry) Description() string {
 	return d
 }
 
+// EmitsTo reports whether this entry should emit for the given target.
+//
+// Entries opt into per-target scoping via the `target` (string) or
+// `targets` (list of strings) frontmatter field. When neither is set the
+// entry emits everywhere a supporting adapter exists (legacy behavior).
+// When set, only adapters whose name appears in the list see the entry.
+//
+// Empty target string short-circuits to true so callers that do not pass
+// a target (tests, ad-hoc tooling) keep historical semantics.
+func (e Entry) EmitsTo(target string) bool {
+	if target == "" {
+		return true
+	}
+	if s, ok := e.Meta["target"].(string); ok && s != "" {
+		return s == target
+	}
+	switch v := e.Meta["targets"].(type) {
+	case []any:
+		if len(v) == 0 {
+			return true
+		}
+		for _, x := range v {
+			if s, ok := x.(string); ok && s == target {
+				return true
+			}
+		}
+		return false
+	case []string:
+		if len(v) == 0 {
+			return true
+		}
+		for _, s := range v {
+			if s == target {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
 // Globs returns the entry's globs frontmatter as a string, or "" if
 // missing or not a string.
 func (e Entry) Globs() string {
@@ -145,6 +186,22 @@ func (b Bundle) All() []Entry {
 	out = append(out, b.Hooks...)
 	out = append(out, b.MCPs...)
 	out = append(out, b.Commands...)
+	return out
+}
+
+// HooksFor returns the subset of b.Hooks that should emit for target,
+// per Entry.EmitsTo. Use this in adapter Emit() loops to honor hook
+// `target:` / `targets:` scoping. Empty target returns b.Hooks verbatim.
+func (b Bundle) HooksFor(target string) []Entry {
+	if target == "" {
+		return b.Hooks
+	}
+	out := make([]Entry, 0, len(b.Hooks))
+	for _, h := range b.Hooks {
+		if h.EmitsTo(target) {
+			out = append(out, h)
+		}
+	}
 	return out
 }
 
