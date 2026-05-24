@@ -175,7 +175,7 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any) 
 		fm["x-codex"] = xcodex
 	}
 
-	raw, err := yaml.Marshal(fm)
+	raw, err := marshalAgentFrontmatter(fm)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", canonical, err)
 	}
@@ -233,11 +233,73 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 	if len(xcodex) > 0 {
 		fm["x-codex"] = xcodex
 	}
-	raw, err := yaml.Marshal(fm)
+	raw, err := marshalAgentFrontmatter(fm)
 	if err != nil {
 		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
 	}
 	return "---\n" + string(raw) + "---\n\n" + body, nil
+}
+
+// agentFrontmatterOrder is the canonical claude-conventional key order
+// for an imported agent spec frontmatter. Keys missing from this list
+// land between the known scalars and `x-codex`, sorted alphabetically
+// for stability; `x-codex` always trails so the tool-specific subtree
+// stays out of the eye-line when reading the file.
+var agentFrontmatterOrder = []string{
+	"name",
+	"description",
+	"model",
+	"allowed_tools",
+	"argument-hint",
+	"disable-model-invocation",
+}
+
+// marshalAgentFrontmatter renders fm as YAML with claude-conventional
+// key order so the captured spec matches the format Claude's own
+// `.claude/agents/*.md` files use. yaml.Marshal on a map sorts
+// alphabetically, which mangles round-tripped hand-authored agents on
+// every sync.
+func marshalAgentFrontmatter(fm map[string]any) ([]byte, error) {
+	root := &yaml.Node{Kind: yaml.MappingNode}
+	seen := map[string]bool{}
+	add := func(key string) error {
+		val, ok := fm[key]
+		if !ok {
+			return nil
+		}
+		seen[key] = true
+		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: key}
+		valNode := &yaml.Node{}
+		if err := valNode.Encode(val); err != nil {
+			return err
+		}
+		root.Content = append(root.Content, keyNode, valNode)
+		return nil
+	}
+	for _, k := range agentFrontmatterOrder {
+		if err := add(k); err != nil {
+			return nil, err
+		}
+	}
+	// Append remaining keys (other than x-codex) in alphabetical order
+	// so unknown fields stay deterministic.
+	var rest []string
+	for k := range fm {
+		if seen[k] || k == "x-codex" {
+			continue
+		}
+		rest = append(rest, k)
+	}
+	sort.Strings(rest)
+	for _, k := range rest {
+		if err := add(k); err != nil {
+			return nil, err
+		}
+	}
+	if err := add("x-codex"); err != nil {
+		return nil, err
+	}
+	return yaml.Marshal(root)
 }
 
 // splitCodexAgentFrontmatter returns the YAML between the first two `---`
