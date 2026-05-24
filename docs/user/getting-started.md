@@ -177,7 +177,7 @@ are written; empty stubs are skipped):
 │   └── conventional-commits.md
 ├── .claude/rules/<name>.md                      # for Claude Code (project rules)
 ├── AGENTS.md                                    # for Codex / Amp / Warp (shared open standard)
-├── .agents/agents/<name>.toml                   # for Codex subagents
+├── .codex/agents/<name>.toml                    # for Codex subagents
 ├── .agents/commands/<name>.md                   # for Amp slash commands
 ├── GEMINI.md                                    # for Gemini CLI
 ├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands

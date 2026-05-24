@@ -39,7 +39,7 @@ outputs:
 
   codex:
     file: AGENTS.md              # default. Hierarchical per scope.
-    agents-dir: .agents/agents   # default. One TOML per agent.
+    agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
     skills-dir: .agents/skills   # default. One folder per skill.
     mcp-file: .codex/config.toml # default. Holds [[hooks.<event>]] and [mcp_servers.<name>].
 

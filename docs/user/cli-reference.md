@@ -91,7 +91,7 @@ When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if t
 | `<dir>/AGENTS.md` (nested) | `<rules>/<slug>.md` with inferred `globs: <dir>/**` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
-| `.agents/agents/*.toml` | `<agents>/<name>.md` |
+| `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md` |
 | `.agents/skills/<name>/SKILL.md` (+ `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved) |
 | `.codex/config.toml` `[[hooks.<event>]]` | `<hooks>/<event>-<hash8>.yaml` (one spec per entry) |
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |

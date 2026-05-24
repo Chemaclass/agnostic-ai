@@ -75,7 +75,7 @@ outputs:
     mcp-file: .mcp.json          # default
     # rules-file: CLAUDE.md      # opt-in: legacy concatenated rules layout.
   codex:
-    agents-dir: .agents/agents   # default. One TOML per agent.
+    agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
     skills-dir: .agents/skills   # default. One folder per skill.
     # shared-subagents: <bool>  # default: false when claude is also in `targets`
     #                            # (claude already owns skills at .claude/skills/<name>/);
@@ -170,7 +170,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `claude` | `rules-file` | _empty_ | When set, switches back to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |
-| `codex` | `agents-dir` | `.agents/agents` | One TOML file per agent (Codex subagent schema). |
+| `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
 | `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |

@@ -41,7 +41,7 @@ import (
 
 const (
 	target             = "codex"
-	defaultAgentsDir   = ".agents/agents"
+	defaultAgentsDir   = ".codex/agents"
 	defaultSkillsDir   = ".agents/skills"
 	defaultCommandsDir = ".codex/prompts"
 	defaultConfigFile  = ".codex/config.toml"
