@@ -356,13 +356,6 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	return nil
 }
 
-// hookSettingsJSON is hookSettingsJSONWithOrder with no preferred order
-// hint, so events sort by canonical lifecycle. Retained for tests and
-// the direct emit path where no overlay sidecar exists.
-func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
-	return hookSettingsJSONWithOrder(hooks, nil)
-}
-
 // hookSettingsJSONWithOrder returns the `"hooks"` block as ordered JSON.
 // preferred is the event-key order captured at import time (sidecar
 // `.agnostic-ai/overlays/claude.settings.hook-events.json`). Events in
