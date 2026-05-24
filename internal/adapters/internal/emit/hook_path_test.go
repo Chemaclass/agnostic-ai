@@ -48,6 +48,30 @@ func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
 			target: "codex",
 			want:   "",
 		},
+		{
+			name:   "shell-expanded path rewrites embedded prefix",
+			cmd:    `"$(git rev-parse --show-toplevel)/.codex/hooks/protect-files.sh"`,
+			target: "claude",
+			want:   `"$(git rev-parse --show-toplevel)/.claude/hooks/protect-files.sh"`,
+		},
+		{
+			name:   "absolute path with embedded sibling prefix rewrites",
+			cmd:    "/usr/local/bin/runner /tmp/.gemini/hooks/run.sh",
+			target: "claude",
+			want:   "/usr/local/bin/runner /tmp/.claude/hooks/run.sh",
+		},
+		{
+			name:   "multiple sibling prefixes in one command all rewrite",
+			cmd:    ".codex/hooks/pre.sh && .gemini/hooks/post.sh",
+			target: "claude",
+			want:   ".claude/hooks/pre.sh && .claude/hooks/post.sh",
+		},
+		{
+			name:   "same-target shell expansion is a no-op",
+			cmd:    `"$(pwd)/.claude/hooks/x.sh"`,
+			target: "claude",
+			want:   `"$(pwd)/.claude/hooks/x.sh"`,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

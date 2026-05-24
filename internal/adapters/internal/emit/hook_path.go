@@ -28,22 +28,26 @@ var hookSiblingPrefixes = []string{
 	".gemini/hooks/",
 }
 
-// RewriteHookPath returns cmd with a recognized sibling-tool hook
-// directory prefix replaced by `.<target>/hooks/`. When cmd does not
-// start with any recognized prefix it is returned unchanged so non-hook
-// commands stay verbatim.
+// RewriteHookPath returns cmd with every recognized sibling-tool hook
+// directory substring replaced by `.<target>/hooks/`. Scans the whole
+// command so paths wrapped in shell expansions (`"$(git rev-parse
+// --show-toplevel)/.codex/hooks/x.sh"`), absolute paths, or quoted
+// strings all rewrite. Same-target substrings stay put (no-op).
+//
+// Substring match has a small false-positive risk if the literal text
+// `.codex/hooks/` appears in a hook command for non-path reasons; the
+// substring is specific enough that this is acceptable, and the user
+// can pin a hook to one tool with the `target:` frontmatter field.
 func RewriteHookPath(cmd, target string) string {
 	if cmd == "" || target == "" {
 		return cmd
 	}
+	replacement := "." + target + "/hooks/"
 	for _, prefix := range hookSiblingPrefixes {
-		if strings.HasPrefix(cmd, prefix) {
-			return "." + target + "/hooks/" + cmd[len(prefix):]
+		if prefix == replacement {
+			continue
 		}
-		quoted := `"` + prefix
-		if strings.HasPrefix(cmd, quoted) {
-			return `"` + "." + target + "/hooks/" + cmd[len(quoted):]
-		}
+		cmd = strings.ReplaceAll(cmd, prefix, replacement)
 	}
 	return cmd
 }
