@@ -72,6 +72,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
+	execPoliciesSeeded, err := importCodexExecPolicies(root)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
@@ -80,6 +84,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)
+	}
+	if execPoliciesSeeded {
+		summaryf("  → %s seeded from %s (sync re-emits prefix_rule entries)\n",
+			filepath.Join(agnosticOverlayDir, codexExecPoliciesOverlayFile), codexExecPoliciesFile)
 	}
 	printImportNextSteps(root, "codex")
 	return nil

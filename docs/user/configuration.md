@@ -420,6 +420,8 @@ outputs:
 
 For projects with many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries — order matters because Codex evaluates rules top-down.
 
+When you run `agnostic-ai import codex` against a project that already ships `.codex/rules/default.rules`, the import captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without any extra config.
+
 The file is only written when at least one policy is declared; otherwise nothing under `.codex/rules/` is created.
 
 The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml`

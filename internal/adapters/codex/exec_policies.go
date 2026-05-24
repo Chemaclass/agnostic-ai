@@ -11,7 +11,16 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-const defaultExecPoliciesFile = ".codex/rules/default.rules"
+const (
+	defaultExecPoliciesFile = ".codex/rules/default.rules"
+
+	// execPoliciesOverlayPath is the captured YAML representation written
+	// by `agnostic-ai import codex` from a pre-existing
+	// `.codex/rules/default.rules`. Loaded automatically when neither
+	// `outputs.codex.exec-policies` inline nor `exec-policies-file` is
+	// set. Round-trip parity with the codex config overlay pattern.
+	execPoliciesOverlayPath = ".agnostic-ai/overlays/codex.exec-policies.yaml"
+)
 
 // emitExecPolicies writes the Skylark-flavored `prefix_rule(...)` file at
 // `.codex/rules/default.rules` from the declarative list in
@@ -42,24 +51,41 @@ func emitExecPolicies(cfg *config.Config, dryRun bool) error {
 
 // loadExecPolicies pulls inline policies from `outputs.codex.exec-policies`
 // and appends any read from `outputs.codex.exec-policies-file` (when set).
-// The file-derived entries land after the inline entries; ordering matters
+// When neither is set, falls back to the captured overlay at
+// `.agnostic-ai/overlays/codex.exec-policies.yaml` so a project that ran
+// `agnostic-ai import codex` against an existing `.codex/rules/default.rules`
+// keeps the entries on re-sync without further config.
+//
+// File-derived entries land after inline entries; ordering matters
 // because Codex CLI evaluates rules top-down.
 func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
-	out, ok := cfg.Outputs[target]
-	if !ok {
-		return nil, nil
+	out, hasOut := cfg.Outputs[target]
+	var policies []config.CodexExecPolicy
+	if hasOut {
+		policies = append(policies, out.ExecPolicies...)
 	}
-	policies := append([]config.CodexExecPolicy(nil), out.ExecPolicies...)
-	if out.ExecPoliciesFile == "" {
+
+	filePath := ""
+	if hasOut && out.ExecPoliciesFile != "" {
+		filePath = out.ExecPoliciesFile
+	} else if len(policies) == 0 {
+		// Fall back to the captured overlay only when the user has no
+		// explicit declarations. A user with inline entries opts out of
+		// the overlay implicitly.
+		if _, err := os.Stat(execPoliciesOverlayPath); err == nil {
+			filePath = execPoliciesOverlayPath
+		}
+	}
+	if filePath == "" {
 		return policies, nil
 	}
-	data, err := os.ReadFile(out.ExecPoliciesFile)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", out.ExecPoliciesFile, err)
+		return nil, fmt.Errorf("%s: %w", filePath, err)
 	}
 	var extra []config.CodexExecPolicy
 	if err := yaml.Unmarshal(data, &extra); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", out.ExecPoliciesFile, err)
+		return nil, fmt.Errorf("parse %s: %w", filePath, err)
 	}
 	policies = append(policies, extra...)
 	return policies, nil
