@@ -171,6 +171,38 @@ func TestEmit_ExecPolicies_AutoLoadsOverlay(t *testing.T) {
 	}
 }
 
+// Regression for #283: the captured `codex.exec-policies-header.txt`
+// sidecar renders as a `# ...` block above the first rule, separated
+// by a blank line so a re-import detects it as the file-level header
+// (not as the first rule's justification).
+func TestEmit_ExecPolicies_RendersCapturedFileHeader(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml"), []byte(`- pattern: ["composer", "test"]
+  decision: allow
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies-header.txt"), []byte("Codex exec-policy rules for Phel.\nKeep the list short.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	if !strings.Contains(out, "# Codex exec-policy rules for Phel.\n# Keep the list short.\n\nprefix_rule(") {
+		t.Errorf("captured header missing or not blank-line separated from first rule:\n%s", out)
+	}
+}
+
 // When the user has inline entries, the overlay is ignored — the user
 // has opted in to a declarative source of truth.
 func TestEmit_ExecPolicies_InlineSuppressesOverlay(t *testing.T) {

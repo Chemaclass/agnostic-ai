@@ -126,6 +126,81 @@ func TestParseCodexExecPolicies_InlineKwargs(t *testing.T) {
 	}
 }
 
+// Regression for #283: a comment block on the first lines of the file
+// separated from the first prefix_rule by a blank line is the file
+// header, not the first rule's justification. The importer writes it to
+// a sidecar .txt overlay so the emitter can re-render it above the
+// rules on the next sync.
+func TestImportFromCodex_ExecPolicies_FileHeaderCommentCaptured(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/rules/default.rules"), `# Codex exec-policy rules for Phel.
+# Keep the list short — every rule slows the agent.
+
+prefix_rule(
+    pattern = ["rm", "-rf", "/"],
+    decision = "forbidden",
+)
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	// Header sidecar carries the file-level comment, un-prefixed.
+	header, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies-header.txt"))
+	if err != nil {
+		t.Fatalf("expected header sidecar written: %v", err)
+	}
+	want := "Codex exec-policy rules for Phel.\nKeep the list short — every rule slows the agent.\n"
+	if string(header) != want {
+		t.Errorf("header sidecar mismatch:\ngot:  %q\nwant: %q", header, want)
+	}
+	// Main overlay still carries the single rule, with NO justification
+	// (the leading comment belongs to the file, not the rule).
+	data, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml"))
+	if err != nil {
+		t.Fatalf("expected rules overlay written: %v", err)
+	}
+	var policies []config.CodexExecPolicy
+	if err := yaml.Unmarshal(data, &policies); err != nil {
+		t.Fatalf("invalid yaml: %v\n%s", err, data)
+	}
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+	if policies[0].Justification != "" {
+		t.Errorf("justification leaked file-level comment: %q", policies[0].Justification)
+	}
+}
+
+// When the leading `#` block is glued to the first prefix_rule with no
+// blank-line separator, it is still that rule's justification — only the
+// blank line between header + rule promotes the block to file-level.
+func TestImportFromCodex_ExecPolicies_NoBlankLine_StaysAsJustification(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/rules/default.rules"), `# Allow build commands.
+prefix_rule(
+    pattern = ["composer", "test"],
+    decision = "allow",
+)
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies-header.txt")); !os.IsNotExist(err) {
+		t.Errorf("header sidecar must not exist when comment is glued to first rule, got: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml"))
+	if err != nil {
+		t.Fatalf("read overlay: %v", err)
+	}
+	var policies []config.CodexExecPolicy
+	if err := yaml.Unmarshal(data, &policies); err != nil {
+		t.Fatalf("invalid yaml: %v", err)
+	}
+	if len(policies) != 1 || !strings.Contains(policies[0].Justification, "Allow build commands.") {
+		t.Errorf("expected first rule to carry the comment as justification, got %+v", policies)
+	}
+}
+
 // parseCodexExecPolicies handles single-line prefix_rule too.
 func TestParseCodexExecPolicies_SingleLineCall(t *testing.T) {
 	body := `prefix_rule(pattern = ["sudo"], decision = "ask")` + "\n"
