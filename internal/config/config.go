@@ -105,23 +105,23 @@ type CodexExecPolicy struct {
 }
 
 type Output struct {
-	Dir                  string          `yaml:"dir,omitempty"                      json:"dir,omitempty"`
-	File                 string          `yaml:"file,omitempty"                     json:"file,omitempty"`
-	RulesFile            string          `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
-	RulesDir             string          `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
-	MCPFile              string          `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
-	AgentsDir            string          `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
-	SkillsDir            string          `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
-	InstructionsDir      string          `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
-	CommandsDir          string          `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
-	ChatmodesDir         string          `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
-	WorkflowsDir         string          `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
-	AssistantsDir        string          `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
-	TasksFile            string          `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
-	ConfFile             string          `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
-	Model                string          `yaml:"model,omitempty"                    json:"model,omitempty"`
-	WeakModel            string          `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
-	MCPDir               string          `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
+	Dir                  string            `yaml:"dir,omitempty"                      json:"dir,omitempty"`
+	File                 string            `yaml:"file,omitempty"                     json:"file,omitempty"`
+	RulesFile            string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
+	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
+	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
+	SkillsDir            string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
+	InstructionsDir      string            `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
+	CommandsDir          string            `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	ChatmodesDir         string            `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
+	WorkflowsDir         string            `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
+	AssistantsDir        string            `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
+	TasksFile            string            `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
+	ConfFile             string            `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
+	Model                string            `yaml:"model,omitempty"                    json:"model,omitempty"`
+	WeakModel            string            `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
+	MCPDir               string            `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
 	EmitSkillsAsCommands bool              `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 	SharedSubagents      *bool             `yaml:"shared-subagents,omitempty"         json:"shared-subagents,omitempty"`
 	Settings             *ClaudeSettings   `yaml:"settings,omitempty"                 json:"settings,omitempty"`

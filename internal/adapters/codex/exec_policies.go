@@ -127,4 +127,3 @@ func writeStringList(b *strings.Builder, xs []string) {
 	}
 	b.WriteByte(']')
 }
-
