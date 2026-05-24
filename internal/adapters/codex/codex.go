@@ -122,7 +122,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitExecPolicies(cfg, dryRun); err != nil {
 		return err
 	}
-	return materializeHookScripts(hooks, dryRun)
+	if err := materializeHookScripts(hooks, dryRun); err != nil {
+		return err
+	}
+	return emit.RestoreHelperFiles(target, dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from

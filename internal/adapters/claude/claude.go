@@ -110,6 +110,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
+	if err := emit.RestoreHelperFiles(target, dryRun); err != nil {
+		return err
+	}
+
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 

@@ -52,6 +52,10 @@ func importFromClaude(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "claude"); err != nil {
 		return err
 	}
+	helpers, err := captureHelperFiles(root, "claude")
+	if err != nil {
+		return err
+	}
 	if c.mcps, err = importClaudeMCP(root, filepath.Join(root, src.MCPs)); err != nil {
 		return err
 	}
@@ -75,6 +79,10 @@ func importFromClaude(root string, src config.Sources) error {
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
+	}
+	for _, h := range helpers {
+		summaryf("  → %s seeded from %s/%s\n",
+			filepath.Join(agnosticOverlayDir, "claude", h), claudeDir, h)
 	}
 	printImportNextSteps(root, "claude")
 	return nil

@@ -19,6 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Fixed
 - `RewriteHookPath` rewrites every `.<sibling>/hooks/` occurrence in a hook command, not just bare-prefix and quoted forms. Hooks authored with shell expansions like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"` now sync cleanly to sibling targets. Pair with `target:` frontmatter (#249) for hooks that must stay scoped to one tool. Closes #250.
 - `agnostic-ai import codex` now captures `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no `outputs.codex.exec-policies` inline list and no explicit `exec-policies-file` is set, so a round-trip from a hand-authored Skylark policy file no longer silently drops the rules. Closes #265.
+- `agnostic-ai import claude/codex` captures helper files (`CLAUDE.md`, `README.md`, `statusline.sh`, codex `README.md`) into `.agnostic-ai/overlays/<tool>/<basename>` with file mode preserved. Each adapter restores them on `sync` so a wipe of `.<tool>/` between import and sync no longer drops project memory, operator docs, or executables the agent references. Closes #267.
 
 ### Removed
 
