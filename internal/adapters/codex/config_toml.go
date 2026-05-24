@@ -254,47 +254,6 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	sb.WriteString("]\n")
 }
 
-func writeHookSectionsFromMap(sb *strings.Builder, byEvent map[string][]spec.Entry) {
-	for _, event := range slices.Sorted(maps.Keys(byEvent)) {
-		for _, h := range byEvent[event] {
-			writeHookSection(sb, event, h)
-		}
-	}
-}
-
-func groupHooksByEvent(hooks []spec.Entry) map[string][]spec.Entry {
-	out := map[string][]spec.Entry{}
-	for _, h := range hooks {
-		event, _ := h.Meta["event"].(string)
-		if event == "" {
-			continue
-		}
-		out[event] = append(out[event], h)
-	}
-	return out
-}
-
-// writeHookSection emits one `[[hooks.<event>]]` array-of-tables block
-// per command. Codex's TOML hook schema accepts a single command per
-// entry, so a spec with `command: [a, b]` expands to two blocks sharing
-// the same matcher. A spec with no command at all is skipped — emitting
-// an empty block would corrupt the file.
-func writeHookSection(sb *strings.Builder, event string, h spec.Entry) {
-	matcher, _ := h.Meta["matcher"].(string)
-	cmds := hookCommands(h.Meta["command"])
-	if len(cmds) == 0 {
-		return
-	}
-	for _, cmd := range cmds {
-		sb.WriteString("[[hooks." + event + "]]\n")
-		if matcher != "" {
-			emit.WriteTOMLString(sb, "matcher", matcher)
-		}
-		emit.WriteTOMLString(sb, "command", emit.RewriteHookPath(cmd, target))
-		sb.WriteString("\n")
-	}
-}
-
 // hookCommands normalizes a spec's `command:` value (string, []string,
 // or []any) into a slice of non-empty strings. Mirrors the helper used
 // by the claude + gemini adapters; kept private here to avoid a shared
