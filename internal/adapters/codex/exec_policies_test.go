@@ -38,13 +38,13 @@ func TestEmit_ExecPolicies_WritesSkylarkDSL(t *testing.T) {
 	}
 	out := string(got)
 	for _, want := range []string{
-		"# Composer scripts are project entrypoints.",
 		`pattern = ["composer", "test"]`,
 		`decision = "allow"`,
-		"# match: composer test",
-		"# Never remove the filesystem root.",
+		`justification = "Composer scripts are project entrypoints."`,
+		`match = ["composer test", "composer test -- --filter Foo"]`,
 		`pattern = ["rm", "-rf", "/"]`,
 		`decision = "forbidden"`,
+		`justification = "Never remove the filesystem root."`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("default.rules missing %q in:\n%s", want, out)
