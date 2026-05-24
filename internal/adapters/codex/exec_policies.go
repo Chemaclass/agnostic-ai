@@ -106,33 +106,36 @@ func validateExecPolicy(p config.CodexExecPolicy, index int) error {
 }
 
 // renderExecPoliciesSkylark turns the policy list into the Codex CLI's
-// `prefix_rule(...)` DSL. Each policy renders as one block. Justification
-// appears as a leading `# ...` comment; example matches go below the
-// rule as commented examples for human readers.
+// `prefix_rule(...)` DSL. Each policy renders as one block with all
+// optional fields (`justification`, `match`) as inline kwargs — the form
+// the codex docs show and the form `agnostic-ai import codex` captures
+// from hand-authored files, so import → sync stays byte-stable.
+//
+// Multi-line justification strings collapse to a single line in the
+// emit because the inline kwarg form takes one double-quoted Skylark
+// string; embedded newlines are not preserved (use the YAML overlay if
+// you need a multi-paragraph justification).
 func renderExecPoliciesSkylark(policies []config.CodexExecPolicy) string {
 	var b strings.Builder
 	for i, p := range policies {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
-		if p.Justification != "" {
-			for _, line := range strings.Split(strings.TrimSpace(p.Justification), "\n") {
-				b.WriteString("# ")
-				b.WriteString(line)
-				b.WriteByte('\n')
-			}
-		}
 		b.WriteString("prefix_rule(\n")
 		b.WriteString("    pattern = ")
 		writeStringList(&b, p.Pattern)
 		b.WriteString(",\n")
-		b.WriteString(fmt.Sprintf("    decision = %q,\n", p.Decision))
-		b.WriteString(")\n")
-		for _, m := range p.Match {
-			b.WriteString("# match: ")
-			b.WriteString(m)
-			b.WriteByte('\n')
+		fmt.Fprintf(&b, "    decision = %q,\n", p.Decision)
+		if p.Justification != "" {
+			justification := strings.ReplaceAll(strings.TrimSpace(p.Justification), "\n", " ")
+			fmt.Fprintf(&b, "    justification = %q,\n", justification)
 		}
+		if len(p.Match) > 0 {
+			b.WriteString("    match = ")
+			writeStringList(&b, p.Match)
+			b.WriteString(",\n")
+		}
+		b.WriteString(")\n")
 	}
 	return b.String()
 }
