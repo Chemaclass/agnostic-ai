@@ -165,7 +165,7 @@ func buildInput(target string, b spec.Bundle, cfg *config.Config, dryRun bool) I
 	in.Specs.Agents = entriesToWire(b.Agents)
 	in.Specs.Skills = entriesToWire(b.Skills)
 	in.Specs.Rules = entriesToWire(b.Rules)
-	in.Specs.Hooks = entriesToWire(b.Hooks)
+	in.Specs.Hooks = entriesToWire(b.HooksFor(target))
 	in.Specs.MCPs = entriesToWire(b.MCPs)
 	return in
 }
