@@ -128,6 +128,7 @@ type Output struct {
 	Config               *CodexConfig      `yaml:"config,omitempty"                   json:"config,omitempty"`
 	ExecPolicies         []CodexExecPolicy `yaml:"exec-policies,omitempty"            json:"exec-policies,omitempty"`
 	ExecPoliciesFile     string            `yaml:"exec-policies-file,omitempty"       json:"exec-policies-file,omitempty"`
+	HooksFile            string            `yaml:"hooks-file,omitempty"               json:"hooks-file,omitempty"`
 	CollisionPolicy      string            `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
 }
 

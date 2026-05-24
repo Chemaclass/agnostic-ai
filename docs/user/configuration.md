@@ -178,7 +178,8 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
 | `codex` | `skills-dir` | `.codex/skills` | One folder per skill per the Codex skills layout. Override to `.agents/skills` for the community shared layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
-| `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
+| `codex` | `mcp-file` | `.codex/config.toml` | Holds `[mcp_servers.<name>]` tables. Hooks moved out into `hooks-file` (see below). |
+| `codex` | `hooks-file` | `.codex/hooks.json` | Per-event hook arrays in Claude `settings.json`-shaped JSON. Preferred over the legacy TOML `[[hooks.<event>]]` schema because it preserves per-hook `timeout` + `statusMessage` and dedupes overlapping matchers. |
 | `codex` | `config` | _empty_ | First-class block for `.codex/config.toml` global keys. See [Codex config](#codex-config). |
 | `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |

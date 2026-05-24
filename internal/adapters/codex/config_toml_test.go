@@ -73,7 +73,8 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	}
 }
 
-// Hooks group by event into [[hooks.<event>]] arrays of tables.
+// Hooks emit into .codex/hooks.json grouped per event in the same shape
+// Claude's settings.json hooks block uses.
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -99,13 +100,13 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
 	for _, want := range []string{
-		"[[hooks.PreToolUse]]",
-		`matcher = "Bash"`,
-		`command = "echo pre-tool"`,
-		"[[hooks.SessionStart]]",
-		`command = "echo started"`,
+		`"PreToolUse"`,
+		`"matcher": "Bash"`,
+		`"command": "echo pre-tool"`,
+		`"SessionStart"`,
+		`"command": "echo started"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
@@ -114,7 +115,7 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 }
 
 // Hooks scoped to another target via `target:` must be skipped entirely
-// from .codex/config.toml so a claude-only hook does not leak into codex.
+// from .codex/hooks.json so a claude-only hook does not leak into codex.
 func TestEmit_Hook_TargetScopingFiltersOtherTargets(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -137,17 +138,17 @@ func TestEmit_Hook_TargetScopingFiltersOtherTargets(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	if !strings.Contains(got, `command = "echo codex"`) {
-		t.Errorf("codex-scoped hook missing in codex config.toml:\n%s", got)
+	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
+	if !strings.Contains(got, `"command": "echo codex"`) {
+		t.Errorf("codex-scoped hook missing in codex hooks.json:\n%s", got)
 	}
-	if strings.Contains(got, `command = "echo claude"`) {
-		t.Errorf("claude-scoped hook must not leak into codex config.toml:\n%s", got)
+	if strings.Contains(got, `"command": "echo claude"`) {
+		t.Errorf("claude-scoped hook must not leak into codex hooks.json:\n%s", got)
 	}
 }
 
-// A hook spec carrying a command array emits one [[hooks.<event>]] block per command.
-// Same matcher + event share the array; codex's TOML schema has a single command field.
+// A hook spec carrying a command array emits one entry per command
+// inside the same matcher group.
 func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -165,26 +166,23 @@ func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
 	for _, want := range []string{
-		`command = ".codex/hooks/format-php.sh"`,
-		`command = ".codex/hooks/format-phel.sh"`,
+		`"command": ".codex/hooks/format-php.sh"`,
+		`"command": ".codex/hooks/format-phel.sh"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
-	if strings.Count(got, "[[hooks.PostToolUse]]") != 2 {
-		t.Errorf("expected 2 [[hooks.PostToolUse]] blocks for 2-command array, got:\n%s", got)
-	}
-	if strings.Count(got, `matcher = "Edit|Write"`) != 2 {
-		t.Errorf("expected matcher repeated for each block, got:\n%s", got)
+	if strings.Count(got, `"PostToolUse"`) != 1 {
+		t.Errorf("expected one PostToolUse event key, got:\n%s", got)
 	}
 }
 
 // A hook spec authored against another tool's hooks directory must
 // rewrite the `.<sibling>/hooks/` prefix to `.codex/hooks/` so the
-// emitted config.toml points at a path that actually exists under the
+// emitted hooks.json points at a path that actually exists under the
 // codex tree.
 func TestEmit_Hook_RewritesSiblingHookPathToCodex(t *testing.T) {
 	dir := testutil.TempCwd(t)
@@ -203,12 +201,12 @@ func TestEmit_Hook_RewritesSiblingHookPathToCodex(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	if !strings.Contains(got, `command = ".codex/hooks/protect-files.sh"`) {
+	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
+	if !strings.Contains(got, `"command": ".codex/hooks/protect-files.sh"`) {
 		t.Errorf("expected sibling claude path rewritten to .codex/hooks/, got:\n%s", got)
 	}
 	if strings.Contains(got, ".claude/hooks/") {
-		t.Errorf("emitted toml still references .claude/hooks/:\n%s", got)
+		t.Errorf("emitted hooks.json still references .claude/hooks/:\n%s", got)
 	}
 }
 
@@ -228,6 +226,9 @@ func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/config.toml")); !os.IsNotExist(err) {
 		t.Errorf("expected no config.toml when hook has no event, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/hooks.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no hooks.json when hook has no event, err=%v", err)
 	}
 }
 

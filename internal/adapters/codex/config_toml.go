@@ -11,14 +11,17 @@ import (
 )
 
 // renderConfigTOML builds the `.codex/config.toml` body from the captured
-// overlay, the bundle's hook and MCP entries, and any first-class config
-// fields. The overlay (carrying user-authored keys outside hooks/mcp_servers)
-// is written first; then first-class scalars from `outputs.codex.config`
-// (skipping any key the overlay already defines); then MCP server tables;
-// then hook sections. Returns "" when there is no valid output to write.
-func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
-	byEvent := groupHooksByEvent(hooks)
-	hasContent := len(byEvent) > 0 || anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
+// overlay, the bundle's MCP entries, and any first-class config fields.
+// The overlay (carrying user-authored keys outside hooks/mcp_servers) is
+// written first; then first-class scalars from `outputs.codex.config`
+// (skipping any key the overlay already defines); then MCP server tables.
+// Returns "" when there is no valid output to write.
+//
+// Hooks no longer render here. They land in `.codex/hooks.json` (see
+// emitHooksJSON) which natively supports per-hook `timeout` and
+// `statusMessage` metadata that the TOML schema discarded.
+func renderConfigTOML(_ []spec.Entry, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
+	hasContent := anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
 	if !hasContent {
 		return ""
 	}
@@ -35,7 +38,6 @@ func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig, overlay
 
 	writeCodexConfigFields(&sb, cfg, overlayKeys)
 	writeMCPServers(&sb, mcps)
-	writeHookSectionsFromMap(&sb, byEvent)
 	return sb.String()
 }
 

@@ -27,7 +27,7 @@ Set `outputs.<target>.rules-file: <path>` to opt back into the legacy concatenat
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands |
 |-----------------|---------------------|--------|--------------------------|-------|------|----------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` |
-| **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.codex.rules-file`) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
+| **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
 | **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | source-dir only (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped); always-on via `outputs.copilot.rules-file` | - | `.vscode/mcp.json` |
