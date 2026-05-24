@@ -45,9 +45,39 @@ func emitHooksJSON(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 }
 
 // hooksDoc is the top-level `.codex/hooks.json` shape:
-// `{"hooks": {"<Event>": [matcherGroup, ...]}}`.
+// `{"hooks": {"<Event>": [matcherGroup, ...]}}`. Stored as an ordered
+// list so the lifecycle order (PreToolUse before PostToolUse, etc.)
+// survives JSON marshaling. Codex CLI is order-insensitive but the
+// emitter writes the order codex docs and hand-authored files use so
+// `sync --check` stays stable.
 type hooksDoc struct {
-	Hooks map[string][]matcherGroup `json:"hooks"`
+	Order  []string
+	Events map[string][]matcherGroup
+}
+
+// MarshalJSON renders the doc as `{"hooks": {<Event>: [...], ...}}`
+// with events serialized in `Order`. Bypasses Go's map-key alphabetizer.
+func (d *hooksDoc) MarshalJSON() ([]byte, error) {
+	var buf strings.Builder
+	buf.WriteString(`{"hooks":{`)
+	for i, event := range d.Order {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		key, err := json.Marshal(event)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(key)
+		buf.WriteByte(':')
+		val, err := json.Marshal(d.Events[event])
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(val)
+	}
+	buf.WriteString("}}")
+	return []byte(buf.String()), nil
 }
 
 type matcherGroup struct {
@@ -148,9 +178,10 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		byEvent[gk.event] = append(byEvent[gk.event], *groups[gk])
 	}
 
-	doc := &hooksDoc{Hooks: map[string][]matcherGroup{}}
+	doc := &hooksDoc{Events: map[string][]matcherGroup{}}
 	for _, event := range orderedHookEvents(eventOrder) {
-		doc.Hooks[event] = byEvent[event]
+		doc.Order = append(doc.Order, event)
+		doc.Events[event] = byEvent[event]
 	}
 	return doc
 }
