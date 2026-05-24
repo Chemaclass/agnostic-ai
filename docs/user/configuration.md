@@ -83,6 +83,12 @@ outputs:
     #                            # claude's .claude/skills/ tree directly.
     commands-dir: .codex/prompts # default. One .md per command (slash prompt).
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
+    # exec-policies:              # opt-in. Renders .codex/rules/default.rules.
+    #   - pattern: ["composer", "test"]
+    #     decision: allow          # allow | forbidden | ask
+    #     justification: Run tests
+    #     match: ["composer test"]
+    # exec-policies-file: ./agnostic-ai/codex.exec-policies.yaml  # alt: external YAML list
   gemini:
     commands-dir: .gemini/commands   # default. One .toml per agent (and per skill when opted in).
     emit-skills-as-commands: false   # default
@@ -386,6 +392,34 @@ outputs:
 | `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
 | `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
 | `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
+
+### Codex exec-policies
+
+`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex CLI's Skylark-flavored exec-policy DSL, rendered into `.codex/rules/default.rules` on sync. Each entry allow- or forbid-lists a shell command prefix.
+
+```yaml
+outputs:
+  codex:
+    exec-policies:
+      - pattern: ["composer", "test"]
+        decision: allow           # allow | forbidden | ask
+        justification: Composer scripts are project entrypoints.
+        match: ["composer test", "composer test -- --filter Foo"]
+      - pattern: ["rm", "-rf", "/"]
+        decision: forbidden
+        justification: Never remove the filesystem root.
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `pattern` | yes | Shell command prefix tokens (`["composer", "test"]`). Becomes the `prefix_rule(pattern = [...])` argument. |
+| `decision` | yes | One of `allow`, `forbidden`, `ask`. |
+| `justification` | no | Free-form comment emitted above the rule as a `#` line. |
+| `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
+
+For projects with many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries — order matters because Codex evaluates rules top-down.
+
+The file is only written when at least one policy is declared; otherwise nothing under `.codex/rules/` is created.
 
 The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml`
 (captured by `agnostic-ai import codex`) and prepends its body before

@@ -123,6 +123,34 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CodexExecPolicy": {
+      "properties": {
+        "pattern": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "justification": {
+          "type": "string"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "pattern",
+        "decision"
+      ]
+    },
     "CodexModelProvider": {
       "properties": {
         "name": {
@@ -301,6 +329,15 @@
         },
         "config": {
           "$ref": "#/$defs/CodexConfig"
+        },
+        "exec-policies": {
+          "items": {
+            "$ref": "#/$defs/CodexExecPolicy"
+          },
+          "type": "array"
+        },
+        "exec-policies-file": {
+          "type": "string"
         },
         "collision-policy": {
           "type": "string"
