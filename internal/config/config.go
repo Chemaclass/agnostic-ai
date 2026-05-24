@@ -26,6 +26,22 @@ type Config struct {
 	OnUnsupported string            `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
 	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
+	Import        ImportConfig      `yaml:"import,omitempty"         json:"import,omitempty"`
+}
+
+// ImportConfig holds per-source knobs for the `import` command. Empty
+// values fall back to per-source defaults documented under each substruct.
+type ImportConfig struct {
+	Codex ImportCodex `yaml:"codex,omitempty" json:"codex,omitempty"`
+}
+
+// ImportCodex tunes `agnostic-ai import codex`.
+type ImportCodex struct {
+	// Shred toggles AGENTS.md H2 sharding. Nil or true keeps the default
+	// behavior (one rule spec per ## heading). False keeps each AGENTS.md
+	// as a single rule spec, useful when codex AGENTS.md duplicates policy
+	// already authored as standalone rules.
+	Shred *bool `yaml:"shred,omitempty" json:"shred,omitempty"`
 }
 
 // SyncConfig holds declarative knobs for the sync command. Settings here

@@ -196,6 +196,9 @@
         },
         "sync": {
           "$ref": "#/$defs/SyncConfig"
+        },
+        "import": {
+          "$ref": "#/$defs/ImportConfig"
         }
       },
       "additionalProperties": false,
@@ -211,6 +214,24 @@
         },
         "path": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ImportCodex": {
+      "properties": {
+        "shred": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ImportConfig": {
+      "properties": {
+        "codex": {
+          "$ref": "#/$defs/ImportCodex"
         }
       },
       "additionalProperties": false,
