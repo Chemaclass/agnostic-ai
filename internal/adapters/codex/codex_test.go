@@ -64,7 +64,7 @@ func TestEmit_AgentTOMLFile(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/agents/pr-reviewer.toml"))
+	got := readFile(t, filepath.Join(dir, ".codex/agents/pr-reviewer.toml"))
 	for _, want := range []string{
 		`name = "pr-reviewer"`,
 		`description = "PR reviewer"`,
@@ -90,7 +90,7 @@ func TestEmit_AgentTOML_NoExtras(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/agents/explorer.toml"))
+	got := readFile(t, filepath.Join(dir, ".codex/agents/explorer.toml"))
 	for _, want := range []string{
 		`name = "explorer"`,
 		`description = "explorer"`, // falls back to name when frontmatter description missing
@@ -465,7 +465,7 @@ func TestEmit_OutputsCarryProvenanceHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range []string{
-		".agents/agents/ag1.toml",
+		".codex/agents/ag1.toml",
 		".agents/skills/sk1/SKILL.md",
 		".codex/prompts/cmd1.md",
 		".codex/config.toml",

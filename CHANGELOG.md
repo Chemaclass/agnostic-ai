@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Changed
 - `agnostic-ai import <tool>` auto-sets `target: <tool>` on imported hooks (codex/claude/gemini). Codex-specific shell-wrapped hook scripts no longer leak into claude `settings.json` on cross-tool sync. Remove the field by hand if you want a hook to flow to every target.
+- Codex `agents-dir` default switched from `.agents/agents` back to `.codex/agents` so Codex CLI finds emitted subagents at its native lookup path without extra config. Users on the community shared layout can set `outputs.codex.agents-dir: .agents/agents` to opt back in. Stale `.agents/agents/*.toml` from prior syncs is left untouched on upgrade; delete by hand after running `sync`. Closes #252.
 
 ### Fixed
 - `RewriteHookPath` rewrites every `.<sibling>/hooks/` occurrence in a hook command, not just bare-prefix and quoted forms. Hooks authored with shell expansions like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"` now sync cleanly to sibling targets. Pair with `target:` frontmatter (#249) for hooks that must stay scoped to one tool. Closes #250.

@@ -225,7 +225,7 @@ func TestEmit_Agent_XCodexMCPServersDecodesBackToInput(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, ".agents/agents/scoped.toml")
+	path := filepath.Join(dir, ".codex/agents/scoped.toml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
