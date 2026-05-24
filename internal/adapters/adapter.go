@@ -177,14 +177,18 @@ type Adapter interface {
 }
 
 // EmitWithProvenance wraps adapter.Emit with the per-target provenance
-// header toggle. Reads `outputs.<target>.provenance-header` from cfg
-// (default true) and installs the toggle for the duration of the emit
-// so adapter calls to emit.WithHeader honor it. CLI dispatch sites
-// (sync, check, status, revert, render, collision) should prefer this
-// wrapper over a bare adapter.Emit.
+// header toggle and per-target spec scoping. Filters the bundle through
+// `spec.Bundle.For(target)` so adapters only see entries whose
+// `target:` / `targets:` / `target-exclude:` / `targets-exclude:`
+// frontmatter allows the named target (closes #292). Reads
+// `outputs.<target>.provenance-header` from cfg (default true) and
+// installs the toggle for the duration of the emit so adapter calls to
+// emit.WithHeader honor it. CLI dispatch sites (sync, check, status,
+// revert, render, collision) should prefer this wrapper over a bare
+// adapter.Emit.
 func EmitWithProvenance(a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	defer emit.ProvenanceFor(cfg, a.Name())()
-	return a.Emit(b, cfg, dryRun)
+	return a.Emit(b.For(a.Name()), cfg, dryRun)
 }
 
 var registry = map[string]Adapter{

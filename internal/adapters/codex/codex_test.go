@@ -521,6 +521,28 @@ func TestEmit_ProvenanceHeaderToggleOff_SuppressesEverywhere(t *testing.T) {
 	}
 }
 
+// Regression for #292: an agent scoped to claude via `target:` must
+// not emit into .codex/agents/ when sync dispatches through the
+// EmitWithProvenance wrapper (which calls bundle.For(target)).
+func TestEmit_AgentScopedToOtherTarget_SkipsCodex(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "claude-only", Body: "x",
+			Meta: map[string]any{"target": "claude"}},
+		{Kind: spec.KindAgent, Name: "both", Body: "y"},
+	}
+	if err := New().Emit(spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/agents/claude-only.toml")); !os.IsNotExist(err) {
+		t.Errorf("claude-only agent should not appear in .codex/agents/: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/agents/both.toml")); err != nil {
+		t.Errorf("unscoped agent should still emit to codex: %v", err)
+	}
+}
+
 func TestAdapterName(t *testing.T) {
 	if New().Name() != "codex" {
 		t.Errorf("expected codex, got %s", New().Name())
