@@ -48,7 +48,7 @@ func collectDrift(targets []string) ([]driftReport, error) {
 			continue
 		}
 		adapters.StartCapture()
-		if err := adapter.Emit(b, cfg, false); err != nil {
+		if err := adapters.EmitWithProvenance(adapter, b, cfg, false); err != nil {
 			adapters.StopCapture()
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}

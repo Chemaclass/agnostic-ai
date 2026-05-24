@@ -176,6 +176,17 @@ type Adapter interface {
 	Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error
 }
 
+// EmitWithProvenance wraps adapter.Emit with the per-target provenance
+// header toggle. Reads `outputs.<target>.provenance-header` from cfg
+// (default true) and installs the toggle for the duration of the emit
+// so adapter calls to emit.WithHeader honor it. CLI dispatch sites
+// (sync, check, status, revert, render, collision) should prefer this
+// wrapper over a bare adapter.Emit.
+func EmitWithProvenance(a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	defer emit.ProvenanceFor(cfg, a.Name())()
+	return a.Emit(b, cfg, dryRun)
+}
+
 var registry = map[string]Adapter{
 	"claude":      claude.New(),
 	"codex":       codex.New(),
