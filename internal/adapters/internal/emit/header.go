@@ -55,10 +55,28 @@ const (
 )
 
 // Header returns the comment line that marks a generated file in the
-// given format, terminated by a newline. Returns "" for FormatJSON.
-// Re-exports header.Line so adapters call one place.
+// given format, terminated by a newline. Returns "" for FormatJSON and
+// for every format when the per-run provenance toggle is off so adapters
+// that prepend the line via StringBuilder still honor
+// `outputs.<target>.provenance-header: false` without an explicit guard
+// at each call site.
 func Header(format Format) string {
+	if !provenanceEnabled.Load() {
+		return ""
+	}
 	return header.Line(format)
+}
+
+// HeaderBlock returns the provenance header followed by a blank line so
+// builder-style callers (codex `config.toml`, claude single-file rules)
+// can prepend a clean header section in one call. Returns "" when the
+// per-run toggle is off so no stray blank line leaks into the emitted
+// file.
+func HeaderBlock(format Format) string {
+	if !provenanceEnabled.Load() {
+		return ""
+	}
+	return header.Line(format) + "\n"
 }
 
 // WithHeader prepends Header(format) to content. For Markdown content
