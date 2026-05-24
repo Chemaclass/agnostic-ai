@@ -76,6 +76,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
+	helpers, err := captureHelperFiles(root, "codex")
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
@@ -88,6 +92,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if execPoliciesSeeded {
 		summaryf("  → %s seeded from %s (sync re-emits prefix_rule entries)\n",
 			filepath.Join(agnosticOverlayDir, codexExecPoliciesOverlayFile), codexExecPoliciesFile)
+	}
+	for _, h := range helpers {
+		summaryf("  → %s seeded from .codex/%s\n",
+			filepath.Join(agnosticOverlayDir, "codex", h), h)
 	}
 	printImportNextSteps(root, "codex")
 	return nil
