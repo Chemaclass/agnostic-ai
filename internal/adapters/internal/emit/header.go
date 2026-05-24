@@ -57,7 +57,7 @@ const (
 // Header returns the comment line that marks a generated file in the
 // given format, terminated by a newline. Returns "" for FormatJSON and
 // for every format when the per-run provenance toggle is off so adapters
-// that prepend the line via StringBuilder still honour
+// that prepend the line via StringBuilder still honor
 // `outputs.<target>.provenance-header: false` without an explicit guard
 // at each call site.
 func Header(format Format) string {
