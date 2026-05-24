@@ -152,6 +152,31 @@ func TestEmit_HooksJSON_HooksMoveOutOfConfigToml(t *testing.T) {
 	}
 }
 
+// Regression for #266: matcher pipe-segment order is preserved as
+// authored, not alphabetized. `Bash|apply_patch|Edit|Write` (the form
+// shipped by codex out of the box) must round-trip byte-stable.
+func TestEmit_HooksJSON_PreservesMatcherTokenOrder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "h",
+			Meta: map[string]any{
+				"event":   "PreToolUse",
+				"matcher": "Bash|apply_patch|Edit|Write",
+				"command": "echo go",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if !strings.Contains(string(raw), `"matcher": "Bash|apply_patch|Edit|Write"`) {
+		t.Errorf("expected matcher order preserved, got:\n%s", raw)
+	}
+}
+
 // outputs.codex.hooks-file relocates the emitted file.
 func TestEmit_HooksJSON_HonorsHooksFileOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
