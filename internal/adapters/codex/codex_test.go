@@ -137,7 +137,7 @@ func TestEmit_SkillFolderLayout(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md"))
 	for _, want := range []string{
 		"name: yaml-validator",
 		"description: Validate YAML.",
@@ -166,8 +166,8 @@ func TestEmit_SharedSubagentsFalse_SkipsSkillEmission(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
-		t.Errorf(".agents/skills should be skipped when shared-subagents is false: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf(".codex/skills should be skipped when shared-subagents is false: %v", err)
 	}
 }
 
@@ -185,17 +185,17 @@ func TestEmit_SharedSubagentsTrue_EmitsSkills(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md")); err != nil {
 		t.Errorf("expected SKILL.md when shared-subagents=true: %v", err)
 	}
 }
 
-// TestEmit_SharedSubagents_DefaultOffWithClaude regresses #216.
-// When both claude and codex are configured, .agents/skills/ duplicates
-// the byte-identical .claude/skills/ tree and codex does not natively
-// read it. The conditional default skips emission so a fresh project
-// gets one skill tree, not two.
-func TestEmit_SharedSubagents_DefaultOffWithClaude(t *testing.T) {
+// Codex skills emit at .codex/skills/ regardless of whether claude is
+// also enabled. The legacy claude-aware suppression (#216) is gone now
+// that the path is .codex/skills/ instead of .agents/skills/ — claude's
+// .claude/skills/ no longer overlaps so duplication is no longer a
+// concern.
+func TestEmit_SkillsEmitWhenClaudeAlsoEnabled(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
@@ -206,15 +206,12 @@ func TestEmit_SharedSubagents_DefaultOffWithClaude(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
-		t.Errorf(".agents/skills should be skipped by default when claude is also enabled: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("expected .codex/skills/ even when claude is also enabled: %v", err)
 	}
 }
 
-// TestEmit_SharedSubagents_DefaultOnAlone verifies the conditional
-// default still emits .agents/skills/ when codex is the only target,
-// so a codex-only project gets the community-shared layout.
-func TestEmit_SharedSubagents_DefaultOnAlone(t *testing.T) {
+func TestEmit_SkillsEmitWhenCodexAlone(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{Targets: []string{"codex"}}
@@ -225,15 +222,14 @@ func TestEmit_SharedSubagents_DefaultOnAlone(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md")); err != nil {
 		t.Errorf("expected SKILL.md when codex is the only target: %v", err)
 	}
 }
 
-// TestEmit_SharedSubagents_ExplicitTrueOverridesDefaultOff verifies that
-// a user explicitly setting `outputs.codex.shared-subagents: true` wins
-// over the conditional default even when claude is also enabled.
-func TestEmit_SharedSubagents_ExplicitTrueOverridesDefaultOff(t *testing.T) {
+// Explicit `outputs.codex.shared-subagents: true` is harmless when codex
+// is alone — default is already on.
+func TestEmit_SharedSubagents_ExplicitTrueRedundantButOK(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	on := true
@@ -250,8 +246,8 @@ func TestEmit_SharedSubagents_ExplicitTrueOverridesDefaultOff(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
-		t.Errorf("explicit shared-subagents=true should override default-off: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("explicit shared-subagents=true should still emit: %v", err)
 	}
 }
 
@@ -265,7 +261,7 @@ func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/explorer/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".codex/skills/explorer/SKILL.md"))
 	if !strings.Contains(got, "description: explorer") {
 		t.Errorf("expected description to fall back to name:\n%s", got)
 	}
@@ -301,7 +297,7 @@ func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/agents/openai.yaml"))
+	got := readFile(t, filepath.Join(dir, ".codex/skills/yaml-validator/agents/openai.yaml"))
 	for _, want := range []string{
 		"display_name: YAML Validator",
 		"brand_color: '#3B82F6'",
@@ -314,7 +310,7 @@ func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
 		}
 	}
 
-	skillMd := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	skillMd := readFile(t, filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md"))
 	if strings.Contains(skillMd, "interface:") || strings.Contains(skillMd, "x-codex") {
 		t.Errorf("SKILL.md frontmatter should not contain x-codex/interface fields:\n%s", skillMd)
 	}
@@ -329,7 +325,7 @@ func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/explorer/agents/openai.yaml")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, ".codex/skills/explorer/agents/openai.yaml")); err == nil {
 		t.Errorf("agents/openai.yaml should not be written without x-codex extras")
 	}
 }
@@ -365,7 +361,7 @@ func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
 	}
 
 	for _, rel := range []string{"scripts/run.py", "fixtures.json"} {
-		got, err := os.ReadFile(filepath.Join(dir, ".agents", "skills", "yaml-validator", filepath.FromSlash(rel)))
+		got, err := os.ReadFile(filepath.Join(dir, ".codex", "skills", "yaml-validator", filepath.FromSlash(rel)))
 		if err != nil {
 			t.Errorf("missing propagated asset %q: %v", rel, err)
 			continue
@@ -377,7 +373,7 @@ func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
 	}
 
 	if runtime.GOOS != "windows" {
-		info, err := os.Stat(filepath.Join(dir, ".agents", "skills", "yaml-validator", "scripts", "run.py"))
+		info, err := os.Stat(filepath.Join(dir, ".codex", "skills", "yaml-validator", "scripts", "run.py"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -466,7 +462,7 @@ func TestEmit_OutputsCarryProvenanceHeader(t *testing.T) {
 	}
 	for _, p := range []string{
 		".codex/agents/ag1.toml",
-		".agents/skills/sk1/SKILL.md",
+		".codex/skills/sk1/SKILL.md",
 		".codex/prompts/cmd1.md",
 		".codex/config.toml",
 	} {

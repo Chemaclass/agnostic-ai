@@ -6,12 +6,12 @@
 // this adapter instead writes the legacy concatenated layout at that
 // path so users on older workflows keep their behavior.
 //
-// Agents emit as one TOML file per agent under .agents/agents/ (override
+// Agents emit as one TOML file per agent under .codex/agents/ (override
 // via outputs.codex.agents-dir) following the Codex subagents schema.
-// `.agents/` is the community-shared root for subagent definitions: skills
-// live under `.agents/skills/<name>/`, agents under `.agents/agents/<name>.toml`.
+// .codex/ is Codex CLI's native lookup root; set agents-dir to
+// .agents/agents for the community shared subagent layout.
 //
-// Skills emit as a folder per skill under .agents/skills/<name>/ (override
+// Skills emit as a folder per skill under .codex/skills/<name>/ (override
 // via outputs.codex.skills-dir) per the Codex skills layout. Each folder
 // contains a SKILL.md with `name` + `description` frontmatter plus the
 // skill body. When the spec provides `x-codex.interface`, `x-codex.policy`,
@@ -42,7 +42,7 @@ import (
 const (
 	target             = "codex"
 	defaultAgentsDir   = ".codex/agents"
-	defaultSkillsDir   = ".agents/skills"
+	defaultSkillsDir   = ".codex/skills"
 	defaultCommandsDir = ".codex/prompts"
 	defaultConfigFile  = ".codex/config.toml"
 	// configOverlayPath is the project-relative path to the captured
@@ -136,28 +136,21 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 }
 
 // codexEmitsSkills reports whether the codex adapter should write the
-// `.agents/skills/<name>/` tree on this sync.
+// per-skill tree on this sync. Defaults to true so codex picks up the
+// emitted skills at its native `.codex/skills/<name>/` lookup path.
 //
-// The default depends on whether claude is also enabled:
-//   - claude + codex: false (claude already owns skills at
-//     `.claude/skills/`; `.agents/skills/` would just duplicate them
-//     byte-for-byte and codex does not natively read that tree yet).
-//   - codex alone: true (no other adapter writes skills, so codex emits
-//     to the community `.agents/skills/` layout).
-//
-// Explicit `outputs.codex.shared-subagents` in `agnostic-ai.yaml` wins
-// over the conditional default in both directions.
+// The legacy claude-aware suppression default is gone now that codex
+// emits to `.codex/skills/` (not `.agents/skills/`); claude's
+// `.claude/skills/` no longer overlaps so duplication is not a concern.
+// Users who explicitly want to skip codex skill emission (e.g. because
+// they redirect Codex CLI to read claude's tree) opt out with
+// `outputs.codex.shared-subagents: false`.
 func codexEmitsSkills(cfg *config.Config) bool {
 	if cfg == nil {
 		return true
 	}
 	if o, ok := cfg.Outputs[target]; ok && o.SharedSubagents != nil {
 		return *o.SharedSubagents
-	}
-	for _, t := range cfg.Targets {
-		if t == "claude" {
-			return false
-		}
 	}
 	return true
 }

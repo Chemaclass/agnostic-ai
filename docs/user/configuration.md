@@ -76,12 +76,11 @@ outputs:
     # rules-file: CLAUDE.md      # opt-in: legacy concatenated rules layout.
   codex:
     agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
-    skills-dir: .agents/skills   # default. One folder per skill.
-    # shared-subagents: <bool>  # default: false when claude is also in `targets`
-    #                            # (claude already owns skills at .claude/skills/<name>/);
-    #                            # true otherwise (codex alone emits to .agents/skills/).
-    #                            # Set explicitly to override the conditional default in
-    #                            # either direction.
+    skills-dir: .codex/skills    # default. One folder per skill. Set to .agents/skills for the community shared layout.
+    # shared-subagents: <bool>  # default: true (emit skills at skills-dir).
+    #                            # Set false to skip codex skill emission entirely,
+    #                            # useful when Codex CLI is configured to read
+    #                            # claude's .claude/skills/ tree directly.
     commands-dir: .codex/prompts # default. One .md per command (slash prompt).
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
   gemini:
@@ -171,7 +170,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |
 | `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
-| `codex` | `skills-dir` | `.agents/skills` | One folder per skill per the Codex skills layout. |
+| `codex` | `skills-dir` | `.codex/skills` | One folder per skill per the Codex skills layout. Override to `.agents/skills` for the community shared layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds both `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables. |
 | `codex` | `config` | _empty_ | First-class block for `.codex/config.toml` global keys. See [Codex config](#codex-config). |
