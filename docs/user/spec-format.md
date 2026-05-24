@@ -156,8 +156,12 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `command` | yes | none | Shell command to run when triggered. |
 | `target` | no | empty | Single target name. Emits only there. Use to scope a hook to one tool. |
 | `targets` | no | empty | List of target names. Emits only to those. Use when a hook makes sense for two tools but not all. |
+| `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
+| `targets-exclude` | no | empty | List of target names to block. Emits to every other configured target. |
 
-When neither `target` nor `targets` is set the hook emits to every target that supports hooks (legacy behavior). `target` and `targets` are mutually informative; `target` takes precedence when both appear.
+When none of these fields is set the hook emits to every target that supports hooks (legacy behavior). `target` and `targets` are mutually informative; `target` takes precedence when both appear. Exclude wins: a target in both an include AND an exclude list is excluded.
+
+The same four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not just hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
 
 ```yaml
 event: PostToolUse

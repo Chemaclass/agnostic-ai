@@ -83,43 +83,84 @@ func (e Entry) Description() string {
 
 // EmitsTo reports whether this entry should emit for the given target.
 //
-// Entries opt into per-target scoping via the `target` (string) or
-// `targets` (list of strings) frontmatter field. When neither is set the
-// entry emits everywhere a supporting adapter exists (legacy behavior).
-// When set, only adapters whose name appears in the list see the entry.
+// Entries opt into per-target scoping via four frontmatter fields:
 //
-// Empty target string short-circuits to true so callers that do not pass
-// a target (tests, ad-hoc tooling) keep historical semantics.
+//   - `target: <name>` or `targets: [a, b]` — explicit allow-list.
+//     Only adapters whose name appears in the list see the entry.
+//   - `target-exclude: <name>` or `targets-exclude: [a, b]` — explicit
+//     deny-list. The entry emits to every other configured target.
+//
+// When none of the four are set the entry emits everywhere a supporting
+// adapter exists (legacy behavior). Empty target string short-circuits
+// to true so callers that do not pass a target (tests, ad-hoc tooling)
+// keep historical semantics.
+//
+// Exclude takes precedence: a target named in both an include AND an
+// exclude list is excluded.
 func (e Entry) EmitsTo(target string) bool {
 	if target == "" {
 		return true
 	}
-	if s, ok := e.Meta["target"].(string); ok && s != "" {
-		return s == target
+	if metaContainsTarget(e.Meta, "target-exclude", "targets-exclude", target) {
+		return false
 	}
-	switch v := e.Meta["targets"].(type) {
-	case []any:
-		if len(v) == 0 {
-			return true
-		}
-		for _, x := range v {
-			if s, ok := x.(string); ok && s == target {
-				return true
-			}
-		}
-		return false
-	case []string:
-		if len(v) == 0 {
-			return true
-		}
-		for _, s := range v {
-			if s == target {
-				return true
-			}
-		}
-		return false
+	if hasInclude, matched := evalIncludeTargets(e.Meta, target); hasInclude {
+		return matched
 	}
 	return true
+}
+
+// evalIncludeTargets reports whether the entry has any include filter
+// set (target or targets) and, if so, whether the target matches it.
+func evalIncludeTargets(meta map[string]any, target string) (bool, bool) {
+	if s, ok := meta["target"].(string); ok && s != "" {
+		return true, s == target
+	}
+	names, present := stringListField(meta, "targets")
+	if !present || len(names) == 0 {
+		return false, false
+	}
+	for _, s := range names {
+		if s == target {
+			return true, true
+		}
+	}
+	return true, false
+}
+
+// metaContainsTarget reports whether either the single-string field or
+// the list field names target. Used by exclude evaluation so a single
+// helper covers both shapes (target-exclude string + targets-exclude list).
+func metaContainsTarget(meta map[string]any, singleKey, listKey, target string) bool {
+	if s, ok := meta[singleKey].(string); ok && s == target {
+		return true
+	}
+	names, _ := stringListField(meta, listKey)
+	for _, s := range names {
+		if s == target {
+			return true
+		}
+	}
+	return false
+}
+
+// stringListField reads a YAML list of strings from meta[key]. Accepts
+// both `[]any` (yaml.v3 default decode) and `[]string` (round-tripped
+// through go structs). Returns (nil, false) when the field is absent.
+func stringListField(meta map[string]any, key string) ([]string, bool) {
+	switch v := meta[key].(type) {
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, x := range v {
+			if s, ok := x.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out, true
+	case []string:
+		return v, true
+	}
+	return nil, false
 }
 
 // Globs returns the entry's globs frontmatter as a string, or "" if
@@ -196,10 +237,38 @@ func (b Bundle) HooksFor(target string) []Entry {
 	if target == "" {
 		return b.Hooks
 	}
-	out := make([]Entry, 0, len(b.Hooks))
-	for _, h := range b.Hooks {
-		if h.EmitsTo(target) {
-			out = append(out, h)
+	return filterEntriesFor(b.Hooks, target)
+}
+
+// For returns a copy of b with every kind filtered by Entry.EmitsTo.
+// Adapters that loop over `bundle.Agents` / `Skills` / `Rules` / `MCPs`
+// / `Commands` see only the entries scoped to their target via
+// `target:` / `targets:` / `target-exclude:` / `targets-exclude:`
+// frontmatter. Empty target string short-circuits to identity so
+// callers (tests, ad-hoc tooling) that emit for "everything" keep
+// historical semantics. Closes #292.
+func (b Bundle) For(target string) Bundle {
+	if target == "" {
+		return b
+	}
+	return Bundle{
+		Agents:   filterEntriesFor(b.Agents, target),
+		Skills:   filterEntriesFor(b.Skills, target),
+		Rules:    filterEntriesFor(b.Rules, target),
+		Hooks:    filterEntriesFor(b.Hooks, target),
+		MCPs:     filterEntriesFor(b.MCPs, target),
+		Commands: filterEntriesFor(b.Commands, target),
+	}
+}
+
+// filterEntriesFor returns the subset of entries whose EmitsTo(target)
+// is true. Allocates only when at least one entry is dropped so the
+// common "no scoping anywhere" case avoids the copy.
+func filterEntriesFor(entries []Entry, target string) []Entry {
+	out := make([]Entry, 0, len(entries))
+	for _, e := range entries {
+		if e.EmitsTo(target) {
+			out = append(out, e)
 		}
 	}
 	return out

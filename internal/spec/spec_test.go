@@ -314,6 +314,17 @@ func TestEntry_EmitsTo(t *testing.T) {
 		{"targets []string miss", map[string]any{"targets": []string{"gemini"}}, "claude", false},
 		{"empty target string falls through to permissive", map[string]any{"target": ""}, "claude", true},
 		{"empty targets list permissive", map[string]any{"targets": []any{}}, "claude", true},
+		// target-exclude (single string): emits everywhere except the
+		// named target. Mirrors target: but negated. Closes #292.
+		{"target-exclude string blocks named", map[string]any{"target-exclude": "gemini"}, "gemini", false},
+		{"target-exclude string passes other", map[string]any{"target-exclude": "gemini"}, "claude", true},
+		// targets-exclude (list): blocks every listed target, emits to
+		// the rest.
+		{"targets-exclude []any blocks listed", map[string]any{"targets-exclude": []any{"gemini", "aider"}}, "aider", false},
+		{"targets-exclude []any passes unlisted", map[string]any{"targets-exclude": []any{"gemini", "aider"}}, "claude", true},
+		{"targets-exclude []string blocks listed", map[string]any{"targets-exclude": []string{"copilot"}}, "copilot", false},
+		// Empty exclude list is permissive (do not block anything).
+		{"empty targets-exclude is permissive", map[string]any{"targets-exclude": []any{}}, "claude", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -323,6 +334,89 @@ func TestEntry_EmitsTo(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Bundle.For filters every kind by EmitsTo so adapters see only the
+// entries scoped to their target. Mirrors Bundle.HooksFor across
+// agents/skills/rules/mcps/commands. Closes #292.
+func TestBundle_For(t *testing.T) {
+	b := Bundle{
+		Agents: []Entry{
+			{Kind: KindAgent, Name: "a1"},
+			{Kind: KindAgent, Name: "a2", Meta: map[string]any{"target": "codex"}},
+		},
+		Skills: []Entry{
+			{Kind: KindSkill, Name: "s1", Meta: map[string]any{"targets": []any{"claude"}}},
+		},
+		Rules: []Entry{
+			{Kind: KindRule, Name: "r1"},
+			{Kind: KindRule, Name: "r2", Meta: map[string]any{"target-exclude": "claude"}},
+		},
+		MCPs: []Entry{
+			{Kind: KindMCP, Name: "m1", Meta: map[string]any{"targets-exclude": []any{"codex"}}},
+		},
+		Commands: []Entry{
+			{Kind: KindCommand, Name: "c1", Meta: map[string]any{"target": "claude"}},
+		},
+		Hooks: []Entry{
+			{Kind: KindHook, Name: "h1"},
+			{Kind: KindHook, Name: "h2", Meta: map[string]any{"target": "codex"}},
+		},
+	}
+	claude := b.For("claude")
+	if names := agentNames(claude.Agents); !equalSlices(names, []string{"a1"}) {
+		t.Errorf("claude agents = %v, want [a1]", names)
+	}
+	if names := agentNames(claude.Skills); !equalSlices(names, []string{"s1"}) {
+		t.Errorf("claude skills = %v, want [s1]", names)
+	}
+	if names := agentNames(claude.Rules); !equalSlices(names, []string{"r1"}) {
+		t.Errorf("claude rules = %v, want [r1] (r2 excluded)", names)
+	}
+	if names := agentNames(claude.MCPs); !equalSlices(names, []string{"m1"}) {
+		t.Errorf("claude mcps = %v, want [m1]", names)
+	}
+	if names := agentNames(claude.Commands); !equalSlices(names, []string{"c1"}) {
+		t.Errorf("claude commands = %v, want [c1]", names)
+	}
+	if names := agentNames(claude.Hooks); !equalSlices(names, []string{"h1"}) {
+		t.Errorf("claude hooks = %v, want [h1]", names)
+	}
+
+	codex := b.For("codex")
+	if names := agentNames(codex.Agents); !equalSlices(names, []string{"a1", "a2"}) {
+		t.Errorf("codex agents = %v, want [a1 a2]", names)
+	}
+	if names := agentNames(codex.Skills); !equalSlices(names, []string{}) {
+		t.Errorf("codex skills = %v, want []", names)
+	}
+	if names := agentNames(codex.MCPs); !equalSlices(names, []string{}) {
+		t.Errorf("codex mcps = %v, want [] (excluded)", names)
+	}
+
+	if all := b.For(""); len(all.Agents) != 2 || len(all.Hooks) != 2 {
+		t.Errorf("empty target = identity copy, got agents=%d hooks=%d", len(all.Agents), len(all.Hooks))
+	}
+}
+
+func agentNames(es []Entry) []string {
+	out := make([]string, 0, len(es))
+	for _, e := range es {
+		out = append(out, e.Name)
+	}
+	return out
+}
+
+func equalSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestBundle_HooksFor(t *testing.T) {
