@@ -394,6 +394,15 @@ hint. HTTP/SSE servers (no command, only `url:`) skip the check. The
 report is advisory: a missing binary is an environment problem, not a
 spec problem, so it does not change doctor's exit code.
 
+After the MCP block, doctor walks `.agnostic-ai/scripts/<tool>/` per
+tool and groups files by basename. When the same basename exists under
+two or more tools with different SHA-256 bodies it prints one finding
+per divergent script (sizes + truncated hashes per variant) and the
+suggested consolidation path `.agnostic-ai/scripts/<basename>`.
+Divergence registers as drift and contributes to a non-zero exit
+because it usually represents an unnoticed import diff between tools.
+Not auto-fixable: choosing which body wins requires human judgement.
+
 ## status
 
 Show project configuration and current sync state. Exits 0 even when drift is
