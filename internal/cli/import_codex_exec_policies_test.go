@@ -92,6 +92,40 @@ func TestImportFromCodex_ExecPolicies_EmptyFile_NoOverlay(t *testing.T) {
 	}
 }
 
+// Regression for #277: when justification + match are expressed as
+// kwargs inside the prefix_rule(...) call (the form codex CLI itself
+// emits when authors hand-write the file), they must round-trip into
+// the captured overlay alongside pattern + decision.
+func TestParseCodexExecPolicies_InlineKwargs(t *testing.T) {
+	body := `prefix_rule(
+    pattern = ["rm", "-rf", "/"],
+    decision = "forbidden",
+    justification = "Never remove the filesystem root.",
+    match = ["rm -rf /"],
+)
+`
+	got, err := parseCodexExecPolicies(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1, got %d", len(got))
+	}
+	p := got[0]
+	if !equalStrings(p.Pattern, []string{"rm", "-rf", "/"}) {
+		t.Errorf("pattern = %v", p.Pattern)
+	}
+	if p.Decision != "forbidden" {
+		t.Errorf("decision = %q", p.Decision)
+	}
+	if p.Justification != "Never remove the filesystem root." {
+		t.Errorf("justification = %q", p.Justification)
+	}
+	if !equalStrings(p.Match, []string{"rm -rf /"}) {
+		t.Errorf("match = %v", p.Match)
+	}
+}
+
 // parseCodexExecPolicies handles single-line prefix_rule too.
 func TestParseCodexExecPolicies_SingleLineCall(t *testing.T) {
 	body := `prefix_rule(pattern = ["sudo"], decision = "ask")` + "\n"
