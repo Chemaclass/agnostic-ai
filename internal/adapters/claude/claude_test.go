@@ -1120,6 +1120,88 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	}
 }
 
+// A captured hook-event-order sidecar wins over the canonical lifecycle
+// order, so a user who authored PostToolUse before PreToolUse keeps that
+// order through a sync. Without the sidecar, events fall back to the
+// canonical lifecycle.
+func TestEmit_SettingsJSON_HookEventOrderRespectsCapturedSidecar(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.hook-events.json"),
+		[]byte(`["PostToolUse","PreToolUse"]`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "post", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Edit", "command": "echo post",
+		}},
+		{Kind: spec.KindHook, Name: "pre", Meta: map[string]any{
+			"event": "PreToolUse", "matcher": "Bash", "command": "echo pre",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(raw)
+	postPos := strings.Index(out, `"PostToolUse"`)
+	prePos := strings.Index(out, `"PreToolUse"`)
+	if postPos == -1 || prePos == -1 {
+		t.Fatalf("both events expected in:\n%s", out)
+	}
+	if postPos > prePos {
+		t.Errorf("expected PostToolUse before PreToolUse per sidecar; got Post@%d Pre@%d\n%s",
+			postPos, prePos, out)
+	}
+}
+
+// Round-trip a hand-authored 4-space settings.json through emit:
+// detected indent applies to the rewritten file. Without the detection
+// the file would normalize to 2-space, breaking sync --check byte
+// equality for users on 4-space style.
+func TestEmit_SettingsJSON_PreservesSourceIndent(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	overlay := filepath.Join(dir, ".agnostic-ai/overlays/claude.settings.json")
+	if err := os.MkdirAll(filepath.Dir(overlay), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(overlay, []byte(`{
+    "statusLine": {
+        "type": "command",
+        "command": "/bin/echo"
+    }
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	if !strings.Contains(out, `    "statusLine"`) {
+		t.Errorf("expected 4-space indent preserved in:\n%s", out)
+	}
+	if strings.Contains(out, `  "statusLine"`) && !strings.Contains(out, `    "statusLine"`) {
+		t.Errorf("settings.json normalized to 2-space:\n%s", out)
+	}
+}
+
 func TestEmit_OutputOverride(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

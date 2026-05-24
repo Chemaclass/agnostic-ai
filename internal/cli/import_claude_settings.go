@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,13 @@ const (
 	// when writing settings.json, layering the spec-derived `hooks` key
 	// on top.
 	claudeOverlayFile = "claude.settings.json"
+
+	// claudeHookOrderFile is a sidecar capturing the order of hook
+	// event keys (`PreToolUse`, `PostToolUse`, ...) as they appeared in
+	// the source settings.json. The claude adapter reads it on emit so
+	// the user's authored event order survives a round-trip instead of
+	// being normalized to the canonical lifecycle order.
+	claudeHookOrderFile = "claude.settings.hook-events.json"
 )
 
 // claudeOverlayDir is an alias for the shared overlay directory.
@@ -62,14 +70,18 @@ func importClaudeSettingsOverlay(root string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	hadHooks := false
-	if _, ok := doc.Get("hooks"); ok {
+	if rawHooks, ok := doc.Get("hooks"); ok {
 		hadHooks = true
+		if err := captureClaudeHookEventOrder(root, rawHooks); err != nil {
+			return false, err
+		}
 		doc.SetRaw("hooks", json.RawMessage(`null`))
 	}
 	if doc.Len() == 0 || (hadHooks && doc.Len() == 1) {
 		return false, nil
 	}
-	raw, err := adapters.MarshalJSONIndent(doc)
+	indent := adapters.DetectJSONIndent(data)
+	raw, err := adapters.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
 		return false, fmt.Errorf("marshal overlay: %w", err)
 	}
@@ -87,4 +99,57 @@ func importClaudeSettingsOverlay(root string) (bool, error) {
 // root, suitable for printing in import summary lines.
 func claudeOverlayRelPath() string {
 	return filepath.Join(claudeOverlayDir, claudeOverlayFile)
+}
+
+// captureClaudeHookEventOrder scans the raw `hooks` value from the
+// source settings.json and writes the event keys in source order to
+// `.agnostic-ai/overlays/claude.settings.hook-events.json`. The claude
+// adapter reads that file on emit and uses the captured order in
+// preference to the canonical lifecycle order, so a user authored as
+// `PostToolUse` first stays that way across a round-trip.
+func captureClaudeHookEventOrder(root string, rawHooks json.RawMessage) error {
+	if len(rawHooks) == 0 {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(rawHooks))
+	dec.UseNumber()
+	tok, err := dec.Token()
+	if err != nil {
+		// non-object hook value — nothing to record.
+		return nil
+	}
+	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
+		return nil
+	}
+	var events []string
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			return nil
+		}
+		name, _ := key.(string)
+		if name != "" {
+			events = append(events, name)
+		}
+		// Skip the matcher-group value; we only care about key order.
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return nil
+		}
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	dst := filepath.Join(root, claudeOverlayDir, claudeHookOrderFile)
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+	}
+	body, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal hook order: %w", err)
+	}
+	if err := importWriteFile(dst, append(body, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", dst, err)
+	}
+	return nil
 }

@@ -8,7 +8,8 @@ import (
 	"io"
 )
 
-// MarshalJSONIndent renders v as indented JSON without HTML escaping.
+// MarshalJSONIndent renders v as indented JSON without HTML escaping
+// using a 2-space indent. Equivalent to MarshalJSONIndentWith(v, "  ").
 //
 // Go's default json.MarshalIndent escapes `&`, `<`, `>` as `&`,
 // `<`, `>` for browser safety. That mangles shell commands
@@ -16,10 +17,21 @@ import (
 // which the user must then read in escaped form. Adapters write files
 // consumed by CLIs, not browsers, so HTML escaping is off by default.
 func MarshalJSONIndent(v any) ([]byte, error) {
+	return MarshalJSONIndentWith(v, "  ")
+}
+
+// MarshalJSONIndentWith renders v as indented JSON without HTML escaping
+// using the given indent string (typically "  ", "    ", or "\t"). Used
+// by adapters that want to preserve the indent style of a hand-authored
+// file across a sync round-trip.
+func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
+	if indent == "" {
+		indent = "  "
+	}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
+	enc.SetIndent("", indent)
 	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
@@ -28,6 +40,33 @@ func MarshalJSONIndent(v any) ([]byte, error) {
 		out = out[:n-1]
 	}
 	return out, nil
+}
+
+// DetectJSONIndent scans data for the first nested line and returns its
+// leading whitespace. Returns "" when the file is single-line or empty,
+// letting the caller fall back to a default.
+func DetectJSONIndent(data []byte) string {
+	// Skip first line (the opening `{` or `[`).
+	for i := 0; i < len(data); i++ {
+		if data[i] != '\n' {
+			continue
+		}
+		// Found the end of the first line. Read indent of next non-empty
+		// line up to the first non-whitespace rune.
+		j := i + 1
+		for j < len(data) && (data[j] == '\n' || data[j] == '\r') {
+			j++
+		}
+		start := j
+		for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
+			j++
+		}
+		if j > start && j < len(data) {
+			return string(data[start:j])
+		}
+		return ""
+	}
+	return ""
 }
 
 // OrderedJSON is a JSON object that preserves insertion order on
