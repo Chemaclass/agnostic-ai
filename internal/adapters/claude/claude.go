@@ -339,7 +339,7 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	}
 	if rulesFile := emit.OutputRulesFile(cfg, target, ""); rulesFile != "" {
 		var sb strings.Builder
-		sb.WriteString(emit.Header(emit.FormatMarkdown) + "\n")
+		sb.WriteString(emit.HeaderBlock(emit.FormatMarkdown))
 		for _, r := range rules {
 			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
 		}

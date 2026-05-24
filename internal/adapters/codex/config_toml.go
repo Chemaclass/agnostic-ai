@@ -26,7 +26,7 @@ func renderConfigTOML(_ []spec.Entry, mcps []spec.Entry, cfg *config.CodexConfig
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString(emit.Header(emit.FormatTOML) + "\n")
+	sb.WriteString(emit.HeaderBlock(emit.FormatTOML))
 
 	if overlayBody != "" {
 		sb.WriteString(overlayBody)
