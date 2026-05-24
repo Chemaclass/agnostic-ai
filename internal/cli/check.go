@@ -242,6 +242,13 @@ func newDoctorCmd() *cobra.Command {
 			// 5. MCP resolution
 			reportMCPCommandResolution(cmd)
 
+			// 5b. Hook script body divergence across per-tool stashes.
+			scriptDrift, err := reportDivergentHookScripts(cmd, ".")
+			if err != nil {
+				return err
+			}
+			hasDrift = hasDrift || scriptDrift
+
 			// 6. Next step
 			doctorNextStep(cmd, hasDrift, true)
 

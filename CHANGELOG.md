@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 - `import.codex.shred` config knob. Set to `false` to keep each `AGENTS.md` as a single rule spec instead of sharding it by `##` heading. Default `true` preserves existing behavior. Closes #248.
 - Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Empty/omitted keeps legacy "emit everywhere" behavior. Closes #249.
+- `agnostic-ai doctor` flags divergent hook script bodies under `.agnostic-ai/scripts/<tool>/<basename>`. When the same basename exists for two or more tools with different SHA-256 bodies, doctor lists the per-tool sizes/hashes and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Not auto-fixable. Closes #251.
 
 ### Changed
 - `agnostic-ai import <tool>` auto-sets `target: <tool>` on imported hooks (codex/claude/gemini). Codex-specific shell-wrapped hook scripts no longer leak into claude `settings.json` on cross-tool sync. Remove the field by hand if you want a hook to flow to every target.
