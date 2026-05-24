@@ -107,6 +107,14 @@ func TestRoundTrip_ClaudeCodexClaude(t *testing.T) {
 // The codex overlay must carry every non-managed `.codex/config.toml`
 // key through the chain so the final config.toml still has the
 // user-authored `model`, `[profiles.*]`, `[history]` blocks.
+//
+// Hooks imported from codex are auto-tagged `target: codex` (per #249) so
+// they intentionally do NOT leak into claude on the intermediate sync.
+// That means after wiping specs and re-importing from claude, the hook
+// is no longer in the bundle; the round-trip preserves overlay + MCP
+// state but not the codex-scoped hook. To exercise hook round-trip the
+// other test (TestRoundTrip_ClaudeCodexClaude) covers the symmetric
+// claude-scoped path.
 func TestRoundTrip_CodexClaudeCodex(t *testing.T) {
 	dir := t.TempDir()
 	seedCodexNative(t, dir)
@@ -130,11 +138,26 @@ func TestRoundTrip_CodexClaudeCodex(t *testing.T) {
 	assertContains(t, filepath.Join(dir, ".codex/prompts/release.md"),
 		"release helper body")
 	assertContains(t, filepath.Join(dir, ".codex/config.toml"),
-		`[mcp_servers.fs]`, `command = "npx"`,
-		`[[hooks.PostToolUse]]`, `matcher = "Edit"`, `command = "echo edited"`)
+		`[mcp_servers.fs]`, `command = "npx"`)
 	// Overlay carries first-class codex config keys through the chain.
 	assertContains(t, filepath.Join(dir, ".codex/config.toml"),
 		`model = "gpt-5"`, `[profiles.work]`)
+	// Codex-scoped hook must not have leaked to claude during the
+	// intermediate sync, so it is gone after re-import from claude.
+	assertAbsent(t, filepath.Join(dir, ".codex/config.toml"),
+		`[[hooks.PostToolUse]]`)
+}
+
+// assertAbsent fails when path contains substr.
+func assertAbsent(t *testing.T, path, substr string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if strings.Contains(string(data), substr) {
+		t.Errorf("%s unexpectedly contains %q", path, substr)
+	}
 }
 
 func runCmd(t *testing.T, args ...string) {

@@ -394,6 +394,42 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 	}
 }
 
+// A hook scoped to a different target must not surface in claude's
+// settings.json, even though claude supports the kind. Two-hook bundle:
+// one scoped to codex, one un-scoped; only the un-scoped hook lands.
+func TestEmit_HookTargetScopingFiltersOtherTargets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "codex-only",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit",
+				"command": "echo codex", "target": "codex",
+			},
+		},
+		{
+			Kind: spec.KindHook, Name: "everywhere",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit",
+				"command": "echo all",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	out := string(raw)
+	if !strings.Contains(out, "echo all") {
+		t.Errorf("expected un-scoped hook in claude settings:\n%s", out)
+	}
+	if strings.Contains(out, "echo codex") {
+		t.Errorf("codex-scoped hook should not land in claude settings:\n%s", out)
+	}
+}
+
 // Per-hook timeout (seconds) and statusMessage are first-class Claude
 // schema fields. When the spec carries them via Meta they must propagate
 // to every emitted `hooks[].{...}` object so behavior survives a

@@ -297,6 +297,60 @@ func TestLoadBundle_TagsLayerProject(t *testing.T) {
 	}
 }
 
+func TestEntry_EmitsTo(t *testing.T) {
+	cases := []struct {
+		name   string
+		meta   map[string]any
+		target string
+		want   bool
+	}{
+		{"no scoping → all targets", nil, "claude", true},
+		{"empty target → permissive", map[string]any{"target": "claude"}, "", true},
+		{"target match", map[string]any{"target": "claude"}, "claude", true},
+		{"target mismatch", map[string]any{"target": "codex"}, "claude", false},
+		{"targets list match", map[string]any{"targets": []any{"claude", "codex"}}, "codex", true},
+		{"targets list miss", map[string]any{"targets": []any{"claude"}}, "codex", false},
+		{"targets []string match", map[string]any{"targets": []string{"gemini"}}, "gemini", true},
+		{"targets []string miss", map[string]any{"targets": []string{"gemini"}}, "claude", false},
+		{"empty target string falls through to permissive", map[string]any{"target": ""}, "claude", true},
+		{"empty targets list permissive", map[string]any{"targets": []any{}}, "claude", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := Entry{Kind: KindHook, Meta: tc.meta}
+			if got := e.EmitsTo(tc.target); got != tc.want {
+				t.Errorf("EmitsTo(%q) = %v, want %v (meta=%v)", tc.target, got, tc.want, tc.meta)
+			}
+		})
+	}
+}
+
+func TestBundle_HooksFor(t *testing.T) {
+	all := Bundle{Hooks: []Entry{
+		{Kind: KindHook, Name: "a"},
+		{Kind: KindHook, Name: "b", Meta: map[string]any{"target": "claude"}},
+		{Kind: KindHook, Name: "c", Meta: map[string]any{"target": "codex"}},
+		{Kind: KindHook, Name: "d", Meta: map[string]any{"targets": []any{"claude", "gemini"}}},
+	}}
+	got := all.HooksFor("claude")
+	gotNames := make([]string, len(got))
+	for i, h := range got {
+		gotNames[i] = h.Name
+	}
+	want := []string{"a", "b", "d"}
+	if len(got) != len(want) {
+		t.Fatalf("HooksFor(claude) = %v, want %v", gotNames, want)
+	}
+	for i, n := range want {
+		if gotNames[i] != n {
+			t.Errorf("at %d: got %q, want %q", i, gotNames[i], n)
+		}
+	}
+	if untouched := all.HooksFor(""); len(untouched) != 4 {
+		t.Errorf("empty target should return all hooks, got %d", len(untouched))
+	}
+}
+
 func defaultsForTest() *config.Config {
 	return &config.Config{
 		Sources: config.Sources{

@@ -154,6 +154,19 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
 | `command` | yes | none | Shell command to run when triggered. |
+| `target` | no | empty | Single target name. Emits only there. Use to scope a hook to one tool. |
+| `targets` | no | empty | List of target names. Emits only to those. Use when a hook makes sense for two tools but not all. |
+
+When neither `target` nor `targets` is set the hook emits to every target that supports hooks (legacy behavior). `target` and `targets` are mutually informative; `target` takes precedence when both appear.
+
+```yaml
+event: PostToolUse
+matcher: apply_patch|Edit|Write
+command: "$(git rev-parse --show-toplevel)/.codex/hooks/format-php.sh"
+target: codex   # shell-expanded codex path; do not leak to other tools
+```
+
+Hooks imported from a tool-native source auto-set `target` to that tool (codex import → `target: codex`, claude import → `target: claude`, gemini import → `target: gemini`). Remove the field by hand if you want the hook to flow everywhere.
 
 ### Supported events (Claude Code)
 

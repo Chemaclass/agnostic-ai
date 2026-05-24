@@ -459,6 +459,7 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 			"name":    name,
 			"event":   slot.event,
 			"command": h.Command,
+			"target":  "codex",
 		}
 		if h.Matcher != "" {
 			doc["matcher"] = h.Matcher

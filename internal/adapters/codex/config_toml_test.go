@@ -113,6 +113,39 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	}
 }
 
+// Hooks scoped to another target via `target:` must be skipped entirely
+// from .codex/config.toml so a claude-only hook does not leak into codex.
+func TestEmit_Hook_TargetScopingFiltersOtherTargets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "claude-only",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit",
+				"command": "echo claude", "target": "claude",
+			},
+		},
+		{
+			Kind: spec.KindHook, Name: "codex-rule",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit",
+				"command": "echo codex", "target": "codex",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `command = "echo codex"`) {
+		t.Errorf("codex-scoped hook missing in codex config.toml:\n%s", got)
+	}
+	if strings.Contains(got, `command = "echo claude"`) {
+		t.Errorf("claude-scoped hook must not leak into codex config.toml:\n%s", got)
+	}
+}
+
 // A hook spec carrying a command array emits one [[hooks.<event>]] block per command.
 // Same matcher + event share the array; codex's TOML schema has a single command field.
 func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
