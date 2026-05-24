@@ -19,6 +19,9 @@ func TestSourceToolFromHookCommand(t *testing.T) {
 		{".claude/agents/y.md", "", false},
 		{"./hooks/x.sh", "", false},
 		{"", "", false},
+		// shell-expansion wrapped form — common in hooks.json (#264)
+		{`"$(git rev-parse --show-toplevel)/.codex/hooks/protect-files.sh"`, "codex", true},
+		{`"$(git rev-parse --show-toplevel)/.claude/hooks/x.sh"`, "claude", true},
 	}
 	for _, c := range cases {
 		tool, ok := SourceToolFromHookCommand(c.cmd)
@@ -134,5 +137,36 @@ func TestMaterializeHookScript_IgnoresNonHookCommand(t *testing.T) {
 	t.Chdir(dir)
 	if err := MaterializeHookScript("gofmt", "codex", "", false); err != nil {
 		t.Errorf("expected no-op for non-hook command, got %v", err)
+	}
+}
+
+// Regression for #264: codex hooks.json wraps the script path in a shell
+// expansion (`"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"`).
+// MaterializeHookScript must extract the basename and copy the stashed
+// body anyway, otherwise the emitted hooks.json references files that
+// never get materialized.
+func TestMaterializeHookScript_HandlesShellExpansionWrappedPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	if err := os.MkdirAll(".agnostic-ai/scripts/codex", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := []byte("#!/usr/bin/env bash\necho protect\n")
+	if err := os.WriteFile(".agnostic-ai/scripts/codex/protect-files.sh", body, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := `"$(git rev-parse --show-toplevel)/.codex/hooks/protect-files.sh"`
+	if err := MaterializeHookScript(cmd, "codex", "codex", false); err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+
+	out, err := os.ReadFile(filepath.Join(dir, ".codex/hooks/protect-files.sh"))
+	if err != nil {
+		t.Fatalf("expected emitted hook script under .codex/hooks/: %v", err)
+	}
+	if string(out) != string(body) {
+		t.Errorf("body mismatch: %q vs %q", out, body)
 	}
 }

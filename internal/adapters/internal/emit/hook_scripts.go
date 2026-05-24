@@ -69,40 +69,77 @@ func MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
 	return nil
 }
 
-// SourceToolFromHookCommand extracts the leading `.<tool>/hooks/`
-// segment from cmd. Returns ("", false) when cmd is not a recognized
-// sibling-tool hook path. Used by adapters to remember the spec origin
-// before RewriteHookPath rewrites it to their own prefix.
+// SourceToolFromHookCommand extracts the `.<tool>/hooks/` segment from
+// cmd. Recognizes bare paths (`.codex/hooks/x.sh`) and shell-expansion
+// wrappers (`"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"`) so
+// the spec origin survives the round-trip through hooks.json. Returns
+// ("", false) when cmd contains no recognized sibling-tool segment.
 func SourceToolFromHookCommand(cmd string) (string, bool) {
-	if !strings.HasPrefix(cmd, ".") {
-		return "", false
+	for _, prefix := range hookSiblingPrefixes {
+		if hasHookSegment(cmd, prefix) {
+			// strip leading "." and trailing "/hooks/" to recover tool name
+			return prefix[1 : len(prefix)-len("/hooks/")], true
+		}
 	}
-	rest := cmd[1:]
-	slash := strings.IndexByte(rest, '/')
-	if slash <= 0 {
-		return "", false
-	}
-	tool := rest[:slash]
-	if !strings.HasPrefix(rest[slash:], "/hooks/") {
-		return "", false
-	}
-	return tool, true
+	return "", false
 }
 
-// hookBasename returns the script filename portion of cmd when cmd
-// points at `.<target>/hooks/<basename>` (the post-rewrite form). The
-// basename must contain no further slashes so an absolute path or a
-// nested directory does not produce a misleading write target.
+// hookBasename returns the script filename trailing a `.<target>/hooks/`
+// segment in cmd. Scans the whole command so a shell-expansion wrapped
+// path (the form codex hooks.json uses) still yields a basename. The
+// basename ends at the first `/`, `"`, whitespace, or end of string so
+// a trailing argument list does not bleed into the filename.
 func hookBasename(cmd, target string) (string, bool) {
-	prefix := "." + target + "/hooks/"
-	if !strings.HasPrefix(cmd, prefix) {
+	segment := "." + target + "/hooks/"
+	idx := indexHookSegment(cmd, segment)
+	if idx < 0 {
 		return "", false
 	}
-	rest := cmd[len(prefix):]
-	if rest == "" || strings.ContainsRune(rest, '/') {
+	rest := cmd[idx+len(segment):]
+	end := len(rest)
+	for i, r := range rest {
+		if r == '/' || r == '"' || r == ' ' || r == '\t' || r == '\n' {
+			end = i
+			break
+		}
+	}
+	basename := rest[:end]
+	if basename == "" {
 		return "", false
 	}
-	return rest, true
+	return basename, true
+}
+
+// hasHookSegment reports whether cmd contains the sibling-tool hooks
+// prefix at a path boundary — either at the start of cmd or preceded by
+// a character that cannot be part of a directory name (`/`, `"`, `'`).
+func hasHookSegment(cmd, segment string) bool {
+	return indexHookSegment(cmd, segment) >= 0
+}
+
+// indexHookSegment finds the byte offset where segment begins in cmd
+// when it appears at a path boundary, or -1 if not present. A boundary
+// is the start of cmd, a `/`, a `"`, or a `'`. The boundary check stops
+// false positives when, say, a hook command embeds a literal string
+// that happens to contain `.codex/hooks/` mid-token.
+func indexHookSegment(cmd, segment string) int {
+	from := 0
+	for from <= len(cmd)-len(segment) {
+		i := strings.Index(cmd[from:], segment)
+		if i < 0 {
+			return -1
+		}
+		abs := from + i
+		if abs == 0 {
+			return abs
+		}
+		switch cmd[abs-1] {
+		case '/', '"', '\'':
+			return abs
+		}
+		from = abs + 1
+	}
+	return -1
 }
 
 // findHookScriptBody walks the agnostic scripts stash in lookup order
