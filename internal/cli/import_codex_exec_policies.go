@@ -69,10 +69,6 @@ func importCodexExecPolicies(root string) (bool, error) {
 	return true, nil
 }
 
-// prefixRuleRE matches the `prefix_rule(` opening token. Used to locate
-// each rule call; the body is parsed forward to the matching `)`.
-var prefixRuleRE = regexp.MustCompile(`(?m)\bprefix_rule\s*\(`)
-
 // parseCodexExecPolicies extracts every `prefix_rule(...)` call from a
 // Skylark exec-policy file. Justification = the contiguous block of `#`
 // comment lines immediately above a call. Match examples = `# match: ...`
