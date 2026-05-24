@@ -20,6 +20,12 @@ const (
 	// `outputs.codex.exec-policies` inline nor `exec-policies-file` is
 	// set. Round-trip parity with the codex config overlay pattern.
 	execPoliciesOverlayPath = ".agnostic-ai/overlays/codex.exec-policies.yaml"
+
+	// execPoliciesHeaderOverlayPath holds the optional file-level comment
+	// block lifted off the top of `.codex/rules/default.rules` at import.
+	// Re-rendered above the first `prefix_rule(...)` so a hand-authored
+	// file header round-trips byte-stably.
+	execPoliciesHeaderOverlayPath = ".agnostic-ai/overlays/codex.exec-policies-header.txt"
 )
 
 // emitExecPolicies writes the Skylark-flavored `prefix_rule(...)` file at
@@ -43,10 +49,48 @@ func emitExecPolicies(cfg *config.Config, dryRun bool) error {
 			return err
 		}
 	}
-	body := renderExecPoliciesSkylark(policies)
+	header, err := loadExecPoliciesHeader(cfg, dryRun)
+	if err != nil {
+		return err
+	}
+	body := renderExecPoliciesSkylark(policies, header)
 	// Skylark uses `#` line comments — same as YAML — so reuse the YAML
 	// header so the provenance banner sits inside a comment block.
 	return emit.WriteFile(defaultExecPoliciesFile, emit.WithHeader(body, emit.FormatYAML), dryRun)
+}
+
+// loadExecPoliciesHeader reads the file-level comment captured by
+// `agnostic-ai import codex` (sidecar to the YAML overlay). Returns ""
+// when absent or when the user opted into inline / explicit-file
+// policies (the overlay path is not used in those cases). dryRun skips
+// disk so `--dry-run` previews stay pure.
+func loadExecPoliciesHeader(cfg *config.Config, dryRun bool) (string, error) {
+	if dryRun || !shouldUseExecPoliciesOverlay(cfg) {
+		return "", nil
+	}
+	data, err := os.ReadFile(execPoliciesHeaderOverlayPath)
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", execPoliciesHeaderOverlayPath, err)
+	}
+	return string(data), nil
+}
+
+// shouldUseExecPoliciesOverlay reports whether the captured overlay is
+// the source of truth for this sync. Mirrors the branch in
+// loadExecPolicies: only the no-inline + no-explicit-file case falls
+// through to the overlay.
+func shouldUseExecPoliciesOverlay(cfg *config.Config) bool {
+	out, ok := cfg.Outputs[target]
+	if !ok {
+		return true
+	}
+	if len(out.ExecPolicies) > 0 {
+		return false
+	}
+	return out.ExecPoliciesFile == ""
 }
 
 // loadExecPolicies pulls inline policies from `outputs.codex.exec-policies`
@@ -111,12 +155,31 @@ func validateExecPolicy(p config.CodexExecPolicy, index int) error {
 // the codex docs show and the form `agnostic-ai import codex` captures
 // from hand-authored files, so import → sync stays byte-stable.
 //
+// `header` is an optional file-level comment block captured from the
+// pre-existing `.codex/rules/default.rules` (one logical line per
+// element, no `#` prefix). When non-empty it renders as `# <line>`
+// comments above the first rule, separated by a blank line so a
+// re-import detects it as the file header rather than the first rule's
+// justification.
+//
 // Multi-line justification strings collapse to a single line in the
 // emit because the inline kwarg form takes one double-quoted Skylark
 // string; embedded newlines are not preserved (use the YAML overlay if
 // you need a multi-paragraph justification).
-func renderExecPoliciesSkylark(policies []config.CodexExecPolicy) string {
+func renderExecPoliciesSkylark(policies []config.CodexExecPolicy, header string) string {
 	var b strings.Builder
+	if header != "" {
+		for _, line := range strings.Split(strings.TrimRight(header, "\n"), "\n") {
+			if line == "" {
+				b.WriteString("#\n")
+				continue
+			}
+			b.WriteString("# ")
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
+		b.WriteByte('\n')
+	}
 	for i, p := range policies {
 		if i > 0 {
 			b.WriteByte('\n')

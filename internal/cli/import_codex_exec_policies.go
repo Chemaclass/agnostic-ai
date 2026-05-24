@@ -26,6 +26,13 @@ const (
 	// `import` and `sync` does not silently drop the user's exec
 	// policies.
 	codexExecPoliciesOverlayFile = "codex.exec-policies.yaml"
+
+	// codexExecPoliciesHeaderOverlayFile carries any file-level `# ...`
+	// comment block that sits above the first `prefix_rule(...)`, separated
+	// by a blank line. Stored as a sidecar plain-text file so the YAML
+	// overlay stays a clean rules list and the emitter can re-render the
+	// header verbatim. Absent when the file has no such header.
+	codexExecPoliciesHeaderOverlayFile = "codex.exec-policies-header.txt"
 )
 
 // codexExecPoliciesOverlayPath returns the project-relative path to the
@@ -34,10 +41,19 @@ func codexExecPoliciesOverlayPath(root string) string {
 	return filepath.Join(root, agnosticOverlayDir, codexExecPoliciesOverlayFile)
 }
 
+// codexExecPoliciesHeaderOverlayPath returns the project-relative path to
+// the captured file-level header sidecar.
+func codexExecPoliciesHeaderOverlayPath(root string) string {
+	return filepath.Join(root, agnosticOverlayDir, codexExecPoliciesHeaderOverlayFile)
+}
+
 // importCodexExecPolicies reads `.codex/rules/default.rules` (if present)
 // and writes the parsed `prefix_rule(...)` calls to
 // `.agnostic-ai/overlays/codex.exec-policies.yaml` so a subsequent
-// `sync -t codex` re-emits the same content. Returns true when an overlay
+// `sync -t codex` re-emits the same content. A file-level `#` comment
+// block separated from the first rule by a blank line is split off into
+// a sidecar `codex.exec-policies-header.txt` instead of being glued onto
+// the first rule's justification. Returns true when the rules overlay
 // was written (used by the import summary printer).
 func importCodexExecPolicies(root string) (bool, error) {
 	src := filepath.Join(root, codexExecPoliciesFile)
@@ -48,7 +64,8 @@ func importCodexExecPolicies(root string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", src, err)
 	}
-	policies, err := parseCodexExecPolicies(string(data))
+	header, rest := extractFileLevelHeader(string(data))
+	policies, err := parseCodexExecPolicies(rest)
 	if err != nil {
 		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
@@ -66,7 +83,64 @@ func importCodexExecPolicies(root string) (bool, error) {
 	if err := importWriteFile(dst, out, 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
+	if header != "" {
+		hdst := codexExecPoliciesHeaderOverlayPath(root)
+		if err := importWriteFile(hdst, []byte(header), 0o644); err != nil {
+			return false, fmt.Errorf("write %s: %w", hdst, err)
+		}
+	}
 	return true, nil
+}
+
+// extractFileLevelHeader splits a leading `#` comment block off the body
+// when it sits at the top of the file, separated from the first
+// `prefix_rule(...)` by a blank line. Returns the header text (one line
+// per comment, `#` and surrounding whitespace stripped, trailing
+// newline) and the body with the header consumed.
+//
+// When no such header exists, returns "" and the body unchanged.
+// `# match:` lines never start a header — they belong to the previous
+// rule. A header glued to the first rule with no blank line is treated
+// as that rule's justification (current behavior) and skipped here.
+func extractFileLevelHeader(body string) (string, string) {
+	lines := strings.Split(body, "\n")
+	end := 0
+	var collected []string
+	for end < len(lines) {
+		line := strings.TrimSpace(lines[end])
+		if line == "" {
+			break
+		}
+		if !strings.HasPrefix(line, "#") {
+			return "", body
+		}
+		text := strings.TrimSpace(strings.TrimPrefix(line, "#"))
+		if strings.HasPrefix(text, "match:") {
+			return "", body
+		}
+		collected = append(collected, text)
+		end++
+	}
+	if len(collected) == 0 {
+		return "", body
+	}
+	// Require at least one blank line then a prefix_rule before the next
+	// non-blank content.
+	sawBlank := false
+	for end < len(lines) {
+		line := strings.TrimSpace(lines[end])
+		if line == "" {
+			sawBlank = true
+			end++
+			continue
+		}
+		if sawBlank && strings.HasPrefix(line, "prefix_rule") {
+			rest := strings.Join(lines[end:], "\n")
+			return strings.Join(collected, "\n") + "\n", rest
+		}
+		return "", body
+	}
+	return "", body
 }
 
 // parseCodexExecPolicies extracts every `prefix_rule(...)` call from a
