@@ -21,9 +21,14 @@ var codexAgentDirs = []string{".agents/agents", ".codex/agents"}
 
 const (
 	codexDir        = ".codex"
-	codexSkillsDir  = ".agents/skills"
 	codexConfigTOML = ".codex/config.toml"
 )
+
+// codexSkillsDirs lists every per-skill folder the importer scans.
+// `.codex/skills/` is Codex CLI's native lookup path; `.agents/skills/`
+// is the older community shared layout. Both are scanned so an upgrade
+// picks up either location.
+var codexSkillsDirs = []string{".codex/skills", ".agents/skills"}
 
 // importCodexAgents reads every `<root>/<dir>/*.toml` agent file (where
 // <dir> is one of `.agents/agents/` or `.codex/agents/`) and writes one
@@ -254,36 +259,45 @@ func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
 	return front, body, true
 }
 
-// importCodexSkills walks `<root>/.agents/skills/<name>/` and mirrors
-// each skill folder byte-for-byte into `<dstDir>/<name>/`. Every file
-// under the skill directory — SKILL.md, `agents/openai.yaml`, helper
-// scripts, fixtures, nested subdirectories — is preserved so an import
-// then `sync` keeps the full skill payload intact across all targets.
+// importCodexSkills walks every dir in codexSkillsDirs under root and
+// mirrors each `<dir>/<name>/` skill folder byte-for-byte into
+// `<dstDir>/<name>/`. Every file under the skill directory — SKILL.md,
+// `agents/openai.yaml`, helper scripts, fixtures, nested subdirectories
+// — is preserved so an import then `sync` keeps the full skill payload
+// intact across all targets. When the same skill name appears under
+// both layouts the first one wins (codex-native path comes first).
 func importCodexSkills(root, dstDir string) (int, error) {
-	srcDir := filepath.Join(root, codexSkillsDir)
-	entries, err := os.ReadDir(srcDir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", srcDir, err)
-	}
 	count := 0
-	for _, e := range entries {
-		if !e.IsDir() {
+	seen := map[string]bool{}
+	for _, sub := range codexSkillsDirs {
+		srcDir := filepath.Join(root, sub)
+		entries, err := os.ReadDir(srcDir)
+		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
-		skillSrc := filepath.Join(srcDir, e.Name())
-		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
-			continue
-		} else if err != nil {
-			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcDir, err)
 		}
-		skillDst := filepath.Join(dstDir, e.Name())
-		if err := copyDirTree(skillSrc, skillDst); err != nil {
-			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			if seen[e.Name()] {
+				continue
+			}
+			skillSrc := filepath.Join(srcDir, e.Name())
+			if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
+				continue
+			} else if err != nil {
+				return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+			}
+			seen[e.Name()] = true
+			skillDst := filepath.Join(dstDir, e.Name())
+			if err := copyDirTree(skillSrc, skillDst); err != nil {
+				return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+			}
+			count++
 		}
-		count++
 	}
 	return count, nil
 }

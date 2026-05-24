@@ -17,7 +17,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Watch mode (`sync --watch`, fsnotify, `--watch-poll` fallback).
 - Onboarding (`init --demo`, `init --preset <name>`).
 - Interactive target selection (`init` TTY picker, `--all` to skip).
-- Codex subagents + skills (`.agents/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
+- Codex subagents + skills (`.codex/agents/<name>.toml`, `.codex/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (and multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
 - MCP for 10/13 targets. Aider/Cline/Windsurf lack project-scoped MCP.

@@ -27,7 +27,7 @@ Set `outputs.<target>.rules-file: <path>` to opt back into the legacy concatenat
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands |
 |-----------------|---------------------|--------|--------------------------|-------|------|----------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` |
-| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.codex.rules-file`) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
+| **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.codex.rules-file`) | `.codex/config.toml` (`[[hooks.<event>]]`) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
 | **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | source-dir only (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
 | **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped); always-on via `outputs.copilot.rules-file` | - | `.vscode/mcp.json` |
@@ -93,13 +93,13 @@ Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir
 ```
 AGENTS.md                                    # canonical entry-point pointer body (written by sync)
 .codex/agents/<name>.toml                    # one TOML per agent (Codex CLI's native path)
-.agents/skills/<name>/SKILL.md               # one folder per skill
-.agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
+.codex/skills/<name>/SKILL.md                # one folder per skill (Codex CLI's native path)
+.codex/skills/<name>/agents/openai.yaml      # optional, when x-codex provides UI/policy/deps
 .codex/prompts/<name>.md                     # one per command (slash prompt)
 .codex/config.toml                           # when hook and/or MCP entries exist
 ```
 
-Config keys: `outputs.codex.agents-dir` (default `.codex/agents` — Codex CLI's native lookup path; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.agents/skills`), `outputs.codex.shared-subagents` (default `false` when `claude` is also in `targets` to avoid duplicating `.claude/skills/<name>/`, `true` when codex is alone; set explicitly to override), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks), `outputs.codex.rules-file` (unset; setting it writes a legacy concatenated rules document at that path and `sync` skips the pointer-body write for `codex`).
+Config keys: `outputs.codex.agents-dir` (default `.codex/agents` — Codex CLI's native lookup path; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.codex/skills` — Codex CLI's native lookup path; override to `.agents/skills` for the community shared layout), `outputs.codex.shared-subagents` (default `false` when `claude` is also in `targets` to avoid duplicating `.claude/skills/<name>/`, `true` when codex is alone; set explicitly to override), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml` — also holds hooks), `outputs.codex.rules-file` (unset; setting it writes a legacy concatenated rules document at that path and `sync` skips the pointer-body write for `codex`).
 
 The project-root `AGENTS.md` is written by `sync` with the canonical pointer body. Codex still loads rules from the spec source directory referenced in that pointer; per-directory `AGENTS.md` scoping (e.g. `src/AGENTS.md` from `globs: src/**`) is no longer emitted by default. Use `outputs.codex.rules-file: AGENTS.md` if you need the legacy concatenated single-file layout back.
 

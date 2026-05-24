@@ -276,9 +276,8 @@ body
 // preservation and the codex skill emit path.
 //
 // `shared-subagents: true` is set explicitly so codex emits skills to
-// `.agents/skills/` even with claude present (the default
-// shared-subagents=false in mixed configs skips the codex skill tree
-// to avoid duplicating `.claude/skills/`).
+// `.codex/skills/`. Default is true; setting it explicit is documentation
+// for what the test exercises.
 func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	must(t, os.MkdirAll(filepath.Join(dir, ".claude/skills/runner/scripts"), 0o755))
@@ -302,7 +301,7 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 
 	// Verify codex received the assets including the exec bit (Unix only;
 	// Windows filesystems do not surface POSIX exec bits via os.FileMode).
-	codexScript := filepath.Join(dir, ".agents/skills/runner/scripts/run.sh")
+	codexScript := filepath.Join(dir, ".codex/skills/runner/scripts/run.sh")
 	info, err := os.Stat(codexScript)
 	if err != nil {
 		t.Fatalf("codex skill script missing: %v", err)
@@ -311,8 +310,8 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 		t.Errorf("codex skill script lost exec bit: mode=%v", info.Mode())
 	}
 	for _, asset := range []string{
-		".agents/skills/runner/agents/openai.yaml",
-		".agents/skills/runner/fixtures/sample.json",
+		".codex/skills/runner/agents/openai.yaml",
+		".codex/skills/runner/fixtures/sample.json",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, asset)); err != nil {
 			t.Errorf("codex skill asset missing: %s (%v)", asset, err)

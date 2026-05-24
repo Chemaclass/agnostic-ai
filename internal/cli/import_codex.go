@@ -31,7 +31,8 @@ func (o importCodexOpts) shredEnabled() bool {
 }
 
 // importFromCodex reads existing Codex config (AGENTS.md hierarchy,
-// `.agents/agents/*.toml`, `.agents/skills/<name>/SKILL.md`, and
+// `.codex/agents/*.toml` (or legacy `.agents/agents/*.toml`),
+// `.codex/skills/<name>/SKILL.md` (or `.agents/skills/<name>/SKILL.md`), and
 // `.codex/config.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
