@@ -140,11 +140,11 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 
 // propagateSkillAssets mirrors every sibling file under the source
 // skill directory (`<skills-src>/<name>/`) into the emitted skill
-// folder, skipping SKILL.md because the adapter re-renders it from the
-// spec frontmatter. Skills authored in agnostic-ai can ship helper
-// scripts, fixtures, or nested subdirectories alongside SKILL.md; this
-// preserves them across `sync` so the Claude Code skill continues to
-// work after a round-trip.
+// folder, skipping SKILL.md (re-rendered from the spec) and any
+// `agents/openai.yaml` (codex-only metadata that Claude does not read).
+// Skills authored in agnostic-ai can ship helper scripts, fixtures, or
+// nested subdirectories alongside SKILL.md; this preserves them across
+// `sync` so the Claude Code skill continues to work after a round-trip.
 //
 // No-op when the source path is unknown (e.g. specs loaded from raw
 // bytes in the WASM playground) so adapters stay safe for in-memory
@@ -154,9 +154,21 @@ func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
 		return nil
 	}
 	srcDir := filepath.Dir(s.Path)
-	return emit.CopyTree(srcDir, dstDir, func(rel string) bool {
-		return rel == "SKILL.md"
-	}, dryRun)
+	return emit.CopyTree(srcDir, dstDir, isClaudeSkillSkippedAsset, dryRun)
+}
+
+// isClaudeSkillSkippedAsset reports whether the given skill-relative path
+// should be omitted from `.claude/skills/<name>/`. SKILL.md gets re-rendered
+// from the spec, and `agents/openai.yaml` (plus the entire `agents/`
+// subtree it lives in) is a codex-only artifact Claude does not read.
+func isClaudeSkillSkippedAsset(rel string) bool {
+	if rel == "SKILL.md" {
+		return true
+	}
+	if rel == "agents" || strings.HasPrefix(rel, "agents/") {
+		return true
+	}
+	return false
 }
 
 // writeSettings renders `.claude/settings.json` by layering, in order

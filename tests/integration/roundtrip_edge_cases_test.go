@@ -332,13 +332,18 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("claude skill script lost exec bit after round-trip: mode=%v", info.Mode())
 	}
+	// `agents/openai.yaml` is codex-only (OpenAI interface metadata
+	// Claude does not read), so it must NOT leak into .claude/. The
+	// general-purpose assets like fixtures still round-trip.
 	for _, asset := range []string{
-		".claude/skills/runner/agents/openai.yaml",
 		".claude/skills/runner/fixtures/sample.json",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, asset)); err != nil {
 			t.Errorf("claude skill asset missing after round-trip: %s (%v)", asset, err)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude/skills/runner/agents/openai.yaml")); err == nil {
+		t.Errorf("agents/openai.yaml must stay codex-only; leaked into .claude/")
 	}
 }
 
