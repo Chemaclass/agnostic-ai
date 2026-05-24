@@ -95,7 +95,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 				continue
 			}
 			adapters.StartDetailedRecording()
-			if err := adapter.Emit(b, cfg, dryRun); err != nil {
+			if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
 				adapters.StopDetailedRecording()
 				if gitignoreOn {
 					adapters.StopRecording()
@@ -125,7 +125,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 				fmt.Fprintf(os.Stderr, "! %v\n", err)
 				continue
 			}
-			if err := adapter.Emit(b, cfg, dryRun); err != nil {
+			if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
 				if gitignoreOn {
 					adapters.StopRecording()
 				}
@@ -240,7 +240,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			continue
 		}
 		adapters.StartDetailedRecording()
-		if err := adapter.Emit(b, cfg, dryRun); err != nil {
+		if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
 			adapters.StopDetailedRecording()
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue

@@ -342,6 +342,9 @@
         "hooks-file": {
           "type": "string"
         },
+        "provenance-header": {
+          "type": "boolean"
+        },
         "collision-policy": {
           "type": "string"
         }
