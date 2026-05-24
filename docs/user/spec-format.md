@@ -163,6 +163,43 @@ When none of these fields is set the hook emits to every target that supports ho
 
 The same four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not just hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
 
+### Per-target body fences
+
+When the spec emits to multiple targets but the prose needs to diverge (e.g. codex wants a "Workflow" section claude does not), wrap the divergent prose in `::target` fences. Outside-fence content emits everywhere; inside-fence content emits only to the listed targets. The marker lines themselves never reach the rendered output.
+
+```md
+---
+name: test
+description: Run the test suite
+---
+
+# Test
+
+Shared intro paragraph.
+
+::target claude
+## Scope mapping (Claude)
+
+| Changed | Command |
+|---------|---------|
+| ... | ... |
+::end
+
+::target codex
+## Workflow (Codex)
+
+1. Choose scope
+2. Run `composer test`
+::end
+
+Shared outro.
+```
+
+- `::target <name>` and `::targets <a> <b>` open a fence pinned to one or more targets.
+- `::end` closes the most recent fence.
+- An unterminated fence runs to end-of-body so a missing `::end` does not drop the tail of the file.
+- The empty target (e.g. the source view used by `import` round-trips) returns the body with fences intact so a re-emit stays byte-stable.
+
 ```yaml
 event: PostToolUse
 matcher: apply_patch|Edit|Write

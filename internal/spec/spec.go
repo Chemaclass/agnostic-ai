@@ -163,6 +163,117 @@ func stringListField(meta map[string]any, key string) ([]string, bool) {
 	return nil, false
 }
 
+// BodyFor returns the entry's body materialized for target, processing
+// `::target <name>` / `::targets <a> <b>` / `::end` fences so adapters
+// see only the sections meant for them. Closes #293.
+//
+//   - Lines outside any fence emit for every target.
+//   - A fence pinned to one or more targets emits only when target is in
+//     the allow-list; the marker lines themselves never emit.
+//   - An unterminated fence runs to end-of-body so a missing `::end`
+//     does not silently drop the tail of the file.
+//   - Empty target returns the raw body unchanged so source-level tooling
+//     (round-trip emit, the playground source view) keeps the fences.
+//
+// Bodies without fences pass through unchanged so the common case stays
+// allocation-free.
+func (e Entry) BodyFor(target string) string {
+	if target == "" || !strings.Contains(e.Body, targetFenceOpen) {
+		return e.Body
+	}
+	return renderBodyForTarget(e.Body, target)
+}
+
+// renderBodyForTarget walks the body line-by-line, keeping every line
+// outside a fence and every line inside a matching fence. Marker lines
+// are dropped. See BodyFor for the documented semantics.
+func renderBodyForTarget(body, target string) string {
+	lines := strings.Split(body, "\n")
+	var out strings.Builder
+	out.Grow(len(body))
+	keep := true // outside a fence: every target sees the line
+	for _, line := range lines {
+		marker, allow := parseFenceMarker(line)
+		switch marker {
+		case fenceTargetOpen:
+			keep = inAllowList(allow, target)
+			continue
+		case fenceTargetClose:
+			keep = true
+			continue
+		}
+		if keep {
+			out.WriteString(line)
+			out.WriteByte('\n')
+		}
+	}
+	// strings.Split appends an empty trailing element for the final '\n';
+	// the loop already wrote a '\n' for the line before it. Trim the
+	// stray newline so the rendered body matches the source ending.
+	s := out.String()
+	if strings.HasSuffix(body, "\n") {
+		s = strings.TrimSuffix(s, "\n")
+	} else {
+		s = strings.TrimSuffix(strings.TrimSuffix(s, "\n"), "\n")
+	}
+	// Dropped fences leave the surrounding blank lines stacked. Collapse
+	// any run of 3 or more newlines back down to a paragraph break so
+	// the rendered body reads cleanly for the active target.
+	return collapseBlankRuns(s)
+}
+
+// collapseBlankRuns rewrites runs of 3+ consecutive '\n' bytes as
+// exactly 2 so a dropped fence does not leave a wider-than-paragraph
+// gap. 2 newlines (one paragraph break) is the maximum.
+func collapseBlankRuns(s string) string {
+	if !strings.Contains(s, "\n\n\n") {
+		return s
+	}
+	for strings.Contains(s, "\n\n\n") {
+		s = strings.ReplaceAll(s, "\n\n\n", "\n\n")
+	}
+	return s
+}
+
+const (
+	targetFenceOpen  = "::target"
+	fenceTargetOpen  = 1
+	fenceTargetClose = 2
+)
+
+// parseFenceMarker classifies a line as a fence opener, closer, or
+// regular content. Returns the marker kind and the allow-list parsed
+// off an opener. Marker lines must start at column 0; leading whitespace
+// is treated as regular content so authors do not accidentally fence
+// indented code blocks.
+func parseFenceMarker(line string) (int, []string) {
+	if line == "::end" || strings.HasPrefix(line, "::end ") {
+		return fenceTargetClose, nil
+	}
+	switch {
+	case strings.HasPrefix(line, "::target "):
+		return fenceTargetOpen, strings.Fields(line[len("::target "):])
+	case strings.HasPrefix(line, "::targets "):
+		return fenceTargetOpen, strings.Fields(line[len("::targets "):])
+	case line == "::target" || line == "::targets":
+		// Bare opener with no targets — degenerate; treat as "no allow",
+		// so the fence body is dropped for every target.
+		return fenceTargetOpen, nil
+	}
+	return 0, nil
+}
+
+// inAllowList reports whether target appears in names. An empty list
+// means "no target allowed" so a degenerate fence drops its body.
+func inAllowList(names []string, target string) bool {
+	for _, n := range names {
+		if n == target {
+			return true
+		}
+	}
+	return false
+}
+
 // Globs returns the entry's globs frontmatter as a string, or "" if
 // missing or not a string.
 func (e Entry) Globs() string {
@@ -240,13 +351,14 @@ func (b Bundle) HooksFor(target string) []Entry {
 	return filterEntriesFor(b.Hooks, target)
 }
 
-// For returns a copy of b with every kind filtered by Entry.EmitsTo.
-// Adapters that loop over `bundle.Agents` / `Skills` / `Rules` / `MCPs`
-// / `Commands` see only the entries scoped to their target via
-// `target:` / `targets:` / `target-exclude:` / `targets-exclude:`
-// frontmatter. Empty target string short-circuits to identity so
-// callers (tests, ad-hoc tooling) that emit for "everything" keep
-// historical semantics. Closes #292.
+// For returns a copy of b with every kind filtered by Entry.EmitsTo
+// and each surviving entry's body materialized for target via
+// Entry.BodyFor. Adapters that loop over `bundle.Agents` / `Skills` /
+// `Rules` / `MCPs` / `Commands` see only entries scoped to their
+// target via `target:` / `targets:` / `target-exclude:` /
+// `targets-exclude:` frontmatter, AND see bodies with `::target` fences
+// already resolved for the active target. Empty target string
+// short-circuits to identity. Closes #292 + #293.
 func (b Bundle) For(target string) Bundle {
 	if target == "" {
 		return b
@@ -262,14 +374,18 @@ func (b Bundle) For(target string) Bundle {
 }
 
 // filterEntriesFor returns the subset of entries whose EmitsTo(target)
-// is true. Allocates only when at least one entry is dropped so the
-// common "no scoping anywhere" case avoids the copy.
+// is true, with each survivor's Body materialized for target via
+// BodyFor (a no-op when the body carries no `::target` fences).
 func filterEntriesFor(entries []Entry, target string) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
-		if e.EmitsTo(target) {
-			out = append(out, e)
+		if !e.EmitsTo(target) {
+			continue
 		}
+		if resolved := e.BodyFor(target); resolved != e.Body {
+			e.Body = resolved
+		}
+		out = append(out, e)
 	}
 	return out
 }
