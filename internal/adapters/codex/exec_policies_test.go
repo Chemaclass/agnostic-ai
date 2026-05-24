@@ -138,3 +138,68 @@ func TestEmit_ExecPolicies_LoadsFromFile(t *testing.T) {
 		t.Errorf("inline entries should render before file entries; inline=%d file=%d", inlinePos, filePos)
 	}
 }
+
+// With no inline policies and no explicit exec-policies-file, the
+// emitter falls back to the import-captured overlay so a round-trip
+// from a pre-existing .codex/rules/default.rules survives a re-sync
+// without forcing the user to add anything to agnostic-ai.yaml.
+func TestEmit_ExecPolicies_AutoLoadsOverlay(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(overlayPath, []byte(`- pattern: ["composer", "test"]
+  decision: allow
+  justification: Captured from prior .codex/rules/default.rules
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No outputs.codex.exec-policies, no exec-policies-file. Adapter
+	// should still emit because the overlay is present.
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
+	if err != nil {
+		t.Fatalf("expected emit to pick up overlay: %v", err)
+	}
+	if !strings.Contains(string(got), `pattern = ["composer", "test"]`) {
+		t.Errorf("rendered policies missing overlay entry:\n%s", got)
+	}
+}
+
+// When the user has inline entries, the overlay is ignored — the user
+// has opted in to a declarative source of truth.
+func TestEmit_ExecPolicies_InlineSuppressesOverlay(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	overlayPath := filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(overlayPath, []byte(`- pattern: ["from-overlay"]
+  decision: allow
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {ExecPolicies: []config.CodexExecPolicy{
+			{Pattern: []string{"from-inline"}, Decision: "allow"},
+		}},
+	}}
+	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
+	out := string(got)
+	if !strings.Contains(out, `pattern = ["from-inline"]`) {
+		t.Errorf("inline missing:\n%s", out)
+	}
+	if strings.Contains(out, `pattern = ["from-overlay"]`) {
+		t.Errorf("overlay should be suppressed when inline entries set:\n%s", out)
+	}
+}
