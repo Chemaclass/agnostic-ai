@@ -355,13 +355,61 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			}
 			seen[e.Name()] = true
 			skillDst := filepath.Join(dstDir, e.Name())
-			if err := copyDirTree(skillSrc, skillDst); err != nil {
+			if dirExists(skillDst) {
+				if err := mergeCodexSkillIntoExisting(skillSrc, skillDst); err != nil {
+					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
+				}
+			} else if err := copyDirTree(skillSrc, skillDst); err != nil {
 				return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 			}
 			count++
 		}
 	}
 	return count, nil
+}
+
+// mergeCodexSkillIntoExisting layers a codex skill folder on top of an
+// already-imported skill (claude origin) without overwriting the claude
+// SKILL.md. The claude variant retains its frontmatter (argument-hint,
+// disable-model-invocation, allowed-tools — Claude reads these to wire
+// the skill correctly); codex-only assets (agents/openai.yaml, scripts/,
+// helper files) copy across.
+func mergeCodexSkillIntoExisting(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		// Never clobber the existing SKILL.md — claude frontmatter must
+		// survive. Codex SKILL.md frontmatter (description, name) stays
+		// reachable through the `.codex/skills/` emit which still
+		// reads from the captured spec, just from the claude side now.
+		if rel == "SKILL.md" {
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode().Perm()|0o700)
+		}
+		if _, err := os.Stat(target); err == nil {
+			// File already imported from claude; keep it.
+			return nil
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, body, info.Mode().Perm())
+	})
 }
 
 // codexConfigDoc mirrors the relevant `.codex/config.toml` shape: nested
