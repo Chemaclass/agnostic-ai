@@ -115,10 +115,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
 		return err
 	}
+	hooks := b.HooksFor(target)
+	if err := emitHooksJSON(hooks, cfg, dryRun); err != nil {
+		return err
+	}
 	if err := emitExecPolicies(cfg, dryRun); err != nil {
 		return err
 	}
-	return materializeHookScripts(b.HooksFor(target), dryRun)
+	return materializeHookScripts(hooks, dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from

@@ -11,14 +11,17 @@ import (
 )
 
 // renderConfigTOML builds the `.codex/config.toml` body from the captured
-// overlay, the bundle's hook and MCP entries, and any first-class config
-// fields. The overlay (carrying user-authored keys outside hooks/mcp_servers)
-// is written first; then first-class scalars from `outputs.codex.config`
-// (skipping any key the overlay already defines); then MCP server tables;
-// then hook sections. Returns "" when there is no valid output to write.
-func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
-	byEvent := groupHooksByEvent(hooks)
-	hasContent := len(byEvent) > 0 || anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
+// overlay, the bundle's MCP entries, and any first-class config fields.
+// The overlay (carrying user-authored keys outside hooks/mcp_servers) is
+// written first; then first-class scalars from `outputs.codex.config`
+// (skipping any key the overlay already defines); then MCP server tables.
+// Returns "" when there is no valid output to write.
+//
+// Hooks no longer render here. They land in `.codex/hooks.json` (see
+// emitHooksJSON) which natively supports per-hook `timeout` and
+// `statusMessage` metadata that the TOML schema discarded.
+func renderConfigTOML(_ []spec.Entry, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
+	hasContent := anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
 	if !hasContent {
 		return ""
 	}
@@ -35,7 +38,6 @@ func renderConfigTOML(hooks, mcps []spec.Entry, cfg *config.CodexConfig, overlay
 
 	writeCodexConfigFields(&sb, cfg, overlayKeys)
 	writeMCPServers(&sb, mcps)
-	writeHookSectionsFromMap(&sb, byEvent)
 	return sb.String()
 }
 
@@ -250,47 +252,6 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 		sb.WriteString(" }")
 	}
 	sb.WriteString("]\n")
-}
-
-func writeHookSectionsFromMap(sb *strings.Builder, byEvent map[string][]spec.Entry) {
-	for _, event := range slices.Sorted(maps.Keys(byEvent)) {
-		for _, h := range byEvent[event] {
-			writeHookSection(sb, event, h)
-		}
-	}
-}
-
-func groupHooksByEvent(hooks []spec.Entry) map[string][]spec.Entry {
-	out := map[string][]spec.Entry{}
-	for _, h := range hooks {
-		event, _ := h.Meta["event"].(string)
-		if event == "" {
-			continue
-		}
-		out[event] = append(out[event], h)
-	}
-	return out
-}
-
-// writeHookSection emits one `[[hooks.<event>]]` array-of-tables block
-// per command. Codex's TOML hook schema accepts a single command per
-// entry, so a spec with `command: [a, b]` expands to two blocks sharing
-// the same matcher. A spec with no command at all is skipped — emitting
-// an empty block would corrupt the file.
-func writeHookSection(sb *strings.Builder, event string, h spec.Entry) {
-	matcher, _ := h.Meta["matcher"].(string)
-	cmds := hookCommands(h.Meta["command"])
-	if len(cmds) == 0 {
-		return
-	}
-	for _, cmd := range cmds {
-		sb.WriteString("[[hooks." + event + "]]\n")
-		if matcher != "" {
-			emit.WriteTOMLString(sb, "matcher", matcher)
-		}
-		emit.WriteTOMLString(sb, "command", emit.RewriteHookPath(cmd, target))
-		sb.WriteString("\n")
-	}
 }
 
 // hookCommands normalizes a spec's `command:` value (string, []string,

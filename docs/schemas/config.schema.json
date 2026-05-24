@@ -339,6 +339,9 @@
         "exec-policies-file": {
           "type": "string"
         },
+        "hooks-file": {
+          "type": "string"
+        },
         "collision-policy": {
           "type": "string"
         }
