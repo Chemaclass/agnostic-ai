@@ -115,8 +115,12 @@ func parseCodexExecPolicies(body string) ([]config.CodexExecPolicy, error) {
 		consumedLines := strings.Count(rest[:consumed], "\n")
 		i += consumedLines + 1
 
-		// Collect any trailing `# match: ...` lines.
-		policy.Match = collectMatchLines(lines, &i)
+		// Collect any trailing `# match: ...` lines, but only when the
+		// call itself did not declare inline `match = [...]`. Inline
+		// kwargs sit closer to the rule and win.
+		if len(policy.Match) == 0 {
+			policy.Match = collectMatchLines(lines, &i)
+		}
 
 		out = append(out, policy)
 	}
@@ -209,8 +213,11 @@ func extractParenCall(s string) (string, int, error) {
 	return "", 0, fmt.Errorf("unterminated prefix_rule call")
 }
 
-// parsePrefixRuleCall extracts `pattern` and `decision` from the body
-// of a `prefix_rule(...)` call. Skylark is whitespace-tolerant.
+// parsePrefixRuleCall extracts pattern, decision, justification, and
+// match from the body of a `prefix_rule(...)` call. Justification +
+// match can also be expressed as comment blocks around the call (handled
+// by parseCodexExecPolicies); inline kwargs found here take precedence
+// because they sit closer to the rule they describe.
 func parsePrefixRuleCall(call string) (config.CodexExecPolicy, error) {
 	inner := call
 	if i := strings.Index(inner, "("); i >= 0 {
@@ -227,11 +234,18 @@ func parsePrefixRuleCall(call string) (config.CodexExecPolicy, error) {
 	if err != nil {
 		return config.CodexExecPolicy{}, err
 	}
-	return config.CodexExecPolicy{Pattern: pattern, Decision: decision}, nil
+	return config.CodexExecPolicy{
+		Pattern:       pattern,
+		Decision:      decision,
+		Justification: readPrefixRuleJustification(inner),
+		Match:         readPrefixRuleMatch(inner),
+	}, nil
 }
 
 var patternRE = regexp.MustCompile(`pattern\s*=\s*\[([^\]]*)\]`)
 var decisionRE = regexp.MustCompile(`decision\s*=\s*"([^"]*)"`)
+var justificationRE = regexp.MustCompile(`justification\s*=\s*"((?:[^"\\]|\\.)*)"`)
+var matchRE = regexp.MustCompile(`match\s*=\s*\[([^\]]*)\]`)
 
 // readPrefixRulePattern pulls the `pattern = [...]` list from a call
 // body, splitting the contents on comma into one string per element.
@@ -252,6 +266,65 @@ func readPrefixRuleDecision(call string) (string, error) {
 		return "", fmt.Errorf(`decision = "..." not found`)
 	}
 	return m[1], nil
+}
+
+// readPrefixRuleJustification pulls the optional `justification = "..."`
+// field, unescaping the backslash sequences Skylark allows inside a
+// double-quoted string. Returns "" when the field is absent.
+func readPrefixRuleJustification(call string) string {
+	m := justificationRE.FindStringSubmatch(call)
+	if m == nil {
+		return ""
+	}
+	return unescapeSkylarkString(m[1])
+}
+
+// readPrefixRuleMatch pulls the optional `match = [...]` list. Returns
+// nil when absent so the YAML overlay omits the field entirely on
+// re-serialization (matches the emitter's `omitempty`).
+func readPrefixRuleMatch(call string) []string {
+	m := matchRE.FindStringSubmatch(call)
+	if m == nil {
+		return nil
+	}
+	items := splitStringList(m[1])
+	if len(items) == 0 {
+		return nil
+	}
+	return items
+}
+
+// unescapeSkylarkString unwraps the common `\"`, `\\`, `\n` escapes from
+// a double-quoted Skylark string literal. Any other escape sequence
+// (e.g. `\x41`) passes through verbatim so we do not need a full Skylark
+// lexer just to capture justification text.
+func unescapeSkylarkString(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c != '\\' || i+1 >= len(s) {
+			b.WriteByte(c)
+			continue
+		}
+		next := s[i+1]
+		switch next {
+		case '"', '\\':
+			b.WriteByte(next)
+		case 'n':
+			b.WriteByte('\n')
+		case 't':
+			b.WriteByte('\t')
+		default:
+			b.WriteByte(c)
+			b.WriteByte(next)
+		}
+		i++
+	}
+	return b.String()
 }
 
 // splitStringList splits a comma-separated list of double-quoted Skylark
