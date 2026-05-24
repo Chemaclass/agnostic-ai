@@ -118,11 +118,16 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	groupOrder := []matcherCmdKey{}
 	for _, k := range keyOrder {
 		a := byKey[k]
-		joined := joinMatcherSegments(a.matcherOrder)
-		gk := matcherCmdKey{event: k.event, matcher: joined}
+		// Dedupe groups by the canonical (sorted) matcher key so two
+		// specs with `Edit|Write` and `Write|Edit` collapse together,
+		// but emit the segments in author-supplied order so a hand-
+		// authored matcher round-trips byte-stable.
+		dedupeKey := joinMatcherSegments(a.matcherOrder)
+		display := strings.Join(a.matcherOrder, "|")
+		gk := matcherCmdKey{event: k.event, matcher: dedupeKey}
 		g, ok := groups[gk]
 		if !ok {
-			g = &matcherGroup{Matcher: joined}
+			g = &matcherGroup{Matcher: display}
 			groups[gk] = g
 			groupOrder = append(groupOrder, gk)
 		}
