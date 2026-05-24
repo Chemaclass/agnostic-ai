@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- `import.codex.shred` config knob. Set to `false` to keep each `AGENTS.md` as a single rule spec instead of sharding it by `##` heading. Default `true` preserves existing behavior. Closes #248.
 
 ### Changed
 

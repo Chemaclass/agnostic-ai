@@ -73,9 +73,9 @@ func newImportCmd() *cobra.Command {
 				defer reportImportDryRun()
 			}
 			if len(args) == 1 {
-				return runImport(".", args[0], cfg.Sources)
+				return runImport(".", args[0], cfg)
 			}
-			return runImportMany(".", args, cfg.Sources)
+			return runImportMany(".", args, cfg)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
@@ -83,14 +83,15 @@ func newImportCmd() *cobra.Command {
 }
 
 // runImport dispatches to the per-source importer.
-func runImport(root, source string, src config.Sources) error {
+func runImport(root, source string, cfg *config.Config) error {
+	src := cfg.Sources
 	switch source {
 	case "all":
-		return importAll(root, src)
+		return importAll(root, cfg)
 	case "claude":
 		return importFromClaude(root, src)
 	case "codex":
-		return importFromCodex(root, src)
+		return importFromCodexWithOpts(root, src, importCodexOpts{Shred: cfg.Import.Codex.Shred})
 	case "cursor":
 		return importFromCursor(root, src)
 	case "aider":
@@ -119,7 +120,7 @@ func runImport(root, source string, src config.Sources) error {
 // AGNOSTIC_AI.md` ends up mirroring the last source's top-level
 // instructions file (last-wins). Sources are validated up-front so a
 // typo on arg N fails before any writes happen.
-func runImportMany(root string, sources []string, src config.Sources) error {
+func runImportMany(root string, sources []string, cfg *config.Config) error {
 	for _, s := range sources {
 		if s == "all" {
 			return errs.Coded(errs.CodeImportFileUnknown,
@@ -133,7 +134,7 @@ func runImportMany(root string, sources []string, src config.Sources) error {
 	var failed []string
 	for _, s := range sources {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
-		if err := runImport(root, s, src); err != nil {
+		if err := runImport(root, s, cfg); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
 			failed = append(failed, s)
 		}
@@ -156,7 +157,7 @@ func isKnownImportSource(source string) bool {
 }
 
 // importAll detects every AI CLI present in root and imports from each.
-func importAll(root string, src config.Sources) error {
+func importAll(root string, cfg *config.Config) error {
 	detected := detectExistingTargets(root)
 	if len(detected) == 0 {
 		fmt.Println("no known AI CLI configs detected")
@@ -165,7 +166,7 @@ func importAll(root string, src config.Sources) error {
 	var errs []string
 	for _, t := range detected {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
-		if err := runImport(root, t, src); err != nil {
+		if err := runImport(root, t, cfg); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
 			errs = append(errs, t)
 		}

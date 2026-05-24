@@ -12,15 +12,39 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
+// importCodexOpts toggles non-default import behavior. Zero value keeps
+// the historical defaults (AGENTS.md shredded into one rule per H2).
+type importCodexOpts struct {
+	// Shred controls whether AGENTS.md is split into one rule per H2
+	// section (true, default) or kept as a single rule per file (false).
+	// Nil means default (true). Use false when codex AGENTS.md is a
+	// reference doc rather than a source of new policy.
+	Shred *bool
+}
+
+// shredEnabled reports whether H2 sharding is on (default true).
+func (o importCodexOpts) shredEnabled() bool {
+	if o.Shred == nil {
+		return true
+	}
+	return *o.Shred
+}
+
 // importFromCodex reads existing Codex config (AGENTS.md hierarchy,
 // `.agents/agents/*.toml`, `.agents/skills/<name>/SKILL.md`, and
 // `.codex/config.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
+	return importFromCodexWithOpts(root, src, importCodexOpts{})
+}
+
+// importFromCodexWithOpts is importFromCodex with explicit per-run opts.
+// The CLI entry point fills opts from `import.codex.*` config keys.
+func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOpts) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
-	rules, err := importCodexRules(root, filepath.Join(root, src.Rules), src)
+	rules, err := importCodexRules(root, filepath.Join(root, src.Rules), src, opts)
 	if err != nil {
 		return err
 	}
@@ -79,7 +103,9 @@ var codexSkipHeadings = map[string]bool{
 // importCodexRules walks the project tree for AGENTS.md files and writes
 // one rule per ## section found into dstDir. Rules from <dir>/AGENTS.md
 // inherit "globs: <dir>/**". Slug collisions across files are deduplicated.
-func importCodexRules(root, dstDir string, src config.Sources) (int, error) {
+// When opts.Shred is false, each AGENTS.md becomes a single rule whose body
+// is the file verbatim, skipping the H2 split.
+func importCodexRules(root, dstDir string, src config.Sources, opts importCodexOpts) (int, error) {
 	files, err := findCodexFiles(root, src)
 	if err != nil {
 		return 0, err
@@ -94,6 +120,18 @@ func importCodexRules(root, dstDir string, src config.Sources) (int, error) {
 		data, err := os.ReadFile(f.path)
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
+		}
+		if !opts.shredEnabled() {
+			body := strings.TrimSpace(string(data))
+			if body == "" {
+				continue
+			}
+			name := dedupSlug(used, projectSlug(root))
+			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
+				return count, err
+			}
+			count++
+			continue
 		}
 		sections := codexSectionsFrom(string(data))
 		if len(sections) == 0 {

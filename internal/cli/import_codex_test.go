@@ -816,3 +816,105 @@ func TestImportCmd_CodexRoutes(t *testing.T) {
 		t.Error("expected .agnostic-ai/rules/routed.md after import codex")
 	}
 }
+
+// When import.codex.shred is false the importer keeps each AGENTS.md as a
+// single rule spec instead of splitting it by H2 heading. The body lands
+// verbatim under one rule named after the project (root) or scoped slug
+// (nested), so codex AGENTS.md acts as a reference doc rather than a source
+// of new policy.
+func TestImportFromCodex_ShredFalseKeepsAgentsMdAsSingleRule(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), `# Project
+
+Top-level intro.
+
+## go-style
+
+gofmt clean.
+
+## commits
+
+Conventional Commits.
+`)
+	shred := false
+	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{Shred: &shred}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 rule, got %d: %v", len(entries), names(entries))
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "rules", entries[0].Name()))
+	out := string(data)
+	for _, want := range []string{
+		"## go-style",
+		"gofmt clean.",
+		"## commits",
+		"Conventional Commits.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("monolithic rule missing %q in:\n%s", want, out)
+		}
+	}
+	for _, never := range []string{"go-style.md", "commits.md"} {
+		if _, err := os.Stat(filepath.Join(dir, "rules", never)); err == nil {
+			t.Errorf("expected no shard %s when shred=false", never)
+		}
+	}
+}
+
+// Nested AGENTS.md files still produce one rule each (carrying the
+// inferred globs) when shred is false.
+func TestImportFromCodex_ShredFalseNestedKeepsOneRulePerFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "## root\n\nroot body.\n")
+	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), "## srca\n\nsrc body.\n")
+
+	shred := false
+	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{Shred: &shred}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 rule files (one per AGENTS.md), got %d: %v", len(entries), names(entries))
+	}
+	var sawGlobs bool
+	for _, e := range entries {
+		data, _ := os.ReadFile(filepath.Join(dir, "rules", e.Name()))
+		if strings.Contains(string(data), "globs: src/**") {
+			sawGlobs = true
+		}
+	}
+	if !sawGlobs {
+		t.Error("nested AGENTS.md should carry globs: src/** in monolithic rule")
+	}
+}
+
+// Default behavior (Shred nil) still shards by H2. Regression guard.
+func TestImportFromCodex_ShredDefaultStillShards(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "## one\n\nbody one.\n\n## two\n\nbody two.\n")
+
+	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"one.md", "two.md"} {
+		if _, err := os.Stat(filepath.Join(dir, "rules", want)); err != nil {
+			t.Errorf("expected shard %s under default behavior: %v", want, err)
+		}
+	}
+}
+
+func names(entries []os.DirEntry) []string {
+	out := make([]string, len(entries))
+	for i, e := range entries {
+		out[i] = e.Name()
+	}
+	return out
+}

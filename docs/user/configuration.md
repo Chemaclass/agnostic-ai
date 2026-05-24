@@ -248,6 +248,26 @@ sync:
   collision-policy: prefer-spec   # CI-safe: skip collision check
 ```
 
+## `import`
+
+Per-source knobs for the `import` command. Empty blocks fall back to per-source defaults.
+
+### `import.codex.shred`
+
+Controls how `agnostic-ai import codex` treats `AGENTS.md`.
+
+| Value | Behavior |
+|-------|----------|
+| `true` | Split each `AGENTS.md` into one rule spec per `##` heading. Default. |
+| `false` | Keep each `AGENTS.md` as a single rule spec (full body verbatim). Use when codex `AGENTS.md` duplicates policy already authored as standalone rules and you want it as a reference doc, not a source of new rule files. |
+
+```yaml
+# In agnostic-ai.yaml
+import:
+  codex:
+    shred: false   # one rule per AGENTS.md, no H2 sharding
+```
+
 ## `on-unsupported`
 
 | Value | Behavior |
