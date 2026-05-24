@@ -45,11 +45,14 @@ func agentTOML(a spec.Entry) string {
 		runtimeName = v
 	}
 
+	// Key order matches the convention codex docs show and hand-authored
+	// agents use: scalars first so a reader sees the configuration at a
+	// glance, multi-line developer_instructions last. Codex CLI itself
+	// is order-insensitive; the order is purely a readability + byte-
+	// stable round-trip win.
 	var sb strings.Builder
 	emit.WriteTOMLString(&sb, "name", runtimeName)
 	emit.WriteTOMLString(&sb, "description", description)
-	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
-
 	if v := stringOr(meta, "model", ""); v != "" {
 		emit.WriteTOMLString(&sb, "model", v)
 	}
@@ -62,6 +65,7 @@ func agentTOML(a spec.Entry) string {
 	if tools := stringSlice(meta["tools"]); len(tools) > 0 {
 		emit.WriteTOMLStringArray(&sb, "tools", tools)
 	}
+	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
 	if names := stringSlice(meta["nickname_candidates"]); len(names) > 0 {
 		emit.WriteTOMLStringArray(&sb, "nickname_candidates", names)
 	}
