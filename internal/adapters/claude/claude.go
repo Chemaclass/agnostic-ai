@@ -206,17 +206,58 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 		}
 	}
 	if hasHooks {
-		if err := doc.Set("hooks", hookSettingsJSON(hooks)); err != nil {
+		preferred := loadCapturedHookEventOrder()
+		if err := doc.Set("hooks", hookSettingsJSONWithOrder(hooks, preferred)); err != nil {
 			return fmt.Errorf("claude settings: marshal hooks: %w", err)
 		}
 	} else {
 		doc.Delete("hooks")
 	}
-	raw, err := emit.MarshalJSONIndent(doc)
+	indent := detectSettingsIndent(path)
+	raw, err := emit.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
 		return err
 	}
 	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+// detectSettingsIndent sniffs the indent style of the overlay (preferred,
+// since it captures the author's original byte-for-byte) and falls back
+// to the existing on-disk settings.json. Returns "" when neither file
+// has a discoverable indent, in which case MarshalJSONIndentWith uses
+// its 2-space default. Lets a user with a 4-space settings.json keep
+// 4-space indent across a round-trip.
+func detectSettingsIndent(settingsPath string) string {
+	candidates := []string{
+		filepath.Join(".agnostic-ai", "overlays", "claude.settings.json"),
+		settingsPath,
+	}
+	for _, p := range candidates {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if indent := emit.DetectJSONIndent(data); indent != "" {
+			return indent
+		}
+	}
+	return ""
+}
+
+// loadCapturedHookEventOrder reads the sidecar file
+// `.agnostic-ai/overlays/claude.settings.hook-events.json` written by
+// import. Returns nil when the file is absent or malformed; the caller
+// then falls back to canonical lifecycle order.
+func loadCapturedHookEventOrder() []string {
+	data, err := os.ReadFile(filepath.Join(".agnostic-ai", "overlays", "claude.settings.hook-events.json"))
+	if err != nil {
+		return nil
+	}
+	var events []string
+	if err := json.Unmarshal(data, &events); err != nil {
+		return nil
+	}
+	return events
 }
 
 // loadSettingsFromDisk reads an existing `.claude/settings.json` as the
@@ -315,11 +356,22 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	return nil
 }
 
-// hookSettingsJSON returns the `"hooks"` block as ordered JSON so the
-// resulting settings.json mirrors Claude Code's lifecycle order
-// (Pre before Post, etc.), with `{type, command}` and `{matcher, hooks}`
-// in the order CLAUDE.md examples use. Returns nil when no hooks emit.
+// hookSettingsJSON is hookSettingsJSONWithOrder with no preferred order
+// hint, so events sort by canonical lifecycle. Retained for tests and
+// the direct emit path where no overlay sidecar exists.
 func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
+	return hookSettingsJSONWithOrder(hooks, nil)
+}
+
+// hookSettingsJSONWithOrder returns the `"hooks"` block as ordered JSON.
+// preferred is the event-key order captured at import time (sidecar
+// `.agnostic-ai/overlays/claude.settings.hook-events.json`). Events in
+// preferred come first in that order; the remainder follow canonical
+// lifecycle order; new events not in either land at the tail in
+// first-seen order.
+//
+// Returns nil when no hooks emit.
+func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.OrderedJSON {
 	doc := emit.NewOrderedJSON()
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]hookCommandEntry{}
@@ -361,10 +413,43 @@ func hookSettingsJSON(hooks []spec.Entry) *emit.OrderedJSON {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
 		byEvent[event] = groups
 	}
-	for _, event := range orderedHookEvents(eventOrder) {
+	for _, event := range mergePreferredAndLifecycle(preferred, eventOrder) {
+		if _, ok := byEvent[event]; !ok {
+			continue
+		}
 		_ = doc.Set(event, byEvent[event])
 	}
 	return doc
+}
+
+// mergePreferredAndLifecycle returns the union of preferred and seen
+// in the order: preferred-list-order first (those that appear in seen),
+// then canonical lifecycle order for the remainder.
+func mergePreferredAndLifecycle(preferred, seen []string) []string {
+	if len(preferred) == 0 {
+		return orderedHookEvents(seen)
+	}
+	have := map[string]bool{}
+	for _, e := range seen {
+		have[e] = true
+	}
+	out := make([]string, 0, len(seen))
+	emitted := map[string]bool{}
+	for _, e := range preferred {
+		if have[e] && !emitted[e] {
+			out = append(out, e)
+			emitted[e] = true
+		}
+	}
+	// Remainder via canonical lifecycle.
+	var rest []string
+	for _, e := range seen {
+		if !emitted[e] {
+			rest = append(rest, e)
+		}
+	}
+	out = append(out, orderedHookEvents(rest)...)
+	return out
 }
 
 // hookCommandEntry mirrors the `{type, command}` JSON object Claude Code

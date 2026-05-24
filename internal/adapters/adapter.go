@@ -43,6 +43,17 @@ func NewOrderedJSON() *OrderedJSON { return emit.NewOrderedJSON() }
 // preserving OrderedJSON insertion order when v is an OrderedJSON.
 func MarshalJSONIndent(v any) ([]byte, error) { return emit.MarshalJSONIndent(v) }
 
+// MarshalJSONIndentWith is MarshalJSONIndent with a caller-supplied
+// indent string ("  ", "    ", "\t"). Used by import-side overlay
+// writers that preserve the indent of the captured file.
+func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
+	return emit.MarshalJSONIndentWith(v, indent)
+}
+
+// DetectJSONIndent re-exports emit.DetectJSONIndent so import-side
+// helpers can sniff a captured file's indent before re-emitting it.
+func DetectJSONIndent(data []byte) string { return emit.DetectJSONIndent(data) }
+
 // WrittenFile mirrors emit.WrittenFile so callers outside the internal
 // emit tree can consume detailed recording output.
 type WrittenFile = emit.WrittenFile
