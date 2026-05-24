@@ -521,6 +521,36 @@ func TestEmit_ProvenanceHeaderToggleOff_SuppressesEverywhere(t *testing.T) {
 	}
 }
 
+// Regression for #293: `::target codex` fences inside an agent body
+// render only into the codex emit; `::target claude` fences disappear.
+// Tests the integration of Entry.BodyFor with Bundle.For + adapter
+// dispatch.
+func TestEmit_AgentBody_PerTargetFences(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	body := "Shared intro.\n\n::target codex\nCodex-only paragraph.\n::end\n\n::target claude\nClaude-only paragraph.\n::end\n\nShared outro.\n"
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "diverge", Body: body}}
+	if err := New().Emit(spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/agents/diverge.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	if !strings.Contains(out, "Codex-only paragraph.") {
+		t.Errorf("codex emit missing its fenced section:\n%s", out)
+	}
+	if strings.Contains(out, "Claude-only paragraph.") {
+		t.Errorf("codex emit leaked claude-scoped fence:\n%s", out)
+	}
+	for _, marker := range []string{"::target", "::end"} {
+		if strings.Contains(out, marker) {
+			t.Errorf("emit kept raw fence marker %q:\n%s", marker, out)
+		}
+	}
+}
+
 // Regression for #292: an agent scoped to claude via `target:` must
 // not emit into .codex/agents/ when sync dispatches through the
 // EmitWithProvenance wrapper (which calls bundle.For(target)).
