@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `agnostic-ai import <tool>` auto-sets `target: <tool>` on imported hooks (codex/claude/gemini). Codex-specific shell-wrapped hook scripts no longer leak into claude `settings.json` on cross-tool sync. Remove the field by hand if you want a hook to flow to every target.
 
 ### Fixed
+- `RewriteHookPath` rewrites every `.<sibling>/hooks/` occurrence in a hook command, not just bare-prefix and quoted forms. Hooks authored with shell expansions like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"` now sync cleanly to sibling targets. Pair with `target:` frontmatter (#249) for hooks that must stay scoped to one tool. Closes #250.
 
 ### Removed
 
