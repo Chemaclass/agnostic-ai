@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -116,11 +117,13 @@ func addTargetFrontmatter(body, target string) string {
 }
 
 // injectTargetInSkillMD rewrites SKILL.md at path to declare
-// `target: <name>`. No-op when the file is missing or already scoped.
+// `target: <name>`. No-op when the file already declares any target.
+// Callers invoke this immediately after a successful copy, so a missing
+// SKILL.md indicates a real I/O problem worth surfacing.
 func injectTargetInSkillMD(path, target string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	out := addTargetFrontmatter(string(data), target)
 	if out == string(data) {
