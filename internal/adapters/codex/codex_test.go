@@ -268,6 +268,36 @@ func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
 	}
 }
 
+// When a skill spec carries divergent claude/codex descriptions via
+// `x-codex.description`, the codex emit must reproduce the codex value
+// instead of the claude top-level one (#312). Without this, every
+// merged skill leaked the claude description into .codex/skills/.
+func TestEmit_SkillFolder_HonorsXCodexDescription(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "changelog",
+			Meta: map[string]any{
+				"name":        "changelog",
+				"description": "claude-side description",
+				"x-codex": map[string]any{
+					"description": "codex-side description",
+				},
+			},
+			Body: "body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/skills/changelog/SKILL.md"))
+	if !strings.Contains(got, "description: codex-side description") {
+		t.Errorf("expected x-codex.description to win on codex emit:\n%s", got)
+	}
+	if strings.Contains(got, "claude-side description") {
+		t.Errorf("claude-side description leaked into codex emit:\n%s", got)
+	}
+}
+
 func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

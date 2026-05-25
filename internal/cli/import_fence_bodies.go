@@ -154,6 +154,11 @@ func mergeSkillBodies(claudePath, codexPath string) error {
 // claude has the key and codex doesn't). Returns the rewritten claude
 // frontmatter (or the original on no-op) and a flag indicating whether
 // any change happened.
+//
+// Claude's existing frontmatter keys keep their original yaml.Node form
+// (scalar style, comments, key order) so a hand-quoted `allowed-tools:
+// "Read, Bash(*)"` survives byte-for-byte. Only the x-codex subtree is
+// added or modified (#313).
 func mergeSkillFrontmatter(claudeFront, codexFront string) (string, bool, error) {
 	claudeFM := map[string]any{}
 	codexFM := map[string]any{}
@@ -167,23 +172,88 @@ func mergeSkillFrontmatter(claudeFront, codexFront string) (string, bool, error)
 	if xcodex == nil {
 		xcodex = map[string]any{}
 	}
-	changed := false
+	overrides := map[string]any{}
 	for _, key := range divergentSkillTopLevelKeys {
 		before := len(xcodex)
 		mergeDivergentMetaKey(claudeFM, xcodex, codexFM, key)
 		if len(xcodex) != before {
-			changed = true
+			overrides[key] = xcodex[key]
 		}
 	}
-	if !changed {
+	if len(overrides) == 0 {
 		return claudeFront, false, nil
 	}
-	claudeFM["x-codex"] = xcodex
-	raw, err := marshalAgentFrontmatter(claudeFM)
+	merged, err := upsertXCodexInFrontmatter(claudeFront, overrides)
 	if err != nil {
-		return "", false, fmt.Errorf("re-marshal frontmatter: %w", err)
+		return "", false, fmt.Errorf("upsert x-codex: %w", err)
 	}
-	return string(raw), true, nil
+	return merged, true, nil
+}
+
+// upsertXCodexInFrontmatter rewrites the given YAML frontmatter so its
+// `x-codex` mapping contains every key in overrides (creating the
+// subtree when absent). Existing top-level entries keep their original
+// yaml.Node form, preserving scalar style, key order, and comments
+// (#313).
+func upsertXCodexInFrontmatter(front string, overrides map[string]any) (string, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(front), &doc); err != nil {
+		return "", err
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
+		return "", fmt.Errorf("frontmatter is not a mapping")
+	}
+	mapping := doc.Content[0]
+	xcodex := findOrAppendMapping(mapping, "x-codex")
+	for k, v := range overrides {
+		setMappingValue(xcodex, k, v)
+	}
+	raw, err := yaml.Marshal(&doc)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(string(raw), "\n"), nil
+}
+
+// findOrAppendMapping locates the value node for key in mapping. When
+// key is absent or its value isn't a mapping, a fresh mapping node
+// replaces the slot. Returns the mapping value node so callers can
+// mutate it directly.
+func findOrAppendMapping(mapping *yaml.Node, key string) *yaml.Node {
+	for i := 0; i < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			if mapping.Content[i+1].Kind != yaml.MappingNode {
+				mapping.Content[i+1] = &yaml.Node{Kind: yaml.MappingNode}
+			}
+			return mapping.Content[i+1]
+		}
+	}
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: key}
+	valNode := &yaml.Node{Kind: yaml.MappingNode}
+	mapping.Content = append(mapping.Content, keyNode, valNode)
+	return valNode
+}
+
+// setMappingValue assigns or replaces the value under key in mapping.
+// A nil value emits as the YAML scalar `null`, which ResolveMeta treats
+// as a deletion marker for the per-target emit (#304).
+func setMappingValue(mapping *yaml.Node, key string, value any) {
+	valNode := &yaml.Node{}
+	if value == nil {
+		valNode.Kind = yaml.ScalarNode
+		valNode.Tag = "!!null"
+		valNode.Value = "null"
+	} else {
+		_ = valNode.Encode(value)
+	}
+	for i := 0; i < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content[i+1] = valNode
+			return
+		}
+	}
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: key}
+	mapping.Content = append(mapping.Content, keyNode, valNode)
 }
 
 // divergentSkillTopLevelKeys lists the skill-frontmatter keys whose
