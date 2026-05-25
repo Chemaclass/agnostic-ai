@@ -362,6 +362,34 @@ func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
 	}
 }
 
+// When a skill exists in both .claude and .codex, codex-only top-level
+// entries (scripts/, agents/, anything claude side never had) must be
+// recorded in the merged SKILL.md under `x-codex.assets` so the claude
+// adapter knows to skip them on emit (#305).
+func TestImportFromCodex_MergesSkillAndRecordsCodexOnlyAssets(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude/skills/probe/SKILL.md"),
+		"---\nname: probe\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex/skills/probe/SKILL.md"),
+		"---\nname: probe\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex/skills/probe/scripts/run.sh"), "#!/bin/sh\n")
+	writeFile(t, filepath.Join(dir, ".codex/skills/probe/agents/openai.yaml"), "interface: cli\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "skills/probe/SKILL.md"))
+	if !strings.Contains(got, "x-codex:") {
+		t.Fatalf("expected x-codex block in merged SKILL.md:\n%s", got)
+	}
+	if !strings.Contains(got, "- scripts") || !strings.Contains(got, "- agents") {
+		t.Errorf("expected codex-only assets recorded:\n%s", got)
+	}
+}
+
 func TestImportFromCodex_PreservesSkillScriptExecutableBit(t *testing.T) {
 	dir := t.TempDir()
 	skillRoot := filepath.Join(dir, ".agents", "skills", "build")

@@ -400,9 +400,23 @@ func importCodexSkills(root, dstDir string) (int, error) {
 // `::target` fences so both tools' authored prose survives the
 // round-trip (#300). Codex-only assets (agents/openai.yaml, scripts/,
 // helper files) copy across.
+//
+// Codex-only top-level entries (anything in `src` not already present
+// in `dst`) get recorded in the merged SKILL.md frontmatter under
+// `x-codex.assets` so the claude adapter knows to skip them on emit
+// (#305).
 func mergeCodexSkillIntoExisting(src, dst string) error {
+	codexOnlyTopLevel, err := codexOnlyTopLevelEntries(src, dst)
+	if err != nil {
+		return err
+	}
 	if err := mergeSkillBodies(filepath.Join(dst, "SKILL.md"), filepath.Join(src, "SKILL.md")); err != nil {
 		return err
+	}
+	if len(codexOnlyTopLevel) > 0 {
+		if err := recordCodexSkillAssets(filepath.Join(dst, "SKILL.md"), codexOnlyTopLevel); err != nil {
+			return err
+		}
 	}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -432,6 +446,78 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		}
 		return os.WriteFile(target, body, info.Mode().Perm())
 	})
+}
+
+// codexOnlyTopLevelEntries lists the top-level names (excluding
+// SKILL.md) that exist under src but not under dst. The claude side
+// (dst) was imported first, so anything codex adds top-level is by
+// definition codex-only.
+func codexOnlyTopLevelEntries(src, dst string) ([]string, error) {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", src, err)
+	}
+	var out []string
+	for _, e := range entries {
+		name := e.Name()
+		if name == "SKILL.md" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(dst, name)); err == nil {
+			continue
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("stat %s: %w", filepath.Join(dst, name), err)
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
+// recordCodexSkillAssets appends or merges the given names into
+// `x-codex.assets` inside the SKILL.md frontmatter at skillPath. The
+// claude adapter consults this list at emit time to skip codex-only
+// subtrees instead of leaking them into `.claude/skills/<name>/`.
+func recordCodexSkillAssets(skillPath string, names []string) error {
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", skillPath, err)
+	}
+	front, body, ok := splitCodexAgentFrontmatter(string(data))
+	if !ok {
+		return nil
+	}
+	fm := map[string]any{}
+	if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+		return fmt.Errorf("parse frontmatter: %w", err)
+	}
+	xcodex, _ := fm["x-codex"].(map[string]any)
+	if xcodex == nil {
+		xcodex = map[string]any{}
+	}
+	seen := map[string]bool{}
+	var merged []string
+	if existing, ok := xcodex["assets"].([]any); ok {
+		for _, v := range existing {
+			if s, ok := v.(string); ok && !seen[s] {
+				seen[s] = true
+				merged = append(merged, s)
+			}
+		}
+	}
+	for _, n := range names {
+		if !seen[n] {
+			seen[n] = true
+			merged = append(merged, n)
+		}
+	}
+	xcodex["assets"] = merged
+	fm["x-codex"] = xcodex
+	raw, err := marshalAgentFrontmatter(fm)
+	if err != nil {
+		return fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
+	out := "---\n" + string(raw) + "---\n\n" + strings.TrimLeft(body, "\n")
+	return importWriteFile(skillPath, []byte(out), 0o644)
 }
 
 // codexConfigDoc mirrors the relevant `.codex/config.toml` shape: nested

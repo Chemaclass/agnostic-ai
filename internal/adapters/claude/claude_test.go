@@ -184,6 +184,55 @@ func TestEmit_PropagatesSkillAssets(t *testing.T) {
 	}
 }
 
+// A spec that lists codex-only subtrees under `x-codex.assets` must skip
+// those subtrees during claude emit, even if they live in the agnostic
+// source dir (#305).
+func TestEmit_SkipsCodexOnlySkillAssets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	srcSkill := filepath.Join(dir, ".agnostic-ai", "skills", "gh-issue")
+	if err := os.MkdirAll(filepath.Join(srcSkill, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(srcSkill, "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "SKILL.md"), []byte("---\nname: gh-issue\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "scripts", "gh.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcSkill, "agents", "openai.yaml"), []byte("interface: cli\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "gh-issue",
+			Path: filepath.Join(srcSkill, "SKILL.md"),
+			Meta: map[string]any{
+				"name": "gh-issue",
+				"x-codex": map[string]any{
+					"assets": []any{"scripts", "agents"},
+				},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{"scripts", "agents", "scripts/gh.sh", "agents/openai.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "gh-issue", filepath.FromSlash(rel))); err == nil {
+			t.Errorf("codex-only asset %q leaked into claude emit", rel)
+		}
+	}
+}
+
 func TestEmit_WritesRulesPerFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

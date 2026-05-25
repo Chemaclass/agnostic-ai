@@ -140,11 +140,11 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 
 // propagateSkillAssets mirrors every sibling file under the source
 // skill directory (`<skills-src>/<name>/`) into the emitted skill
-// folder, skipping SKILL.md (re-rendered from the spec) and any
-// `agents/openai.yaml` (codex-only metadata that Claude does not read).
-// Skills authored in agnostic-ai can ship helper scripts, fixtures, or
-// nested subdirectories alongside SKILL.md; this preserves them across
-// `sync` so the Claude Code skill continues to work after a round-trip.
+// folder, skipping SKILL.md (re-rendered from the spec), any
+// `agents/openai.yaml` (codex-only metadata that Claude does not read),
+// and any other top-level entry the spec marks under `x-codex.assets`
+// (folders the codex importer pulled in that the claude side never had,
+// e.g. helper `scripts/` directories — #305).
 //
 // No-op when the source path is unknown (e.g. specs loaded from raw
 // bytes in the WASM playground) so adapters stay safe for in-memory
@@ -154,7 +154,51 @@ func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
 		return nil
 	}
 	srcDir := filepath.Dir(s.Path)
-	return emit.CopyTree(srcDir, dstDir, isClaudeSkillSkippedAsset, dryRun)
+	skip := claudeSkillSkipFor(s)
+	return emit.CopyTree(srcDir, dstDir, skip, dryRun)
+}
+
+// claudeSkillSkipFor returns a per-skill skip predicate honoring the
+// hardcoded codex-only entries (`SKILL.md`, `agents/`) plus any top-
+// level paths the importer recorded as codex-only under
+// `x-codex.assets`. Callers pass the predicate to emit.CopyTree.
+func claudeSkillSkipFor(s spec.Entry) func(string) bool {
+	codexOnly := codexOnlyAssets(s.Meta)
+	return func(rel string) bool {
+		if isClaudeSkillSkippedAsset(rel) {
+			return true
+		}
+		for _, top := range codexOnly {
+			if rel == top || strings.HasPrefix(rel, top+"/") {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// codexOnlyAssets reads the list under `meta["x-codex"]["assets"]` and
+// returns each entry as a string. Returns nil for the common case (no
+// codex-only assets recorded). Accepts both `[]any` (yaml.v3 decode)
+// and `[]string` (round-tripped through structs).
+func codexOnlyAssets(meta map[string]any) []string {
+	x, ok := meta["x-codex"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	switch xs := x["assets"].(type) {
+	case []string:
+		return xs
+	case []any:
+		out := make([]string, 0, len(xs))
+		for _, v := range xs {
+			if s, ok := v.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 // isClaudeSkillSkippedAsset reports whether the given skill-relative path
