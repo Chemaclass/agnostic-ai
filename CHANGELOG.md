@@ -5,30 +5,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
-- `import.codex.shred` config knob. Set to `false` to keep each `AGENTS.md` as a single rule spec instead of sharding it by `##` heading. Default `true` preserves existing behavior. Closes #248.
-- Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Empty/omitted keeps legacy "emit everywhere" behavior. Closes #249.
-- `agnostic-ai doctor` flags divergent hook script bodies under `.agnostic-ai/scripts/<tool>/<basename>`. When the same basename exists for two or more tools with different SHA-256 bodies, doctor lists the per-tool sizes/hashes and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Not auto-fixable. Closes #251.
-- `outputs.codex.exec-policies` (inline list) and `outputs.codex.exec-policies-file` (external YAML) render Codex CLI's Skylark `prefix_rule(...)` exec-policy DSL into `.codex/rules/default.rules`. Each entry declares `pattern`, `decision` (`allow`/`forbidden`/`ask`), optional `justification`, and optional `match` examples. No file is written when no policies are declared. Closes #254.
-- Codex hooks now emit into `.codex/hooks.json` (per-event arrays in Claude `settings.json` shape) instead of inline `[[hooks.<event>]]` blocks in `.codex/config.toml`. The new path preserves per-hook `timeout` + `statusMessage` (lost on the TOML schema) and applies matcher-aware dedupe: two specs sharing an event + command but different matcher pipe-segments collapse to one entry whose matcher is the unioned set, so Codex no longer fires the same script twice on overlapping matchers. Override via `outputs.codex.hooks-file`. Closes #255.
-- `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping now applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini. Exclude wins when both an include and an exclude list name the same target. Adapters see only scoped entries because `EmitWithProvenance` filters the bundle via `Bundle.For(target)` before dispatching. Closes #292.
-- Per-target body fences for skills/agents (and every other kind that has body prose). Wrap a divergent paragraph in `::target codex` / `::end` markers and that block only emits into `.codex/...`; a sibling `::target claude` block only emits into `.claude/...`. Outside-fence content still emits everywhere. `::targets a b` allow-lists multiple targets in one fence. An unterminated fence runs to end-of-body so a typo does not silently drop the tail. The marker lines themselves never reach the rendered output. Closes #293.
+- `import.codex.shred: false` keeps each `AGENTS.md` as a single rule spec instead of splitting by `##` heading. Closes #248.
+- Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Closes #249.
+- `agnostic-ai doctor` flags divergent hook script bodies across tools and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Closes #251.
+- `outputs.codex.exec-policies` (inline list) and `outputs.codex.exec-policies-file` (external YAML) render Codex CLI's Skylark `prefix_rule(...)` DSL into `.codex/rules/default.rules`. Closes #254.
+- Codex hooks emit into `.codex/hooks.json` with matcher-aware dedupe and `timeout` + `statusMessage` support. Override via `outputs.codex.hooks-file`. Closes #255.
+- `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. Closes #292.
+- Per-target body fences: wrap prose in `::target codex` / `::end` markers to emit that block only to the named target. Closes #293.
 
 ### Changed
-- `agnostic-ai import <tool>` auto-sets `target: <tool>` on imported hooks (codex/claude/gemini). Codex-specific shell-wrapped hook scripts no longer leak into claude `settings.json` on cross-tool sync. Remove the field by hand if you want a hook to flow to every target.
-- Codex `agents-dir` default switched from `.agents/agents` back to `.codex/agents` so Codex CLI finds emitted subagents at its native lookup path without extra config. Users on the community shared layout can set `outputs.codex.agents-dir: .agents/agents` to opt back in. Stale `.agents/agents/*.toml` from prior syncs is left untouched on upgrade; delete by hand after running `sync`. Closes #252.
-- Codex `skills-dir` default switched from `.agents/skills` to `.codex/skills` so Codex CLI picks up emitted skills at its native path. Override to `.agents/skills` for the community shared layout. The legacy claude-aware `shared-subagents` default-off-when-claude-enabled behavior is gone (the two trees no longer overlap); `shared-subagents` now defaults to `true` and only matters when explicitly set to `false` to skip codex skill emission entirely. Import reads from both `.codex/skills/` and `.agents/skills/` so upgrades work without re-importing. Closes #253.
+- `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json` on cross-tool sync.
+- Codex `agents-dir` default changed from `.agents/agents` to `.codex/agents`. Override via `outputs.codex.agents-dir`. Closes #252.
+- Codex `skills-dir` default changed from `.agents/skills` to `.codex/skills`. `shared-subagents` now defaults to `true` regardless of whether claude is enabled. Closes #253.
 
 ### Fixed
-- `RewriteHookPath` rewrites every `.<sibling>/hooks/` occurrence in a hook command, not just bare-prefix and quoted forms. Hooks authored with shell expansions like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"` now sync cleanly to sibling targets. Pair with `target:` frontmatter (#249) for hooks that must stay scoped to one tool. Closes #250.
-- `agnostic-ai import codex` now captures `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no `outputs.codex.exec-policies` inline list and no explicit `exec-policies-file` is set, so a round-trip from a hand-authored Skylark policy file no longer silently drops the rules. Closes #265.
-- `agnostic-ai import claude/codex` captures helper files (`CLAUDE.md`, `README.md`, `statusline.sh`, codex `README.md`) into `.agnostic-ai/overlays/<tool>/<basename>` with file mode preserved. Each adapter restores them on `sync` so a wipe of `.<tool>/` between import and sync no longer drops project memory, operator docs, or executables the agent references. Closes #267.
-- `.claude/settings.json` round-trip preserves the source indent (2, 4, tabs) and the author's hook event order. Import detects the source indent via `emit.DetectJSONIndent`, propagates it through the captured overlay, and the claude adapter passes it to `MarshalJSONIndentWith` on sync. Import also writes a sidecar `claude.settings.hook-events.json` capturing the original event-key order; the claude adapter consults it before falling back to the canonical lifecycle order. Closes #268.
-- `outputs.<target>.provenance-header: false` suppresses the `Generated by agnostic-ai` comment in the named target's emitted files. Default `true` keeps the marker (useful warning for hand-editors and load-bearing for legacy-file detection). Opt out for byte-stable round-trip from hand-authored sources. Closes #269.
-- `outputs.<target>.provenance-header: false` now covers builder-style headers too. `.codex/config.toml` and the claude legacy single-file rules layout previously prepended the `Generated by agnostic-ai` line via `emit.Header` directly, bypassing the toggle introduced for `emit.WithHeader`. Both now route through the gated `emit.HeaderBlock`, and `emit.Header` itself honors the toggle so any future builder-style caller fails closed. Closes #276.
-- `agnostic-ai import codex` captures inline `justification = "..."` and `match = [...]` kwargs on `prefix_rule(...)` calls, not just `pattern` + `decision`. Round-trip from a hand-authored `.codex/rules/default.rules` no longer silently shrinks the file when authors express justification + match inside the call (the form codex CLI itself emits) instead of as `# ...` comment blocks. Inline kwargs win over post-call `# match:` comments because they sit closer to the rule. Closes #277.
-- `agnostic-ai import codex` lifts a file-level `# ...` comment block (one separated from the first `prefix_rule(...)` by a blank line) into a sidecar `.agnostic-ai/overlays/codex.exec-policies-header.txt`. The codex emitter renders it back above the first rule on the next sync, separated by a blank line so a re-import detects it as the file header instead of gluing it onto the first rule's justification. Closes #283.
-
-### Removed
+- Hook path rewriting now covers shell-expansion forms like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"`. Closes #250.
+- `import codex` captures `.codex/rules/default.rules` into an overlay so exec-policies survive import → sync round-trips. Closes #265.
+- `import claude/codex` captures helper files (CLAUDE.md, README.md, scripts) into overlays with file mode preserved. Closes #267.
+- `.claude/settings.json` round-trip preserves source indent and hook event order. Closes #268.
+- `outputs.<target>.provenance-header: false` suppresses the `Generated by agnostic-ai` comment. Closes #269, #276.
+- `import codex` captures inline `justification` and `match` kwargs from `prefix_rule(...)` calls so they survive round-trips. Closes #277.
+- `import codex` lifts a file-level comment block above the first `prefix_rule(...)` into a sidecar overlay so it re-renders on sync. Closes #283.
+- `import codex` preserves claude-conventional frontmatter key order when merging agent specs. Closes #282, #284.
+- Codex exec-policy emitter writes `justification` and `match` as inline kwargs for byte-stable import → sync round-trips. Closes #280, #281.
+- `import codex` after `import claude` no longer overwrites claude-specific skill frontmatter (`argument-hint`, `allowed-tools`, etc.). Closes #286, #287.
+- Claude skill emit skips `agents/openai.yaml` (codex-only metadata) from the source skill folder. Closes #288, #289.
+- `.codex/hooks.json` emits events in lifecycle order (`PreToolUse` before `PostToolUse`). Closes #290, #291.
+- Codex agent TOML emits keys in codex-docs convention order for byte-stable round-trips. Closes #294, #295.
 
 ## v0.25.0 - 2026-05-23
 
