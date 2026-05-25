@@ -67,7 +67,12 @@ func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
 }
 
 func skillMarkdown(s spec.Entry) string {
-	desc := s.Description()
+	// Resolve description through the per-target meta so a spec
+	// carrying `x-codex.description` wins over the (claude-side) top-
+	// level value. Without this, every divergent skill imported via
+	// PR #310 still emitted the claude description (#312).
+	resolved := emit.ResolveMeta(s.Meta, target)
+	desc, _ := resolved["description"].(string)
 	if desc == "" {
 		desc = s.Name
 	}

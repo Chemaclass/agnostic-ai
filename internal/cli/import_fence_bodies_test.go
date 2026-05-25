@@ -220,6 +220,29 @@ func TestImportFromCodex_AgentDescriptionDiverges_RoutesViaXCodex(t *testing.T) 
 	}
 }
 
+// Style preservation: a hand-quoted scalar in the claude SKILL.md
+// frontmatter must survive the codex-merge step even when description
+// divergence triggers a frontmatter rewrite (#313). Round-tripping the
+// whole front through a map loses style; the yaml.Node upsert keeps it.
+func TestImportFromCodex_SkillMerge_PreservesScalarStyle(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "skills", "test", "SKILL.md"),
+		"---\nname: test\ndescription: claude says X\nallowed-tools: \"Read, Bash(*)\"\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex", "skills", "test", "SKILL.md"),
+		"---\nname: test\ndescription: codex says Y\n---\nbody\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "skills", "test", "SKILL.md"))
+	if !strings.Contains(got, `allowed-tools: "Read, Bash(*)"`) {
+		t.Errorf("hand-quoted allowed-tools must keep its quotes:\n%s", got)
+	}
+}
+
 // Divergent skill frontmatter description also routes via x-codex on
 // import. #304 — without this, every codex skill description got
 // overwritten with claude's value after one round-trip.
