@@ -36,6 +36,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Codex agent TOML emits keys in codex-docs convention order for byte-stable round-trips. Closes #294, #295.
 - Routing keys (`target`, `targets`, `target-exclude`, `targets-exclude`) stripped from emitted frontmatter so they do not leak into generated files. Closes #303.
 - Auto-fenced spec bodies no longer contain spurious blank lines between sections. Closes #306.
+- `import codex` quotes plain-scalar SKILL.md frontmatter values containing `#` so strict YAML no longer truncates descriptions at the first hash. Closes #317.
 
 ## v0.25.0 - 2026-05-23
 

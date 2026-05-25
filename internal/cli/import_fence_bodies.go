@@ -115,6 +115,11 @@ func mergeSkillBodies(claudePath, codexPath string) error {
 	if !claudeOK || !codexOK {
 		return nil
 	}
+	// Codex CLI accepts unquoted '#' in plain scalars; strict YAML does
+	// not. Quote those scalars before yaml.Unmarshal so the codex
+	// description survives intact instead of being truncated at the
+	// first '#' (#317).
+	codexFront = quoteHashInPlainScalars(codexFront)
 
 	mergedFront, frontChanged, err := mergeSkillFrontmatter(claudeFront, codexFront)
 	if err != nil {
