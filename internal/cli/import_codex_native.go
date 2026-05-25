@@ -555,6 +555,11 @@ func codexOnlyTopLevelEntries(src, dst string) ([]string, error) {
 // `x-codex.assets` inside the SKILL.md frontmatter at skillPath. The
 // claude adapter consults this list at emit time to skip codex-only
 // subtrees instead of leaking them into `.claude/skills/<name>/`.
+//
+// The rewrite uses the same yaml.Node-based upsert as the description
+// merge (#313) so existing top-level scalars keep their original style
+// (a hand-quoted `allowed-tools: "Read, Bash(*)"` survives byte-for-
+// byte).
 func recordCodexSkillAssets(skillPath string, names []string) error {
 	data, err := os.ReadFile(skillPath)
 	if err != nil {
@@ -569,9 +574,6 @@ func recordCodexSkillAssets(skillPath string, names []string) error {
 		return fmt.Errorf("parse frontmatter: %w", err)
 	}
 	xcodex, _ := fm["x-codex"].(map[string]any)
-	if xcodex == nil {
-		xcodex = map[string]any{}
-	}
 	seen := map[string]bool{}
 	var merged []string
 	if existing, ok := xcodex["assets"].([]any); ok {
@@ -588,13 +590,11 @@ func recordCodexSkillAssets(skillPath string, names []string) error {
 			merged = append(merged, n)
 		}
 	}
-	xcodex["assets"] = merged
-	fm["x-codex"] = xcodex
-	raw, err := marshalAgentFrontmatter(fm)
+	newFront, err := upsertXCodexInFrontmatter(front, map[string]any{"assets": merged})
 	if err != nil {
-		return fmt.Errorf("re-marshal frontmatter: %w", err)
+		return fmt.Errorf("upsert x-codex.assets: %w", err)
 	}
-	out := "---\n" + string(raw) + "---\n\n" + strings.TrimLeft(body, "\n")
+	out := "---\n" + newFront + "\n---\n\n" + strings.TrimLeft(body, "\n")
 	return importWriteFile(skillPath, []byte(out), 0o644)
 }
 
