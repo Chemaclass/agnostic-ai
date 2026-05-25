@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Codex hooks emit into `.codex/hooks.json` with matcher-aware dedupe and `timeout` + `statusMessage` support. Override via `outputs.codex.hooks-file`. Closes #255.
 - `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. Closes #292.
 - Per-target body fences: wrap prose in `::target codex` / `::end` markers to emit that block only to the named target. Closes #293.
+- `import claude` / `import codex` auto-set `target: <tool>` on agents/skills present in only one tool's tree so first-time imports preserve tool-only intent without manual frontmatter edits. Closes #299.
 
 ### Changed
 - `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json` on cross-tool sync.
