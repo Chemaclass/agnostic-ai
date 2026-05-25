@@ -209,6 +209,8 @@ target: codex   # shell-expanded codex path; do not leak to other tools
 
 Hooks imported from a tool-native source auto-set `target` to that tool (codex import → `target: codex`, claude import → `target: claude`, gemini import → `target: gemini`). Remove the field by hand if you want the hook to flow everywhere.
 
+`import claude` and `import codex` apply the same auto-scoping to agents and skills: when both `.claude/` and `.codex/` exist on disk but only one carries a given spec, the captured frontmatter gains `target: <tool>`. A spec present in both tools stays un-scoped (cross-emit). Pure single-tool projects also stay un-scoped so byte-identical round-trips still hold.
+
 ### Supported events (Claude Code)
 
 | Event | When it fires |

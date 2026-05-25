@@ -38,6 +38,7 @@ var codexSkillsDirs = []string{".codex/skills", ".agents/skills"}
 func importCodexAgents(root, dstDir string) (int, error) {
 	count := 0
 	seen := map[string]bool{}
+	claudePresent := claudeTreeExists(root)
 	for _, sub := range codexAgentDirs {
 		dir := filepath.Join(root, sub)
 		entries, err := os.ReadDir(dir)
@@ -72,7 +73,11 @@ func importCodexAgents(root, dstDir string) (int, error) {
 			}
 			seen[canonical] = true
 
-			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc)
+			scope := ""
+			if claudePresent && !claudeHasAgent(root, canonical) {
+				scope = "codex"
+			}
+			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc, scope)
 			if err != nil {
 				return count, err
 			}
@@ -125,11 +130,11 @@ var codexAgentTopLevel = map[string]bool{
 // differs from the canonical slug it lands under `x-codex.name` so the
 // codex emitter still produces TOML with the runtime-expected
 // underscored identifier.
-func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any) (bool, error) {
+func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any, scope string) (bool, error) {
 	path := filepath.Join(dstDir, canonical+".md")
 	existing, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return true, writeCodexAgentSpec(path, canonical, codexName, doc)
+		return true, writeCodexAgentSpec(path, canonical, codexName, doc, scope)
 	}
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
@@ -150,7 +155,7 @@ func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[str
 // the canonical (dash) slug so the on-disk filename and frontmatter
 // stay aligned; when the codex runtime name differs it is preserved
 // under `x-codex.name`.
-func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any) error {
+func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any, scope string) error {
 	body, _ := doc["developer_instructions"].(string)
 	body = strings.TrimRight(body, "\n")
 
@@ -160,6 +165,9 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any) 
 	}
 	if m, _ := doc["model"].(string); m != "" {
 		fm["model"] = m
+	}
+	if scope != "" {
+		fm["target"] = scope
 	}
 	xcodex := map[string]any{}
 	for key, val := range doc {
@@ -249,6 +257,7 @@ var agentFrontmatterOrder = []string{
 	"name",
 	"description",
 	"model",
+	"target",
 	"allowed_tools",
 	"argument-hint",
 	"disable-model-invocation",
@@ -331,6 +340,7 @@ func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
 func importCodexSkills(root, dstDir string) (int, error) {
 	count := 0
 	seen := map[string]bool{}
+	claudePresent := claudeTreeExists(root)
 	for _, sub := range codexSkillsDirs {
 		srcDir := filepath.Join(root, sub)
 		entries, err := os.ReadDir(srcDir)
@@ -355,12 +365,21 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			}
 			seen[e.Name()] = true
 			skillDst := filepath.Join(dstDir, e.Name())
-			if dirExists(skillDst) {
+			merged := dirExists(skillDst)
+			if merged {
 				if err := mergeCodexSkillIntoExisting(skillSrc, skillDst); err != nil {
 					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
 				}
 			} else if err := copyDirTree(skillSrc, skillDst); err != nil {
 				return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+			}
+			// Auto-scope `target: codex` only when this is a fresh
+			// import (no claude sibling on disk and no claude-merged
+			// SKILL.md already at the destination).
+			if !merged && claudePresent && !claudeHasSkill(root, e.Name()) {
+				if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "codex"); err != nil {
+					return count, fmt.Errorf("scope skill %s: %w", e.Name(), err)
+				}
 			}
 			count++
 		}

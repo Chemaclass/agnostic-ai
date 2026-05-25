@@ -318,9 +318,12 @@ func TestEdgeCase_SkillNestedAssetsRoundTrip(t *testing.T) {
 		}
 	}
 
-	// Wipe specs, re-import from codex, sync back to claude.
+	// Wipe specs and the entire claude tree so the second leg simulates
+	// a fresh codex-only project. Leaving `.claude/` in place would
+	// trip the #299 auto-target heuristic (no matching claude skill →
+	// import codex stamps `target: codex` and sync never round-trips).
 	must(t, os.RemoveAll(filepath.Join(dir, ".agnostic-ai/skills")))
-	must(t, os.RemoveAll(filepath.Join(dir, ".claude/skills")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".claude")))
 	runCmd(t, "import", "codex")
 	runCmd(t, "sync", "-t", "claude")
 
