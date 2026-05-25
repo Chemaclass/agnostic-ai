@@ -362,6 +362,33 @@ func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
 	}
 }
 
+// `recordCodexSkillAssets` rewrites the SKILL.md frontmatter to inject
+// `x-codex.assets`. The rewrite must not round-trip every other key
+// through a map (which strips yaml scalar style) so a hand-quoted
+// `allowed-tools: "Read, Bash(*)"` survives byte-for-byte (#315).
+func TestImportFromCodex_RecordCodexSkillAssets_PreservesScalarStyle(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude/skills/probe/SKILL.md"),
+		"---\nname: probe\ndescription: claude desc\nallowed-tools: \"Read, Bash(*)\"\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex/skills/probe/SKILL.md"),
+		"---\nname: probe\ndescription: claude desc\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex/skills/probe/scripts/run.sh"), "#!/bin/sh\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "skills/probe/SKILL.md"))
+	if !strings.Contains(got, `allowed-tools: "Read, Bash(*)"`) {
+		t.Errorf("hand-quoted allowed-tools must keep its quotes after recordCodexSkillAssets:\n%s", got)
+	}
+	if !strings.Contains(got, "- scripts") {
+		t.Errorf("expected x-codex.assets to record scripts:\n%s", got)
+	}
+}
+
 // When a skill exists in both .claude and .codex, codex-only top-level
 // entries (scripts/, agents/, anything claude side never had) must be
 // recorded in the merged SKILL.md under `x-codex.assets` so the claude
