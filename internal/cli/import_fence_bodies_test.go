@@ -4,7 +4,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+// Entry is a local alias so the test file can name the spec entry type
+// without colliding with the cli package's own types. Keeps the round-
+// trip assertion below readable.
+type Entry = spec.Entry
 
 func TestFenceDivergent_Identical(t *testing.T) {
 	body := "Same body.\n"
@@ -61,6 +68,24 @@ func TestFenceDivergent_TotalDivergence(t *testing.T) {
 	}
 	if strings.Contains(got, "Alpha.\nBeta.") {
 		t.Errorf("bodies should be in separate fences:\n%s", got)
+	}
+}
+
+// renderBodyForTarget keeps every blank line outside a fence, so any
+// stitching padding the auto-fencer adds between fences leaks into the
+// emit as a stray blank between sections (#306). Stack the fences and
+// confirm rendering for each target reads as if the fences were never
+// there.
+func TestFenceDivergent_TightStitch_NoStrayBlankOnRender(t *testing.T) {
+	claudeBody := "## Header\nshared lead.\n\n## Claude Only\nclaude detail.\n\n## Footer\n... shared tail ...\n"
+	codexBody := "## Header\nshared lead.\n\n## Codex Only\ncodex detail.\n\n## Footer\n... shared tail ...\n"
+	merged := fenceDivergent(claudeBody, codexBody, "claude", "codex")
+	e := Entry{Body: merged}
+	if got := e.BodyFor("claude"); got != claudeBody {
+		t.Errorf("claude round-trip drift:\ngot:  %q\nwant: %q", got, claudeBody)
+	}
+	if got := e.BodyFor("codex"); got != codexBody {
+		t.Errorf("codex round-trip drift:\ngot:  %q\nwant: %q", got, codexBody)
 	}
 }
 

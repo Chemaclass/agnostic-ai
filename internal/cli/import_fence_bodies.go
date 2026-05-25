@@ -45,16 +45,22 @@ func fenceDivergent(claudeBody, codexBody, claudeName, codexName string) string 
 	xMiddle := strings.Join(xLines[prefix:len(xLines)-suffix], "\n")
 
 	var b strings.Builder
+	// Tight stitch: ::end runs into the next ::target with no blank in
+	// between, and the common suffix attaches directly to the last ::end.
+	// `renderBodyForTarget` keeps every blank line outside a fence, so any
+	// visual padding here would survive into the active target's emit as
+	// a stray blank between sections (#306). The fence markers are
+	// already on dedicated lines, so the spec stays readable.
 	if commonPrefix != "" {
 		b.WriteString(commonPrefix)
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 	}
 	if cMiddle != "" {
 		b.WriteString("::target ")
 		b.WriteString(claudeName)
 		b.WriteString("\n")
 		b.WriteString(cMiddle)
-		b.WriteString("\n::end\n\n")
+		b.WriteString("\n::end\n")
 	}
 	if xMiddle != "" {
 		b.WriteString("::target ")
@@ -64,9 +70,6 @@ func fenceDivergent(claudeBody, codexBody, claudeName, codexName string) string 
 		b.WriteString("\n::end\n")
 	}
 	if commonSuffix != "" {
-		if xMiddle != "" {
-			b.WriteString("\n")
-		}
 		b.WriteString(commonSuffix)
 	}
 	out := b.String()
