@@ -8,6 +8,18 @@ import "strings"
 // portable.
 const XPrefix = "x-"
 
+// routingKeys are agnostic-ai-only frontmatter keys that steer which
+// target receives a spec. They have no semantics inside the tool's
+// consumer (Claude, Codex, etc.), so the adapter must strip them on
+// emit; otherwise round-trip imports leak `target: claude` into hand-
+// authored files that never declared it (#303).
+var routingKeys = map[string]bool{
+	"target":          true,
+	"targets":         true,
+	"target-exclude":  true,
+	"targets-exclude": true,
+}
+
 // StringSlice coerces a `[]any` of strings (YAML's default unmarshalled
 // shape for list-of-strings) into `[]string`. Non-string elements and
 // non-slice inputs return nil. Adapters use this to read `args`,
@@ -88,7 +100,7 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 	walked := make(map[string]bool, len(meta))
 	for _, k := range keys {
 		walked[k] = true
-		if strings.HasPrefix(k, XPrefix) {
+		if strings.HasPrefix(k, XPrefix) || routingKeys[k] {
 			continue
 		}
 		if v, ok := meta[k]; ok {
@@ -96,7 +108,7 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 		}
 	}
 	for k, v := range meta {
-		if walked[k] || strings.HasPrefix(k, XPrefix) || seen[k] {
+		if walked[k] || strings.HasPrefix(k, XPrefix) || routingKeys[k] || seen[k] {
 			continue
 		}
 		appendKV(k, v)
