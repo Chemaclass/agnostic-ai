@@ -115,8 +115,30 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 	}
 	if nested, ok := meta[XPrefix+target].(map[string]any); ok {
 		for nk, nv := range nested {
+			if nv == nil {
+				// nil under x-<target> is a delete marker: drop the key
+				// entirely so the per-target emit reproduces the source
+				// of truth (e.g. a codex agent that never had `model:`
+				// must not inherit claude's `model: haiku`). See #304.
+				removeKey(out, &outKeys, nk)
+				continue
+			}
 			appendKV(nk, nv)
 		}
 	}
 	return out, outKeys
+}
+
+// removeKey strips key from both the resolved map and the ordered keys
+// slice so a downstream renderer emits neither a value nor a position
+// for it. Used by ResolveMetaOrdered to honor nil delete markers under
+// `x-<target>`.
+func removeKey(out map[string]any, keys *[]string, key string) {
+	delete(out, key)
+	for i, k := range *keys {
+		if k == key {
+			*keys = append((*keys)[:i], (*keys)[i+1:]...)
+			return
+		}
+	}
 }

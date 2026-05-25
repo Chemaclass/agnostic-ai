@@ -197,9 +197,10 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any, 
 
 // mergeCodexAgentIntoExisting parses an already-imported agent spec
 // (claude origin) and layers codex-specific frontmatter on top without
-// disturbing the body or existing top-level keys. Only the keys the
-// codex TOML actually provides get written, so claude's richer body
-// + description survive even when both tools defined the agent.
+// disturbing the body or existing top-level keys. Top-level keys with
+// divergent values across the two tools land under `x-codex.<key>` so
+// each target emit reproduces its source-of-truth value (#304). Claude's
+// richer body survives via mergeAgentBody.
 func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any) (string, error) {
 	front, body, ok := splitCodexAgentFrontmatter(existing)
 	if !ok {
@@ -222,6 +223,13 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 	xcodex, _ := fm["x-codex"].(map[string]any)
 	if xcodex == nil {
 		xcodex = map[string]any{}
+	}
+	// Top-level frontmatter keys that codex also emits at the TOML root:
+	// when the codex value diverges (or is absent while claude has one),
+	// record the codex view under `x-codex.<key>` so ResolveMeta(codex)
+	// reproduces the codex source-of-truth.
+	for _, key := range divergentAgentTopLevelKeys {
+		mergeDivergentMetaKey(fm, xcodex, doc, key)
 	}
 	for key, val := range doc {
 		if codexAgentTopLevel[key] {
@@ -251,6 +259,76 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 		mergedBody += "\n"
 	}
 	return "---\n" + string(raw) + "---\n\n" + mergedBody, nil
+}
+
+// divergentAgentTopLevelKeys are the agent-frontmatter keys whose values
+// frequently differ between claude and codex (description, model). Each
+// gets compared during the codex merge: if codex's value disagrees with
+// claude's, the codex view goes under `x-codex.<key>`; if claude has the
+// key but codex does not, `x-codex.<key>: null` marks the deletion so
+// ResolveMeta(codex) drops it.
+var divergentAgentTopLevelKeys = []string{"description", "model"}
+
+// mergeDivergentMetaKey records a per-target override for key when the
+// codex doc value differs from the claude frontmatter value. Used by
+// the codex merger to keep both tools' divergent frontmatter intact.
+//
+//   - codex absent, claude present: x-codex[key] = nil (deletion marker)
+//   - codex present, claude absent: claude takes the codex value (no
+//     divergence to record — it's just the only source).
+//   - codex present and != claude: x-codex[key] = codex value.
+//   - equal values: nothing to record.
+func mergeDivergentMetaKey(fm, xcodex, doc map[string]any, key string) {
+	claudeVal, hasClaude := fm[key]
+	docVal, hasDoc := doc[key]
+	if hasDoc {
+		if s, ok := docVal.(string); ok && s == "" {
+			hasDoc = false
+		}
+	}
+	if !hasDoc && hasClaude {
+		// Mark the key as deleted-for-codex so emit drops it.
+		if _, present := xcodex[key]; !present {
+			xcodex[key] = nil
+		}
+		return
+	}
+	if !hasDoc {
+		return
+	}
+	if !hasClaude {
+		fm[key] = docVal
+		return
+	}
+	if !equalScalar(claudeVal, docVal) {
+		if _, present := xcodex[key]; !present {
+			xcodex[key] = docVal
+		}
+	}
+}
+
+// equalScalar compares two scalar `any` values without bringing in
+// reflect.DeepEqual for the hot import path. Handles the string / bool
+// / numeric shapes the codex merger walks.
+func equalScalar(a, b any) bool {
+	switch av := a.(type) {
+	case string:
+		bv, ok := b.(string)
+		return ok && av == bv
+	case bool:
+		bv, ok := b.(bool)
+		return ok && av == bv
+	case int:
+		bv, ok := b.(int)
+		return ok && av == bv
+	case int64:
+		bv, ok := b.(int64)
+		return ok && av == bv
+	case float64:
+		bv, ok := b.(float64)
+		return ok && av == bv
+	}
+	return false
 }
 
 // agentFrontmatterOrder is the canonical claude-conventional key order
