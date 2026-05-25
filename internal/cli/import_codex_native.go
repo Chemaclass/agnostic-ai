@@ -456,6 +456,16 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			} else if err := copyDirTree(skillSrc, skillDst); err != nil {
 				return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 			}
+			if !merged {
+				// Codex CLI tolerates unquoted '#' in plain scalar
+				// frontmatter values; strict YAML treats it as a comment
+				// and truncates. Quote those scalars in the imported
+				// SKILL.md so a downstream sync survives the round-trip
+				// (#317).
+				if err := quoteHashInSkillFrontmatter(filepath.Join(skillDst, "SKILL.md")); err != nil {
+					return count, fmt.Errorf("quote-hash skill %s: %w", e.Name(), err)
+				}
+			}
 			// Auto-scope `target: codex` only when this is a fresh
 			// import (no claude sibling on disk and no claude-merged
 			// SKILL.md already at the destination).
