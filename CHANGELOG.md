@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. Closes #292.
 - Per-target body fences: wrap prose in `::target codex` / `::end` markers to emit that block only to the named target. Closes #293.
 - `import claude` / `import codex` auto-set `target: <tool>` on agents/skills present in only one tool's tree so first-time imports preserve tool-only intent without manual frontmatter edits. Closes #299.
+- `import codex` auto-fences divergent agent / skill bodies when both tools ship the same spec name: shared prose stays un-fenced, each tool's unique middle gets wrapped in `::target` blocks. Closes #300.
 
 ### Changed
 - `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json` on cross-tool sync.

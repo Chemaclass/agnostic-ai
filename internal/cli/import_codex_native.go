@@ -245,7 +245,12 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 	if err != nil {
 		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
 	}
-	return "---\n" + string(raw) + "---\n\n" + body, nil
+	codexBody, _ := doc["developer_instructions"].(string)
+	mergedBody := mergeAgentBody(body, codexBody)
+	if !strings.HasSuffix(mergedBody, "\n") {
+		mergedBody += "\n"
+	}
+	return "---\n" + string(raw) + "---\n\n" + mergedBody, nil
 }
 
 // agentFrontmatterOrder is the canonical claude-conventional key order
@@ -388,12 +393,17 @@ func importCodexSkills(root, dstDir string) (int, error) {
 }
 
 // mergeCodexSkillIntoExisting layers a codex skill folder on top of an
-// already-imported skill (claude origin) without overwriting the claude
-// SKILL.md. The claude variant retains its frontmatter (argument-hint,
-// disable-model-invocation, allowed-tools — Claude reads these to wire
-// the skill correctly); codex-only assets (agents/openai.yaml, scripts/,
+// already-imported skill (claude origin). Claude frontmatter survives
+// (argument-hint, disable-model-invocation, allowed-tools — Claude
+// reads these to wire the skill correctly). When the codex SKILL.md
+// body diverges from claude's the unique sections get wrapped in
+// `::target` fences so both tools' authored prose survives the
+// round-trip (#300). Codex-only assets (agents/openai.yaml, scripts/,
 // helper files) copy across.
 func mergeCodexSkillIntoExisting(src, dst string) error {
+	if err := mergeSkillBodies(filepath.Join(dst, "SKILL.md"), filepath.Join(src, "SKILL.md")); err != nil {
+		return err
+	}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -402,14 +412,7 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if rel == "." {
-			return nil
-		}
-		// Never clobber the existing SKILL.md — claude frontmatter must
-		// survive. Codex SKILL.md frontmatter (description, name) stays
-		// reachable through the `.codex/skills/` emit which still
-		// reads from the captured spec, just from the claude side now.
-		if rel == "SKILL.md" {
+		if rel == "." || rel == "SKILL.md" {
 			return nil
 		}
 		target := filepath.Join(dst, rel)

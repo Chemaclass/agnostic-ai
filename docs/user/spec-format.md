@@ -199,6 +199,7 @@ Shared outro.
 - `::end` closes the most recent fence.
 - An unterminated fence runs to end-of-body so a missing `::end` does not drop the tail of the file.
 - The empty target (e.g. the source view used by `import` round-trips) returns the body with fences intact so a re-emit stays byte-stable.
+- `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced and each tool's unique middle gets its own `::target` block.
 
 ```yaml
 event: PostToolUse
