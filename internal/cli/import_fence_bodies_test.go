@@ -187,6 +187,64 @@ Shared outro."""`+"\n")
 	}
 }
 
+// Divergent frontmatter description across the two tools is recorded
+// under `x-codex.description` so each emit reproduces its source-of-
+// truth (#304). Without this routing, the codex side silently inherited
+// the claude description on every re-sync.
+func TestImportFromCodex_AgentDescriptionDiverges_RoutesViaXCodex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "agents", "keeper.md"),
+		"---\nname: keeper\ndescription: claude says X\nmodel: haiku\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex", "agents", "keeper.toml"),
+		`name = "keeper"`+"\n"+
+			`description = "codex says Y"`+"\n"+
+			`developer_instructions = "body"`+"\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "agents", "keeper.md"))
+	if !strings.Contains(got, "description: claude says X") {
+		t.Errorf("claude description must survive at top level:\n%s", got)
+	}
+	if !strings.Contains(got, "description: codex says Y") {
+		t.Errorf("codex description must land under x-codex:\n%s", got)
+	}
+	// claude has model: haiku but codex doesn't → expect x-codex.model: null
+	// so codex emit drops the key.
+	if !strings.Contains(got, "model: null") {
+		t.Errorf("x-codex.model should mark deletion for codex:\n%s", got)
+	}
+}
+
+// Divergent skill frontmatter description also routes via x-codex on
+// import. #304 — without this, every codex skill description got
+// overwritten with claude's value after one round-trip.
+func TestImportFromCodex_SkillDescriptionDiverges_RoutesViaXCodex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "skills", "test", "SKILL.md"),
+		"---\nname: test\ndescription: claude says X\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".codex", "skills", "test", "SKILL.md"),
+		"---\nname: test\ndescription: codex says Y\n---\nbody\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "skills", "test", "SKILL.md"))
+	if !strings.Contains(got, "description: claude says X") {
+		t.Errorf("claude description must survive at top level:\n%s", got)
+	}
+	if !strings.Contains(got, "description: codex says Y") {
+		t.Errorf("codex description must land under x-codex:\n%s", got)
+	}
+}
+
 func TestImportFromCodex_AgentBodyIdentical_NoFences(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude", "agents", "explorer.md"),

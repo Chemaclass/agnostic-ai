@@ -83,3 +83,62 @@ func TestResolveMetaOrdered_StripsRoutingKeysFromOrder(t *testing.T) {
 		t.Errorf("target should be stripped, got %#v", got)
 	}
 }
+
+// `x-<target>.<key>: nil` is a deletion marker — the per-target emit
+// must drop the key entirely instead of keeping the top-level value
+// (#304). Without this, a codex agent that never had `model:` inherited
+// claude's `model: haiku` after a round-trip import.
+func TestResolveMeta_NilUnderXTargetDeletesKey(t *testing.T) {
+	in := map[string]any{
+		"name":  "agent",
+		"model": "haiku",
+		"x-codex": map[string]any{
+			"model": nil,
+		},
+	}
+	got := ResolveMeta(in, "codex")
+	if _, present := got["model"]; present {
+		t.Errorf("x-codex.model: nil should drop model, got %#v", got)
+	}
+	// Claude side must still see the top-level value.
+	gotClaude := ResolveMeta(in, "claude")
+	if gotClaude["model"] != "haiku" {
+		t.Errorf("claude side lost top-level model: got %#v", gotClaude)
+	}
+}
+
+// `x-<target>.<key>` with a value overrides the top-level value for
+// that target while leaving every other target's view alone (#304).
+func TestResolveMeta_XTargetOverridesValue(t *testing.T) {
+	in := map[string]any{
+		"name":        "agent",
+		"description": "claude-side description",
+		"x-codex": map[string]any{
+			"description": "codex-side description",
+		},
+	}
+	if got := ResolveMeta(in, "claude")["description"]; got != "claude-side description" {
+		t.Errorf("claude desc: got %v", got)
+	}
+	if got := ResolveMeta(in, "codex")["description"]; got != "codex-side description" {
+		t.Errorf("codex desc: got %v", got)
+	}
+}
+
+// Deletion under x-<target> must also drop the key from the ordered key
+// slice so renderers that iterate `ordered` don't emit a stray entry.
+func TestResolveMetaOrdered_NilUnderXTargetDropsOrder(t *testing.T) {
+	in := map[string]any{
+		"name":  "agent",
+		"model": "haiku",
+		"x-codex": map[string]any{
+			"model": nil,
+		},
+	}
+	keys := []string{"name", "model"}
+	_, gotKeys := ResolveMetaOrdered(in, keys, "codex")
+	wantKeys := []string{"name"}
+	if !reflect.DeepEqual(gotKeys, wantKeys) {
+		t.Errorf("got %v, want %v", gotKeys, wantKeys)
+	}
+}

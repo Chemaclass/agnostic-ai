@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // fenceDivergent merges two same-name spec bodies, wrapping the parts
@@ -93,9 +95,10 @@ func splitLines(s string) []string {
 
 // mergeSkillBodies rewrites claudePath's SKILL.md so divergent body
 // content from codexPath's SKILL.md survives as a `::target codex`
-// fence. Claude's frontmatter is the source of truth (per the
-// claude-wins precedence documented in #287); only the body changes.
-// A no-op when the bodies are byte-identical or either file lacks
+// fence. Top-level frontmatter keys whose values diverge between the
+// two tools (description, etc.) get routed through `x-codex` so the
+// codex emit reproduces its source-of-truth (#304). A no-op when both
+// frontmatter and body are byte-identical, or when either file lacks
 // frontmatter.
 func mergeSkillBodies(claudePath, codexPath string) error {
 	claudeData, err := os.ReadFile(claudePath)
@@ -108,25 +111,86 @@ func mergeSkillBodies(claudePath, codexPath string) error {
 	}
 
 	claudeFront, claudeBody, claudeOK := splitCodexAgentFrontmatter(string(claudeData))
-	_, codexBody, codexOK := splitCodexAgentFrontmatter(string(codexData))
+	codexFront, codexBody, codexOK := splitCodexAgentFrontmatter(string(codexData))
 	if !claudeOK || !codexOK {
 		return nil
 	}
-	if strings.TrimRight(claudeBody, "\n") == strings.TrimRight(codexBody, "\n") {
+
+	mergedFront, frontChanged, err := mergeSkillFrontmatter(claudeFront, codexFront)
+	if err != nil {
+		return err
+	}
+	frontOut := claudeFront
+	if frontChanged {
+		frontOut = strings.TrimRight(mergedFront, "\n")
+	}
+
+	bodiesDiffer := strings.TrimRight(claudeBody, "\n") != strings.TrimRight(codexBody, "\n")
+	if !frontChanged && !bodiesDiffer {
 		return nil
 	}
 
-	merged := fenceDivergent(
-		strings.TrimRight(claudeBody, "\n"),
-		strings.TrimRight(codexBody, "\n"),
-		"claude", "codex",
-	)
-	out := "---\n" + claudeFront + "\n---\n\n" + merged
+	body := strings.TrimRight(claudeBody, "\n")
+	if bodiesDiffer {
+		body = fenceDivergent(
+			strings.TrimRight(claudeBody, "\n"),
+			strings.TrimRight(codexBody, "\n"),
+			"claude", "codex",
+		)
+	}
+	out := "---\n" + frontOut + "\n---\n\n" + body
+	if !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
 	if out == string(claudeData) {
 		return nil
 	}
 	return importWriteFile(claudePath, []byte(out), 0o644)
 }
+
+// mergeSkillFrontmatter parses the claude + codex frontmatters and, for
+// each divergent top-level key in `divergentSkillTopLevelKeys`, records
+// the codex value under `x-codex.<key>` (or `x-codex.<key>: null` when
+// claude has the key and codex doesn't). Returns the rewritten claude
+// frontmatter (or the original on no-op) and a flag indicating whether
+// any change happened.
+func mergeSkillFrontmatter(claudeFront, codexFront string) (string, bool, error) {
+	claudeFM := map[string]any{}
+	codexFM := map[string]any{}
+	if err := yaml.Unmarshal([]byte(claudeFront), &claudeFM); err != nil {
+		return "", false, fmt.Errorf("parse claude frontmatter: %w", err)
+	}
+	if err := yaml.Unmarshal([]byte(codexFront), &codexFM); err != nil {
+		return "", false, fmt.Errorf("parse codex frontmatter: %w", err)
+	}
+	xcodex, _ := claudeFM["x-codex"].(map[string]any)
+	if xcodex == nil {
+		xcodex = map[string]any{}
+	}
+	changed := false
+	for _, key := range divergentSkillTopLevelKeys {
+		before := len(xcodex)
+		mergeDivergentMetaKey(claudeFM, xcodex, codexFM, key)
+		if len(xcodex) != before {
+			changed = true
+		}
+	}
+	if !changed {
+		return claudeFront, false, nil
+	}
+	claudeFM["x-codex"] = xcodex
+	raw, err := marshalAgentFrontmatter(claudeFM)
+	if err != nil {
+		return "", false, fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
+	return string(raw), true, nil
+}
+
+// divergentSkillTopLevelKeys lists the skill-frontmatter keys whose
+// values often differ between claude and codex (description, model).
+// Each gets compared during codex import: divergent codex values land
+// under `x-codex.<key>` so the codex emit reproduces them faithfully.
+var divergentSkillTopLevelKeys = []string{"description", "model"}
 
 // mergeAgentBody returns claudeBody with divergent codex content
 // fenced. claudeBody is the existing post-frontmatter body; codexBody
