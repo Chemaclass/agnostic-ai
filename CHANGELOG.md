@@ -8,15 +8,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `import.codex.shred: false` keeps each `AGENTS.md` as a single rule spec instead of splitting by `##` heading. Closes #248.
 - Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Closes #249.
 - `agnostic-ai doctor` flags divergent hook script bodies across tools and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Closes #251.
-- `outputs.codex.exec-policies` (inline list) and `outputs.codex.exec-policies-file` (external YAML) render Codex CLI's Skylark `prefix_rule(...)` DSL into `.codex/rules/default.rules`. Closes #254.
+- `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` render Codex CLI's `prefix_rule(...)` DSL into `.codex/rules/default.rules`. Closes #254.
 - Codex hooks emit into `.codex/hooks.json` with matcher-aware dedupe and `timeout` + `statusMessage` support. Override via `outputs.codex.hooks-file`. Closes #255.
 - `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. Closes #292.
 - Per-target body fences: wrap prose in `::target codex` / `::end` markers to emit that block only to the named target. Closes #293.
-- `import claude` / `import codex` auto-set `target: <tool>` on agents/skills present in only one tool's tree so first-time imports preserve tool-only intent without manual frontmatter edits. Closes #299.
-- `import codex` auto-fences divergent agent / skill bodies when both tools ship the same spec name: shared prose stays un-fenced, each tool's unique middle gets wrapped in `::target` blocks. Closes #300.
+- `import claude` / `import codex` auto-set `target: <tool>` on agents/skills present in only one tool's tree. Closes #299.
+- `import codex` auto-fences divergent agent/skill bodies: shared prose stays un-fenced, each tool's unique section gets wrapped in `::target` blocks. Closes #300.
 
 ### Changed
-- `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json` on cross-tool sync.
+- `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json`. Closes #257.
 - Codex `agents-dir` default changed from `.agents/agents` to `.codex/agents`. Override via `outputs.codex.agents-dir`. Closes #252.
 - Codex `skills-dir` default changed from `.agents/skills` to `.codex/skills`. `shared-subagents` now defaults to `true` regardless of whether claude is enabled. Closes #253.
 
@@ -34,6 +34,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Claude skill emit skips `agents/openai.yaml` (codex-only metadata) from the source skill folder. Closes #288, #289.
 - `.codex/hooks.json` emits events in lifecycle order (`PreToolUse` before `PostToolUse`). Closes #290, #291.
 - Codex agent TOML emits keys in codex-docs convention order for byte-stable round-trips. Closes #294, #295.
+- Routing keys (`target`, `targets`, `target-exclude`, `targets-exclude`) stripped from emitted frontmatter so they do not leak into generated files. Closes #303.
+- Auto-fenced spec bodies no longer contain spurious blank lines between sections. Closes #306.
 
 ## v0.25.0 - 2026-05-23
 
