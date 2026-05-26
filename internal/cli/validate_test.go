@@ -10,7 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestValidate_ReportsMissingNameAsAutofixable(t *testing.T) {
+func TestValidate_AllowsMissingNameForMarkdownSpecs(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	mustWriteFile(t, filepath.Join(dir, "rules", "no-name.md"),
@@ -27,21 +27,12 @@ func TestValidate_ReportsMissingNameAsAutofixable(t *testing.T) {
 	}
 
 	got := out.String()
-	if !strings.Contains(got, "1 issue(s) found") {
-		t.Errorf("expected 1 issue, got %q", got)
-	}
-	if !strings.Contains(got, "no-name.md") {
-		t.Errorf("expected path in report, got %q", got)
-	}
-	if !strings.Contains(got, "* ") {
-		t.Errorf("expected autofixable marker, got %q", got)
-	}
-	if !strings.Contains(got, "rerun with --fix") {
-		t.Errorf("expected --fix hint, got %q", got)
+	if strings.Contains(got, "issue(s) found") {
+		t.Errorf("expected no issues, got %q", got)
 	}
 }
 
-func TestValidate_FixInjectsMissingName(t *testing.T) {
+func TestValidate_FixLeavesOptionalNameOmitted(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	specPath := filepath.Join(dir, "rules", "no-name.md")
@@ -57,7 +48,7 @@ func TestValidate_FixInjectsMissingName(t *testing.T) {
 		t.Fatalf("validate --fix: %v", err)
 	}
 
-	if !strings.Contains(out.String(), "fixed 1 issue") {
+	if !strings.Contains(out.String(), "fixed 0 issue") {
 		t.Errorf("expected fixed report, got %q", out.String())
 	}
 
@@ -65,28 +56,18 @@ func TestValidate_FixInjectsMissingName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"name: no-name", "description: a rule", "body"}
+	want := []string{"description: a rule", "body"}
 	for _, w := range want {
 		if !strings.Contains(string(patched), w) {
 			t.Errorf("patched file missing %q:\n%s", w, patched)
 		}
 	}
-
-	// Re-running --fix on a clean file should report 0 issues.
-	out.Reset()
-	root2 := NewRootCmd("test")
-	root2.SetArgs([]string{"validate", "--fix"})
-	root2.SetOut(out)
-	root2.SetErr(&bytes.Buffer{})
-	if err := root2.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "fixed 0 issue") {
-		t.Errorf("expected clean run, got %q", out.String())
+	if strings.Contains(string(patched), "name: no-name") {
+		t.Errorf("optional name should not be injected:\n%s", patched)
 	}
 }
 
-func TestValidate_FixInjectsNameForSkillFromParentDir(t *testing.T) {
+func TestValidate_AllowsNestedSkillMissingName(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	skillPath := filepath.Join(dir, "skills", "validator", "SKILL.md")
@@ -105,8 +86,8 @@ func TestValidate_FixInjectsNameForSkillFromParentDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(patched), "name: validator") {
-		t.Errorf("expected name=validator (from parent dir), got:\n%s", patched)
+	if strings.Contains(string(patched), "name: validator") {
+		t.Errorf("optional skill name should not be injected:\n%s", patched)
 	}
 }
 

@@ -59,25 +59,12 @@ func newValidateCmd() *cobra.Command {
 	return cmd
 }
 
-// lintEntries scans loaded specs for fixable problems. Today it
-// catches markdown specs that are missing `name:` in frontmatter
-// (the spec loader still produces an Entry by deriving the name from
-// the filename, which masks the omission until something else looks
-// at the raw frontmatter, e.g. a downstream tool that round-trips
-// the source file).
+// lintEntries scans loaded specs for validation problems that are specific
+// to individual entries. Markdown specs intentionally do not require
+// `name:` in frontmatter: the spec format documents the field as optional
+// and the loader derives a stable name from the file path.
 func lintEntries(entries []spec.Entry) []validationIssue {
 	var out []validationIssue
-	for _, e := range entries {
-		if isMarkdownKind(e.Kind) && !metaHasString(e.Meta, "name") {
-			out = append(out, validationIssue{
-				Path:    e.Path,
-				Field:   "name",
-				Message: "frontmatter is missing required 'name:' field",
-				kind:    issueMissingName,
-				entry:   e,
-			})
-		}
-	}
 	return out
 }
 
@@ -252,23 +239,6 @@ func sortStrings(s []string) {
 			j--
 		}
 	}
-}
-
-func isMarkdownKind(k spec.Kind) bool {
-	switch k {
-	case spec.KindAgent, spec.KindSkill, spec.KindRule:
-		return true
-	}
-	return false
-}
-
-func metaHasString(meta map[string]any, key string) bool {
-	v, ok := meta[key]
-	if !ok {
-		return false
-	}
-	s, ok := v.(string)
-	return ok && s != ""
 }
 
 // applyFixes runs the autofix routine for every issue whose kind is
