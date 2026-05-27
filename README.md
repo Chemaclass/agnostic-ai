@@ -96,7 +96,7 @@ A ✅ means the file lands where the target documents. Not every cell is a path 
 ## Install
 
 ```bash
-brew install Chemaclass/tap/agnostic-ai                              # Homebrew
+brew install --cask Chemaclass/tap/agnostic-ai                       # Homebrew
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 
@@ -115,7 +115,7 @@ Detects whether the running binary came from Homebrew, `go install`, or a raw do
 Direct package-manager commands work too:
 
 ```bash
-brew update && brew upgrade Chemaclass/tap/agnostic-ai               # Homebrew
+brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai        # Homebrew
 go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ```
 

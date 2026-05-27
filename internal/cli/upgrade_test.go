@@ -2,11 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDetectInstallMethod_Homebrew(t *testing.T) {
@@ -64,7 +67,7 @@ func TestDetectInstallMethod_Binary(t *testing.T) {
 
 func TestUpgradeCommandFor(t *testing.T) {
 	cases := map[installMethod]string{
-		installHomebrew:  "brew update && brew upgrade Chemaclass/tap/agnostic-ai",
+		installHomebrew:  "brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai",
 		installGoInstall: "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest",
 		installBinary:    "",
 		installUnknown:   "",
@@ -73,6 +76,55 @@ func TestUpgradeCommandFor(t *testing.T) {
 		if got := upgradeCommandFor(m); got != want {
 			t.Errorf("upgradeCommandFor(%v) = %q, want %q", m, got, want)
 		}
+	}
+}
+
+func TestInstallMethodString(t *testing.T) {
+	cases := map[installMethod]string{
+		installHomebrew:  "homebrew",
+		installGoInstall: "go install",
+		installBinary:    "binary",
+		installUnknown:   "unknown",
+	}
+	for m, want := range cases {
+		if got := m.String(); got != want {
+			t.Errorf("installMethod(%d).String() = %q, want %q", m, got, want)
+		}
+	}
+}
+
+func TestFetchLatestReleaseFrom_SetsHeadersAndStripsV(t *testing.T) {
+	var gotUA, gotAccept string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		gotAccept = r.Header.Get("Accept")
+		_, _ = w.Write([]byte(`{"tag_name":"v9.9.9"}`))
+	}))
+	defer srv.Close()
+
+	tag, err := fetchLatestReleaseFrom(srv.URL, time.Second)
+	if err != nil {
+		t.Fatalf("fetchLatestReleaseFrom: %v", err)
+	}
+	if tag != "9.9.9" {
+		t.Errorf("tag = %q, want %q", tag, "9.9.9")
+	}
+	if gotUA == "" {
+		t.Errorf("User-Agent header was empty")
+	}
+	if gotAccept != "application/vnd.github+json" {
+		t.Errorf("Accept header = %q, want application/vnd.github+json", gotAccept)
+	}
+}
+
+func TestFetchLatestReleaseFrom_PropagatesNon200(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	if _, err := fetchLatestReleaseFrom(srv.URL, time.Second); err == nil {
+		t.Errorf("expected error for 403, got nil")
 	}
 }
 
