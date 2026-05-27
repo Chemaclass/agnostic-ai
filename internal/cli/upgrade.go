@@ -15,6 +15,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Repository + distribution coordinates. Kept as package-level constants
+// so a fork or rename only touches this block.
+const (
+	repoOwner       = "Chemaclass"
+	repoName        = "agnostic-ai"
+	binaryName      = "agnostic-ai"
+	tapPackage      = repoOwner + "/tap/" + repoName
+	releasesAPIURL  = "https://api.github.com/repos/" + repoOwner + "/" + repoName + "/releases/latest"
+	releasesHTMLURL = "https://github.com/" + repoOwner + "/" + repoName + "/releases"
+	userAgent       = repoName + "-upgrade"
+)
+
 // installMethod identifies how the running agnostic-ai binary was
 // installed. The detector inspects os.Executable() and matches against
 // well-known path prefixes per platform.
@@ -27,24 +39,46 @@ const (
 	installBinary
 )
 
+// methodSpec carries the human-readable name and shell command for a
+// given install method. Keeping name + command in one table avoids
+// two parallel switches drifting out of sync.
+type methodSpec struct {
+	name    string
+	command string
+}
+
+var methodSpecs = map[installMethod]methodSpec{
+	installHomebrew:  {"homebrew", "brew update && brew upgrade --cask " + tapPackage},
+	installGoInstall: {"go install", "go install github.com/chemaclass/" + repoName + "/cmd/" + binaryName + "@latest"},
+	installBinary:    {"binary", ""},
+	installUnknown:   {"unknown", ""},
+}
+
 func (m installMethod) String() string {
-	switch m {
-	case installHomebrew:
-		return "homebrew"
-	case installGoInstall:
-		return "go install"
-	case installBinary:
-		return "binary"
+	if s, ok := methodSpecs[m]; ok {
+		return s.name
 	}
 	return "unknown"
 }
 
+func upgradeCommandFor(m installMethod) string {
+	return methodSpecs[m].command
+}
+
 // upgradeInfo summarizes what `upgrade` knows about the current install.
-// Path is the resolved executable path; Method is the detected install
-// channel; Command is the shell command that would refresh the binary;
-// Shadows lists any other agnostic-ai binaries on PATH that would beat
-// the current one (or be beaten by it), so the user can spot a stale
-// shadow before running the upgrade.
+//
+//   - Path:     resolved executable path (symlinks evaluated).
+//   - LinkPath: original `os.Executable()` path before symlink eval; lets
+//     callers inspect the binstub itself (e.g. brew's `bin/agnostic-ai`
+//     symlink) rather than its Caskroom target.
+//   - Method:   detected install channel.
+//   - Version:  build-time version of the running binary.
+//   - Latest:   tag of the latest GitHub release, when reachable.
+//   - Command:  shell command that would refresh the binary.
+//   - Shadows:  other agnostic-ai binaries on PATH that beat or are beaten
+//     by the current one; surfaces stale installs the user may want to
+//     remove.
+//   - Notes:    additional diagnostics for unknown installs or shadows.
 type upgradeInfo struct {
 	Path     string
 	LinkPath string
@@ -110,7 +144,7 @@ func runUpgrade(out io.Writer, doRun, checkOnly bool, currentVersion string) err
 		return nil
 	}
 	if info.Command == "" {
-		return fmt.Errorf("upgrade: install method unknown; download a release from https://github.com/Chemaclass/agnostic-ai/releases")
+		return fmt.Errorf("upgrade: install method unknown; download a release from %s", releasesHTMLURL)
 	}
 	if info.Method == installHomebrew {
 		if ok, hint := homebrewBinaryOK(info.LinkPath); !ok {
@@ -155,8 +189,8 @@ func homebrewBinaryOK(linkPath string) (ok bool, hint string) {
 func brewCollisionHint(path, reason string) string {
 	return fmt.Sprintf("%s.\n"+
 		"`brew upgrade --cask` would fail and revert. Recover with:\n"+
-		"  rm %s && brew install --cask Chemaclass/tap/agnostic-ai",
-		reason, path)
+		"  rm %s && brew install --cask %s",
+		reason, path, tapPackage)
 }
 
 func detectUpgrade(currentVersion string) (upgradeInfo, error) {
@@ -183,13 +217,13 @@ func detectUpgrade(currentVersion string) (upgradeInfo, error) {
 	if info.Method == installUnknown {
 		info.Notes = append(info.Notes,
 			"install location does not match Homebrew, $GOPATH/bin, or common binary dirs;",
-			"download a release tarball: https://github.com/Chemaclass/agnostic-ai/releases")
+			"download a release tarball: "+releasesHTMLURL)
 	}
 	if len(info.Shadows) > 0 {
 		info.Notes = append(info.Notes,
-			"another agnostic-ai is on PATH. The shadowing binary may be an older",
+			"another "+binaryName+" is on PATH. The shadowing binary may be an older",
 			"install (e.g. go install + brew, or a stale /usr/local/bin copy). Remove it",
-			"so `agnostic-ai --version` resolves to the upgraded binary.")
+			"so `"+binaryName+" --version` resolves to the upgraded binary.")
 	}
 	return info, nil
 }
@@ -202,9 +236,7 @@ func detectUpgrade(currentVersion string) (upgradeInfo, error) {
 // treated as a raw binary install.
 func detectInstallMethod(exe string) installMethod {
 	p := filepath.ToSlash(exe)
-	for _, marker := range []string{
-		"/Cellar/", "/Caskroom/", "/opt/homebrew/", "/linuxbrew/", "/homebrew/",
-	} {
+	for _, marker := range homebrewMarkers {
 		if strings.Contains(p, marker) {
 			return installHomebrew
 		}
@@ -230,16 +262,14 @@ func detectInstallMethod(exe string) installMethod {
 	return installUnknown
 }
 
-func upgradeCommandFor(m installMethod) string {
-	switch m {
-	case installHomebrew:
-		return "brew update && brew upgrade Chemaclass/tap/agnostic-ai"
-	case installGoInstall:
-		return "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest"
-	case installBinary:
-		return ""
-	}
-	return ""
+// homebrewMarkers are substrings that identify a brew-managed executable
+// path across macOS Intel, macOS Apple silicon, and Linuxbrew layouts.
+var homebrewMarkers = []string{
+	"/Cellar/",
+	"/Caskroom/",
+	"/opt/homebrew/",
+	"/linuxbrew/",
+	"/homebrew/",
 }
 
 // otherInstancesOnPATH returns absolute paths of every agnostic-ai
@@ -248,9 +278,9 @@ func upgradeCommandFor(m installMethod) string {
 // the brew install is up-to-date. Paths are resolved through symlinks
 // so a symlink + its target collapse to one entry.
 func otherInstancesOnPATH(self string) []string {
-	binName := "agnostic-ai"
+	binFile := binaryName
 	if runtime.GOOS == "windows" {
-		binName = "agnostic-ai.exe"
+		binFile = binaryName + ".exe"
 	}
 	selfResolved, _ := filepath.EvalSymlinks(self)
 	if selfResolved == "" {
@@ -262,7 +292,7 @@ func otherInstancesOnPATH(self string) []string {
 		if dir == "" {
 			continue
 		}
-		candidate := filepath.Join(dir, binName)
+		candidate := filepath.Join(dir, binFile)
 		info, err := os.Stat(candidate)
 		if err != nil || info.IsDir() {
 			continue
@@ -296,12 +326,22 @@ func sameDir(a, b string) bool {
 // latest published release. Best-effort: a network failure returns an
 // error and the caller proceeds without a "Latest" hint.
 func fetchLatestRelease(timeout time.Duration) (string, error) {
+	return fetchLatestReleaseFrom(releasesAPIURL, timeout)
+}
+
+// fetchLatestReleaseFrom is the testable form of fetchLatestRelease. It
+// accepts an explicit URL so tests can point at an httptest.Server.
+//
+// A User-Agent header is set because the GitHub API rejects unidentified
+// clients with HTTP 403 under load.
+func fetchLatestReleaseFrom(url string, timeout time.Duration) (string, error) {
 	client := &http.Client{Timeout: timeout}
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
