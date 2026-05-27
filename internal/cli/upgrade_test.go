@@ -172,6 +172,107 @@ func TestRunUpgrade_CheckOnlyPrintsAndReturns(t *testing.T) {
 	}
 }
 
+func TestHomebrewBinaryOK_MissingPathIsOK(t *testing.T) {
+	tmp := t.TempDir()
+	missing := filepath.Join(tmp, "agnostic-ai")
+	ok, hint := homebrewBinaryOK(missing)
+	if !ok || hint != "" {
+		t.Errorf("missing path: ok=%v hint=%q, want ok=true hint=\"\"", ok, hint)
+	}
+}
+
+func TestHomebrewBinaryOK_RegularFileCollides(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on windows")
+	}
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "agnostic-ai")
+	if err := os.WriteFile(bin, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ok, hint := homebrewBinaryOK(bin)
+	if ok {
+		t.Fatalf("regular file should not be OK")
+	}
+	for _, want := range []string{"regular file", "rm " + bin, "brew install --cask"} {
+		if !strings.Contains(hint, want) {
+			t.Errorf("hint missing %q\nfull:\n%s", want, hint)
+		}
+	}
+}
+
+func TestHomebrewBinaryOK_SymlinkIntoCaskroom(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on windows")
+	}
+	tmp := t.TempDir()
+	caskroom := filepath.Join(tmp, "Caskroom", "agnostic-ai", "0.26.0")
+	if err := os.MkdirAll(caskroom, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(caskroom, "agnostic-ai")
+	if err := os.WriteFile(target, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(tmp, "bin", "agnostic-ai")
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, bin); err != nil {
+		t.Fatal(err)
+	}
+	ok, hint := homebrewBinaryOK(bin)
+	if !ok {
+		t.Errorf("caskroom symlink should be OK, got hint:\n%s", hint)
+	}
+}
+
+func TestHomebrewBinaryOK_SymlinkOutsideBrew(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on windows")
+	}
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "elsewhere", "agnostic-ai")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(tmp, "bin", "agnostic-ai")
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, bin); err != nil {
+		t.Fatal(err)
+	}
+	ok, hint := homebrewBinaryOK(bin)
+	if ok {
+		t.Fatalf("symlink outside brew prefix should not be OK")
+	}
+	if !strings.Contains(hint, "outside the brew prefix") {
+		t.Errorf("hint missing prefix reason:\n%s", hint)
+	}
+}
+
+func TestHomebrewBinaryOK_DanglingSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on windows")
+	}
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "agnostic-ai")
+	if err := os.Symlink(filepath.Join(tmp, "Caskroom", "missing"), bin); err != nil {
+		t.Fatal(err)
+	}
+	ok, hint := homebrewBinaryOK(bin)
+	if ok {
+		t.Fatalf("dangling symlink should not be OK")
+	}
+	if !strings.Contains(hint, "dangling symlink") {
+		t.Errorf("hint missing dangling reason:\n%s", hint)
+	}
+}
+
 func TestUpgradeCmd_RegistersOnRoot(t *testing.T) {
 	root := NewRootCmd("test")
 	var found bool

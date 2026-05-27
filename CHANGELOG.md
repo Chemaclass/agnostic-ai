@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Changed
 
 ### Fixed
+- `agnostic-ai upgrade --run` aborts pre-flight with a `rm + brew install --cask` hint when `<brew>/bin/agnostic-ai` is a regular file (or symlink outside the brew prefix), instead of letting `brew upgrade --cask` fail and revert into a half-broken install.
 
 ### Removed
 
