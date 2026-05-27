@@ -46,13 +46,14 @@ func (m installMethod) String() string {
 // the current one (or be beaten by it), so the user can spot a stale
 // shadow before running the upgrade.
 type upgradeInfo struct {
-	Path    string
-	Method  installMethod
-	Version string
-	Latest  string
-	Command string
-	Shadows []string
-	Notes   []string
+	Path     string
+	LinkPath string
+	Method   installMethod
+	Version  string
+	Latest   string
+	Command  string
+	Shadows  []string
+	Notes    []string
 }
 
 func newUpgradeCmd() *cobra.Command {
@@ -111,8 +112,51 @@ func runUpgrade(out io.Writer, doRun, checkOnly bool, currentVersion string) err
 	if info.Command == "" {
 		return fmt.Errorf("upgrade: install method unknown; download a release from https://github.com/Chemaclass/agnostic-ai/releases")
 	}
+	if info.Method == installHomebrew {
+		if ok, hint := homebrewBinaryOK(info.LinkPath); !ok {
+			return fmt.Errorf("upgrade: homebrew cask state is inconsistent.\n%s", hint)
+		}
+	}
 	_, _ = fmt.Fprintf(out, "\n→ %s\n", info.Command)
 	return execShell(info.Command)
+}
+
+// homebrewBinaryOK verifies that the binstub path is a symlink owned by
+// Homebrew. The cask post-install links `<brew>/bin/agnostic-ai` to a file
+// inside `<brew>/Caskroom/agnostic-ai/<version>/`. If a regular file lives
+// at the binstub path instead (e.g. a raw binary copied in before the cask
+// existed), `brew upgrade --cask` refuses to overwrite it, reverts mid-run,
+// and leaves the cask uninstalled while the orphan file remains. Catching
+// that pre-flight gives the user a clear `rm + brew install --cask`
+// remediation instead of a confusing brew error followed by a half-broken
+// install.
+func homebrewBinaryOK(linkPath string) (ok bool, hint string) {
+	if linkPath == "" {
+		return true, ""
+	}
+	info, err := os.Lstat(linkPath)
+	if err != nil {
+		return true, ""
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return false, brewCollisionHint(linkPath, fmt.Sprintf("%s is a regular file, not a brew-owned symlink", linkPath))
+	}
+	target, err := filepath.EvalSymlinks(linkPath)
+	if err != nil {
+		return false, brewCollisionHint(linkPath, fmt.Sprintf("%s is a dangling symlink: %v", linkPath, err))
+	}
+	t := filepath.ToSlash(target)
+	if !strings.Contains(t, "/Caskroom/") && !strings.Contains(t, "/Cellar/") {
+		return false, brewCollisionHint(linkPath, fmt.Sprintf("%s resolves to %s, outside the brew prefix", linkPath, target))
+	}
+	return true, ""
+}
+
+func brewCollisionHint(path, reason string) string {
+	return fmt.Sprintf("%s.\n"+
+		"`brew upgrade --cask` would fail and revert. Recover with:\n"+
+		"  rm %s && brew install --cask Chemaclass/tap/agnostic-ai",
+		reason, path)
 }
 
 func detectUpgrade(currentVersion string) (upgradeInfo, error) {
@@ -120,14 +164,16 @@ func detectUpgrade(currentVersion string) (upgradeInfo, error) {
 	if err != nil {
 		return upgradeInfo{}, fmt.Errorf("locate executable: %w", err)
 	}
+	linkPath := exe
 	resolved, err := filepath.EvalSymlinks(exe)
 	if err == nil {
 		exe = resolved
 	}
 	info := upgradeInfo{
-		Path:    exe,
-		Method:  detectInstallMethod(exe),
-		Version: strings.TrimSpace(currentVersion),
+		Path:     exe,
+		LinkPath: linkPath,
+		Method:   detectInstallMethod(exe),
+		Version:  strings.TrimSpace(currentVersion),
 	}
 	info.Command = upgradeCommandFor(info.Method)
 	info.Shadows = otherInstancesOnPATH(exe)
