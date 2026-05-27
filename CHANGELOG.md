@@ -7,12 +7,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+## v0.26.1 - 2026-05-27
+
+### Changed
 - `agnostic-ai upgrade` (and the install/upgrade docs in `README.md` + `docs/user/getting-started.md`) now print `brew upgrade --cask Chemaclass/tap/agnostic-ai`. The explicit `--cask` flag avoids ambiguity with the formula namespace and matches how the tap publishes the binary.
 
 ### Fixed
 - `agnostic-ai upgrade --run` aborts pre-flight with a `rm + brew install --cask` hint when `<brew>/bin/agnostic-ai` is a regular file (or symlink outside the brew prefix), instead of letting `brew upgrade --cask` fail and revert into a half-broken install.
-
-### Removed
 
 ## v0.26.0 - 2026-05-25
 
