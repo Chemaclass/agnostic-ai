@@ -181,10 +181,14 @@ func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	body := renderConfigTOML(b.HooksFor(target), b.MCPs, codexCfg, overlay, overlayKeys)
-	if body == "" {
-		return nil
-	}
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	if body == "" {
+		// Nothing to render this sync: a prior sync may have left a stale
+		// agnostic-ai-managed config.toml on disk (e.g. the user removed
+		// the last MCP/hook/overlay). Clean it up so target files never
+		// drift from the source specs.
+		return emit.RemoveGenerated(path, dryRun)
+	}
 	return emit.WriteFile(path, body, dryRun)
 }
 

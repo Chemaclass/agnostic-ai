@@ -15,6 +15,8 @@ import (
 	"sync"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // File permissions for emitted artifacts.
@@ -329,6 +331,63 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 	}
 	if err := os.WriteFile(path, []byte(content), mode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
+// RemoveGenerated deletes path when it exists and carries the
+// agnostic-ai provenance header. It is the inverse of WriteFile: use it
+// when an adapter previously emitted a file but no longer has content
+// to write for it (for example a `.codex/config.toml` that lost its
+// last MCP, hook, and overlay between syncs). Files without the
+// provenance marker are user-authored and left untouched.
+//
+// dryRun prints the intended removal instead of touching disk so
+// `sync --dry-run` previews stay side-effect-free. Capture mode is a
+// no-op for the same reason WriteFile diverts there. Detailed
+// recording logs the removal as a "delete" action so `sync` accounting
+// includes the cleaned-up file. Transaction logging captures the
+// pre-removal bytes so Rollback can restore the file.
+func RemoveGenerated(path string, dryRun bool) error {
+	existing, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if !header.Has(string(existing)) {
+		return nil
+	}
+
+	state.mu.Lock()
+	capturing := state.capturing
+	detailing := state.detailing
+	transacting := state.transacting
+	state.mu.Unlock()
+
+	if capturing {
+		return nil
+	}
+	if dryRun {
+		fmt.Printf("--- rm %s ---\n", path)
+		return nil
+	}
+
+	if transacting {
+		state.mu.Lock()
+		state.txLog = append(state.txLog, txEntry{path: path, content: existing})
+		state.mu.Unlock()
+	}
+
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+
+	if detailing {
+		state.mu.Lock()
+		state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete"})
+		state.mu.Unlock()
 	}
 	return nil
 }
