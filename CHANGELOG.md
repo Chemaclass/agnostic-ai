@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Fixed
 - Codex `.codex/config.toml` is now cleaned up when a sync renders no content for it (no MCPs, no first-class codex config, no overlay). Previously the file would silently linger on disk from an earlier sync, drifting from the source specs. Only files carrying the agnostic-ai provenance header are removed; hand-authored configs without the marker are preserved.
+- Codex now sweeps the pre-v0.26 `.agents/agents/` and `.agents/skills/` trees on every sync (and removes an emptied `.agents/` parent). Projects that synced under the old default paths kept duplicate copies of every agent and skill at both `.agents/` and `.codex/`. The sweep is skipped when the user explicitly opts back into the community shared layout via `outputs.codex.agents-dir: .agents/agents` (or the equivalent skills override), and hand-authored files without the provenance header are preserved.
 
 ### Removed
 

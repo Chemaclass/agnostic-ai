@@ -392,6 +392,95 @@ func RemoveGenerated(path string, dryRun bool) error {
 	return nil
 }
 
+// RemoveGeneratedTree walks dir and removes every file that carries
+// the agnostic-ai provenance header via RemoveGenerated. Empty
+// subdirectories left behind are then removed bottom-up so a legacy
+// output tree disappears cleanly when an adapter's default path
+// changes (for example `.agents/agents/` after codex moved to
+// `.codex/agents/`). User-authored files (no marker) are preserved
+// and any directory containing them stays in place.
+//
+// A missing dir is a no-op. Honors dryRun / capture / detailing /
+// transaction modes via RemoveGenerated; directory removals only
+// happen on the real path (no transaction logging) since an empty
+// directory has no content to restore.
+func RemoveGeneratedTree(dir string, dryRun bool) error {
+	info, err := os.Stat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	var filePaths []string
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		filePaths = append(filePaths, path)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("walk %s: %w", dir, err)
+	}
+	for _, p := range filePaths {
+		if err := RemoveGenerated(p, dryRun); err != nil {
+			return err
+		}
+	}
+	if dryRun {
+		return nil
+	}
+	state.mu.Lock()
+	capturing := state.capturing
+	state.mu.Unlock()
+	if capturing {
+		return nil
+	}
+	// Remove empty directories bottom-up. Non-empty dirs (user-authored
+	// files survived) stay put.
+	return removeEmptyDirs(dir)
+}
+
+// removeEmptyDirs walks dir bottom-up and removes every directory
+// whose contents are now empty. Stops at the first non-empty directory
+// since the parent above it is necessarily non-empty too.
+func removeEmptyDirs(dir string) error {
+	var dirs []string
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			dirs = append(dirs, path)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("walk %s: %w", dir, err)
+	}
+	for i := len(dirs) - 1; i >= 0; i-- {
+		entries, err := os.ReadDir(dirs[i])
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("readdir %s: %w", dirs[i], err)
+		}
+		if len(entries) > 0 {
+			continue
+		}
+		if err := os.Remove(dirs[i]); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("remove %s: %w", dirs[i], err)
+		}
+	}
+	return nil
+}
+
 // CopyTree mirrors the regular files under srcDir into dstDir,
 // preserving file mode bits so executable scripts keep their +x bit.
 // Empty source dir is a no-op. Symlinks and other irregular entries

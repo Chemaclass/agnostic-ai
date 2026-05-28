@@ -45,6 +45,15 @@ const (
 	defaultSkillsDir   = ".codex/skills"
 	defaultCommandsDir = ".codex/prompts"
 	defaultConfigFile  = ".codex/config.toml"
+	// legacyAgentsDir and legacySkillsDir are the pre-v0.26 codex
+	// defaults that wrote under `.agents/`. Sync sweeps them after
+	// emitting to the new defaults so user projects do not carry
+	// stale agnostic-ai-managed copies of every agent and skill at
+	// two paths. The sweep only fires when the active path differs
+	// (i.e. the user did not opt back into the community shared
+	// layout via `outputs.codex.agents-dir: .agents/agents`).
+	legacyAgentsDir = ".agents/agents"
+	legacySkillsDir = ".agents/skills"
 	// configOverlayPath is the project-relative path to the captured
 	// non-hooks/non-mcp portion of `.codex/config.toml`. `agnostic-ai
 	// import codex` writes this file; the emitter prepends it before
@@ -115,6 +124,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
 		return err
 	}
+	if err := sweepLegacyTrees(agentsDir, skillsDir, dryRun); err != nil {
+		return err
+	}
 	hooks := b.HooksFor(target)
 	if err := emitHooksJSON(hooks, cfg, dryRun); err != nil {
 		return err
@@ -126,6 +138,38 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	return emit.RestoreHelperFiles(target, dryRun)
+}
+
+// sweepLegacyTrees removes agnostic-ai-managed leftovers from the
+// pre-v0.26 `.agents/` codex layout when the user is now emitting to
+// the modern `.codex/` defaults (or any other path that differs from
+// the legacy ones). Files without the agnostic-ai header are left
+// untouched so hand-authored content survives the sweep. The cleanup
+// is skipped entirely when the active path matches the legacy one,
+// since that means the user explicitly opted back into the community
+// shared layout.
+func sweepLegacyTrees(agentsDir, skillsDir string, dryRun bool) error {
+	swept := false
+	if agentsDir != legacyAgentsDir {
+		if err := emit.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
+			return err
+		}
+		swept = true
+	}
+	if skillsDir != legacySkillsDir {
+		if err := emit.RemoveGeneratedTree(legacySkillsDir, dryRun); err != nil {
+			return err
+		}
+		swept = true
+	}
+	if swept && !dryRun {
+		// `.agents/` may now be empty; remove it so the legacy layout
+		// disappears completely. os.Remove fails silently when the
+		// directory still contains other tools' files (for example
+		// amp's `.agents/commands/`).
+		_ = os.Remove(".agents")
+	}
+	return nil
 }
 
 // materializeHookScripts copies each hook's stashed script body from
