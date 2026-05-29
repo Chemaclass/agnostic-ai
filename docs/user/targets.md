@@ -343,6 +343,20 @@ Antigravity reads project instructions from a top-level AGENTS.md-style file and
 
 Skills, hooks, MCPs, and commands are not yet confirmed in the Antigravity public preview spec and are skipped with a warning. Add them to your `on-unsupported: silent` config to suppress the warning, or wait for a future release once the upstream spec stabilises.
 
+#### Verifying with the real Antigravity IDE
+
+1. Install Antigravity from the Google Antigravity public-preview download page.
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .agent/AGENTS.md .agent/rules/
+   head -1 .agent/rules/*.md  # every rule + agent file must start with the provenance header
+   ```
+
+3. Open the project in Antigravity and confirm it surfaces `.agent/AGENTS.md` in the project-instructions panel — the canonical pointer body should appear without "unrecognized file" warnings.
+4. Open one of `.agent/rules/<name>.md` from inside Antigravity and verify the per-rule file is also picked up.
+5. Trigger an agent action (e.g. ask for a refactor) and confirm the rules apply in the response. There should be no schema-validation log entries referencing `.agent/`.
+
 ## Selecting targets
 
 Persistent (config):
