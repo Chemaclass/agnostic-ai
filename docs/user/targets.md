@@ -312,6 +312,19 @@ Config keys: `outputs.windsurf.rules-dir` (default `.windsurf/rules`), `outputs.
 
 When `outputs.windsurf.workflows-dir` is set, each agent additionally emits as a [Windsurf Workflow](https://docs.windsurf.com/windsurf/cascade/workflows): a Markdown file with `description` frontmatter, invokable in Cascade as `/<name>`. The rule-form emission (`.windsurf/rules/agent-<name>.md`) still happens, so existing setups keep working.
 
+#### Verifying with the real Windsurf IDE
+
+1. Install Windsurf from [windsurf.com](https://windsurf.com).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .windsurf/rules/
+   head -1 .windsurf/rules/*.md  # provenance header on each
+   ```
+
+3. Open the project in Windsurf. Cascade auto-loads every `.windsurf/rules/*.md`. Confirm each rule appears in the Rules panel without "failed to parse" warnings.
+4. When `outputs.windsurf.workflows-dir` is set, open Cascade chat and confirm each `<workflows-dir>/<name>.md` is invokable as `/<name>` with the rendered description.
+
 ### Continue (`continue`)
 
 ```
