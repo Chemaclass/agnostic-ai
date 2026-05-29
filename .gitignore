@@ -92,6 +92,11 @@ WARP.md
 .rules
 # Local sync state written by `agnostic-ai sync`.
 .agnostic-ai/.sync-state
+# Per-target audit fixtures need to ship their emitted tree intact so
+# the kit-sink golden snapshot replays in CI. The patterns above match
+# adapter output names anywhere in the tree (e.g. **/AGENTS.md, .vscode/,
+# .agent/, .rules), so re-allow every adapter's testdata/kitsink/ tree.
+!internal/adapters/*/testdata/**
 # =============================================================================
 # Release scaffolding
 # =============================================================================

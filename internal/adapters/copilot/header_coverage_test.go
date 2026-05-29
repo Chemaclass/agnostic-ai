@@ -22,8 +22,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"copilot": {
-				RulesFile:     ".github/copilot-instructions.md",
-				ChatmodesDir:  ".github/chatmodes",
+				RulesFile:    ".github/copilot-instructions.md",
+				ChatmodesDir: ".github/chatmodes",
 			},
 		},
 	}
