@@ -147,7 +147,8 @@ func combineCommand(meta map[string]any) []string {
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		if err := emit.WriteFile(path, commandFile(a), dryRun); err != nil {
+		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -157,7 +158,8 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
-		if err := emit.WriteFile(path, commandFile(s), dryRun); err != nil {
+		body := emit.WithHeader(commandFile(s), emit.FormatMarkdown)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
