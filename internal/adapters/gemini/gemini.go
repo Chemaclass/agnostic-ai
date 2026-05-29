@@ -215,7 +215,8 @@ func hookCommands(raw any) []string {
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
-		if err := emit.WriteFile(path, commandTOML(a), dryRun); err != nil {
+		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(a)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -225,7 +226,8 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".toml")
-		if err := emit.WriteFile(path, commandTOML(s), dryRun); err != nil {
+		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(s)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
