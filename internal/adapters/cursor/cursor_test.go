@@ -31,7 +31,7 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "globs: **/*.go") {
+	if !strings.Contains(string(got), `globs: "**/*.go"`) {
 		t.Errorf("missing globs: %s", got)
 	}
 	if !strings.Contains(string(got), "alwaysApply: true") {
