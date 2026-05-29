@@ -12,16 +12,16 @@ import (
 // TestContinueRoundTrip_SyncImportSyncIsByteEqual is the continue
 // audit's byte-stability gate from #330 acceptance criterion C:
 //
-//	sync continue -> snapshot .continue/rules/*
+//	sync continue -> snapshot .continue/rules/* + .continue/mcpServers/*
 //	              -> wipe source specs
 //	              -> import continue
 //	              -> wipe emit
 //	              -> sync continue
 //	              -> assert byte-for-byte identical
 //
-// MCPs are excluded: the shared rules-dir importer only reads
-// .continue/rules/*.md, not .continue/mcpServers/*.yaml. Adding the
-// missing import branch is tracked under #347.
+// The fixture covers rules + agents + skills + MCPs (stdio + http)
+// so the rules-dir importer and the MCP yaml branch added in #347 are
+// both exercised.
 func TestContinueRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -29,12 +29,12 @@ func TestContinueRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	seedContinueRoundTripFixture(t, dir)
 
 	runCmd(t, "sync", "-t", "continue")
-	first := snapshotContinueRulesEmit(t, dir)
+	first := snapshotContinueEmit(t, dir)
 	if len(first) == 0 {
-		t.Fatalf("first sync produced no continue rules output")
+		t.Fatalf("first sync produced no continue output")
 	}
 
-	for _, sub := range []string{"agents", "skills", "rules"} {
+	for _, sub := range []string{"agents", "skills", "rules", "mcps"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestContinueRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	}
 
 	runCmd(t, "sync", "-t", "continue")
-	second := snapshotContinueRulesEmit(t, dir)
+	second := snapshotContinueEmit(t, dir)
 
 	firstPaths := sortedKeys(first)
 	secondPaths := sortedKeys(second)
@@ -71,6 +71,7 @@ sources:
   agents: .agnostic-ai/agents
   skills: .agnostic-ai/skills
   rules: .agnostic-ai/rules
+  mcps: .agnostic-ai/mcps
 targets:
   - continue
 gitignore:
@@ -95,12 +96,20 @@ gitignore:
 		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules", n+".md"),
 			[]byte("---\nname: "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-one.yaml"),
+		[]byte("name: stdio-one\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-two.yaml"),
+		[]byte("name: stdio-two\ncommand: server\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-one.yaml"),
+		[]byte("name: http-one\ntype: http\nurl: https://example.test/mcp\n"), 0o644))
 }
 
-func snapshotContinueRulesEmit(t *testing.T, root string) map[string]string {
+func snapshotContinueEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	full := filepath.Join(root, ".continue", "rules")
+	full := filepath.Join(root, ".continue")
 	info, err := os.Stat(full)
 	if os.IsNotExist(err) {
 		return out

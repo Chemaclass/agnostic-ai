@@ -19,14 +19,13 @@ import (
 var rulesDirImporters = map[string]string{
 	"cline":    ".clinerules",
 	"windsurf": filepath.Join(".windsurf", "rules"),
-	"continue": filepath.Join(".continue", "rules"),
 }
 
 // importSources lists every source the import command accepts, used in
 // help text and error messages.
 func importSources() string {
 	names := []string{
-		"aider", "amp", "antigravity", "claude", "codex", "copilot",
+		"aider", "amp", "antigravity", "claude", "codex", "continue", "copilot",
 		"cursor", "gemini", "opencode", "warp", "zed",
 	}
 	for k := range rulesDirImporters {
@@ -113,6 +112,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromZed(root, src)
 	case "antigravity":
 		return importFromAntigravity(root, src, cfg)
+	case "continue":
+		return importFromContinue(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)

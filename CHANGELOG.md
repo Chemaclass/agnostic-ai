@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Track `.agnostic-ai/AGNOSTIC_AI.md` in git as the canonical entry-point body.
 - `sync` ledger in `.agnostic-ai/.sync-state` sweeps orphan generated files on the next run.
 - `import antigravity` walks `.agent/rules/*.md`, routes `agent-<name>.md` into agents, and mirrors `.agent/AGENTS.md` so sync -> import -> sync round-trips byte-equal. Optional `outputs.antigravity.rules-file` is sliced by H2 too.
+- `import continue` now reads `.continue/mcpServers/*.yaml` alongside `.continue/rules/*.md` so the MCP layer survives a sync -> import -> sync round-trip; provenance header stripped on the way in.
 
 ### Changed
 - Provenance header now adds a "do not edit" hint.
