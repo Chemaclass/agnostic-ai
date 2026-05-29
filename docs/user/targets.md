@@ -433,6 +433,20 @@ When MCP entries are present, the adapter writes (or updates) `opencode.json` at
 
 Routed under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`. Each command file carries frontmatter filtered to the OpenCode-supported keys (`description`, `agent`, `model`, `subtask`) — pass `agent`, `model`, or `subtask` through the `x-opencode` namespace in your spec frontmatter to route them into the command file without polluting other targets.
 
+#### Verifying with the real OpenCode CLI
+
+1. Install OpenCode: `npm install -g sst/opencode` (or follow the [project install docs](https://opencode.ai/)).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .opencode/AGENTS.md .opencode/commands/ opencode.json
+   head -1 .opencode/commands/*.md  # provenance header on each
+   python -m json.tool opencode.json > /dev/null
+   ```
+
+3. Launch OpenCode in the project (`opencode`). Confirm every `.opencode/commands/<name>.md` appears in the slash-command picker with the rendered description.
+4. Confirm `opencode.json` MCP servers load by inspecting OpenCode's MCP panel — each `mcp.<name>` entry should show ready.
+
 ### Google Antigravity (`antigravity`)
 
 ```
