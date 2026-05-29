@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -25,8 +26,13 @@ import (
 // intended trade-off.
 func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	doc := readExistingJSON(path, dryRun)
-	for k, v := range keys {
-		if err := doc.Set(k, v); err != nil {
+	names := make([]string, 0, len(keys))
+	for k := range keys {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		if err := doc.Set(k, keys[k]); err != nil {
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
 		}
 	}

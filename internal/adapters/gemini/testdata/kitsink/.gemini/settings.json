@@ -1,19 +1,4 @@
 {
-  "mcpServers": {
-    "disabled-server": {
-      "command": "x"
-    },
-    "http-server": {
-      "httpUrl": "https://example.test/mcp"
-    },
-    "stdio-server": {
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem"
-      ],
-      "command": "npx"
-    }
-  },
   "hooks": {
     "PostToolUse": [
       {
@@ -32,5 +17,20 @@
         "command": "echo session"
       }
     ]
+  },
+  "mcpServers": {
+    "disabled-server": {
+      "command": "x"
+    },
+    "http-server": {
+      "httpUrl": "https://example.test/mcp"
+    },
+    "stdio-server": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ],
+      "command": "npx"
+    }
   }
 }
