@@ -14,10 +14,25 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
+// syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
+// Bumped to 2 when the per-sync output ledger (Outputs) was added.
+// Readers tolerate older versions by treating missing fields as zero values.
+const syncStateVersion = 2
+
 type syncStateFile struct {
+	Version        int       `json:"version,omitempty"`
 	SyncedAt       time.Time `json:"synced_at"`
 	FilesChanged   int       `json:"files_changed"`
 	WarningsDigest string    `json:"warnings_digest,omitempty"`
+	// Outputs lists every file path the previous sync wrote (create or
+	// update or skip), relative to the project root. The next sync uses
+	// it to detect orphans: any path present in the prior ledger but
+	// absent from the current write set is swept via
+	// emit.RemoveGenerated. The header-guarded sweep skips
+	// user-authored files. An empty list (older state files, or first
+	// sync after upgrade) disables the sweep so projects without a
+	// recorded baseline never lose files.
+	Outputs []string `json:"outputs,omitempty"`
 }
 
 func stateFilePath(projectRoot string) string {
@@ -34,15 +49,17 @@ func readStateFile(projectRoot string) syncStateFile {
 	return s
 }
 
-func writeStateFile(projectRoot string, filesChanged int, warningsDigest string) error {
+func writeStateFile(projectRoot string, filesChanged int, warningsDigest string, outputs []string) error {
 	p := stateFilePath(projectRoot)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
 	}
 	data, err := json.Marshal(syncStateFile{
+		Version:        syncStateVersion,
 		SyncedAt:       time.Now().UTC(),
 		FilesChanged:   filesChanged,
 		WarningsDigest: warningsDigest,
+		Outputs:        outputs,
 	})
 	if err != nil {
 		return err
@@ -87,6 +104,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	verbose := verbosity >= levelVerbose
 	filesChanged := 0
+	var ledgerSession []string
 	if !dryRun {
 		for _, t := range effectiveTargets {
 			adapter, err := adapters.Resolve(t)
@@ -102,7 +120,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 				}
 				return fmt.Errorf("%s: %w", t, err)
 			}
-			created, updated, skipped := classifyDetailedWrites(adapters.StopDetailedRecording())
+			writes := adapters.StopDetailedRecording()
+			recordLedgerWrites(writes, &ledgerSession)
+			created, updated, skipped := classifyDetailedWrites(writes)
 			filesChanged += created + updated
 			if verbose {
 				verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
@@ -116,8 +136,17 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 			return err
 		}
-		created, updated, _ := classifyDetailedWrites(adapters.StopDetailedRecording())
+		writes := adapters.StopDetailedRecording()
+		recordLedgerWrites(writes, &ledgerSession)
+		created, updated, _ := classifyDetailedWrites(writes)
 		filesChanged += created + updated
+		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
+		// subsequent syncs and skips the re-write, so detailed
+		// recording never captures the path. Add it explicitly so
+		// the ledger does not treat the source body as an orphan.
+		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
+			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
+		}
 	} else {
 		for _, t := range effectiveTargets {
 			adapter, err := adapters.Resolve(t)
@@ -157,8 +186,25 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	} else {
 		adapters.FlushCapabilityWarnings()
 	}
+	ledger := finalizeLedger(ledgerSession)
+	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
+	if sweepErr != nil {
+		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
+	}
+	if len(removed) > 0 {
+		verb := "removed"
+		if dryRun {
+			verb = "would remove"
+		}
+		summaryf("  %s %d orphan file%s from prior sync\n", verb, len(removed), plural(len(removed)))
+		if verbose {
+			for _, p := range removed {
+				verbosef("  - %s\n", p)
+			}
+		}
+	}
 	if !dryRun {
-		if err := writeStateFile(root, filesChanged, digest); err != nil {
+		if err := writeStateFile(root, filesChanged, digest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}
@@ -233,6 +279,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 
 	out := jsonOutput{Version: "1", Command: "sync"}
+	var ledgerSession []string
 	for _, t := range effectiveTargets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
@@ -245,7 +292,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue
 		}
-		for _, f := range adapters.StopDetailedRecording() {
+		writes := adapters.StopDetailedRecording()
+		recordLedgerWrites(writes, &ledgerSession)
+		for _, f := range writes {
 			rec := fileRecord{Target: t, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
 			if f.Action == "skip" {
 				out.Skipped = append(out.Skipped, rec)
@@ -260,13 +309,21 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		adapters.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {
-		for _, f := range adapters.StopDetailedRecording() {
+		writes := adapters.StopDetailedRecording()
+		recordLedgerWrites(writes, &ledgerSession)
+		for _, f := range writes {
 			rec := fileRecord{Target: "agnostic-ai", Path: f.Path, Action: f.Action, Bytes: f.Bytes}
 			if f.Action == "skip" {
 				out.Skipped = append(out.Skipped, rec)
 			} else {
 				out.Writes = append(out.Writes, rec)
 			}
+		}
+		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
+		// syncs without going through emit, so register it for the
+		// ledger by hand.
+		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
+			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
 		}
 	}
 
@@ -277,11 +334,19 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			return fmt.Errorf("gitignore: %w", err)
 		}
 	}
+	prev := readStateFile(root)
+	ledger := finalizeLedger(ledgerSession)
+	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
+	if sweepErr != nil {
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
+	}
+	for _, p := range removed {
+		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"})
+	}
 	if !dryRun {
 		// JSON path does not print warnings, so preserve the previous
 		// digest so the next non-JSON run can still sticky-suppress.
-		prevDigest := readStateFile(root).WarningsDigest
-		if err := writeStateFile(root, len(out.Writes), prevDigest); err != nil {
+		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}

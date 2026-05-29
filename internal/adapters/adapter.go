@@ -125,6 +125,16 @@ func WriteFile(path, content string, dryRun bool) error {
 	return emit.WriteFile(path, content, dryRun)
 }
 
+// RemoveGenerated deletes path when it carries the agnostic-ai
+// provenance header, leaving user-authored files untouched. Honors
+// the same dryRun / capture / detailing / transaction modes as
+// WriteFile. Re-exported so the cli package can use it for the
+// sync-ledger orphan sweep without crossing the emit internal
+// boundary.
+func RemoveGenerated(path string, dryRun bool) error {
+	return emit.RemoveGenerated(path, dryRun)
+}
+
 // StartTransaction begins recording pre-write file state so that Rollback
 // can undo all writes if a sync pass fails partway through.
 func StartTransaction() { emit.StartTransaction() }
