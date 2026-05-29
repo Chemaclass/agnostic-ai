@@ -194,6 +194,26 @@ Config keys: `outputs.aider.conf-file` (default empty — opt-in), `outputs.aide
 
 By default the adapter only emits the conventions document and you wire it in yourself via `aider --read CONVENTIONS.md`. Set `outputs.aider.conf-file: .aider.conf.yml` to have `sync` also merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html) so the file auto-loads. `model` and `weak-model` propagate into the same file when set. Pre-existing keys in the conf file are preserved; the `read:` list de-duplicates.
 
+#### Verifying with the real Aider CLI
+
+1. Install Aider: `python -m pip install -U aider-chat` (or `pipx install aider-chat`).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls CONVENTIONS.md .aider.conf.yml
+   head -1 .aider.conf.yml  # must start with the agnostic-ai provenance header
+   ```
+
+3. Validate the YAML syntactically: `python -c "import yaml,sys; yaml.safe_load(open('.aider.conf.yml'))"`.
+4. Run aider with the project config and confirm it picks the conventions document up without warnings:
+
+   ```bash
+   aider --config .aider.conf.yml --no-stream --message "list the rules you were told to follow"
+   ```
+
+   The opening banner should print the resolved `read:` paths (including `CONVENTIONS.md`) and the response should reflect the rules text.
+5. Confirm aider does not flag the file as untrusted: there should be no `Warning:` lines mentioning `CONVENTIONS.md` or `.aider.conf.yml`.
+
 ### Cline (`cline`)
 
 ```

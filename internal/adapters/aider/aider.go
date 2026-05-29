@@ -91,7 +91,7 @@ func emitConf(confPath, readEntry, model, weakModel string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", confPath, err)
 	}
-	return emit.WriteFile(confPath, string(raw), dryRun)
+	return emit.WriteFile(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), dryRun)
 }
 
 func readExistingYAML(path string, dryRun bool) map[string]any {
