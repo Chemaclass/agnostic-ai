@@ -88,6 +88,25 @@ Commands emit one file per spec under `.claude/commands/`. Each command becomes 
 
 Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-file` (unset; setting it switches back to the legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`), `outputs.claude.settings` (first-class settings block).
 
+#### Verifying with the real Claude Code CLI
+
+1. Install Claude Code: `npm install -g @anthropic-ai/claude-code` (or download the desktop app — both read the same project files).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json
+   head -1 .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md  # provenance header on each
+   ```
+
+3. Validate the JSON syntactically: `python -m json.tool .claude/settings.json > /dev/null && python -m json.tool .mcp.json > /dev/null`.
+4. Launch Claude Code in the project (`claude` from the project root) and confirm:
+   - `/agents` lists every entry under `.claude/agents/`.
+   - `/skills` lists every skill folder under `.claude/skills/`.
+   - The slash-command picker exposes every entry under `.claude/commands/` as `/<name>`.
+   - The MCP picker shows each `mcpServers.<name>` entry from `.mcp.json` with a green status.
+5. Trigger a hook by performing one of the matcher actions (e.g. an `Edit` for `PostToolUse`/`Edit`) and confirm the configured command runs without "schema mismatch" errors in the Claude Code log.
+6. Confirm `outputs.claude.settings.*` keys (model, statusLine, etc.) are honored by inspecting them under `/config` from inside Claude Code.
+
 ### Codex (`codex`)
 
 ```

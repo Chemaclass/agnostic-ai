@@ -17,8 +17,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `import codex` captures MCP `description`, `disabled`, and `roots` fields.
 - `.aider.conf.yml` carries the provenance header.
 - Amp command files (`.agents/commands/*.md`) carry the provenance header.
-- Shared MCP JSON importer synthesizes `type: http` from url-bearing entries so round-trip emit picks the http transport branch.
+- Shared MCP JSON importer synthesizes `type: http` from url-bearing entries so claude/amp/opencode round-trip emit picks the http transport branch.
 - Antigravity audit harness pins provenance + capability + kit-sink golden coverage.
+- Claude audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage.
 
 ### Removed
 
