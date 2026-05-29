@@ -182,7 +182,8 @@ var targetMarkers = map[string][]string{
 	"amp":      {".amp"},
 	"zed":      {".zed"},
 	"warp":     {".warp"},
-	"opencode": {".opencode"},
+	"opencode":    {".opencode"},
+	"antigravity": {".agent"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
