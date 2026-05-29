@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "disabled-server": {
+      "command": "x"
+    },
+    "http-server": {
+      "httpUrl": "https://example.test/mcp"
+    },
+    "stdio-server": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ],
+      "command": "npx"
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "command": "gofmt -w",
+        "matcher": "Edit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "command": "echo pre",
+        "matcher": "Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "echo session"
+      }
+    ]
+  }
+}
