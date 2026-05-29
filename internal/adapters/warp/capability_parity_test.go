@@ -134,4 +134,3 @@ func pathSetContains(paths []string, needle string) bool {
 	}
 	return false
 }
-
