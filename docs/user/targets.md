@@ -282,6 +282,21 @@ Continue picks up each YAML under `.continue/mcpServers/` as a single MCP server
 
 When `outputs.continue.assistants-dir` is set, each agent additionally emits as a [Continue local Assistant](https://docs.continue.dev/hub/assistants/intro) YAML at `<dir>/<name>.yaml` (`schema: v1`, `version: 0.0.1` by default). The agent body wraps as a single named prompt so Continue surfaces it in the assistant picker. Models and rules are intentionally omitted so the user's defaults apply. The rule-form emission (`.continue/rules/agent-<name>.md`) still happens, so existing setups keep working.
 
+#### Verifying with the real Continue extension
+
+1. Install the [Continue extension](https://marketplace.visualstudio.com/items?itemName=Continue.continue) in VS Code (or JetBrains IDEs).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .continue/rules/ .continue/mcpServers/
+   head -1 .continue/rules/*.md .continue/mcpServers/*.yaml  # provenance header on each
+   python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in __import__('glob').glob('.continue/mcpServers/*.yaml')]"
+   ```
+
+3. Open the project in VS Code. Continue auto-loads every `.continue/rules/*.md`. Confirm each entry appears in the Continue rules picker without "failed to parse" warnings.
+4. Open the MCP picker inside Continue and confirm each `.continue/mcpServers/<name>.yaml` entry appears with a green status.
+5. If `outputs.continue.assistants-dir` is set, confirm each `<dir>/<name>.yaml` is listed under the assistants picker with the configured name + description.
+
 ### Amp (`amp`)
 
 ```
