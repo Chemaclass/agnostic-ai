@@ -26,7 +26,7 @@ var rulesDirImporters = map[string]string{
 // help text and error messages.
 func importSources() string {
 	names := []string{
-		"aider", "amp", "claude", "codex", "copilot",
+		"aider", "amp", "antigravity", "claude", "codex", "copilot",
 		"cursor", "gemini", "opencode", "warp", "zed",
 	}
 	for k := range rulesDirImporters {
@@ -111,6 +111,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromOpencode(root, src)
 	case "zed":
 		return importFromZed(root, src)
+	case "antigravity":
+		return importFromAntigravity(root, src, cfg)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)

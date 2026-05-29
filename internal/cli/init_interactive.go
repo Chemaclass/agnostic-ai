@@ -170,19 +170,20 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // exclusive (no shared root files like AGENTS.md) so detection does not
 // over-tick.
 var targetMarkers = map[string][]string{
-	"claude":   {".claude"},
-	"codex":    {".codex", ".agents/agents"},
-	"gemini":   {".gemini"},
-	"cursor":   {".cursor"},
-	"copilot":  {".github/copilot-instructions.md", ".github/instructions"},
-	"aider":    {".aider.conf.yml", ".aider.conf.yaml"},
-	"cline":    {".clinerules"},
-	"windsurf": {".windsurf"},
-	"continue": {".continue"},
-	"amp":      {".amp"},
-	"zed":      {".zed"},
-	"warp":     {".warp"},
-	"opencode": {".opencode"},
+	"claude":      {".claude"},
+	"codex":       {".codex", ".agents/agents"},
+	"gemini":      {".gemini"},
+	"cursor":      {".cursor"},
+	"copilot":     {".github/copilot-instructions.md", ".github/instructions"},
+	"aider":       {".aider.conf.yml", ".aider.conf.yaml"},
+	"cline":       {".clinerules"},
+	"windsurf":    {".windsurf"},
+	"continue":    {".continue"},
+	"amp":         {".amp"},
+	"zed":         {".zed"},
+	"warp":        {".warp"},
+	"opencode":    {".opencode"},
+	"antigravity": {".agent"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
