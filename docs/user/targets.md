@@ -244,6 +244,19 @@ Config keys: `outputs.cline.rules-dir` (default `.clinerules`), `outputs.cline.w
 
 When `outputs.cline.workflows-dir` is set, each agent additionally emits as a [Cline Workflow](https://docs.cline.bot/features/workflows): a Markdown file invokable from chat as `/<name>.md`. The italic description prefixes the body when present. The rule-form emission (`.clinerules/agent-<name>.md`) still happens, so existing setups keep working.
 
+#### Verifying with the real Cline extension
+
+1. Install the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) in VS Code (or open the project in a VS Code distribution with Cline pre-installed).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .clinerules/
+   head -1 .clinerules/*.md  # provenance header on each
+   ```
+
+3. Open the project in VS Code, then open the Cline panel. Cline auto-loads every `.clinerules/*.md` file. Confirm each entry appears in the rules list with no "failed to parse" warnings in the Cline output channel.
+4. If `outputs.cline.workflows-dir` is set, open the chat and confirm each `<workflows-dir>/<name>.md` is invokable as `/<name>.md`. The italic description (when present) should preview the workflow.
+
 ### Windsurf (`windsurf`)
 
 ```
