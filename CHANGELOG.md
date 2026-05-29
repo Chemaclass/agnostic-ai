@@ -35,6 +35,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Warp workflow YAMLs now carry the provenance header.
 - Warp audit harness pins provenance + capability + kit-sink golden coverage.
 - Zed audit harness pins provenance + capability + kit-sink golden coverage.
+- `import codex` parses `outputs.codex.rules-file` and emits one rule spec per `### <name>` child so sync -> import -> sync round-trips preserve rules under the legacy concatenated layout.
 
 ### Removed
 
