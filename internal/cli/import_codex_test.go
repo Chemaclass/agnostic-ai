@@ -477,6 +477,52 @@ command = "lint"
 	}
 }
 
+// TestImportFromCodex_MCPSharedFieldsRoundTrip pins the importer
+// against silently dropping the description / disabled / roots fields
+// that the emitter renders via writeMCPSharedFields. Without this
+// round-trip a re-sync after import erases the metadata: the next
+// emit produces a config.toml with no `disabled = true` line, no
+// description, and no roots array even though the source kept them.
+// Regression coverage for the codex audit (#329).
+func TestImportFromCodex_MCPSharedFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.disabled-server]
+command = "x"
+disabled = true
+
+[mcp_servers.described]
+command = "y"
+description = "human-readable hint"
+
+[mcp_servers.rooted]
+command = "z"
+roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		file string
+		want []string
+	}{
+		{"disabled-server.yaml", []string{"name: disabled-server", "disabled: true"}},
+		{"described.yaml", []string{"name: described", "description: human-readable hint"}},
+		{"rooted.yaml", []string{"name: rooted", "roots:", "uri: file:///workspace", "name: root1", "uri: file:///tmp"}},
+	}
+	for _, c := range cases {
+		data, err := os.ReadFile(filepath.Join(dir, "mcps", c.file))
+		if err != nil {
+			t.Fatalf("read %s: %v", c.file, err)
+		}
+		for _, w := range c.want {
+			if !strings.Contains(string(data), w) {
+				t.Errorf("%s missing %q:\n%s", c.file, w, data)
+			}
+		}
+	}
+}
+
 // Some Codex installs keep hooks in a standalone .codex/hooks.json
 // alongside config.toml. The schema matches Claude's settings.json hook
 // block: hooks[<event>][n].{matcher, hooks[m].{type, command, timeout,

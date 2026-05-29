@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Fixed
 - `.codex/config.toml` is cleaned up when a sync renders no content for it (no MCPs, no codex config, no overlay). Only files carrying the provenance header are removed.
 - Codex sweeps the pre-v0.26 `.agents/agents/` and `.agents/skills/` trees on every sync. Skipped when the user opts back into the community shared layout via `outputs.codex.agents-dir: .agents/agents`.
+- `import codex` now captures the `description`, `disabled`, and `roots` MCP fields from `.codex/config.toml`. Previously a sync → import → sync round-trip silently dropped them, leaving a regenerated config.toml missing the `disabled = true` line and other shared metadata.
 
 ### Removed
 
