@@ -75,7 +75,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
-		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), commandFile(a), dryRun); err != nil {
+		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
+		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -84,7 +85,8 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 
 func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
-		if err := emit.WriteFile(filepath.Join(dir, skillFilenamePrefix+s.Name+".md"), commandFile(s), dryRun); err != nil {
+		body := emit.WithHeader(commandFile(s), emit.FormatMarkdown)
+		if err := emit.WriteFile(filepath.Join(dir, skillFilenamePrefix+s.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}
