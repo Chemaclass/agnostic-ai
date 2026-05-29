@@ -37,7 +37,11 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	if !pathSetContains(paths, "CONVENTIONS.md") {
 		t.Fatalf("CONVENTIONS.md not emitted (paths: %v)", paths)
 	}
-	body := readFile(t, filepath.Join(dir, "CONVENTIONS.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "CONVENTIONS.md"))
+	if err != nil {
+		t.Fatalf("read CONVENTIONS.md: %v", err)
+	}
+	body := string(data)
 
 	type expect struct {
 		kind     spec.Kind
@@ -146,11 +150,3 @@ func pathSetContains(paths []string, needle string) bool {
 	return false
 }
 
-func readFile(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return string(data)
-}
