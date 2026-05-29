@@ -99,6 +99,75 @@ func TestSync_AddsStateFileToGitignore(t *testing.T) {
 	}
 }
 
+func TestSync_LedgerSweepsOrphanedAdapterOutput(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+
+	// First sync establishes the baseline ledger: every adapter writes
+	// for the single rule + agent spec the fixture defines.
+	root := cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	dropTarget := filepath.Join(dir, ".claude/agents/sample-agent.md")
+	if _, err := os.Stat(dropTarget); err != nil {
+		t.Fatalf("expected baseline output present: %v", err)
+	}
+
+	// Remove the source spec that produced the file. A naive sync would
+	// stop writing the agent output but leave the prior copy on disk
+	// indefinitely. The ledger sweep should catch and remove it.
+	if err := os.Remove(filepath.Join(dir, "agents/sample-agent.md")); err != nil {
+		t.Fatalf("remove spec: %v", err)
+	}
+
+	root = cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	if _, err := os.Stat(dropTarget); !os.IsNotExist(err) {
+		t.Errorf("expected orphan adapter output removed, stat err=%v", err)
+	}
+}
+
+func TestSync_LedgerLeavesUserAuthoredFilesAlone(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+
+	root := cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+
+	// Replace a known-managed file with hand-authored content (no
+	// agnostic provenance marker). Even though the path was in the
+	// prior ledger and is no longer in the current write set after
+	// removing the source spec, the ledger sweep must not delete it.
+	managed := filepath.Join(dir, ".claude/agents/sample-agent.md")
+	if err := os.WriteFile(managed, []byte("hand authored, keep me\n"), 0o644); err != nil {
+		t.Fatalf("seed user file: %v", err)
+	}
+	if err := os.Remove(filepath.Join(dir, "agents/sample-agent.md")); err != nil {
+		t.Fatalf("remove spec: %v", err)
+	}
+
+	root = cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	got, err := os.ReadFile(managed)
+	if err != nil {
+		t.Fatalf("user file removed by sweep: %v", err)
+	}
+	if string(got) != "hand authored, keep me\n" {
+		t.Errorf("user file modified: %q", got)
+	}
+}
+
 func TestValidate_OK(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
