@@ -91,7 +91,10 @@ func runImport(root, source string, cfg *config.Config) error {
 	case "claude":
 		return importFromClaude(root, src)
 	case "codex":
-		return importFromCodexWithOpts(root, src, importCodexOpts{Shred: cfg.Import.Codex.Shred})
+		return importFromCodexWithOpts(root, src, importCodexOpts{
+			Shred:     cfg.Import.Codex.Shred,
+			RulesFile: codexRulesFileFromCfg(cfg),
+		})
 	case "cursor":
 		return importFromCursor(root, src)
 	case "aider":

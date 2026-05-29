@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,6 +21,13 @@ type importCodexOpts struct {
 	// Nil means default (true). Use false when codex AGENTS.md is a
 	// reference doc rather than a source of new policy.
 	Shred *bool
+	// RulesFile is the project-relative path of the legacy concatenated
+	// rules-file when `outputs.codex.rules-file` is set. When non-empty
+	// and the file exists, the importer additionally parses its
+	// `## Rules` H2 section and writes one rule spec per `### <name>`
+	// child so sync -> import -> sync round-trips preserve rules under
+	// the legacy layout.
+	RulesFile string
 }
 
 // shredEnabled reports whether H2 sharding is on (default true).
@@ -28,6 +36,18 @@ func (o importCodexOpts) shredEnabled() bool {
 		return true
 	}
 	return *o.Shred
+}
+
+// codexRulesFileFromCfg returns the project-relative
+// `outputs.codex.rules-file` path when configured, otherwise "".
+func codexRulesFileFromCfg(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if o, ok := cfg.Outputs["codex"]; ok {
+		return o.RulesFile
+	}
+	return ""
 }
 
 // importFromCodex reads existing Codex config (AGENTS.md hierarchy,
@@ -49,6 +69,11 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
+	rulesFileRules, err := importCodexRulesFile(root, filepath.Join(root, src.Rules), opts)
+	if err != nil {
+		return err
+	}
+	rules += rulesFileRules
 	agents, err := importCodexAgents(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
@@ -324,6 +349,47 @@ func dedupSlug(used map[string]int, slug string) string {
 	}
 	used[slug] = 1
 	return slug
+}
+
+// importCodexRulesFile parses the legacy `outputs.codex.rules-file` (when
+// set in `agnostic-ai.yaml`) and writes one rule spec per `### <name>`
+// entry under its `## Rules` H2. The codex emitter writes rules under
+// that wrapper via emit.EmitLegacyRulesFile when the field is set, so
+// the importer mirrors it for byte-equal sync -> import -> sync.
+//
+// Returns the number of rules written. Skips silently when RulesFile is
+// empty, the file is missing, or the file lacks a `## Rules` section.
+func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error) {
+	if opts.RulesFile == "" {
+		return 0, nil
+	}
+	path := opts.RulesFile
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	_, sections := splitH2Sections(string(data))
+	used := map[string]int{}
+	count := 0
+	for _, sec := range sections {
+		if sec.slug != "rules" {
+			continue
+		}
+		for _, child := range unwrapH3(sec.body) {
+			name := dedupSlug(used, child.slug)
+			if err := writeCodexRule(dstDir, name, child.description, "", child.body); err != nil {
+				return count, err
+			}
+			count++
+		}
+	}
+	return count, nil
 }
 
 func writeCodexRule(dstDir, name, description, globs, body string) error {
