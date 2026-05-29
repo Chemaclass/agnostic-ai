@@ -62,7 +62,11 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 // writeMCPYAMLs writes one yaml file per server into dstDir. Each
 // destination doc has `name: <key>` prepended; server fields pass
 // through verbatim so transport-specific keys (command/args/env or
-// url/headers) survive a round-trip.
+// url/headers) survive a round-trip. When the source JSON omits an
+// explicit `type` field, the transport is inferred from the entry's
+// shape (`url` present → `type: http`) so re-emit picks the same
+// branch in adapter buildMCPEntry helpers and the round-trip
+// converges.
 func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 	names := make([]string, 0, len(servers))
 	for k := range servers {
@@ -75,6 +79,11 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		doc := map[string]any{"name": name}
 		for k, v := range entry {
 			doc[k] = v
+		}
+		if _, hasType := doc["type"]; !hasType {
+			if _, hasURL := doc["url"]; hasURL {
+				doc["type"] = "http"
+			}
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {

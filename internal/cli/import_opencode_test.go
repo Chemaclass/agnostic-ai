@@ -111,7 +111,15 @@ func TestImportFromOpencode_RemoteMCP(t *testing.T) {
 	if !strings.Contains(out, "url: https://example.test/mcp") {
 		t.Errorf("expected url in mcp file:\n%s", out)
 	}
-	if strings.Contains(out, "type:") {
-		t.Errorf("type should be dropped:\n%s", out)
+	// OpenCode's `type: remote` is dropped during normalization, then
+	// the shared writer synthesizes `type: http` from the url-bearing
+	// entry shape so a subsequent emit knows which transport branch
+	// to take. The opencode adapter still re-translates http→remote
+	// on emit.
+	if !strings.Contains(out, "type: http") {
+		t.Errorf("expected synthesized type: http for url-bearing mcp:\n%s", out)
+	}
+	if strings.Contains(out, "type: remote") {
+		t.Errorf("opencode-specific type: remote should be dropped:\n%s", out)
 	}
 }

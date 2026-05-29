@@ -16,6 +16,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Codex sweeps legacy `.agents/agents/` and `.agents/skills/` trees on sync.
 - `import codex` captures MCP `description`, `disabled`, and `roots` fields.
 - `.aider.conf.yml` carries the provenance header.
+- Amp command files (`.agents/commands/*.md`) carry the provenance header.
+- Shared MCP JSON importer synthesizes `type: http` from url-bearing entries so round-trip emit picks the http transport branch.
 
 ### Removed
 
