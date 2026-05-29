@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -131,6 +132,7 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 // writes for `description:`) is lifted out of the body into the
 // `description:` frontmatter so a round-trip is loss-free.
 func translateCopilotInstruction(name string, data []byte) ([]byte, error) {
+	data = []byte(header.Strip(string(data)))
 	meta, body := splitMdcFrontmatter(data)
 	if _, ok := meta["name"]; !ok {
 		meta["name"] = name
@@ -191,6 +193,7 @@ func importCopilotChatmodes(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("read %s: %w", full, err)
 		}
 		name := strings.TrimSuffix(e.Name(), copilotChatmodeSuffix)
+		data = []byte(header.Strip(string(data)))
 		meta, body := splitMdcFrontmatter(data)
 		if _, ok := meta["name"]; !ok {
 			meta["name"] = name

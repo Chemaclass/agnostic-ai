@@ -85,7 +85,8 @@ func emitChatmodes(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, a.Name+".chatmode.md")
-		if err := emit.WriteFile(path, renderChatmode(a), dryRun); err != nil {
+		body := emit.WithHeader(renderChatmode(a), emit.FormatMarkdown)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -151,7 +152,8 @@ func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error 
 // writeInstruction writes one `<prefix><name>.instructions.md` into dir.
 func writeInstruction(dir, prefix, applyTo string, e spec.Entry, dryRun bool) error {
 	path := filepath.Join(dir, prefix+e.Name+instructionFileSuffix)
-	return emit.WriteFile(path, renderInstruction(e, applyTo), dryRun)
+	body := emit.WithHeader(renderInstruction(e, applyTo), emit.FormatMarkdown)
+	return emit.WriteFile(path, body, dryRun)
 }
 
 // emitLegacyRulesFile writes always-on rules to the

@@ -216,6 +216,21 @@ Copilot natively supports path-scoped instructions via `applyTo:` frontmatter. R
 
 The Copilot MCP file uses the VS Code schema: a top-level `servers` key with each entry carrying a `type` field (`stdio`, `http`, or `sse`).
 
+#### Verifying with the real GitHub Copilot extension
+
+1. Install the [GitHub Copilot extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) (and the optional Copilot Chat extension) in VS Code.
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .github/copilot-instructions.md .github/instructions/ .vscode/mcp.json
+   head -1 .github/instructions/*.md  # provenance header on each
+   python -m json.tool .vscode/mcp.json > /dev/null
+   ```
+
+3. Open the project in VS Code. The Copilot extension loads `.github/copilot-instructions.md` plus every `.github/instructions/*.instructions.md` with matching `applyTo` globs. Open the Copilot output channel (`Output → GitHub Copilot`) and confirm there are no "failed to parse instructions" warnings.
+4. Open a file matching one of the rule globs (e.g. a `.go` file when a rule sets `applyTo: "**/*.go"`) and trigger Copilot chat; confirm the rule body shows up in the conversation context.
+5. If MCPs are configured, open the Command Palette and run `MCP: Show Installed Servers`. Each `servers.<name>` entry from `.vscode/mcp.json` should appear as ready.
+
 ### Aider (`aider`)
 
 ```
