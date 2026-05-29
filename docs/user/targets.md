@@ -183,6 +183,20 @@ Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. 
 
 When `outputs.cursor.commands-dir` is set, each agent additionally emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): a Markdown file with optional `description` and `model` frontmatter. The rule-form emission (`.cursor/rules/<name>.mdc`) still happens, so existing setups keep working.
 
+#### Verifying with the real Cursor IDE
+
+1. Install Cursor from [cursor.com](https://cursor.com).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls .cursor/rules/ .cursor/mcp.json
+   head -1 .cursor/rules/*.mdc  # provenance header on each (after frontmatter)
+   python -m json.tool .cursor/mcp.json > /dev/null
+   ```
+
+3. Open the project in Cursor. The Rules panel auto-loads every `.cursor/rules/*.mdc`. Confirm each entry appears, with `alwaysApply` reflecting the rule's frontmatter setting, and no "failed to parse" warnings in Cursor's developer console.
+4. If MCPs are configured, open Settings → MCP and confirm every `mcpServers.<name>` entry from `.cursor/mcp.json` shows a green status.
+
 ### GitHub Copilot (`copilot`)
 
 > When `outputs.copilot.chatmodes-dir` is set, each agent additionally emits as a [Copilot Custom Chat Mode](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot#about-custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter. The catch-all `agent-<name>.instructions.md` emission keeps working.
