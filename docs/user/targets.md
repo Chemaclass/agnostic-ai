@@ -418,6 +418,22 @@ The adapter previously wrote `WARP.md`. Warp's current Rules docs specify `AGENT
 
 When `outputs.warp.workflows-dir` is set, each agent emits as a [Warp Workflow](https://docs.warp.dev/features/warp-drive/workflows) YAML at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). The workflow `command:` is the agent body verbatim — tailor it to a Warp-friendly shell snippet from there.
 
+#### Verifying with the real Warp terminal
+
+1. Install Warp from [warp.dev](https://www.warp.dev).
+2. Sanity-check the emitted tree:
+
+   ```bash
+   ls AGENTS.md .warp/workflows/ .warp/.mcp.json
+   head -1 .warp/workflows/*.yaml  # provenance header on each
+   python -m json.tool .warp/.mcp.json > /dev/null
+   ```
+
+3. Open the project in Warp and confirm:
+   - The project rules panel surfaces `AGENTS.md` content with no "unrecognized file" warnings.
+   - The Warp Drive workflows picker shows every `<workflows-dir>/<name>.yaml`.
+   - The MCP picker lists every `mcpServers.<name>` entry from `.warp/.mcp.json`.
+
 ### OpenCode (`opencode`)
 
 ```

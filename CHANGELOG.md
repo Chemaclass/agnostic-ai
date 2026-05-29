@@ -32,6 +32,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Per-adapter `testdata/kitsink/` trees are git-tracked even when the underlying patterns are gitignored.
 - OpenCode command + skill-command files carry the provenance header.
 - OpenCode audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage (agents + MCPs).
+- Warp workflow YAMLs now carry the provenance header.
+- Warp audit harness pins provenance + capability + kit-sink golden coverage.
 
 ### Removed
 

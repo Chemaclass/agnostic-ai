@@ -83,7 +83,7 @@ func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 		path := filepath.Join(dir, a.Name+".yaml")
-		if err := emit.WriteFile(path, doc, dryRun); err != nil {
+		if err := emit.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
 	}
