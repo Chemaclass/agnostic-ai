@@ -35,7 +35,6 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 
-	type skip struct{ path string }
 	skipExact := map[string]bool{
 		"AGENTS.md": true, // owned by the sync entry-point writer
 	}
