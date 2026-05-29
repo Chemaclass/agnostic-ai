@@ -24,6 +24,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Continue audit harness pins provenance + capability + kit-sink golden + rules-only byte-equal round-trip coverage.
 - Cursor `.mdc` frontmatter now double-quotes `globs:` values so `**/*` patterns parse as YAML strings instead of anchor-reference attempts.
 - Cursor audit harness pins provenance + capability + kit-sink golden + rules-only byte-equal round-trip coverage.
+- Copilot instruction + chatmode files carry the provenance header; importer strips it on the way back in.
+- Copilot audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage.
 
 ### Removed
 
