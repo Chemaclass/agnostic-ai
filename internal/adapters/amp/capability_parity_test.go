@@ -23,7 +23,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"amp": {
-				RulesFile:            "AGENTS.md",
+				RulesFile:            "AGENTS-rules.md",
 				EmitSkillsAsCommands: true,
 			},
 		},
@@ -40,7 +40,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindAgent, []string{".agents/commands/alpha.md", ".agents/commands/beta.md", ".agents/commands/gamma.md"}},
 		{spec.KindSkill, []string{".agents/commands/skill-uno.md", ".agents/commands/skill-dos.md", ".agents/commands/skill-tres.md"}},
-		{spec.KindRule, []string{"AGENTS.md"}},
+		{spec.KindRule, []string{"AGENTS-rules.md"}},
 		{spec.KindMCP, []string{".amp/settings.json"}},
 	}
 	for _, k := range caps.Supports {
@@ -76,7 +76,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"amp": {
-				RulesFile:            "AGENTS.md",
+				RulesFile:            "AGENTS-rules.md",
 				EmitSkillsAsCommands: true,
 			},
 		},
