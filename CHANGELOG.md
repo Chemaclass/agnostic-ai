@@ -21,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Antigravity audit harness pins provenance + capability + kit-sink golden coverage.
 - Claude audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage.
 - Cline audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage.
+- Continue audit harness pins provenance + capability + kit-sink golden + rules-only byte-equal round-trip coverage.
 
 ### Removed
 
