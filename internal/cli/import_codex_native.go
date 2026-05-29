@@ -629,6 +629,17 @@ type codexMCPEntry struct {
 	URL               string            `toml:"url"`
 	BearerTokenEnvVar string            `toml:"bearer_token_env_var"`
 	HTTPHeaders       map[string]string `toml:"http_headers"`
+	// Shared fields the codex emitter writes via writeMCPSharedFields.
+	// Round-tripping requires capturing them here so a re-sync does
+	// not silently drop description / disabled / roots metadata.
+	Description string         `toml:"description"`
+	Disabled    bool           `toml:"disabled"`
+	Roots       []codexMCPRoot `toml:"roots"`
+}
+
+type codexMCPRoot struct {
+	URI  string `toml:"uri"`
+	Name string `toml:"name"`
 }
 
 // importCodexConfig reads `<root>/.codex/config.toml` plus the
@@ -847,6 +858,28 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		}
 		if len(s.Env) > 0 {
 			doc["env"] = s.Env
+		}
+		if s.Description != "" {
+			doc["description"] = s.Description
+		}
+		if s.Disabled {
+			doc["disabled"] = true
+		}
+		if len(s.Roots) > 0 {
+			roots := make([]map[string]any, 0, len(s.Roots))
+			for _, r := range s.Roots {
+				if r.URI == "" {
+					continue
+				}
+				entry := map[string]any{"uri": r.URI}
+				if r.Name != "" {
+					entry["name"] = r.Name
+				}
+				roots = append(roots, entry)
+			}
+			if len(roots) > 0 {
+				doc["roots"] = roots
+			}
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {
