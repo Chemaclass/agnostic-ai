@@ -1,0 +1,26 @@
+[
+  {
+    "args": [
+      "-c",
+      "gofmt -w"
+    ],
+    "command": "sh",
+    "label": "fmt-go"
+  },
+  {
+    "args": [
+      "-c",
+      "echo pre"
+    ],
+    "command": "sh",
+    "label": "lint-pre"
+  },
+  {
+    "args": [
+      "-c",
+      "echo session"
+    ],
+    "command": "sh",
+    "label": "session-start"
+  }
+]

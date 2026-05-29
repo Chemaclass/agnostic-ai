@@ -34,6 +34,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - OpenCode audit harness pins provenance + capability + kit-sink golden + byte-equal round-trip coverage (agents + MCPs).
 - Warp workflow YAMLs now carry the provenance header.
 - Warp audit harness pins provenance + capability + kit-sink golden coverage.
+- Zed audit harness pins provenance + capability + kit-sink golden coverage.
 
 ### Removed
 
