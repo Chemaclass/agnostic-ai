@@ -17,9 +17,7 @@ package claude
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -325,7 +323,7 @@ func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
 		return nil, nil
 	}
 	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
+	if emit.IsAbsent(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -373,7 +371,7 @@ func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 		return nil, false, nil
 	}
 	data, err := os.ReadFile(settingsOverlayPath)
-	if errors.Is(err, fs.ErrNotExist) {
+	if emit.IsAbsent(err) {
 		return nil, false, nil
 	}
 	if err != nil {

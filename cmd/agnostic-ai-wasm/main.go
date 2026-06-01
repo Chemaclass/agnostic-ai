@@ -101,6 +101,21 @@ func render(_ js.Value, args []js.Value) any {
 				"content": f.Content,
 			})
 		}
+		// `sync` also writes the target's root entry-point file
+		// (CLAUDE.md, AGENTS.md, ...) outside the adapter's Emit.
+		// Surface it here so the playground mirrors a real sync: it
+		// is the file each CLI loads first, and for targets like
+		// codex it is the only place a rule surfaces (codex emits no
+		// per-rule file; AGENTS.md points at the source dir). Skipped
+		// when the target opted into a legacy concatenated rules-file
+		// (the adapter owns the entry-point write in that case).
+		if path := adapters.EntryPointPath(cfg, t); path != "" && !adapters.HasLegacyRulesFile(cfg, t) {
+			files = append(files, map[string]any{
+				"target":  t,
+				"path":    path,
+				"content": adapters.RenderEntryPoint(cfg),
+			})
+		}
 	}
 	return js.ValueOf(map[string]any{
 		"files":  files,

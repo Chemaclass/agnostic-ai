@@ -15,9 +15,7 @@
 package emit
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -34,7 +32,7 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 func RestoreHelperFiles(tool string, dryRun bool) error {
 	srcDir := filepath.Join(agnosticOverlayDir, tool)
 	entries, err := os.ReadDir(srcDir)
-	if errors.Is(err, fs.ErrNotExist) {
+	if IsAbsent(err) {
 		return nil
 	}
 	if err != nil {

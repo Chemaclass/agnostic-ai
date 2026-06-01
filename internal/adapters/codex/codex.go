@@ -26,9 +26,7 @@
 package codex
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -244,7 +242,7 @@ func loadConfigOverlay(dryRun bool) (string, map[string]bool, error) {
 		return "", nil, nil
 	}
 	data, err := os.ReadFile(configOverlayPath)
-	if errors.Is(err, fs.ErrNotExist) {
+	if emit.IsAbsent(err) {
 		return "", nil, nil
 	}
 	if err != nil {

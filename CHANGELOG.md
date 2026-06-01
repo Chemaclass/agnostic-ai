@@ -10,6 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Fixed
 
+- Playground rendered nothing for any target whose adapter reads a captured overlay or helper file (claude, codex, and others): the in-browser `js/wasm` runtime has no filesystem, so those reads failed with `ENOSYS` (and other wasm-specific errors) instead of "file not found", aborting the emit. Optional source reads now treat a missing filesystem as "absent" and proceed.
+- Playground now renders each target's root entry-point file (CLAUDE.md, AGENTS.md, GEMINI.md, ...) alongside the per-spec artifacts, mirroring a real `sync`. Previously codex showed nothing for a `rule` spec (codex emits no per-rule file; rules surface only through AGENTS.md), and claude never showed CLAUDE.md.
+
 ### Removed
 
 ## v0.28.0 - 2026-06-01

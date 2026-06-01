@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -335,6 +336,28 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 	return nil
 }
 
+// IsAbsent reports whether err means a file or directory cannot be
+// read because it is not there. The path not existing (fs.ErrNotExist)
+// is the obvious case. The other is the js/wasm playground, which has
+// no filesystem at all: every os syscall there fails, but with an
+// inconsistent grab-bag of errors (ENOSYS on file reads, an
+// "O_DIRECTORY is not supported" variant on directory reads, ...) that
+// no single sentinel reliably matches. Rather than chase each variant,
+// treat any non-nil error as "absent" when GOOS is js: there is
+// nothing on disk to read, so optional source inputs (overlays, helper
+// files, prior outputs) are simply not present and the adapter should
+// proceed. On any real OS this is exactly an fs.ErrNotExist check, so
+// sync / check / doctor behavior is unchanged.
+func IsAbsent(err error) bool {
+	if err == nil {
+		return false
+	}
+	if runtime.GOOS == "js" {
+		return true
+	}
+	return errors.Is(err, fs.ErrNotExist)
+}
+
 // RemoveGenerated deletes path when it exists and carries the
 // agnostic-ai provenance header. It is the inverse of WriteFile: use it
 // when an adapter previously emitted a file but no longer has content
@@ -350,7 +373,7 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 // pre-removal bytes so Rollback can restore the file.
 func RemoveGenerated(path string, dryRun bool) error {
 	existing, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
+	if IsAbsent(err) {
 		return nil
 	}
 	if err != nil {
@@ -380,7 +403,7 @@ func RemoveGenerated(path string, dryRun bool) error {
 		state.mu.Unlock()
 	}
 
-	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := os.Remove(path); err != nil && !IsAbsent(err) {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
 
@@ -406,7 +429,7 @@ func RemoveGenerated(path string, dryRun bool) error {
 // directory has no content to restore.
 func RemoveGeneratedTree(dir string, dryRun bool) error {
 	info, err := os.Stat(dir)
-	if errors.Is(err, fs.ErrNotExist) {
+	if IsAbsent(err) {
 		return nil
 	}
 	if err != nil {
@@ -466,7 +489,7 @@ func removeEmptyDirs(dir string) error {
 	for i := len(dirs) - 1; i >= 0; i-- {
 		entries, err := os.ReadDir(dirs[i])
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			if IsAbsent(err) {
 				continue
 			}
 			return fmt.Errorf("readdir %s: %w", dirs[i], err)
@@ -474,7 +497,7 @@ func removeEmptyDirs(dir string) error {
 		if len(entries) > 0 {
 			continue
 		}
-		if err := os.Remove(dirs[i]); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) {
 			return fmt.Errorf("remove %s: %w", dirs[i], err)
 		}
 	}
@@ -495,7 +518,7 @@ func removeEmptyDirs(dir string) error {
 func CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) error {
 	info, err := os.Stat(srcDir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if IsAbsent(err) {
 			return nil
 		}
 		return fmt.Errorf("stat %s: %w", srcDir, err)

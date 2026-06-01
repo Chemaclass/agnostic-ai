@@ -69,7 +69,7 @@ func loadExecPoliciesHeader(cfg *config.Config, dryRun bool) (string, error) {
 		return "", nil
 	}
 	data, err := os.ReadFile(execPoliciesHeaderOverlayPath)
-	if os.IsNotExist(err) {
+	if emit.IsAbsent(err) {
 		return "", nil
 	}
 	if err != nil {

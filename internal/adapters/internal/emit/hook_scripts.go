@@ -21,9 +21,7 @@
 package emit
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,7 +172,7 @@ func findHookScriptBody(basename, target, sourceTool string) ([]byte, os.FileMod
 // in every loop.
 func readHookCandidate(path string) ([]byte, os.FileMode, bool, error) {
 	info, err := os.Stat(path)
-	if errors.Is(err, fs.ErrNotExist) {
+	if IsAbsent(err) {
 		return nil, 0, false, nil
 	}
 	if err != nil {
