@@ -6,7 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
-- Per-target models: `model:` frontmatter now accepts a map keyed by target name with an optional `default` fallback (e.g. `model: {claude: opus, codex: gpt-5.5, default: gpt-4o}`). A bare string still applies to every target.
+- Per-target models: `model:` frontmatter accepts a map keyed by target (e.g. `model: {claude: opus, codex: gpt-5.5}`). A bare string applies to every target. Optional `default` sets a fallback; omit it and unlisted targets use their own native default.
 
 ### Changed
 
