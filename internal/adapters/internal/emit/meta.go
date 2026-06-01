@@ -126,7 +126,43 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 			appendKV(nk, nv)
 		}
 	}
+	collapseModel(out, &outKeys, target)
 	return out, outKeys
+}
+
+// collapseModel resolves a per-target `model` map down to the single
+// string the named target should use. A bare string `model:` value is
+// left untouched, so the simple case keeps working. A map form picks
+// `model.<target>` first, then `model.default`; if neither matches the
+// key is removed so the target inherits no model (mirrors the #304
+// delete-marker behavior). Keys overwritten by `x-<target>.model` arrive
+// here already as strings and pass through unchanged.
+//
+//	model: gpt-4o                          -> gpt-4o (every target)
+//	model: {claude: opus, default: gpt-4o} -> opus for claude, gpt-4o for codex
+//	model: {claude: opus}                  -> opus for claude, dropped for codex
+func collapseModel(out map[string]any, keys *[]string, target string) {
+	m, ok := out["model"].(map[string]any)
+	if !ok {
+		return
+	}
+	pick := func(k string) (string, bool) {
+		v, ok := m[k]
+		if !ok {
+			return "", false
+		}
+		s, ok := v.(string)
+		return s, ok
+	}
+	if s, ok := pick(target); ok {
+		out["model"] = s
+		return
+	}
+	if s, ok := pick("default"); ok {
+		out["model"] = s
+		return
+	}
+	removeKey(out, keys, "model")
 }
 
 // removeKey strips key from both the resolved map and the ordered keys

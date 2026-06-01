@@ -142,3 +142,80 @@ func TestResolveMetaOrdered_NilUnderXTargetDropsOrder(t *testing.T) {
 		t.Errorf("got %v, want %v", gotKeys, wantKeys)
 	}
 }
+
+func TestResolveMeta_StringModelPassesThrough(t *testing.T) {
+	in := map[string]any{"name": "a", "model": "gpt-4o"}
+	got := ResolveMeta(in, "codex")
+	if got["model"] != "gpt-4o" {
+		t.Errorf("string model should pass through, got %v", got["model"])
+	}
+}
+
+func TestResolveMeta_PerTargetModelPicksTarget(t *testing.T) {
+	in := map[string]any{
+		"name": "a",
+		"model": map[string]any{
+			"claude":  "claude-opus-4-8",
+			"codex":   "gpt-5.5",
+			"default": "gpt-4o",
+		},
+	}
+	if got := ResolveMeta(in, "claude")["model"]; got != "claude-opus-4-8" {
+		t.Errorf("claude got %v", got)
+	}
+	if got := ResolveMeta(in, "codex")["model"]; got != "gpt-5.5" {
+		t.Errorf("codex got %v", got)
+	}
+}
+
+func TestResolveMeta_PerTargetModelFallsBackToDefault(t *testing.T) {
+	in := map[string]any{
+		"name": "a",
+		"model": map[string]any{
+			"claude":  "claude-opus-4-8",
+			"default": "gpt-4o",
+		},
+	}
+	if got := ResolveMeta(in, "cursor")["model"]; got != "gpt-4o" {
+		t.Errorf("unmatched target should use default, got %v", got)
+	}
+}
+
+func TestResolveMeta_PerTargetModelNoMatchNoDefaultDrops(t *testing.T) {
+	in := map[string]any{
+		"name":  "a",
+		"model": map[string]any{"claude": "claude-opus-4-8"},
+	}
+	got := ResolveMeta(in, "codex")
+	if _, ok := got["model"]; ok {
+		t.Errorf("no target match and no default should drop model, got %v", got["model"])
+	}
+}
+
+func TestResolveMetaOrdered_PerTargetModelDropKeepsOrderClean(t *testing.T) {
+	in := map[string]any{
+		"name":  "a",
+		"model": map[string]any{"claude": "opus"},
+	}
+	keys := []string{"name", "model"}
+	_, gotKeys := ResolveMetaOrdered(in, keys, "codex")
+	wantKeys := []string{"name"}
+	if !reflect.DeepEqual(gotKeys, wantKeys) {
+		t.Errorf("got %v, want %v", gotKeys, wantKeys)
+	}
+}
+
+func TestResolveMeta_XTargetOverridesPerTargetMap(t *testing.T) {
+	in := map[string]any{
+		"name":     "a",
+		"model":    map[string]any{"claude": "opus", "default": "gpt-4o"},
+		"x-codex":  map[string]any{"model": "gpt-5.5-codex"},
+		"x-cursor": map[string]any{"model": nil},
+	}
+	if got := ResolveMeta(in, "codex")["model"]; got != "gpt-5.5-codex" {
+		t.Errorf("x-codex.model should win over map, got %v", got)
+	}
+	if got, ok := ResolveMeta(in, "cursor")["model"]; ok {
+		t.Errorf("x-cursor nil delete should drop model, got %v", got)
+	}
+}

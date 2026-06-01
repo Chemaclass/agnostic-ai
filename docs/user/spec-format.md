@@ -66,9 +66,43 @@ Report concise findings with `file:line` references.
 | `name` | no | filename without `.md` | Agent identifier. Used for the output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
 | `tools` | no | unset | Tools the agent may invoke. Format depends on target CLI. |
-| `model` | no | unset | Preferred model. Common values: `sonnet`, `opus`, `haiku`. |
+| `model` | no | unset | Preferred model. A string applies to every target, or a map selects per target (see below). |
 
 Any other frontmatter fields pass through to the target CLI unchanged.
+
+### Per-target models
+
+`model:` accepts a string (same model everywhere) or a map keyed by target name with an optional `default` fallback:
+
+```yaml
+---
+name: code-reviewer
+model:
+  claude: opus
+  codex: gpt-5.5
+  default: gpt-4o
+---
+```
+
+Resolution per target: the matching key wins, else `default`, else the model is dropped for that target (it inherits nothing). A bare string keeps working unchanged. An `x-<target>.model` override still beats the map for that target, and `x-<target>.model: null` deletes it.
+
+Omitting `default` is how you say "use each target's own native default." A target with no matching key and no `default` gets no `model` line emitted, so the CLI falls back to whatever model it ships with:
+
+```yaml
+---
+name: code-reviewer
+model:
+  claude: sonnet   # Claude uses sonnet; every other target emits no model
+---                # and falls back to its own built-in default
+```
+
+Three intents, all expressible:
+
+| Want | Write |
+|------|-------|
+| Same model everywhere | `model: sonnet` |
+| Per-target, with a concrete fallback | `model: {claude: sonnet, default: gpt-4o}` |
+| Per-target, native default elsewhere | `model: {claude: sonnet}` |
 
 ## Skills
 
