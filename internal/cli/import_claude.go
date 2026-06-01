@@ -116,7 +116,7 @@ var nestedClaudeMainFile = filepath.Join(claudeDir, claudeMainFile)
 // Returns (wrote, srcName, promotedNested, err): wrote is false on a
 // project with no Claude instructions at all (callers suppress the
 // summary line); srcName names the file the body came from; promotedNested
-// is true when the nested file was used, signalling the caller to skip
+// is true when the nested file was used, signaling the caller to skip
 // capturing it as a claude-private helper overlay.
 func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNested bool, err error) {
 	if _, statErr := os.Stat(filepath.Join(root, claudeMainFile)); statErr == nil {
