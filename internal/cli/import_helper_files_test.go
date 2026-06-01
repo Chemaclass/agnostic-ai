@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -39,6 +40,77 @@ func TestCaptureHelperFiles_Claude(t *testing.T) {
 		}
 		if info.Mode().Perm()&0o111 == 0 {
 			t.Errorf("captured statusline.sh lost exec bit: mode=%v", info.Mode().Perm())
+		}
+	}
+}
+
+// A project that keeps its instructions nested under .claude/CLAUDE.md
+// (no root CLAUDE.md) has that body promoted to the shared AGNOSTIC_AI.md
+// so `sync` distributes it to every target's entry-point — not buried in
+// a claude-private overlay where codex/gemini never see it.
+func TestImportClaude_NestedMainFilePromotedToSharedBody(t *testing.T) {
+	dir := t.TempDir()
+	body := "# phel-doom\n\nTerminal raycaster. Nested instructions body.\n"
+	writeFile(t, filepath.Join(dir, ".claude/CLAUDE.md"), body)
+	writeFile(t, filepath.Join(dir, ".claude/README.md"), "operator docs\n")
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Nested CLAUDE.md becomes the shared body.
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("AGNOSTIC_AI.md not seeded: %v", err)
+	}
+	if !strings.Contains(string(got), "Nested instructions body.") {
+		t.Errorf("AGNOSTIC_AI.md missing nested body, got %q", got)
+	}
+
+	// It must NOT also be captured as a claude-private helper overlay
+	// (that would restore a duplicate copy under .claude/ on sync).
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/claude/CLAUDE.md")); err == nil {
+		t.Error("nested CLAUDE.md should not be captured as a claude-private overlay when promoted")
+	}
+	// Other helpers are still captured.
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/claude/README.md")); err != nil {
+		t.Errorf("README.md helper should still be captured: %v", err)
+	}
+}
+
+// End-to-end: nested-only .claude/CLAUDE.md propagates to both the claude
+// (CLAUDE.md) and codex (AGENTS.md) entry-points after sync.
+func TestImportClaudeNestedThenSync_PropagatesToCodex(t *testing.T) {
+	dir := t.TempDir()
+	body := "# phel-doom\n\nNested instructions body for every tool.\n"
+	writeFile(t, filepath.Join(dir, ".claude/CLAUDE.md"), body)
+
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	writeMinimalConfig(t, dir, ".agnostic-ai")
+
+	prevDir, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(prevDir) })
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude,codex"})
+	silence(t)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"CLAUDE.md", "AGENTS.md"} {
+		got, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Errorf("%s entry-point missing: %v", name, err)
+			continue
+		}
+		if !strings.Contains(string(got), "Nested instructions body for every tool.") {
+			t.Errorf("%s missing shared body, got %q", name, got)
 		}
 	}
 }

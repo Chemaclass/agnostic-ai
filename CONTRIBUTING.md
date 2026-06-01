@@ -17,6 +17,21 @@ Open a PR with a [Conventional Commits](https://www.conventionalcommits.org/) su
 | Add a new AI CLI target | [Adapter issue](.github/ISSUE_TEMPLATE/new_adapter.yml) · [adding-adapters.md](docs/internal/adding-adapters.md) |
 | Deep dive | [docs/internal/](docs/internal/) (architecture, contributing, decisions) |
 
+## AI config is generated (dogfooding)
+
+This repo drives its own AI config with agnostic-ai. The source of truth is `.agnostic-ai/`. Every target output is **gitignored** and regenerated, never committed:
+
+- Per-target folders: `.claude/`, `.cursor/`, `.gemini/`, `.codex/`, `.windsurf/`, `.continue/`, `.clinerules/`, `.opencode/`, `.agent/`.
+- Root entry-points: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.rules`, `.github/copilot-instructions.md`.
+
+After editing any spec under `.agnostic-ai/`, regenerate locally:
+
+```bash
+agnostic-ai sync   # or: go run ./cmd/agnostic-ai sync
+```
+
+Do not edit the generated files directly and do not commit them; they are overwritten on each sync. CI runs `agnostic-ai check` to fail drift.
+
 ## PR rules
 
 - Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).

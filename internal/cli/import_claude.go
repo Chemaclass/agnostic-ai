@@ -52,7 +52,18 @@ func importFromClaude(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "claude"); err != nil {
 		return err
 	}
-	helpers, err := captureHelperFiles(root, "claude")
+	mainSeeded, mainSrc, promotedNested, err := mirrorClaudeMainFile(root)
+	if err != nil {
+		return err
+	}
+	// When the nested .claude/CLAUDE.md is promoted to the shared body,
+	// do not also capture it as a claude-private helper overlay: that
+	// would restore a duplicate copy under .claude/ on the next sync.
+	var helperExclude []string
+	if promotedNested {
+		helperExclude = append(helperExclude, claudeMainFile)
+	}
+	helpers, err := captureHelperFiles(root, "claude", helperExclude...)
 	if err != nil {
 		return err
 	}
@@ -66,15 +77,11 @@ func importFromClaude(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mainSeeded, err := mirrorClaudeMainFile(root)
-	if err != nil {
-		return err
-	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
 	if mainSeeded {
 		summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
-			agnosticMainFile, claudeMainFile)
+			agnosticMainFile, mainSrc)
 	}
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
@@ -88,12 +95,36 @@ func importFromClaude(root string, src config.Sources) error {
 	return nil
 }
 
-// mirrorClaudeMainFile mirrors <root>/CLAUDE.md to
-// <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns (true, nil) when the
-// mirror actually wrote so callers can suppress a misleading summary
-// line on a CLAUDE.md-less project.
-func mirrorClaudeMainFile(root string) (bool, error) {
-	return mirrorMainFile(root, claudeMainFile)
+// nestedClaudeMainFile is the project-nested Claude Code instructions
+// file. Per the Claude Code docs a project CLAUDE.md may live at either
+// `./CLAUDE.md` or `./.claude/CLAUDE.md`; both are auto-loaded project
+// memory. agnostic-ai treats the nested form as the project's main
+// instructions when no root CLAUDE.md exists.
+var nestedClaudeMainFile = filepath.Join(claudeDir, claudeMainFile)
+
+// mirrorClaudeMainFile mirrors the project's Claude main instructions to
+// <root>/.agnostic-ai/AGNOSTIC_AI.md so `sync` distributes the body to
+// every target's native entry-point (AGENTS.md, GEMINI.md, ...).
+//
+// Source precedence: the project-root CLAUDE.md wins; when it is absent
+// the nested .claude/CLAUDE.md is promoted to the shared body. Promoting
+// the nested file is what lets a project that keeps its instructions
+// under .claude/ (a documented Claude Code location) still feed codex,
+// gemini, and the rest — without it, those targets receive only the
+// generic pointer template.
+//
+// Returns (wrote, srcName, promotedNested, err): wrote is false on a
+// project with no Claude instructions at all (callers suppress the
+// summary line); srcName names the file the body came from; promotedNested
+// is true when the nested file was used, signaling the caller to skip
+// capturing it as a claude-private helper overlay.
+func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNested bool, err error) {
+	if _, statErr := os.Stat(filepath.Join(root, claudeMainFile)); statErr == nil {
+		wrote, err = mirrorMainFile(root, claudeMainFile)
+		return wrote, claudeMainFile, false, err
+	}
+	wrote, err = mirrorMainFile(root, nestedClaudeMainFile)
+	return wrote, nestedClaudeMainFile, wrote, err
 }
 
 // mirrorMainFile copies <root>/<srcName> byte-for-byte to

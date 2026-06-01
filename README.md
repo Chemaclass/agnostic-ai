@@ -139,6 +139,8 @@ CI gate — fail PRs that drift from source specs:
   with: { command: check }
 ```
 
+**Commit or ignore generated outputs?** Recommended: gitignore them and keep `.agnostic-ai/` as the single source of truth, so contributors run `sync` to regenerate locally (this repo does exactly that). Committing them is also valid when teammates lack the CLI; the `check` gate guards drift either way.
+
 ## Documentation
 
 **Get started**

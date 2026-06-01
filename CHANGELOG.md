@@ -6,10 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
+- Docs: README explains whether to commit or gitignore generated outputs (recommends ignore); CONTRIBUTING documents that this repo's AI config is generated and regenerated via `agnostic-ai sync`.
+
 ### Changed
 
 ### Fixed
 
+- `import claude` now propagates a project's instructions to every target when they live in the nested `.claude/CLAUDE.md` (a documented Claude Code project-memory location) rather than the root `CLAUDE.md`. Previously the nested file was captured only as a claude-private helper overlay, so `sync` fed codex, gemini, and the rest the generic pointer template instead of the real instructions. The nested file is now promoted to the shared `.agnostic-ai/AGNOSTIC_AI.md` body (root `CLAUDE.md` still wins when both exist), and is no longer double-captured as an overlay.
 - Playground rendered nothing for any target whose adapter reads a captured overlay or helper file (claude, codex, and others): the in-browser `js/wasm` runtime has no filesystem, so those reads failed with `ENOSYS` (and other wasm-specific errors) instead of "file not found", aborting the emit. Optional source reads now treat a missing filesystem as "absent" and proceed.
 - Playground now renders each target's root entry-point file (CLAUDE.md, AGENTS.md, GEMINI.md, ...) alongside the per-spec artifacts, mirroring a real `sync`. Previously codex showed nothing for a `rule` spec (codex emits no per-rule file; rules surface only through AGENTS.md), and claude never showed CLAUDE.md.
 

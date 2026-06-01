@@ -47,9 +47,21 @@ func helperOverlayPath(root, tool, basename string) string {
 // per file when the source is missing — most projects do not ship every
 // helper. Returns the basenames that were actually captured so the
 // import summary can surface them.
-func captureHelperFiles(root, tool string) ([]string, error) {
+//
+// Basenames listed in exclude are skipped. The claude importer uses this
+// to avoid double-capturing `.claude/CLAUDE.md` as a claude-private
+// overlay when it was promoted to the shared `AGNOSTIC_AI.md` body
+// (project keeps its instructions nested, with no root CLAUDE.md).
+func captureHelperFiles(root, tool string, exclude ...string) ([]string, error) {
+	skip := make(map[string]bool, len(exclude))
+	for _, name := range exclude {
+		skip[name] = true
+	}
 	var captured []string
 	for _, h := range helperFilesByTool[tool] {
+		if skip[h.basename] {
+			continue
+		}
 		src := filepath.Join(root, "."+h.tool, h.basename)
 		info, err := os.Stat(src)
 		if errors.Is(err, fs.ErrNotExist) {
