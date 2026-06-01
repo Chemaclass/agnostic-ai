@@ -109,6 +109,11 @@ Reviewers focus on the first commit (semantic content) and skim the
 second (cosmetic regeneration). When mixing imports from multiple
 CLIs, run each `import` + commit pair before the final `sync`.
 
+This two-commit flow assumes you commit the generated files. If you
+instead gitignore them (see [`gitignore.enabled`](configuration.md#gitignore)),
+skip the second commit: keep only `.agnostic-ai/` under version control
+and let each contributor run `sync` to regenerate the targets locally.
+
 Tip: `agnostic-ai sync --backup` keeps a `.bak` next to each
 overwritten file so you can `revert` if the regeneration looks wrong.
 Clear them once you are happy with `agnostic-ai cleanup`.
