@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
+- Docs: README explains whether to commit or gitignore generated outputs (recommends ignore); CONTRIBUTING documents that this repo's AI config is generated and regenerated via `agnostic-ai sync`.
+
 ### Changed
 
 ### Fixed
