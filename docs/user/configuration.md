@@ -292,7 +292,7 @@ Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for 
 | `enabled` | `false` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters would emit. |
 | `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
 
-The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged).
+The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere in the tree.
 
 Override per-run with `--gitignore on|off` on `sync`.
 

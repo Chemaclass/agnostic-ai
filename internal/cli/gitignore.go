@@ -55,7 +55,9 @@ func ensureLineInGitignore(root, entry string) error {
 func normalizeAndSort(paths []string) []string {
 	seen := make(map[string]struct{}, len(paths))
 	for _, p := range paths {
-		seen[normalizeGitignorePath(p)] = struct{}{}
+		if n := normalizeGitignorePath(p); n != "" {
+			seen[n] = struct{}{}
+		}
 	}
 	out := make([]string, 0, len(seen))
 	for p := range seen {
@@ -66,11 +68,20 @@ func normalizeAndSort(paths []string) []string {
 }
 
 // normalizeGitignorePath converts a filesystem path to a gitignore entry:
-// always forward-slashed, leading "./" stripped.
+// always forward-slashed, leading "./" stripped, and root-anchored with a
+// leading "/". Emitted paths are relative to the project root, so anchoring
+// them keeps the pattern from matching a same-named file nested elsewhere
+// (e.g. a golden `AGENTS.md` under internal/adapters/*/testdata/). Without
+// the anchor an unanchored basename like `.rules` or `CONVENTIONS.md` would
+// match at any depth and silently ignore those fixtures.
 func normalizeGitignorePath(p string) string {
 	p = filepath.ToSlash(p)
 	p = strings.TrimPrefix(p, "./")
-	return p
+	p = strings.TrimPrefix(p, "/")
+	if p == "" || p == "." {
+		return ""
+	}
+	return "/" + p
 }
 
 // updateGitignore rewrites the managed block in `.gitignore` (or

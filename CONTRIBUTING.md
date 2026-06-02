@@ -32,7 +32,7 @@ agnostic-ai sync   # or: go run ./cmd/agnostic-ai sync
 
 Do not edit the generated files directly and do not commit them; they are overwritten on each sync. CI runs `agnostic-ai check` to fail drift.
 
-The `.gitignore` block for these paths is hand-maintained here, not driven by `gitignore.enabled`. The managed block emits unanchored basenames (`.rules`, `AGENTS.md`, `CONVENTIONS.md`, ...) and appends at end of file, which would re-ignore the golden fixtures under `internal/adapters/*/testdata/` that the `!internal/adapters/*/testdata/**` re-allow protects. When you add a new adapter, add its output paths to the `.gitignore` block by hand.
+The `.gitignore` block for these paths is hand-maintained here, not driven by `gitignore.enabled`, because the block also carries hierarchical globs (`**/AGENTS.md`, `**/GEMINI.md`) and the `!internal/adapters/*/testdata/**` re-allow that keeps the golden fixtures tracked. When you add a new adapter, add its output paths to the `.gitignore` block by hand.
 
 ## PR rules
 

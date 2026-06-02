@@ -137,8 +137,10 @@ func TestUpdateGitignore_NoopWhenContentMatches(t *testing.T) {
 
 func TestNormalizeGitignorePath(t *testing.T) {
 	cases := map[string]string{
-		"./CLAUDE.md":         "CLAUDE.md",
-		".claude/agents/x.md": ".claude/agents/x.md",
+		"./CLAUDE.md":         "/CLAUDE.md",
+		".claude/agents/x.md": "/.claude/agents/x.md",
+		"/AGENTS.md":          "/AGENTS.md",
+		".":                   "",
 	}
 	for in, want := range cases {
 		if got := normalizeGitignorePath(in); got != want {
@@ -154,13 +156,25 @@ func TestNormalizeAndSort_DedupesAndSorts(t *testing.T) {
 		"b.md",
 		"./b.md",
 	})
-	want := []string{"a.md", "b.md"}
+	want := []string{"/a.md", "/b.md"}
 	if len(got) != len(want) {
 		t.Fatalf("expected %v, got %v", want, got)
 	}
 	for i, w := range want {
 		if got[i] != w {
 			t.Errorf("index %d: got %q, want %q", i, got[i], w)
+		}
+	}
+}
+
+// Regression for #362: managed entries must be root-anchored so an
+// unanchored basename (CONVENTIONS.md, .rules, AGENTS.md) cannot match a
+// same-named golden fixture nested under internal/adapters/*/testdata/.
+func TestNormalizeAndSort_AnchorsEveryEntry(t *testing.T) {
+	got := normalizeAndSort([]string{"CONVENTIONS.md", ".rules", ".claude/rules/x.md", "AGENTS.md"})
+	for _, e := range got {
+		if !strings.HasPrefix(e, "/") {
+			t.Errorf("entry %q not root-anchored", e)
 		}
 	}
 }
