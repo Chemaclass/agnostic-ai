@@ -9,7 +9,7 @@
 Drop an `agnostic-ai.local.yaml` next to the base config to layer per-machine tweaks without touching the shared file. Loaded after the base and deep-merged: scalars and lists in the local file replace the base, maps merge recursively. `agnostic-ai init` adds the local filename to `.gitignore` automatically.
 
 ```yaml
-# agnostic-ai.local.yaml — never committed
+# agnostic-ai.local.yaml (never committed)
 on-unsupported: error
 outputs:
   claude:
@@ -230,7 +230,7 @@ For scripted use (CI, integration tests), pipe a comma-separated line of target 
 
     echo "claude,codex" | agnostic-ai init
 
-Unknown names produce a clear error and leave the working tree untouched. To skip the picker entirely and enable every supported target, pass `--all` (`-a`). A non-TTY stdin with no piped data falls back to the full target list silently — CI invocations keep working without flags.
+Unknown names produce a clear error and leave the working tree untouched. To skip the picker entirely and enable every supported target, pass `--all` (`-a`). A non-TTY stdin with no piped data falls back to the full target list silently. CI invocations keep working without flags.
 
 ## `sync`
 
@@ -297,7 +297,7 @@ Override per-run with `--gitignore on|off` on `sync`.
 
 ### Picking the default at `init`
 
-`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files; pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt — pass `--gitignore` to opt in:
+`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files; pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt. Pass `--gitignore` to opt in:
 
     agnostic-ai init --all --gitignore
 
@@ -418,7 +418,7 @@ outputs:
 | `justification` | no | Free-form comment emitted above the rule as a `#` line. |
 | `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
 
-For projects with many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries — order matters because Codex evaluates rules top-down.
+For projects with many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters because Codex evaluates rules top-down.
 
 When you run `agnostic-ai import codex` against a project that already ships `.codex/rules/default.rules`, the import captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without any extra config.
 
@@ -441,7 +441,7 @@ first-class key is dropped to keep the TOML valid.
 - `agnostic-ai.yaml` (and `agnostic-ai.local.yaml` when present)
 - every directory listed under `sources` (agents, skills, rules, hooks, mcps, commands)
 - `.agnostic-ai.local/` (the project-user spec layer)
-- `.agnostic-ai/overlays/` — captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit the overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, …) and watch re-runs `sync` within the 50 ms debounce window.
+- `.agnostic-ai/overlays/`: captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit the overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, …) and watch re-runs `sync` within the 50 ms debounce window.
 
 See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounce details.
 

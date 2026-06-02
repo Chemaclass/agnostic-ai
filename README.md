@@ -91,7 +91,7 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
 
-A ✅ means the file lands where the target documents. Not every cell is a path the upstream tool auto-loads — see [targets](docs/user/targets.md) for which paths are native vs. convention and how to wire conventions into each tool.
+A ✅ means the file lands where the target documents. Not every cell is a path the upstream tool auto-loads. See [targets](docs/user/targets.md) for which paths are native vs. convention and how to wire conventions into each tool.
 
 ## Install
 
@@ -110,7 +110,7 @@ agnostic-ai upgrade --run     # exec the detected upgrade command
 agnostic-ai upgrade --check   # diagnose install location + PATH shadowing
 ```
 
-Detects whether the running binary came from Homebrew, `go install`, or a raw download, then prints (or runs) the matching upgrade command. `--check` flags any other `agnostic-ai` on `PATH` that would shadow the resolved executable — the common reason `brew upgrade` reports "already up-to-date" but `agnostic-ai --version` keeps showing an older release.
+Detects whether the running binary came from Homebrew, `go install`, or a raw download, then prints (or runs) the matching upgrade command. `--check` flags any other `agnostic-ai` on `PATH` that would shadow the resolved executable. That is the common reason `brew upgrade` reports "already up-to-date" but `agnostic-ai --version` keeps showing an older release.
 
 Direct package-manager commands work too:
 
@@ -132,7 +132,7 @@ Edit specs under `.agnostic-ai/`, run `sync` again. Already have `.cursor/rules`
 agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, continue, ...
 ```
 
-CI gate — fail PRs that drift from source specs:
+CI gate to fail PRs that drift from source specs:
 
 ```yaml
 - uses: chemaclass/agnostic-ai-action@v1
@@ -144,27 +144,27 @@ CI gate — fail PRs that drift from source specs:
 ## Documentation
 
 **Get started**
-- [Getting started](docs/user/getting-started.md) — first rule, first sync, in 2 minutes
-- [Spec format](docs/user/spec-format.md) — frontmatter reference for every kind
-- [Examples](docs/examples/) — drop-in templates
+- [Getting started](docs/user/getting-started.md): first rule, first sync, in 2 minutes
+- [Spec format](docs/user/spec-format.md): frontmatter reference for every kind
+- [Examples](docs/examples/): drop-in templates
 
 **Reference**
-- [Targets](docs/user/targets.md) — what each adapter emits and where
-- [Configuration](docs/user/configuration.md) — `agnostic-ai.yaml` reference
-- [CLI reference](docs/user/cli-reference.md) — every flag, every command
-- [Errors](docs/user/errors.md) — error code lookup
+- [Targets](docs/user/targets.md): what each adapter emits and where
+- [Configuration](docs/user/configuration.md): `agnostic-ai.yaml` reference
+- [CLI reference](docs/user/cli-reference.md): every flag, every command
+- [Errors](docs/user/errors.md): error code lookup
 
 **Workflows**
-- [CI gate](docs/user/ci.md) — drift checks on every PR
-- [Git hooks](docs/user/git-hooks.md) — pre-commit, lefthook, husky recipes
-- [Packs](docs/user/packs.md) — share spec bundles across repos
+- [CI gate](docs/user/ci.md): drift checks on every PR
+- [Git hooks](docs/user/git-hooks.md): pre-commit, lefthook, husky recipes
+- [Packs](docs/user/packs.md): share spec bundles across repos
 
 **Tools**
-- [Playground](https://chemaclass.github.io/agnostic-ai/) — paste a spec, see what every adapter emits (WASM, runs offline)
-- [Editor extensions](editors/) — VS Code (shipped), JetBrains (planned)
+- [Playground](https://chemaclass.github.io/agnostic-ai/): paste a spec, see what every adapter emits (WASM, runs offline)
+- [Editor extensions](editors/): VS Code (shipped), JetBrains (planned)
 
 **Contributing**
-- [Architecture & roadmap](docs/internal/) — adapter pattern, adding targets, release process
+- [Architecture & roadmap](docs/internal/): adapter pattern, adding targets, release process
 
 ---
 

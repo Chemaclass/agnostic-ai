@@ -1,5 +1,5 @@
 # Full reference config showing every available knob with its default value.
-# Trim down to what you actually need. Every section is optional.
+# Trim down to what you need. Every section is optional.
 
 version: 1
 

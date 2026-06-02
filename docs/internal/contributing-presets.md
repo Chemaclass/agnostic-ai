@@ -28,7 +28,7 @@ The `presetFS` `embed.FS` uses `all:initdata/presets`, so new dirs are picked up
 ## Style
 
 - Stack-shaped, not project-shaped. `python` says "use type hints", not "use this team's mypy config".
-- One topic per spec. `python-style.md`, `pytest.md`, `typing.md` — not a giant `python.md`.
+- One topic per spec. `python-style.md`, `pytest.md`, `typing.md`, not a giant `python.md`.
 - Scope rules with `globs:` so they fire only on relevant files.
 - `alwaysApply: true` for style/testing rules; `false` for narrow scopes.
 

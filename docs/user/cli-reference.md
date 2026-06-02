@@ -70,8 +70,8 @@ CLI present in the project.
 | Source | Becomes |
 |--------|---------|
 | `.claude/rules/*.md` (preferred) | `<rules>/<name>.md` (byte-identical copy) |
-| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section — only when `.claude/rules/` is absent |
-| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` — only when `.claude/rules/` is absent |
+| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section (only when `.claude/rules/` is absent) |
+| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
@@ -276,7 +276,7 @@ to `agnostic-ai.yaml` so future syncs skip the prompt.
 
 - **TTY:** multi-select widget (same UI as `init`'s default prompt).
 - **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects + persists without a prompt.
-- **Non-TTY with no piped data (CI):** silent fallback — emits every configured target. CI runs keep working without changes.
+- **Non-TTY with no piped data (CI):** silent fallback. Emits every configured target. CI runs keep working without changes.
 - **Bypass:** pass `--all`, `-t`, `--only`, or `--except` to skip the picker for one run.
 
 ```bash
@@ -360,7 +360,7 @@ The `--json` output uses the same schema as `sync --json`. Actions are
 set), or `"skip"` (file was already absent).
 
 Without a prior `--backup`, `revert` becomes a no-op unless `--force`
-is also passed — protecting helper files from accidental deletion.
+is also passed. This protects helper files from accidental deletion.
 
 ## doctor
 
@@ -449,10 +449,10 @@ generated files. When no files exist yet, the timestamp is reported as `unknown`
 Generate a shell completion script and install it for your shell.
 
 ```bash
-# Bash — system-wide (may need sudo)
+# Bash, system-wide (may need sudo)
 agnostic-ai completion bash > /etc/bash_completion.d/agnostic-ai
 
-# Bash — current user only
+# Bash, current user only
 agnostic-ai completion bash > ~/.local/share/bash-completion/completions/agnostic-ai
 
 # Zsh
