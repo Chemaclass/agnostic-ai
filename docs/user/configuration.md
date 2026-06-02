@@ -40,7 +40,10 @@ sources:
   mcps: mcps
   commands: commands
 
-# AI CLIs to emit configs for.
+# AI CLIs to emit configs for. These 12 are the default set (used when
+# `targets` is omitted). Two more adapters exist, `amp` and `warp`, but
+# both emit the root `AGENTS.md` like `codex`, so enabling them together
+# collides. Add one and give it an `outputs.<target>.file` override.
 targets:
   - claude
   - codex
@@ -51,18 +54,14 @@ targets:
   - cline
   - windsurf
   - continue
-  - amp
   - zed
-  - warp
   - opencode
   - antigravity
 
 # Per-target output overrides. Each target accepts only the fields
-# relevant to it. Defaults shown in comments. The project-root
-# entry-point file (CLAUDE.md, AGENTS.md, GEMINI.md, CONVENTIONS.md,
-# .github/copilot-instructions.md, .opencode/AGENTS.md,
-# .agent/AGENTS.md) is written centrally by `sync` and is not
-# adapter-configurable.
+# relevant to it. Defaults shown in comments. The root entry-point file
+# is written centrally by `sync` and is not adapter-configurable (see
+# the Entry-point files section below).
 #
 # Set `outputs.<target>.rules-file: <path>` on any target to opt back
 # into the legacy concatenated rules layout at that path; `sync` then
@@ -146,7 +145,7 @@ gitignore:
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version. Reserved for future migrations. |
 | `sources` | map | see below | Per-kind source directories (relative to config file). |
-| `targets` | list | all 14 adapters | Adapter names to emit. Unknown targets log a warning and skip. |
+| `targets` | list | 12 default adapters | Adapter names to emit. Defaults to every adapter except `amp` and `warp`. Unknown targets log a warning and skip. |
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
@@ -217,7 +216,7 @@ Per-target paths. Each target reads only the fields it understands; irrelevant f
 
 ## `targets`
 
-When omitted: all 13 adapters above. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
+When omitted: the 12 default adapters above (every adapter except `amp` and `warp`, which collide with `codex` on the root `AGENTS.md`). Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ### Interactive target selection
 
@@ -454,13 +453,10 @@ See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounc
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a conventional root
-entry-point file for every enabled target (`CLAUDE.md`, `AGENTS.md`,
-`GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`,
-`.opencode/AGENTS.md`, `.agent/AGENTS.md`). All files share the same
-canonical pointer body. Targets that share an entry-point path (codex,
-amp, and warp all at `AGENTS.md`) write the file once; the dedup is
-automatic.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point
+file per enabled target, all sharing the canonical pointer body. See the
+[per-target table](targets.md#entry-point-files) for which file each
+target uses.
 
 To opt back into the legacy concatenated layout for a target, set
 `outputs.<target>.rules-file: <path>`. The adapter then writes a

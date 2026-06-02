@@ -20,7 +20,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.codex/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (and multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
-- MCP for 10/13 targets. Aider/Cline/Windsurf lack project-scoped MCP.
+- MCP for 10/14 targets. Aider/Cline/Windsurf lack project-scoped MCP.
 - Hooks beyond Claude: Codex `.codex/config.toml`, Gemini `.gemini/settings.json`.
 
 ## Open

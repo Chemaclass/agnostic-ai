@@ -6,16 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
-- Docs: README and getting-started explain whether to commit or gitignore generated outputs (recommends ignore via `gitignore.enabled`); CONTRIBUTING documents that this repo's AI config is generated, regenerated via `agnostic-ai sync`, and why its `.gitignore` block is hand-maintained rather than tool-managed.
+- Docs explain whether to commit or gitignore generated outputs, and recommend ignoring them via `gitignore.enabled`.
 
 ### Changed
 
+- Docs: `configuration.md` states the correct default target set (12 of 14, omitting `amp` and `warp`), drops the duplicated entry-point list in favor of a link to `targets.md`.
+
 ### Fixed
 
-- Managed `.gitignore` block (`gitignore.enabled`) now root-anchors every entry (`/AGENTS.md`, not `AGENTS.md`). Unanchored basenames matched at any depth, so a generated `.rules`, `CONVENTIONS.md`, or `AGENTS.md` silently ignored same-named files nested elsewhere (e.g. golden fixtures under `internal/adapters/*/testdata/`). (#362)
-- `import claude` now propagates a project's instructions to every target when they live in the nested `.claude/CLAUDE.md` (a documented Claude Code project-memory location) rather than the root `CLAUDE.md`. Previously the nested file was captured only as a claude-private helper overlay, so `sync` fed codex, gemini, and the rest the generic pointer template instead of the real instructions. The nested file is now promoted to the shared `.agnostic-ai/AGNOSTIC_AI.md` body (root `CLAUDE.md` still wins when both exist), and is no longer double-captured as an overlay.
-- Playground rendered nothing for any target whose adapter reads a captured overlay or helper file (claude, codex, and others): the in-browser `js/wasm` runtime has no filesystem, so those reads failed with `ENOSYS` (and other wasm-specific errors) instead of "file not found", aborting the emit. Optional source reads now treat a missing filesystem as "absent" and proceed.
-- Playground now renders each target's root entry-point file (CLAUDE.md, AGENTS.md, GEMINI.md, ...) alongside the per-spec artifacts, mirroring a real `sync`. Previously codex showed nothing for a `rule` spec (codex emits no per-rule file; rules surface only through AGENTS.md), and claude never showed CLAUDE.md.
+- Managed `.gitignore` block now root-anchors every entry (`/AGENTS.md`, not `AGENTS.md`), so a generated path no longer ignores a same-named file nested elsewhere (e.g. golden fixtures under `internal/adapters/*/testdata/`). (#362)
+- `import claude` propagates instructions from a nested `.claude/CLAUDE.md` to every target. They were captured only as a claude-private overlay, so other targets got the generic pointer template instead. (#361)
+- Playground renders targets whose adapter reads an overlay or helper file (claude, codex). The `js/wasm` runtime has no filesystem, so optional source reads now treat a missing filesystem as "absent" instead of failing with `ENOSYS`.
+- Playground renders each target's root entry-point file (CLAUDE.md, AGENTS.md, ...) alongside the per-spec artifacts, mirroring a real `sync`.
 
 ### Removed
 
