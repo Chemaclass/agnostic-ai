@@ -81,10 +81,10 @@ One record per edge, suitable for editor extensions and scripts.
 # Default matrix view
 agnostic-ai graph
 
-# Just the claude column
+# Only the claude column
 agnostic-ai graph --target claude
 
-# Just one spec across every target
+# One spec across every target
 agnostic-ai graph --spec no-console-log
 
 # Only rule-kind edges, as JSON

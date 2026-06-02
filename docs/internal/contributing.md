@@ -15,7 +15,7 @@ make build      # builds ./agnostic-ai
 make test
 ```
 
-`make tools` puts binaries in `$(go env GOPATH)/bin` — ensure it is on `$PATH`.
+`make tools` puts binaries in `$(go env GOPATH)/bin`. Ensure it is on `$PATH`.
 
 ## Dev loop
 
@@ -72,5 +72,5 @@ Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. 
 ## See also
 
 - [Release process](release-process.md)
-- [Decision log](decisions.md) — add non-obvious architectural calls.
+- [Decision log](decisions.md): add non-obvious architectural calls.
 - Questions: open a Discussion.

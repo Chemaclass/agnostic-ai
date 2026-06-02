@@ -119,7 +119,7 @@ skills/yaml-validator/SKILL.md
 skills/yaml-validator/schema.yaml
 ```
 
-Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories (scripts, templates, fixtures, nested subdirectories) are copied verbatim to the same relative location under each target's skills dir — useful for shipping a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the skill body references. Executable bits are preserved both directions through import + sync.
+Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories (scripts, templates, fixtures, nested subdirectories) are copied verbatim to the same relative location under each target's skills dir. This is useful for shipping a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the skill body references. Executable bits are preserved both directions through import + sync.
 
 ```markdown
 ---
@@ -195,7 +195,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 
 When none of these fields is set the hook emits to every target that supports hooks (legacy behavior). `target` and `targets` are mutually informative; `target` takes precedence when both appear. Exclude wins: a target in both an include AND an exclude list is excluded.
 
-The same four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not just hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
+The same four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not only hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
 
 ### Per-target body fences
 
@@ -256,7 +256,7 @@ Hooks imported from a tool-native source auto-set `target` to that tool (codex i
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
 
-Emitted natively by Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), and Gemini (`.gemini/settings.json` `hooks` — uses event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
+Emitted natively by Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), and Gemini (`.gemini/settings.json` `hooks`, uses event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
 
 ### How agnostic-ai frontmatter renders per target
 

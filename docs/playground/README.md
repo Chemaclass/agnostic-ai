@@ -17,7 +17,7 @@ make playground-build       # compiles the WASM and copies wasm_exec.js
 make playground-serve       # builds, then serves on http://127.0.0.1:8080
 ```
 
-`file://` protocol does **not** work — browsers refuse to fetch the
+`file://` protocol does **not** work. Browsers refuse to fetch the
 `.wasm` from a `file://` page. Use the `playground-serve` target or any
 static HTTP server pointed at `docs/playground/`.
 
@@ -41,7 +41,7 @@ static HTTP server pointed at `docs/playground/`.
   the binary, so the UI can build the target picker dynamically.
 
 Adapters run under capture mode (`adapters.StartCapture()`), so no
-filesystem operations occur — perfect for the WASM sandbox.
+filesystem operations occur, perfect for the WASM sandbox.
 
 ## Build size
 

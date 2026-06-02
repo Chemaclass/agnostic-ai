@@ -80,7 +80,7 @@ Host writes one JSON document to stdin and reads one JSON document from stdout. 
 
 - Adapter runs as subprocess, not in-process. Sandboxed by whatever the host OS enforces for children.
 - Host pipes stdin once, reads stdout to EOF, waits for exit. No interactive terminal.
-- Adapter must not write to disk — host owns all on-disk state so capture/backup/dry-run stays consistent.
+- Adapter must not write to disk. Host owns all on-disk state so capture/backup/dry-run stays consistent.
 
 ## Versioning
 
