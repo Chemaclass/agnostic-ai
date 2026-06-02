@@ -208,3 +208,57 @@ func TestValidateGitignoreFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestCollapseManagedEntries_FoldsOutputDirsKeepsRootAndSources(t *testing.T) {
+	in := []string{
+		"/.agnostic-ai/.sync-state",
+		"/.claude/CLAUDE.md",
+		"/.claude/README.md",
+		"/.claude/skills/test/SKILL.md",
+		"/.codex/agents/x.md",
+		"/AGENTS.md",
+	}
+	got := collapseManagedEntries(in, []string{".agnostic-ai"})
+	want := []string{
+		"/.agnostic-ai/.sync-state", // protected source dir: kept precise
+		"/.claude/",                 // output dir: collapsed
+		"/.codex/",                  // output dir: collapsed
+		"/AGENTS.md",                // root file: kept
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d] got %q want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestCollapseManagedEntries_NeverIgnoresSourceTree(t *testing.T) {
+	// A spec living under .agnostic-ai must never be collapsed into
+	// `/.agnostic-ai/`, which would ignore committed sources.
+	in := []string{"/.agnostic-ai/.sync-state", "/.agnostic-ai/agents/a.md"}
+	got := collapseManagedEntries(in, []string{".agnostic-ai"})
+	for _, e := range got {
+		if e == "/.agnostic-ai/" {
+			t.Fatalf("source dir was collapsed: %v", got)
+		}
+	}
+}
+
+func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Sources.Agents = ".agnostic-ai/agents"
+	cfg.Sources.Skills = "specs/skills"
+	got := protectedSourceTopDirs(cfg)
+	found := map[string]bool{}
+	for _, d := range got {
+		found[d] = true
+	}
+	for _, want := range []string{".agnostic-ai", "specs"} {
+		if !found[want] {
+			t.Errorf("missing protected dir %q in %v", want, got)
+		}
+	}
+}

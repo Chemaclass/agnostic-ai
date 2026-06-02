@@ -84,6 +84,80 @@ func normalizeGitignorePath(p string) string {
 	return "/" + p
 }
 
+// collapseManagedEntries folds every entry that lives under a generated
+// output directory into a single `/dir/` rule, so the managed block reads
+// `/.claude/` instead of one line per emitted file. Two kinds of entry are
+// kept verbatim so collapsing never ignores a committed file:
+//   - root-level files (no directory segment, e.g. `/AGENTS.md`);
+//   - entries under a protected source directory, where tracked specs live
+//     alongside generated state (e.g. `/.agnostic-ai/.sync-state`).
+//
+// Input entries are already root-anchored and sorted (normalizeAndSort).
+func collapseManagedEntries(entries, protectedTopDirs []string) []string {
+	protected := make(map[string]struct{}, len(protectedTopDirs))
+	for _, d := range protectedTopDirs {
+		protected[d] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(entries))
+	out := make([]string, 0, len(entries))
+	add := func(e string) {
+		if _, ok := seen[e]; ok {
+			return
+		}
+		seen[e] = struct{}{}
+		out = append(out, e)
+	}
+	for _, e := range entries {
+		rel := strings.TrimPrefix(e, "/")
+		i := strings.Index(rel, "/")
+		if i < 0 {
+			add(e) // root-level file: nothing to collapse into
+			continue
+		}
+		if _, isProtected := protected[rel[:i]]; isProtected {
+			add(e) // source dir: keep the precise file
+			continue
+		}
+		add("/" + rel[:i] + "/")
+	}
+	sort.Strings(out)
+	return out
+}
+
+// protectedSourceTopDirs returns the top-level directory of every spec
+// source plus the `.agnostic-ai` layer root. collapseManagedEntries leaves
+// entries under these untouched so a tracked spec is never swallowed by a
+// directory-wide ignore.
+func protectedSourceTopDirs(cfg *config.Config) []string {
+	set := map[string]struct{}{".agnostic-ai": {}}
+	for _, s := range []string{
+		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules,
+		cfg.Sources.Hooks, cfg.Sources.MCPs, cfg.Sources.Commands,
+	} {
+		if top := gitignoreTopSegment(s); top != "" {
+			set[top] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for d := range set {
+		out = append(out, d)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func gitignoreTopSegment(p string) string {
+	p = strings.TrimPrefix(filepath.ToSlash(p), "./")
+	p = strings.TrimPrefix(p, "/")
+	if p == "" {
+		return ""
+	}
+	if i := strings.Index(p, "/"); i >= 0 {
+		return p[:i]
+	}
+	return p
+}
+
 // updateGitignore rewrites the managed block in `.gitignore` (or
 // cfg.Gitignore.Path) with the provided entries. Lines outside the block
 // are preserved as-is. The file is created if missing. An empty entries
