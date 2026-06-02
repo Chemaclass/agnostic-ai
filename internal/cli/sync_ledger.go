@@ -41,6 +41,42 @@ func finalizeLedger(session []string) []string {
 	return out
 }
 
+// coversAllConfiguredTargets reports whether emitted includes every
+// target in configured. A sync that emits only a subset (via --only or
+// --except) must not sweep the un-emitted targets' files as orphans.
+func coversAllConfiguredTargets(emitted, configured []string) bool {
+	set := make(map[string]struct{}, len(emitted))
+	for _, t := range emitted {
+		set[t] = struct{}{}
+	}
+	for _, t := range configured {
+		if _, ok := set[t]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// reconcilePartialLedger guards the orphan sweep against partial syncs.
+// When a run emits only a subset of the configured targets, the files
+// owned by the un-emitted targets are absent from the current ledger and
+// sweepLedgerOrphans would delete them. Folding the prior ledger into the
+// current set keeps those files on disk and turns the sweep into a no-op
+// for paths this run did not own. A later full sync (one that covers
+// every configured target) reconciles any genuine orphans.
+//
+// On a full run the ledger is returned unchanged so removed targets and
+// deleted specs are still swept.
+func reconcilePartialLedger(ledger, priorOutputs []string, coversAll bool) []string {
+	if coversAll {
+		return ledger
+	}
+	merged := make([]string, 0, len(ledger)+len(priorOutputs))
+	merged = append(merged, ledger...)
+	merged = append(merged, priorOutputs...)
+	return finalizeLedger(merged)
+}
+
 // sweepLedgerOrphans removes every path the previous sync wrote but
 // the current sync did not. Each candidate flows through
 // emit.RemoveGenerated, which leaves user-authored files (no agnostic

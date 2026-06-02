@@ -6,18 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Added
 
-- Docs explain whether to commit or gitignore generated outputs, and recommend ignoring them via `gitignore.enabled`.
+- Docs: recommend gitignoring generated outputs via `gitignore.enabled`.
 
 ### Changed
 
-- Docs: `configuration.md` states the correct default target set (12 of 14, omitting `amp` and `warp`), drops the duplicated entry-point list in favor of a link to `targets.md`.
+- Docs: `configuration.md` fixes the default target set (12 of 14; omits `amp`, `warp`) and links `targets.md` instead of duplicating the entry-point list.
 
 ### Fixed
 
-- Managed `.gitignore` block now root-anchors every entry (`/AGENTS.md`, not `AGENTS.md`), so a generated path no longer ignores a same-named file nested elsewhere (e.g. golden fixtures under `internal/adapters/*/testdata/`). (#362)
-- `import claude` propagates instructions from a nested `.claude/CLAUDE.md` to every target. They were captured only as a claude-private overlay, so other targets got the generic pointer template instead. (#361)
-- Playground renders targets whose adapter reads an overlay or helper file (claude, codex). The `js/wasm` runtime has no filesystem, so optional source reads now treat a missing filesystem as "absent" instead of failing with `ENOSYS`.
-- Playground renders each target's root entry-point file (CLAUDE.md, AGENTS.md, ...) alongside the per-spec artifacts, mirroring a real `sync`.
+- `sync --only`/`--except` no longer deletes un-synced targets' files. The orphan sweep compared the full prior ledger against the partial run's subset; partial runs now carry the prior ledger forward and defer cleanup to the next full sync.
+- Managed `.gitignore` entries are root-anchored (`/AGENTS.md`), so a generated path no longer ignores a same-named file nested elsewhere. (#362)
+- `import claude` propagates a nested `.claude/CLAUDE.md`'s instructions to every target, not just the claude overlay. (#361)
+- Playground: optional source reads treat a missing `js/wasm` filesystem as absent instead of failing with `ENOSYS`.
+- Playground renders each target's root entry-point file (CLAUDE.md, AGENTS.md, ...) alongside per-spec artifacts.
 
 ### Removed
 

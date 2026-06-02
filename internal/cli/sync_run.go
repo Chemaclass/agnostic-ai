@@ -187,6 +187,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		adapters.FlushCapabilityWarnings()
 	}
 	ledger := finalizeLedger(ledgerSession)
+	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
@@ -336,6 +337,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 	prev := readStateFile(root)
 	ledger := finalizeLedger(ledgerSession)
+	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
