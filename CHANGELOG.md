@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ### Fixed
 
+- Restored overlay helper files (e.g. `.claude/README.md`) now flow through the recorded write path, so they land in the managed `.gitignore` block and the output ledger instead of being written silently. They were emitted via raw `os.WriteFile`, leaking as untracked and escaping orphan tracking.
 - `sync --only`/`--except` no longer deletes un-synced targets' files. The orphan sweep compared the full prior ledger against the partial run's subset; partial runs now carry the prior ledger forward and defer cleanup to the next full sync.
 - Managed `.gitignore` entries are root-anchored (`/AGENTS.md`), so a generated path no longer ignores a same-named file nested elsewhere. (#362)
 - `import claude` propagates a nested `.claude/CLAUDE.md`'s instructions to every target, not just the claude overlay. (#361)

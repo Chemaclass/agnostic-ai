@@ -55,13 +55,14 @@ func RestoreHelperFiles(tool string, dryRun bool) error {
 			return fmt.Errorf("read %s: %w", src, err)
 		}
 		dst := filepath.Join("."+tool, e.Name())
-		if dryRun {
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
-		}
-		if err := os.WriteFile(dst, body, info.Mode().Perm()); err != nil {
+		// Route through writeFileWithMode (not raw os.WriteFile) so the
+		// restored helper is captured by recording (gitignore block),
+		// detailed recording (output ledger), and the rollback log -
+		// otherwise a generated file like `.claude/README.md` is written
+		// but never ignored or tracked as an output. Mode is preserved so
+		// executable helpers stay executable; content is written
+		// byte-identical (no trailing-newline normalization).
+		if err := writeFileWithMode(dst, string(body), info.Mode().Perm(), dryRun); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 	}
