@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+## v0.30.0 - 2026-06-02
+
 ### Changed
 
 - The managed `.gitignore` block collapses generated output directories to a single rule (`/.claude/`) instead of listing every file beneath them. Root-level outputs (`/AGENTS.md`) and entries under a source directory (`/.agnostic-ai/.sync-state`) stay precise so committed specs are never ignored.
