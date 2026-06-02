@@ -33,7 +33,7 @@ agnostic-ai.yaml          (committed; team defaults)
    config.Load ──► *config.Config (defaults applied)
 ```
 
-Legacy `agnostic.config.yaml` still loads with a one-shot stderr rename warning.
+Legacy `agnostic.config.yaml` still loads, with a one-shot stderr rename warning.
 
 ### Spec layer
 
@@ -55,7 +55,7 @@ Per-target outputs documented in [docs/user/targets.md](../user/targets.md).
 
 ## Emit modes
 
-Shared `emit` package keeps three orthogonal modes behind a mutex-guarded `state` struct:
+The shared `emit` package keeps three orthogonal modes behind a mutex-guarded `state` struct:
 
 | Mode | Effect | Used by |
 |------|--------|---------|

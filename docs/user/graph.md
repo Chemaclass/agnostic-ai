@@ -1,8 +1,8 @@
 # graph
 
-Render the spec → target → file dependency graph for the current project.
+Render the spec to target to file dependency graph for the current project.
 
-`graph` walks the loaded spec bundle, asks every configured target adapter which files each spec would produce, and prints the result. Read-only: it never invokes Emit on disk.
+`graph` walks the loaded spec bundle, asks every configured target adapter which files each spec produces, and prints the result. Read-only: it never invokes Emit on disk. Output is deterministic, sorted by spec name then target.
 
 ## Synopsis
 
@@ -17,15 +17,13 @@ agnostic-ai graph [flags]
 | `--format <text\|mermaid\|dot\|json>` | Output format. Default `text`. |
 | `--target <name>` | Restrict to one target. |
 | `--spec <name>` | Restrict to one spec name. |
-| `--kind <kind>` | Restrict to one spec kind (`agent`, `skill`, `rule`, `hook`, `mcp`, `command`). |
-
-Output is deterministic: edges sort by spec name, then target.
+| `--kind <kind>` | Restrict to one kind (`agent`, `skill`, `rule`, `hook`, `mcp`, `command`). |
 
 ## Formats
 
 ### text (default)
 
-Aligned matrix. Rows are specs, columns are targets, each cell is the spec kind that target emits or `-` when nothing was produced.
+Aligned matrix. Rows are specs, columns are targets. Each cell is the kind that target emits, or `-` when nothing was produced.
 
 ```text
 spec           | claude cursor codex
@@ -36,7 +34,7 @@ other          | rule   rule   rule
 
 ### mermaid
 
-Mermaid `graph LR` for embedding in markdown docs.
+`graph LR` for embedding in markdown docs.
 
 ```mermaid
 graph LR
@@ -62,7 +60,7 @@ digraph agnostic_ai {
 
 ### json
 
-One record per edge, suitable for editor extensions and scripts.
+One record per edge, for editor extensions and scripts.
 
 ```json
 [

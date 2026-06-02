@@ -18,7 +18,7 @@ agnostic-ai [command] [flags]
 Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`. Errors if `agnostic-ai.yaml` exists.
 
 ```bash
-agnostic-ai init                  # default: prompt for targets when stdin is a TTY, base dir .agnostic-ai/
+agnostic-ai init                  # prompt for targets when stdin is a TTY, base dir .agnostic-ai/
 agnostic-ai init --all            # skip the prompt, enable every supported target
 agnostic-ai init specs            # custom base: specs/{agents,skills,...}/
 agnostic-ai init .                # legacy root-level layout
@@ -29,21 +29,19 @@ echo "claude,codex" | agnostic-ai init   # non-TTY: pipe a comma-separated targe
 
 | Flag | Description |
 |------|-------------|
-| `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Existing files are never overwritten. |
-| `--preset <name>` | Seed stack-flavored starter specs. Available: `go`, `ts-react`, `python`. Composes with `--demo` and `--all`. Errors on unknown names with the available list. Existing files are never overwritten, so re-running against a partially populated tree is safe. |
-| `-a, --all` | Skip the target picker and enable every supported target in `agnostic-ai.yaml`. Useful for CI or scripted scaffolds. By default, `init` runs a multi-select prompt when stdin is a TTY, parses a piped comma-separated list when stdin is a pipe, and falls back to all targets when stdin is closed. |
+| `--demo` | Seed each source folder with one minimal example spec so a fresh project produces real output on the first `sync`. Never overwrites existing files. |
+| `--preset <name>` | Seed stack-flavored starter specs: `go`, `ts-react`, `python`. Composes with `--demo` and `--all`. Errors on unknown names with the available list. Never overwrites existing files, so re-running on a partial tree is safe. |
+| `-a, --all` | Skip the target picker and enable every supported target. Useful for CI or scripted scaffolds. |
 
-The optional positional `[dir]` arg sets the base directory under which
-the source folders are created. The generated `agnostic-ai.yaml`
-writes matching `sources:` paths.
+Target selection by default: multi-select prompt on a TTY, piped comma-separated list on a pipe, all targets when stdin is closed.
 
-To pull in an existing AI CLI configuration after init, use `import`.
+The positional `[dir]` arg sets the base directory for the source folders. The generated `agnostic-ai.yaml` writes matching `sources:` paths.
+
+Pull in an existing AI CLI config after init with `import`.
 
 ## import
 
-Translate an existing AI CLI configuration into agnostic specs. Reads
-`agnostic-ai.yaml` to resolve `sources:` paths, then writes specs
-into those directories.
+Translate an existing AI CLI configuration into agnostic specs. Reads `sources:` from `agnostic-ai.yaml`, then writes specs into those directories.
 
 ```bash
 agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,commands,settings.json,rules}, .mcp.json
@@ -55,15 +53,10 @@ agnostic-ai import windsurf       # .windsurf/rules/
 agnostic-ai import continue       # .continue/rules/
 ```
 
-`import` does not modify `targets:` or any other config field; only
-spec files under `sources:` are touched. Re-running overwrites by
-filename. Run after `init`, in the same project root.
-
-Pass multiple sources to import from each in order. Each importer
-mirrors its target's top-level instructions file to
-`.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument
-wins. `all` cannot be combined with other sources; it auto-detects every
-CLI present in the project.
+- Touches only spec files under `sources:`. Never modifies `targets:` or other config.
+- Re-running overwrites by filename. Run after `init`, in the same project root.
+- Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
+- `all` cannot combine with other sources. It auto-detects every CLI present in the project.
 
 `import claude`:
 
@@ -80,9 +73,9 @@ CLI present in the project.
 | `.claude/settings.json` non-hook keys | `.agnostic-ai/overlays/claude.settings.json` (captures statusLine, enabledPlugins, model overrides, and any other top-level keys so `sync -t claude` reproduces the full settings.json after `.claude/` is wiped) |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server; round-trips to every MCP-aware target on the next `sync`) |
 
-When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if the directory is empty) so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` so the project keeps a CLI-agnostic top-level instructions file under the managed directory alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at the project root.
+When `.claude/rules/` exists (even if empty), slicing `CLAUDE.md` is skipped so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` to keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 
-`import codex` walks the project for `AGENTS.md` files at any depth and reads the rest of the Codex tree:
+`import codex` walks the project for `AGENTS.md` at any depth and reads the rest of the Codex tree:
 
 | Source | Becomes |
 |--------|---------|
@@ -98,14 +91,13 @@ When `.claude/rules/` exists, slicing `CLAUDE.md` is skipped entirely (even if t
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped; the codex emitter prepends this overlay before the spec-derived sections on each sync) |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy) |
 
-Slug collisions across files are deduplicated (`style.md`, `style-2.md`). Hidden directories, the configured source directories, `node_modules/`, and `vendor/` are skipped during the walk to avoid picking up unrelated `AGENTS.md` files.
+Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, and `vendor/`.
 
 **Overlay precedence.**
 
-- **Codex**: when both the captured overlay and `outputs.codex.config.*` declare the same key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`), the overlay wins on conflict and the first-class key is dropped to avoid a TOML duplicate-key error.
-- **Claude**: the opposite. `outputs.claude.settings.*` overrides the overlay for any key it declares, so changes you make in `agnostic-ai.yaml` always reach `.claude/settings.json`. Re-run `import claude` to refresh the overlay whenever you hand-edit `.claude/settings.json`.
-
-Keys declared in only one place are passed through unchanged either way.
+- **Codex**: when both the overlay and `outputs.codex.config.*` declare the same key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`), the overlay wins and the first-class key is dropped to avoid a TOML duplicate-key error.
+- **Claude**: the opposite. `outputs.claude.settings.*` overrides the overlay for any key it declares, so `agnostic-ai.yaml` changes always reach `.claude/settings.json`. Re-run `import claude` to refresh the overlay after hand-editing `.claude/settings.json`.
+- Keys in only one place pass through unchanged either way.
 
 `import cursor`:
 
@@ -114,7 +106,7 @@ Keys declared in only one place are passed through unchanged either way.
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
 
-Round-trips cleanly: a subsequent `sync` regenerates equivalent `.cursor/rules/*.mdc`.
+Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`.
 
 `import cline`, `import windsurf`, `import continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
@@ -139,25 +131,16 @@ agnostic-ai validate
 loaded 12 entries. ok.
 ```
 
-When no specs are loaded, `validate` prints a hint to stderr suggesting
-`init` or `import` to populate sources. Stdout still reports `loaded 0
-entries. ok.` so scripts that rely on stdout do not break.
+When no specs load, `validate` prints a stderr hint suggesting `init` or `import`. Stdout still reports `loaded 0 entries. ok.` so scripts that read stdout do not break.
 
-`validate` also surfaces three native-support checks once specs load:
+Once specs load, `validate` runs three native-support checks:
 
-- **Hook events.** Each hook spec's `event:` value must be in the
-  union of every configured target's supported list. Unknown values
-  report inline with the supported list. Per-target sets:
-  - Claude: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`,
-    `SessionStart`, `SessionEnd`, `Stop`, `SubagentStop`, `PreCompact`,
-    `PostCompact`, `Notification`.
-  - Codex: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`,
-    `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `PostCompact`.
+- **Hook events.** Each hook spec's `event:` must be in the union of every configured target's supported list. Unknown values report inline with the supported list. Per-target sets:
+  - Claude: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`.
+  - Codex: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `PostCompact`.
   - Gemini: `BeforeTool`, `AfterTool`, `SessionStart`, `SessionEnd`.
 - **Missing fields.** Hook specs missing `event:` are flagged.
-- **Orphaned kinds.** When a project has hook or MCP specs but no
-  enabled target consumes them, validate prints one summary line per
-  orphaned kind with the targets that would unblock it.
+- **Orphaned kinds.** When a project has hook or MCP specs but no enabled target consumes them, validate prints one summary line per orphaned kind with the targets that would unblock it.
 
 ## list
 
@@ -167,15 +150,11 @@ Print all loaded specs as `kind<tab>name`.
 agnostic-ai list
 ```
 
-When no specs are loaded, `list` prints the same stderr hint and keeps
-stdout empty so pipes stay clean.
+When no specs load, `list` prints the same stderr hint and keeps stdout empty so pipes stay clean.
 
 ## new
 
-Scaffold a single spec file with kind-appropriate frontmatter under the
-source directory configured for that kind. Replaces "copy from `--demo`
-and edit" as the starting point for one new agent, skill, rule, hook,
-or MCP.
+Scaffold a single spec file with kind-appropriate frontmatter under the source directory for that kind. Replaces "copy from `--demo` and edit" for one new agent, skill, rule, hook, or MCP.
 
 ```bash
 agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
@@ -185,16 +164,11 @@ agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
 agnostic-ai new mcp filesystem          # → <mcps>/filesystem.yaml
 ```
 
-Errors if the destination file already exists. Names must be lowercase
-slugs (`[a-z0-9][a-z0-9-]*`); the same form Cursor and Cline expect.
-Honors `sources:` from `agnostic-ai.yaml`, so a project that puts
-specs under `specs/` lands files there automatically.
+Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`), the form Cursor and Cline expect. Honors `sources:` from `agnostic-ai.yaml`, so a project under `specs/` lands files there.
 
 ## explain
 
-Reverse provenance: list every output file and section that one spec
-contributes to. Pairs with the `<!-- source: ... -->` forward markers
-adapters write into merged documents.
+Reverse provenance: list every output file and section one spec contributes to. Pairs with the `<!-- source: ... -->` forward markers adapters write into merged documents.
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md
@@ -205,12 +179,7 @@ agnostic-ai explain rules/conventional-commits.md --json
 |------|-------------|
 | `--json` | Stable schema for editor extensions and scripts. |
 
-Output groups contributions by configured target (the ones in
-`agnostic-ai.yaml`) and a separate "would emit if enabled" list for
-adapters that exist but are not currently activated. Each entry tags
-itself as `(full file)` (the spec owns the file) or
-`(section "<name>")` (the spec contributes one section to a merged
-document). Writes nothing to disk.
+Output groups contributions by configured target (those in `agnostic-ai.yaml`), plus a "would emit if enabled" list for adapters that exist but are not active. Each entry tags itself `(full file)` (the spec owns the file) or `(section "<name>")` (the spec contributes one section to a merged document). Writes nothing.
 
 JSON envelope:
 
@@ -226,9 +195,7 @@ JSON envelope:
 
 ## render
 
-Print the emission for a single spec to stdout, per target. Iterate on
-one spec and see exactly what each adapter would produce, without
-writing files or rerunning a full sync.
+Print the emission for a single spec to stdout, per target. Iterate on one spec and see what each adapter produces, without writing files or rerunning a full sync.
 
 ```bash
 agnostic-ai render rules/no-console-log.md --target cursor
@@ -240,10 +207,7 @@ agnostic-ai render rules/no-console-log.md         # all configured targets
 |------|-------------|
 | `-t, --target <list>` | Target(s) to render. Repeat or comma-separate. Default: every target in `agnostic-ai.yaml`. |
 
-Output format is `# target: <name> — <output path>` followed by the file
-body, one block per emitted file. Targets that produce no output for the
-spec's kind print a short note. Render writes nothing to disk; pair with
-`sync` once the output looks right.
+Output format is `# target: <name> — <output path>` followed by the file body, one block per emitted file. Targets that produce no output for the spec's kind print a short note. Writes nothing; pair with `sync` once the output looks right.
 
 ## sync
 
@@ -262,21 +226,18 @@ agnostic-ai sync [flags]
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
-| `--watch` | Keep the process alive and re-emit on spec, config, or overlay changes. Watched roots: `agnostic-ai.yaml` + `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai.local/`, and `.agnostic-ai/overlays/` (so a hand-edit to `claude.settings.json` / `codex.config.toml` re-emits). Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll on filesystems where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
+| `--watch` | Keep the process alive and re-emit on spec, config, or overlay changes. Watched roots: `agnostic-ai.yaml` + `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai.local/`, and `.agnostic-ai/overlays/` (so a hand-edit to `claude.settings.json` / `codex.config.toml` re-emits). Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--watch-poll` | Force the polling backend (200 ms) even when fsnotify is available. Use on network mounts or container volumes where fsnotify misses events. Requires `--watch`. |
-| `--all` | Emit every configured target without running the first-sync target picker. Useful for ad-hoc full emission or scripted runs that should bypass interactive prompts. |
+| `--all` | Emit every configured target without the first-sync picker. Useful for ad-hoc full emission or scripted runs that bypass prompts. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
 ### First-sync target picker
 
-On the very first `sync` (no `.agnostic-ai/.sync-state` file yet) where
-the config still lists every supported target, `sync` opens an
-interactive multi-select to narrow the list. The selection is persisted
-to `agnostic-ai.yaml` so future syncs skip the prompt.
+On the first `sync` (no `.agnostic-ai/.sync-state` yet) where the config still lists every supported target, `sync` opens an interactive multi-select to narrow the list. The selection persists to `agnostic-ai.yaml` so future syncs skip the prompt.
 
 - **TTY:** multi-select widget (same UI as `init`'s default prompt).
-- **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects + persists without a prompt.
-- **Non-TTY with no piped data (CI):** silent fallback. Emits every configured target. CI runs keep working without changes.
+- **Piped stdin:** `echo "claude,codex" | agnostic-ai sync` selects and persists without a prompt.
+- **Non-TTY, no piped data (CI):** silent fallback. Emits every configured target. CI keeps working.
 - **Bypass:** pass `--all`, `-t`, `--only`, or `--except` to skip the picker for one run.
 
 ```bash
@@ -293,7 +254,7 @@ agnostic-ai sync --json                # machine-readable output
 agnostic-ai sync --check --json        # machine-readable drift report
 ```
 
-`--only` and `--except` validate names against the configured targets list and return an error on unknown names (rather than silently skipping).
+`--only` and `--except` validate names against the configured targets and error on unknown names (no silent skip).
 
 **JSON output schema (version 1):**
 
@@ -316,7 +277,7 @@ agnostic-ai sync --check --json        # machine-readable drift report
 |-------|------|-------------|
 | `version` | string | Schema version. Currently `"1"`. |
 | `command` | string | Command that produced the output (`"sync"` or `"sync --check"`). |
-| `writes` | array | Files written (action `"create"` or `"update"`) or, for `--check`, files that need writing (action `"missing"` or `"stale"`). |
+| `writes` | array | Files written (action `"create"` or `"update"`) or, for `--check`, files needing writing (action `"missing"` or `"stale"`). |
 | `skipped` | array | Files whose on-disk content already matched (action `"skip"`). Empty for `--check`. |
 | `errors` | array | Per-target errors with `target` and `message` fields. |
 
@@ -324,12 +285,7 @@ Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `a
 
 ## revert
 
-Undo a previous sync. For every file an adapter would emit, restores
-`<path>.bak` when present (and removes the .bak). When there is no
-`.bak`, the file is left in place by default so user-authored content
-that happens to share a path with adapter output (helper scripts next
-to `SKILL.md`, templates inside a propagated skill folder, etc.) is
-not silently deleted. Pass `--force` to delete those unbacked files.
+Undo a previous sync. For every file an adapter would emit, restores `<path>.bak` when present (and removes the .bak). With no `.bak`, the file is left in place by default so user-authored content sharing a path with adapter output (helper scripts next to `SKILL.md`, templates inside a propagated skill folder) is not deleted. Pass `--force` to delete those unbacked files.
 
 ```bash
 agnostic-ai revert [flags]
@@ -341,7 +297,7 @@ agnostic-ai revert [flags]
 | `--only <list>` | Revert only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
 | `--except <list>` | Revert all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Report intended actions without touching disk |
-| `--force` | Also delete adapter-emitted files that lack a `.bak`. Use with care: removes user-authored files that share a path with adapter output. |
+| `--force` | Also delete adapter-emitted files that lack a `.bak`. Use with care: removes user-authored files sharing a path with adapter output. |
 | `--json` | Output as JSON instead of plain text. |
 
 ```bash
@@ -354,19 +310,13 @@ agnostic-ai revert --except codex      # roll back everything except codex
 agnostic-ai revert --json              # machine-readable output
 ```
 
-The `--json` output uses the same schema as `sync --json`. Actions are
-`"restore"` (`.bak` was applied), `"remove"` (file was deleted),
-`"preserve"` (file kept because no `.bak` exists and `--force` was not
-set), or `"skip"` (file was already absent).
+`--json` uses the same schema as `sync --json`. Actions are `"restore"` (`.bak` applied), `"remove"` (file deleted), `"preserve"` (kept because no `.bak` and no `--force`), or `"skip"` (file already absent).
 
-Without a prior `--backup`, `revert` becomes a no-op unless `--force`
-is also passed. This protects helper files from accidental deletion.
+Without a prior `--backup`, `revert` is a no-op unless `--force` is passed. This protects helper files from accidental deletion.
 
 ## doctor
 
-Diagnose drift between source specs and emitted artifacts. Reports missing
-files (never synced) and stale files (hand-edited or out of date). Exits
-non-zero when any drift is found.
+Diagnose drift between source specs and emitted artifacts. Reports missing files (never synced) and stale files (hand-edited or out of date). Exits non-zero on any drift.
 
 ```bash
 agnostic-ai doctor                  # all targets in config (read-only)
@@ -383,30 +333,15 @@ agnostic-ai doctor --fix --backup   # save .bak of hand-edits before overwrite
 | `--check-globs` | Flag rules whose `globs:` pattern matches no files in the working tree. Off by default (some monorepos ship globs for paths added later). |
 | `--json` | Output drift report as JSON. Same schema as `sync --check --json`. |
 
-Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to
-spot files the merge resolved manually. Use `--fix` for an interactive cleanup
-pass. Pair with `--backup` when reconciling files you may have hand-edited.
+Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to spot files the merge resolved manually. Use `--fix` for an interactive cleanup pass. Pair with `--backup` when reconciling files you may have hand-edited.
 
-After the drift report, doctor prints an MCP block listing each MCP
-spec's stdio `command:` and whether it resolves on PATH. Missing common
-commands (`npx`, `uvx`, `python`, `docker`) include an inline install
-hint. HTTP/SSE servers (no command, only `url:`) skip the check. The
-report is advisory: a missing binary is an environment problem, not a
-spec problem, so it does not change doctor's exit code.
+After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `command:` and whether it resolves on PATH. Missing common commands (`npx`, `uvx`, `python`, `docker`) include an inline install hint. HTTP/SSE servers (no command, only `url:`) skip the check. Advisory only: a missing binary does not change doctor's exit code.
 
-After the MCP block, doctor walks `.agnostic-ai/scripts/<tool>/` per
-tool and groups files by basename. When the same basename exists under
-two or more tools with different SHA-256 bodies it prints one finding
-per divergent script (sizes + truncated hashes per variant) and the
-suggested consolidation path `.agnostic-ai/scripts/<basename>`.
-Divergence registers as drift and contributes to a non-zero exit
-because it usually represents an unnoticed import diff between tools.
-Not auto-fixable: choosing which body wins requires human judgement.
+After the MCP block, doctor walks `.agnostic-ai/scripts/<tool>/` per tool and groups files by basename. When the same basename exists under two or more tools with different SHA-256 bodies, it prints one finding per divergent script (sizes + truncated hashes per variant) and the suggested consolidation path `.agnostic-ai/scripts/<basename>`. Divergence counts as drift and contributes to a non-zero exit, since it usually means an unnoticed import diff between tools. Not auto-fixable: choosing the winning body needs human judgement.
 
 ## status
 
-Show project configuration and current sync state. Exits 0 even when drift is
-detected. Use `sync --check` or `doctor` as CI gates.
+Show project configuration and current sync state. Exits 0 even on drift. Use `sync --check` or `doctor` as CI gates.
 
 ```bash
 agnostic-ai status          # human-readable output
@@ -440,9 +375,7 @@ Drift:   in sync
 | `files_changed_last_sync` | number or null | Files written during the last sync, or `null` when the timestamp came from an mtime fallback. |
 | `drift_files` | number | Count of emitted files whose on-disk content differs from what `sync` would produce. |
 
-**State file:** Each successful `sync` writes `.agnostic-ai/.sync-state` (JSON) recording the
-timestamp and file count. When that file is absent, `status` falls back to the newest mtime of
-generated files. When no files exist yet, the timestamp is reported as `unknown`.
+**State file:** Each successful `sync` writes `.agnostic-ai/.sync-state` (JSON) with the timestamp and file count. When absent, `status` falls back to the newest mtime of generated files. With no files yet, the timestamp is `unknown`.
 
 ## completion
 
@@ -465,7 +398,7 @@ agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
 agnostic-ai completion powershell | Out-String | Invoke-Expression
 ```
 
-After installing, restart your shell (or `source` the completion file). Tab-completing `--target` reads `agnostic-ai.yaml` in the current directory and falls back to the full default target list when no config is found.
+After installing, restart your shell (or `source` the file). Tab-completing `--target` reads `agnostic-ai.yaml` in the current directory and falls back to the full default target list when no config is found.
 
 Run `agnostic-ai completion <shell> --help` for shell-specific setup instructions.
 
@@ -485,7 +418,7 @@ Detection:
 - `$GOBIN` or `$GOPATH/bin` (defaults to `$HOME/go/bin`) → `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`
 - Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
 
-If another `agnostic-ai` binary on `PATH` shadows the resolved executable, `upgrade` lists each shadow so you can remove the stale copy. Common cause: a Homebrew install behind an older `~/go/bin/agnostic-ai` or `/usr/local/bin/agnostic-ai`, where `brew upgrade` correctly reports the brew copy is current but `agnostic-ai --version` keeps resolving to the older binary.
+If another `agnostic-ai` on `PATH` shadows the resolved executable, `upgrade` lists each shadow so you can remove the stale copy. Common cause: a Homebrew install behind an older `~/go/bin/agnostic-ai` or `/usr/local/bin/agnostic-ai`, where `brew upgrade` reports the brew copy is current but `agnostic-ai --version` keeps resolving to the older binary.
 
 ## help
 

@@ -1,12 +1,12 @@
 # Configuration
 
-`agnostic-ai.yaml` lives at the project root. Read from the current working directory at command time. Every section is optional; defaults below.
+`agnostic-ai.yaml` lives at the project root. It is read from the current working directory at command time. Every section is optional. Defaults are listed below.
 
-> **Legacy filename:** projects that still use `agnostic.config.yaml` continue to work. The CLI loads it with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
+Legacy filename: `agnostic.config.yaml` still loads, with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
 
 ## Local overrides
 
-Drop an `agnostic-ai.local.yaml` next to the base config to layer per-machine tweaks without touching the shared file. Loaded after the base and deep-merged: scalars and lists in the local file replace the base, maps merge recursively. `agnostic-ai init` adds the local filename to `.gitignore` automatically.
+Add `agnostic-ai.local.yaml` next to the base config for per-machine tweaks. It loads after the base and deep-merges: scalars and lists replace the base, maps merge recursively. `agnostic-ai init` adds the local filename to `.gitignore`.
 
 ```yaml
 # agnostic-ai.local.yaml (never committed)
@@ -18,13 +18,13 @@ outputs:
 
 ## Editor validation
 
-The JSON Schema for this file is published at `docs/schemas/config.schema.json`. The `init` command embeds a `yaml-language-server` comment in the generated file:
+The JSON Schema is published at `docs/schemas/config.schema.json`. `init` embeds this comment in the generated file:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json
 ```
 
-Editors with YAML Language Server support pick this up automatically and validate keys and values as you type.
+Editors with YAML Language Server support validate keys and values as you type.
 
 ## Full schema
 
@@ -153,34 +153,34 @@ gitignore:
 
 ## `sources`
 
+Paths are relative to the config file. Missing directories are skipped silently.
+
 | Field | Default | Description |
 |-------|---------|-------------|
-| `agents` | `agents` | Directory containing `*.md` agent specs. |
-| `skills` | `skills` | Directory containing `*.md` skill specs (or nested `<name>/SKILL.md`). |
-| `rules` | `rules` | Directory containing `*.md` rule specs. |
-| `hooks` | `hooks` | Directory containing `*.yaml` hook specs. |
-| `mcps` | `mcps` | Directory containing `*.yaml` MCP server specs. |
-
-Paths are relative to the config file. Missing directories are skipped silently.
+| `agents` | `agents` | `*.md` agent specs. |
+| `skills` | `skills` | `*.md` skill specs (or nested `<name>/SKILL.md`). |
+| `rules` | `rules` | `*.md` rule specs. |
+| `hooks` | `hooks` | `*.yaml` hook specs. |
+| `mcps` | `mcps` | `*.yaml` MCP server specs. |
 
 ## `outputs`
 
-Per-target paths. Each target reads only the fields it understands; irrelevant fields are ignored.
+Per-target paths. Each target reads only the fields it understands. Irrelevant fields are ignored.
 
 | Target | Field | Default | Notes |
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
-| `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule (default). |
-| `claude` | `rules-file` | _empty_ | When set, switches back to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
+| `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule. |
+| `claude` | `rules-file` | _empty_ | When set, switches to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |
-| `codex` | `agents-dir` | `.codex/agents` | One TOML file per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
-| `codex` | `skills-dir` | `.codex/skills` | One folder per skill per the Codex skills layout. Override to `.agents/skills` for the community shared layout. |
+| `codex` | `agents-dir` | `.codex/agents` | One TOML per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
+| `codex` | `skills-dir` | `.codex/skills` | One folder per skill (Codex skills layout). Override to `.agents/skills` for the community shared layout. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
-| `codex` | `mcp-file` | `.codex/config.toml` | Holds `[mcp_servers.<name>]` tables. Hooks moved out into `hooks-file` (see below). |
-| `codex` | `hooks-file` | `.codex/hooks.json` | Per-event hook arrays in Claude `settings.json`-shaped JSON. Preferred over the legacy TOML `[[hooks.<event>]]` schema because it preserves per-hook `timeout` + `statusMessage` and dedupes overlapping matchers. |
+| `codex` | `mcp-file` | `.codex/config.toml` | Holds `[mcp_servers.<name>]` tables. Hooks moved out into `hooks-file`. |
+| `codex` | `hooks-file` | `.codex/hooks.json` | Per-event hook arrays in Claude `settings.json`-shaped JSON. Preferred over the legacy TOML `[[hooks.<event>]]` schema: preserves per-hook `timeout` + `statusMessage` and dedupes overlapping matchers. |
 | `codex` | `config` | _empty_ | First-class block for `.codex/config.toml` global keys. See [Codex config](#codex-config). |
-| _any_   | `provenance-header` | `true` | When `false`, suppresses the `Generated by agnostic-ai` comment in this target's emitted files. Useful for byte-stable round-trip from hand-authored sources. Loses the legacy-file detection that comment enables, so opt out per-target rather than project-wide. |
+| _any_ | `provenance-header` | `true` | When `false`, suppresses the `Generated by agnostic-ai` comment in this target's files. Useful for byte-stable round-trip from hand-authored sources. Loses the legacy-file detection that comment enables, so opt out per-target rather than project-wide. |
 | `gemini` | `commands-dir` | `.gemini/commands` | One TOML per agent (one per skill when `emit-skills-as-commands: true`). |
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
@@ -220,17 +220,17 @@ When omitted: the 12 default adapters above (every adapter except `amp` and `war
 
 ### Interactive target selection
 
-`agnostic-ai init` opens a multi-select prompt when stdin is a TTY so most projects only enable a handful of targets:
+`agnostic-ai init` opens a multi-select prompt when stdin is a TTY:
 
     agnostic-ai init
 
 Use ↑/↓ to move, space to toggle, enter to confirm. The resulting `targets:` list contains only the chosen targets, in canonical order.
 
-For scripted use (CI, integration tests), pipe a comma-separated line of target names instead:
+For scripted use (CI, integration tests), pipe a comma-separated line of target names:
 
     echo "claude,codex" | agnostic-ai init
 
-Unknown names produce a clear error and leave the working tree untouched. To skip the picker entirely and enable every supported target, pass `--all` (`-a`). A non-TTY stdin with no piped data falls back to the full target list silently. CI invocations keep working without flags.
+Unknown names produce a clear error and leave the working tree untouched. Pass `--all` (`-a`) to skip the picker and enable every supported target. A non-TTY stdin with no piped data falls back to the full target list silently.
 
 ## `sync`
 
@@ -238,12 +238,12 @@ Sync-level knobs applied globally. Per-target overrides live in `outputs.<target
 
 ### `sync.collision-policy`
 
-Controls what happens when two enabled targets would emit to the same output path.
+Controls what happens when two enabled targets emit to the same output path.
 
 | Value | Behavior |
 |-------|----------|
-| `prompt` | Error with a resolution hint. Default. On non-interactive stdin (CI), appends a hint to set a non-interactive policy. |
-| `prefer-spec` | Skip the collision pre-flight. Let the last adapter win. Use this in CI when you intentionally enable overlapping targets and accept last-writer-wins. |
+| `prompt` | Default. Error with a resolution hint. On non-interactive stdin (CI), appends a hint to set a non-interactive policy. |
+| `prefer-spec` | Skip the collision pre-flight. Last adapter wins. Use in CI when overlapping targets are intentional and last-writer-wins is acceptable. |
 | `fail` | Hard error with no resolution hint. |
 
 Per-target override: `outputs.<target>.collision-policy`.
@@ -264,8 +264,8 @@ Controls how `agnostic-ai import codex` treats `AGENTS.md`.
 
 | Value | Behavior |
 |-------|----------|
-| `true` | Split each `AGENTS.md` into one rule spec per `##` heading. Default. |
-| `false` | Keep each `AGENTS.md` as a single rule spec (full body verbatim). Use when codex `AGENTS.md` duplicates policy already authored as standalone rules and you want it as a reference doc, not a source of new rule files. |
+| `true` | Default. Split each `AGENTS.md` into one rule spec per `##` heading. |
+| `false` | Keep each `AGENTS.md` as a single rule spec (full body verbatim). Use when codex `AGENTS.md` duplicates policy already authored as standalone rules and you want it as a reference doc. |
 
 ```yaml
 # In agnostic-ai.yaml
@@ -276,38 +276,34 @@ import:
 
 ## `on-unsupported`
 
+Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for Codex or `skills` for Cursor).
+
 | Value | Behavior |
 |-------|----------|
-| `warn` | Log to stderr and continue. Default. |
+| `warn` | Default. Log to stderr and continue. |
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
-
-Fires when an adapter receives spec kinds it does not support, e.g. `hooks` for Codex or `skills` for Cursor.
 
 ## `gitignore`
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `enabled` | `false` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters would emit. |
+| `enabled` | `false` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
 
-The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere in the tree.
+The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere.
 
 Override per-run with `--gitignore on|off` on `sync`.
 
 ### Picking the default at `init`
 
-`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files; pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt. Pass `--gitignore` to opt in:
+`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files. Pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt. Pass `--gitignore` to opt in:
 
     agnostic-ai init --all --gitignore
 
 ## Claude settings
 
-The `outputs.claude.settings` block declares first-class
-`.claude/settings.json` keys. agnostic-ai writes each non-empty field
-on top of the captured overlay (from `import claude`) and below the
-spec-derived `hooks` block. Keys you do not set fall through to the
-overlay, so partial adoption is supported.
+The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. agnostic-ai writes each non-empty field on top of the captured overlay (from `import claude`) and below the spec-derived `hooks` block. Keys you do not set fall through to the overlay, so partial adoption works.
 
 ```yaml
 outputs:
@@ -348,18 +344,11 @@ outputs:
 | `statusLine` | object | `type`, `command`, and optional `padding`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
-Any setting not declared here still round-trips through the overlay
-captured during `agnostic-ai import claude` (written to
-`.agnostic-ai/overlays/claude.settings.json`). When both the overlay
-and `outputs.claude.settings.*` declare the same key, the
-first-class config block wins.
+Any setting not declared here round-trips through the overlay captured during `agnostic-ai import claude` (written to `.agnostic-ai/overlays/claude.settings.json`). When both the overlay and `outputs.claude.settings.*` declare the same key, the first-class config block wins.
 
 ## Codex config
 
-The `outputs.codex.config` block declares first-class `.codex/config.toml`
-global keys. agnostic-ai writes these into the project-tier config on each
-sync. Keys not listed here belong in the user-global `~/.codex/config.toml`
-which Codex merges last.
+The `outputs.codex.config` block declares first-class `.codex/config.toml` global keys, written into the project-tier config on each sync. Keys not listed here belong in the user-global `~/.codex/config.toml`, which Codex merges last.
 
 ```yaml
 outputs:
@@ -387,7 +376,7 @@ outputs:
 | `model` | string | Model identifier Codex uses for this project. |
 | `sandbox` | string | Sandbox profile (e.g. `workspace`). |
 | `approval-policy` | string | When Codex asks for approval: `never`, `on-failure`, or `always`. |
-| `model-reasoning-effort` | string | Reasoning effort level for o-series models: `low`, `medium`, `high`. |
+| `model-reasoning-effort` | string | Reasoning effort for o-series models: `low`, `medium`, `high`. |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
 | `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
 | `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
@@ -418,30 +407,22 @@ outputs:
 | `justification` | no | Free-form comment emitted above the rule as a `#` line. |
 | `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
 
-For projects with many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters because Codex evaluates rules top-down.
+For many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
 
-When you run `agnostic-ai import codex` against a project that already ships `.codex/rules/default.rules`, the import captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without any extra config.
+`agnostic-ai import codex` against a project that ships `.codex/rules/default.rules` captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without extra config.
 
-The file is only written when at least one policy is declared; otherwise nothing under `.codex/rules/` is created.
+The file is written only when at least one policy is declared. Otherwise nothing under `.codex/rules/` is created.
 
-The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml`
-(captured by `agnostic-ai import codex`) and prepends its body before
-the spec-derived `[[hooks.*]]` and `[mcp_servers.*]` sections. The
-overlay carries every other `.codex/config.toml` key the user has
-configured (`model`, `sandbox`, `approval_policy`, `notify`,
-`[history]`, `[profiles.*]`, `[model_providers.*]`, …) so a wipe of
-`.codex/` between `import` and `sync` no longer drops them. On
-conflict with `outputs.codex.config.*` the overlay wins and the
-first-class key is dropped to keep the TOML valid.
+The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `agnostic-ai import codex`) and prepends its body before the spec-derived `[[hooks.*]]` and `[mcp_servers.*]` sections. The overlay carries every other `.codex/config.toml` key the user has configured (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...) so wiping `.codex/` between `import` and `sync` no longer drops them. On conflict with `outputs.codex.config.*`, the overlay wins and the first-class key is dropped to keep the TOML valid.
 
 ## Watched inputs
 
-`sync --watch` re-emits whenever any of the following change on disk:
+`sync --watch` re-emits whenever any of these change on disk:
 
 - `agnostic-ai.yaml` (and `agnostic-ai.local.yaml` when present)
 - every directory listed under `sources` (agents, skills, rules, hooks, mcps, commands)
 - `.agnostic-ai.local/` (the project-user spec layer)
-- `.agnostic-ai/overlays/`: captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit the overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, …) and watch re-runs `sync` within the 50 ms debounce window.
+- `.agnostic-ai/overlays/`: captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit an overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, ...) and watch re-runs `sync` within the 50 ms debounce window.
 
 See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounce details.
 
@@ -453,22 +434,11 @@ See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounc
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point
-file per enabled target, all sharing the canonical pointer body. See the
-[per-target table](targets.md#entry-point-files) for which file each
-target uses.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](targets.md#entry-point-files) for which file each target uses.
 
-To opt back into the legacy concatenated layout for a target, set
-`outputs.<target>.rules-file: <path>`. The adapter then writes a
-single merged document at `<path>` and `sync` skips the pointer-body
-write for that target so the two do not collide.
+To opt back into the legacy concatenated layout for a target, set `outputs.<target>.rules-file: <path>`. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so the two do not collide.
 
-Real collisions where two adapters write different content to the
-same path (e.g. both `outputs.codex.rules-file: AGENTS.md` and
-`outputs.amp.rules-file: AGENTS.md`) fail fast with an
-`output collision` error by default. Set `sync.collision-policy: prefer-spec`
-to skip the check and let the last adapter win, which is useful in CI.
-See [`sync.collision-policy`](#synccollision-policy).
+Real collisions where two adapters write different content to the same path (e.g. both `outputs.codex.rules-file: AGENTS.md` and `outputs.amp.rules-file: AGENTS.md`) fail fast with an `output collision` error by default. Set `sync.collision-policy: prefer-spec` to skip the check and let the last adapter win, useful in CI. See [`sync.collision-policy`](#synccollision-policy).
 
 ## Precedence
 
@@ -483,11 +453,11 @@ Last wins:
 
 Specs load from up to three layers, low- to high-precedence:
 
-| Layer          | Root                                                | Loaded when         |
-|----------------|-----------------------------------------------------|---------------------|
-| `user-global`  | `$AGNOSTIC_AI_HOME` if set, else `~/.agnostic-ai`   | directory exists    |
-| `project`      | `agnostic-ai.yaml` `sources` paths                  | always              |
-| `project-user` | `<project>/.agnostic-ai.local`                      | directory exists    |
+| Layer | Root | Loaded when |
+|-------|------|-------------|
+| `user-global` | `$AGNOSTIC_AI_HOME` if set, else `~/.agnostic-ai` | directory exists |
+| `project` | `agnostic-ai.yaml` `sources` paths | always |
+| `project-user` | `<project>/.agnostic-ai.local` | directory exists |
 
 Higher layers override by spec name (per kind). New names append.
 

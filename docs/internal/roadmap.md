@@ -4,7 +4,7 @@ High-level directions. Concrete work in [issues](https://github.com/Chemaclass/a
 
 ## Layered configuration (shipped)
 
-Three layers, low → high precedence:
+Three layers, low to high precedence:
 
 - **user-global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): cross-project source of truth.
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
@@ -18,7 +18,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Onboarding (`init --demo`, `init --preset <name>`).
 - Interactive target selection (`init` TTY picker, `--all` to skip).
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.codex/skills/<name>/SKILL.md`).
-- Top-level `import <source>` (and multi-source: `import claude codex`).
+- Top-level `import <source>` (multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
 - MCP for 10/14 targets. Aider/Cline/Windsurf lack project-scoped MCP.
 - Hooks beyond Claude: Codex `.codex/config.toml`, Gemini `.gemini/settings.json`.

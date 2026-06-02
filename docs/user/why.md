@@ -1,12 +1,8 @@
 # `agnostic-ai why <file>`
 
-Trace an emitted file back to its provenance: the adapter that produced
-it, the source spec(s) that contributed, the `outputs.<target>.*` config
-keys used to derive the path, and the last sync timestamp.
+Trace an emitted file back to its source: the adapter that wrote it, the source spec(s), the `outputs.<target>.*` keys used for the path, and the last sync time.
 
-Use it when you find a file under a target directory and want to know
-why it exists. Pairs with `agnostic-ai explain <spec>`, which goes the
-opposite direction (spec to outputs).
+Use it to find out why a file under a target directory exists. The inverse of [`agnostic-ai explain <spec>`](cli-reference.md#explain) (spec to outputs).
 
 ## Usage
 
@@ -15,8 +11,7 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-`<file>` is resolved relative to the project root. Symlinks are
-followed.
+`<file>` resolves relative to the project root. Symlinks are followed. `--format json` returns the same data with stable keys for editor extensions and CI scripts.
 
 ## Example
 
@@ -30,25 +25,16 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
     [rule] no-console-log (rules/no-console-log.md): full
 ```
 
-`--format json` returns the same data with stable keys for editor
-extensions and CI scripts.
-
 ## Output fields
 
-- **adapter**: the target whose adapter wrote the file.
-- **output keys**: every `outputs.<target>.*` config key whose value
-  appears in the resolved path. Reports `(adapter defaults)` when no
-  per-target overrides match.
-- **last sync**: UTC timestamp from `.agnostic-ai/.sync-state`. Reports
-  `unknown` when the state file is missing.
-- **sources**: every loaded spec that contributes to the file, with the
-  contribution mode (`full` when the spec owns the file, `section` when
-  the spec is one of many merged into a shared document).
+| Field | Meaning |
+|-------|---------|
+| `adapter` | Target whose adapter wrote the file. |
+| `output keys` | Every `outputs.<target>.*` key whose value appears in the path. `(adapter defaults)` when no overrides match. |
+| `last sync` | UTC timestamp from `.agnostic-ai/.sync-state`. `unknown` when the state file is missing. |
+| `sources` | Every spec that contributes. Mode is `full` (spec owns the file) or `section` (one of many merged into a shared document). |
 
 ## Errors
 
-- **No sync state**: when `.agnostic-ai/.sync-state` is absent, `why`
-  suggests running `agnostic-ai sync` first.
-- **Untracked file**: when the path does not match any adapter's
-  emission, `why` reports "not synced or not tracked" and suggests
-  re-running `sync` or verifying the path.
+- **No sync state**: `.agnostic-ai/.sync-state` is absent. `why` suggests running `agnostic-ai sync` first.
+- **Untracked file**: path matches no adapter emission. `why` reports "not synced or not tracked" and suggests re-running `sync` or verifying the path.

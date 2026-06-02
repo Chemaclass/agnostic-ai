@@ -14,7 +14,7 @@ scripts/release.sh vX.Y.Z --no-push    # commit + tag locally
 
 The script:
 
-1. Validates clean tree, on `main`, in sync with `origin/main`, tag absent.
+1. Validates: clean tree, on `main`, in sync with `origin/main`, tag absent.
 2. Runs `gofmt -s -l`, `go vet`, `go test ./...`, `agnostic-ai sync --check`.
 3. Bumps `version` in `cmd/agnostic-ai/main.go`.
 4. Promotes `[Unreleased]` to `## vX.Y.Z - YYYY-MM-DD` (no brackets), inserts a fresh empty `[Unreleased]` block.

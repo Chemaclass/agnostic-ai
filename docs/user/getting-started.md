@@ -2,56 +2,41 @@
 
 ## Install
 
-Homebrew:
-```bash
-brew install --cask Chemaclass/tap/agnostic-ai
-```
-
-Direct binary:
-```bash
-curl -fsSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-$(uname -s)-$(uname -m) \
-  -o /usr/local/bin/agnostic-ai && chmod +x /usr/local/bin/agnostic-ai
-```
-
-From source:
-```bash
-go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest
-```
+| Method | Command |
+|--------|---------|
+| Homebrew | `brew install --cask Chemaclass/tap/agnostic-ai` |
+| Direct binary | `curl -fsSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-$(uname -s)-$(uname -m) -o /usr/local/bin/agnostic-ai && chmod +x /usr/local/bin/agnostic-ai` |
+| From source | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 
 ## Shell completion
 
-Enable tab completion for subcommands and `--target`:
+Tab completion for subcommands and `--target`:
 
 ```bash
-# Zsh
 agnostic-ai completion zsh > "${fpath[1]}/_agnostic-ai"
-
-# Bash (user-level)
 agnostic-ai completion bash > ~/.local/share/bash-completion/completions/agnostic-ai
-
-# Fish
 agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
 ```
 
-Restart your shell after installing. See `agnostic-ai completion <shell> --help` for more options.
+Restart your shell after installing. Run `agnostic-ai completion <shell> --help` for more options.
 
 ## Scaffold
 
 ```bash
-agnostic-ai init                 # default: prompt for targets when TTY, base dir .agnostic-ai/
-agnostic-ai init --all           # skip the prompt, enable every supported target
-agnostic-ai init specs           # custom base
+agnostic-ai init                 # prompt for targets (TTY), base dir .agnostic-ai/
+agnostic-ai init --all           # enable every target, skip the prompt
+agnostic-ai init specs           # custom base dir
 agnostic-ai init .               # legacy root-level layout
 agnostic-ai init --demo          # plus one example spec per source folder
 echo "claude,codex" | agnostic-ai init   # non-TTY: pipe a comma-separated target list
 ```
 
-`--demo` seeds each source folder with a minimal example spec so the
-first `sync` produces real output. By default `init` opens a target
-picker when stdin is a TTY; pipe a comma-separated list for non-TTY use,
-or pass `--all` (`-a`) to skip the picker and enable every target.
+- `init` opens a target picker when stdin is a TTY.
+- Non-TTY: pipe a comma-separated list.
+- `--all` (`-a`): skip the picker, enable every target.
+- `--demo`: seed each source folder with a minimal spec so the first `sync` produces output.
 
-The generated `agnostic-ai.yaml` includes a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config automatically.
+The generated `agnostic-ai.yaml` carries a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config.
 
 ```
 .
@@ -64,10 +49,9 @@ The generated `agnostic-ai.yaml` includes a `yaml-language-server` comment point
     └── mcps/
 ```
 
-### Already on another AI CLI? Import it
+### Import an existing AI CLI config
 
-After `init`, run `import <source>` to translate an existing
-configuration into agnostic specs under the configured `sources:` paths:
+After `init`, run `import <source>` to translate an existing config into agnostic specs under the configured `sources:` paths:
 
 ```bash
 agnostic-ai init                  # scaffold
@@ -80,17 +64,11 @@ agnostic-ai import continue       # .continue/rules/
 agnostic-ai sync                  # fan out to every target in the config
 ```
 
-`import` does not touch `targets:` or other config fields; it only
-writes spec files. The default `init` config enables every target, so
-one `sync` covers them all. To narrow output, edit the `targets:` list.
+`import` writes spec files only. It never touches `targets:` or other config. The default `init` config enables every target, so one `sync` covers them all. Edit `targets:` to narrow output.
 
 #### Recommended adoption workflow
 
-On a real project the first sync after `import` rewrites every
-generated file (the agnostic-ai header lands at the top, key order is
-normalized, etc.). Reviewing those moves together with the imported
-specs is hard. Split the work into two commits so the diff is
-reviewable:
+The first `sync` after `import` rewrites every generated file (adds the agnostic-ai header, normalizes key order). Split into two commits so the diff is reviewable:
 
 ```bash
 # 1. Capture existing CLI config into agnostic-ai specs
@@ -105,40 +83,26 @@ git add -A
 git commit -m "chore(agnostic-ai): regenerate per-target configs (no semantic change)"
 ```
 
-Reviewers focus on the first commit (semantic content) and skim the
-second (cosmetic regeneration). When mixing imports from multiple
-CLIs, run each `import` + commit pair before the final `sync`.
-
-This two-commit flow assumes you commit the generated files. If you
-instead gitignore them (see [`gitignore.enabled`](configuration.md#gitignore)),
-skip the second commit: keep only `.agnostic-ai/` under version control
-and let each contributor run `sync` to regenerate the targets locally.
-
-Tip: `agnostic-ai sync --backup` keeps a `.bak` next to each
-overwritten file so you can `revert` if the regeneration looks wrong.
-Clear them once you are happy with `agnostic-ai cleanup`.
+- Reviewers focus on commit 1 (content) and skim commit 2 (cosmetic).
+- Importing from multiple CLIs: run each `import` + commit pair before the final `sync`.
+- Gitignoring generated files instead (see [`gitignore.enabled`](configuration.md#gitignore)): skip commit 2. Version only `.agnostic-ai/`; each contributor runs `sync` locally.
+- `sync --backup` keeps a `.bak` next to each overwritten file so you can `revert`. Clear them with `agnostic-ai cleanup`.
 
 #### What `import` does NOT capture
 
-`import <cli>` translates rules, agents, skills, hooks, commands, and a
-target-specific `settings.json`-style overlay into agnostic specs. Anything
-else under the target's directory (`.claude/statusline.sh`, helper scripts
-referenced from `settings.json`, ad-hoc config files) is **out of scope**.
-Keep those files in git alongside `.agnostic-ai/` so they survive a fresh
-checkout. Helper files inside a skill directory (e.g. `.claude/skills/
-yaml-validator/check.mjs`) are the exception: they round-trip via the
-nested skill layout described in [Skills](spec-format.md#skills).
+`import <cli>` translates rules, agents, skills, hooks, commands, and a `settings.json`-style overlay into specs. Out of scope:
+
+- `.claude/statusline.sh`, helper scripts referenced from `settings.json`, ad-hoc config files. Keep these in git next to `.agnostic-ai/` so they survive a fresh checkout.
+- Exception: helper files inside a skill directory (e.g. `.claude/skills/yaml-validator/check.mjs`) round-trip via the nested skill layout (see [Skills](spec-format.md#skills)).
 
 #### `.agnostic-ai/.sync-state`
 
-After every `sync` agnostic-ai writes `.agnostic-ai/.sync-state` with a
-JSON document recording the last sync timestamp and number of files
-changed. It is consumed by `agnostic-ai status` to surface "last sync at
-…" and by `doctor` to tell the never-synced state apart from
-post-sync-edits. The file is auto-added to the managed `.gitignore`
-block, so do not commit it. Deleting it is safe: the next `sync`
-regenerates it; the only effect is `status` reports "never synced" until
-that next run.
+Every `sync` writes `.agnostic-ai/.sync-state`, a JSON document recording the last sync timestamp and files changed.
+
+- `status` reads it for "last sync at ...".
+- `doctor` reads it to tell never-synced from post-sync-edits.
+- Auto-added to the managed `.gitignore` block. Do not commit it.
+- Safe to delete: the next `sync` regenerates it. Until then `status` reports "never synced".
 
 ## First rule
 
@@ -160,10 +124,7 @@ Use `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` prefixes. Subject u
 agnostic-ai sync
 ```
 
-On the first run, `sync` opens a multi-select to pick which targets to
-enable. The choice is saved to `agnostic-ai.yaml` and never asked
-again. To emit every target without the prompt, run `sync --all` or
-pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
+The first run opens a multi-select to pick targets. The choice saves to `agnostic-ai.yaml` and is never asked again. Emit every target without the prompt via `sync --all` or pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
 
 | Output | Target |
 |--------|--------|
@@ -172,8 +133,7 @@ pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
 | `GEMINI.md` | Gemini CLI |
 | `.cursor/rules/conventional-commits.mdc` | Cursor |
 
-Full tree after `sync` with the default targets (only files with content
-are written; empty stubs are skipped):
+Full tree after `sync` with the default targets (only files with content are written; empty stubs are skipped):
 
 ```
 .
@@ -200,15 +160,11 @@ are written; empty stubs are skipped):
 
 ## Check project status
 
-See what the tool knows about your project at a glance:
-
 ```bash
 agnostic-ai status
 ```
 
-Output includes the project name, active spec layers, spec counts, configured
-targets, the last sync timestamp, and whether any generated files are out of
-date. Exits 0 regardless of drift. Use `sync --check` or `doctor` in CI.
+Reports the project name, active spec layers, spec counts, configured targets, last sync timestamp, and whether generated files are out of date. Exits 0 regardless of drift. Use `sync --check` or `doctor` in CI.
 
 ## Roll back a sync
 
@@ -218,23 +174,20 @@ agnostic-ai sync --backup    # snapshot existing outputs to <path>.bak
 agnostic-ai revert           # restore from .bak when present, else delete
 ```
 
-Pair `--backup` with `revert` for safe iteration. Without `--backup`,
-`revert` removes the generated files.
+Pair `--backup` with `revert` for safe iteration. Without `--backup`, `revert` deletes the generated files.
 
 ## Watch mode
-
-Skip the manual `sync` after every spec edit:
 
 ```bash
 agnostic-ai sync --watch
 ```
 
-Watches the source directories and `agnostic-ai.yaml` via OS file
-events (fsnotify) with a 50 ms debounce, so saves trigger a re-sync in
-under 100 ms. On filesystems where fsnotify fails (some network mounts,
-specific container volumes), `sync` falls back to a 200 ms poll. Force
-the poll backend with `--watch-poll`. Ctrl+C exits cleanly. Incompatible
-with `--check`.
+Watches the source directories and `agnostic-ai.yaml` via OS file events (fsnotify) with a 50 ms debounce, so saves re-sync in under 100 ms.
+
+- On filesystems where fsnotify fails (some network mounts, container volumes), `sync` falls back to a 200 ms poll.
+- `--watch-poll` forces the poll backend.
+- Ctrl+C exits cleanly.
+- Incompatible with `--check`.
 
 ## Auto-manage .gitignore
 
@@ -245,5 +198,4 @@ gitignore:
   enabled: true
 ```
 
-`sync` rewrites a managed block in `.gitignore` listing every emitted
-path. Lines outside the block are preserved.
+`sync` rewrites a managed block in `.gitignore` listing every emitted path. Lines outside the block are preserved.

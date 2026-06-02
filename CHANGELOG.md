@@ -2,7 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Entry style: one line per change. Lead with what changed, not how. State the user-facing effect. Link the issue (`#NNN`) when one exists. No em dashes, no filler.
+
 ## [Unreleased]
+
+### Changed
+
+- Docs: simplified `README.md` and every `docs/user/` and `docs/internal/` page. Same facts, fewer words, plain English. Added a one-line entry-style convention to `CHANGELOG.md`.
 
 ## v0.30.0 - 2026-06-02
 

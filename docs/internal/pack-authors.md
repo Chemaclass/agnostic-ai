@@ -20,7 +20,7 @@ Omit empty dirs. No `agnostic-ai.yaml` needed; the loader uses default subdir na
 Same frontmatter + Markdown body as [user spec format](../user/spec-format.md). Authors should:
 
 - Set `name:` (merge key for downstream overrides).
-- Short, action-oriented `description:` (adapters surface it in merged docs).
+- Write a short, action-oriented `description:` (adapters surface it in merged docs).
 - Avoid project-specific `globs:`. Prefer language/framework-level patterns.
 
 ## Versioning
@@ -31,7 +31,7 @@ Semver tags. Users pin against a tag:
 agnostic-ai packs add github.com/your-org/your-pack@v1.2.0
 ```
 
-Renames are breaking (invalidate downstream overrides). Adding entries is non-breaking.
+Renames are breaking (they invalidate downstream overrides). Adding entries is non-breaking.
 
 ## Naming
 
@@ -39,4 +39,4 @@ Default installed dir is the last path segment (`github.com/foo/go-rules` → `g
 
 ## Distribution
 
-Any Git host. CLI invokes system `git` for clones; same auth as `git clone`.
+Any Git host. The CLI invokes system `git` for clones; same auth as `git clone`.

@@ -1,6 +1,6 @@
 # Adding an adapter
 
-Add a new AI CLI target (`foo`):
+Add a new AI CLI target (`foo`).
 
 ## 1. Create the package
 
@@ -67,18 +67,20 @@ Add to default targets in `internal/config/config.go` and `internal/cli/init.go`
 
 ## 4. Wire config
 
-Use shared resolvers; never hand-roll output paths:
+Use shared resolvers. Never hand-roll output paths:
 
-- `emit.OutputFile(cfg, target, fallback)`: single-document outputs
-- `emit.OutputDir(cfg, target, fallback)`: parent dir
-- `emit.OutputRulesDir(cfg, target, fallback)`: per-rule dir adapter
-- `emit.OutputRulesFile(cfg, target, fallback)`: merged rules file
-- `emit.OutputMCPFile(cfg, target, fallback)`: MCP propagation
-- `emit.OutputAgentsDir(cfg, target, fallback)`: per-agent files
-- `emit.OutputSkillsDir(cfg, target, fallback)`: per-skill files/folders
-- `emit.OutputCommandsDir(cfg, target, fallback)`: slash-command dirs
-- `emit.OutputInstructionsDir(cfg, target, fallback)`: Copilot-style scoped rules
-- `emit.EmitSkillsAsCommands(cfg, target)`: opt-in flag for skills-as-commands
+| Helper | Use for |
+|---|---|
+| `emit.OutputFile(cfg, target, fallback)` | single-document outputs |
+| `emit.OutputDir(cfg, target, fallback)` | parent dir |
+| `emit.OutputRulesDir(cfg, target, fallback)` | per-rule dir adapter |
+| `emit.OutputRulesFile(cfg, target, fallback)` | merged rules file |
+| `emit.OutputMCPFile(cfg, target, fallback)` | MCP propagation |
+| `emit.OutputAgentsDir(cfg, target, fallback)` | per-agent files |
+| `emit.OutputSkillsDir(cfg, target, fallback)` | per-skill files/folders |
+| `emit.OutputCommandsDir(cfg, target, fallback)` | slash-command dirs |
+| `emit.OutputInstructionsDir(cfg, target, fallback)` | Copilot-style scoped rules |
+| `emit.EmitSkillsAsCommands(cfg, target)` | opt-in flag for skills-as-commands |
 
 New field on `config.Output`? Add once, reuse.
 
@@ -139,7 +141,7 @@ Built-in schemas:
 - `MCPSchemaServersMap`: `{"mcpServers": {...}}` (Claude, Cursor, Warp)
 - `MCPSchemaVSCodeServers`: `{"servers": {...}}` with `type` per server (Copilot / VS Code)
 
-Non-trivial shapes (Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp`, Continue one-YAML-per-server) emit custom. See each adapter. Use `emit.MergeJSONFile` to preserve unrelated user keys. Use `emit.OutputMCPDir` for one-file-per-server.
+Non-trivial shapes emit custom: Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp`, Continue one-YAML-per-server. See each adapter. Use `emit.MergeJSONFile` to preserve unrelated user keys. Use `emit.OutputMCPDir` for one-file-per-server.
 
 ## 9. Hooks (optional)
 
@@ -149,5 +151,5 @@ Emit alongside MCPs in the target's project-tier file (Codex: `.codex/config.tom
 
 - Adapter packages never import other adapters. Share via `internal/adapters/internal/emit`.
 - Stateless. No globals; `New()` only.
-- Frontmatter passes through unless target needs transformation (e.g. Cursor `.mdc`).
+- Frontmatter passes through unless the target needs transformation (e.g. Cursor `.mdc`).
 - Generated files belong in `.gitignore` (or rely on `gitignore.enabled: true`).

@@ -20,10 +20,9 @@ make test
 ## Dev loop
 
 ```bash
-# edit, then:
-go run ./cmd/agnostic-ai sync --dry-run        # preview emit
-go test ./internal/adapters/claude -run TestEmit_WritesAgent -v   # focused test
-make preflight                                 # mirrors CI Lint + Test
+go run ./cmd/agnostic-ai sync --dry-run                            # preview emit
+go test ./internal/adapters/claude -run TestEmit_WritesAgent -v    # focused test
+make preflight                                                     # mirrors CI Lint + Test
 ```
 
 A green `make preflight` locally means no new lint or test surprise on the PR.
@@ -51,13 +50,13 @@ A green `make preflight` locally means no new lint or test surprise on the PR.
 ## Debugging
 
 ```bash
-go run ./cmd/agnostic-ai sync --dry-run        # output without writing
-go run ./cmd/agnostic-ai list                  # confirm specs loaded
-go run ./cmd/agnostic-ai validate              # parse-check only
+go run ./cmd/agnostic-ai sync --dry-run             # output without writing
+go run ./cmd/agnostic-ai list                       # confirm specs loaded
+go run ./cmd/agnostic-ai validate                   # parse-check only
 go run ./cmd/agnostic-ai sync -t claude --dry-run   # one adapter
 ```
 
-Unexpected adapter behavior: write a unit test calling `Emit` with a small spec slice.
+For unexpected adapter behavior: write a unit test calling `Emit` with a small spec slice.
 
 ## Commits
 

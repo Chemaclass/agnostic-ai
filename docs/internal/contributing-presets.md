@@ -23,7 +23,7 @@ Omit kinds you don't need. Spec format: [docs/user/spec-format.md](../user/spec-
 4. `go test ./internal/cli/ -run Preset`.
 5. Open a PR titled `feat: add <name> init preset`.
 
-The `presetFS` `embed.FS` uses `all:initdata/presets`, so new dirs are picked up automatically. No registry to maintain.
+`presetFS` uses `all:initdata/presets`, so new dirs are picked up automatically. No registry to maintain.
 
 ## Style
 

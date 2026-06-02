@@ -1,12 +1,12 @@
 # Error codes
 
-Every user-facing error returned by `agnostic-ai` is tagged with a stable code of the form `AAI-NNN`. The code prefixes the message in square brackets:
+Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
 ```
 
-Use `agnostic-ai explain <code>` to look up the title, cause, and suggested fix without leaving the terminal:
+Look up a code without leaving the terminal:
 
 ```
 $ agnostic-ai explain AAI-003
@@ -19,7 +19,7 @@ Fix:
   Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one.
 ```
 
-Pass `--json` for machine-readable output suitable for editor extensions.
+Pass `--json` for machine-readable output.
 
 ## Numbering
 
@@ -42,9 +42,9 @@ A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and 
 
 ### AAI-002: Spec kind not supported by target
 
-A spec kind (hook, mcp, command, ...) is present in the bundle but the target adapter does not emit it. Default policy logs a warning; `on-unsupported: error` upgrades it to a hard failure.
+A spec kind (hook, mcp, command, ...) is in the bundle but the target adapter does not emit it. Default policy logs a warning; `on-unsupported: error` makes it a hard failure.
 
-**Fix:** drop the spec, switch the target to one that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
+**Fix:** drop the spec, switch to a target that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
 
 ### AAI-003: Config file missing
 
@@ -54,7 +54,7 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file was found but could not be parsed as YAML, or its keys do not match the expected schema.
+The config file was found but could not be parsed as YAML, or its keys do not match the schema.
 
 **Fix:** validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence.
 
@@ -62,11 +62,11 @@ The config file was found but could not be parsed as YAML, or its keys do not ma
 
 Two or more enabled targets would write to the same path (commonly `AGENTS.md`, shared by codex, amp, warp, opencode and zed). Last-writer-wins would mask drift.
 
-**Fix:** drop one of the colliding targets from `targets:` in `agnostic-ai.yaml`, or override the colliding path via `outputs.<target>.file`.
+**Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
 
 ### AAI-202: Import source name unknown
 
-The argument passed to `agnostic-ai import` does not match any registered source.
+The argument to `agnostic-ai import` matches no registered source.
 
 **Fix:** run `agnostic-ai import --help` for the supported list. Spelling counts.
 
@@ -74,10 +74,10 @@ The argument passed to `agnostic-ai import` does not match any registered source
 
 A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
-**Fix:** check the target name spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+**Fix:** check the spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 
-Two flags whose effects conflict were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`).
+Two conflicting flags were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`).
 
-**Fix:** pick one. The error message names both flags so you can drop the wrong one.
+**Fix:** pick one. The error message names both flags.

@@ -17,14 +17,14 @@ Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, 
 
 ## Why
 
-You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools next quarter? Rewrite everything.
+You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools and you rewrite everything.
 
-agnostic-ai keeps **one source of truth** in plain Markdown + YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects, in its native location, byte-stable across runs.
+agnostic-ai keeps one source of truth in plain Markdown plus YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects, in its native location, byte-stable across runs.
 
 - **Stateless adapters.** Same input, same output. Diffable, reviewable.
 - **Uniform entry-point.** One pointer body shared across every target's root file.
-- **Round-trip safe.** Provenance marker + style preservation keeps `import → sync` byte-stable.
-- **Scoped rules.** `rules/backend/auth.md` routes to `.cursor/rules/backend/auth.mdc`, `.github/instructions/auth.instructions.md` with `applyTo: backend/**`, etc.
+- **Round-trip safe.** Provenance marker plus style preservation keeps `import` then `sync` byte-stable.
+- **Scoped rules.** `rules/backend/auth.md` routes to `.cursor/rules/backend/auth.mdc` and `.github/instructions/auth.instructions.md` with `applyTo: backend/**`.
 
 ## How it works
 
@@ -106,13 +106,13 @@ Or grab a prebuilt binary from the [releases page](https://github.com/Chemaclass
 
 ```bash
 agnostic-ai upgrade           # print the upgrade command for the current install
-agnostic-ai upgrade --run     # exec the detected upgrade command
-agnostic-ai upgrade --check   # diagnose install location + PATH shadowing
+agnostic-ai upgrade --run     # run the detected upgrade command
+agnostic-ai upgrade --check   # diagnose install location and PATH shadowing
 ```
 
-Detects whether the running binary came from Homebrew, `go install`, or a raw download, then prints (or runs) the matching upgrade command. `--check` flags any other `agnostic-ai` on `PATH` that would shadow the resolved executable. That is the common reason `brew upgrade` reports "already up-to-date" but `agnostic-ai --version` keeps showing an older release.
+Detects how the binary was installed (Homebrew, `go install`, or raw download), then prints or runs the matching command. `--check` flags any other `agnostic-ai` on `PATH` that shadows the resolved binary. That shadowing is the usual reason `brew upgrade` says "already up-to-date" while `agnostic-ai --version` shows an older release.
 
-Direct package-manager commands work too:
+Direct package-manager commands also work:
 
 ```bash
 brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai        # Homebrew
@@ -139,7 +139,7 @@ CI gate to fail PRs that drift from source specs:
   with: { command: check }
 ```
 
-**Commit or ignore generated outputs?** Recommended: gitignore them and keep `.agnostic-ai/` as the single source of truth, so contributors run `sync` to regenerate locally. Set `gitignore.enabled: true` and every `sync` maintains a managed `.gitignore` block listing each emitted path (see [configuration](docs/user/configuration.md#gitignore)). Committing the outputs is also valid when teammates lack the CLI; the `check` gate guards drift either way.
+**Commit or ignore generated outputs?** Recommended: gitignore them, keep `.agnostic-ai/` as the single source of truth, and let contributors run `sync` locally. Set `gitignore.enabled: true` and every `sync` maintains a managed `.gitignore` block listing each emitted path (see [configuration](docs/user/configuration.md#gitignore)). Committing the outputs is also valid when teammates lack the CLI. The `check` gate guards drift either way.
 
 ## Documentation
 

@@ -9,12 +9,11 @@
 | MCP     | `mcps/*.yaml`                             | YAML                        |
 | Command | `commands/*.md`                           | Markdown + YAML frontmatter |
 
-Discovery is recursive. Any `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; any `.yaml` under `hooks/` and `mcps/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; every `.yaml` under `hooks/` and `mcps/`.
 
 ## Nested layout: per-directory scope
 
-Specs placed in subdirectories of their source dir carry an implicit
-**scope** equal to that subpath. Example:
+A spec in a subdirectory of its source dir carries an implicit **scope** equal to that subpath.
 
 ```
 rules/
@@ -29,19 +28,19 @@ Adapters that produce per-directory output honor the scope:
 
 | Target          | Scoped layout                              |
 |-----------------|--------------------------------------------|
-| `codex`         | `<scope>/AGENTS.md` (already routed via globs; layout wins) |
+| `codex`         | `<scope>/AGENTS.md` (routed via globs; layout wins) |
 | `cursor`        | `<scope>/.cursor/rules/<name>.mdc`         |
 | `cline`         | `<scope>/.clinerules/<name>.md`            |
 | `windsurf`      | `<scope>/.windsurf/rules/<name>.md`        |
 | `continue`      | `<scope>/.continue/rules/<name>.md`        |
-| `copilot`       | `<scope>/**` applied to a single `.github/instructions/<name>.instructions.md` (no nested dirs; the glob targets the scope) |
+| `copilot`       | `<scope>/**` glob on one `.github/instructions/<name>.instructions.md` (no nested dirs) |
 | `gemini`        | `<scope>/GEMINI.md`                        |
 | `amp`           | `<scope>/AGENTS.md`                        |
 | `warp`          | `<scope>/AGENTS.md`                        |
 
-Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. The scope is preserved as part of the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
 
-A frontmatter `scope:` field is also accepted as a fallback when source layout is impractical (e.g. a single rule that needs to apply only in a subtree without moving the file).
+A frontmatter `scope:` field is also accepted as a fallback when moving the file is impractical (a single rule scoped to a subtree).
 
 ## Agents
 
@@ -66,13 +65,13 @@ Report concise findings with `file:line` references.
 | `name` | no | filename without `.md` | Agent identifier. Used for the output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
 | `tools` | no | unset | Tools the agent may invoke. Format depends on target CLI. |
-| `model` | no | unset | Preferred model. A string applies to every target, or a map selects per target (see below). |
+| `model` | no | unset | Preferred model. String applies everywhere; a map selects per target (see below). |
 
-Any other frontmatter fields pass through to the target CLI unchanged.
+Any other frontmatter field passes through to the target CLI unchanged.
 
 ### Per-target models
 
-`model:` accepts a string (same model everywhere) or a map keyed by target name with an optional `default` fallback:
+`model:` accepts a string (same model everywhere) or a map keyed by target name with an optional `default` fallback.
 
 ```yaml
 ---
@@ -84,19 +83,7 @@ model:
 ---
 ```
 
-Resolution per target: the matching key wins, else `default`, else the model is dropped for that target (it inherits nothing). A bare string keeps working unchanged. An `x-<target>.model` override still beats the map for that target, and `x-<target>.model: null` deletes it.
-
-Omitting `default` is how you say "use each target's own native default." A target with no matching key and no `default` gets no `model` line emitted, so the CLI falls back to whatever model it ships with:
-
-```yaml
----
-name: code-reviewer
-model:
-  claude: sonnet   # Claude uses sonnet; every other target emits no model
----                # and falls back to its own built-in default
-```
-
-Three intents, all expressible:
+Resolution per target: matching key wins, else `default`, else no `model` line is emitted (the CLI uses its own built-in default). An `x-<target>.model` override beats the map; `x-<target>.model: null` deletes it.
 
 | Want | Write |
 |------|-------|
@@ -108,18 +95,15 @@ Three intents, all expressible:
 
 Two layouts:
 
-**Flat:**
-```
-skills/yaml-validator.md
-```
+**Flat:** `skills/yaml-validator.md`
 
-**Nested (for skills with attached resources):**
+**Nested** (for skills with attached resources):
 ```
 skills/yaml-validator/SKILL.md
 skills/yaml-validator/schema.yaml
 ```
 
-Only `SKILL.md` and flat `*.md` are parsed. Other files in nested skill directories (scripts, templates, fixtures, nested subdirectories) are copied verbatim to the same relative location under each target's skills dir. This is useful for shipping a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the skill body references. Executable bits are preserved both directions through import + sync.
+Only `SKILL.md` and flat `*.md` are parsed. Other files in a nested skill directory (scripts, templates, fixtures, subdirectories) copy verbatim to the same relative location under each target's skills dir. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` the skill body references. Executable bits are preserved both directions through import + sync.
 
 ```markdown
 ---
@@ -141,13 +125,14 @@ description: Validate YAML against a schema.
 | `name` | no | dir or filename | Skill identifier. Used for the output directory. |
 | `description` | no | empty | One-liner shown when the model decides whether to invoke the skill. |
 
-Emitted natively by Claude Code (`.claude/skills/<name>/SKILL.md`) and
-Codex (`.agents/skills/<name>/SKILL.md`). Cursor, Cline, Windsurf, and
-Continue emit each skill as a rule file (`skill-<name>.{mdc,md}`).
-Gemini, Amp, and OpenCode list skills by default and can opt into
-native slash-command emission via `outputs.<target>.emit-skills-as-commands: true`.
-Other targets (Aider, Copilot, Zed, Warp) list skills in a `## Skills`
-section. See [targets](targets.md) for the full matrix.
+Emission by target:
+
+- **Native**: Claude Code (`.claude/skills/<name>/SKILL.md`), Codex (`.agents/skills/<name>/SKILL.md`).
+- **As a rule file** (`skill-<name>.{mdc,md}`): Cursor, Cline, Windsurf, Continue.
+- **Listed by default, opt into native slash commands** via `outputs.<target>.emit-skills-as-commands: true`: Gemini, Amp, OpenCode.
+- **Listed in a `## Skills` section**: Aider, Copilot, Zed, Warp.
+
+See [targets](targets.md) for the full matrix.
 
 ## Rules
 
@@ -167,7 +152,7 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
 | `globs` | no | `**/*` | File patterns where this rule applies. Used by Cursor. |
-| `alwaysApply` | no | `true` for rules, `false` for agents emitted as Cursor rules | Whether the rule injects unconditionally or only on matching context. |
+| `alwaysApply` | no | `true` for rules, `false` for agents emitted as Cursor rules | Inject unconditionally, or only on matching context. |
 
 ## Hooks
 
@@ -188,18 +173,18 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
 | `command` | yes | none | Shell command to run when triggered. |
-| `target` | no | empty | Single target name. Emits only there. Use to scope a hook to one tool. |
-| `targets` | no | empty | List of target names. Emits only to those. Use when a hook makes sense for two tools but not all. |
+| `target` | no | empty | Single target name. Emits only there. |
+| `targets` | no | empty | List of target names. Emits only to those. |
 | `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
 | `targets-exclude` | no | empty | List of target names to block. Emits to every other configured target. |
 
-When none of these fields is set the hook emits to every target that supports hooks (legacy behavior). `target` and `targets` are mutually informative; `target` takes precedence when both appear. Exclude wins: a target in both an include AND an exclude list is excluded.
+With none of the scoping fields set, the hook emits to every target that supports hooks. `target` takes precedence over `targets` when both appear. Exclude wins: a target in both an include and an exclude list is excluded.
 
-The same four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not only hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
+These four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not only hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
 
 ### Per-target body fences
 
-When the spec emits to multiple targets but the prose needs to diverge (e.g. codex wants a "Workflow" section claude does not), wrap the divergent prose in `::target` fences. Outside-fence content emits everywhere; inside-fence content emits only to the listed targets. The marker lines themselves never reach the rendered output.
+When a spec emits to multiple targets but the prose must diverge (codex wants a "Workflow" section claude does not), wrap the divergent prose in `::target` fences. Outside-fence content emits everywhere; inside-fence content emits only to the listed targets. Marker lines never reach the output.
 
 ```md
 ---
@@ -231,9 +216,13 @@ Shared outro.
 
 - `::target <name>` and `::targets <a> <b>` open a fence pinned to one or more targets.
 - `::end` closes the most recent fence.
-- An unterminated fence runs to end-of-body so a missing `::end` does not drop the tail of the file.
-- The empty target (e.g. the source view used by `import` round-trips) returns the body with fences intact so a re-emit stays byte-stable.
-- `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced and each tool's unique middle gets its own `::target` block.
+- An unterminated fence runs to end-of-body, so a missing `::end` keeps the tail of the file.
+- The empty target (the source view used by `import` round-trips) returns the body with fences intact, so a re-emit stays byte-stable.
+- `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced, and each tool's unique middle gets its own `::target` block.
+
+### Import auto-scoping
+
+Hooks imported from a tool-native source auto-set `target` to that tool (codex import → `target: codex`, claude → `target: claude`, gemini → `target: gemini`). Remove the field by hand to let the hook flow everywhere.
 
 ```yaml
 event: PostToolUse
@@ -242,9 +231,7 @@ command: "$(git rev-parse --show-toplevel)/.codex/hooks/format-php.sh"
 target: codex   # shell-expanded codex path; do not leak to other tools
 ```
 
-Hooks imported from a tool-native source auto-set `target` to that tool (codex import → `target: codex`, claude import → `target: claude`, gemini import → `target: gemini`). Remove the field by hand if you want the hook to flow everywhere.
-
-`import claude` and `import codex` apply the same auto-scoping to agents and skills: when both `.claude/` and `.codex/` exist on disk but only one carries a given spec, the captured frontmatter gains `target: <tool>`. A spec present in both tools stays un-scoped (cross-emit). Pure single-tool projects also stay un-scoped so byte-identical round-trips still hold.
+`import claude` and `import codex` apply the same auto-scoping to agents and skills: when both `.claude/` and `.codex/` exist but only one carries a given spec, the captured frontmatter gains `target: <tool>`. A spec present in both tools stays un-scoped (cross-emit). Pure single-tool projects also stay un-scoped, so byte-identical round-trips hold.
 
 ### Supported events (Claude Code)
 
@@ -256,11 +243,11 @@ Hooks imported from a tool-native source auto-set `target` to that tool (codex i
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
 
-Emitted natively by Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), and Gemini (`.gemini/settings.json` `hooks`, uses event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
+Native emission: Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), Gemini (`.gemini/settings.json` `hooks`, with event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
 
-### How agnostic-ai frontmatter renders per target
+### Per-target rendering
 
-Agnostic-ai hook spec:
+This spec:
 
 ```yaml
 event: PostToolUse
@@ -309,7 +296,7 @@ When `command` is a list, each entry becomes a separate hook entry (Claude) or a
 
 ## MCP servers
 
-Pure YAML, no markdown body. One file per MCP server.
+Pure YAML, no markdown body. One file per server.
 
 ```yaml
 name: filesystem
@@ -355,8 +342,7 @@ Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warni
 
 ## Commands
 
-Markdown with optional YAML frontmatter. Each spec becomes one native
-slash command on supported targets.
+Markdown with optional YAML frontmatter. Each spec becomes one native slash command on supported targets.
 
 ```markdown
 ---
@@ -378,24 +364,21 @@ Deploy the app to {{env}}.
 | `description` | no | empty | One-liner shown in slash-command pickers. |
 | `argument-hint` | no | empty | Hint string shown after the command. Claude-only; passes through. |
 
-Any other frontmatter passes through to the target unchanged. Use the
-`x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
+Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
-Emitted natively by Claude Code (`.claude/commands/<name>.md`) and
-Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
+Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
 
 ## Frontmatter rules
 
 - YAML between two `---` lines at the top of the file.
 - Empty (`---\n---\n`) is allowed and treated as no metadata.
 - Files without frontmatter still load; name defaults to the filename.
-- Malformed frontmatter is treated as no metadata; entire content becomes the body.
+- Malformed frontmatter is treated as no metadata; the entire content becomes the body.
 - Any field not listed above passes through on emit. Useful for target-specific extensions.
 
 ## Target-specific extensions: `x-<target>` namespace
 
-Use `x-<target>:` blocks to attach fields only one adapter consumes. Other
-adapters strip the block on emit, so the spec stays portable.
+Use `x-<target>:` blocks to attach fields only one adapter consumes. Other adapters strip the block on emit, so the spec stays portable.
 
 ```markdown
 ---
@@ -416,17 +399,10 @@ Resolution per target:
 - The matching `x-<target>` block is flattened into top-level meta.
 - Flattened keys override top-level keys with the same name.
 
-Examples:
-
 | Target | Resulting frontmatter |
 |--------|-----------------------|
 | `claude` | `name`, `description`, `model`, `allowed-tools` |
 | `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
 | `gemini` | `name`, `description`, `model` |
 
-For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`,
-`sandbox_mode`, `nickname_candidates`) pass through to the generated
-`.agents/agents/<name>.toml`. For Codex skills, `x-codex.interface`,
-`x-codex.policy`, and `x-codex.dependencies` trigger an additional
-`.agents/skills/<name>/agents/openai.yaml` for UI customization, policy,
-and tool dependencies.
+For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.agents/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
