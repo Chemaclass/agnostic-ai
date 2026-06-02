@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+## v0.29.0 - 2026-06-02
+
 ### Added
 
 - Docs: recommend gitignoring generated outputs via `gitignore.enabled`.
@@ -20,8 +22,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `import claude` propagates a nested `.claude/CLAUDE.md`'s instructions to every target, not just the claude overlay. (#361)
 - Playground: optional source reads treat a missing `js/wasm` filesystem as absent instead of failing with `ENOSYS`.
 - Playground renders each target's root entry-point file (CLAUDE.md, AGENTS.md, ...) alongside per-spec artifacts.
-
-### Removed
 
 ## v0.28.0 - 2026-06-01
 
