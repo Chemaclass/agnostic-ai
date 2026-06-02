@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -47,6 +48,9 @@ func TestRestoreHelperFiles_IsRecorded(t *testing.T) {
 // TestRestoreHelperFiles_PreservesMode keeps an executable overlay helper
 // (e.g. a hook script) executable after restore.
 func TestRestoreHelperFiles_PreservesMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support the unix executable bit")
+	}
 	dir := t.TempDir()
 	chdirHelper(t, dir)
 
