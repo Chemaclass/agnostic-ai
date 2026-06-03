@@ -9,10 +9,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Antigravity now emits skills natively as `.agent/skills/<name>/SKILL.md` (one folder per skill, sibling assets copied), matching Antigravity's skills layout. Configurable via `outputs.antigravity.skills-dir`. Closes [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
+- Amp now emits skills natively as `.agents/skills/<name>/SKILL.md` (one folder per skill, sibling assets copied), by default. Configurable via `outputs.amp.skills-dir`. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
 
 ### Changed
 
 - Docs: corrected the Codex section and adapter comments to state that hooks emit to `.codex/hooks.json` (not `config.toml`); MCP servers still land in `config.toml`. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
+- Amp skills no longer emit as `.agents/commands/skill-<name>.md`; Amp removed custom commands in favor of skills, so skills now use the native `.agents/skills/<name>/SKILL.md` folder layout. The `outputs.amp.emit-skills-as-commands` flag no longer affects Amp. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
 
 ### Fixed
 

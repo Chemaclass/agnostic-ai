@@ -127,9 +127,9 @@ description: Validate YAML against a schema.
 
 Emission by target:
 
-- **Native**: Claude Code (`.claude/skills/<name>/SKILL.md`), Codex (`.agents/skills/<name>/SKILL.md`).
+- **Native** (`<dir>/<name>/SKILL.md`, one folder per skill): Claude Code (`.claude/skills/`), Codex (`.codex/skills/`), Amp (`.agents/skills/`), Antigravity (`.agent/skills/`).
 - **As a rule file** (`skill-<name>.{mdc,md}`): Cursor, Cline, Windsurf, Continue.
-- **Listed by default, opt into native slash commands** via `outputs.<target>.emit-skills-as-commands: true`: Gemini, Amp, OpenCode.
+- **Listed by default, opt into native slash commands** via `outputs.<target>.emit-skills-as-commands: true`: Gemini, OpenCode.
 - **Listed in a `## Skills` section**: Aider, Copilot, Zed, Warp.
 
 See [targets](targets.md) for the full matrix.
