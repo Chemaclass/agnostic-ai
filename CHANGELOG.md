@@ -8,7 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- Arbitrary custom keys declared under `x-<target>` now reach every target that has an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay scoped to their target, emit in sorted order, and never leak across adapters. [#367](https://github.com/Chemaclass/agnostic-ai/issues/367)
+- Custom keys under `x-<target>` now emit to every target with an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay target-scoped, emit in sorted order, and never leak across adapters. Closes [#367](https://github.com/Chemaclass/agnostic-ai/issues/367) ([#368](https://github.com/Chemaclass/agnostic-ai/pull/368), [#369](https://github.com/Chemaclass/agnostic-ai/pull/369)).
 
 ### Changed
 
