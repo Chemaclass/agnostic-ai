@@ -132,6 +132,38 @@ func TestEmit_Skill_EmitsAsCommand_WhenOptIn(t *testing.T) {
 	}
 }
 
+// Gemini has no skill frontmatter surface: its command TOML carries only
+// description + prompt. Custom keys declared under x-codex (or any other
+// target) must not leak into Gemini output. Guards the #367 "absent from
+// all others" contract on a non-frontmatter target.
+func TestEmit_Skill_DropsForeignCustomKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"gemini": {EmitSkillsAsCommands: true},
+		},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"x-codex":     map[string]any{"some-codex-key": "manual"},
+			},
+			Body: "Validate against schema.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	toml := readFile(t, filepath.Join(dir, ".gemini/commands/skill-yaml-validator.toml"))
+	if strings.Contains(toml, "some-codex-key") || strings.Contains(toml, "x-codex") {
+		t.Errorf("gemini output leaked foreign custom key:\n%s", toml)
+	}
+}
+
 func TestEmit_CommandsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

@@ -130,6 +130,37 @@ func TestEmit_PreservesArbitrarySkillFrontmatter(t *testing.T) {
 	}
 }
 
+// A custom key declared under x-claude reaches the emitted SKILL.md and
+// stays scoped to Claude (other targets drop it). Guards the #367
+// passthrough contract on the Claude side, where it already works via
+// ResolveMetaOrdered flattening.
+func TestEmit_CustomXClaudeKeyReachesSkillFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindSkill,
+		Name: "validator",
+		Body: "skill body",
+		Meta: map[string]any{
+			"description": "validate stuff",
+			"x-claude": map[string]any{
+				"disable-model-invocation": true,
+			},
+		},
+	}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); !strings.Contains(got, "disable-model-invocation: true") {
+		t.Errorf("SKILL.md missing x-claude custom key in:\n%s", got)
+	}
+}
+
 func TestEmit_PropagatesSkillAssets(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
