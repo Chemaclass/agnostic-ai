@@ -1,6 +1,9 @@
 package emit
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // XPrefix is the namespace for target-specific frontmatter extensions.
 // Keys named `x-<target>` carry fields that only the named adapter
@@ -54,6 +57,58 @@ func StringMap(v any) map[string]string {
 		}
 	}
 	return out
+}
+
+// CustomTargetMeta returns the entries under `x-<target>` that an adapter
+// should emit verbatim, minus the keys it already handles itself (passed
+// via exclude: fields it emits by hand or routes to another file). It
+// returns the value map plus a sorted key order so emission stays
+// deterministic across runs. Returns nil, nil when the `x-<target>` block
+// is absent or empty.
+//
+// Adapters whose output surface only accepts a fixed key set (Codex
+// SKILL.md, Gemini/OpenCode/Amp commands, Copilot instructions) use this
+// to honor arbitrary author-declared keys without leaking shared
+// top-level keys, so a plain spec stays valid while a target-scoped
+// custom key still reaches its target. See #367.
+func CustomTargetMeta(meta map[string]any, target string, exclude ...string) (map[string]any, []string) {
+	x, ok := meta[XPrefix+target].(map[string]any)
+	if !ok || len(x) == 0 {
+		return nil, nil
+	}
+	skip := make(map[string]bool, len(exclude))
+	for _, k := range exclude {
+		skip[k] = true
+	}
+	out := make(map[string]any, len(x))
+	keys := make([]string, 0, len(x))
+	for k, v := range x {
+		// nil mirrors the delete-marker convention (see ResolveMetaOrdered):
+		// there is nothing to emit, so drop it rather than write a null.
+		if skip[k] || v == nil {
+			continue
+		}
+		out[k] = v
+		keys = append(keys, k)
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	sort.Strings(keys)
+	return out, keys
+}
+
+// MergeCustomTargetMeta appends the custom `x-<target>` keys onto an
+// existing frontmatter map and its key-order slice, skipping `exclude`.
+// It is the YAML-frontmatter counterpart to CustomTargetMeta for adapters
+// that build a `map[string]any`; TOML adapters call CustomTargetMeta
+// directly. See #367.
+func MergeCustomTargetMeta(front map[string]any, keys *[]string, meta map[string]any, target string, exclude ...string) {
+	cm, ck := CustomTargetMeta(meta, target, exclude...)
+	for _, k := range ck {
+		front[k] = cm[k]
+		*keys = append(*keys, k)
+	}
 }
 
 // ResolveMeta returns a copy of meta with target-specific keys flattened

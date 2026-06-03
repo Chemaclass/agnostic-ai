@@ -125,6 +125,40 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 	}
 }
 
+// A custom key under x-amp reaches the command frontmatter; shared
+// top-level keys stay stripped. See #367.
+func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"amp": {EmitSkillsAsCommands: true},
+		},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"globs":       "src/**",
+				"x-amp":       map[string]any{"some-amp-key": "manual"},
+			},
+			Body: "Validate against schema.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	cmd := readFile(t, filepath.Join(dir, ".agents/commands/skill-yaml-validator.md"))
+	if !strings.Contains(cmd, "some-amp-key: manual") {
+		t.Errorf("missing custom x-amp key in %s", cmd)
+	}
+	if strings.Contains(cmd, "globs:") {
+		t.Errorf("shared top-level key leaked into %s", cmd)
+	}
+}
+
 // A pre-existing AGENT.md with our provenance marker is renamed to
 // AGENT.md.bak and the user is warned.
 func TestEmit_MigratesLegacyAGENTMd_WhenAgnosticGenerated(t *testing.T) {

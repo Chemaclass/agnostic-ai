@@ -237,13 +237,23 @@ func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 // commandTOML renders one slash-command TOML. Schema:
 //
 //	description = "<spec description>"
+//	<custom x-gemini scalar/array keys>
 //	prompt = """
 //	<spec body>
 //	"""
+//
+// Gemini commands have no other native frontmatter surface, so arbitrary
+// keys declared under `x-gemini` are emitted verbatim between description
+// and prompt (sorted, target-scoped). See #367.
 func commandTOML(e spec.Entry) string {
 	var sb strings.Builder
 	if d := e.Description(); d != "" {
 		emit.WriteTOMLString(&sb, "description", d)
+	}
+	if cm, keys := emit.CustomTargetMeta(e.Meta, target, "description", "prompt"); cm != nil {
+		for _, k := range keys {
+			emit.WriteTOMLValue(&sb, k, cm[k])
+		}
 	}
 	body := strings.TrimSpace(e.Body)
 	if body == "" {

@@ -8,7 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- Codex skills now emit arbitrary custom keys declared under `x-codex` into `SKILL.md` frontmatter (keys other than `interface`/`policy`/`dependencies`, which still route to `openai.yaml`). Custom keys stay scoped to their target and never leak across adapters. [#367](https://github.com/Chemaclass/agnostic-ai/issues/367)
+- Arbitrary custom keys declared under `x-<target>` now reach every target that has an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay scoped to their target, emit in sorted order, and never leak across adapters. [#367](https://github.com/Chemaclass/agnostic-ai/issues/367)
 
 ### Changed
 

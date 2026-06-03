@@ -152,6 +152,38 @@ func TestEmit_Skill_WritesSkillPrefixedInstruction(t *testing.T) {
 	}
 }
 
+// A custom key under x-copilot reaches the instruction frontmatter
+// alongside applyTo (which stays double-quoted). See #367.
+func TestEmit_Skill_CustomXCopilotKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Path: "skills/yaml-validator.md",
+			Meta: map[string]any{
+				"globs":     "src/**",
+				"x-copilot": map[string]any{"some-copilot-key": "manual"},
+			},
+			Body: "Validate YAML with the schema.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".github/instructions/skill-yaml-validator.instructions.md"))
+	if !strings.Contains(got, "applyTo: \"**\"") {
+		t.Errorf("instruction lost double-quoted applyTo: %s", got)
+	}
+	if !strings.Contains(got, "some-copilot-key: manual") {
+		t.Errorf("missing custom x-copilot key in %s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("shared top-level key leaked into %s", got)
+	}
+}
+
 // A rule with no globs but a scope from source layout derives applyTo
 // from the scope (so rules/backend/*.md auto-target backend/**).
 func TestEmit_RuleWithScope_DerivesApplyToFromScope(t *testing.T) {

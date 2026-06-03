@@ -2,7 +2,6 @@ package codex
 
 import (
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -85,40 +84,17 @@ func skillMarkdown(s spec.Entry) string {
 	// Pass through arbitrary x-codex keys the published schema does not
 	// cover. The spec author opts in by declaring them under x-codex, so
 	// SKILL.md stays valid for plain specs (shared top-level keys remain
-	// stripped) while custom keys still reach Codex. Keys routed to
-	// agents/openai.yaml (interface/policy/dependencies) are excluded
-	// here so they are not emitted twice. See #367.
-	if x, ok := s.Meta["x-codex"].(map[string]any); ok {
-		for _, k := range customSkillKeys(x) {
-			meta[k] = x[k]
-			keys = append(keys, k)
-		}
-	}
+	// stripped) while custom keys still reach Codex. The hand-emitted
+	// name/description and the keys routed to agents/openai.yaml are
+	// excluded so nothing is emitted twice. See #367.
+	exclude := append([]string{"name", "description"}, openaiYAMLKeys...)
+	emit.MergeCustomTargetMeta(meta, &keys, s.Meta, target, exclude...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(s.Body)
 	if body == "" {
 		return front + "\n"
 	}
 	return front + "\n" + body + "\n"
-}
-
-// customSkillKeys returns the x-codex keys that belong in SKILL.md
-// frontmatter: everything except the fields already emitted by hand
-// (name/description) and the fields routed to agents/openai.yaml. The
-// result is sorted so emission stays deterministic across runs.
-func customSkillKeys(x map[string]any) []string {
-	skip := map[string]bool{"name": true, "description": true}
-	for _, k := range openaiYAMLKeys {
-		skip[k] = true
-	}
-	out := make([]string, 0, len(x))
-	for k := range x {
-		if !skip[k] {
-			out = append(out, k)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
 
 // openaiYAML returns the YAML body for the optional agents/openai.yaml

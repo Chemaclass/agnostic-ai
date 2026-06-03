@@ -132,6 +132,51 @@ func TestEmit_Skill_EmitsAsCommand_WhenOptIn(t *testing.T) {
 	}
 }
 
+// Arbitrary x-gemini keys (string, bool, array) emit into the command
+// TOML with the right typed representation; shared top-level keys and
+// the hand-emitted description/prompt are not duplicated. See #367.
+func TestEmit_Skill_CustomXGeminiKeysReachTOML(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"gemini": {EmitSkillsAsCommands: true},
+		},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"globs":       "src/**",
+				"x-gemini": map[string]any{
+					"some-key": "manual",
+					"hidden":   true,
+					"tags":     []any{"a", "b"},
+				},
+			},
+			Body: "Validate against schema.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	toml := readFile(t, filepath.Join(dir, ".gemini/commands/skill-yaml-validator.toml"))
+	for _, want := range []string{
+		`some-key = "manual"`,
+		"hidden = true",
+		`tags = ["a", "b"]`,
+	} {
+		if !strings.Contains(toml, want) {
+			t.Errorf("missing %q in %s", want, toml)
+		}
+	}
+	if strings.Contains(toml, "globs") {
+		t.Errorf("shared top-level key leaked into %s", toml)
+	}
+}
+
 // Gemini has no skill frontmatter surface: its command TOML carries only
 // description + prompt. Custom keys declared under x-codex (or any other
 // target) must not leak into Gemini output. Guards the #367 "absent from

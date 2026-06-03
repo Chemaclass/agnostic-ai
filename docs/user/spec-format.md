@@ -409,6 +409,17 @@ For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_
 
 ### Arbitrary custom keys
 
-Any other key under `x-<target>` is emitted verbatim into that target's frontmatter when the target has one. Example: `x-claude.disable-model-invocation: true` reaches the Claude `SKILL.md`; `x-codex.some-key: manual` reaches the Codex `SKILL.md` (Codex routes only `interface`/`policy`/`dependencies` to `openai.yaml`, everything else lands in `SKILL.md`). The key is yours to validate against the target's schema.
+Any other key under `x-<target>` emits verbatim into that target's output surface. Declaring it under `x-<target>` is the opt-in: shared top-level keys stay stripped, so plain specs keep emitting valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
 
-Targets with no frontmatter surface for that spec kind (for example Gemini skills, emitted as TOML commands) drop arbitrary custom keys. The key never leaks across targets either way.
+Per surface:
+
+| Target | Surface | Custom key lands in |
+|--------|---------|---------------------|
+| `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
+| `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
+| `copilot` | `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
+| `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` (skills-as-commands) |
+| `amp` | command `.md` frontmatter | every `x-amp` key beyond `description` (skills-as-commands) |
+| `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array; skills-as-commands) |
+
+Targets that emit no surface for a spec kind drop arbitrary custom keys. Gemini TOML accepts scalars and string arrays only; nested tables are skipped.
