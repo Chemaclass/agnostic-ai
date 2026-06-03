@@ -4,6 +4,7 @@
       "command": "x"
     },
     "http-server": {
+      "type": "http",
       "url": "https://example.test/mcp"
     },
     "stdio-server": {
