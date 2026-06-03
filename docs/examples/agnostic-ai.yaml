@@ -73,13 +73,13 @@ outputs:
 
   amp:
     file: AGENTS.md                 # default. Hierarchical per scope. Was AGENT.md (auto-migrated).
-    commands-dir: .agents/commands  # default. One .md per agent (and per skill if opted in).
-    emit-skills-as-commands: false  # default
+    commands-dir: .agents/commands  # default. One .md per agent.
+    skills-dir: .agents/skills      # default. One folder per skill with SKILL.md (Amp's native layout).
     mcp-file: .amp/settings.json    # default. amp.mcpServers dotted key.
 
   zed:
     file: .rules                  # default
-    mcp-file: .zed/settings.json  # default. context_servers (stdio native, HTTP via mcp-remote).
+    mcp-file: .zed/settings.json  # default. context_servers (stdio + HTTP/SSE native: command/args/env or url/headers).
 
   warp:
     file: AGENTS.md            # default. Hierarchical per scope. Was WARP.md (auto-migrated).

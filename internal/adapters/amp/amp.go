@@ -6,7 +6,10 @@
 // this adapter instead writes the legacy concatenated layout at that
 // path so users on older workflows keep their behavior.
 //
-// Custom slash commands live under `.agents/commands/<name>.md`.
+// Agents emit as custom slash commands under `.agents/commands/<name>.md`.
+// Skills emit as a folder per skill under `.agents/skills/<name>/SKILL.md`
+// (Amp's native skills layout); Amp removed custom commands in favor of
+// skills (https://ampcode.com/news/slashing-custom-commands).
 //
 // Previous releases of this adapter wrote `AGENT.md` (singular) which
 // Amp no longer reads. The first sync after upgrading detects an old
@@ -24,13 +27,13 @@ import (
 )
 
 const (
-	target              = "amp"
-	defaultOutFile      = "AGENTS.md"
-	defaultCommandsDir  = ".agents/commands"
-	defaultMCPFile      = ".amp/settings.json"
-	skillFilenamePrefix = "skill-"
-	legacyOutFile       = "AGENT.md"
-	ampMCPKey           = "amp.mcpServers"
+	target             = "amp"
+	defaultOutFile     = "AGENTS.md"
+	defaultCommandsDir = ".agents/commands"
+	defaultSkillsDir   = ".agents/skills"
+	defaultMCPFile     = ".amp/settings.json"
+	legacyOutFile      = "AGENT.md"
+	ampMCPKey          = "amp.mcpServers"
 )
 
 var caps = emit.Capabilities{
@@ -47,10 +50,11 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one command file per agent (and per skill when opted
-// in), `.amp/settings.json` for MCP servers, and—when opted in via
-// outputs.amp.rules-file—a legacy concatenated rules document. The
-// project-root AGENTS.md is written by `sync`, not here.
+// Emit writes one command file per agent, a folder per skill under
+// `.agents/skills/<name>/SKILL.md`, `.amp/settings.json` for MCP
+// servers, and—when opted in via outputs.amp.rules-file—a legacy
+// concatenated rules document. The project-root AGENTS.md is written by
+// `sync`, not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -62,8 +66,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if emit.EmitSkillsAsCommands(cfg, target) {
-		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
 			return err
 		}
 	}
@@ -77,16 +82,6 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
 		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
-	for _, s := range skills {
-		body := emit.WithHeader(commandFile(s), emit.FormatMarkdown)
-		if err := emit.WriteFile(filepath.Join(dir, skillFilenamePrefix+s.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}

@@ -80,34 +80,11 @@ func TestEmit_Agent_WritesCommandFile(t *testing.T) {
 	}
 }
 
-func TestEmit_Skill_ReferenceOnlyByDefault(t *testing.T) {
+// Skills emit natively as a folder per skill under .agents/skills/, not
+// as the removed .agents/commands/skill-<name>.md command form.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	entries := []spec.Entry{
-		{
-			Kind: spec.KindSkill,
-			Name: "yaml-validator",
-			Path: "skills/yaml-validator.md",
-			Meta: map[string]any{"description": "Validate YAML."},
-			Body: "Body content.",
-		},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/commands/skill-yaml-validator.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no skill command by default, err=%v", err)
-	}
-}
-
-func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"amp": {EmitSkillsAsCommands: true},
-		},
-	}
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindSkill,
@@ -116,25 +93,45 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".agents/commands/skill-yaml-validator.md"))
-	if !strings.Contains(cmd, "Validate against schema.") {
-		t.Errorf("missing body in %s", cmd)
+	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	for _, want := range []string{"name: yaml-validator", "description: Validate YAML.", "Validate against schema."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+	// The removed command-form surface must not be written.
+	if _, err := os.Stat(filepath.Join(dir, ".agents/commands/skill-yaml-validator.md")); !os.IsNotExist(err) {
+		t.Errorf("skill should not emit a command-form file, err=%v", err)
 	}
 }
 
-// A custom key under x-amp reaches the command frontmatter; shared
-// top-level keys stay stripped. See #367.
-func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"amp": {EmitSkillsAsCommands: true},
+			"amp": {SkillsDir: "custom/skills"},
 		},
 	}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/yaml-validator/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/yaml-validator/SKILL.md: %v", err)
+	}
+}
+
+// A custom key under x-amp reaches the SKILL.md frontmatter; shared
+// top-level keys stay stripped. See #367.
+func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindSkill,
@@ -147,15 +144,15 @@ func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".agents/commands/skill-yaml-validator.md"))
-	if !strings.Contains(cmd, "some-amp-key: manual") {
-		t.Errorf("missing custom x-amp key in %s", cmd)
+	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	if !strings.Contains(got, "some-amp-key: manual") {
+		t.Errorf("missing custom x-amp key in %s", got)
 	}
-	if strings.Contains(cmd, "globs:") {
-		t.Errorf("shared top-level key leaked into %s", cmd)
+	if strings.Contains(got, "globs:") {
+		t.Errorf("shared top-level key leaked into %s", got)
 	}
 }
 

@@ -28,8 +28,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"amp": {
-				RulesFile:            "AGENTS-rules.md",
-				EmitSkillsAsCommands: true,
+				RulesFile: "AGENTS-rules.md",
 			},
 		},
 	}
