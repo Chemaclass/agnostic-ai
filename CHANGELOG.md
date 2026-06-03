@@ -8,21 +8,21 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- Antigravity now emits skills natively as `.agent/skills/<name>/SKILL.md` (one folder per skill, sibling assets copied), matching Antigravity's skills layout. Configurable via `outputs.antigravity.skills-dir`. Closes [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
-- Amp now emits skills natively as `.agents/skills/<name>/SKILL.md` (one folder per skill, sibling assets copied), by default. Configurable via `outputs.amp.skills-dir`. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
+- Antigravity emits skills natively as `.agent/skills/<name>/SKILL.md`. Configurable via `outputs.antigravity.skills-dir`. Closes #371.
+- Amp emits skills natively as `.agents/skills/<name>/SKILL.md`. Configurable via `outputs.amp.skills-dir`. (#377)
 
 ### Changed
 
-- Docs: corrected the Codex section and adapter comments to state that hooks emit to `.codex/hooks.json` (not `config.toml`); MCP servers still land in `config.toml`. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
-- Amp skills no longer emit as `.agents/commands/skill-<name>.md`; Amp removed custom commands in favor of skills, so skills now use the native `.agents/skills/<name>/SKILL.md` folder layout. The `outputs.amp.emit-skills-as-commands` flag no longer affects Amp. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
+- Amp skills moved from `.agents/commands/skill-<name>.md` to native `.agents/skills/<name>/SKILL.md`; `outputs.amp.emit-skills-as-commands` no longer affects Amp. (#377)
+- Docs: Codex hooks emit to `.codex/hooks.json`, not `config.toml`. (#377)
 
 ### Fixed
 
-- Antigravity no longer reports skills as unsupported while silently writing a `skill-<name>.md` rule file; skills are a declared, native kind now. [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
-- Zed MCP servers now emit Zed's current `context_servers` schema: flat `command`/`args`/`env` for stdio and native `url`/`headers` for remote (HTTP/SSE). Drops the stale nested `command:{path,...}` + `settings:{}` shape and the `npx mcp-remote` bridge. Closes [#373](https://github.com/Chemaclass/agnostic-ai/issues/373).
-- Continue MCP files under `.continue/mcpServers/` now emit the required block wrapper (`name` + `version` + `schema: v1` with the server nested under `mcpServers:`); the previous flat single-server files did not load. Closes [#374](https://github.com/Chemaclass/agnostic-ai/issues/374).
-- Remote (HTTP/SSE) MCP servers now carry an explicit `type` in `.mcp.json` (Claude), `.cursor/mcp.json` (Cursor), and `.warp/.mcp.json` (Warp); a url-only entry was ambiguous. Stdio entries stay type-less. Closes [#375](https://github.com/Chemaclass/agnostic-ai/issues/375).
-- Gemini SSE MCP servers now emit `url` instead of `httpUrl`; only streamable-HTTP servers use `httpUrl`. SSE servers routed through `httpUrl` failed to connect. Closes [#376](https://github.com/Chemaclass/agnostic-ai/issues/376).
+- Antigravity skills no longer warn as unsupported. (#371)
+- Zed MCP uses the current `context_servers` schema: flat `command`/`args`/`env` for stdio, native `url`/`headers` for remote. Closes #373.
+- Continue MCP files use the required `mcpServers:` block wrapper; flat single-server files did not load. Closes #374.
+- Remote (HTTP/SSE) MCP servers carry an explicit `type` in `.mcp.json`, `.cursor/mcp.json`, and `.warp/.mcp.json`. Closes #375.
+- Gemini SSE MCP servers use `url`, not `httpUrl`. Closes #376.
 
 ### Removed
 
@@ -30,7 +30,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- Custom keys under `x-<target>` now emit to every target with an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay target-scoped, emit in sorted order, and never leak across adapters. Closes [#367](https://github.com/Chemaclass/agnostic-ai/issues/367) ([#368](https://github.com/Chemaclass/agnostic-ai/pull/368), [#369](https://github.com/Chemaclass/agnostic-ai/pull/369)).
+- Custom keys under `x-<target>` now emit to every target with an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay target-scoped, emit in sorted order, and never leak across adapters. Closes #367 (#368, #369).
 
 ### Changed
 
