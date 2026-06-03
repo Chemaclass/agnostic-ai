@@ -55,6 +55,9 @@ func TestEmit_MCP_StdioWritesPerServerYAML(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".continue/mcpServers/fs.yaml"))
 	for _, want := range []string{
 		"name: fs",
+		"version:",
+		"schema: v1",
+		"mcpServers:",
 		"command: npx",
 		"@modelcontextprotocol/server-filesystem",
 		"ALLOWED_PATHS",
@@ -85,6 +88,9 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".continue/mcpServers/linear.yaml"))
 	for _, want := range []string{
 		"name: linear",
+		"schema: v1",
+		"mcpServers:",
+		"type: http",
 		"https://mcp.linear.app",
 		"Authorization",
 	} {
