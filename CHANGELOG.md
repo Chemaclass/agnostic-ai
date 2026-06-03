@@ -8,6 +8,16 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.32.0 - 2026-06-03
+
+### Added
+
 - Antigravity emits skills natively as `.agent/skills/<name>/SKILL.md`. Configurable via `outputs.antigravity.skills-dir`. Closes #371.
 - Amp emits skills natively as `.agents/skills/<name>/SKILL.md`. Configurable via `outputs.amp.skills-dir`. (#377)
 
@@ -23,8 +33,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Continue MCP files use the required `mcpServers:` block wrapper; flat single-server files did not load. Closes #374.
 - Remote (HTTP/SSE) MCP servers carry an explicit `type` in `.mcp.json`, `.cursor/mcp.json`, and `.warp/.mcp.json`. Closes #375.
 - Gemini SSE MCP servers use `url`, not `httpUrl`. Closes #376.
-
-### Removed
 
 ## v0.31.0 - 2026-06-03
 
