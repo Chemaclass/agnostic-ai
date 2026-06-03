@@ -45,7 +45,7 @@ Cross-cutting kind notes:
 
 - **Skills**: only Claude Code executes them natively. On every other target they are reference material the agent or human reads and follows.
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, and Gemini in each tool's schema. Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks, not event-triggered hooks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning.
+- **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. Remote (HTTP / SSE) entries carry an explicit `type`; stdio entries omit it (it is the inferred default).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`) and Codex (`.codex/prompts/<name>.md`). Other targets skip with a warning.
 
 ## Per-target output

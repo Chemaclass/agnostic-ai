@@ -1088,6 +1088,38 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 	}
 }
 
+// Remote (http/sse) servers carry an explicit type in .mcp.json; stdio
+// stays type-less (it is the inferred default).
+func TestEmit_MCP_RemoteCarriesType_StdioDoesNot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "npx"}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://mcp.example.com/mcp"}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	servers := parsed["mcpServers"].(map[string]any)
+	remote := servers["remote"].(map[string]any)
+	if remote["type"] != "http" {
+		t.Errorf("remote server missing type=http: %s", raw)
+	}
+	local := servers["local"].(map[string]any)
+	if _, ok := local["type"]; ok {
+		t.Errorf("stdio server should not carry type: %s", raw)
+	}
+}
+
 func TestEmit_MCPFileOverride(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

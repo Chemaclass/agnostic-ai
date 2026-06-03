@@ -92,6 +92,10 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 		if h := mapField(e.Meta, "headers"); len(h) > 0 {
 			out["headers"] = h
 		}
+		// Remote servers carry an explicit `type` in every schema. A
+		// `.mcp.json` entry with only `url` is ambiguous (http vs sse);
+		// stdio stays type-less since it is the inferred default.
+		out["type"] = transport
 	}
 
 	if env := mapField(e.Meta, "env"); len(env) > 0 {
