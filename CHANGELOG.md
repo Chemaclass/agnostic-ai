@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Codex skills now emit arbitrary custom keys declared under `x-codex` into `SKILL.md` frontmatter (keys other than `interface`/`policy`/`dependencies`, which still route to `openai.yaml`). Custom keys stay scoped to their target and never leak across adapters. [#367](https://github.com/Chemaclass/agnostic-ai/issues/367)
+
 ### Changed
 
 - Docs: simplified `README.md` and every `docs/user/` and `docs/internal/` page. Same facts, fewer words, plain English. Added a one-line entry-style convention to `CHANGELOG.md`.

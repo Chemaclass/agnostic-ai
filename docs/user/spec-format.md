@@ -406,3 +406,9 @@ Resolution per target:
 | `gemini` | `name`, `description`, `model` |
 
 For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.agents/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
+
+### Arbitrary custom keys
+
+Any other key under `x-<target>` is emitted verbatim into that target's frontmatter when the target has one. Example: `x-claude.disable-model-invocation: true` reaches the Claude `SKILL.md`; `x-codex.some-key: manual` reaches the Codex `SKILL.md` (Codex routes only `interface`/`policy`/`dependencies` to `openai.yaml`, everything else lands in `SKILL.md`). The key is yours to validate against the target's schema.
+
+Targets with no frontmatter surface for that spec kind (for example Gemini skills, emitted as TOML commands) drop arbitrary custom keys. The key never leaks across targets either way.

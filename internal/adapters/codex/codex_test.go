@@ -347,6 +347,45 @@ func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
 	}
 }
 
+// A custom key under x-codex that is not routed to agents/openai.yaml
+// (interface/policy/dependencies) lands in SKILL.md frontmatter so a
+// spec can declare Codex-specific metadata the published schema does not
+// cover. Keys routed to openai.yaml and shared top-level keys stay out of
+// SKILL.md. See #367.
+func TestEmit_SkillFolder_CustomXCodexKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "yaml-validator",
+			Path: "skills/yaml-validator.md",
+			Body: "Validate YAML files.",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"globs":       "src/**",
+				"x-codex": map[string]any{
+					"some-codex-key": "manual",
+					"interface": map[string]any{
+						"display_name": "YAML Validator",
+					},
+				},
+			}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/skills/yaml-validator/SKILL.md"))
+	if !strings.Contains(got, "some-codex-key: manual") {
+		t.Errorf("SKILL.md missing custom x-codex key in:\n%s", got)
+	}
+	// interface routes to openai.yaml; shared top-level globs stays stripped.
+	if strings.Contains(got, "interface:") {
+		t.Errorf("SKILL.md must not carry openai.yaml-routed key:\n%s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("SKILL.md must not leak shared top-level key:\n%s", got)
+	}
+}
+
 func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
