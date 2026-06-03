@@ -12,6 +12,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- Docs: corrected the Codex section and adapter comments to state that hooks emit to `.codex/hooks.json` (not `config.toml`); MCP servers still land in `config.toml`. [#377](https://github.com/Chemaclass/agnostic-ai/issues/377).
+
 ### Fixed
 
 - Antigravity no longer reports skills as unsupported while silently writing a `skill-<name>.md` rule file; skills are a declared, native kind now. [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
