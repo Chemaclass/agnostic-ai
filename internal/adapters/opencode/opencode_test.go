@@ -197,6 +197,40 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 	}
 }
 
+// A custom key under x-opencode beyond the documented allowlist reaches
+// the command frontmatter; shared top-level keys stay stripped. See #367.
+func TestEmit_Skill_CustomXOpencodeKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"opencode": {EmitSkillsAsCommands: true},
+		},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"globs":       "src/**",
+				"x-opencode":  map[string]any{"some-opencode-key": "manual"},
+			},
+			Body: "Validate against schema.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/skill-yaml-validator.md"))
+	if !strings.Contains(cmd, "some-opencode-key: manual") {
+		t.Errorf("missing custom x-opencode key in %s", cmd)
+	}
+	if strings.Contains(cmd, "globs:") {
+		t.Errorf("shared top-level key leaked into %s", cmd)
+	}
+}
+
 func TestEmit_CommandsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

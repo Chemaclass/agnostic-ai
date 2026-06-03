@@ -172,8 +172,14 @@ func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 func commandFile(e spec.Entry) string {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, commandFrontmatterKeys)
+	keys := append([]string{}, commandFrontmatterKeys...)
+	// Pass through arbitrary x-opencode keys beyond the documented set so
+	// an author can declare command metadata OpenCode adds later without
+	// waiting on the allowlist. Excludes the allowlisted keys (handled by
+	// pickKeys) so nothing is emitted twice. See #367.
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, commandFrontmatterKeys...)
 	var sb strings.Builder
-	sb.WriteString(emit.FrontmatterOrdered(front, commandFrontmatterKeys))
+	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String()

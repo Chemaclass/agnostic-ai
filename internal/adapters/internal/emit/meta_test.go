@@ -21,6 +21,41 @@ func TestResolveMeta_DropsOtherTargets(t *testing.T) {
 	}
 }
 
+func TestCustomTargetMeta_ReturnsSortedNonExcludedKeys(t *testing.T) {
+	in := map[string]any{
+		"description": "top-level wins",
+		"x-codex": map[string]any{
+			"name":        "ignored",
+			"description": "ignored",
+			"interface":   map[string]any{"display_name": "X"},
+			"zebra":       "z",
+			"alpha":       "a",
+		},
+	}
+	got, keys := CustomTargetMeta(in, "codex", "name", "description", "interface")
+	wantKeys := []string{"alpha", "zebra"}
+	if !reflect.DeepEqual(keys, wantKeys) {
+		t.Fatalf("keys = %#v, want %#v", keys, wantKeys)
+	}
+	want := map[string]any{"alpha": "a", "zebra": "z"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestCustomTargetMeta_AbsentOrEmptyReturnsNil(t *testing.T) {
+	for _, in := range []map[string]any{
+		{"name": "r1"},
+		{"x-codex": map[string]any{}},
+		{"x-codex": map[string]any{"only": nil}}, // nil is a non-value
+	} {
+		got, keys := CustomTargetMeta(in, "codex", "name")
+		if got != nil || keys != nil {
+			t.Errorf("CustomTargetMeta(%#v) = %#v, %#v; want nil, nil", in, got, keys)
+		}
+	}
+}
+
 func TestResolveMeta_TargetOverridesTopLevel(t *testing.T) {
 	in := map[string]any{
 		"name":     "r1",

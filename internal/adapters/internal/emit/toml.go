@@ -3,6 +3,7 @@ package emit
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -62,6 +63,38 @@ func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]st
 		sb.WriteString(k + " = \"" + EscapeTOMLBasic(m[k]) + "\"")
 	}
 	sb.WriteString(" }\n")
+}
+
+// WriteTOMLValue writes `key = <value>`, picking the TOML form from v's
+// dynamic type: string, bool, integers, float64, and string slices
+// ([]string or a []any whose elements are all strings). Unsupported
+// types (nested tables, mixed-type arrays) are skipped and the function
+// returns false, so a caller passing arbitrary author metadata never
+// emits malformed TOML.
+func WriteTOMLValue(sb *strings.Builder, key string, v any) bool {
+	switch t := v.(type) {
+	case string:
+		WriteTOMLString(sb, key, t)
+	case bool:
+		fmt.Fprintf(sb, "%s = %t\n", key, t)
+	case int:
+		fmt.Fprintf(sb, "%s = %d\n", key, t)
+	case int64:
+		fmt.Fprintf(sb, "%s = %d\n", key, t)
+	case float64:
+		fmt.Fprintf(sb, "%s = %s\n", key, strconv.FormatFloat(t, 'f', -1, 64))
+	case []string:
+		WriteTOMLStringArray(sb, key, t)
+	case []any:
+		ss := StringSlice(t)
+		if len(ss) != len(t) {
+			return false // a non-string element: skip the whole array
+		}
+		WriteTOMLStringArray(sb, key, ss)
+	default:
+		return false
+	}
+	return true
 }
 
 // EscapeTOMLBasic escapes the two characters that can break out of a

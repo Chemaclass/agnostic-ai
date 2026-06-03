@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -222,10 +224,16 @@ func applyToFor(e spec.Entry) string {
 // `applyTo:` frontmatter, an italic description (when present), and
 // the spec body.
 func renderInstruction(e spec.Entry, applyTo string) string {
+	front := map[string]any{"applyTo": applyTo}
+	keys := []string{"applyTo"}
+	// applyTo stays double-quoted (its glob can start with `*`, which a
+	// plain scalar cannot). Forcing the source style keeps existing files
+	// byte-identical while custom x-copilot keys append below it. See #367.
+	styles := map[string]yaml.Style{"applyTo": yaml.DoubleQuotedStyle}
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, "applyTo")
 	var b strings.Builder
-	b.WriteString("---\n")
-	b.WriteString("applyTo: \"" + applyTo + "\"\n")
-	b.WriteString("---\n\n")
+	b.WriteString(emit.FrontmatterStyled(front, keys, styles))
+	b.WriteString("\n")
 	if d := e.Description(); d != "" {
 		b.WriteString("_" + d + "_\n\n")
 	}

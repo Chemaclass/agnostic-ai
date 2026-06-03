@@ -50,6 +50,49 @@ func TestWriteTOMLStringArray(t *testing.T) {
 	}
 }
 
+func TestWriteTOMLValue_TypedScalarsAndArrays(t *testing.T) {
+	cases := []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"string", "manual", `k = "manual"` + "\n"},
+		{"bool", true, "k = true\n"},
+		{"int", 7, "k = 7\n"},
+		{"int64", int64(9), "k = 9\n"},
+		{"float", 1.5, "k = 1.5\n"},
+		{"stringSlice", []string{"a", "b"}, `k = ["a", "b"]` + "\n"},
+		{"anySlice", []any{"a", "b"}, `k = ["a", "b"]` + "\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var sb strings.Builder
+			if !WriteTOMLValue(&sb, "k", c.v) {
+				t.Fatalf("WriteTOMLValue returned false for %#v", c.v)
+			}
+			if got := sb.String(); got != c.want {
+				t.Errorf("got %q want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestWriteTOMLValue_SkipsUnsupported(t *testing.T) {
+	for _, v := range []any{
+		map[string]any{"nested": "table"},
+		[]any{"a", 1}, // mixed-type array
+		nil,
+	} {
+		var sb strings.Builder
+		if WriteTOMLValue(&sb, "k", v) {
+			t.Errorf("expected skip for %#v, wrote %q", v, sb.String())
+		}
+		if sb.Len() != 0 {
+			t.Errorf("wrote output for skipped %#v: %q", v, sb.String())
+		}
+	}
+}
+
 func TestEscapeTOMLBasic(t *testing.T) {
 	cases := []struct {
 		in, want string

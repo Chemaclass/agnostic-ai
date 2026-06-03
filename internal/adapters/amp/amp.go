@@ -158,11 +158,16 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 func commandFile(e spec.Entry) string {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := map[string]any{}
+	keys := []string{}
 	if d, _ := meta["description"].(string); d != "" {
 		front["description"] = d
+		keys = append(keys, "description")
 	}
+	// Pass through arbitrary x-amp keys beyond description so a target
+	// scoped custom key reaches the command frontmatter. See #367.
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, "description")
 	var sb strings.Builder
-	sb.WriteString(emit.Frontmatter(front))
+	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String()
