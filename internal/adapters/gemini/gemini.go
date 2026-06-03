@@ -136,9 +136,18 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 			out["args"] = args
 		}
-	case "http", "sse":
+	case "http":
+		// Gemini CLI uses `httpUrl` for the streamable-HTTP endpoint.
 		if url, _ := e.Meta["url"].(string); url != "" {
 			out["httpUrl"] = url
+		}
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			out["headers"] = h
+		}
+	case "sse":
+		// Gemini CLI uses `url` for the SSE endpoint (not `httpUrl`).
+		if url, _ := e.Meta["url"].(string); url != "" {
+			out["url"] = url
 		}
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			out["headers"] = h
