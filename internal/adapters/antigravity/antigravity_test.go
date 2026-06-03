@@ -116,20 +116,49 @@ func TestEmit_RulesDirOverride_WritesRulesToCustomDir(t *testing.T) {
 	}
 }
 
-func TestEmit_SkillUnsupported_WarnsAndContinues(t *testing.T) {
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"},
-		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{"description": "Run deployments."},
+			Body: "Deploy to production.",
+		},
 	}
-	cfg := &config.Config{OnUnsupported: "warn"}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, ".agent/skills/deploy/SKILL.md"))
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+	// The skill must NOT also leak a rule-form file.
+	if _, err := os.Stat(filepath.Join(dir, ".agent/rules/skill-deploy.md")); !os.IsNotExist(err) {
+		t.Errorf("skill should not emit a rule-form file, err=%v", err)
+	}
+}
+
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"antigravity": {SkillsDir: "custom/skills"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "deploy", Body: "body"},
+	}
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	// Rule still emitted even when skill is unsupported.
-	if _, err := os.Stat(filepath.Join(dir, ".agent/rules/r1.md")); err != nil {
-		t.Errorf("expected r1.md despite unsupported skill: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/deploy/SKILL.md: %v", err)
 	}
 }
 

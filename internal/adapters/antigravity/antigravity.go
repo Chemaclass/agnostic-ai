@@ -1,7 +1,8 @@
 // Package antigravity emits configs for Google Antigravity IDE.
 //
 // Antigravity reads project instructions from per-rule files under
-// `.agent/rules/*.md`. This adapter emits those files.
+// `.agent/rules/*.md` and skills from a folder per skill under
+// `.agent/skills/<name>/SKILL.md`. This adapter emits both.
 //
 // The `.agent/AGENTS.md` entry-point is written centrally by `sync`
 // as a slim pointer to the source specs (one body shared with every
@@ -21,13 +22,14 @@ import (
 )
 
 const (
-	target          = "antigravity"
-	defaultRulesDir = ".agent/rules"
+	target           = "antigravity"
+	defaultRulesDir  = ".agent/rules"
+	defaultSkillsDir = ".agent/skills"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
 }
 
 // Adapter emits Antigravity configs.
@@ -39,19 +41,29 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes per-rule files under .agent/rules/ and, when opted in
-// via outputs.antigravity.rules-file, a legacy merged document at
-// that path. The `.agent/AGENTS.md` entry-point is written by `sync`,
-// not here.
+// Emit writes per-rule files under .agent/rules/, a folder per skill
+// under .agent/skills/<name>/SKILL.md, and, when opted in via
+// outputs.antigravity.rules-file, a legacy merged document at that
+// path. The `.agent/AGENTS.md` entry-point is written by `sync`, not
+// here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	// Skills emit through the native folder layout below, so suppress
+	// the rule-form `skill-<name>.md` output from RulesDirectory.
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultRulesDir),
 		AgentPrefix: "agent-",
+		SkipSkills:  true,
 	}, dryRun); err != nil {
 		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			return err
+		}
 	}
 	return emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
 }

@@ -35,3 +35,28 @@ beta body
 
 <!-- source: agents/gamma.md -->
 gamma body
+
+## Skills
+
+No native skill execution. Reference only; invoke by reading the source file.
+
+### s1
+
+<!-- source: skills/s1/SKILL.md -->
+_skill 1_
+
+Source: `skills/s1/SKILL.md`
+
+### s2
+
+<!-- source: skills/s2/SKILL.md -->
+_skill 2_
+
+Source: `skills/s2/SKILL.md`
+
+### s3
+
+<!-- source: skills/s3/SKILL.md -->
+_skill 3_
+
+Source: `skills/s3/SKILL.md`
