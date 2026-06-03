@@ -15,6 +15,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - Antigravity no longer reports skills as unsupported while silently writing a `skill-<name>.md` rule file; skills are a declared, native kind now. [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
+- Zed MCP servers now emit Zed's current `context_servers` schema: flat `command`/`args`/`env` for stdio and native `url`/`headers` for remote (HTTP/SSE). Drops the stale nested `command:{path,...}` + `settings:{}` shape and the `npx mcp-remote` bridge. Closes [#373](https://github.com/Chemaclass/agnostic-ai/issues/373).
 
 ### Removed
 

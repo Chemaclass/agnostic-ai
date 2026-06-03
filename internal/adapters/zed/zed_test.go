@@ -57,22 +57,25 @@ func TestEmit_MCP_StdioWritesContextServers(t *testing.T) {
 	for _, want := range []string{
 		`"context_servers"`,
 		`"fs"`,
-		`"command"`,
-		`"path": "npx"`,
+		`"command": "npx"`,
 		`"@modelcontextprotocol/server-filesystem"`,
 		`"env"`,
 		`"ALLOWED_PATHS"`,
-		`"settings"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
+	// The stale nested-command schema must not reappear.
+	for _, absent := range []string{`"path"`, `"settings"`} {
+		if strings.Contains(got, absent) {
+			t.Errorf("unexpected stale key %q in %s", absent, got)
+		}
+	}
 }
 
-// HTTP MCP entries bridge through `npx mcp-remote <url>` since Zed
-// only supports stdio natively.
-func TestEmit_MCP_HTTPBridgesViaMcpRemote(t *testing.T) {
+// HTTP / SSE MCP entries use Zed's native url/headers shape.
+func TestEmit_MCP_HTTPWritesNativeURL(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -80,8 +83,9 @@ func TestEmit_MCP_HTTPBridgesViaMcpRemote(t *testing.T) {
 			Kind: spec.KindMCP,
 			Name: "linear",
 			Meta: map[string]any{
-				"type": "http",
-				"url":  "https://mcp.linear.app",
+				"type":    "http",
+				"url":     "https://mcp.linear.app",
+				"headers": map[string]any{"Authorization": "Bearer x"},
 			},
 		},
 	}
@@ -91,12 +95,17 @@ func TestEmit_MCP_HTTPBridgesViaMcpRemote(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".zed/settings.json"))
 	for _, want := range []string{
 		`"linear"`,
-		`"path": "npx"`,
-		`"mcp-remote"`,
-		`"https://mcp.linear.app"`,
+		`"url": "https://mcp.linear.app"`,
+		`"headers"`,
+		`"Authorization"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	for _, absent := range []string{`"path"`, `"mcp-remote"`, `"settings"`} {
+		if strings.Contains(got, absent) {
+			t.Errorf("unexpected stale key %q in %s", absent, got)
 		}
 	}
 }
