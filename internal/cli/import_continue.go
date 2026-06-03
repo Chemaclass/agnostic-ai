@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -66,7 +68,7 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", src, err)
 		}
-		body := strings.TrimLeft(header.Strip(string(data)), "\n")
+		body := unwrapContinueMCP(strings.TrimLeft(header.Strip(string(data)), "\n"))
 		dst := filepath.Join(dstDir, e.Name())
 		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
@@ -77,4 +79,27 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// unwrapContinueMCP converts a Continue block file (`name`/`version`/
+// `schema: v1` wrapper with the server nested under `mcpServers:`) back
+// into a flat single-server MCP spec. When the document is not a block
+// wrapper (a hand-authored flat file, or a future schema), the input is
+// returned unchanged so import stays lossless.
+func unwrapContinueMCP(body string) string {
+	var doc struct {
+		MCPServers []map[string]any `yaml:"mcpServers"`
+	}
+	if err := yaml.Unmarshal([]byte(body), &doc); err != nil || len(doc.MCPServers) == 0 {
+		return body
+	}
+	server := doc.MCPServers[0]
+	if len(server) == 0 {
+		return body
+	}
+	raw, err := yaml.Marshal(server)
+	if err != nil {
+		return body
+	}
+	return string(raw)
 }

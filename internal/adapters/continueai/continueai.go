@@ -129,10 +129,14 @@ func emitMCPServers(mcps []spec.Entry, dir string, dryRun bool) error {
 	return nil
 }
 
-// mcpYAML renders one MCP server as a YAML document. Stdio entries
-// emit command/args/env; HTTP/SSE entries emit type/url/headers.
+// mcpYAML renders one MCP server as a Continue block YAML document.
+// Standalone files under `.continue/mcpServers/` require the block
+// wrapper (`name` + `version` + `schema: v1`) with the server nested
+// under an `mcpServers:` list; a flat single-server file does not load.
+// See https://docs.continue.dev/customize/deep-dives/mcp.
+// Stdio servers emit command/args/env; HTTP/SSE emit type/url/headers.
 func mcpYAML(e spec.Entry) (string, error) {
-	doc := map[string]any{"name": e.Name}
+	server := map[string]any{"name": e.Name}
 
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -142,23 +146,34 @@ func mcpYAML(e spec.Entry) (string, error) {
 	switch transport {
 	case "stdio":
 		if cmd, _ := e.Meta["command"].(string); cmd != "" {
-			doc["command"] = cmd
+			server["command"] = cmd
 		}
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
-			doc["args"] = args
+			server["args"] = args
 		}
 	case "http", "sse", "streamable-http":
-		doc["type"] = transport
+		server["type"] = transport
 		if url, _ := e.Meta["url"].(string); url != "" {
-			doc["url"] = url
+			server["url"] = url
 		}
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
-			doc["headers"] = h
+			server["headers"] = h
 		}
 	}
 
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-		doc["env"] = env
+		server["env"] = env
+	}
+
+	version, _ := emit.ResolveMeta(e.Meta, target)["version"].(string)
+	if version == "" {
+		version = "0.0.1"
+	}
+	doc := map[string]any{
+		"name":       e.Name,
+		"version":    version,
+		"schema":     "v1",
+		"mcpServers": []any{server},
 	}
 
 	raw, err := yaml.Marshal(doc)

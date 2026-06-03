@@ -240,7 +240,7 @@ Verify with the real IDE:
 .continue/assistants/<name>.yaml       # one per agent, only when assistants-dir is set
 ```
 
-- **MCP**: Continue reads each YAML under `.continue/mcpServers/` as one server. Stdio emits `command`/`args`/`env`; HTTP / SSE / streamable-http emit `type`/`url`/`headers`.
+- **MCP**: each YAML under `.continue/mcpServers/` is a Continue block file: a `name` + `version` + `schema: v1` wrapper with the server nested under an `mcpServers:` list (a flat single-server file does not load). Stdio emits `command`/`args`/`env`; HTTP / SSE / streamable-http emit `type`/`url`/`headers`.
 - **Assistants**: when `outputs.continue.assistants-dir` is set, each agent also emits as a [Continue local Assistant](https://docs.continue.dev/hub/assistants/intro) YAML at `<dir>/<name>.yaml` (`schema: v1`, `version: 0.0.1` by default). The agent body wraps as one named prompt for the assistant picker. Models and rules are omitted so user defaults apply. The rule-form emission (`.continue/rules/agent-<name>.md`) still happens.
 
 Config keys: `outputs.continue.rules-dir` (default `.continue/rules`), `outputs.continue.mcp-dir` (default `.continue/mcpServers`), `outputs.continue.assistants-dir` (default empty, opt-in).
