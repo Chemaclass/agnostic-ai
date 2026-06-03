@@ -286,6 +286,32 @@ func TestEmit_MCP_HTTPUsesHttpUrlKey(t *testing.T) {
 	}
 }
 
+// SSE MCP uses Gemini's `url` key (not `httpUrl`, which is HTTP-only).
+func TestEmit_MCP_SSEUsesUrlKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "asana",
+			Meta: map[string]any{
+				"type": "sse",
+				"url":  "https://mcp.asana.com/sse",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	if strings.Contains(got, `"httpUrl"`) {
+		t.Errorf("SSE server must use url, not httpUrl: %s", got)
+	}
+	if !strings.Contains(got, `"url": "https://mcp.asana.com/sse"`) {
+		t.Errorf("missing SSE url key: %s", got)
+	}
+}
+
 // Hooks emit under hooks.<event> = [{matcher, command}, ...].
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)

@@ -18,6 +18,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Zed MCP servers now emit Zed's current `context_servers` schema: flat `command`/`args`/`env` for stdio and native `url`/`headers` for remote (HTTP/SSE). Drops the stale nested `command:{path,...}` + `settings:{}` shape and the `npx mcp-remote` bridge. Closes [#373](https://github.com/Chemaclass/agnostic-ai/issues/373).
 - Continue MCP files under `.continue/mcpServers/` now emit the required block wrapper (`name` + `version` + `schema: v1` with the server nested under `mcpServers:`); the previous flat single-server files did not load. Closes [#374](https://github.com/Chemaclass/agnostic-ai/issues/374).
 - Remote (HTTP/SSE) MCP servers now carry an explicit `type` in `.mcp.json` (Claude), `.cursor/mcp.json` (Cursor), and `.warp/.mcp.json` (Warp); a url-only entry was ambiguous. Stdio entries stay type-less. Closes [#375](https://github.com/Chemaclass/agnostic-ai/issues/375).
+- Gemini SSE MCP servers now emit `url` instead of `httpUrl`; only streamable-HTTP servers use `httpUrl`. SSE servers routed through `httpUrl` failed to connect. Closes [#376](https://github.com/Chemaclass/agnostic-ai/issues/376).
 
 ### Removed
 
