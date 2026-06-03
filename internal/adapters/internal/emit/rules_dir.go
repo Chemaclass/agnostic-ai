@@ -19,6 +19,11 @@ type RulesDirOpts struct {
 	// SkillPrefix is prepended to skill file names (e.g. "skill-").
 	// Default: "skill-".
 	SkillPrefix string
+	// SkipSkills suppresses the per-skill rule-form output. Set by
+	// adapters that emit skills through a native surface (e.g.
+	// antigravity's `.agent/skills/<name>/SKILL.md`) and must not also
+	// leak a `skill-<name>` rule file.
+	SkipSkills bool
 	// FormatRule renders one rule into file content. Defaults to
 	// `# <name>\n\n<body>\n` when nil.
 	FormatRule func(spec.Entry) string
@@ -67,11 +72,13 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 			return err
 		}
 	}
-	for _, s := range b.Skills {
-		name := opts.SkillPrefix + s.Name
-		path := filepath.Join(scopedDir(opts.Dir, s), name+opts.Ext)
-		if err := WriteFile(path, opts.FormatSkill(s), dryRun); err != nil {
-			return err
+	if !opts.SkipSkills {
+		for _, s := range b.Skills {
+			name := opts.SkillPrefix + s.Name
+			path := filepath.Join(scopedDir(opts.Dir, s), name+opts.Ext)
+			if err := WriteFile(path, opts.FormatSkill(s), dryRun); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

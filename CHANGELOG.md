@@ -8,9 +8,13 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Antigravity now emits skills natively as `.agent/skills/<name>/SKILL.md` (one folder per skill, sibling assets copied), matching Antigravity's skills layout. Configurable via `outputs.antigravity.skills-dir`. Closes [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
+
 ### Changed
 
 ### Fixed
+
+- Antigravity no longer reports skills as unsupported while silently writing a `skill-<name>.md` rule file; skills are a declared, native kind now. [#371](https://github.com/Chemaclass/agnostic-ai/issues/371).
 
 ### Removed
 

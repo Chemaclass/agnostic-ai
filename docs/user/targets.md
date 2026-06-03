@@ -39,7 +39,7 @@ Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules l
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) |
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | source-dir only (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` |
 | **opencode**    | `.opencode/commands/<name>.md` | `.opencode/commands/skill-<name>.md` w/ opt-in | source-dir only (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) |
-| **antigravity** | as `.md` rule (`agent-<name>.md`) | - | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - |
+| **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - |
 
 Cross-cutting kind notes:
 
@@ -342,23 +342,26 @@ Verify with the real CLI:
 ### Google Antigravity (`antigravity`)
 
 ```
-.agent/AGENTS.md           # canonical entry-point pointer body (written by sync)
-.agent/rules/<name>.md     # one per rule
+.agent/AGENTS.md              # canonical entry-point pointer body (written by sync)
+.agent/rules/<name>.md        # one per rule
 .agent/rules/agent-<name>.md  # one per agent
+.agent/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
 ```
 
 Antigravity reads project instructions from a top-level AGENTS.md-style file and per-rule files under `.agent/rules/`. The adapter emits per-rule files; `sync` writes the pointer body to `.agent/AGENTS.md`. The path stays under `.agent/` to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`.
 
-Skills, hooks, MCPs, and commands are not yet confirmed in the Antigravity public-preview spec and skip with a warning. Add `on-unsupported: silent` to suppress it, or wait for a future release once the upstream spec stabilises.
+- **Skills**: one folder per skill under `.agent/skills/<name>/SKILL.md` (Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), one folder per skill). The SKILL.md frontmatter is reduced to `name` + `description`; the body follows. Sibling files next to the source SKILL.md (helper scripts, fixtures) are copied byte-for-byte into the emitted folder.
 
-Config keys: `outputs.antigravity.rules-dir` (default `.agent/rules`), `outputs.antigravity.rules-file` (unset; writes a legacy merged document and skips the pointer-body write).
+Hooks, MCPs, and commands are not yet confirmed in the Antigravity public-preview spec and skip with a warning. Add `on-unsupported: silent` to suppress it, or wait for a future release once the upstream spec stabilises.
+
+Config keys: `outputs.antigravity.rules-dir` (default `.agent/rules`), `outputs.antigravity.skills-dir` (default `.agent/skills`), `outputs.antigravity.rules-file` (unset; writes a legacy merged document and skips the pointer-body write).
 
 Verify with the real IDE:
 
 1. Install Antigravity from the Google Antigravity public-preview download page.
-2. Check the tree: `ls .agent/AGENTS.md .agent/rules/`, `head -1 .agent/rules/*.md` for the provenance header.
+2. Check the tree: `ls .agent/AGENTS.md .agent/rules/ .agent/skills/`, `head -1 .agent/rules/*.md` for the provenance header, `test -f .agent/skills/*/SKILL.md`.
 3. Open the project; it surfaces `.agent/AGENTS.md` in the project-instructions panel with no "unrecognized file" warnings.
-4. Open one of `.agent/rules/<name>.md` and verify the per-rule file is picked up.
+4. Open one of `.agent/rules/<name>.md` and verify the per-rule file is picked up; confirm each `.agent/skills/<name>/SKILL.md` loads as a skill.
 5. Trigger an agent action (e.g. ask for a refactor); the rules apply, with no schema-validation log entries referencing `.agent/`.
 
 ## Selecting targets

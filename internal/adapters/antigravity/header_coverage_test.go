@@ -66,8 +66,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 
 // kitSinkBundle returns a Bundle that exercises every kind the
 // antigravity adapter declares in caps.Supports with three specimens
-// per kind. Skill/Hook/Command/MCP entries are intentionally absent so
-// the capability-parity test can assert the warning channel.
+// per kind. Hook/Command/MCP entries are intentionally absent so the
+// capability-parity test can assert the warning channel.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -76,6 +76,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
+		{Kind: spec.KindSkill, Name: "s1", Path: "skills/s1/SKILL.md", Meta: map[string]any{"description": "skill 1"}, Body: "skill 1 body"},
+		{Kind: spec.KindSkill, Name: "s2", Path: "skills/s2/SKILL.md", Meta: map[string]any{"description": "skill 2"}, Body: "skill 2 body"},
+		{Kind: spec.KindSkill, Name: "s3", Path: "skills/s3/SKILL.md", Meta: map[string]any{"description": "skill 3"}, Body: "skill 3 body"},
 	}
 	return spec.NewBundle(entries)
 }

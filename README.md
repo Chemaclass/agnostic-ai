@@ -87,7 +87,7 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 | Zed                 |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | Warp                |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
 | OpenCode            |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
-| Google Antigravity  |   ✅    |   -    |   ✅   |   -   |  -   |
+| Google Antigravity  |   ✅    |   ✅    |   ✅   |   -   |  -   |
 
 Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
 
