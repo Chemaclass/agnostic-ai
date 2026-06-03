@@ -285,7 +285,7 @@ Verify with the real CLI:
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
 
-- **MCP**: written into `.zed/settings.json` under `context_servers` (Zed's key, not `mcpServers`). Each server uses Zed's nested `command: {path, args, env}` plus an empty `settings: {}`. User-managed keys (theme, buffer_font_size) are preserved. Zed supports only stdio natively; HTTP / SSE entries auto-bridge through `npx mcp-remote <url>` with a one-line stderr warning.
+- **MCP**: written into `.zed/settings.json` under `context_servers` (Zed's key, not `mcpServers`). Stdio servers use a flat `command`/`args`/`env` shape; remote (HTTP / SSE) servers use a native `url`/`headers` shape. User-managed keys (theme, buffer_font_size) are preserved.
 - **Hooks**: when `outputs.zed.tasks-file` is set, every hook spec emits as a [Zed Task](https://zed.dev/docs/tasks) using `sh -c "<hook command>"`. The hook name is the label (description appended after an em-dash when present). Zed has no lifecycle-hook surface, so tasks run on demand from the command palette.
 
 Config keys: `outputs.zed.file` (default `.rules`), `outputs.zed.mcp-file` (default `.zed/settings.json`), `outputs.zed.tasks-file` (default empty, opt-in).

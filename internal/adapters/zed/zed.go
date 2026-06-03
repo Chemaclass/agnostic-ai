@@ -4,9 +4,8 @@
 // Zed reads a project-root `.rules` file as additional system context
 // for the inline assistant. MCP servers are configured in
 // `.zed/settings.json` under the `context_servers` key (note: not
-// `mcpServers`), with a nested `{path, args, env}` command shape. Zed
-// only supports stdio transport natively; HTTP / SSE entries need a
-// local `mcp-remote` bridge and are routed through it automatically.
+// `mcpServers`), with a flat `command`/`args`/`env` shape for stdio and
+// a native `url`/`headers` shape for remote (HTTP / SSE) servers.
 //
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
 // as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
@@ -126,52 +125,41 @@ func buildContextServers(mcps []spec.Entry) map[string]any {
 }
 
 // buildContextServer renders one Zed context_server entry. Stdio specs
-// produce a nested `command: {path, args, env}` block. HTTP / SSE specs
-// fall back to launching the upstream MCP through the `mcp-remote`
-// npx shim since Zed has no native HTTP MCP transport.
+// produce a flat `command`/`args`/`env` block; HTTP / SSE specs produce
+// a native `url`/`headers` block. Both shapes match Zed's current
+// `context_servers` schema (https://zed.dev/docs/ai/mcp).
 func buildContextServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
 		transport = "stdio"
 	}
-	cmd := map[string]any{}
+	out := map[string]any{}
 
 	switch transport {
 	case "stdio":
-		path, _ := e.Meta["command"].(string)
-		if path == "" {
+		cmd, _ := e.Meta["command"].(string)
+		if cmd == "" {
 			return nil
 		}
-		cmd["path"] = path
+		out["command"] = cmd
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
-			cmd["args"] = args
+			out["args"] = args
 		}
 		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-			cmd["env"] = env
-		} else {
-			cmd["env"] = map[string]string{}
+			out["env"] = env
 		}
 	case "http", "sse":
 		url, _ := e.Meta["url"].(string)
 		if url == "" {
 			return nil
 		}
-		_, _ = fmt.Fprintf(emit.Warner,
-			"zed: routing %q through `npx mcp-remote` shim (Zed has no native HTTP MCP transport)\n",
-			e.Name)
-		cmd["path"] = "npx"
-		cmd["args"] = []string{"-y", "mcp-remote", url}
-		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-			cmd["env"] = env
-		} else {
-			cmd["env"] = map[string]string{}
+		out["url"] = url
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			out["headers"] = h
 		}
 	default:
 		return nil
 	}
 
-	return map[string]any{
-		"command":  cmd,
-		"settings": map[string]any{},
-	}
+	return out
 }

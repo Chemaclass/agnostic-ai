@@ -1,34 +1,17 @@
 {
   "context_servers": {
     "disabled-server": {
-      "command": {
-        "env": {},
-        "path": "x"
-      },
-      "settings": {}
+      "command": "x"
     },
     "http-server": {
-      "command": {
-        "args": [
-          "-y",
-          "mcp-remote",
-          "https://example.test/mcp"
-        ],
-        "env": {},
-        "path": "npx"
-      },
-      "settings": {}
+      "url": "https://example.test/mcp"
     },
     "stdio-server": {
-      "command": {
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-filesystem"
-        ],
-        "env": {},
-        "path": "npx"
-      },
-      "settings": {}
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ],
+      "command": "npx"
     }
   }
 }
