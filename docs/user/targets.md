@@ -88,12 +88,14 @@ AGENTS.md                                    # canonical entry-point pointer bod
 .codex/skills/<name>/SKILL.md                # one folder per skill (Codex CLI's native path)
 .codex/skills/<name>/agents/openai.yaml      # optional, when x-codex provides UI/policy/deps
 .codex/prompts/<name>.md                     # one per command (slash prompt)
-.codex/config.toml                           # when hook and/or MCP entries exist
+.codex/config.toml                           # when MCP entries exist
+.codex/hooks.json                            # when hook entries exist
 ```
 
 - **Rules**: `sync` writes `AGENTS.md` with the pointer body. Codex loads rules from the spec source dir referenced there. Per-directory scoping (e.g. `src/AGENTS.md` from `globs: src/**`) is no longer emitted by default. Use `outputs.codex.rules-file: AGENTS.md` for the legacy concatenated layout.
 - **Skills**: [Codex skills layout](https://developers.openai.com/codex/skills), one folder per skill with a required `SKILL.md` (frontmatter `name` + `description`, plus body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an `agents/openai.yaml` is also written for UI customization and policy declarations.
-- **Hooks + MCP**: both land in `.codex/config.toml`. Hooks route by `event` frontmatter (`SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into `[[hooks.<event>]]` tables with `matcher` and `command`. MCP servers emit as `[mcp_servers.<name>]`: stdio uses `command`/`args`/`env`, HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is managed (overwritten each sync); put unmanaged Codex config in `~/.codex/config.toml`.
+- **Hooks**: land in `.codex/hooks.json` (override via `outputs.codex.hooks-file`), routed by `event` frontmatter (`SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into per-event arrays with `matcher` and `command`. The JSON form preserves matcher metadata the inline `[[hooks.<event>]]` TOML cannot.
+- **MCP**: lands in `.codex/config.toml`. Servers emit as `[mcp_servers.<name>]`: stdio uses `command`/`args`/`env`, HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is managed (overwritten each sync); put unmanaged Codex config in `~/.codex/config.toml`.
 - **Commands**: one file per spec under `.codex/prompts/` (project-tier mirror of `~/.codex/prompts/`). Frontmatter passes through; body is the prompt template.
 - **Import**: `import codex` captures `.codex/config.toml` minus `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. `sync -t codex` prepends it before the spec-derived sections, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any other key survive a `.codex/` wipe. On conflict with `outputs.codex.config.*` the overlay wins and the first-class key is dropped to keep TOML valid. `import codex` also reads `.codex/prompts/*.md` and writes them byte-for-byte to `<commands>/`, so user-authored prompts round-trip.
 

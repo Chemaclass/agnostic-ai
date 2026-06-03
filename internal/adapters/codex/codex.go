@@ -18,11 +18,12 @@
 // or `x-codex.dependencies`, an additional `agents/openai.yaml` is written
 // alongside SKILL.md for UI customization and policy declarations.
 //
-// Codex's lifecycle hooks and MCP servers both live in
-// `.codex/config.toml`. The hook engine (SessionStart, Stop,
-// UserPromptSubmit, PreToolUse, PostToolUse, pre/post compact) emits
-// as `[[hooks.<event>]]` array of tables; each MCP server emits as a
-// `[mcp_servers.<name>]` table.
+// Codex MCP servers live in `.codex/config.toml` (one
+// `[mcp_servers.<name>]` table each). Lifecycle hooks (SessionStart,
+// Stop, UserPromptSubmit, PreToolUse, PostToolUse, pre/post compact)
+// emit to `.codex/hooks.json`, which preserves matcher metadata the
+// inline `[[hooks.<event>]]` TOML form cannot. Override the hooks path
+// via `outputs.codex.hooks-file`.
 package codex
 
 import (
@@ -64,8 +65,8 @@ const (
 var caps = emit.Capabilities{
 	Target: target,
 	// Codex consumes agents, rules, skills (the latter as listings),
-	// commands (slash prompts under .codex/prompts/), plus lifecycle
-	// hooks and MCP servers via .codex/config.toml.
+	// commands (slash prompts under .codex/prompts/), MCP servers via
+	// .codex/config.toml, and lifecycle hooks via .codex/hooks.json.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand},
 }
 
@@ -79,9 +80,9 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one TOML per agent, one folder per skill, one prompt per
-// command, the .codex/config.toml (hooks + MCP), and—when opted in via
-// outputs.codex.rules-file—a legacy concatenated rules document. The
-// project-root AGENTS.md is written by `sync`, not here.
+// command, .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when
+// opted in via outputs.codex.rules-file—a legacy concatenated rules
+// document. The project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
