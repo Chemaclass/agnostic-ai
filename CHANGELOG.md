@@ -10,18 +10,19 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
-- Docs: README capability matrix and legend now show per-kind support depth (native / bundled / opt-in / not supported) instead of a 3-state glyph, with accurate cells for source-dir-only rules and opt-in skills.
+### Fixed
+
+### Removed
+
+## v0.32.1 - 2026-06-04
+
+### Changed
+
+- Docs: README capability matrix shows per-kind support depth (native / bundled / opt-in / none) instead of a 3-state glyph.
 
 ### Fixed
 
-- Docs: Gemini emits the hook `event:` value verbatim (no `PostToolUse`->`AfterTool` translation); fixed the spec-format example that produced an invalid Gemini config, and pointed Codex hook rendering at `.codex/hooks.json`.
-- Docs: clarified that `amp` and `warp` share Codex's `AGENTS.md` pointer body via auto-dedup and do not collide; corrected the `DefaultTargets`, `collision.go`, and configuration.md wording.
-- Docs: README marked Zed hooks unsupported; the adapter emits `.zed/tasks.json` via opt-in `outputs.zed.tasks-file`.
-- Docs: filled missing `outputs.*` keys in configuration.md (cursor `commands-dir`, copilot `chatmodes-dir`, cline/windsurf `workflows-dir`, continue `assistants-dir`, zed `tasks-file`, antigravity `skills-dir`, codex `hooks-file`) and the codex `shared-subagents` default (`true`).
-- Docs: targets.md capability matrix now renders the Commands column for every target; provenance verify steps use `grep` so they work on files that lead with frontmatter.
-- Docs: corrected stale claims for Cursor skills, the `on-unsupported` examples, Zed MCP transport (native `url`/`headers`, not `npx mcp-remote`), the Antigravity MCP no-support list, the per-directory scope table, and the Claude `.claude/rules/` import note.
-
-### Removed
+- Docs: realigned README, targets.md, configuration.md, and spec-format.md with actual adapter behavior. Notably: Gemini hook events emit verbatim, Codex hooks live in `.codex/hooks.json`, `amp`/`warp` dedupe `AGENTS.md` with Codex (no collision), Zed hooks emit via `outputs.zed.tasks-file`, and the documented `outputs.*` keys are complete.
 
 ## v0.32.0 - 2026-06-03
 
