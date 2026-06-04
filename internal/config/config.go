@@ -382,12 +382,13 @@ func warnLegacyOnce(path string) {
 		LegacyConfigFileName, ConfigFileName)
 }
 
-// DefaultTargets returns the safe out-of-the-box target list. Codex,
-// Amp, and Warp all default to root AGENTS.md per the community spec;
-// enabling more than one without an `outputs.<target>.file` override
-// triggers an output-collision error. The default picks Codex (which
-// also emits .codex/config.toml). Users who run Amp or Warp instead
-// must add them explicitly and drop or remap the colliders.
+// DefaultTargets returns the safe out-of-the-box target list. Codex, Amp,
+// and Warp all default to the root AGENTS.md per the community spec, but the
+// entry-point pointer body is byte-identical across them, so sync writes it
+// once (auto-dedup) and enabling more than one does not collide. The default
+// still picks only Codex (which also emits .codex/config.toml) and leaves Amp
+// and Warp out, since they add no new entry-point. A real collision needs two
+// targets to set a conflicting `outputs.<target>.rules-file: AGENTS.md`.
 func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "cursor",

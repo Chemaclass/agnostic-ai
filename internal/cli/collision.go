@@ -22,8 +22,12 @@ import (
 //   - prefer-spec: skip the collision check; let the last adapter win.
 //   - fail: hard error with no resolution hint.
 //
-// AGENTS.md is the canonical example: Codex, Amp, Warp, OpenCode, and Zed
-// all default to that file. Enabling more than one causes silent
+// AGENTS.md is the canonical shared path: Codex, Amp, and Warp all default to
+// it (OpenCode defaults to .opencode/AGENTS.md and Zed to .rules, so neither
+// contends here). Their entry-point pointer body is byte-identical, so sync
+// deduplicates the write and they do not collide. A genuine collision is two
+// adapters writing DIFFERENT content to one path (e.g. a conflicting
+// outputs.<target>.rules-file: AGENTS.md), which would otherwise cause silent
 // last-writer-wins and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error {
 	policy := cfg.Sync.CollisionPolicy

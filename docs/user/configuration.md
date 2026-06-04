@@ -41,9 +41,12 @@ sources:
   commands: commands
 
 # AI CLIs to emit configs for. These 12 are the default set (used when
-# `targets` is omitted). Two more adapters exist, `amp` and `warp`, but
-# both emit the root `AGENTS.md` like `codex`, so enabling them together
-# collides. Add one and give it an `outputs.<target>.file` override.
+# `targets` is omitted). Two more adapters exist, `amp` and `warp`. They
+# share the root `AGENTS.md` pointer body with `codex` (written once via
+# auto-dedup, since the body is byte-identical), so they add no new
+# entry-point and are left out of the default set. Enable them explicitly
+# if you use those tools. A real collision only happens when two targets
+# set a conflicting `outputs.<target>.rules-file: AGENTS.md`.
 targets:
   - claude
   - codex
@@ -95,28 +98,33 @@ outputs:
   cursor:
     rules-dir: .cursor/rules     # default
     mcp-file: .cursor/mcp.json   # default
+    # commands-dir: .cursor/commands  # opt-in: also emit each agent as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
     mcp-file: .vscode/mcp.json              # default
+    # chatmodes-dir: .github/chatmodes      # opt-in: also emit each agent as a Copilot Custom Chat Mode.
   aider:
     # Opt-in: also merge .aider.conf.yml so Aider auto-loads CONVENTIONS.md.
     # conf-file: .aider.conf.yml
     # model: gpt-4o
     # weak-model: gpt-4o-mini
   cline:
-    rules-dir: .clinerules       # default
+    rules-dir: .clinerules       # default. One .md per rule, agent, and skill.
+    # workflows-dir: .clinerules/workflows  # opt-in: also emit each agent as a Cline Workflow (/<name>.md).
   windsurf:
-    rules-dir: .windsurf/rules   # default
+    rules-dir: .windsurf/rules   # default. One .md per rule, agent, and skill.
+    # workflows-dir: .windsurf/workflows    # opt-in: also emit each agent as a Windsurf Workflow (/<name>).
   continue:
     rules-dir: .continue/rules        # default
     mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
   amp:
-    commands-dir: .agents/commands  # default. One .md per agent (and per skill when opted in).
-    emit-skills-as-commands: false  # default
+    commands-dir: .agents/commands  # default. One .md per agent.
+    skills-dir: .agents/skills      # default. One folder per skill (<name>/SKILL.md).
     mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
   zed:
     file: .rules                  # default
-    mcp-file: .zed/settings.json  # default. context_servers (stdio native, HTTP via mcp-remote).
+    mcp-file: .zed/settings.json  # default. context_servers (stdio command/args/env, HTTP/SSE native url/headers).
+    # tasks-file: .zed/tasks.json # opt-in: emit each hook as an on-demand Zed Task.
   warp:
     # workflows-dir: .warp/workflows  # opt-in: emit Warp Workflow YAMLs per agent.
     mcp-file: .warp/.mcp.json     # default. Standard mcpServers schema.
@@ -126,9 +134,11 @@ outputs:
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:
     rules-dir: .agent/rules             # default. One .md per rule and per agent.
+    skills-dir: .agent/skills           # default. One folder per skill (<name>/SKILL.md).
+    # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
 
 # What to do when a spec kind is unsupported by a target
-# (e.g. hooks for any target other than claude).
+# (e.g. hooks for Cursor, or mcps for Cline).
 on-unsupported: warn   # warn | error | silent
 
 # Auto-manage a block in .gitignore listing every generated path.
@@ -185,25 +195,31 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
 | `gemini` | `mcp-file` | `.gemini/settings.json` | Holds both `mcpServers` and `hooks`. HTTP MCP entries use `httpUrl`. |
-| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and per agent. |
+| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule, agent, and skill (`skill-<name>.mdc`). |
+| `cursor` | `commands-dir` | _empty_ | When set, each agent also emits as a Cursor Custom Command at `<dir>/<name>.md`. The rule-form `.mdc` emission still happens. Opt-in. |
 | `cursor` | `mcp-file` | `.cursor/mcp.json` | Standard `mcpServers` schema. |
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
+| `copilot` | `chatmodes-dir` | _empty_ | When set, each agent also emits as a Copilot Custom Chat Mode at `<dir>/<name>.chatmode.md`. The `agent-<name>.instructions.md` emission still happens. Opt-in. |
 | `copilot` | `rules-file` | _empty_ | When set, writes always-on rules concatenated at that path (legacy layout). `sync` skips the pointer-body write for `copilot`. |
 | `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
 | `aider` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path (typically `CONVENTIONS.md`). `sync` skips the pointer-body write for `aider`. |
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
-| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
-| `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule and per agent. |
-| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule and per agent. |
+| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
+| `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The rule-form emission still happens. Opt-in. |
+| `windsurf` | `rules-dir` | `.windsurf/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
+| `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Windsurf Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
+| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
+| `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
 | `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent. |
 | `amp` | `skills-dir` | `.agents/skills` | One folder per skill with a `SKILL.md` (Amp's native skills layout). |
 | `amp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `amp`. |
 | `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
 | `zed` | `file` | `.rules` | Single merged document. |
-| `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio native; HTTP/SSE auto-bridges via `npx mcp-remote`. |
+| `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio uses `command`/`args`/`env`; HTTP/SSE use a native `url`/`headers` shape. |
+| `zed` | `tasks-file` | _empty_ | When set, each hook emits as an on-demand Zed Task (`sh -c "<command>"`). Zed has no lifecycle-hook surface, so tasks run from the command palette. Opt-in. |
 | `warp` | `workflows-dir` | _empty_ | When set, each agent emits as a Warp Workflow YAML at `<dir>/<name>.yaml`. |
 | `warp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `warp`. |
 | `warp` | `mcp-file` | `.warp/.mcp.json` | Standard `mcpServers` schema. |
@@ -212,11 +228,12 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
 | `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
 | `antigravity` | `rules-dir` | `.agent/rules` | One `.md` per rule and per agent. |
+| `antigravity` | `skills-dir` | `.agent/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout). |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
 
 ## `targets`
 
-When omitted: the 12 default adapters above (every adapter except `amp` and `warp`, which collide with `codex` on the root `AGENTS.md`). Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
+When omitted: the 12 default adapters above (every adapter except `amp` and `warp`, which share `codex`'s root `AGENTS.md` pointer body and so add no new entry-point). Enabling `amp` or `warp` alongside `codex` is safe: the identical body is written once via auto-dedup. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ### Interactive target selection
 
@@ -276,7 +293,7 @@ import:
 
 ## `on-unsupported`
 
-Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for Codex or `skills` for Cursor).
+Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for Cursor or `mcps` for Cline).
 
 | Value | Behavior |
 |-------|----------|
