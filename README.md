@@ -4,7 +4,7 @@
 
 ### **One spec. Every AI CLI. Zero drift.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 10 more in their native format.
+Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 9 more in their native format.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
@@ -72,26 +72,35 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 ## Supported targets
 
+All 14 targets are first-class: author a spec once, `sync`, and it lands in each tool's native format. The matrix shows the emission shape per kind, not whether the tool is supported (it always is). Scan a row for your tool; scan the ✅ column for what works out of the box.
+
 | Target              | Agents | Skills | Rules | Hooks | MCPs |
 |---------------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI           |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Gemini CLI          |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Codex CLI           |   ✅    |   ✅    |   ○   |   ✅   |  ✅   |
+| Gemini CLI          |   ✅    |   ○    |   ○   |   ✅   |  ✅   |
 | Cursor              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Aider               |   ◐    |   ◐    |   ✅   |   -   |  -   |
+| Aider               |   ○    |   ○    |   ○   |   -   |  -   |
 | Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Windsurf            |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Continue            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Amp                 |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Zed                 |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
-| Warp                |   ◐    |   ◐    |   ✅   |   -   |  ✅   |
-| OpenCode            |   ✅    |   ◐    |   ✅   |   -   |  ✅   |
+| Amp                 |   ✅    |   ✅    |   ○   |   -   |  ✅   |
+| Zed                 |   ◐    |   ◐    |   ◐   |   ○   |  ✅   |
+| Warp                |   ○    |   ○    |   ○   |   -   |  ✅   |
+| OpenCode            |   ✅    |   ○    |   ○   |   -   |  ✅   |
 | Google Antigravity  |   ✅    |   ✅    |   ✅   |   -   |  -   |
 
-Legend: ✅ separate files · ◐ merged into single doc · `-` not supported. Hooks propagate to Claude, Codex, and Gemini. MCPs propagate to 10 targets in each tool's native schema.
+Legend, in descending order of native support:
 
-A ✅ means the file lands where the target documents. Not every cell is a path the upstream tool auto-loads. See [targets](docs/user/targets.md) for which paths are native vs. convention and how to wire conventions into each tool.
+- **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Zed's `.rules` is the only target that merges by default.
+- **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
+- **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
+
+Hooks are native on Claude, Codex, and Gemini; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity).
+
+The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target also carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) that confirms the emitted paths against the live tool, so the cells stay honest about what each tool actually auto-loads.
 
 ## Install
 

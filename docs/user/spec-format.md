@@ -28,17 +28,13 @@ Adapters that produce per-directory output honor the scope:
 
 | Target          | Scoped layout                              |
 |-----------------|--------------------------------------------|
-| `codex`         | `<scope>/AGENTS.md` (routed via globs; layout wins) |
 | `cursor`        | `<scope>/.cursor/rules/<name>.mdc`         |
 | `cline`         | `<scope>/.clinerules/<name>.md`            |
 | `windsurf`      | `<scope>/.windsurf/rules/<name>.md`        |
 | `continue`      | `<scope>/.continue/rules/<name>.md`        |
 | `copilot`       | `<scope>/**` glob on one `.github/instructions/<name>.instructions.md` (no nested dirs) |
-| `gemini`        | `<scope>/GEMINI.md`                        |
-| `amp`           | `<scope>/AGENTS.md`                        |
-| `warp`          | `<scope>/AGENTS.md`                        |
 
-Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. Source-dir targets (`codex`, `gemini`, `amp`, `warp`) reference rules from the spec dir and no longer emit per-directory scoped files (e.g. `src/AGENTS.md`) by default. The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
 
 A frontmatter `scope:` field is also accepted as a fallback when moving the file is impractical (a single rule scoped to a subtree).
 
@@ -243,7 +239,9 @@ target: codex   # shell-expanded codex path; do not leak to other tools
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
 
-Native emission: Claude Code (`.claude/settings.json`), Codex (`.codex/config.toml` `[[hooks.<event>]]`), Gemini (`.gemini/settings.json` `hooks`, with event names like `BeforeTool`/`AfterTool`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
+Native emission: Claude Code (`.claude/settings.json`), Codex (`.codex/hooks.json`, per-event arrays), Gemini (`.gemini/settings.json` `hooks`). Other targets log a warning and skip. See each tool's docs for its full event list and matcher semantics.
+
+agnostic-ai emits the `event:` value **verbatim** into each target's schema; it does not translate event names between tools. Claude and Codex share the `PreToolUse` / `PostToolUse` / `UserPromptSubmit` vocabulary, so one hook spec feeds both. Gemini uses its own names (`BeforeTool`, `AfterTool`, `SessionStart`, `SessionEnd`), so a Gemini hook must set `event:` to one of those. `agnostic-ai validate` flags any event a target does not recognize.
 
 ### Per-target rendering
 
@@ -272,15 +270,32 @@ Renders to `.claude/settings.json`:
 }
 ```
 
-Renders to `.codex/config.toml`:
+Renders to `.codex/hooks.json` (same nested shape as Claude, routed into per-event arrays):
 
-```toml
-[[hooks.PostToolUse]]
-matcher = "Bash(git commit*)"
-command = "echo \"tests please\""
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {"type": "command", "command": "echo \"tests please\""}
+        ]
+      }
+    ]
+  }
+}
 ```
 
-Renders to `.gemini/settings.json`:
+Gemini uses different event names, so a Gemini hook sets `event:` to one of its own. This spec:
+
+```yaml
+event: AfterTool
+matcher: Bash(git commit*)
+command: echo "tests please"
+```
+
+Renders to `.gemini/settings.json` (flat shape, event name passed through unchanged):
 
 ```json
 {
@@ -292,7 +307,7 @@ Renders to `.gemini/settings.json`:
 }
 ```
 
-When `command` is a list, each entry becomes a separate hook entry (Claude) or a separate `[[hooks.<event>]]` block (Codex).
+When `command` is a list, each entry becomes a separate hook entry (Claude, Codex).
 
 ## MCP servers
 
@@ -334,11 +349,11 @@ Targets with native MCP propagation:
 | Gemini | `.gemini/settings.json` | `mcpServers` (uses `httpUrl` for HTTP) |
 | Continue | `.continue/mcpServers/<name>.yaml` | one YAML per server |
 | Amp | `.amp/settings.json` | `amp.mcpServers` (dotted key) |
-| Zed | `.zed/settings.json` | `context_servers` (stdio only; HTTP bridges via `npx mcp-remote`) |
+| Zed | `.zed/settings.json` | `context_servers` (stdio: `command`/`args`/`env`; HTTP/SSE: native `url`/`headers`) |
 | Warp | `.warp/.mcp.json` | standard `mcpServers` |
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
 
-Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
+Aider, Cline, Windsurf, and Antigravity have no project-scoped MCP file and skip with a warning.
 
 ## Commands
 
@@ -403,9 +418,9 @@ Resolution per target:
 |--------|-----------------------|
 | `claude` | `name`, `description`, `model`, `allowed-tools` |
 | `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
-| `gemini` | `name`, `description`, `model` |
+| `gemini` | `description` (`name` becomes the `.toml` filename; `model` has no native command surface and is not emitted) |
 
-For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.agents/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
+For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.codex/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
 
 ### Arbitrary custom keys
 

@@ -18,7 +18,7 @@ Each adapter emits in its tool's native format: separate files where the tool su
 | **opencode**    | `.opencode/AGENTS.md`             |
 | **antigravity** | `.agent/AGENTS.md`                |
 
-Targets sharing a path (codex + amp + warp at `AGENTS.md`) write it once; dedup is automatic. Targets without a row (cursor, cline, windsurf, continue, zed) emit only per-file artifacts under their own directory and have no root entry-point.
+Targets sharing a path (codex + amp + warp at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, cline, windsurf, continue, zed) have no root entry-point: they emit only per-file artifacts under their own directory.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
@@ -28,24 +28,24 @@ Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules l
 |-----------------|---------------------|--------|--------------------------|-------|------|----------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` |
 | **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` |
-| **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | source-dir only (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) |
-| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` |
-| **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped); always-on via `outputs.copilot.rules-file` | - | `.vscode/mcp.json` |
-| **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | source-dir only (`.aider.conf.yml` w/ opt-in) | - | - |
-| **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - |
-| **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - |
-| **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` |
-| **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) |
-| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) |
-| **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | source-dir only (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` |
-| **opencode**    | `.opencode/commands/<name>.md` | `.opencode/commands/skill-<name>.md` w/ opt-in | source-dir only (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) |
-| **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - |
+| **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | source-dir only (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | - |
+| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` | - |
+| **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped); always-on via `outputs.copilot.rules-file` | - | `.vscode/mcp.json` | - |
+| **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | source-dir only (`.aider.conf.yml` w/ opt-in) | - | - | - |
+| **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - | - |
+| **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - | - |
+| **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` | - |
+| **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | source-dir only (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | - |
+| **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - |
+| **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | source-dir only (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - |
+| **opencode**    | `.opencode/commands/<name>.md` | `.opencode/commands/skill-<name>.md` w/ opt-in | source-dir only (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | - |
+| **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - | - |
 
 Cross-cutting kind notes:
 
 - **Skills**: only Claude Code executes them natively. On every other target they are reference material the agent or human reads and follows.
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, and Gemini in each tool's schema. Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks, not event-triggered hooks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. Remote (HTTP / SSE) entries carry an explicit `type`; stdio entries omit it (it is the inferred default).
+- **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (the inferred default). amp, gemini, and zed have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; amp and zed via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`) and Codex (`.codex/prompts/<name>.md`). Other targets skip with a warning.
 
 ## Per-target output
@@ -63,7 +63,7 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 .mcp.json
 ```
 
-- **Rules**: one file per spec under `.claude/rules/`. Reference them from `CLAUDE.md` with `@.claude/rules/<name>.md` imports; the pointer body lists `.claude/rules/` so imports survive syncs. `CLAUDE.md` is owned by `sync` and overwritten with the pointer body each run. Set `outputs.claude.rules-file: CLAUDE.md` for the legacy concatenated layout; `sync` then skips the pointer-body write for `claude`.
+- **Rules**: one file per spec under `.claude/rules/` for reference. They are not auto-imported by default: the sync-owned `CLAUDE.md` pointer body lists the source spec dir (e.g. `.agnostic-ai/rules/`), not `.claude/rules/`, and emits no `@`-import lines. `CLAUDE.md` is overwritten with the pointer body each run, so to have Claude Code load the per-rule files add `@.claude/rules/<name>.md` imports to a file `sync` does not own, or set `outputs.claude.rules-file: CLAUDE.md` for the legacy concatenated layout (`sync` then skips the pointer-body write for `claude`).
 - **Commands**: one file per spec under `.claude/commands/`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; body is the prompt template.
 - **Settings overlay**: `agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` layers the spec-derived `hooks` key on top, reproducing the full settings.json from a fresh checkout. Re-run `import claude` after editing settings.json by hand.
 - **MCP import**: `import claude` reads `.mcp.json` and writes one spec under `<mcps>/<name>.yaml` per `mcpServers.<name>`. The next `sync` distributes them to codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
@@ -74,7 +74,7 @@ Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir
 Verify with the real CLI:
 
 1. Install: `npm install -g @anthropic-ai/claude-code` (or the desktop app; both read the same files).
-2. Check the tree: `ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json` and `head -1 .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md` for the provenance header.
+2. Check the tree: `ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json` and `grep "Generated by agnostic-ai" .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md` for the provenance header (it sits after the YAML frontmatter, so `head -1` would only show `---`).
 3. Validate JSON: `python -m json.tool .claude/settings.json > /dev/null && python -m json.tool .mcp.json > /dev/null`.
 4. Launch `claude` from the project root. `/agents`, `/skills`, and the slash-command picker should list every entry. The MCP picker shows each `.mcp.json` server green.
 5. Trigger a matcher action (e.g. an `Edit` for `PostToolUse`/`Edit`); the hook command runs with no "schema mismatch" in the log.
@@ -99,7 +99,7 @@ AGENTS.md                                    # canonical entry-point pointer bod
 - **Commands**: one file per spec under `.codex/prompts/` (project-tier mirror of `~/.codex/prompts/`). Frontmatter passes through; body is the prompt template.
 - **Import**: `import codex` captures `.codex/config.toml` minus `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. `sync -t codex` prepends it before the spec-derived sections, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any other key survive a `.codex/` wipe. On conflict with `outputs.codex.config.*` the overlay wins and the first-class key is dropped to keep TOML valid. `import codex` also reads `.codex/prompts/*.md` and writes them byte-for-byte to `<commands>/`, so user-authored prompts round-trip.
 
-Config keys: `outputs.codex.agents-dir` (default `.codex/agents`; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.codex/skills`; override to `.agents/skills`), `outputs.codex.shared-subagents` (default `false` when `claude` is also a target to avoid duplicating `.claude/skills/<name>/`, `true` when codex is alone), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml`, also holds hooks), `outputs.codex.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write).
+Config keys: `outputs.codex.agents-dir` (default `.codex/agents`; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.codex/skills`; override to `.agents/skills`), `outputs.codex.shared-subagents` (default `true`; emits the per-skill tree at `skills-dir`. Set `false` to skip codex skill emission, useful when Codex reads claude's `.claude/skills/` tree directly), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml`), `outputs.codex.hooks-file` (default `.codex/hooks.json`), `outputs.codex.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write).
 
 Verify with the real CLI:
 
@@ -150,7 +150,7 @@ Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.curs
 Verify with the real IDE:
 
 1. Install Cursor from [cursor.com](https://cursor.com).
-2. Check the tree: `ls .cursor/rules/ .cursor/mcp.json`, `head -1 .cursor/rules/*.mdc` for the provenance header (after frontmatter), `python -m json.tool .cursor/mcp.json > /dev/null`.
+2. Check the tree: `ls .cursor/rules/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` for the provenance header (it sits after the frontmatter block), `python -m json.tool .cursor/mcp.json > /dev/null`.
 3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc`; confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings.
 4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
 
@@ -169,12 +169,12 @@ Verify with the real IDE:
 - **Chat modes**: when `outputs.copilot.chatmodes-dir` is set, each agent also emits as a [Copilot Custom Chat Mode](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot#about-custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter. The `agent-<name>.instructions.md` emission keeps working.
 - **MCP**: VS Code schema, top-level `servers` key, each entry carrying a `type` (`stdio`, `http`, or `sse`).
 
-Config keys: `outputs.copilot.instructions-dir` (default `.github/instructions`), `outputs.copilot.mcp-file` (default `.vscode/mcp.json`), `outputs.copilot.rules-file` (unset; writes always-on rules concatenated at that path and skips the pointer-body write).
+Config keys: `outputs.copilot.instructions-dir` (default `.github/instructions`), `outputs.copilot.mcp-file` (default `.vscode/mcp.json`), `outputs.copilot.chatmodes-dir` (default empty, opt-in; emits one Custom Chat Mode per agent), `outputs.copilot.rules-file` (unset; writes always-on rules concatenated at that path and skips the pointer-body write).
 
 Verify with the real extension:
 
 1. Install the [GitHub Copilot extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) (and optional Copilot Chat) in VS Code.
-2. Check the tree: `ls .github/copilot-instructions.md .github/instructions/ .vscode/mcp.json`, `head -1 .github/instructions/*.md` for the provenance header, `python -m json.tool .vscode/mcp.json > /dev/null`.
+2. Check the tree: `ls .github/copilot-instructions.md .github/instructions/ .vscode/mcp.json`, `grep "Generated by agnostic-ai" .github/instructions/*.md` for the provenance header (it sits after the `applyTo` frontmatter), `python -m json.tool .vscode/mcp.json > /dev/null`.
 3. Open the project. Copilot loads `.github/copilot-instructions.md` plus every matching `.instructions.md`. The `Output → GitHub Copilot` channel shows no "failed to parse instructions" warnings.
 4. Open a file matching a rule glob (e.g. a `.go` file for `applyTo: "**/*.go"`) and trigger chat; the rule body shows in context.
 5. If MCPs are configured, run `MCP: Show Installed Servers`; each `servers.<name>` from `.vscode/mcp.json` is ready.
@@ -212,7 +212,7 @@ Config keys: `outputs.cline.rules-dir` (default `.clinerules`), `outputs.cline.w
 Verify with the real extension:
 
 1. Install the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) in VS Code.
-2. Check the tree: `ls .clinerules/`, `head -1 .clinerules/*.md` for the provenance header.
+2. Check the tree: `ls .clinerules/`, `grep "Generated by agnostic-ai" .clinerules/*.md` for the provenance header.
 3. Open the project, open the Cline panel. Cline loads every `.clinerules/*.md`; each appears in the rules list with no "failed to parse" warnings.
 4. If `outputs.cline.workflows-dir` is set, each `<workflows-dir>/<name>.md` is invokable as `/<name>.md`; the italic description previews the workflow.
 
@@ -230,7 +230,7 @@ Config keys: `outputs.windsurf.rules-dir` (default `.windsurf/rules`), `outputs.
 Verify with the real IDE:
 
 1. Install Windsurf from [windsurf.com](https://windsurf.com).
-2. Check the tree: `ls .windsurf/rules/`, `head -1 .windsurf/rules/*.md` for the provenance header.
+2. Check the tree: `ls .windsurf/rules/`, `grep "Generated by agnostic-ai" .windsurf/rules/*.md` for the provenance header.
 3. Open the project. Cascade loads every `.windsurf/rules/*.md`; each appears in the Rules panel with no "failed to parse" warnings.
 4. When `outputs.windsurf.workflows-dir` is set, each `<workflows-dir>/<name>.md` is invokable in Cascade as `/<name>` with the rendered description.
 
@@ -250,7 +250,7 @@ Config keys: `outputs.continue.rules-dir` (default `.continue/rules`), `outputs.
 Verify with the real extension:
 
 1. Install the [Continue extension](https://marketplace.visualstudio.com/items?itemName=Continue.continue) in VS Code (or JetBrains).
-2. Check the tree: `ls .continue/rules/ .continue/mcpServers/`, `head -1 .continue/rules/*.md .continue/mcpServers/*.yaml` for the provenance header, `python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in __import__('glob').glob('.continue/mcpServers/*.yaml')]"`.
+2. Check the tree: `ls .continue/rules/ .continue/mcpServers/`, `grep "Generated by agnostic-ai" .continue/rules/*.md .continue/mcpServers/*.yaml` for the provenance header, `python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in __import__('glob').glob('.continue/mcpServers/*.yaml')]"`.
 3. Open the project. Continue loads every `.continue/rules/*.md`; each appears in the rules picker with no "failed to parse" warnings.
 4. The MCP picker shows each `.continue/mcpServers/<name>.yaml` green.
 5. If `outputs.continue.assistants-dir` is set, each `<dir>/<name>.yaml` is listed under the assistants picker with name + description.
@@ -275,7 +275,7 @@ Config keys: `outputs.amp.commands-dir` (default `.agents/commands`), `outputs.a
 Verify with the real CLI:
 
 1. Install: `npm install -g @sourcegraph/amp` (or the VS Code extension; both read the same files).
-2. Check the tree: `ls AGENTS.md .agents/commands/ .agents/skills/ .amp/settings.json`, `head -1 .agents/commands/*.md` for the provenance header, `test -f .agents/skills/*/SKILL.md`.
+2. Check the tree: `ls AGENTS.md .agents/commands/ .agents/skills/ .amp/settings.json`, `grep "Generated by agnostic-ai" .agents/commands/*.md` for the provenance header (it sits after the frontmatter), `test -f .agents/skills/*/SKILL.md`.
 3. Validate JSON: `python -m json.tool .amp/settings.json > /dev/null`.
 4. Open the project; Amp indexes `AGENTS.md` under "Project rules" with no `AGENT.md.bak` warning, and loads each `.agents/skills/<name>/SKILL.md` as a skill.
 5. The slash-command list shows each `.agents/commands/<name>.md` as `/<name>` with the rendered description.
@@ -297,7 +297,7 @@ Config keys: `outputs.zed.file` (default `.rules`), `outputs.zed.mcp-file` (defa
 Verify with the real editor:
 
 1. Install Zed from [zed.dev](https://zed.dev).
-2. Check the tree: `ls .rules .zed/settings.json .zed/tasks.json`, `head -1 .rules` for the "Generated by agnostic-ai" intro line, `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.
+2. Check the tree: `ls .rules .zed/settings.json .zed/tasks.json`, `grep "Generated by agnostic-ai" .rules` for the intro line (it follows the `# Project rules` title, not on line 1), `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.
 3. Open the project. The inline assistant reads `.rules` as system context; confirm a prompt sees the rule content.
 4. The MCP picker shows each `context_servers.<name>` ready.
 5. The command palette runs every entry from `.zed/tasks.json` as a Zed Task.
@@ -319,7 +319,7 @@ Config keys: `outputs.warp.workflows-dir` (default empty, opt-in), `outputs.warp
 Verify with the real terminal:
 
 1. Install Warp from [warp.dev](https://www.warp.dev).
-2. Check the tree: `ls AGENTS.md .warp/workflows/ .warp/.mcp.json`, `head -1 .warp/workflows/*.yaml` for the provenance header, `python -m json.tool .warp/.mcp.json > /dev/null`.
+2. Check the tree: `ls AGENTS.md .warp/workflows/ .warp/.mcp.json`, `grep "Generated by agnostic-ai" .warp/workflows/*.yaml` for the provenance header, `python -m json.tool .warp/.mcp.json > /dev/null`.
 3. Open the project; confirm the rules panel surfaces `AGENTS.md` (no "unrecognized file" warnings), the Warp Drive workflows picker shows every `<workflows-dir>/<name>.yaml`, and the MCP picker lists every `mcpServers.<name>` from `.warp/.mcp.json`.
 
 ### OpenCode (`opencode`)
@@ -339,7 +339,7 @@ Config keys: `outputs.opencode.commands-dir` (default `.opencode/commands`), `ou
 Verify with the real CLI:
 
 1. Install: `npm install -g sst/opencode` ([install docs](https://opencode.ai/)).
-2. Check the tree: `ls .opencode/AGENTS.md .opencode/commands/ opencode.json`, `head -1 .opencode/commands/*.md` for the provenance header, `python -m json.tool opencode.json > /dev/null`.
+2. Check the tree: `ls .opencode/AGENTS.md .opencode/commands/ opencode.json`, `grep "Generated by agnostic-ai" .opencode/commands/*.md` for the provenance header (it sits after the frontmatter), `python -m json.tool opencode.json > /dev/null`.
 3. Launch `opencode`. Every `.opencode/commands/<name>.md` appears in the slash-command picker with the rendered description.
 4. The MCP panel shows each `mcp.<name>` from `opencode.json` ready.
 
@@ -363,7 +363,7 @@ Config keys: `outputs.antigravity.rules-dir` (default `.agent/rules`), `outputs.
 Verify with the real IDE:
 
 1. Install Antigravity from the Google Antigravity public-preview download page.
-2. Check the tree: `ls .agent/AGENTS.md .agent/rules/ .agent/skills/`, `head -1 .agent/rules/*.md` for the provenance header, `test -f .agent/skills/*/SKILL.md`.
+2. Check the tree: `ls .agent/AGENTS.md .agent/rules/ .agent/skills/`, `grep "Generated by agnostic-ai" .agent/rules/*.md` for the provenance header (it sits after the frontmatter), `test -f .agent/skills/*/SKILL.md`.
 3. Open the project; it surfaces `.agent/AGENTS.md` in the project-instructions panel with no "unrecognized file" warnings.
 4. Open one of `.agent/rules/<name>.md` and verify the per-rule file is picked up; confirm each `.agent/skills/<name>/SKILL.md` loads as a skill.
 5. Trigger an agent action (e.g. ask for a refactor); the rules apply, with no schema-validation log entries referencing `.agent/`.
