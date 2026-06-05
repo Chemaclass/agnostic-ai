@@ -86,7 +86,7 @@ git commit -m "chore(agnostic-ai): regenerate per-target configs (no semantic ch
 - Reviewers focus on commit 1 (content) and skim commit 2 (cosmetic).
 - Importing from multiple CLIs: run each `import` + commit pair before the final `sync`.
 - Gitignoring generated files instead (see [`gitignore.enabled`](configuration.md#gitignore)): skip commit 2. Version only `.agnostic-ai/`; each contributor runs `sync` locally.
-- `sync --backup` keeps a `.bak` next to each overwritten file so you can `revert`. Clear them with `agnostic-ai cleanup`.
+- `sync --backup` keeps a `.bak` next to each overwritten file so you can `revert`. Clear them with `agnostic-ai cleanup` (scoped to the sync-written backups; unrelated `.bak` files are left alone).
 
 #### What `import` does NOT capture
 

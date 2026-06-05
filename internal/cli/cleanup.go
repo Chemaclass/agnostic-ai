@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // newCleanupCmd builds `agnostic-ai cleanup`. With no flags it removes
@@ -24,18 +27,19 @@ func newCleanupCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "cleanup",
-		Short: "Remove agnostic-ai-generated leftovers (currently: .bak files).",
+		Short: "Remove .bak backups left by `sync --backup`.",
 		Long: `cleanup removes housekeeping leftovers from previous agnostic-ai runs.
 
-Today only .bak cleanup is supported. It walks the project root, finds
-every file ending in '.bak' (the form ` + "`sync --backup`" + ` writes), and
-removes them. ` + "`.git/`" + ` and ` + "`.agnostic-ai/`" + ` are skipped.
+Today only .bak cleanup is supported. It removes the ` + "`<path>.bak`" + ` backups
+that ` + "`sync --backup`" + ` writes, scoped to the paths the configured adapters
+emit plus the entry-point files (CLAUDE.md, AGENTS.md, ...). Unrelated
+.bak files (vim backups, manual saves, other tools) are never touched.
 
 Pair with --dry-run to preview the deletions without touching disk.`,
 		Example: `  # Preview which .bak files would be removed
   agnostic-ai cleanup --dry-run
 
-  # Remove every .bak under the project root (no flag needed)
+  # Remove the .bak backups sync --backup wrote (no flag needed)
   agnostic-ai cleanup
 
   # Explicit form for scripts that prefer to spell the mode out
@@ -50,39 +54,38 @@ Pair with --dry-run to preview the deletions without touching disk.`,
 	return cmd
 }
 
-// runCleanupBackups walks root and deletes (or lists) every file whose
-// name ends in `.bak`. `.git/` and `.agnostic-ai/` are pruned so the
-// command never reaches under VCS metadata or the managed state dir.
+// runCleanupBackups removes (or lists) the `.bak` backups `sync --backup`
+// would have written: one per emitted adapter file plus per entry-point
+// file. Scoping to the sync-owned set is the whole point: a blind `*.bak`
+// sweep destroys unrelated user backups (#390). Backups that are absent are
+// skipped silently.
 func runCleanupBackups(root string, dryRun bool) error {
-	skipDirs := map[string]bool{".git": true, ".agnostic-ai": true}
-	var removed, listed int
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			if skipDirs[d.Name()] && path != root {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".bak") {
-			return nil
-		}
-		if dryRun {
-			summaryf("  would remove %s\n", path)
-			listed++
-			return nil
-		}
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("remove %s: %w", path, err)
-		}
-		verbosef("  removed %s\n", path)
-		removed++
-		return nil
-	})
+	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
+	}
+	baks, err := syncBackupPaths(cfg, b)
+	if err != nil {
+		return err
+	}
+	var removed, listed int
+	for _, bak := range baks {
+		if _, err := os.Stat(bak); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("stat %s: %w", bak, err)
+		}
+		if dryRun {
+			summaryf("  would remove %s\n", bak)
+			listed++
+			continue
+		}
+		if err := os.Remove(bak); err != nil {
+			return fmt.Errorf("remove %s: %w", bak, err)
+		}
+		verbosef("  removed %s\n", bak)
+		removed++
 	}
 	if dryRun {
 		summaryf("cleanup: %d .bak file(s) would be removed (dry-run)\n", listed)
@@ -90,4 +93,40 @@ func runCleanupBackups(root string, dryRun bool) error {
 		summaryf("cleanup: removed %d .bak file(s)\n", removed)
 	}
 	return nil
+}
+
+// syncBackupPaths returns the `<path>.bak` paths `sync --backup` creates:
+// one per emitted adapter file plus per entry-point file, deduplicated. The
+// emitted set is captured the same way check and revert compute it, so
+// cleanup only ever targets sync-written backups, never unrelated *.bak.
+func syncBackupPaths(cfg *config.Config, b spec.Bundle) ([]string, error) {
+	seen := map[string]bool{}
+	var out []string
+	add := func(path string) {
+		bak := path + ".bak"
+		if seen[bak] {
+			return
+		}
+		seen[bak] = true
+		out = append(out, bak)
+	}
+	for _, t := range cfg.Targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue
+		}
+		adapters.StartCapture()
+		// dryRun=true: capture the paths without writing anything.
+		if err := adapters.EmitWithProvenance(adapter, b, cfg, true); err != nil {
+			adapters.StopCapture()
+			return nil, fmt.Errorf("%s: %w", t, err)
+		}
+		for _, f := range adapters.StopCapture() {
+			add(f.Path)
+		}
+	}
+	for _, p := range entryPointPaths(cfg, cfg.Targets) {
+		add(p)
+	}
+	return out, nil
 }
