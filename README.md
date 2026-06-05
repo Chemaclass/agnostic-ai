@@ -148,7 +148,7 @@ CI gate to fail PRs that drift from source specs:
   with: { command: check }
 ```
 
-**Commit or ignore generated outputs?** Recommended: gitignore them, keep `.agnostic-ai/` as the single source of truth, and let contributors run `sync` locally. Set `gitignore.enabled: true` and every `sync` maintains a managed `.gitignore` block listing each emitted path (see [configuration](docs/user/configuration.md#gitignore)). Committing the outputs is also valid when teammates lack the CLI. The `check` gate guards drift either way.
+**Commit or ignore generated outputs?** `agnostic-ai init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the single source of truth and contributors run `sync` locally, while every `sync` maintains a managed `.gitignore` block listing each emitted path (see [configuration](docs/user/configuration.md#gitignore)). Prefer to commit the outputs (e.g. teammates lack the CLI)? Scaffold with `init --gitignore=false`. The `check` gate guards drift either way.
 
 ## Documentation
 

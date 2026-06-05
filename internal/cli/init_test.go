@@ -329,7 +329,7 @@ func TestInitCmd_GitignoreFlagPersistsEnabled(t *testing.T) {
 	}
 }
 
-func TestInitCmd_NonTTY_NoPromptDefaultsDisabled(t *testing.T) {
+func TestInitCmd_NonTTY_NoPromptDefaultsEnabled(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -344,8 +344,27 @@ func TestInitCmd_NonTTY_NoPromptDefaultsDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(string(cfg), "gitignore:\n  enabled: true\n") {
+		t.Errorf("non-TTY init must default to the managed gitignore block:\n%s", cfg)
+	}
+}
+
+func TestInitCmd_GitignoreOptOut(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init", "--all", "--gitignore=false"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if strings.Contains(string(cfg), "gitignore:") {
-		t.Errorf("non-TTY init without --gitignore must not write gitignore block:\n%s", cfg)
+		t.Errorf("--gitignore=false must commit generated outputs (no gitignore block):\n%s", cfg)
 	}
 }
 
