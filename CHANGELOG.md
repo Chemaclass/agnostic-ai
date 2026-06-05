@@ -8,6 +8,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `gitignore.allow` config: a list of re-allow patterns emitted as `!`-prefixed lines at the end of the managed `.gitignore` block. Keeps a tracked file (e.g. a `testdata/AGENTS.md` fixture) from being ignored by a broader rule, without hand-editing the block. Closes #388.
+
 ### Changed
 
 - `init` now writes `gitignore.enabled: true` by default, so a fresh project ignores its generated outputs (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, ...) and keeps `.agnostic-ai/` as the only committed copy. The TTY prompt defaults to yes and non-interactive runs take the default; pass `init --gitignore=false` to commit outputs instead. Existing configs without a `gitignore` key are unaffected.

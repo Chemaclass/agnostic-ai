@@ -92,6 +92,11 @@ type Gitignore struct {
 	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// Path overrides the .gitignore location relative to the project root.
 	Path string `yaml:"path,omitempty"    json:"path,omitempty"`
+	// Allow lists re-allow patterns emitted as `!`-prefixed lines at the
+	// end of the managed block. Use it to keep tracked files (e.g.
+	// `testdata/AGENTS.md` fixtures) that a broader ignore would otherwise
+	// catch. Patterns are gitignore globs, emitted verbatim.
+	Allow []string `yaml:"allow,omitempty"   json:"allow,omitempty"`
 }
 
 type Sources struct {

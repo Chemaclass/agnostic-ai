@@ -99,6 +99,28 @@ func TestSync_AddsStateFileToGitignore(t *testing.T) {
 	}
 }
 
+func TestSync_GitignoreAllowEmitsReAllowLines(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	// Override the fixture config to add a re-allow pattern for a fixture tree.
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte("version: 1\ngitignore:\n  enabled: true\n  allow:\n    - \"**/testdata/AGENTS.md\"\n"), 0o644))
+
+	root := cli.NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(content), "!**/testdata/AGENTS.md") {
+		t.Errorf("expected re-allow line in managed block, got:\n%s", content)
+	}
+}
+
 func TestSync_LedgerSweepsOrphanedAdapterOutput(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

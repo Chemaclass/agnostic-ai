@@ -247,6 +247,45 @@ func TestCollapseManagedEntries_NeverIgnoresSourceTree(t *testing.T) {
 	}
 }
 
+func TestNormalizeAllowEntries_PrefixesDedupesSorts(t *testing.T) {
+	got := normalizeAllowEntries([]string{
+		"internal/adapters/**/testdata/**",
+		"!**/AGENTS.md",        // user-supplied bang is tolerated, not doubled
+		"./fixtures/CLAUDE.md", // leading ./ stripped
+		"  ",                   // blank dropped
+		"**/AGENTS.md",         // duplicate of the bang form above
+	})
+	want := []string{
+		"!**/AGENTS.md",
+		"!fixtures/CLAUDE.md",
+		"!internal/adapters/**/testdata/**",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d] got %q want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// The managed block lists collapsed ignores first, then re-allow lines so a
+// fixture tree stays tracked even when enabled (#388).
+func TestBuildManagedBlock_AppendsAllowExceptionsLast(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Gitignore.Allow = []string{"internal/adapters/**/testdata/**"}
+	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"})
+	if len(got) == 0 || got[len(got)-1] != "!internal/adapters/**/testdata/**" {
+		t.Fatalf("re-allow line not appended last: %v", got)
+	}
+	for _, e := range got[:len(got)-1] {
+		if strings.HasPrefix(e, "!") {
+			t.Errorf("re-allow line %q appeared before ignores: %v", e, got)
+		}
+	}
+}
+
 func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Sources.Agents = ".agnostic-ai/agents"
