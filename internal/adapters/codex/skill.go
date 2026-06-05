@@ -40,7 +40,7 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 		return err
 	}
 
-	if err := propagateSkillAssets(s, folder, dryRun); err != nil {
+	if err := emit.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {
 		return err
 	}
 
@@ -50,20 +50,6 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 		}
 	}
 	return nil
-}
-
-// propagateSkillAssets mirrors every sibling file under the source
-// skill directory into the emitted folder, skipping SKILL.md because
-// the adapter re-renders it from the spec frontmatter. No-op when the
-// source path is unknown (in-memory specs from the playground).
-func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
-	if s.Path == "" {
-		return nil
-	}
-	srcDir := filepath.Dir(s.Path)
-	return emit.CopyTree(srcDir, dstDir, func(rel string) bool {
-		return rel == "SKILL.md"
-	}, dryRun)
 }
 
 func skillMarkdown(s spec.Entry) string {

@@ -14,6 +14,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Flat-file skills (`.agnostic-ai/skills/<name>.md`) no longer leak their sibling skills' bodies into each emitted skill folder. Sibling-asset propagation now applies only to folder-based skills (`<name>/SKILL.md`), which own their directory. Affects the claude, codex, amp, and antigravity targets. Closes #387.
+
 ### Removed
 
 ## v0.32.1 - 2026-06-04
