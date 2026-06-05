@@ -10,7 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
-- The `sources:` block is now optional. Any omitted kind defaults to `.agnostic-ai/<kind>` (e.g. `.agnostic-ai/agents`), matching the directory layout `init` scaffolds. Configs that pin custom source paths are unaffected. Previously an omitted kind defaulted to a bare top-level dir (`agents/`), which never matched the scaffolded `.agnostic-ai/` tree.
+- The `sources:` block is now optional. Any omitted kind defaults to `.agnostic-ai/<kind>`, matching the tree `init` scaffolds. Previously the default was a bare `agents/` dir. Custom source paths are unaffected.
 
 ### Fixed
 
