@@ -215,6 +215,53 @@ func TestEmit_PropagatesSkillAssets(t *testing.T) {
 	}
 }
 
+// Flat-file skills (`skills/<name>.md`, the default `agnostic-ai new skill`
+// scaffold) share one source directory. Each emitted skill folder must hold
+// only its own SKILL.md, not a copy of every sibling skill's body (#387).
+func TestEmit_FlatFileSkillsDoNotLeakSiblings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	skillsDir := filepath.Join(dir, ".agnostic-ai", "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"alpha", "beta", "gamma"}
+	entries := make([]spec.Entry, 0, len(names))
+	for _, name := range names {
+		path := filepath.Join(skillsDir, name+".md")
+		if err := os.WriteFile(path, []byte("---\nname: "+name+"\n---\nbody\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, spec.Entry{
+			Kind: spec.KindSkill,
+			Name: name,
+			Path: path,
+			Meta: map[string]any{"name": name},
+			Body: "body",
+		})
+	}
+
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range names {
+		folder := filepath.Join(dir, ".claude", "skills", name)
+		got, err := os.ReadDir(folder)
+		if err != nil {
+			t.Fatalf("read %s: %v", folder, err)
+		}
+		var files []string
+		for _, e := range got {
+			files = append(files, e.Name())
+		}
+		if len(files) != 1 || files[0] != "SKILL.md" {
+			t.Errorf("skill %q folder = %v, want only [SKILL.md]", name, files)
+		}
+	}
+}
+
 // A spec that lists codex-only subtrees under `x-codex.assets` must skip
 // those subtrees during claude emit, even if they live in the agnostic
 // source dir (#305).

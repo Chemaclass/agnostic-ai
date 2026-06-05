@@ -144,16 +144,10 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 // (folders the codex importer pulled in that the claude side never had,
 // e.g. helper `scripts/` directories — #305).
 //
-// No-op when the source path is unknown (e.g. specs loaded from raw
-// bytes in the WASM playground) so adapters stay safe for in-memory
-// callers.
+// Flat-file skills share one source directory, so emit.PropagateSkillAssets
+// suppresses propagation for them (#387).
 func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
-	if s.Path == "" {
-		return nil
-	}
-	srcDir := filepath.Dir(s.Path)
-	skip := claudeSkillSkipFor(s)
-	return emit.CopyTree(srcDir, dstDir, skip, dryRun)
+	return emit.PropagateSkillAssets(s, dstDir, claudeSkillSkipFor(s), dryRun)
 }
 
 // claudeSkillSkipFor returns a per-skill skip predicate honoring the
