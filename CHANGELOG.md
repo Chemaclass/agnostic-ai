@@ -16,6 +16,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `cleanup` now removes only the `.bak` backups `sync --backup` wrote (scoped to emitted target files and entry-point files), instead of every `*.bak` under the project. Unrelated backups (vim, manual saves, other tools) are no longer destroyed. Closes #390.
 - `revert` now restores the entry-point files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `AGNOSTIC_AI.md`) from their `.bak`, matching adapter-emitted files. A `sync --backup` then `revert` round-trip previously left the user's original content orphaned in `.bak`; `revert --force` now also deletes the generated entry-point files. Closes #389.
 - Flat-file skills (`.agnostic-ai/skills/<name>.md`) no longer leak their sibling skills' bodies into each emitted skill folder. Sibling-asset propagation now applies only to folder-based skills (`<name>/SKILL.md`), which own their directory. Affects the claude, codex, amp, and antigravity targets. Closes #387.
 
