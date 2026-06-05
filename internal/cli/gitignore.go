@@ -158,6 +158,40 @@ func gitignoreTopSegment(p string) string {
 	return p
 }
 
+// buildManagedBlock assembles the managed-block lines: collapsed,
+// root-anchored ignores first, then the configured re-allow exceptions as
+// `!`-prefixed lines. Allows are emitted last so they override any broader
+// ignore above them, letting a project keep a tracked fixture (e.g.
+// `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
+func buildManagedBlock(cfg *config.Config, entries []string) []string {
+	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg))
+	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
+}
+
+// normalizeAllowEntries turns the configured allow patterns into `!`-prefixed
+// gitignore lines: forward slashes, leading `./` and `!` trimmed before the
+// canonical `!` is re-added, blanks dropped, deduplicated, sorted. Patterns
+// are gitignore globs and stay unanchored so a re-allow like `**/AGENTS.md`
+// keeps matching at any depth.
+func normalizeAllowEntries(patterns []string) []string {
+	seen := make(map[string]struct{}, len(patterns))
+	for _, p := range patterns {
+		p = strings.TrimSpace(filepath.ToSlash(p))
+		p = strings.TrimPrefix(p, "./")
+		p = strings.TrimPrefix(p, "!")
+		if p == "" {
+			continue
+		}
+		seen["!"+p] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // updateGitignore rewrites the managed block in `.gitignore` (or
 // cfg.Gitignore.Path) with the provided entries. Lines outside the block
 // are preserved as-is. The file is created if missing. An empty entries

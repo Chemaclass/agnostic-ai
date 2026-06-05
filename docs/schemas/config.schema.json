@@ -242,6 +242,12 @@
         },
         "path": {
           "type": "string"
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

@@ -147,6 +147,8 @@ on-unsupported: warn   # warn | error | silent
 gitignore:
   enabled: false
   path: .gitignore   # default
+  allow:             # keep these tracked even when a broader ignore matches
+    - "**/testdata/AGENTS.md"
 ```
 
 ## Top-level fields
@@ -307,8 +309,9 @@ Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for 
 |-------|---------|-------------|
 | `enabled` | `false` when the key is absent; `agnostic-ai init` writes `true` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
+| `allow` | empty | Re-allow patterns emitted as `!`-prefixed lines at the end of the managed block. Keeps a tracked file (e.g. a `testdata/AGENTS.md` fixture) from being ignored by a broader rule, without hand-editing. Patterns are gitignore globs, emitted verbatim. |
 
-The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere.
+The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every generated entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere. For cases a root-anchored ignore can't express, add the glob to `allow`; its `!` line is written last so it overrides the ignores above it.
 
 Override per-run with `--gitignore on|off` on `sync`.
 
