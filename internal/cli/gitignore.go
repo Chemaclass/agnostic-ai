@@ -59,12 +59,7 @@ func normalizeAndSort(paths []string) []string {
 			seen[n] = struct{}{}
 		}
 	}
-	out := make([]string, 0, len(seen))
-	for p := range seen {
-		out = append(out, p)
-	}
-	sort.Strings(out)
-	return out
+	return sortedKeys(seen)
 }
 
 // normalizeGitignorePath converts a filesystem path to a gitignore entry:
@@ -184,12 +179,7 @@ func normalizeAllowEntries(patterns []string) []string {
 		}
 		seen["!"+p] = struct{}{}
 	}
-	out := make([]string, 0, len(seen))
-	for p := range seen {
-		out = append(out, p)
-	}
-	sort.Strings(out)
-	return out
+	return sortedKeys(seen)
 }
 
 // updateGitignore rewrites the managed block in `.gitignore` (or
