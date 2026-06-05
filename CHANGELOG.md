@@ -10,6 +10,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- `init` now writes `gitignore.enabled: true` by default, so a fresh project ignores its generated outputs (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, ...) and keeps `.agnostic-ai/` as the only committed copy. The TTY prompt defaults to yes and non-interactive runs take the default; pass `init --gitignore=false` to commit outputs instead. Existing configs without a `gitignore` key are unaffected.
+
 ### Fixed
 
 ### Removed

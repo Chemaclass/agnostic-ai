@@ -139,22 +139,24 @@ func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, err
 
 // promptGitignoreEnable asks the user whether to enable
 // gitignore.enabled in the rendered config. Only TTY stdin runs the
-// confirm widget; piped or closed stdin falls back to false so CI
-// flows stay deterministic (use the --gitignore flag to flip it on
-// non-interactively).
+// confirm widget; piped or closed stdin falls back to true so first-time
+// and CI inits ignore generated outputs without a prompt (pass
+// --gitignore=false to commit them instead).
 //
-// Defaults to false because most teams commit emitted target files
-// (CLAUDE.md, AGENTS.md, .cursor/, ...) so non-agnostic-ai users still
-// see the project conventions without running `sync`.
+// Defaults to true: the source specs under .agnostic-ai/ are the one
+// committed copy, and treating the emitted target files (CLAUDE.md,
+// AGENTS.md, .cursor/, ...) as build artifacts keeps them out of git
+// and review noise. Flip off if teammates lack the CLI and need the
+// generated conventions committed.
 func promptGitignoreEnable(in io.Reader) (bool, error) {
 	f, ok := in.(*os.File)
 	if !ok || !term.IsTerminal(f.Fd()) {
-		return false, nil
+		return true, nil
 	}
-	picked := false
+	picked := true
 	form := huh.NewConfirm().
 		Title("Ignore generated target files in .gitignore?").
-		Description("`sync` will keep a managed block of every emitted target path. Off by default; flip on if your team treats emitted files as build artifacts.").
+		Description("`sync` will keep a managed block of every emitted target path. On by default; flip off if your team commits emitted files so teammates without the CLI still see the conventions.").
 		Affirmative("Yes, ignore them").
 		Negative("No, commit them").
 		Value(&picked)

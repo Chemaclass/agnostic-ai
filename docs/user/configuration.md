@@ -305,7 +305,7 @@ Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for 
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `enabled` | `false` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters emit. |
+| `enabled` | `false` when the key is absent; `agnostic-ai init` writes `true` | When true, every `sync` rewrites a managed block in `.gitignore` listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
 
 The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere.
@@ -314,9 +314,11 @@ Override per-run with `--gitignore on|off` on `sync`.
 
 ### Picking the default at `init`
 
-`agnostic-ai init` asks whether to enable the managed block when stdin is a TTY. Pick "No" (default) to commit emitted target files. Pick "Yes" to treat them as build artifacts. Non-interactive runs (CI, piped stdin) skip the prompt. Pass `--gitignore` to opt in:
+`agnostic-ai init` writes `gitignore.enabled: true` by default, so a fresh project keeps its generated outputs out of git and `.agnostic-ai/` stays the single committed source. When stdin is a TTY the confirm prompt defaults to "Yes, ignore them"; pick "No" to commit emitted files instead (useful when teammates lack the CLI). Non-interactive runs (CI, piped stdin) take the default without prompting. Opt out with `--gitignore=false`:
 
-    agnostic-ai init --all --gitignore
+    agnostic-ai init --all --gitignore=false
+
+Note this only affects newly scaffolded configs. An existing `agnostic-ai.yaml` with no `gitignore` key keeps the absent-key default (`false`); add the block by hand to opt in.
 
 ## Claude settings
 
