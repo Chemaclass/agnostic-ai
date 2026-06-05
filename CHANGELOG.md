@@ -10,6 +10,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- The `sources:` block is now optional. Any omitted kind defaults to `.agnostic-ai/<kind>` (e.g. `.agnostic-ai/agents`), matching the directory layout `init` scaffolds. Configs that pin custom source paths are unaffected. Previously an omitted kind defaulted to a bare top-level dir (`agents/`), which never matched the scaffolded `.agnostic-ai/` tree.
+
 ### Fixed
 
 - Docs now state that `sync` enables 12 targets by default and that Amp and Warp are opt-in (they share the root `AGENTS.md` entry-point with Codex). README and `docs/user/targets.md` previously implied all 14 targets sync out of the box.

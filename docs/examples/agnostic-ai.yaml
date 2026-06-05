@@ -3,13 +3,14 @@
 
 version: 1
 
-# Where to read agnostic specs from. Relative to this file.
+# Where to read agnostic specs from. Relative to this file. Optional: any
+# omitted kind defaults to `.agnostic-ai/<kind>` (the values shown here).
 sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-  mcps: mcps
+  agents: .agnostic-ai/agents
+  skills: .agnostic-ai/skills
+  rules: .agnostic-ai/rules
+  hooks: .agnostic-ai/hooks
+  mcps: .agnostic-ai/mcps
 
 # AI CLIs to emit configs for. Comment out any to skip.
 targets:

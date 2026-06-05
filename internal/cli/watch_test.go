@@ -91,7 +91,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	}
 
 	// Touch the spec to trigger re-emit.
-	specPath := filepath.Join(dir, "rules", "r1.md")
+	specPath := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 	content, err := os.ReadFile(specPath)
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestWatchSync_PollFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	specPath := filepath.Join(dir, "rules", "r1.md")
+	specPath := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 	content, err := os.ReadFile(specPath)
 	if err != nil {
 		t.Fatal(err)

@@ -13,7 +13,7 @@ func TestValidate_FlagsUnknownHookEvent(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "hooks", "fmt.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: BogusEvent\nmatcher: \"Edit\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -41,7 +41,7 @@ func TestValidate_AcceptsKnownHookEvent(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "hooks", "fmt.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"Edit\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -66,7 +66,7 @@ func TestValidate_HookEventGeminiSubsetUnknownToClaude(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n  - gemini\n")
-	mustWriteFile(t, filepath.Join(dir, "hooks", "before.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "before.yaml"),
 		"name: before\nevent: BeforeTool\nmatcher: \"\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -90,7 +90,7 @@ func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - cursor\n  - cline\n")
-	mustWriteFile(t, filepath.Join(dir, "hooks", "fmt.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -115,7 +115,7 @@ func TestValidate_MissingHookEventField(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "hooks", "broken.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "broken.yaml"),
 		"name: broken\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -137,7 +137,7 @@ func TestDoctor_ReportsMCPCommandResolution(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "mcps", "fs.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
 		"name: fs\ncommand: this-binary-does-not-exist-please\nargs:\n  - hi\n")
 	testutil.Chdir(t, dir)
 
@@ -163,7 +163,7 @@ func TestDoctor_SkipsMCPBlockWhenNoMCPSpecs(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "rules", "x.md"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "x.md"),
 		"---\nname: x\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -183,7 +183,7 @@ func TestDoctor_HTTPMCPSkippedFromCommandResolution(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, "mcps", "remote.yaml"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "remote.yaml"),
 		"name: remote\nurl: https://example.com/mcp\n")
 	testutil.Chdir(t, dir)
 

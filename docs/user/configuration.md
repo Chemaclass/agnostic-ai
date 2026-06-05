@@ -31,14 +31,16 @@ Editors with YAML Language Server support validate keys and values as you type.
 ```yaml
 version: 1
 
-# Source directories, relative to this file.
+# Source directories, relative to this file. The whole `sources:` block is
+# optional: any omitted kind defaults to `.agnostic-ai/<kind>`, so the values
+# below are the defaults. Set a field only to point that kind somewhere else.
 sources:
-  agents: agents
-  skills: skills
-  rules: rules
-  hooks: hooks
-  mcps: mcps
-  commands: commands
+  agents: .agnostic-ai/agents
+  skills: .agnostic-ai/skills
+  rules: .agnostic-ai/rules
+  hooks: .agnostic-ai/hooks
+  mcps: .agnostic-ai/mcps
+  commands: .agnostic-ai/commands
 
 # AI CLIs to emit configs for. These 12 are the default set (used when
 # `targets` is omitted). Two more adapters exist, `amp` and `warp`. They

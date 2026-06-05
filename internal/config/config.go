@@ -16,7 +16,19 @@ const (
 	ConfigFileName        = "agnostic-ai.yaml"
 	LegacyConfigFileName  = "agnostic.config.yaml"
 	LocalOverrideFileName = "agnostic-ai.local.yaml"
+
+	// SourceBaseDir is the conventional parent directory for the project
+	// layer's source specs. When `sources:` (or any of its fields) is
+	// omitted, each kind defaults to `<SourceBaseDir>/<kind>` relative to
+	// the config file, e.g. `.agnostic-ai/agents`.
+	SourceBaseDir = ".agnostic-ai"
 )
+
+// defaultSource returns the conventional project-layer source path for a
+// kind subfolder (`agents`, `skills`, ...): `.agnostic-ai/<kind>`.
+func defaultSource(kind string) string {
+	return SourceBaseDir + "/" + kind
+}
 
 type Config struct {
 	Version       int               `yaml:"version"                  json:"version"`
@@ -406,12 +418,12 @@ func defaults() *Config {
 	return &Config{
 		Version: 1,
 		Sources: Sources{
-			Agents:   "agents",
-			Skills:   "skills",
-			Rules:    "rules",
-			Hooks:    "hooks",
-			MCPs:     "mcps",
-			Commands: "commands",
+			Agents:   defaultSource("agents"),
+			Skills:   defaultSource("skills"),
+			Rules:    defaultSource("rules"),
+			Hooks:    defaultSource("hooks"),
+			MCPs:     defaultSource("mcps"),
+			Commands: defaultSource("commands"),
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -420,22 +432,22 @@ func defaults() *Config {
 
 func (c *Config) applyDefaults() {
 	if c.Sources.Agents == "" {
-		c.Sources.Agents = "agents"
+		c.Sources.Agents = defaultSource("agents")
 	}
 	if c.Sources.Skills == "" {
-		c.Sources.Skills = "skills"
+		c.Sources.Skills = defaultSource("skills")
 	}
 	if c.Sources.Rules == "" {
-		c.Sources.Rules = "rules"
+		c.Sources.Rules = defaultSource("rules")
 	}
 	if c.Sources.Hooks == "" {
-		c.Sources.Hooks = "hooks"
+		c.Sources.Hooks = defaultSource("hooks")
 	}
 	if c.Sources.MCPs == "" {
-		c.Sources.MCPs = "mcps"
+		c.Sources.MCPs = defaultSource("mcps")
 	}
 	if c.Sources.Commands == "" {
-		c.Sources.Commands = "commands"
+		c.Sources.Commands = defaultSource("commands")
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

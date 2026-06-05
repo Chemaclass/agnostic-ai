@@ -21,8 +21,8 @@ func setupFilterFixture(t *testing.T) string {
 	}
 	must(os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\ntargets: [claude, cursor]\n"), 0o644))
-	must(os.MkdirAll(filepath.Join(dir, "rules"), 0o755))
-	must(os.WriteFile(filepath.Join(dir, "rules", "r1.md"),
+	must(os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "rules"), 0o755))
+	must(os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"),
 		[]byte("---\nname: r1\n---\nrule body"), 0o644))
 	return dir
 }

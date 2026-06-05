@@ -136,7 +136,7 @@ func TestDoctor_NoFalseDriftAfterSyncWithOverlay(t *testing.T) {
 	if err := os.WriteFile(overlayPath, []byte(overlay), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	hooksDir := filepath.Join(dir, "hooks")
+	hooksDir := filepath.Join(dir, ".agnostic-ai", "hooks")
 	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

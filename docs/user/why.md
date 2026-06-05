@@ -22,7 +22,7 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
   output keys: (adapter defaults)
   last sync: 2026-05-15T10:23:00Z
   sources:
-    [rule] no-console-log (rules/no-console-log.md): full
+    [rule] no-console-log (.agnostic-ai/rules/no-console-log.md): full
 ```
 
 ## Output fields
