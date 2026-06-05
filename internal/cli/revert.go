@@ -19,7 +19,8 @@ func newRevertCmd() *cobra.Command {
 		Use:   "revert",
 		Short: "Undo a previous sync. Restores .bak files when present.",
 		Long: "revert reverses the effect of `sync` for every target.\n" +
-			"For each file the matching adapter would emit:\n" +
+			"For each file the matching adapter would emit, plus the entry-point\n" +
+			"files sync distributes (CLAUDE.md, AGENTS.md, GEMINI.md, ...):\n" +
 			"  - if <path>.bak exists, the .bak content is restored and the .bak removed\n" +
 			"  - otherwise the file is left in place to protect user-authored content\n" +
 			"    that happens to share a path with an adapter-emitted file (e.g. a\n" +
@@ -100,6 +101,24 @@ func newRevertCmd() *cobra.Command {
 				}
 				_ = restored
 				_ = removed
+			}
+
+			// sync writes the entry-point files (CLAUDE.md, AGENTS.md, ...)
+			// outside adapter emission, so revert them on the same terms.
+			paths := entryPointPaths(cfg, effective)
+			summaryf("← revert entry-points\n")
+			var preserved int
+			for _, p := range paths {
+				action, err := revertOne(p, dryRun, force)
+				if err != nil {
+					return fmt.Errorf("entry-point: %w", err)
+				}
+				if action == "preserve" {
+					preserved++
+				}
+			}
+			if preserved > 0 {
+				summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
 			}
 			return nil
 		},
@@ -199,6 +218,22 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 			} else {
 				out.Writes = append(out.Writes, rec)
 			}
+		}
+	}
+
+	// Entry-point files are written outside adapter emission; revert them
+	// too so the JSON report matches the text path.
+	for _, p := range entryPointPaths(cfg, targets) {
+		action, err := revertOne(p, dryRun, force)
+		if err != nil {
+			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
+			continue
+		}
+		rec := fileRecord{Target: "agnostic-ai", Path: p, Action: action, Bytes: 0}
+		if action == "skip" || action == "preserve" {
+			out.Skipped = append(out.Skipped, rec)
+		} else {
+			out.Writes = append(out.Writes, rec)
 		}
 	}
 	return emitJSON(cmd, out)

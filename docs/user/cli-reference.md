@@ -285,7 +285,7 @@ Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `a
 
 ## revert
 
-Undo a previous sync. For every file an adapter would emit, restores `<path>.bak` when present (and removes the .bak). With no `.bak`, the file is left in place by default so user-authored content sharing a path with adapter output (helper scripts next to `SKILL.md`, templates inside a propagated skill folder) is not deleted. Pass `--force` to delete those unbacked files.
+Undo a previous sync. For every file an adapter would emit, plus the entry-point files sync distributes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restores `<path>.bak` when present (and removes the .bak). With no `.bak`, the file is left in place by default so user-authored content sharing a path with adapter output (helper scripts next to `SKILL.md`, templates inside a propagated skill folder) is not deleted. Pass `--force` to delete those unbacked files, including the generated entry-point files.
 
 ```bash
 agnostic-ai revert [flags]

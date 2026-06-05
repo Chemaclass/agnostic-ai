@@ -53,6 +53,29 @@ func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool)
 	return nil
 }
 
+// entryPointPaths returns the entry-point files sync distributes: the
+// canonical AGNOSTIC_AI.md plus each enabled target's native file
+// (CLAUDE.md, AGENTS.md, GEMINI.md, ...), deduplicated and in target order.
+// Targets on the legacy concatenated rules-file layout are skipped because
+// the adapter owns that write. Mirrors writeAgnosticEntryPoints' path
+// selection so revert and check stay symmetric with sync (#389).
+func entryPointPaths(cfg *config.Config, targets []string) []string {
+	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
+	paths := []string{adapters.AgnosticEntryPointPath}
+	for _, t := range targets {
+		if adapters.HasLegacyRulesFile(cfg, t) {
+			continue
+		}
+		path := adapters.EntryPointPath(cfg, t)
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		paths = append(paths, path)
+	}
+	return paths
+}
+
 // warnOnHandAuthoredEntryPoint prints a single-line warning when path
 // exists, has non-empty content, and lacks the agnostic-ai provenance
 // marker. The marker is the same one `header.Has` uses to recognize a

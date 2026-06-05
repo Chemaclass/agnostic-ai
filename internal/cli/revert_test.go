@@ -219,6 +219,71 @@ func TestRevertCmd_RestoresFromBackup(t *testing.T) {
 	}
 }
 
+// Regression for #389 repro A: a `sync --backup` over a hand-authored
+// entry-point file must be undone by `revert`, restoring the original
+// content from the .bak and removing the .bak. Before the fix revert never
+// touched entry-point files, orphaning the user's content in CLAUDE.md.bak.
+func TestRevertCmd_RestoresEntryPointFromBackup(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	claudeMd := filepath.Join(dir, "CLAUDE.md")
+	if err := os.WriteFile(claudeMd, []byte("MY ORIGINAL NOTES\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--backup"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(claudeMd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "MY ORIGINAL NOTES\n" {
+		t.Errorf("entry-point not restored, got %q", got)
+	}
+	if _, err := os.Stat(claudeMd + ".bak"); !os.IsNotExist(err) {
+		t.Errorf("expected CLAUDE.md.bak removed after restore")
+	}
+}
+
+// Regression for #389 repro B: `revert --force` must delete generated
+// entry-point files, not just adapter-emitted ones.
+func TestRevertCmd_ForceRemovesEntryPoints(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	claudeMd := filepath.Join(dir, "CLAUDE.md")
+	if _, err := os.Stat(claudeMd); err != nil {
+		t.Fatalf("expected CLAUDE.md after sync: %v", err)
+	}
+
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(claudeMd); !os.IsNotExist(err) {
+		t.Errorf("expected CLAUDE.md removed after revert --force, err=%v", err)
+	}
+}
+
 func TestRevertCmd_DryRunNoSideEffects(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
