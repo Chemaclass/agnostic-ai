@@ -13,7 +13,7 @@ import (
 func TestValidate_AllowsMissingNameForMarkdownSpecs(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, "rules", "no-name.md"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "no-name.md"),
 		"---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -35,7 +35,7 @@ func TestValidate_AllowsMissingNameForMarkdownSpecs(t *testing.T) {
 func TestValidate_FixLeavesOptionalNameOmitted(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	specPath := filepath.Join(dir, "rules", "no-name.md")
+	specPath := filepath.Join(dir, ".agnostic-ai", "rules", "no-name.md")
 	mustWriteFile(t, specPath, "---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -70,7 +70,7 @@ func TestValidate_FixLeavesOptionalNameOmitted(t *testing.T) {
 func TestValidate_AllowsNestedSkillMissingName(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	skillPath := filepath.Join(dir, "skills", "validator", "SKILL.md")
+	skillPath := filepath.Join(dir, ".agnostic-ai", "skills", "validator", "SKILL.md")
 	mustWriteFile(t, skillPath, "---\ndescription: a skill\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -94,7 +94,7 @@ func TestValidate_AllowsNestedSkillMissingName(t *testing.T) {
 func TestValidate_NoIssuesWhenNamePresent(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, "rules", "good.md"),
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "good.md"),
 		"---\nname: good\n---\nbody\n")
 	testutil.Chdir(t, dir)
 

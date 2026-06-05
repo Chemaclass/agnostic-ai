@@ -140,7 +140,7 @@ func TestSync_LedgerSweepsOrphanedAdapterOutput(t *testing.T) {
 	// Remove the source spec that produced the file. A naive sync would
 	// stop writing the agent output but leave the prior copy on disk
 	// indefinitely. The ledger sweep should catch and remove it.
-	if err := os.Remove(filepath.Join(dir, "agents/sample-agent.md")); err != nil {
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai/agents/sample-agent.md")); err != nil {
 		t.Fatalf("remove spec: %v", err)
 	}
 
@@ -172,7 +172,7 @@ func TestSync_LedgerLeavesUserAuthoredFilesAlone(t *testing.T) {
 	if err := os.WriteFile(managed, []byte("hand authored, keep me\n"), 0o644); err != nil {
 		t.Fatalf("seed user file: %v", err)
 	}
-	if err := os.Remove(filepath.Join(dir, "agents/sample-agent.md")); err != nil {
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai/agents/sample-agent.md")); err != nil {
 		t.Fatalf("remove spec: %v", err)
 	}
 
@@ -240,8 +240,8 @@ func setupFixture(t *testing.T) string {
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
 		[]byte("version: 1\ngitignore:\n  enabled: true\n"), 0o644))
 
-	must(t, os.MkdirAll(filepath.Join(dir, "agents"), 0o755))
-	must(t, os.WriteFile(filepath.Join(dir, "agents", "sample-agent.md"),
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "agents"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", "agents", "sample-agent.md"),
 		[]byte(`---
 name: sample-agent
 description: A sample agent.
@@ -250,8 +250,8 @@ description: A sample agent.
 Sample agent body.
 `), 0o644))
 
-	must(t, os.MkdirAll(filepath.Join(dir, "rules"), 0o755))
-	must(t, os.WriteFile(filepath.Join(dir, "rules", "sample-rule.md"),
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "sample-rule.md"),
 		[]byte(`---
 name: sample-rule
 description: A sample rule.
@@ -261,8 +261,8 @@ alwaysApply: true
 Be terse. Avoid filler.
 `), 0o644))
 
-	must(t, os.MkdirAll(filepath.Join(dir, "hooks"), 0o755))
-	must(t, os.WriteFile(filepath.Join(dir, "hooks", "sample-hook.yaml"),
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "hooks"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", "hooks", "sample-hook.yaml"),
 		[]byte(`name: sample-hook
 description: Sample hook.
 event: PostToolUse

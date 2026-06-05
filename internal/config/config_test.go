@@ -24,7 +24,7 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Version != 1 {
 		t.Errorf("expected version 1, got %d", cfg.Version)
 	}
-	if cfg.Sources.Agents != "agents" {
+	if cfg.Sources.Agents != ".agnostic-ai/agents" {
 		t.Errorf("expected default agents source, got %q", cfg.Sources.Agents)
 	}
 	if cfg.OnUnsupported != "warn" {
@@ -74,7 +74,7 @@ on-unsupported: error
 		t.Errorf("expected error, got %q", cfg.OnUnsupported)
 	}
 	// Defaults still fill missing source
-	if cfg.Sources.Skills != "skills" {
+	if cfg.Sources.Skills != ".agnostic-ai/skills" {
 		t.Errorf("expected default skills, got %q", cfg.Sources.Skills)
 	}
 }

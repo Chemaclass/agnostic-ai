@@ -149,7 +149,7 @@ func TestRevertCmd_PreservesUserAuthoredHelpers(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	skillSrc := filepath.Join(dir, "skills", "i18n-parity")
+	skillSrc := filepath.Join(dir, ".agnostic-ai", "skills", "i18n-parity")
 	if err := os.MkdirAll(skillSrc, 0o755); err != nil {
 		t.Fatal(err)
 	}

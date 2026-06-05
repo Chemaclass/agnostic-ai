@@ -7,14 +7,9 @@
 
 version: 1
 
-# Source directories, relative to this file.
-sources:
-  agents: .agnostic-ai/agents
-  skills: .agnostic-ai/skills
-  rules: .agnostic-ai/rules
-  hooks: .agnostic-ai/hooks
-  commands: .agnostic-ai/commands
-  mcps: .agnostic-ai/mcps
+# Source directories default to `.agnostic-ai/{agents,skills,rules,hooks,
+# mcps,commands}` relative to this file, so the `sources:` block is omitted.
+# Set it only to point a kind somewhere else.
 
 # AI CLIs to emit configs for. Every adapter the tool ships is enabled
 # so the project itself acts as the end-to-end fixture for each emitter.
