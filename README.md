@@ -74,6 +74,8 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 All 14 targets are first-class: author a spec once, `sync`, and it lands in each tool's native format. The matrix shows the emission shape per kind, not whether the tool is supported (it always is). Scan a row for your tool; scan the ✅ column for what works out of the box.
 
+`sync` enables 12 by default. Amp and Warp share the root `AGENTS.md` entry-point with Codex and add no new one, so they stay opt-in: add them to `targets:` in config or pass `-t amp,warp` to emit their target-specific files.
+
 | Target              | Agents | Skills | Rules | Hooks | MCPs |
 |---------------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |

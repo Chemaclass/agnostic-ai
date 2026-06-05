@@ -387,6 +387,8 @@ agnostic-ai sync -t claude,cursor,copilot
 
 CLI flag overrides config. Unknown targets log a warning and skip.
 
+The default target set is 12: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity. **Amp** and **Warp** are opt-in. Both share the root `AGENTS.md` entry-point with Codex and add no new entry-point, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp`) to emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`).
+
 Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries before confirming.
 
 ## New targets

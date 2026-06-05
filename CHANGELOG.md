@@ -12,6 +12,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Docs now state that `sync` enables 12 targets by default and that Amp and Warp are opt-in (they share the root `AGENTS.md` entry-point with Codex). README and `docs/user/targets.md` previously implied all 14 targets sync out of the box.
+
 ### Removed
 
 ## v0.33.0 - 2026-06-05
