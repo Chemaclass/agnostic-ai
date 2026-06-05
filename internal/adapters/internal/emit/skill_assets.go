@@ -26,6 +26,11 @@ func PropagateSkillAssets(s spec.Entry, dstDir string, skip func(rel string) boo
 	return CopyTree(filepath.Dir(s.Path), dstDir, skip, dryRun)
 }
 
+// SkipSKILLMd is the common sibling-asset skip predicate: it excludes the
+// re-rendered SKILL.md and copies everything else verbatim. Adapters that
+// need extra exclusions (e.g. codex-only assets) pass their own predicate.
+func SkipSKILLMd(rel string) bool { return rel == "SKILL.md" }
+
 // FolderBasedSkill reports whether the skill spec owns its own directory
 // (`<name>/SKILL.md`) rather than living as a flat file (`<name>.md`).
 // Folder-based skills own their sibling assets; flat-file skills share the

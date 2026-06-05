@@ -81,7 +81,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
-		if err := propagateSkillAssets(s, folder, dryRun); err != nil {
+		if err := emit.PropagateSkillAssets(s, folder, claudeSkillSkipFor(s), dryRun); err != nil {
 			return err
 		}
 	}
@@ -134,20 +134,6 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 		}
 	}
 	return nil
-}
-
-// propagateSkillAssets mirrors every sibling file under the source
-// skill directory (`<skills-src>/<name>/`) into the emitted skill
-// folder, skipping SKILL.md (re-rendered from the spec), any
-// `agents/openai.yaml` (codex-only metadata that Claude does not read),
-// and any other top-level entry the spec marks under `x-codex.assets`
-// (folders the codex importer pulled in that the claude side never had,
-// e.g. helper `scripts/` directories — #305).
-//
-// Flat-file skills share one source directory, so emit.PropagateSkillAssets
-// suppresses propagation for them (#387).
-func propagateSkillAssets(s spec.Entry, dstDir string, dryRun bool) error {
-	return emit.PropagateSkillAssets(s, dstDir, claudeSkillSkipFor(s), dryRun)
 }
 
 // claudeSkillSkipFor returns a per-skill skip predicate honoring the

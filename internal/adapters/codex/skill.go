@@ -40,7 +40,7 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 		return err
 	}
 
-	if err := emit.PropagateSkillAssets(s, folder, skipSKILL, dryRun); err != nil {
+	if err := emit.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {
 		return err
 	}
 
@@ -51,11 +51,6 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 	}
 	return nil
 }
-
-// skipSKILL excludes the re-rendered SKILL.md from sibling-asset
-// propagation; everything else next to the source SKILL.md is copied
-// verbatim.
-func skipSKILL(rel string) bool { return rel == "SKILL.md" }
 
 func skillMarkdown(s spec.Entry) string {
 	// Resolve description through the per-target meta so a spec

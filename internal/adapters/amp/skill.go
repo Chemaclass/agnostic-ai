@@ -27,13 +27,8 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 	if err := emit.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(skillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
 		return err
 	}
-	return emit.PropagateSkillAssets(s, folder, skipSKILL, dryRun)
+	return emit.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun)
 }
-
-// skipSKILL excludes the re-rendered SKILL.md from sibling-asset
-// propagation; everything else next to the source SKILL.md is copied
-// verbatim.
-func skipSKILL(rel string) bool { return rel == "SKILL.md" }
 
 func skillMarkdown(s spec.Entry) string {
 	resolved := emit.ResolveMeta(s.Meta, target)
