@@ -11,6 +11,7 @@ sources:
   rules: .agnostic-ai/rules
   hooks: .agnostic-ai/hooks
   mcps: .agnostic-ai/mcps
+  commands: .agnostic-ai/commands
 
 # AI CLIs to emit configs for. Comment out any to skip.
 targets:
