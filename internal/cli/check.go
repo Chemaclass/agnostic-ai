@@ -100,27 +100,17 @@ func collectEntryPointDrift(cfg *config.Config, targets []string) (driftReport, 
 		return rep, fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 
-	rendered := header.With(body, header.FormatMarkdown)
-	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
-	for _, t := range targets {
-		if adapters.HasLegacyRulesFile(cfg, t) {
-			continue
-		}
-		path := adapters.EntryPointPath(cfg, t)
-		if path == "" || seen[path] {
-			continue
-		}
-		seen[path] = true
-		disk, err := os.ReadFile(path)
+	for _, f := range renderEntryPointFiles(cfg, targets, body) {
+		disk, err := os.ReadFile(f.Path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				rep.Missing = append(rep.Missing, adapters.CapturedFile{Path: path, Content: rendered})
+				rep.Missing = append(rep.Missing, adapters.CapturedFile{Path: f.Path, Content: f.Content})
 				continue
 			}
-			return rep, fmt.Errorf("read %s: %w", path, err)
+			return rep, fmt.Errorf("read %s: %w", f.Path, err)
 		}
-		if string(disk) != rendered {
-			rep.Stale = append(rep.Stale, adapters.CapturedFile{Path: path, Content: rendered})
+		if string(disk) != f.Content {
+			rep.Stale = append(rep.Stale, adapters.CapturedFile{Path: f.Path, Content: f.Content})
 		}
 	}
 	return rep, nil

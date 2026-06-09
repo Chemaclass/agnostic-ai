@@ -34,6 +34,14 @@ func OutputRulesFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputHooksFile returns cfg.Outputs[target].HooksFile when set, otherwise fallback.
+func OutputHooksFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.HooksFile != "" {
+		return o.HooksFile
+	}
+	return fallback
+}
+
 // OutputMCPFile returns cfg.Outputs[target].MCPFile when set, otherwise fallback.
 func OutputMCPFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.MCPFile != "" {
