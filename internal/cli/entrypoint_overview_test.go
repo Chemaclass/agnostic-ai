@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-const overviewMarker = "<!-- agnostic-ai:target-overview:start -->"
+const overviewMarker = adapters.OverviewStartMarker
 
 func TestWriteAgnosticEntryPoints_TargetOverviewAppendsAppendix(t *testing.T) {
 	dir := testutil.TempCwd(t)
@@ -123,8 +123,12 @@ func TestCollectEntryPointDrift_NoDriftAfterSyncWithOverview(t *testing.T) {
 func TestMirrorMainFile_StripsTargetOverview(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	body := "# Project\n\nBody.\n"
-	appendix := "\n" + overviewMarker + "\n\n## Native artifact locations\n\n- **Rules**: `.claude/rules/`\n\n<!-- agnostic-ai:target-overview:end -->\n"
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(body+appendix), 0o644); err != nil {
+	appendix := adapters.RenderTargetOverview([]adapters.TargetArtifacts{{
+		Target:    "claude",
+		Artifacts: []adapters.NativeArtifact{{Label: "Rules", Location: ".claude/rules/"}},
+	}})
+	withAppendix := adapters.AppendTargetOverview(body, appendix)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(withAppendix), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

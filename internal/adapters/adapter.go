@@ -184,23 +184,29 @@ type NativeArtifact = emit.NativeArtifact
 // TargetArtifacts mirrors emit.TargetArtifacts.
 type TargetArtifacts = emit.TargetArtifacts
 
-// NativeOverviewer is the optional interface an adapter implements to
+// OverviewStartMarker mirrors emit.OverviewStartMarker so callers (and
+// tests) outside the internal emit tree can detect the appendix block.
+const OverviewStartMarker = emit.OverviewStartMarker
+
+// nativeOverviewer is the optional interface an adapter implements to
 // describe where its generated artifacts live for a given config. The
 // sync layer renders the result into the target-overview appendix of
 // the adapter's entry-point file when sync.target-overview is enabled.
-type NativeOverviewer interface {
+type nativeOverviewer interface {
 	NativeArtifacts(cfg *config.Config) []NativeArtifact
 }
 
-// NativeArtifactsFor returns the native artifacts the named in-tree
-// target declares, nil when the adapter is unknown or does not
-// implement NativeOverviewer.
+// NativeArtifactsFor returns the native artifacts the named target
+// declares, nil when the adapter does not implement nativeOverviewer.
+// Lookup is in-tree only: external adapters have no native-artifacts
+// protocol yet, so an external target's section is silently absent
+// from the overview appendix.
 func NativeArtifactsFor(name string, cfg *config.Config) []NativeArtifact {
 	a, ok := registry[name]
 	if !ok {
 		return nil
 	}
-	o, ok := a.(NativeOverviewer)
+	o, ok := a.(nativeOverviewer)
 	if !ok {
 		return nil
 	}

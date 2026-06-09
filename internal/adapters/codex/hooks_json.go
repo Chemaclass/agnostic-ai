@@ -35,10 +35,7 @@ func emitHooksJSON(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	path := defaultHooksFile
-	if o, ok := cfg.Outputs[target]; ok && o.HooksFile != "" {
-		path = o.HooksFile
-	}
+	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	// `.codex/hooks.json` lives under .codex/ alongside config.toml;
 	// emit.WriteFile already handles parent-dir creation.
 	return emit.WriteFile(path, string(body)+"\n", dryRun)

@@ -13,7 +13,7 @@ func TestRenderTargetOverview_SingleTargetFlatBullets(t *testing.T) {
 			{Label: "MCP servers", Location: ".mcp.json"},
 		},
 	}})
-	if !strings.Contains(out, overviewStartMarker) || !strings.Contains(out, overviewEndMarker) {
+	if !strings.Contains(out, OverviewStartMarker) || !strings.Contains(out, OverviewEndMarker) {
 		t.Fatalf("missing sentinel markers:\n%s", out)
 	}
 	if strings.Contains(out, "### claude") {
@@ -67,7 +67,7 @@ func TestStripTargetOverview_NoBlockUnchanged(t *testing.T) {
 }
 
 func TestStripTargetOverview_TruncatedBlockHeals(t *testing.T) {
-	body := "# Conventions\n\n" + overviewStartMarker + "\ntruncated, no end marker"
+	body := "# Conventions\n\n" + OverviewStartMarker + "\ntruncated, no end marker"
 	got := StripTargetOverview(body)
 	if got != "# Conventions\n" {
 		t.Errorf("got %q, want body without truncated block", got)
@@ -85,7 +85,7 @@ func TestAppendTargetOverview_DoesNotStack(t *testing.T) {
 	if once != twice {
 		t.Errorf("appendix stacked on repeated append:\nonce  %q\ntwice %q", once, twice)
 	}
-	if n := strings.Count(twice, overviewStartMarker); n != 1 {
+	if n := strings.Count(twice, OverviewStartMarker); n != 1 {
 		t.Errorf("start marker count = %d, want 1", n)
 	}
 }

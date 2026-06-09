@@ -287,7 +287,7 @@ sync:
 
 The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, and warp all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
-Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix.
+Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix. External adapters (`agnostic-ai-adapter-<name>` binaries) have no native-artifacts protocol yet, so their section is absent from the appendix.
 
 ## `import`
 

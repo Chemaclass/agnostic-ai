@@ -27,8 +27,8 @@ type TargetArtifacts struct {
 // including) the markers before mirroring the body to AGNOSTIC_AI.md,
 // so the canonical body round-trips losslessly.
 const (
-	overviewStartMarker = "<!-- agnostic-ai:target-overview:start -->"
-	overviewEndMarker   = "<!-- agnostic-ai:target-overview:end -->"
+	OverviewStartMarker = "<!-- agnostic-ai:target-overview:start -->"
+	OverviewEndMarker   = "<!-- agnostic-ai:target-overview:end -->"
 )
 
 // RenderTargetOverview renders the sentinel-marked appendix for one
@@ -50,7 +50,7 @@ func RenderTargetOverview(sections []TargetArtifacts) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(overviewStartMarker)
+	b.WriteString(OverviewStartMarker)
 	b.WriteString("\n\n## Native artifact locations\n\n")
 	b.WriteString("Generated copies read natively by the tool(s) consuming this file. ")
 	b.WriteString("Edit the source specs above, not these paths; `agnostic-ai sync` overwrites them.\n")
@@ -76,20 +76,20 @@ func RenderTargetOverview(sections []TargetArtifacts) string {
 		}
 	}
 	b.WriteString("\n")
-	b.WriteString(overviewEndMarker)
+	b.WriteString(OverviewEndMarker)
 	b.WriteString("\n")
 	return b.String()
 }
 
 // AppendTargetOverview returns body with the rendered overview appended
-// after one blank line. Returns body unchanged when overview is empty.
-// Any pre-existing overview block in body is stripped first so repeated
-// syncs never stack appendixes.
+// after one blank line, stripping any pre-existing overview block first
+// so repeated syncs never stack appendixes. Returns body unchanged when
+// overview is empty.
 func AppendTargetOverview(body, overview string) string {
-	body = StripTargetOverview(body)
 	if overview == "" {
 		return body
 	}
+	body = StripTargetOverview(body)
 	return strings.TrimRight(body, "\n") + "\n\n" + overview
 }
 
@@ -99,20 +99,20 @@ func AppendTargetOverview(body, overview string) string {
 // marker on, which matches how a truncated generated block should heal
 // on the next sync.
 func StripTargetOverview(body string) string {
-	start := strings.Index(body, overviewStartMarker)
+	start := strings.Index(body, OverviewStartMarker)
 	if start < 0 {
 		return body
 	}
 	head := strings.TrimRight(body[:start], "\n")
-	rest := body[start+len(overviewStartMarker):]
-	end := strings.Index(rest, overviewEndMarker)
+	rest := body[start+len(OverviewStartMarker):]
+	end := strings.Index(rest, OverviewEndMarker)
 	if end < 0 {
 		if head == "" {
 			return ""
 		}
 		return head + "\n"
 	}
-	tail := strings.TrimLeft(rest[end+len(overviewEndMarker):], "\n")
+	tail := strings.TrimLeft(rest[end+len(OverviewEndMarker):], "\n")
 	if head == "" {
 		return tail
 	}

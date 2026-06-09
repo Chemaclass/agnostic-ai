@@ -62,7 +62,6 @@ type entryPointFile struct {
 // consumer separately).
 func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []entryPointFile {
 	body = adapters.StripTargetOverview(body)
-	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
@@ -73,8 +72,7 @@ func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []
 		if path == "" || path == adapters.AgnosticEntryPointPath {
 			continue
 		}
-		if !seen[path] {
-			seen[path] = true
+		if _, ok := consumers[path]; !ok {
 			order = append(order, path)
 		}
 		consumers[path] = append(consumers[path], t)
@@ -83,7 +81,7 @@ func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
 		content := body
-		if cfg != nil && cfg.Sync.TargetOverview {
+		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
 			for _, t := range consumers[path] {
 				sections = append(sections, adapters.TargetArtifacts{
