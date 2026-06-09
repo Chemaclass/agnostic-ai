@@ -34,23 +34,71 @@ func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool)
 	if err != nil {
 		return err
 	}
-	rendered := header.With(body, header.FormatMarkdown)
+	for _, f := range renderEntryPointFiles(cfg, targets, body) {
+		warnOnHandAuthoredEntryPoint(f.Path)
+		if err := adapters.WriteFile(f.Path, f.Content, dryRun); err != nil {
+			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
+		}
+	}
+	return nil
+}
+
+// entryPointFile pairs an entry-point path with the exact content sync
+// writes there. Shared by writeAgnosticEntryPoints and the drift check
+// so the two can never disagree on what a target's file should hold.
+type entryPointFile struct {
+	Path    string
+	Content string
+}
+
+// renderEntryPointFiles returns every target entry-point file sync
+// distributes for body, deduplicated by path in target order.
+// AGNOSTIC_AI.md is excluded: it holds the canonical body and is
+// written by resolveAgnosticBody, never with an overview appendix.
+//
+// When sync.target-overview is enabled, each file gains a generated
+// sentinel-marked appendix listing the native artifact locations of
+// every target consuming that path (a shared AGENTS.md lists each
+// consumer separately).
+func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []entryPointFile {
+	body = adapters.StripTargetOverview(body)
 	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
+	var order []string
+	consumers := map[string][]string{}
 	for _, t := range targets {
 		if adapters.HasLegacyRulesFile(cfg, t) {
 			continue
 		}
 		path := adapters.EntryPointPath(cfg, t)
-		if path == "" || seen[path] {
+		if path == "" || path == adapters.AgnosticEntryPointPath {
 			continue
 		}
-		seen[path] = true
-		warnOnHandAuthoredEntryPoint(path)
-		if err := adapters.WriteFile(path, rendered, dryRun); err != nil {
-			return fmt.Errorf("write entry-point %s: %w", path, err)
+		if !seen[path] {
+			seen[path] = true
+			order = append(order, path)
 		}
+		consumers[path] = append(consumers[path], t)
 	}
-	return nil
+
+	files := make([]entryPointFile, 0, len(order))
+	for _, path := range order {
+		content := body
+		if cfg != nil && cfg.Sync.TargetOverview {
+			var sections []adapters.TargetArtifacts
+			for _, t := range consumers[path] {
+				sections = append(sections, adapters.TargetArtifacts{
+					Target:    t,
+					Artifacts: adapters.NativeArtifactsFor(t, cfg),
+				})
+			}
+			content = adapters.AppendTargetOverview(body, adapters.RenderTargetOverview(sections))
+		}
+		files = append(files, entryPointFile{
+			Path:    path,
+			Content: header.With(content, header.FormatMarkdown),
+		})
+	}
+	return files
 }
 
 // entryPointPaths returns the entry-point files sync distributes: the

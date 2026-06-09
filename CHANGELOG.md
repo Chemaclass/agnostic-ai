@@ -8,6 +8,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- New `sync.target-overview` config flag. When enabled, each target entry-point file (CLAUDE.md, AGENTS.md, ...) gains a generated appendix listing where that tool's generated artifacts live, honoring `outputs.<target>.*` overrides. Shared entry-points list each consumer; `import` strips the appendix so the AGNOSTIC_AI.md round-trip stays lossless. (#397)
+
 ### Changed
 
 ### Fixed

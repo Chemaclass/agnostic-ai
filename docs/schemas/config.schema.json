@@ -386,6 +386,9 @@
       "properties": {
         "collision-policy": {
           "type": "string"
+        },
+        "target-overview": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

@@ -177,6 +177,55 @@ func RenderEntryPoint(cfg *config.Config) string {
 	return emit.RenderEntryPoint(cfg)
 }
 
+// NativeArtifact mirrors emit.NativeArtifact so callers outside the
+// internal emit tree can consume target-overview data.
+type NativeArtifact = emit.NativeArtifact
+
+// TargetArtifacts mirrors emit.TargetArtifacts.
+type TargetArtifacts = emit.TargetArtifacts
+
+// NativeOverviewer is the optional interface an adapter implements to
+// describe where its generated artifacts live for a given config. The
+// sync layer renders the result into the target-overview appendix of
+// the adapter's entry-point file when sync.target-overview is enabled.
+type NativeOverviewer interface {
+	NativeArtifacts(cfg *config.Config) []NativeArtifact
+}
+
+// NativeArtifactsFor returns the native artifacts the named in-tree
+// target declares, nil when the adapter is unknown or does not
+// implement NativeOverviewer.
+func NativeArtifactsFor(name string, cfg *config.Config) []NativeArtifact {
+	a, ok := registry[name]
+	if !ok {
+		return nil
+	}
+	o, ok := a.(NativeOverviewer)
+	if !ok {
+		return nil
+	}
+	return o.NativeArtifacts(cfg)
+}
+
+// RenderTargetOverview renders the sentinel-marked overview appendix
+// for one entry-point file (re-exported from the emit layer).
+func RenderTargetOverview(sections []TargetArtifacts) string {
+	return emit.RenderTargetOverview(sections)
+}
+
+// AppendTargetOverview appends a rendered overview to body, stripping
+// any pre-existing block first (re-exported from the emit layer).
+func AppendTargetOverview(body, overview string) string {
+	return emit.AppendTargetOverview(body, overview)
+}
+
+// StripTargetOverview removes the sentinel-marked overview block from
+// body (re-exported from the emit layer). Import uses it so the
+// AGNOSTIC_AI.md round-trip stays lossless.
+func StripTargetOverview(body string) string {
+	return emit.StripTargetOverview(body)
+}
+
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.

@@ -22,6 +22,8 @@ Targets sharing a path (codex + amp + warp at `AGENTS.md`) write it once; dedup 
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
+Set `sync.target-overview: true` to append a generated section to each entry-point file listing where that tool's generated artifacts live (rules dir, MCP file, ...). The canonical body stays identical across targets; only the appendix differs per file. See [configuration](configuration.md#synctarget-overview).
+
 ## Capability matrix
 
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands |

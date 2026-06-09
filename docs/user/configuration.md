@@ -275,6 +275,20 @@ sync:
   collision-policy: prefer-spec   # CI-safe: skip collision check
 ```
 
+### `sync.target-overview`
+
+Off by default. When `true`, each target entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gains a generated appendix listing where that tool's generated artifacts live (rules dir, agents dir, MCP file, ...). The locations honor your `outputs.<target>.*` overrides.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  target-overview: true
+```
+
+The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, and warp all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
+
+Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix.
+
 ## `import`
 
 Per-source knobs for the `import` command. Empty blocks fall back to per-source defaults.

@@ -65,6 +65,14 @@ type SyncConfig struct {
 	//   prefer-spec skip the collision pre-flight; let the last adapter win
 	//   fail        hard error with no resolution hint
 	CollisionPolicy string `yaml:"collision-policy,omitempty" json:"collision-policy,omitempty"`
+	// TargetOverview appends a generated, sentinel-marked section to each
+	// target's entry-point file (CLAUDE.md, AGENTS.md, ...) listing where
+	// that tool's generated artifacts live (rules dir, MCP file, ...).
+	// The canonical body stays byte-identical across targets; only the
+	// appendix differs per entry-point path. Off by default. The appendix
+	// is stripped on `import` so the AGNOSTIC_AI.md round-trip stays
+	// lossless. AGNOSTIC_AI.md itself never carries the appendix.
+	TargetOverview bool `yaml:"target-overview,omitempty" json:"target-overview,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write

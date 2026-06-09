@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -127,38 +128,33 @@ func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNest
 	return wrote, nestedClaudeMainFile, wrote, err
 }
 
-// mirrorMainFile copies <root>/<srcName> byte-for-byte to
+// mirrorMainFile copies <root>/<srcName> to
 // <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns (false, nil) when the
 // source is absent so the caller can skip its "seeded from <src>"
 // summary line. Each importer calls this with the target's own
 // top-level instructions filename so the project keeps a CLI-agnostic
 // copy under the managed directory. Later imports overwrite earlier
 // mirrors (last-import wins).
+//
+// The generated target-overview appendix (sync.target-overview) is
+// stripped before the write: it is per-entry-point derived output, not
+// part of the canonical body, and carrying it back would duplicate it
+// on the next sync.
 func mirrorMainFile(root, srcName string) (bool, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
-	wrote, err := copyFileIfExists(src, dst)
-	if err != nil {
-		return false, fmt.Errorf("mirror %s: %w", srcName, err)
-	}
-	return wrote, nil
-}
-
-// copyFileIfExists copies src to dst byte-for-byte. Returns (false,
-// nil) when src is absent so the caller can distinguish a real copy
-// from a no-op; surfaces every other read/write error.
-func copyFileIfExists(src, dst string) (bool, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", src, err)
+		return false, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
+	body := adapters.StripTargetOverview(string(data))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteFile(dst, data, 0o644); err != nil {
+	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return true, nil
