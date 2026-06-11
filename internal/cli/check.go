@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // driftReport summarizes per-target drift between source specs and on-disk
@@ -70,7 +71,7 @@ func collectDrift(targets []string) ([]driftReport, error) {
 		}
 		reports = append(reports, rep)
 	}
-	epRep, err := collectEntryPointDrift(cfg, targets)
+	epRep, err := collectEntryPointDrift(cfg, b, targets)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func collectDrift(targets []string) ([]driftReport, error) {
 // target's native entry-point file (CLAUDE.md, AGENTS.md, etc.) match what
 // sync would write. The body source is AGNOSTIC_AI.md when it exists;
 // otherwise the template body is used.
-func collectEntryPointDrift(cfg *config.Config, targets []string) (driftReport, error) {
+func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string) (driftReport, error) {
 	rep := driftReport{Target: "agnostic-ai"}
 
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
@@ -100,7 +101,7 @@ func collectEntryPointDrift(cfg *config.Config, targets []string) (driftReport, 
 		return rep, fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 
-	for _, f := range renderEntryPointFiles(cfg, targets, body) {
+	for _, f := range renderEntryPointFiles(cfg, b, targets, body) {
 		disk, err := os.ReadFile(f.Path)
 		if err != nil {
 			if os.IsNotExist(err) {

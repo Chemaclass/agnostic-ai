@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -31,7 +32,7 @@ func TestWriteAgnosticEntryPoints_WarnsBeforeOverwritingHandAuthored(t *testing.
 	defer func() { logOut = prev }()
 
 	cfg := &config.Config{Targets: []string{"claude"}}
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "CLAUDE.md appears hand-authored") {
@@ -55,7 +56,7 @@ func TestWriteAgnosticEntryPoints_NoWarnWhenGeneratedHeaderPresent(t *testing.T)
 	defer func() { logOut = prev }()
 
 	cfg := &config.Config{Targets: []string{"claude"}}
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "appears hand-authored") {
@@ -123,7 +124,7 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 	writeAgnosticFile(t, custom)
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
 
-	if err := writeAgnosticEntryPoints(cfg, []string{"claude", "codex"}, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, []string{"claude", "codex"}, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	for _, path := range []string{"CLAUDE.md", "AGENTS.md"} {
@@ -142,7 +143,7 @@ func TestWriteAgnosticEntryPoints_AgnosticFileNotOverwrittenWhenExists(t *testin
 	custom := "# My instructions\n"
 	writeAgnosticFile(t, custom)
 
-	if err := writeAgnosticEntryPoints(&config.Config{}, nil, false); err != nil {
+	if err := writeAgnosticEntryPoints(&config.Config{}, spec.Bundle{}, nil, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)

@@ -7,8 +7,35 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestImportFromCodex_StripsGeneratedRulesAppendix(t *testing.T) {
+	dir := t.TempDir()
+	pointer := "# AI Project Conventions\n\nPointer body.\n"
+	agents := pointer + "\n" + adapters.RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+		{Kind: spec.KindRule, Name: "conventions", Path: "rules/conventions.md", Body: "Inlined rule body."},
+	}})
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), agents)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
+	}
+	if strings.Contains(string(got), adapters.RulesStartMarker) {
+		t.Errorf("AGNOSTIC_AI.md must not carry the generated rules block:\n%s", got)
+	}
+	if strings.Contains(string(got), "Inlined rule body.") {
+		t.Errorf("AGNOSTIC_AI.md must not leak inlined rule body:\n%s", got)
+	}
+	if string(got) != pointer {
+		t.Errorf("AGNOSTIC_AI.md should equal the pointer body.\nwant %q\ngot  %q", pointer, got)
+	}
+}
 
 func TestImportFromCodex_NoAgentsMd(t *testing.T) {
 	dir := t.TempDir()

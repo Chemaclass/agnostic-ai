@@ -122,6 +122,9 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", t, err)
 			}
+			if extra, ok := entryPointRuleFile(cfg, t, e, single); ok {
+				captured = append(captured, extra)
+			}
 			seen := make(map[string]struct{}, len(captured))
 			for _, f := range captured {
 				p := filepath.ToSlash(f.Path)

@@ -8,7 +8,27 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
+
+// reduceToGeneratedRules returns the inner content of the sync-generated
+// rules appendix when the sentinel markers are present, so importers
+// reconstruct rule specs from the inlined block and discard the
+// regenerable pointer body and target-overview. Returns body unchanged
+// when no rules block is present: hand-authored entry-points and legacy
+// concatenated rules-files slice in full.
+func reduceToGeneratedRules(body string) string {
+	start := strings.Index(body, adapters.RulesStartMarker)
+	if start < 0 {
+		return body
+	}
+	inner := body[start+len(adapters.RulesStartMarker):]
+	if end := strings.Index(inner, adapters.RulesEndMarker); end >= 0 {
+		inner = inner[:end]
+	}
+	return inner
+}
 
 // extractLeadingItalic returns the inner text of a `_..._` paragraph
 // at the start of body (no surrounding whitespace) and the body with
@@ -97,16 +117,22 @@ func sliceMainFileByH2(root, srcName, dstDir string) (int, error) {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
 
-	preamble, sections := splitH2Sections(string(data))
+	// When sync inlined the rules into a sentinel block, reconstruct the
+	// specs from that block alone and ignore the regenerable pointer
+	// body (and target-overview). A no-op on hand-authored or legacy
+	// concatenated files, which slice in full as before.
+	body := reduceToGeneratedRules(string(data))
+
+	preamble, sections := splitH2Sections(body)
 	preamble = stripMergedDocPreamble(preamble)
 	if len(sections) == 0 {
-		body := strings.TrimSpace(string(data))
-		if body == "" {
+		flat := strings.TrimSpace(body)
+		if flat == "" {
 			return 0, nil
 		}
 		name := projectSlug(root)
 		path := filepath.Join(dstDir, name+".md")
-		if err := writeRule(path, name, body); err != nil {
+		if err := writeRule(path, name, flat); err != nil {
 			return 0, err
 		}
 		return 1, nil

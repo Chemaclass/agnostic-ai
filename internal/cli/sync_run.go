@@ -129,7 +129,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 		}
 		adapters.StartDetailedRecording()
-		if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+		if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
 			adapters.StopDetailedRecording()
 			if gitignoreOn {
 				adapters.StopRecording()
@@ -161,7 +161,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 				return fmt.Errorf("%s: %w", t, err)
 			}
 		}
-		if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+		if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
 			if gitignoreOn {
 				adapters.StopRecording()
 			}
@@ -307,7 +307,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 
 	adapters.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(cfg, effectiveTargets, dryRun); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
 		adapters.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {

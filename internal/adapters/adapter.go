@@ -232,6 +232,39 @@ func StripTargetOverview(body string) string {
 	return emit.StripTargetOverview(body)
 }
 
+// RulesStartMarker and RulesEndMarker mirror the emit-layer sentinels so
+// callers (and tests) outside the internal emit tree can detect and
+// extract the rules appendix block.
+const (
+	RulesStartMarker = emit.RulesStartMarker
+	RulesEndMarker   = emit.RulesEndMarker
+)
+
+// InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
+// by inlining them into its entry-point file (re-exported from the emit
+// layer).
+func InlinesRulesIntoEntryPoint(target string) bool {
+	return emit.InlinesRulesIntoEntryPoint(target)
+}
+
+// RenderRulesAppendix renders the sentinel-marked rules block for an
+// entry-point file (re-exported from the emit layer).
+func RenderRulesAppendix(b spec.Bundle) string {
+	return emit.RenderRulesAppendix(b)
+}
+
+// AppendRulesAppendix appends a rendered rules block to body, stripping
+// any pre-existing block first (re-exported from the emit layer).
+func AppendRulesAppendix(body, appendix string) string {
+	return emit.AppendRulesAppendix(body, appendix)
+}
+
+// StripGeneratedAppendices removes every sentinel-marked block sync may
+// append to an entry-point file (re-exported from the emit layer).
+func StripGeneratedAppendices(body string) string {
+	return emit.StripGeneratedAppendices(body)
+}
+
 // Adapter is the contract every target implementation satisfies.
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.

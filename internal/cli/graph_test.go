@@ -90,6 +90,37 @@ func runGraph(t *testing.T, args ...string) string {
 	return out.String()
 }
 
+func TestGraph_CodexRuleEdgeToAgentsMd(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite := func(p, body string) {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWrite(filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets:\n  - codex\n")
+	mustWrite(filepath.Join(dir, "rules", "no-console-log.md"), "---\nname: no-console-log\ndescription: No console.log.\n---\n\nBody.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	out := runGraph(t, "--format", "json")
+	var edges []graphEdge
+	if err := json.Unmarshal([]byte(out), &edges); err != nil {
+		t.Fatalf("json: %v\n%s", err, out)
+	}
+	found := false
+	for _, e := range edges {
+		if e.Target == "codex" && e.Kind == "rule" && e.Path == "AGENTS.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected rule → codex → AGENTS.md edge, got:\n%s", out)
+	}
+}
+
 func TestGraph_TextMatrixIncludesSpecsAndTargets(t *testing.T) {
 	dir := setupGraphFixture(t)
 	testutil.Chdir(t, dir)

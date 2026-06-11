@@ -99,20 +99,29 @@ func AppendTargetOverview(body, overview string) string {
 // marker on, which matches how a truncated generated block should heal
 // on the next sync.
 func StripTargetOverview(body string) string {
-	start := strings.Index(body, OverviewStartMarker)
+	return stripMarkedBlock(body, OverviewStartMarker, OverviewEndMarker)
+}
+
+// stripMarkedBlock removes the block delimited by startMarker/endMarker
+// (markers included) from body. Returns body unchanged when startMarker
+// is absent. A start marker without an end marker drops everything from
+// the start marker on, which matches how a truncated generated block
+// should heal on the next sync.
+func stripMarkedBlock(body, startMarker, endMarker string) string {
+	start := strings.Index(body, startMarker)
 	if start < 0 {
 		return body
 	}
 	head := strings.TrimRight(body[:start], "\n")
-	rest := body[start+len(OverviewStartMarker):]
-	end := strings.Index(rest, OverviewEndMarker)
+	rest := body[start+len(startMarker):]
+	end := strings.Index(rest, endMarker)
 	if end < 0 {
 		if head == "" {
 			return ""
 		}
 		return head + "\n"
 	}
-	tail := strings.TrimLeft(rest[end+len(OverviewEndMarker):], "\n")
+	tail := strings.TrimLeft(rest[end+len(endMarker):], "\n")
 	if head == "" {
 		return tail
 	}

@@ -131,6 +131,9 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 // child does (e.g. the `## Conventions` listing).
 var codexUnwrapHeadings = map[string]bool{
 	"conventions": true,
+	// The sync-generated rules appendix wraps each rule under a `## Rules`
+	// H2; its `### <name>` children are the real rules.
+	"rules": true,
 }
 
 // codexSkipHeadings are H2 sections produced by the codex emitter as
@@ -159,10 +162,14 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
-		data, err := os.ReadFile(f.path)
+		raw, err := os.ReadFile(f.path)
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
+		// When sync inlined the rules into a sentinel block, rebuild the
+		// specs from that block alone and ignore the regenerable pointer
+		// body. A no-op on hand-authored AGENTS.md files.
+		data := []byte(reduceToGeneratedRules(string(raw)))
 		if !opts.shredEnabled() {
 			body := strings.TrimSpace(string(data))
 			if body == "" {

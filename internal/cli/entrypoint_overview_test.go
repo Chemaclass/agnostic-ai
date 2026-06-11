@@ -8,6 +8,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -25,7 +26,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewAppendsAppendix(t *testing.T) {
 		},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -59,7 +60,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewOffByDefault(t *testing.T) {
 	writeAgnosticFile(t, "# Project\n")
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -79,7 +80,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewSharedPathListsEachConsumer(t *t
 		Sync:    config.SyncConfig{TargetOverview: true},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
@@ -107,10 +108,10 @@ func TestCollectEntryPointDrift_NoDriftAfterSyncWithOverview(t *testing.T) {
 		Sync:    config.SyncConfig{TargetOverview: true},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	rep, err := collectEntryPointDrift(cfg, cfg.Targets)
+	rep, err := collectEntryPointDrift(cfg, spec.Bundle{}, cfg.Targets)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
