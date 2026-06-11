@@ -12,7 +12,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
-- Rule specs now reach targets with no native rules directory. `codex`, `amp`, `warp`, `gemini`, `aider`, and `opencode` inline every rule body into their entry-point file (AGENTS.md, GEMINI.md, CONVENTIONS.md, ...) under a sentinel-marked block, so a default `sync` no longer drops them silently. `render` and `graph` show the rule reaching these targets; `import` strips the block so the AGNOSTIC_AI.md round-trip stays lossless. (#399)
+- `codex`, `amp`, `warp`, `gemini`, `aider`, and `opencode` now inline rule bodies into their entry-point file instead of dropping them on a default `sync`. (#399)
 
 ### Removed
 
