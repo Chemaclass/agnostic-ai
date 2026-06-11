@@ -69,6 +69,30 @@ func TestRender_SingleTargetCursor(t *testing.T) {
 	}
 }
 
+func TestRender_CodexRuleInlinesIntoAgentsMd(t *testing.T) {
+	dir := setupRenderFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"render", "rules/no-console-log.md", "--target", "codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "(no output for kind rule)") {
+		t.Errorf("codex rule render must not report no output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "# target: codex — AGENTS.md") {
+		t.Errorf("expected codex AGENTS.md header, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Do not commit console.log statements.") {
+		t.Errorf("expected rule body inlined for codex, got:\n%s", got)
+	}
+}
+
 func TestRender_MultiTarget(t *testing.T) {
 	dir := setupRenderFixture(t)
 	testutil.Chdir(t, dir)

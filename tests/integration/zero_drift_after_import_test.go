@@ -84,6 +84,43 @@ func TestZeroDrift_AfterCodexImportSync(t *testing.T) {
 	}
 }
 
+// TestZeroDrift_CodexReimportAfterRulesInlined guards the round-trip
+// introduced when codex began inlining rule bodies into AGENTS.md
+// (#399). A sync writes the generated rules block; a subsequent
+// `import codex` must strip that block instead of re-deriving rules
+// from it, so the rules source stays a single file and sync --check
+// still reports zero drift.
+func TestZeroDrift_CodexReimportAfterRulesInlined(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte(codexOnlyConfig), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "conventions.md"),
+		[]byte("---\nname: conventions\ndescription: Project conventions.\n---\n\nBe terse.\n"), 0o644))
+
+	runCmd(t, "sync", "-t", "codex")
+	// AGENTS.md now carries the generated rules block.
+	runCmd(t, "import", "codex")
+
+	// Exactly one rule file survives: no duplicate re-derived from the
+	// generated block.
+	entries, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", "rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("expected 1 rule after re-import, got %d: %v", len(entries), names)
+	}
+
+	runCmd(t, "sync", "--check", "-t", "codex")
+}
+
 // TestZeroDrift_AfterClaudeAndCodexImportSync runs import + sync for
 // both adapters in the same project, then sync --check. Catches drift
 // triggered only when both overlays coexist (e.g. a path collision the

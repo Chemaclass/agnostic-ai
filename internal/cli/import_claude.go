@@ -136,10 +136,11 @@ func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNest
 // copy under the managed directory. Later imports overwrite earlier
 // mirrors (last-import wins).
 //
-// The generated target-overview appendix (sync.target-overview) is
-// stripped before the write: it is per-entry-point derived output, not
-// part of the canonical body, and carrying it back would duplicate it
-// on the next sync.
+// The generated appendices (inlined rules + target-overview) are
+// stripped before the write: they are per-entry-point derived output,
+// not part of the canonical body, and carrying them back would
+// duplicate them on the next sync (and leak target-specific rule copies
+// into every other target's entry-point).
 func mirrorMainFile(root, srcName string) (bool, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
@@ -150,7 +151,7 @@ func mirrorMainFile(root, srcName string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
-	body := adapters.StripTargetOverview(string(data))
+	body := adapters.StripGeneratedAppendices(string(data))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}

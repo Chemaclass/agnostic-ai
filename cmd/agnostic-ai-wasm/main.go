@@ -110,10 +110,18 @@ func render(_ js.Value, args []js.Value) any {
 		// when the target opted into a legacy concatenated rules-file
 		// (the adapter owns the entry-point write in that case).
 		if path := adapters.EntryPointPath(cfg, t); path != "" && !adapters.HasLegacyRulesFile(cfg, t) {
+			content := adapters.RenderEntryPoint(cfg)
+			// Targets with no native rules directory (codex, amp, warp,
+			// gemini, aider, opencode) inline the rule bodies into their
+			// entry-point file. Mirror that here so the playground shows
+			// the rule reaching the tool.
+			if adapters.InlinesRulesIntoEntryPoint(t) {
+				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(bundle))
+			}
 			files = append(files, map[string]any{
 				"target":  t,
 				"path":    path,
-				"content": adapters.RenderEntryPoint(cfg),
+				"content": content,
 			})
 		}
 	}

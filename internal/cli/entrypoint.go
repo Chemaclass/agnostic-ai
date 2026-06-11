@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // writeAgnosticEntryPoints distributes the canonical entry-point body to
@@ -29,12 +30,12 @@ import (
 // triggers a one-line warning before the overwrite so the user knows
 // their content is about to be replaced. This is the same heuristic
 // the importer uses to skip files it did not write.
-func writeAgnosticEntryPoints(cfg *config.Config, targets []string, dryRun bool) error {
+func writeAgnosticEntryPoints(cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
 	body, err := resolveAgnosticBody(cfg, dryRun)
 	if err != nil {
 		return err
 	}
-	for _, f := range renderEntryPointFiles(cfg, targets, body) {
+	for _, f := range renderEntryPointFiles(cfg, b, targets, body) {
 		warnOnHandAuthoredEntryPoint(f.Path)
 		if err := adapters.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
@@ -60,8 +61,16 @@ type entryPointFile struct {
 // sentinel-marked appendix listing the native artifact locations of
 // every target consuming that path (a shared AGENTS.md lists each
 // consumer separately).
-func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []entryPointFile {
-	body = adapters.StripTargetOverview(body)
+//
+// Targets with no native rules directory (codex, amp, warp, gemini,
+// aider, opencode) get the rule bodies inlined into their entry-point
+// file via a second sentinel-marked block, since that file is their
+// only always-on context surface. The block is identical across the
+// consumers of a shared path (rules are global), so the deduplicated
+// write stays collision-free.
+func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) []entryPointFile {
+	body = adapters.StripGeneratedAppendices(body)
+	rulesAppendix := adapters.RenderRulesAppendix(b)
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
@@ -81,6 +90,9 @@ func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
 		content := body
+		if pathInlinesRules(consumers[path]) {
+			content = adapters.AppendRulesAppendix(content, rulesAppendix)
+		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
 			for _, t := range consumers[path] {
@@ -89,7 +101,7 @@ func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []
 					Artifacts: adapters.NativeArtifactsFor(t, cfg),
 				})
 			}
-			content = adapters.AppendTargetOverview(body, adapters.RenderTargetOverview(sections))
+			content = adapters.AppendTargetOverview(content, adapters.RenderTargetOverview(sections))
 		}
 		files = append(files, entryPointFile{
 			Path:    path,
@@ -97,6 +109,18 @@ func renderEntryPointFiles(cfg *config.Config, targets []string, body string) []
 		})
 	}
 	return files
+}
+
+// pathInlinesRules reports whether any target consuming an entry-point
+// path inlines rule bodies into it. A shared path (AGENTS.md) inlines
+// when at least one consumer needs it; the block is identical for all.
+func pathInlinesRules(consumers []string) bool {
+	for _, t := range consumers {
+		if adapters.InlinesRulesIntoEntryPoint(t) {
+			return true
+		}
+	}
+	return false
 }
 
 // entryPointPaths returns the entry-point files sync distributes: the

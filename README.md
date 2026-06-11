@@ -79,24 +79,24 @@ All 14 targets are first-class: author a spec once, `sync`, and it lands in each
 | Target              | Agents | Skills | Rules | Hooks | MCPs |
 |---------------------|:------:|:------:|:-----:|:-----:|:----:|
 | Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI           |   ✅    |   ✅    |   ○   |   ✅   |  ✅   |
-| Gemini CLI          |   ✅    |   ○    |   ○   |   ✅   |  ✅   |
+| Codex CLI           |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
+| Gemini CLI          |   ✅    |   ○    |   ◐   |   ✅   |  ✅   |
 | Cursor              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Aider               |   ○    |   ○    |   ○   |   -   |  -   |
+| Aider               |   ○    |   ○    |   ◐   |   -   |  -   |
 | Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Windsurf            |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Continue            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Amp                 |   ✅    |   ✅    |   ○   |   -   |  ✅   |
+| Amp                 |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
 | Zed                 |   ◐    |   ◐    |   ◐   |   ○   |  ✅   |
-| Warp                |   ○    |   ○    |   ○   |   -   |  ✅   |
-| OpenCode            |   ✅    |   ○    |   ○   |   -   |  ✅   |
+| Warp                |   ○    |   ○    |   ◐   |   -   |  ✅   |
+| OpenCode            |   ✅    |   ○    |   ◐   |   -   |  ✅   |
 | Google Antigravity  |   ✅    |   ✅    |   ✅   |   -   |  -   |
 
 Legend, in descending order of native support:
 
 - **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
-- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Zed's `.rules` is the only target that merges by default.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, OpenCode) inline rule bodies into their entry-point file; Zed merges agents, skills, and rules into `.rules`.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 

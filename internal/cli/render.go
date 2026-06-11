@@ -57,6 +57,9 @@ func newRenderCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("%s: %w", t, err)
 				}
+				if extra, ok := entryPointRuleFile(cfg, t, entry, single); ok {
+					captured = append(captured, extra)
+				}
 				if len(captured) == 0 {
 					_, _ = fmt.Fprintf(out, "# target: %s — (no output for kind %s)\n", t, entry.Kind)
 					continue
@@ -116,6 +119,32 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 		return spec.Entry{}, fmt.Errorf("spec %q not found. Did you mean: %s", input, strings.Join(hints, ", "))
 	}
 	return spec.Entry{}, fmt.Errorf("spec %q not found", input)
+}
+
+// entryPointRuleFile returns the entry-point contribution a rule spec
+// makes for a target that inlines rules into its entry-point file
+// (codex, amp, warp, gemini, aider, opencode). The adapter's Emit does
+// not produce this output: rule inlining happens in the central sync
+// layer, so render and graph reconstruct it here to mirror what `sync`
+// actually writes. Returns ok=false for non-rule specs, non-inlining
+// targets, and targets on the legacy concatenated rules-file layout
+// (where the adapter owns the entry-point write instead).
+func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, single spec.Bundle) (adapters.CapturedFile, bool) {
+	if entry.Kind != spec.KindRule {
+		return adapters.CapturedFile{}, false
+	}
+	if !adapters.InlinesRulesIntoEntryPoint(target) || adapters.HasLegacyRulesFile(cfg, target) {
+		return adapters.CapturedFile{}, false
+	}
+	path := adapters.EntryPointPath(cfg, target)
+	if path == "" {
+		return adapters.CapturedFile{}, false
+	}
+	appendix := adapters.RenderRulesAppendix(single)
+	if appendix == "" {
+		return adapters.CapturedFile{}, false
+	}
+	return adapters.CapturedFile{Path: path, Content: appendix}, true
 }
 
 // singleEntryBundle returns a Bundle that contains only the given entry,
