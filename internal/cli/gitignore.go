@@ -18,36 +18,54 @@ const (
 	gitignoreBlockNote  = "# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh."
 )
 
-// ensureLineInGitignore appends entry to .gitignore at root so it is
-// never committed. The file is created if missing. A no-op when the
-// entry already appears verbatim on its own line. Used by `init` to
-// gitignore the local-override config; lives here (next to the
-// managed-block writer) rather than in init.go so all gitignore
-// mutations share one home.
-func ensureLineInGitignore(root, entry string) error {
-	path := filepath.Join(root, ".gitignore")
-	existing, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
+// fixedManagedEntries are the always-ignored agnostic-ai paths that are
+// not discovered from sync output: the local-override config, the sync
+// state file, and the installed-packs dir. They live inside the managed
+// block (not as loose lines) so one block owns every agnostic-ai
+// gitignore entry: anchored, deduplicated, and refreshed on each write.
+//
+// Returned in bare (un-anchored) form; buildManagedBlock anchors and
+// collapses them with the rest of the block.
+func fixedManagedEntries() []string {
+	return []string{
+		config.LocalOverrideFileName,
+		".agnostic-ai/.sync-state",
+		packsDir + "/",
 	}
-	for _, line := range strings.Split(string(existing), "\n") {
-		if strings.TrimSpace(line) == entry {
-			return nil
+}
+
+// looseFixedDuplicates is the set of standalone lines older versions
+// wrote outside the managed block for the fixed entries (both the bare
+// form `init` emitted and the root-anchored form). The block now owns
+// these, so the writer strips any such line found outside it, converging
+// projects created before the consolidation (#401).
+func looseFixedDuplicates() map[string]struct{} {
+	set := make(map[string]struct{}, len(fixedManagedEntries())*2)
+	for _, e := range fixedManagedEntries() {
+		set[e] = struct{}{}
+		set["/"+e] = struct{}{}
+	}
+	return set
+}
+
+// stripLooseFixedDuplicates drops every standalone line matching a fixed
+// managed entry (bare or anchored) from text, so a stale loose copy left
+// outside the managed block disappears on the next write. Other lines,
+// blank lines, and comments are preserved verbatim.
+func stripLooseFixedDuplicates(text string) string {
+	if text == "" {
+		return text
+	}
+	dups := looseFixedDuplicates()
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if _, ok := dups[strings.TrimSpace(line)]; ok {
+			continue
 		}
+		out = append(out, line)
 	}
-	var buf strings.Builder
-	if len(existing) > 0 {
-		buf.Write(existing)
-		if !strings.HasSuffix(string(existing), "\n") {
-			buf.WriteString("\n")
-		}
-	}
-	buf.WriteString(entry)
-	buf.WriteString("\n")
-	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
+	return strings.Join(out, "\n")
 }
 
 // normalizeAndSort converts a slice of filesystem paths to gitignore
@@ -159,6 +177,7 @@ func gitignoreTopSegment(p string) string {
 // ignore above them, letting a project keep a tracked fixture (e.g.
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
 func buildManagedBlock(cfg *config.Config, entries []string) []string {
+	entries = append(fixedManagedEntries(), entries...)
 	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg))
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
 }
@@ -182,20 +201,42 @@ func normalizeAllowEntries(patterns []string) []string {
 	return sortedKeys(seen)
 }
 
-// updateGitignore rewrites the managed block in `.gitignore` (or
-// cfg.Gitignore.Path) with the provided entries. Lines outside the block
-// are preserved as-is. The file is created if missing. An empty entries
-// list removes the block.
-func updateGitignore(cfg *config.Config, entries []string) error {
+// ensureManagedGitignore guarantees a managed block exists at root with
+// at least the fixed agnostic-ai entries (local-override config, sync
+// state, packs dir). An existing block is left untouched, since it
+// already carries the fixed entries and sync owns its generated lines;
+// only an absent block is created. Used by `packs add`, which must
+// ignore the packs dir but does not know the generated-output paths.
+func ensureManagedGitignore(root string) error {
+	path := filepath.Join(root, ".gitignore")
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if strings.Contains(string(data), gitignoreBlockStart) {
+		return nil
+	}
+	cfg := &config.Config{}
+	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil))
+}
+
+// updateGitignore rewrites the managed block in `<root>/.gitignore` (or
+// root-joined cfg.Gitignore.Path) with the provided entries. Lines
+// outside the block are preserved, except stale loose copies of the
+// fixed entries, which are stripped so the block becomes their single
+// home. The file is created if missing. An empty entries list removes
+// the block.
+func updateGitignore(root string, cfg *config.Config, entries []string) error {
 	path := ".gitignore"
 	if cfg.Gitignore.Path != "" {
 		path = cfg.Gitignore.Path
 	}
+	path = filepath.Join(root, path)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	updated := replaceManagedBlock(string(existing), entries)
+	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
 	if updated == string(existing) {
 		return nil
 	}

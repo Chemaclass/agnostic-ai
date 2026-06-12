@@ -159,7 +159,7 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	if err := writePacksLock(root, lock); err != nil {
 		return err
 	}
-	if err := ensureLineInGitignore(root, packsDir+"/"); err != nil {
+	if err := ensureManagedGitignore(root); err != nil {
 		return fmt.Errorf("packs add: gitignore: %w", err)
 	}
 	_, _ = fmt.Fprintf(out, "✓ added %s\n", name)

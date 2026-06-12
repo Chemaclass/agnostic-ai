@@ -82,7 +82,7 @@ func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
-	if err := updateGitignore(cfg, []string{"CLAUDE.md"}); err != nil {
+	if err := updateGitignore(".", cfg, []string{"CLAUDE.md"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
@@ -94,12 +94,105 @@ func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 	}
 }
 
+func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
+	block := buildManagedBlock(&config.Config{}, nil)
+	for _, want := range []string{
+		"/agnostic-ai.local.yaml",
+		"/.agnostic-ai/.sync-state",
+		"/.agnostic-ai/packs/",
+	} {
+		found := false
+		for _, e := range block {
+			if e == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("managed block missing fixed entry %q, got %v", want, block)
+		}
+	}
+}
+
+func TestUpdateGitignore_StripsLooseFixedDuplicatesAndConsolidates(t *testing.T) {
+	dir := t.TempDir()
+	legacy := "node_modules/\n" +
+		"agnostic-ai.local.yaml\n" +
+		".agnostic-ai/.sync-state\n" +
+		".agnostic-ai/packs/\n\n" +
+		gitignoreBlockStart + "\n" + gitignoreBlockNote + "\n" +
+		"/.agnostic-ai/.sync-state\n/.claude/\n/CLAUDE.md\n" +
+		gitignoreBlockEnd + "\n"
+	path := filepath.Join(dir, ".gitignore")
+	if err := os.WriteFile(path, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
+	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"})
+	if err := updateGitignore(dir, cfg, block); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+
+	if !strings.Contains(out, "node_modules/") {
+		t.Errorf("dropped unmanaged line:\n%s", out)
+	}
+	for _, bare := range []string{"\nagnostic-ai.local.yaml\n", "\n.agnostic-ai/.sync-state\n", "\n.agnostic-ai/packs/\n"} {
+		if strings.Contains(out, bare) {
+			t.Errorf("loose duplicate %q survived:\n%s", strings.TrimSpace(bare), out)
+		}
+	}
+	if n := strings.Count(out, ".agnostic-ai/.sync-state"); n != 1 {
+		t.Errorf("expected one .sync-state entry, got %d:\n%s", n, out)
+	}
+	for _, want := range []string{"/agnostic-ai.local.yaml", "/.agnostic-ai/.sync-state", "/.agnostic-ai/packs/"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing anchored fixed entry %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestEnsureManagedGitignore_CreatesWhenAbsentNoopWhenPresent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".gitignore")
+
+	if err := ensureManagedGitignore(dir); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(first), "/.agnostic-ai/packs/") {
+		t.Errorf("expected packs entry after create:\n%s", first)
+	}
+
+	enriched := strings.Replace(string(first), gitignoreBlockEnd, "/.claude/\n"+gitignoreBlockEnd, 1)
+	if err := os.WriteFile(path, []byte(enriched), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureManagedGitignore(dir); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != enriched {
+		t.Errorf("ensureManagedGitignore clobbered an existing block:\nwant:\n%s\ngot:\n%s", enriched, after)
+	}
+}
+
 func TestUpdateGitignore_RespectsCustomPath(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true, Path: ".gitignore.local"}}
-	if err := updateGitignore(cfg, []string{"X"}); err != nil {
+	if err := updateGitignore(".", cfg, []string{"X"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gitignore.local")); err != nil {
@@ -115,7 +208,7 @@ func TestUpdateGitignore_NoopWhenContentMatches(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
-	if err := updateGitignore(cfg, []string{"CLAUDE.md"}); err != nil {
+	if err := updateGitignore(".", cfg, []string{"CLAUDE.md"}); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.Stat(filepath.Join(dir, ".gitignore"))
@@ -123,7 +216,7 @@ func TestUpdateGitignore_NoopWhenContentMatches(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Run again with the same entries; mtime should not change.
-	if err := updateGitignore(cfg, []string{"CLAUDE.md"}); err != nil {
+	if err := updateGitignore(".", cfg, []string{"CLAUDE.md"}); err != nil {
 		t.Fatal(err)
 	}
 	second, err := os.Stat(filepath.Join(dir, ".gitignore"))

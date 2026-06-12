@@ -139,14 +139,14 @@ func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
 	if err := os.WriteFile(cfgPath, []byte(cfgBody), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
-	for _, entry := range []string{
-		config.LocalOverrideFileName,
-		".agnostic-ai/.sync-state",
-		packsDir + "/",
-	} {
-		if err := ensureLineInGitignore(opts.Root, entry); err != nil {
-			return err
-		}
+	// Seed the managed block with the fixed agnostic-ai ignores
+	// (local-override config, sync state, packs dir). These must never be
+	// committed regardless of `gitignore.enabled`, so init writes them
+	// even when sync will not manage the generated-output lines. sync
+	// later refreshes the same block with the emitted artifact paths.
+	gicfg := &config.Config{}
+	if err := updateGitignore(opts.Root, gicfg, buildManagedBlock(gicfg, nil)); err != nil {
+		return err
 	}
 	if opts.Demo {
 		if err := writeDemoFiles(baseDir); err != nil {
