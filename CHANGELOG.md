@@ -6,7 +6,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
-### Added
+## v0.36.0 - 2026-06-12
 
 ### Changed
 
@@ -15,8 +15,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - `codex`, `amp`, `warp`, `gemini`, `aider`, and `opencode` now inline rule bodies into their entry-point file instead of dropping them on a default `sync`. (#399)
-
-### Removed
 
 ## v0.35.0 - 2026-06-09
 
