@@ -72,9 +72,9 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 ## Supported targets
 
-All 14 targets are first-class: author a spec once, `sync`, and it lands in each tool's native format. The matrix shows the emission shape per kind, not whether the tool is supported (it always is). Scan a row for your tool; scan the ✅ column for what works out of the box.
+All 14 targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
 
-`sync` enables 12 by default. Amp and Warp share the root `AGENTS.md` entry-point with Codex and add no new one, so they stay opt-in: add them to `targets:` in config or pass `-t amp,warp` to emit their target-specific files.
+`sync` enables 12 by default. Amp and Warp share Codex's root `AGENTS.md`, so they stay opt-in: add them to `targets:` or pass `-t amp,warp`.
 
 | Target              | Agents | Skills | Rules | Hooks | MCPs |
 |---------------------|:------:|:------:|:-----:|:-----:|:----:|
@@ -102,7 +102,7 @@ Legend, in descending order of native support:
 
 Hooks are native on Claude, Codex, and Gemini; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity).
 
-The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target also carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) that confirms the emitted paths against the live tool, so the cells stay honest about what each tool actually auto-loads.
+The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) confirming the emitted paths against the live tool.
 
 ## Install
 
@@ -121,7 +121,7 @@ agnostic-ai upgrade --run     # run the detected upgrade command
 agnostic-ai upgrade --check   # diagnose install location and PATH shadowing
 ```
 
-Detects how the binary was installed (Homebrew, `go install`, or raw download), then prints or runs the matching command. `--check` flags any other `agnostic-ai` on `PATH` that shadows the resolved binary. That shadowing is the usual reason `brew upgrade` says "already up-to-date" while `agnostic-ai --version` shows an older release.
+Detects the install method (Homebrew, `go install`, raw download) and prints or runs the matching command. `--check` flags any other `agnostic-ai` shadowing it on `PATH`. That shadowing is the usual reason `brew upgrade` says "already up-to-date" while `--version` lags.
 
 Direct package-manager commands also work:
 
@@ -150,7 +150,7 @@ CI gate to fail PRs that drift from source specs:
   with: { command: check }
 ```
 
-**Commit or ignore generated outputs?** `agnostic-ai init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the single source of truth and contributors run `sync` locally, while every `sync` maintains a managed `.gitignore` block listing each emitted path (see [configuration](docs/user/configuration.md#gitignore)). Prefer to commit the outputs (e.g. teammates lack the CLI)? Scaffold with `init --gitignore=false`. The `check` gate guards drift either way.
+**Commit or ignore generated outputs?** `init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the source of truth, contributors run `sync`, and each `sync` maintains a managed `.gitignore` block ([configuration](docs/user/configuration.md#gitignore)). To commit them instead (e.g. teammates lack the CLI), use `init --gitignore=false`. The `check` gate guards drift either way.
 
 ## Documentation
 
