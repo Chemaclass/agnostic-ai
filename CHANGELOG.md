@@ -6,8 +6,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
-## v0.36.0 - 2026-06-12
-
 ### Changed
 
 - `.gitignore` consolidation: the local-override config, sync-state file, and packs dir now live inside the managed block instead of as loose lines, root-anchored and deduplicated. Old projects converge on the next `init`, `sync`, or `packs add`, which strips the stale loose copies (including a duplicated `.sync-state`). (#401)
