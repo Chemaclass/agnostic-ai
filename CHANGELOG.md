@@ -6,6 +6,16 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## v0.36.0 - 2026-06-12
+
 ### Changed
 
 - `.gitignore`: the local-override config, sync-state file, and packs dir move into the managed block, deduplicated and root-anchored. (#401)
