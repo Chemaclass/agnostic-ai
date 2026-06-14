@@ -12,6 +12,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- README target matrix: Copilot rules cell now flags that always-on (unscoped) rules need `outputs.copilot.rules-file`; only path-scoped rules emit a dedicated file by default.
+
 ### Removed
 
 ## v0.36.0 - 2026-06-12

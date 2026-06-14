@@ -82,7 +82,7 @@ All 14 targets are first-class. The matrix shows the emission shape per kind (ev
 | Codex CLI           |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
 | Gemini CLI          |   ✅    |   ○    |   ◐   |   ✅   |  ✅   |
 | Cursor              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| GitHub Copilot      |   ✅    |   ✅    |  ✅\*  |   -   |  ✅   |
 | Aider               |   ○    |   ○    |   ◐   |   -   |  -   |
 | Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
 | Windsurf            |   ✅    |   ✅    |   ✅   |   -   |  -   |
@@ -99,6 +99,8 @@ Legend, in descending order of native support:
 - **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, OpenCode) inline rule bodies into their entry-point file; Zed merges agents, skills, and rules into `.rules`.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
+
+\* **Copilot rules**: path-scoped rules (with `globs`) emit a dedicated `.github/instructions/<name>.instructions.md`. Always-on rules (no `globs`) are not written by default; set `outputs.copilot.rules-file` to materialize them.
 
 Hooks are native on Claude, Codex, and Gemini; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity).
 
