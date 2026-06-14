@@ -11,7 +11,7 @@ agnostic-ai [command] [flags]
 | `-h, --help` | Help for any command |
 | `--version` | Print version and exit |
 | `-q, --quiet` | Errors only |
-| `-v, --verbose` | Per-target detail. Mutually exclusive with `--quiet`. |
+| `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
 
 ## init
 
@@ -57,6 +57,7 @@ agnostic-ai import continue       # .continue/rules/
 - Re-running overwrites by filename. Run after `init`, in the same project root.
 - Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, plus `all`.
 
 `import claude`:
 
@@ -337,6 +338,8 @@ Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to 
 
 After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `command:` and whether it resolves on PATH. Missing common commands (`npx`, `uvx`, `python`, `docker`) include an inline install hint. HTTP/SSE servers (no command, only `url:`) skip the check. Advisory only: a missing binary does not change doctor's exit code.
 
+Subcommands run a single check in isolation: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
+
 After the MCP block, doctor walks `.agnostic-ai/scripts/<tool>/` per tool and groups files by basename. When the same basename exists under two or more tools with different SHA-256 bodies, it prints one finding per divergent script (sizes + truncated hashes per variant) and the suggested consolidation path `.agnostic-ai/scripts/<basename>`. Divergence counts as drift and contributes to a non-zero exit, since it usually means an unnoticed import diff between tools. Not auto-fixable: choosing the winning body needs human judgement.
 
 ## status
@@ -426,6 +429,83 @@ If another `agnostic-ai` on `PATH` shadows the resolved executable, `upgrade` li
 agnostic-ai help              # top-level help
 agnostic-ai help sync         # help for a subcommand
 agnostic-ai sync --help       # same
+```
+
+## graph
+
+Render the spec → target → file dependency graph. Read-only: no writes. Full guide in [graph](graph.md).
+
+```bash
+agnostic-ai graph                     # aligned text matrix
+agnostic-ai graph --format mermaid    # text | mermaid | dot | json
+agnostic-ai graph --target claude     # narrow by target, --spec, or --kind
+```
+
+| Flag | Description |
+|------|-------------|
+| `--format` | Output format: `text` (default), `mermaid`, `dot`, `json`. |
+| `--target` | Restrict to one target. |
+| `--spec` | Restrict to one spec name. |
+| `--kind` | Restrict to one kind: agent, skill, rule, hook, mcp, command. |
+
+## why
+
+Reverse provenance for an emitted file. Reports the adapter, source spec(s), the `outputs.<target>.*` keys used, and the last sync timestamp. Full guide in [why](why.md).
+
+```bash
+agnostic-ai why .claude/rules/no-console-log.md
+agnostic-ai why .claude/rules/no-console-log.md --format json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--format` | Output format: `text` (default) or `json`. |
+
+## lint
+
+Semantic checks beyond schema: empty specs, hook collisions, duplicate names, and dead specs (kinds no enabled target supports). Exit 1 on error findings, or on warnings when `--strict` is set.
+
+```bash
+agnostic-ai lint
+agnostic-ai lint --strict   # treat warnings as errors (CI)
+```
+
+## packs
+
+Manage shareable spec packs. Packs load as a layer below the project, so the project overrides any pack entry by name. Full guide in [packs](packs.md).
+
+```bash
+agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
+agnostic-ai packs add ./path/to/pack
+agnostic-ai packs list
+agnostic-ai packs update [name]
+agnostic-ai packs remove go-rules
+```
+
+## install-hook
+
+Install a pre-commit hook that runs `sync --check`. See [git hooks](git-hooks.md).
+
+```bash
+agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
+agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
+```
+
+## cleanup
+
+Remove housekeeping leftovers. Today: the `<path>.bak` backups `sync --backup` writes, scoped to emitted paths. Unrelated `.bak` files are never touched.
+
+```bash
+agnostic-ai cleanup             # remove the .bak backups
+agnostic-ai cleanup --dry-run   # preview deletions
+```
+
+## lsp
+
+Start the Language Server on stdin/stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). Pushes lint diagnostics on open and save.
+
+```bash
+agnostic-ai lsp
 ```
 
 ## Exit codes

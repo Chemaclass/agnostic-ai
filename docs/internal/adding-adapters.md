@@ -58,7 +58,7 @@ var registry = map[string]Adapter{
 }
 ```
 
-Add to default targets in `internal/config/config.go` and `internal/cli/init.go`.
+Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and to the canonical list in `internal/cli/init_interactive.go` (`allTargets`). These two lists are separate; keep them in sync.
 
 ## 3. Document
 
