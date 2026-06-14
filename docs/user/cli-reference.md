@@ -417,7 +417,7 @@ agnostic-ai upgrade --run     # exec the detected upgrade command
 
 Detection:
 
-- `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` → `brew update && brew upgrade Chemaclass/tap/agnostic-ai`
+- `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` → `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`
 - `$GOBIN` or `$GOPATH/bin` (defaults to `$HOME/go/bin`) → `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`
 - Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
 
