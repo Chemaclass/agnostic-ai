@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.37.0 - 2026-06-14
+
 ### Added
 
 - `sync` prints a `note:` line when a target supports a kind but emits it only behind an opt-in key, so skipped content is visible. (#404)
