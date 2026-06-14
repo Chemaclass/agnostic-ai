@@ -8,14 +8,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `sync`: prints a `note:` line per opt-in coverage gap (a kind a target supports but emits only behind an `outputs.<target>.*` key, or source-dir only), so silently skipped content is visible. Covers gemini/opencode skills, warp agents and skills, aider agents and skills, and zed hooks. Suppressed when unchanged across runs. (#404)
+- `sync` prints a `note:` line when a target supports a kind but emits it only behind an opt-in key, so skipped content is visible. (#404)
 
 ### Changed
 
 ### Fixed
 
-- `explain` and `why` now credit rule bodies inlined into entry-point files (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...). `explain <rule>` lists the codex/gemini/aider/amp/warp/opencode contributions it previously omitted, and `why AGENTS.md` traces the inlined rule specs instead of reporting "not tracked". (#405)
-- `copilot`: always-on rules (no `globs`) now emit as catch-all `applyTo:"**"` instruction files instead of being silently dropped; they reach Copilot by default without setting `outputs.copilot.rules-file`. (#403)
+- `explain` and `why` now credit rules inlined into entry-point files (`AGENTS.md`, `GEMINI.md`, ...) instead of omitting them. (#405)
+- `copilot` always-on rules now emit as `applyTo:"**"` instruction files instead of being dropped. (#403)
 
 ### Removed
 
