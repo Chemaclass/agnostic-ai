@@ -43,8 +43,8 @@ func newLintCmd() *cobra.Command {
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
 		Long: "Checks for empty specs, hook collisions, duplicate names, and dead " +
 			"specs (kinds not supported by any enabled target). Exit code 1 on " +
-			"error-severity findings; exit code 2 on warn-severity findings when " +
-			"--strict is set.",
+			"error-severity findings, or on warn-severity findings when --strict " +
+			"is set.",
 		Example: `  # Lint all specs
   agnostic-ai lint
 

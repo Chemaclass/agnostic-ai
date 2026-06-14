@@ -14,6 +14,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `init` now offers Antigravity in the target prompt and enables it with `--all`. It was absent before.
+- `lint --help` now states the real exit code (`1`, not `2`).
 - `explain` and `why` now credit rules inlined into entry-point files (`AGENTS.md`, `GEMINI.md`, ...) instead of omitting them. (#405)
 - `copilot` always-on rules now emit as `applyTo:"**"` instruction files instead of being dropped. (#403)
 
