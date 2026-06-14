@@ -29,10 +29,14 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 | Field | Meaning |
 |-------|---------|
-| `adapter` | Target whose adapter wrote the file. |
+| `adapter` | Target whose adapter wrote the file. For a shared entry-point file (`AGENTS.md`), the first consuming target in registry order. |
 | `output keys` | Every `outputs.<target>.*` key whose value appears in the path. `(adapter defaults)` when no overrides match. |
 | `last sync` | UTC timestamp from `.agnostic-ai/.sync-state`. `unknown` when the state file is missing. |
 | `sources` | Every spec that contributes. Mode is `full` (spec owns the file) or `section` (one of many merged into a shared document). |
+
+## Entry-point files
+
+Targets with no native rules directory (codex, gemini, aider, amp, warp, opencode) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. That file is written by sync's entry-point distribution, not by an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and attributes the file to the first consuming target.
 
 ## Errors
 

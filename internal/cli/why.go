@@ -96,6 +96,13 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 		return whyOutput{}, err
 	}
 	if target == "" {
+		// Entry-point files (AGENTS.md, GEMINI.md, CONVENTIONS.md, ...) are
+		// written by sync's entry-point distribution, not by any adapter,
+		// so findEmittingAdapter never matches them. Recognize the inlined
+		// rules appendix and credit each rule spec as a section source.
+		if report, ok := traceEntryPointFile(rel, cfg, b, projectRoot); ok {
+			return report, nil
+		}
 		return whyOutput{}, whyNotTrackedError(input, projectRoot)
 	}
 
@@ -118,6 +125,51 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 		LastSync:   lastSyncTimestamp(projectRoot),
 	}
 	return out, nil
+}
+
+// traceEntryPointFile reports the rule specs inlined into an entry-point
+// file. Returns false when rel is not an entry-point that inlines rules.
+// A shared path (AGENTS.md) is attributed to its first consuming target
+// in registry order, listing every inlined rule as a section source.
+func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectRoot string) (whyOutput, bool) {
+	if len(b.Rules) == 0 {
+		return whyOutput{}, false
+	}
+	relSlash := filepath.ToSlash(rel)
+	byPath := inlinedRuleEntryPoints(cfg, cfg.Targets)
+	tgts, ok := byPath[rel]
+	if !ok {
+		// Fall back to a slash-normalized scan so Windows separators match.
+		for p, ts := range byPath {
+			if filepath.ToSlash(p) == relSlash {
+				tgts, ok = ts, true
+				break
+			}
+		}
+	}
+	if !ok || len(tgts) == 0 {
+		return whyOutput{}, false
+	}
+	sort.Strings(tgts)
+	sources := make([]whySource, 0, len(b.Rules))
+	for _, r := range b.Rules {
+		sources = append(sources, whySource{
+			Kind: string(r.Kind),
+			Name: r.Name,
+			Path: filepath.ToSlash(r.Path),
+			Mode: "section",
+		})
+	}
+	sort.SliceStable(sources, func(i, j int) bool { return sources[i].Name < sources[j].Name })
+	return whyOutput{
+		Version:    "1",
+		Command:    "why",
+		File:       relSlash,
+		Target:     tgts[0],
+		OutputKeys: nil,
+		Sources:    sources,
+		LastSync:   lastSyncTimestamp(projectRoot),
+	}, true
 }
 
 // normalizeInputPath returns the absolute path and the project-relative

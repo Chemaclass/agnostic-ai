@@ -254,3 +254,30 @@ You review code.
 		t.Errorf("expected claude per-agent file as full contribution: %s", got)
 	}
 }
+
+// A rule inlined into an entry-point file (codex AGENTS.md, gemini
+// GEMINI.md, ...) must be credited even though no adapter's Emit writes
+// that file: sync's entry-point distribution does.
+func TestExplain_RuleCreditsEntryPointInliners(t *testing.T) {
+	dir := setupExplainFixture(t) // targets: claude, codex
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"explain", "rules/no-console-log.md"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	// codex is configured and inlines the rule into AGENTS.md.
+	if !strings.Contains(got, `[codex] AGENTS.md (section "no-console-log")`) {
+		t.Errorf("expected codex AGENTS.md section contribution: %s", got)
+	}
+	// gemini is not configured but also inlines: it belongs under
+	// "would emit if enabled".
+	if !strings.Contains(got, `[gemini] GEMINI.md (section "no-console-log")`) {
+		t.Errorf("expected gemini GEMINI.md in would-emit-if-enabled: %s", got)
+	}
+}

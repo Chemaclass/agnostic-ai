@@ -14,6 +14,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `explain` and `why` now credit rule bodies inlined into entry-point files (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...). `explain <rule>` lists the codex/gemini/aider/amp/warp/opencode contributions it previously omitted, and `why AGENTS.md` traces the inlined rule specs instead of reporting "not tracked". (#405)
 - `copilot`: always-on rules (no `globs`) now emit as catch-all `applyTo:"**"` instruction files instead of being silently dropped; they reach Copilot by default without setting `outputs.copilot.rules-file`. (#403)
 
 ### Removed

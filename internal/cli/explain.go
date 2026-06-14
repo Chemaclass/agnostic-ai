@@ -184,9 +184,51 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 			}
 		}
 	}
+	// Rule bodies inlined into an entry-point file (AGENTS.md, GEMINI.md,
+	// CONVENTIONS.md, ...) are written by sync's entry-point distribution,
+	// not by any adapter's Emit, so the capture sweep above never sees
+	// them. Credit them explicitly.
+	if e.Kind == spec.KindRule && ruleReachesAppendix(b, e) {
+		for path, tgts := range inlinedRuleEntryPoints(cfg, adapters.Names()) {
+			for _, t := range tgts {
+				addContribution(&configured, &extra, configuredSet, contribution{
+					Target: t, Path: path, Section: e.Name, Mode: "section",
+				})
+			}
+		}
+	}
+
 	sortContribs(configured)
 	sortContribs(extra)
 	return configured, extra, nil
+}
+
+// ruleReachesAppendix reports whether removing e changes the inlined rules
+// appendix, i.e. the rule contributes a body to entry-point inliners. A
+// rule with neither globs nor scope always does; the diff guards against
+// a spec somehow absent from the bundle.
+func ruleReachesAppendix(b spec.Bundle, e spec.Entry) bool {
+	return adapters.RenderRulesAppendix(b) != adapters.RenderRulesAppendix(bundleWithout(b, e))
+}
+
+// inlinedRuleEntryPoints maps each entry-point path to the targets that
+// inline rule bodies into it (codex/gemini/aider/amp/warp/opencode). A
+// shared path like AGENTS.md lists every consumer. Targets on the legacy
+// rules-file layout are skipped: the adapter owns that write, so the
+// capture sweep already credits it.
+func inlinedRuleEntryPoints(cfg *config.Config, targets []string) map[string][]string {
+	out := map[string][]string{}
+	for _, t := range targets {
+		if !adapters.InlinesRulesIntoEntryPoint(t) || adapters.HasLegacyRulesFile(cfg, t) {
+			continue
+		}
+		p := adapters.EntryPointPath(cfg, t)
+		if p == "" || p == adapters.AgnosticEntryPointPath {
+			continue
+		}
+		out[p] = append(out[p], t)
+	}
+	return out
 }
 
 func addContribution(configured, extra *[]contribution, configuredSet map[string]struct{}, c contribution) {

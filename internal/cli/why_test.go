@@ -216,3 +216,47 @@ outputs:
 		t.Errorf("expected outputs.cursor.rules-dir in keys, got %v", got.OutputKeys)
 	}
 }
+
+// why on an entry-point file (AGENTS.md) credits the rule specs inlined
+// into it, even though no adapter's Emit writes that file.
+func TestWhy_EntryPointFileCreditsInlinedRules(t *testing.T) {
+	dir := setupWhyFixture(t)
+	cfg := `version: 1
+sources:
+  rules: rules
+targets:
+  - codex
+`
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got whyOutput
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if got.Target != "codex" {
+		t.Errorf("expected codex as the entry-point consumer, got %q", got.Target)
+	}
+	names := map[string]bool{}
+	for _, s := range got.Sources {
+		names[s.Name] = true
+		if s.Mode != "section" {
+			t.Errorf("inlined rule must be a section source, got %q for %s", s.Mode, s.Name)
+		}
+	}
+	for _, want := range []string{"no-console-log", "other"} {
+		if !names[want] {
+			t.Errorf("expected inlined rule %q in sources, got %v", want, got.Sources)
+		}
+	}
+}
