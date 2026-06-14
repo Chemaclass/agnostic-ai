@@ -12,7 +12,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
-- README target matrix: Copilot rules cell now flags that always-on (unscoped) rules need `outputs.copilot.rules-file`; only path-scoped rules emit a dedicated file by default.
+- `copilot`: always-on rules (no `globs`) now emit as catch-all `applyTo:"**"` instruction files instead of being silently dropped; they reach Copilot by default without setting `outputs.copilot.rules-file`. (#403)
 
 ### Removed
 

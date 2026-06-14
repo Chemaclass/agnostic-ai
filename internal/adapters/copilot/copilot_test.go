@@ -49,11 +49,13 @@ func TestEmit_RuleWithGlobs_WritesScopedInstruction(t *testing.T) {
 	}
 }
 
-// A rule with alwaysApply: true used to merge into the main file; now
-// the adapter skips per-file emission for it (alwaysApply still wins
-// over globs) and `sync` writes a pointer body at
-// .github/copilot-instructions.md instead.
-func TestEmit_RuleWithAlwaysApply_NoPerFileInstruction(t *testing.T) {
+// An always-on rule (alwaysApply: true, or no globs/scope) emits a
+// catch-all (applyTo: "**") per-file instruction by default, the same
+// shape agents and skills use, so it reaches Copilot without an opt-in.
+// The adapter still leaves .github/copilot-instructions.md to `sync`.
+// The legacy concatenated layout (outputs.copilot.rules-file) is the one
+// case that suppresses the per-file emission (see TestEmit_LegacyRulesFile_*).
+func TestEmit_RuleAlwaysOn_WritesCatchAllInstruction(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -71,8 +73,11 @@ func TestEmit_RuleWithAlwaysApply_NoPerFileInstruction(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".github/copilot-instructions.md")); !os.IsNotExist(err) {
 		t.Errorf("adapter should not write .github/copilot-instructions.md by default; sync owns the entry-point, err=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/conventional-commits.instructions.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no per-file instruction for alwaysApply rule, err=%v", err)
+	got := readFile(t, filepath.Join(dir, ".github/instructions/conventional-commits.instructions.md"))
+	for _, want := range []string{"applyTo: \"**\"", "Use Conventional Commits."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in always-on rule instruction:\n%s", want, got)
+		}
 	}
 }
 

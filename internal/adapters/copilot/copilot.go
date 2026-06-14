@@ -126,12 +126,18 @@ func renderChatmode(e spec.Entry) string {
 	return b.String()
 }
 
-// emitInstructionFiles writes one `.instructions.md` per scoped rule, agent, and skill.
+// emitInstructionFiles writes one `.instructions.md` per rule, agent, and
+// skill. Scoped rules carry their `applyTo` glob; always-on rules emit as
+// catch-all (`applyTo: "**"`) instructions, the same shape agents and skills
+// use, so they reach Copilot by default. The one exception: when the user
+// opted into the legacy concatenated layout via `outputs.copilot.rules-file`,
+// always-on rules go there instead and are skipped here to avoid duplication.
 func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputInstructionsDir(cfg, target, defaultInstructionsDir)
+	legacyRulesFile := emit.OutputRulesFile(cfg, target, "") != ""
 
 	for _, r := range b.Rules {
-		if isAlwaysOn(r) {
+		if isAlwaysOn(r) && legacyRulesFile {
 			continue
 		}
 		if err := writeInstruction(dir, "", applyToFor(r), r, dryRun); err != nil {
