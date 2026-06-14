@@ -12,6 +12,8 @@ agnostic-ai/
 │   └── adapters/
 │       ├── adapter.go              # Adapter interface + registry
 │       ├── internal/emit/          # shared write helpers (capture/recording/backup, MCP, output paths)
+│       ├── header/                 # provenance-header helper shared across adapters
+│       ├── external/               # plugin-protocol passthrough adapter
 │       └── claude/ codex/ gemini/ cursor/ copilot/ aider/ cline/
 │           windsurf/ continueai/ amp/ zed/ warp/ opencode/ antigravity/
 ├── .agnostic-ai/                   # dogfood source specs
@@ -77,9 +79,13 @@ type Entry struct {
     Name  string            // identifier
     Path  string            // source file path (for errors and provenance)
     Scope string            // implicit per-dir scope from layout
+    Layer string            // source layer: user-global | project | project-user
     Meta  map[string]any    // frontmatter or YAML fields
     Body  string            // markdown body (empty for hooks/mcps)
 }
+
+// Entry also carries MetaKeys and MetaStyles (frontmatter key order
+// and YAML scalar styles) so a round-trip keeps the author's formatting.
 ```
 
 One spec file = one Entry. Adapters consume `spec.Bundle` (Entries bucketed by Kind).

@@ -40,6 +40,7 @@ var allTargets = []targetChoice{
 	{Name: "zed", Desc: "Zed editor"},
 	{Name: "warp", Desc: "Warp terminal"},
 	{Name: "opencode", Desc: "OpenCode"},
+	{Name: "antigravity", Desc: "Google Antigravity"},
 }
 
 // allTargetNames returns just the canonical names of allTargets.
