@@ -60,6 +60,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
 			return err
 		}
+	} else {
+		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills),
+			"outputs.gemini.emit-skills-as-commands")
 	}
 	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err

@@ -73,8 +73,13 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // agent body becomes the workflow `command:`; description and tags are
 // pulled from frontmatter when present.
 func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	// Warp has no native skill surface: skills never reach it regardless of
+	// workflows-dir, so note the gap unconditionally.
+	emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "no native skill surface")
 	dir := emit.OutputWorkflowsDir(cfg, target, "")
 	if dir == "" {
+		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents),
+			"outputs.warp.workflows-dir")
 		return nil
 	}
 	for _, a := range b.Agents {

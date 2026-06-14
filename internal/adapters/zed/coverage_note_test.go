@@ -1,0 +1,67 @@
+package zed
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func swapNoteWarner(t *testing.T) *strings.Builder {
+	t.Helper()
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	return buf
+}
+
+func TestEmit_NotesHookGapWhenTasksFileUnset(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "hooks reach zed only via outputs.zed.tasks-file") {
+		t.Errorf("expected hook coverage note, got: %s", buf.String())
+	}
+}
+
+func TestEmit_NoHookNoteWhenTasksFileSet(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"zed": {TasksFile: ".zed/tasks.json"},
+	}}
+	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "reach zed") {
+		t.Errorf("tasks-file set must suppress the hook note, got: %s", buf.String())
+	}
+}
+
+func TestEmit_NoHookNoteWhenNoHooks(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "x"},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if got := emit.PendingCoverageNotesCount(); got != 0 {
+		t.Errorf("no hook specs must buffer no note, count=%d", got)
+	}
+	emit.FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no output, got: %s", buf.String())
+	}
+}

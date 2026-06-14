@@ -94,6 +94,23 @@ func CapabilityWarningsDigest() string { return emit.CapabilityWarningsDigest() 
 // (target, kind) capability warnings currently buffered.
 func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarningsCount() }
 
+// ResetCoverageNotes clears buffered coverage notes without printing.
+// Used by tests and by `sync --watch` before each new pass.
+func ResetCoverageNotes() { emit.ResetCoverageNotes() }
+
+// FlushCoverageNotes prints any buffered coverage notes, grouped by
+// kind, then clears the buffer. Call once at the end of a sync pass.
+func FlushCoverageNotes() { emit.FlushCoverageNotes() }
+
+// CoverageNotesDigest returns a stable hex digest of the currently
+// buffered coverage notes, "" when none. Used by sync to suppress
+// unchanged note sets across runs.
+func CoverageNotesDigest() string { return emit.CoverageNotesDigest() }
+
+// PendingCoverageNotesCount returns the number of distinct
+// (target, kind, via) coverage notes currently buffered.
+func PendingCoverageNotesCount() int { return emit.PendingCoverageNotesCount() }
+
 // StartRecording begins collecting written paths alongside real writes.
 // Unlike capture mode it does not suppress IO. Used by `sync` to learn
 // every emitted path in a single pass for follow-up actions like

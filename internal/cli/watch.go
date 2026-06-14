@@ -110,6 +110,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 		case <-fire:
 			printWatchEvent(lastEvent)
 			adapters.ResetCapabilityWarnings()
+			adapters.ResetCoverageNotes()
 			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}

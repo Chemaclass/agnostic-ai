@@ -8,6 +8,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `sync`: prints a `note:` line per opt-in coverage gap (a kind a target supports but emits only behind an `outputs.<target>.*` key, or source-dir only), so silently skipped content is visible. Covers gemini/opencode skills, warp agents and skills, aider agents and skills, and zed hooks. Suppressed when unchanged across runs. (#404)
+
 ### Changed
 
 ### Fixed
