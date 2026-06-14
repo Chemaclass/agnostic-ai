@@ -61,6 +61,12 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 		outFile = rulesFile
+	} else {
+		// Aider agents and skills reach the target only through the
+		// legacy merged document. Without rules-file set they stay
+		// source-dir only.
+		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents), "outputs.aider.rules-file")
+		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "outputs.aider.rules-file")
 	}
 	return emitConf(
 		emit.OutputConfFile(cfg, target, ""),

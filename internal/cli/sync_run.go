@@ -24,6 +24,10 @@ type syncStateFile struct {
 	SyncedAt       time.Time `json:"synced_at"`
 	FilesChanged   int       `json:"files_changed"`
 	WarningsDigest string    `json:"warnings_digest,omitempty"`
+	// NotesDigest fingerprints the coverage notes from the previous
+	// sync so the next run can sticky-suppress an unchanged set, the
+	// same way WarningsDigest gates capability warnings.
+	NotesDigest string `json:"notes_digest,omitempty"`
 	// Outputs lists every file path the previous sync wrote (create or
 	// update or skip), relative to the project root. The next sync uses
 	// it to detect orphans: any path present in the prior ledger but
@@ -49,7 +53,7 @@ func readStateFile(projectRoot string) syncStateFile {
 	return s
 }
 
-func writeStateFile(projectRoot string, filesChanged int, warningsDigest string, outputs []string) error {
+func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, outputs []string) error {
 	p := stateFilePath(projectRoot)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
@@ -59,6 +63,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest string,
 		SyncedAt:       time.Now().UTC(),
 		FilesChanged:   filesChanged,
 		WarningsDigest: warningsDigest,
+		NotesDigest:    notesDigest,
 		Outputs:        outputs,
 	})
 	if err != nil {
@@ -70,6 +75,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest string,
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
 	start := time.Now()
 	adapters.ResetCapabilityWarnings()
+	adapters.ResetCoverageNotes()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -177,6 +183,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		summaryf("→ updated .gitignore\n")
 	}
 	digest := adapters.CapabilityWarningsDigest()
+	notesDigest := adapters.CoverageNotesDigest()
 	prev := readStateFile(root)
 	if digest != "" && digest == prev.WarningsDigest {
 		n := adapters.PendingCapabilityWarningsCount()
@@ -185,6 +192,14 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		adapters.ResetCapabilityWarnings()
 	} else {
 		adapters.FlushCapabilityWarnings()
+	}
+	if notesDigest != "" && notesDigest == prev.NotesDigest {
+		n := adapters.PendingCoverageNotesCount()
+		summaryf("  (%d coverage note%s unchanged since last sync; delete %s to re-show)\n",
+			n, plural(n), stateFilePath(root))
+		adapters.ResetCoverageNotes()
+	} else {
+		adapters.FlushCoverageNotes()
 	}
 	ledger := finalizeLedger(ledgerSession)
 	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
@@ -205,7 +220,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		}
 	}
 	if !dryRun {
-		if err := writeStateFile(root, filesChanged, digest, ledger); err != nil {
+		if err := writeStateFile(root, filesChanged, digest, notesDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}
@@ -258,7 +273,9 @@ func shortDuration(d time.Duration) string {
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
 	adapters.ResetCapabilityWarnings()
+	adapters.ResetCoverageNotes()
 	defer adapters.ResetCapabilityWarnings()
+	defer adapters.ResetCoverageNotes()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -346,9 +363,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"})
 	}
 	if !dryRun {
-		// JSON path does not print warnings, so preserve the previous
-		// digest so the next non-JSON run can still sticky-suppress.
-		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, ledger); err != nil {
+		// JSON path does not print warnings or notes, so preserve the
+		// previous digests so the next non-JSON run can still
+		// sticky-suppress.
+		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}

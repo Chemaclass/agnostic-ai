@@ -68,7 +68,11 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // whose label is the hook's name; the description (when present)
 // prefixes the label so it shows up in the command palette.
 func emitTasks(hooks []spec.Entry, path string, dryRun bool) error {
-	if path == "" || len(hooks) == 0 {
+	if path == "" {
+		emit.NoteCoverageGap(target, spec.KindHook, len(hooks), "outputs.zed.tasks-file")
+		return nil
+	}
+	if len(hooks) == 0 {
 		return nil
 	}
 	tasks := make([]map[string]any, 0, len(hooks))

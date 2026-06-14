@@ -319,6 +319,29 @@ Fires when an adapter receives spec kinds it does not support (e.g. `hooks` for 
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
 
+## Coverage notes
+
+A target may declare support for a kind yet emit it only behind an opt-in key, or not at all by default. The content is not dropped, but it does not reach the target until you set the key. `sync` prints a `note:` line per gap so the gap is visible:
+
+```
+  note: 2 skills reach gemini, opencode only via outputs.<target>.emit-skills-as-commands
+  note: 1 agent reaches warp only via outputs.warp.workflows-dir
+  note: 3 skills reach warp only in the source dir (no native skill surface)
+```
+
+A note fires only when specs of that kind are present and the opt-in is inactive. Setting the named key clears the note and emits the content. Notes that match the previous sync are suppressed; delete `.agnostic-ai/.sync-state` to re-show them.
+
+The instrumented gaps:
+
+| Target | Kind | Set this to emit |
+|--------|------|------------------|
+| `gemini` | skills | `outputs.gemini.emit-skills-as-commands` |
+| `opencode` | skills | `outputs.opencode.emit-skills-as-commands` |
+| `warp` | agents | `outputs.warp.workflows-dir` |
+| `warp` | skills | no key; Warp has no native skill surface (stays source-dir only) |
+| `aider` | agents, skills | `outputs.aider.rules-file` |
+| `zed` | hooks | `outputs.zed.tasks-file` |
+
 ## `gitignore`
 
 | Field | Default | Description |
