@@ -39,10 +39,27 @@ targets:
 
 # Per-target output overrides. Defaults work for everything below;
 # the aider conf-file is opt-in and demonstrates the merge feature.
+#
+# The remaining keys close the "soft gaps" sync reports as `note:` lines.
+# Each kind below is declared-supported by the adapter but only emits
+# behind one of these output keys; without it the content stays
+# source-dir only.
 outputs:
   aider:
     file: CONVENTIONS.md
     conf-file: .aider.conf.yml
+    # Fold agents and skills into the concatenated CONVENTIONS.md
+    # (legacy rules-file layout). Without this they never reach aider.
+    rules-file: CONVENTIONS.md
+  gemini:
+    # Emit skills as slash commands under .gemini/commands/.
+    emit-skills-as-commands: true
+  opencode:
+    # Emit skills as commands under .opencode/command/.
+    emit-skills-as-commands: true
+  zed:
+    # Render hooks as on-demand Zed Tasks (Zed has no hook surface).
+    tasks-file: .zed/tasks.json
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent
