@@ -30,39 +30,52 @@ func importFromCursor(root string, src config.Sources) error {
 	return nil
 }
 
-// importCursorRules translates each .cursor/rules/*.mdc into <dstDir>/<name>.md.
-// Frontmatter keys (description, globs, alwaysApply, plus any custom keys)
-// pass through verbatim; a name field derived from the filename is injected
-// when missing.
+// importCursorRules translates each .cursor/rules/**/*.mdc into a matching
+// <dstDir>/**/<name>.md, walking the tree so nested rule directories
+// (which Cursor reads recursively) are preserved. Frontmatter keys
+// (description, globs, alwaysApply, plus any custom keys) pass through
+// verbatim; a name field derived from the filename is injected when missing.
 func importCursorRules(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ".cursor", "rules")
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
+	} else if err != nil {
+		return 0, fmt.Errorf("%s: %w", src, err)
 	}
 
 	count := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".mdc") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(src, e.Name()))
+	walkErr := filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return count, fmt.Errorf("read %s: %w", e.Name(), err)
+			return fmt.Errorf("%s: %w", path, err)
 		}
-		name := strings.TrimSuffix(e.Name(), ".mdc")
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".mdc") {
+			return nil
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		name := strings.TrimSuffix(d.Name(), ".mdc")
 		translated, err := translateCursorRule(name, data)
 		if err != nil {
-			return count, fmt.Errorf("translate %s: %w", e.Name(), err)
+			return fmt.Errorf("translate %s: %w", rel, err)
 		}
-		dst := filepath.Join(dstDir, name+".md")
+		dst := filepath.Join(dstDir, strings.TrimSuffix(rel, ".mdc")+".md")
+		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Dir(dst), err)
+		}
 		if err := importWriteFile(dst, translated, 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", dst, err)
+			return fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
+		return nil
+	})
+	if walkErr != nil {
+		return count, walkErr
 	}
 	return count, nil
 }
