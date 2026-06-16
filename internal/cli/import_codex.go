@@ -414,7 +414,7 @@ func writeCodexRule(dstDir, name, description, globs, body string) error {
 	var fm strings.Builder
 	fm.WriteString("---\nname: " + name + "\n")
 	if description != "" {
-		fm.WriteString("description: " + description + "\n")
+		fm.WriteString(yamlFrontmatterLine("description", description))
 	}
 	if globs != "" {
 		fm.WriteString("globs: " + globs + "\n")
