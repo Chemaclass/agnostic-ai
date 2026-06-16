@@ -86,32 +86,34 @@ func importCopilotRules(root string, src config.Sources) (copilotCounts, error) 
 // `**` is dropped since it carries no scope.
 func importCopilotInstructions(src, root string, sources config.Sources) (copilotCounts, error) {
 	var c copilotCounts
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return c, nil
-	}
-	if err != nil {
-		return c, fmt.Errorf("read %s: %w", src, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), copilotInstructionSuffix) {
-			continue
-		}
-		full := filepath.Join(src, e.Name())
-		data, err := os.ReadFile(full)
+	walkErr := filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return c, fmt.Errorf("read %s: %w", full, err)
+			return fmt.Errorf("%s: %w", path, err)
 		}
-		base := strings.TrimSuffix(e.Name(), copilotInstructionSuffix)
+		if d.IsDir() || !strings.HasSuffix(d.Name(), copilotInstructionSuffix) {
+			return nil
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		base := strings.TrimSuffix(d.Name(), copilotInstructionSuffix)
 		kind, name := classifyRulesDirFile(base + ".md")
 		dstDir := pickKindDir(kind, sources)
 		translated, err := translateCopilotInstruction(name, data)
 		if err != nil {
-			return c, fmt.Errorf("translate %s: %w", e.Name(), err)
+			return fmt.Errorf("translate %s: %w", rel, err)
 		}
-		out := filepath.Join(root, dstDir, name+".md")
+		out := filepath.Join(root, dstDir, scopeDir(rel), name+".md")
+		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Dir(out), err)
+		}
 		if err := importWriteFile(out, translated, 0o644); err != nil {
-			return c, fmt.Errorf("write %s: %w", out, err)
+			return fmt.Errorf("write %s: %w", out, err)
 		}
 		switch kind {
 		case "agents":
@@ -121,6 +123,13 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 		default:
 			c.rules++
 		}
+		return nil
+	})
+	if errors.Is(walkErr, fs.ErrNotExist) {
+		return copilotCounts{}, nil
+	}
+	if walkErr != nil {
+		return c, walkErr
 	}
 	return c, nil
 }

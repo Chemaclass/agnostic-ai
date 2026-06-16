@@ -64,7 +64,7 @@ agnostic-ai import continue       # .continue/rules/
 
 | Source | Becomes |
 |--------|---------|
-| `.claude/rules/*.md` (preferred) | `<rules>/<name>.md` (byte-identical copy) |
+| `.claude/rules/**/*.md` (preferred) | `<rules>/<sub>/<name>.md` (byte-identical copy, nested subdirectories preserved) |
 | `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
