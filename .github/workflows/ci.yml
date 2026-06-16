@@ -106,7 +106,7 @@ jobs:
 
       - name: Install bashunit
         run: |
-          curl -s https://bashunit.typeddevs.com/install.sh | bash -s -- /usr/local/bin
+          curl -sSL https://bashunit.typeddevs.com/install.sh | bash -s -- /usr/local/bin
 
       - name: Run release.sh tests
         run: bashunit scripts/release_test.sh
