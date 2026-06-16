@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - `import cursor` now walks `.cursor/rules/**` recursively, preserving nested subdirectories, instead of importing only top-level `.mdc` files. (#411)
+- Nested rule, agent, and skill specs now emit under the tool's rules directory (e.g. `.cursor/rules/backend/auth.mdc`, `.claude/rules/backend/auth.md`) instead of a stray `<scope>/.cursor/rules/` tree at the repo root. (#412)
 
 ## v0.37.0 - 2026-06-14
 

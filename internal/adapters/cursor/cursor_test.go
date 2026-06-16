@@ -68,8 +68,11 @@ func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "backend/.cursor/rules/auth.mdc")); err != nil {
-		t.Errorf("expected nested file: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/backend/auth.mdc")); err != nil {
+		t.Errorf("expected nested file under .cursor/rules/backend: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/.cursor/rules/auth.mdc")); !os.IsNotExist(err) {
+		t.Errorf("expected no stray scope dir at repo root, err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/auth.mdc")); !os.IsNotExist(err) {
 		t.Errorf("expected no root file when scope set, err=%v", err)
