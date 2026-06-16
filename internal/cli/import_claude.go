@@ -141,6 +141,12 @@ func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNest
 // not part of the canonical body, and carrying them back would
 // duplicate them on the next sync (and leak target-specific rule copies
 // into every other target's entry-point).
+//
+// The agnostic-ai provenance header is stripped too, exactly as it is
+// for per-rule and per-skill specs. A synced entry-point (CLAUDE.md,
+// AGENTS.md, ...) carries the header on line 1; carrying it back would
+// reseed the source you are meant to edit with a "Do not edit" banner
+// and break import->sync byte-stability (#429).
 func mirrorMainFile(root, srcName string) (bool, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
@@ -151,7 +157,7 @@ func mirrorMainFile(root, srcName string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
-	body := adapters.StripGeneratedAppendices(string(data))
+	body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}

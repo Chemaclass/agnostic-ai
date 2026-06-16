@@ -91,6 +91,7 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 	if _, ok := meta["name"]; !ok {
 		meta["name"] = name
 	}
+	normalizeCursorRuleMeta(meta)
 
 	var fm bytes.Buffer
 	enc := yaml.NewEncoder(&fm)
@@ -111,6 +112,34 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 		out.WriteString("\n")
 	}
 	return out.Bytes(), nil
+}
+
+// normalizeCursorRuleMeta strips emit-time defaults the cursor adapter
+// always writes so a generated rule round-trips to the same source a
+// hand-authored rule would produce (#429). The adapter fills an empty
+// `globs` with the catch-all `**/*` and emits an empty `description`;
+// carrying either back makes import->sync non-idempotent on the source.
+// Catch-all globs and nil-valued keys are dropped.
+func normalizeCursorRuleMeta(meta map[string]any) {
+	if g, ok := meta["globs"].(string); ok && isCatchAllGlobs(g) {
+		delete(meta, "globs")
+	}
+	for k, v := range meta {
+		if v == nil {
+			delete(meta, k)
+		}
+	}
+}
+
+// isCatchAllGlobs reports whether g targets every file, matching the
+// scope-routing convention (empty, `**/*`, or `*`). Such a glob carries
+// no scoping intent and is the cursor adapter's default fill.
+func isCatchAllGlobs(g string) bool {
+	switch strings.TrimSpace(g) {
+	case "", "**/*", "*":
+		return true
+	}
+	return false
 }
 
 // splitMdcFrontmatter mirrors spec.splitFrontmatter for the import path.
