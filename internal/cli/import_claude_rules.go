@@ -15,7 +15,7 @@ import (
 func importClaudeRules(root, dstDir string) (int, error) {
 	rulesDir := filepath.Join(root, claudeDir, "rules")
 	if dirExists(rulesDir) {
-		return copyMarkdownDir(rulesDir, dstDir)
+		return copyMarkdownTree(rulesDir, dstDir)
 	}
 	return sliceMainFileByH2(root, claudeMainFile, dstDir)
 }

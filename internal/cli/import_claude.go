@@ -187,6 +187,37 @@ func copyMarkdownDir(srcDir, dstDir string) (int, error) {
 	return count, nil
 }
 
+// copyMarkdownTree copies every *.md file under srcDir into dstDir,
+// preserving the relative subdirectory path. Scoped rules now emit under
+// .claude/rules/<scope>/<name>.md, so a flat top-level copy would drop the
+// nested files; walking the tree round-trips them back into
+// <dstDir>/<scope>/<name>.md (#411, claude target). The agnostic-ai
+// provenance header is stripped per file. Caller ensures srcDir exists.
+func copyMarkdownTree(srcDir, dstDir string) (int, error) {
+	count := 0
+	err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("%s: %w", path, walkErr)
+		}
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		if err := copyMarkdownFile(path, filepath.Join(dstDir, rel)); err != nil {
+			return err
+		}
+		count++
+		return nil
+	})
+	if err != nil {
+		return count, err
+	}
+	return count, nil
+}
+
 // copyMarkdownFile reads src, strips the agnostic-ai provenance header
 // when present, and writes the result to dst. Missing src is a no-op
 // so callers can probe optional paths without pre-checking existence.
