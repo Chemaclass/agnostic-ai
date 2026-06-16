@@ -127,6 +127,45 @@ body
 	}
 }
 
+// TestImportFromCursor_DropsCatchAllGlobs guards round-trip stability:
+// the cursor adapter fills an empty globs with the catch-all "**/*", so
+// carrying it back into the source would flip an always-apply rule's
+// representation each cycle (#429). Catch-all globs must not appear in
+// the imported spec.
+func TestImportFromCursor_DropsCatchAllGlobs(t *testing.T) {
+	dir := t.TempDir()
+	// Mirrors what the cursor adapter emits for an always-apply rule:
+	// empty description, catch-all globs.
+	mdc := `---
+description:
+globs: "**/*"
+alwaysApply: true
+---
+
+Always rule body.
+`
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "always.mdc"), mdc)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := os.ReadFile(filepath.Join(dir, "rules", "always.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	if strings.Contains(got, "globs:") {
+		t.Errorf("catch-all globs leaked into source:\n%s", got)
+	}
+	if strings.Contains(got, "null") {
+		t.Errorf("empty description emitted as null:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: true") || !strings.Contains(got, "Always rule body.") {
+		t.Errorf("expected alwaysApply and body preserved, got:\n%s", got)
+	}
+}
+
 func TestImportFromCursor_NoCursorDir(t *testing.T) {
 	dir := t.TempDir()
 	if err := importFromCursor(dir, rootSources()); err != nil {

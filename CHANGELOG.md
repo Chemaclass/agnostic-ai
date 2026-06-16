@@ -6,6 +6,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)
+- `import cursor` drops the catch-all `globs: "**/*"` and empty `description` the cursor adapter emits by default, so an always-apply rule round-trips to a stable source instead of flipping its `globs` representation each cycle. (#429)
+
 ## v0.39.0 - 2026-06-16
 
 ### Added
