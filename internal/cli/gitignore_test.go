@@ -302,7 +302,7 @@ func TestValidateGitignoreFlag(t *testing.T) {
 	}
 }
 
-func TestCollapseManagedEntries_FoldsOutputDirsKeepsRootAndSources(t *testing.T) {
+func TestCollapseManagedEntries_FoldsOutputSubdirsKeepsRootAndSources(t *testing.T) {
 	in := []string{
 		"/.agnostic-ai/.sync-state",
 		"/.claude/CLAUDE.md",
@@ -314,8 +314,10 @@ func TestCollapseManagedEntries_FoldsOutputDirsKeepsRootAndSources(t *testing.T)
 	got := collapseManagedEntries(in, []string{".agnostic-ai"})
 	want := []string{
 		"/.agnostic-ai/.sync-state", // protected source dir: kept precise
-		"/.claude/",                 // output dir: collapsed
-		"/.codex/",                  // output dir: collapsed
+		"/.claude/CLAUDE.md",        // file under tool dir: kept precise
+		"/.claude/README.md",        // file under tool dir: kept precise
+		"/.claude/skills/",          // output subdir: collapsed
+		"/.codex/agents/",           // output subdir: collapsed
 		"/AGENTS.md",                // root file: kept
 	}
 	if len(got) != len(want) {
@@ -324,6 +326,24 @@ func TestCollapseManagedEntries_FoldsOutputDirsKeepsRootAndSources(t *testing.T)
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("[%d] got %q want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// Regression for #414: collapsing stops at the generated subdirectory so a
+// hand-authored file living directly under the same tool dir is never
+// swallowed by a `/.claude/` ignore.
+func TestCollapseManagedEntries_DoesNotSwallowHandAuthoredSiblings(t *testing.T) {
+	// Only the generated rules subdir is emitted; settings.json is
+	// hand-authored and never appears in the entry list.
+	got := collapseManagedEntries([]string{"/.claude/rules/auth.md"}, nil)
+	want := []string{"/.claude/rules/"}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for _, e := range got {
+		if e == "/.claude/" {
+			t.Fatalf("whole tool dir ignored, would hide hand-authored siblings: %v", got)
 		}
 	}
 }
