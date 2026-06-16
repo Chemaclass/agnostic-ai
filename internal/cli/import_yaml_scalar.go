@@ -22,18 +22,13 @@ func yamlFrontmatterLine(key, value string) string {
 // encodeYAMLScalar returns value as a YAML scalar, quoting or block-folding
 // only when the raw form would be ambiguous. The yaml encoder decides the
 // representation; we strip the document's trailing newline so the caller can
-// place it after a `key: ` prefix.
+// place it after a `key: ` prefix. Encoding a plain string never fails, so
+// the error is intentionally discarded.
 func encodeYAMLScalar(value string) string {
 	var b bytes.Buffer
 	enc := yaml.NewEncoder(&b)
 	enc.SetIndent(2)
-	if err := enc.Encode(value); err != nil {
-		// Encoding a plain string never fails; fall back to a
-		// double-quoted scalar so the line stays valid YAML.
-		escaped := strings.ReplaceAll(value, `\`, `\\`)
-		escaped = strings.ReplaceAll(escaped, `"`, `\"`)
-		return `"` + escaped + `"`
-	}
+	_ = enc.Encode(value)
 	_ = enc.Close()
 	return strings.TrimRight(b.String(), "\n")
 }
