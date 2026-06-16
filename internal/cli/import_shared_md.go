@@ -241,7 +241,7 @@ func writeAgentMD(path, name, description string, tags []string, body string) er
 	var sb strings.Builder
 	sb.WriteString("---\nname: " + name + "\n")
 	if description != "" {
-		sb.WriteString("description: " + description + "\n")
+		sb.WriteString(yamlFrontmatterLine("description", description))
 	}
 	if len(tags) > 0 {
 		sb.WriteString("tags: [" + strings.Join(tags, ", ") + "]\n")
