@@ -11,6 +11,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `import cursor` now walks `.cursor/rules/**` recursively, preserving nested subdirectories, instead of importing only top-level `.mdc` files. (#411)
 - Nested rule, agent, and skill specs now emit under the tool's rules directory (e.g. `.cursor/rules/backend/auth.mdc`, `.claude/rules/backend/auth.md`) instead of a stray `<scope>/.cursor/rules/` tree at the repo root. (#412)
 - `import` now quotes spec `description` frontmatter when the value carries a `: ` mapping indicator, quotes, or leading/trailing whitespace, so the imported spec passes `validate` instead of failing with a YAML mapping error. (#413)
+- The managed `.gitignore` block now ignores generated paths at the subdirectory level (`/.claude/rules/`) instead of the whole tool dir (`/.claude/`), so hand-authored siblings like `.claude/settings.json` or `.claude/hooks/` are no longer ignored. (#414)
 
 ## v0.37.0 - 2026-06-14
 

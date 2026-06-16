@@ -97,11 +97,15 @@ func normalizeGitignorePath(p string) string {
 	return "/" + p
 }
 
-// collapseManagedEntries folds every entry that lives under a generated
-// output directory into a single `/dir/` rule, so the managed block reads
-// `/.claude/` instead of one line per emitted file. Two kinds of entry are
+// collapseManagedEntries folds entries that live under a generated output
+// subdirectory into a single `/dir/sub/` rule, so the managed block reads
+// `/.claude/rules/` instead of one line per emitted file. Collapsing stops at
+// the generated subdirectory rather than the tool's top-level dir, so a
+// hand-authored sibling (e.g. `.claude/settings.json`, `.claude/hooks/`) is
+// never swallowed by a `/.claude/` ignore (#414). Three kinds of entry are
 // kept verbatim so collapsing never ignores a committed file:
 //   - root-level files (no directory segment, e.g. `/AGENTS.md`);
+//   - files sitting directly under a tool dir (e.g. `/.claude/CLAUDE.md`);
 //   - entries under a protected source directory, where tracked specs live
 //     alongside generated state (e.g. `/.agnostic-ai/.sync-state`).
 //
@@ -122,16 +126,19 @@ func collapseManagedEntries(entries, protectedTopDirs []string) []string {
 	}
 	for _, e := range entries {
 		rel := strings.TrimPrefix(e, "/")
-		i := strings.Index(rel, "/")
-		if i < 0 {
+		segs := strings.SplitN(rel, "/", 3)
+		switch {
+		case len(segs) < 2:
 			add(e) // root-level file: nothing to collapse into
-			continue
+		case len(segs) == 2:
+			add(e) // file directly under a tool dir: keep precise
+		default:
+			if _, isProtected := protected[segs[0]]; isProtected {
+				add(e) // source dir: keep the precise file
+				continue
+			}
+			add("/" + segs[0] + "/" + segs[1] + "/")
 		}
-		if _, isProtected := protected[rel[:i]]; isProtected {
-			add(e) // source dir: keep the precise file
-			continue
-		}
-		add("/" + rel[:i] + "/")
 	}
 	sort.Strings(out)
 	return out
