@@ -11,6 +11,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)
 - `import cursor` drops the catch-all `globs: "**/*"` and empty `description` the cursor adapter emits by default, so an always-apply rule round-trips to a stable source instead of flipping its `globs` representation each cycle. (#429)
 - `sync` warns when a skill bundles sibling files (scripts, assets) the Cursor target cannot represent, since Cursor flattens each skill to a single `.mdc` rule. The payloads were dropped silently before. (#430)
+- An extra markdown file inside a folder-based skill (e.g. `skills/<name>/examples.md`) is now treated as a bundled asset instead of being loaded as its own phantom skill. The spurious top-level skill it used to emit is gone. (#431)
 
 ## v0.39.0 - 2026-06-16
 

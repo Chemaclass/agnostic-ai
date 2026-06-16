@@ -99,7 +99,7 @@ skills/yaml-validator/SKILL.md
 skills/yaml-validator/schema.yaml
 ```
 
-Only `SKILL.md` and flat `*.md` are parsed. Other files in a nested skill directory (scripts, templates, fixtures, subdirectories) copy verbatim to the same relative location under each target's skills dir. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` the skill body references. Executable bits are preserved both directions through import + sync.
+Only `SKILL.md` and flat `skills/*.md` are parsed as skills. Every other file inside a nested skill directory (scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`) is a bundled asset: it copies verbatim to the same relative location under each target's skills dir and is never promoted to its own skill. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` the skill body references. Executable bits are preserved both directions through import + sync.
 
 ```markdown
 ---
