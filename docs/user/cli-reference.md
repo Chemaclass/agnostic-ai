@@ -56,6 +56,7 @@ agnostic-ai import continue       # .continue/rules/
 - Touches only spec files under `sources:`. Never modifies `targets:` or other config.
 - Re-running overwrites by filename. Run after `init`, in the same project root.
 - Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
+- When another target's entry-point exists with different hand-authored content (e.g. a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that it holds unique content the next `sync` would overwrite. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` before syncing to keep it.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
 - Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, plus `all`.
 

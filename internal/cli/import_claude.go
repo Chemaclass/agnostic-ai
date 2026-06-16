@@ -158,6 +158,7 @@ func mirrorMainFile(root, srcName string) (bool, error) {
 	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
+	warnUncapturedEntryPoints(root, srcName, body)
 	return true, nil
 }
 
