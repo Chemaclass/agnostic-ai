@@ -61,12 +61,14 @@ func StripRulesAppendix(body string) string {
 	return stripMarkedBlock(body, RulesStartMarker, RulesEndMarker)
 }
 
-// StripGeneratedAppendices removes every sentinel-marked block sync may
-// append to an entry-point file (rules + target-overview), leaving the
-// canonical pointer body. Import uses it so the AGNOSTIC_AI.md round-trip
-// stays lossless regardless of which appendixes a target carried.
+// StripGeneratedAppendices reverses every sentinel-marked edit sync may
+// make to an entry-point file, leaving the canonical pointer body. It
+// removes the rules and target-overview appendices and restores resolved
+// `@`-imports (inline mode) to their lone `@path` lines. Import uses it
+// so the AGNOSTIC_AI.md round-trip stays lossless regardless of which
+// transforms a target carried.
 func StripGeneratedAppendices(body string) string {
-	return StripRulesAppendix(StripTargetOverview(body))
+	return RestoreImportInlines(StripRulesAppendix(StripTargetOverview(body)))
 }
 
 // inlineRulesTargets are the entry-point targets whose underlying CLI has

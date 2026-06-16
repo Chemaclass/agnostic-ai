@@ -35,7 +35,11 @@ func writeAgnosticEntryPoints(cfg *config.Config, b spec.Bundle, targets []strin
 	if err != nil {
 		return err
 	}
-	for _, f := range renderEntryPointFiles(cfg, b, targets, body) {
+	files, err := renderEntryPointFiles(cfg, b, targets, body)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
 		warnOnHandAuthoredEntryPoint(f.Path)
 		if err := adapters.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
@@ -68,7 +72,7 @@ type entryPointFile struct {
 // only always-on context surface. The block is identical across the
 // consumers of a shared path (rules are global), so the deduplicated
 // write stays collision-free.
-func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) []entryPointFile {
+func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
 	body = adapters.StripGeneratedAppendices(body)
 	rulesAppendix := adapters.RenderRulesAppendix(b)
 	var order []string
@@ -90,6 +94,13 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
 		content := body
+		if !pathSupportsFileImports(consumers[path]) {
+			resolved, err := adapters.ApplyImportMode(content, cfg.Sync.ResolveImports)
+			if err != nil {
+				return nil, fmt.Errorf("resolve imports for %s: %w", path, err)
+			}
+			content = resolved
+		}
 		if pathInlinesRules(consumers[path]) {
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
@@ -110,7 +121,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			Content: header.With(content, header.FormatMarkdown),
 		})
 	}
-	return files
+	return files, nil
 }
 
 // pathInlinesRules reports whether any target consuming an entry-point
@@ -123,6 +134,20 @@ func pathInlinesRules(consumers []string) bool {
 		}
 	}
 	return false
+}
+
+// pathSupportsFileImports reports whether every target consuming an
+// entry-point path resolves `@path` file-imports natively. When false,
+// sync applies the resolve-imports mode so non-resolving targets do not
+// carry dead reference lines. Claude's CLAUDE.md has a single resolving
+// consumer; shared paths (AGENTS.md) have none.
+func pathSupportsFileImports(consumers []string) bool {
+	for _, t := range consumers {
+		if !adapters.SupportsFileImports(t) {
+			return false
+		}
+	}
+	return true
 }
 
 // pathRulesImporter returns the first consumer of an entry-point path

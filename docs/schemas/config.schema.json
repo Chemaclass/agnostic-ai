@@ -392,6 +392,9 @@
         },
         "target-overview": {
           "type": "boolean"
+        },
+        "resolve-imports": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

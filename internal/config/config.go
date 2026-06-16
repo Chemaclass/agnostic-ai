@@ -73,6 +73,15 @@ type SyncConfig struct {
 	// is stripped on `import` so the AGNOSTIC_AI.md round-trip stays
 	// lossless. AGNOSTIC_AI.md itself never carries the appendix.
 	TargetOverview bool `yaml:"target-overview,omitempty" json:"target-overview,omitempty"`
+	// ResolveImports controls how `@path` file-import lines in the shared
+	// entry-point body reach targets whose CLI does not resolve them
+	// (every target except claude). Accepted values:
+	//   passthrough (default) copy the @-line verbatim; the target carries a dead reference
+	//   strip       drop the @-line so the file is not littered with unfollowable references
+	//   inline      replace the @-line with the referenced file's content, wrapped in a
+	//               sentinel block that `import` restores to the original @-line
+	// Targets that resolve imports natively (claude) always pass through.
+	ResolveImports string `yaml:"resolve-imports,omitempty" json:"resolve-imports,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write
