@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.39.0 - 2026-06-16
+
 ### Added
 
 - `outputs.claude.rules-mode: import` wires the emitted `.claude/rules/*.md` files into the `CLAUDE.md` pointer body via sentinel-marked `@`-imports, so Claude Code loads them without losing the pointer body. (#424)
@@ -14,10 +16,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Changed
 
 - `scripts/release.sh` drops empty `### ` subsections from `[Unreleased]` before promoting it, so a release never ships scaffolding headings with no entries.
-
-### Fixed
-
-### Removed
 
 ## v0.38.0 - 2026-06-16
 
