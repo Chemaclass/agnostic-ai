@@ -13,6 +13,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- `scripts/release.sh` drops empty `### ` subsections from `[Unreleased]` before promoting it, so a release never ships scaffolding headings with no entries.
+
 ### Fixed
 
 ### Removed

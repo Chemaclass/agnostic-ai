@@ -15,8 +15,9 @@
 #   1. Validate inputs and git state (clean tree, on main, in sync with origin).
 #   2. Run go vet, gofmt -s -l, go test ./..., agnostic-ai sync (drift gate).
 #   3. Bump `version` in cmd/agnostic-ai/main.go.
-#   4. Promote [Unreleased] in CHANGELOG.md to [vX.Y.Z] with today's date and
-#      insert a fresh [Unreleased] block above.
+#   4. Drop empty `### ` subsections from [Unreleased], then promote it in
+#      CHANGELOG.md to [vX.Y.Z] with today's date and insert a fresh
+#      [Unreleased] block above.
 #   5. Commit `chore(release): vX.Y.Z`.
 #   6. Create annotated tag vX.Y.Z.
 #   7. Push main and tag atomically. CI fires GoReleaser, which builds
@@ -101,6 +102,33 @@ unreleased_has_content() {
     }
     END { exit has ? 0 : 1 }
   ' "$file"
+}
+
+# prune_empty_unreleased_sections <CHANGELOG path> — drops every
+# `### Heading` subsection inside `## [Unreleased]` that carries no entry,
+# so a release never ships scaffolding headings (`### Changed` with
+# nothing under it). Subsections with at least one non-blank line survive
+# untouched, blank spacing and all. A no-op when every subsection has
+# content.
+prune_empty_unreleased_sections() {
+  local file="$1" tmp="$1.tmp"
+  trap 'rm -f "${tmp:-}"' RETURN
+  awk '
+    function flush() {
+      if (pending != "" && have) printf "%s", pending
+      pending=""; have=0
+    }
+    /^## \[Unreleased\]/ { in_unrel=1; print; next }
+    in_unrel && /^## /   { flush(); in_unrel=0; print; next }
+    in_unrel && /^### /  { flush(); pending=$0 "\n"; next }
+    in_unrel && pending != "" {
+      pending = pending $0 "\n"
+      if ($0 !~ /^[[:space:]]*$/) have=1
+      next
+    }
+    { print }
+    END { flush() }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
 # promote_changelog <CHANGELOG path> <vX.Y.Z> <YYYY-MM-DD> — promotes the
@@ -231,6 +259,8 @@ main() {
   note "bump: $current -> $plain"
   if [[ $DRY_RUN -eq 0 ]]; then
     bump_version_in_file "$main_file" "$plain"
+    note "changelog: prune empty [Unreleased] subsections"
+    prune_empty_unreleased_sections "$changelog"
     note "changelog: promote [Unreleased] -> [$VERSION] $date"
     promote_changelog "$changelog" "$VERSION" "$date"
   else

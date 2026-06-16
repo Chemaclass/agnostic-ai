@@ -152,6 +152,93 @@ function test_promote_changelog_errors_without_unreleased() {
   rm -f "$tmp"
 }
 
+# ---- prune_empty_unreleased_sections ----------------------------------------
+
+function test_prune_drops_empty_subsections_keeps_populated() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+- a new thing
+
+### Changed
+
+### Fixed
+- a fix
+
+### Removed
+
+## v0.1.0 - 2026-01-01
+
+### Changed
+- old change
+EOF
+  prune_empty_unreleased_sections "$tmp"
+  local out
+  out="$(cat "$tmp")"
+  assert_contains "### Added" "$out"
+  assert_contains "- a new thing" "$out"
+  assert_contains "### Fixed" "$out"
+  assert_contains "- a fix" "$out"
+  assert_not_contains "### Changed"$'\n\n'"### " "$out"
+  assert_not_contains "### Removed" "$out"
+  # Released sections below are untouched.
+  assert_contains "- old change" "$out"
+  rm -f "$tmp"
+}
+
+function test_prune_is_noop_when_all_populated() {
+  local tmp before after
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+- one
+
+### Fixed
+- two
+
+## v0.1.0 - 2026-01-01
+EOF
+  before="$(cat "$tmp")"
+  prune_empty_unreleased_sections "$tmp"
+  after="$(cat "$tmp")"
+  assert_equals "$before" "$after"
+  rm -f "$tmp"
+}
+
+function test_prune_preserves_released_empty_subsections() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Removed
+
+## v0.1.0 - 2026-01-01
+
+### Removed
+EOF
+  prune_empty_unreleased_sections "$tmp"
+  local out
+  out="$(cat "$tmp")"
+  # The Unreleased empty section is gone; the released one stays.
+  local removed_count
+  removed_count="$(grep -c '^### Removed$' "$tmp")"
+  assert_equals 1 "$removed_count"
+  assert_contains "## v0.1.0 - 2026-01-01" "$out"
+  rm -f "$tmp"
+}
+
 # ---- unreleased_has_content --------------------------------------------------
 
 function test_unreleased_has_content_detects_bullet() {

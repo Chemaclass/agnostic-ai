@@ -12,7 +12,7 @@ Steps:
 1. Confirm the working tree is clean and on `main`. Pull the latest.
 2. Run `make preflight` (fmt-check + vet + lint + test). Refuse to proceed on any failure.
 3. Decide the next version per semver. Patch for fixes, minor for additive features, major for breaking changes.
-4. Move every line under `## [Unreleased]` in `CHANGELOG.md` into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). Reset `## [Unreleased]` to empty `Added`/`Changed`/`Fixed`/`Removed` subsections.
+4. Drop empty `### ` subsections from `## [Unreleased]` in `CHANGELOG.md`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
 5. Bump `version` in `cmd/agnostic-ai/main.go`.
 6. Commit `chore(release): vX.Y.Z`, GPG-signed.
 7. Tag with `git tag -s vX.Y.Z -m "vX.Y.Z"` so GoReleaser picks it up.
