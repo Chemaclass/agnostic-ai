@@ -30,14 +30,17 @@ func RenderRulesAppendix(b spec.Bundle) string {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString(RulesStartMarker)
-	sb.WriteString("\n\n## Rules\n\n")
 	for _, r := range b.Rules {
 		WriteSection(&sb, r.Name, r)
 	}
-	sb.WriteString(RulesEndMarker)
-	sb.WriteString("\n")
-	return sb.String()
+	return wrapRulesBlock(sb.String())
+}
+
+// wrapRulesBlock frames inner with the rules sentinel markers and the
+// "## Rules" heading. Both the inline-body and the `@`-import appendix
+// share this framing so the markers stay in one place.
+func wrapRulesBlock(inner string) string {
+	return RulesStartMarker + "\n\n## Rules\n\n" + inner + RulesEndMarker + "\n"
 }
 
 // AppendRulesAppendix returns body with the rendered rules block appended
@@ -126,13 +129,9 @@ func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle)
 	}
 	rulesDir := OutputRulesDir(cfg, target, def)
 	var sb strings.Builder
-	sb.WriteString(RulesStartMarker)
-	sb.WriteString("\n\n## Rules\n\n")
 	sb.WriteString("These rule files are loaded into context on every session:\n\n")
 	for _, r := range b.Rules {
 		sb.WriteString("@" + path.Join(rulesDir, r.EffectiveScope(), r.Name+".md") + "\n")
 	}
-	sb.WriteString(RulesEndMarker)
-	sb.WriteString("\n")
-	return sb.String()
+	return wrapRulesBlock(sb.String())
 }
