@@ -6,14 +6,23 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
 ### Fixed
 
-- `import cursor` now walks `.cursor/rules/**` recursively, preserving nested subdirectories, instead of importing only top-level `.mdc` files. (#411)
-- `import claude` and `import copilot` now walk their rule directories (`.claude/rules/**`, `.github/instructions/**`) recursively, preserving nested scope, so scoped rules emitted by sync round-trip back instead of being dropped. (#411)
-- Nested rule, agent, and skill specs now emit under the tool's rules directory (e.g. `.cursor/rules/backend/auth.mdc`, `.claude/rules/backend/auth.md`) instead of a stray `<scope>/.cursor/rules/` tree at the repo root. (#412)
-- `import` now quotes spec `description` frontmatter when the value carries a `: ` mapping indicator, quotes, or leading/trailing whitespace, so the imported spec passes `validate` instead of failing with a YAML mapping error. (#413)
-- The managed `.gitignore` block now ignores generated paths at the subdirectory level (`/.claude/rules/`) instead of the whole tool dir (`/.claude/`), so hand-authored siblings like `.claude/settings.json` or `.claude/hooks/` are no longer ignored. (#414)
-- `import` now warns when another target's root entry-point (e.g. a distinct `AGENTS.md` next to `CLAUDE.md`) holds unique hand-authored content that the next `sync` would overwrite, so the loss is no longer silent. (#415)
+### Removed
+
+## v0.38.0 - 2026-06-16
+
+### Fixed
+
+- `import` walks rule directories recursively for cursor, claude, and copilot, preserving nested subdirectories instead of dropping them. (#411)
+- Nested rule, agent, and skill specs emit under the tool's rules directory (e.g. `.cursor/rules/backend/auth.mdc`) instead of a stray `<scope>/` tree at the repo root. (#412)
+- `import` quotes `description` frontmatter containing `: `, quotes, or surrounding whitespace, so imported specs pass `validate`. (#413)
+- Managed `.gitignore` ignores generated subdirectories (`/.claude/rules/`) instead of the whole tool dir (`/.claude/`), keeping hand-authored siblings tracked. (#414)
+- `import` warns when another target's entry-point holds unique content the next `sync` would overwrite. (#415)
 
 ## v0.37.0 - 2026-06-14
 
