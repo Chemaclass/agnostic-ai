@@ -44,8 +44,11 @@ func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "backend/api/.clinerules/auth.md")); err != nil {
-		t.Errorf("expected nested clinerules: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".clinerules/backend/api/auth.md")); err != nil {
+		t.Errorf("expected nested clinerules under .clinerules/backend/api: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/api/.clinerules/auth.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no stray scope dir at repo root, err=%v", err)
 	}
 }
 

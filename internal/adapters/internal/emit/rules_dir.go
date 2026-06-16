@@ -38,10 +38,11 @@ type RulesDirOpts struct {
 // RulesDirectory writes one file per rule, agent, and skill into a directory.
 // Used by Cursor (with custom formatters), Cline, Windsurf, and Continue.
 //
-// Entries with a non-empty Scope are nested under that scope:
-// `<scope>/<Dir>/<name><Ext>`. Tools that load rules from `.cursor/rules/`,
-// `.clinerules/`, etc. at any nesting level pick up the scoped output
-// automatically; tools that only read at root will see the root entries.
+// Entries with a non-empty Scope nest under the rules directory:
+// `<Dir>/<scope>/<name><Ext>` (e.g. `.cursor/rules/backend/auth.mdc`).
+// Tools that load rules recursively from `.cursor/rules/`, `.clinerules/`,
+// etc. pick up the scoped output automatically, and the output stays inside
+// the tool directory instead of leaking a `<scope>/` tree at the repo root.
 func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	if opts.Ext == "" {
 		opts.Ext = ".md"
@@ -84,11 +85,13 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	return nil
 }
 
-// scopedDir returns `<scope>/<dir>` when the entry has a non-empty
-// EffectiveScope, otherwise `dir` unchanged.
+// scopedDir returns `<dir>/<scope>` when the entry has a non-empty
+// EffectiveScope, otherwise `dir` unchanged. The scope nests inside the
+// rules directory so output stays under the tool dir (e.g.
+// `.cursor/rules/backend`) rather than at the repo root.
 func scopedDir(dir string, e spec.Entry) string {
 	if s := e.EffectiveScope(); s != "" {
-		return filepath.Join(s, dir)
+		return filepath.Join(dir, s)
 	}
 	return dir
 }

@@ -381,7 +381,7 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	for _, r := range rules {
-		path := filepath.Join(rulesDir, r.Name+".md")
+		path := filepath.Join(rulesDir, r.EffectiveScope(), r.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(r.Meta, r.MetaKeys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
