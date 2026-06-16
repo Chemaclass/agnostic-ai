@@ -2,7 +2,7 @@
 name: gh-issue
 description: Fetch a GitHub issue, create a branch, implement with TDD, and open a PR
 argument-hint: "[issue-number]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # GitHub Issue Workflow
