@@ -297,10 +297,24 @@ func AppendRulesAppendix(body, appendix string) string {
 	return emit.AppendRulesAppendix(body, appendix)
 }
 
-// StripGeneratedAppendices removes every sentinel-marked block sync may
-// append to an entry-point file (re-exported from the emit layer).
+// StripGeneratedAppendices reverses every sentinel-marked edit sync may
+// make to an entry-point file, leaving the canonical body (re-exported
+// from the emit layer).
 func StripGeneratedAppendices(body string) string {
 	return emit.StripGeneratedAppendices(body)
+}
+
+// SupportsFileImports reports whether target's CLI resolves `@path`
+// file-import lines in its entry-point file (re-exported from the emit
+// layer).
+func SupportsFileImports(target string) bool {
+	return emit.SupportsFileImports(target)
+}
+
+// ApplyImportMode rewrites `@path` file-import lines in body per mode for
+// a target that cannot resolve them (re-exported from the emit layer).
+func ApplyImportMode(body, mode string) (string, error) {
+	return emit.ApplyImportMode(body, mode)
 }
 
 // Adapter is the contract every target implementation satisfies.

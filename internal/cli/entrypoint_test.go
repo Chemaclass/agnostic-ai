@@ -205,6 +205,68 @@ func TestWriteAgnosticEntryPoints_DefaultClaudeOmitsRulesBlock(t *testing.T) {
 	}
 }
 
+func TestWriteAgnosticEntryPoints_StripImportsForNonResolvingTargets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nGuidance.\n\n@docs/architecture.md\n")
+	cfg := &config.Config{
+		Targets: []string{"claude", "codex"},
+		Sync:    config.SyncConfig{ResolveImports: "strip"},
+	}
+
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	claudeBody := readFile(t, filepath.Join(dir, "CLAUDE.md"))
+	if !strings.Contains(claudeBody, "@docs/architecture.md") {
+		t.Errorf("claude resolves imports; CLAUDE.md must keep the @-line:\n%s", claudeBody)
+	}
+	codexBody := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if strings.Contains(codexBody, "@docs/architecture.md") {
+		t.Errorf("codex cannot resolve imports; AGENTS.md should drop the @-line:\n%s", codexBody)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_InlineImportsForNonResolvingTargets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docs", "architecture.md"), []byte("Layered design.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeAgnosticFile(t, "# Project\n\n@docs/architecture.md\n")
+	cfg := &config.Config{
+		Targets: []string{"claude", "codex"},
+		Sync:    config.SyncConfig{ResolveImports: "inline"},
+	}
+
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if claudeBody := readFile(t, filepath.Join(dir, "CLAUDE.md")); !strings.Contains(claudeBody, "@docs/architecture.md") {
+		t.Errorf("CLAUDE.md must keep the @-line for native resolution:\n%s", claudeBody)
+	}
+	codexBody := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(codexBody, "Layered design.") {
+		t.Errorf("AGENTS.md should inline the referenced content:\n%s", codexBody)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_DefaultPassesImportsThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\n@docs/architecture.md\n")
+	cfg := &config.Config{Targets: []string{"codex"}}
+
+	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if body := readFile(t, filepath.Join(dir, "AGENTS.md")); !strings.Contains(body, "@docs/architecture.md") {
+		t.Errorf("default mode must pass @-lines through verbatim:\n%s", body)
+	}
+}
+
 func writeAgnosticFile(t *testing.T, content string) {
 	t.Helper()
 	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {

@@ -101,7 +101,11 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		return rep, fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 
-	for _, f := range renderEntryPointFiles(cfg, b, targets, body) {
+	files, err := renderEntryPointFiles(cfg, b, targets, body)
+	if err != nil {
+		return rep, err
+	}
+	for _, f := range files {
 		disk, err := os.ReadFile(f.Path)
 		if err != nil {
 			if os.IsNotExist(err) {

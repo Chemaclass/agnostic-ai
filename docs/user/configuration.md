@@ -289,6 +289,22 @@ sync:
 
 The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, and warp all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
+### `sync.resolve-imports`
+
+Controls how `@path` file-import lines in the shared entry-point body (`AGNOSTIC_AI.md`) reach targets whose CLI does not resolve them. Claude resolves `@`-imports natively, so `CLAUDE.md` always keeps them verbatim. Every other target (codex and the rest reading `AGENTS.md`, `GEMINI.md`, ...) would otherwise carry a dead reference line.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  resolve-imports: inline   # passthrough (default) | strip | inline
+```
+
+- `passthrough` (default): copy the `@`-line verbatim. The non-resolving target carries a dead reference, but nothing is dropped. Backward-compatible.
+- `strip`: drop the `@`-line for non-resolving targets so the file is not littered with unfollowable references.
+- `inline`: replace the `@`-line with the referenced file's content for non-resolving targets, wrapped between `<!-- agnostic-ai:import:start <path> -->` and `<!-- agnostic-ai:import:end -->`. `import` restores the lone `@`-line, so the `AGNOSTIC_AI.md` round-trip stays lossless. A missing or unreadable referenced file fails the sync.
+
+Only a line that is a lone `@path` token is treated as an import; an `@mention` inside a sentence is left untouched. Paths resolve relative to the project root.
+
 Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix. External adapters (`agnostic-ai-adapter-<name>` binaries) have no native-artifacts protocol yet, so their section is absent from the appendix.
 
 ## `import`

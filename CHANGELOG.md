@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - `outputs.claude.rules-mode: import` wires the emitted `.claude/rules/*.md` files into the `CLAUDE.md` pointer body via sentinel-marked `@`-imports, so Claude Code loads them without losing the pointer body. (#424)
+- `sync.resolve-imports` (`passthrough` | `strip` | `inline`) controls how `@path` file-import lines in the shared entry-point body reach targets that cannot resolve them, instead of always copying dead reference lines verbatim. (#425)
 
 ### Changed
 
