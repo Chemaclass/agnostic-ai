@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- `import cursor` now walks `.cursor/rules/**` recursively, preserving nested subdirectories, instead of importing only top-level `.mdc` files. (#411)
+
 ## v0.37.0 - 2026-06-14
 
 ### Added

@@ -42,6 +42,38 @@ Use ` + "`feat:`" + `, ` + "`fix:`" + `, etc.
 	}
 }
 
+func TestImportFromCursor_WalksNestedSubdirectories(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "basics", "product.mdc"),
+		"---\ndescription: product basics\n---\n\nproduct body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "best-practices", "frontend.mdc"),
+		"---\ndescription: frontend practices\n---\n\nfrontend body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "top.mdc"),
+		"---\ndescription: top level\n---\n\ntop body\n")
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := map[string][]string{
+		filepath.Join("rules", "basics", "product.md"):          {"name: product", "product body"},
+		filepath.Join("rules", "best-practices", "frontend.md"): {"name: frontend", "frontend body"},
+		filepath.Join("rules", "top.md"):                        {"name: top", "top body"},
+	}
+	for rel, wants := range cases {
+		out, err := os.ReadFile(filepath.Join(dir, rel))
+		if err != nil {
+			t.Fatalf("missing %s: %v", rel, err)
+		}
+		got := string(out)
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s: expected %q, got:\n%s", rel, want, got)
+			}
+		}
+	}
+}
+
 func TestImportFromCursor_NoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".cursor", "rules", "loose.mdc"), "Just plain body.\n")

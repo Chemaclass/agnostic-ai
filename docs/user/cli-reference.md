@@ -105,9 +105,10 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The wa
 | Source | Becomes |
 |--------|---------|
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
+| `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md`, nested subdirectories preserved |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
 
-Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`.
+Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`.
 
 `import cline`, `import windsurf`, `import continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
