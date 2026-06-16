@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -62,6 +63,74 @@ func TestStripGeneratedAppendices_RemovesRulesAndOverview(t *testing.T) {
 	}))
 	if got := StripGeneratedAppendices(withBoth); got != body {
 		t.Errorf("strip did not restore canonical body.\nwant %q\ngot  %q", body, got)
+	}
+}
+
+func importCfg(mode string) *config.Config {
+	return &config.Config{Outputs: map[string]config.Output{"claude": {RulesMode: mode}}}
+}
+
+func TestImportsRulesIntoEntryPoint(t *testing.T) {
+	if !ImportsRulesIntoEntryPoint(importCfg("import"), "claude") {
+		t.Error("claude with rules-mode: import should import rules into CLAUDE.md")
+	}
+	if ImportsRulesIntoEntryPoint(importCfg(""), "claude") {
+		t.Error("default rules-mode must not import")
+	}
+	if ImportsRulesIntoEntryPoint(importCfg("import"), "codex") {
+		t.Error("codex has no per-rule directory and must not import")
+	}
+	if ImportsRulesIntoEntryPoint(nil, "claude") {
+		t.Error("nil config must not import")
+	}
+}
+
+func TestImportsRulesIntoEntryPoint_LegacyRulesFileOverrides(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"claude": {RulesMode: "import", RulesFile: "CLAUDE.md"},
+	}}
+	if ImportsRulesIntoEntryPoint(cfg, "claude") {
+		t.Error("legacy rules-file must override import mode")
+	}
+}
+
+func TestRenderRulesImportAppendix_EmitsImportLines(t *testing.T) {
+	got := RenderRulesImportAppendix(importCfg("import"), "claude", ruleBundle())
+	for _, want := range []string{
+		RulesStartMarker, RulesEndMarker, "## Rules",
+		"@.claude/rules/r1.md", "@.claude/rules/r2.md",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("import appendix missing %q:\n%s", want, got)
+		}
+	}
+	// Import mode references files, never inlines bodies.
+	if strings.Contains(got, "rule one body") {
+		t.Errorf("import appendix must not inline rule bodies:\n%s", got)
+	}
+}
+
+func TestRenderRulesImportAppendix_HonorsRulesDirOverride(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"claude": {RulesMode: "import", RulesDir: ".claude/conventions"},
+	}}
+	got := RenderRulesImportAppendix(cfg, "claude", ruleBundle())
+	if !strings.Contains(got, "@.claude/conventions/r1.md") {
+		t.Errorf("import appendix ignored rules-dir override:\n%s", got)
+	}
+}
+
+func TestRenderRulesImportAppendix_EmptyWhenNoRules(t *testing.T) {
+	if got := RenderRulesImportAppendix(importCfg("import"), "claude", spec.Bundle{}); got != "" {
+		t.Errorf("want empty import appendix for ruleless bundle, got %q", got)
+	}
+}
+
+func TestRenderRulesImportAppendix_RoundTrips(t *testing.T) {
+	body := "# Pointer body\n"
+	withImports := AppendRulesAppendix(body, RenderRulesImportAppendix(importCfg("import"), "claude", ruleBundle()))
+	if got := StripRulesAppendix(withImports); got != body {
+		t.Errorf("strip did not restore body.\nwant %q\ngot  %q", body, got)
 	}
 }
 

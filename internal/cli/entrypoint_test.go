@@ -155,6 +155,56 @@ func TestWriteAgnosticEntryPoints_AgnosticFileNotOverwrittenWhenExists(t *testin
 	}
 }
 
+func TestWriteAgnosticEntryPoints_ImportModeWiresRulesIntoClaude(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	cfg := &config.Config{
+		Targets: []string{"claude"},
+		Outputs: map[string]config.Output{"claude": {RulesMode: "import"}},
+	}
+	b := spec.Bundle{Rules: []spec.Entry{
+		{Kind: spec.KindRule, Name: "style", Path: "rules/style.md", Body: "style body"},
+	}}
+
+	if err := writeAgnosticEntryPoints(cfg, b, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	for _, want := range []string{adapters.RulesStartMarker, "@.claude/rules/style.md", "My instructions."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("CLAUDE.md missing %q:\n%s", want, got)
+		}
+	}
+	// Import mode keeps the pointer body; it must not inline rule bodies.
+	if strings.Contains(got, "style body") {
+		t.Errorf("import mode must not inline rule bodies:\n%s", got)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_DefaultClaudeOmitsRulesBlock(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	cfg := &config.Config{Targets: []string{"claude"}}
+	b := spec.Bundle{Rules: []spec.Entry{
+		{Kind: spec.KindRule, Name: "style", Path: "rules/style.md", Body: "style body"},
+	}}
+
+	if err := writeAgnosticEntryPoints(cfg, b, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), adapters.RulesStartMarker) {
+		t.Errorf("default claude must not wire rules into CLAUDE.md:\n%s", data)
+	}
+}
+
 func writeAgnosticFile(t *testing.T, content string) {
 	t.Helper()
 	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {

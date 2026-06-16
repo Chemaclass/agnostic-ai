@@ -9,10 +9,13 @@
 //   - commands -> <dir>/commands/<name>.md (slash commands)
 //
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
-// CLAUDE.md is never clobbered. Reference the per-rule files from CLAUDE.md
-// via `@.claude/rules/<name>.md` imports if you want Claude Code to load
-// them. Set `outputs.claude.rules-file: CLAUDE.md` to fall back to the
-// legacy concatenated single-file layout.
+// CLAUDE.md is never clobbered. Claude Code does not auto-load that
+// directory, so by default the files are inert. Set
+// `outputs.claude.rules-mode: import` to append a sentinel-marked block of
+// `@.claude/rules/<name>.md` imports to the CLAUDE.md pointer body, keeping
+// the pointer body intact while wiring the rules in. Set
+// `outputs.claude.rules-file: CLAUDE.md` to fall back to the legacy
+// concatenated single-file layout instead.
 package claude
 
 import (

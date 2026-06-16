@@ -77,6 +77,7 @@ outputs:
     rules-dir: .claude/rules     # default. One .md per rule.
     commands-dir: .claude/commands # default. One .md per command (slash prompt).
     mcp-file: .mcp.json          # default
+    # rules-mode: import         # opt-in: wire .claude/rules/*.md into CLAUDE.md via @-imports.
     # rules-file: CLAUDE.md      # opt-in: legacy concatenated rules layout.
   codex:
     agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
@@ -185,6 +186,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
 | `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule. |
+| `claude` | `rules-mode` | _empty_ | Set to `import` to append a sentinel-marked block of `@.claude/rules/<name>.md` imports to the `CLAUDE.md` pointer body, so Claude Code loads the per-rule files (it does not auto-load `.claude/rules/`). Keeps the pointer body intact. Ignored when `rules-file` is set. |
 | `claude` | `rules-file` | _empty_ | When set, switches to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |

@@ -277,6 +277,20 @@ func RenderRulesAppendix(b spec.Bundle) string {
 	return emit.RenderRulesAppendix(b)
 }
 
+// ImportsRulesIntoEntryPoint reports whether target wires its per-rule
+// files into its entry-point via `@`-import lines (re-exported from the
+// emit layer).
+func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
+	return emit.ImportsRulesIntoEntryPoint(cfg, target)
+}
+
+// RenderRulesImportAppendix renders the sentinel-marked block of
+// `@`-import lines pointing at a target's per-rule files (re-exported
+// from the emit layer).
+func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle) string {
+	return emit.RenderRulesImportAppendix(cfg, target, b)
+}
+
 // AppendRulesAppendix appends a rendered rules block to body, stripping
 // any pre-existing block first (re-exported from the emit layer).
 func AppendRulesAppendix(body, appendix string) string {

@@ -285,6 +285,9 @@
         "rules-dir": {
           "type": "string"
         },
+        "rules-mode": {
+          "type": "string"
+        },
         "mcp-file": {
           "type": "string"
         },

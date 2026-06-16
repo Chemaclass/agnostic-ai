@@ -150,6 +150,7 @@ type Output struct {
 	File                 string            `yaml:"file,omitempty"                     json:"file,omitempty"`
 	RulesFile            string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
 	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
 	SkillsDir            string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
