@@ -297,8 +297,9 @@ func AppendRulesAppendix(body, appendix string) string {
 	return emit.AppendRulesAppendix(body, appendix)
 }
 
-// StripGeneratedAppendices removes every sentinel-marked block sync may
-// append to an entry-point file (re-exported from the emit layer).
+// StripGeneratedAppendices reverses every sentinel-marked edit sync may
+// make to an entry-point file, leaving the canonical body (re-exported
+// from the emit layer).
 func StripGeneratedAppendices(body string) string {
 	return emit.StripGeneratedAppendices(body)
 }

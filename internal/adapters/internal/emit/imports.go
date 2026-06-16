@@ -98,10 +98,10 @@ func inlineImportLines(body string) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-// RestoreImportInlines rewrites every sentinel-wrapped resolved import
+// restoreImportInlines rewrites every sentinel-wrapped resolved import
 // back to its lone `@path` line, so an entry-point emitted in inline mode
 // round-trips to the canonical body on import. Returns body unchanged
 // when it carries no inline blocks.
-func RestoreImportInlines(body string) string {
+func restoreImportInlines(body string) string {
 	return importInlineBlockRe.ReplaceAllString(body, "@$1")
 }

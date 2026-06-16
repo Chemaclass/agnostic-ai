@@ -68,7 +68,7 @@ func StripRulesAppendix(body string) string {
 // so the AGNOSTIC_AI.md round-trip stays lossless regardless of which
 // transforms a target carried.
 func StripGeneratedAppendices(body string) string {
-	return RestoreImportInlines(StripRulesAppendix(StripTargetOverview(body)))
+	return restoreImportInlines(StripRulesAppendix(StripTargetOverview(body)))
 }
 
 // inlineRulesTargets are the entry-point targets whose underlying CLI has

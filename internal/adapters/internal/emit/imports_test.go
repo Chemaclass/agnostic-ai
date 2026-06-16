@@ -101,7 +101,7 @@ func TestRestoreImportInlines_RoundTripsInlineMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := RestoreImportInlines(inlined); got != body {
+	if got := restoreImportInlines(inlined); got != body {
 		t.Errorf("round-trip mismatch.\nwant %q\ngot  %q", body, got)
 	}
 }
