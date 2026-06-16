@@ -133,14 +133,17 @@ func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, sin
 	if entry.Kind != spec.KindRule {
 		return adapters.CapturedFile{}, false
 	}
-	if !adapters.InlinesRulesIntoEntryPoint(target) || adapters.HasLegacyRulesFile(cfg, target) {
-		return adapters.CapturedFile{}, false
-	}
 	path := adapters.EntryPointPath(cfg, target)
 	if path == "" {
 		return adapters.CapturedFile{}, false
 	}
-	appendix := adapters.RenderRulesAppendix(single)
+	var appendix string
+	switch {
+	case adapters.InlinesRulesIntoEntryPoint(target) && !adapters.HasLegacyRulesFile(cfg, target):
+		appendix = adapters.RenderRulesAppendix(single)
+	case adapters.ImportsRulesIntoEntryPoint(cfg, target):
+		appendix = adapters.RenderRulesImportAppendix(cfg, target, single)
+	}
 	if appendix == "" {
 		return adapters.CapturedFile{}, false
 	}

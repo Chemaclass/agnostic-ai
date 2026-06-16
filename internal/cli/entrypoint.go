@@ -92,6 +92,8 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		content := body
 		if pathInlinesRules(consumers[path]) {
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
+		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
+			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, b))
 		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
@@ -121,6 +123,19 @@ func pathInlinesRules(consumers []string) bool {
 		}
 	}
 	return false
+}
+
+// pathRulesImporter returns the first consumer of an entry-point path
+// that opted into `@`-import rule wiring (outputs.<target>.rules-mode:
+// import), or "" when none did. Claude's CLAUDE.md has a single consumer,
+// so the first match is the only one.
+func pathRulesImporter(cfg *config.Config, consumers []string) string {
+	for _, t := range consumers {
+		if adapters.ImportsRulesIntoEntryPoint(cfg, t) {
+			return t
+		}
+	}
+	return ""
 }
 
 // entryPointPaths returns the entry-point files sync distributes: the

@@ -1,8 +1,10 @@
 package emit
 
 import (
+	"path"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -85,4 +87,52 @@ var inlineRulesTargets = map[string]bool{
 // adapter owns that write and the central inline is skipped.
 func InlinesRulesIntoEntryPoint(target string) bool {
 	return inlineRulesTargets[target]
+}
+
+// importRulesDir maps each target whose CLI auto-loads its entry-point
+// file but NOT its per-rule directory to that directory's default. These
+// targets emit one file per rule but the runtime never reads the folder,
+// so `outputs.<target>.rules-mode: import` wires the files into the
+// entry-point via `@`-import lines pointing at this dir. Claude is the
+// only such target today.
+var importRulesDir = map[string]string{
+	"claude": ".claude/rules",
+}
+
+// ImportsRulesIntoEntryPoint reports whether target wires its per-rule
+// files into its entry-point file via `@`-import lines, opted in with
+// `outputs.<target>.rules-mode: import`. Only targets that emit a native
+// per-rule directory the CLI does not auto-load qualify (claude). The
+// legacy concatenated rules-file layout overrides it: that adapter owns
+// the entry-point write.
+func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
+	if cfg == nil || importRulesDir[target] == "" || HasLegacyRulesFile(cfg, target) {
+		return false
+	}
+	o, ok := cfg.Outputs[target]
+	return ok && o.RulesMode == "import"
+}
+
+// RenderRulesImportAppendix renders the sentinel-marked block of Claude
+// `@`-import lines, one per rule, pointing at the per-rule files the
+// adapter emits under its rules directory (honoring an
+// `outputs.<target>.rules-dir` override). Returns "" when the bundle has
+// no rules or the target does not support import mode. Reuses the rules
+// sentinel markers so import strips the block on round-trip.
+func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle) string {
+	def := importRulesDir[target]
+	if def == "" || len(b.Rules) == 0 {
+		return ""
+	}
+	rulesDir := OutputRulesDir(cfg, target, def)
+	var sb strings.Builder
+	sb.WriteString(RulesStartMarker)
+	sb.WriteString("\n\n## Rules\n\n")
+	sb.WriteString("These rule files are loaded into context on every session:\n\n")
+	for _, r := range b.Rules {
+		sb.WriteString("@" + path.Join(rulesDir, r.EffectiveScope(), r.Name+".md") + "\n")
+	}
+	sb.WriteString(RulesEndMarker)
+	sb.WriteString("\n")
+	return sb.String()
 }
