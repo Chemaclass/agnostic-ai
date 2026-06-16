@@ -19,7 +19,7 @@ The user asks to release, tag, ship, or cut a new version.
    - patch: bug fixes only
    - minor: additive features
    - major: breaking changes
-4. Update `CHANGELOG.md`: move every line under `## [Unreleased]` into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). Reset `## [Unreleased]` to empty `Added` / `Changed` / `Fixed` / `Removed` subsections.
+4. Update `CHANGELOG.md`: drop empty `### ` subsections from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
 5. Bump `version` in `cmd/agnostic-ai/main.go`.
 6. Commit: `chore(release): vX.Y.Z`. GPG-signed.
 7. Tag: `git tag -s vX.Y.Z -m "vX.Y.Z"`.

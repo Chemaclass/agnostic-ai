@@ -17,7 +17,7 @@ The script:
 1. Validates: clean tree, on `main`, in sync with `origin/main`, tag absent.
 2. Runs `gofmt -s -l`, `go vet`, `go test ./...`, `agnostic-ai sync --check`.
 3. Bumps `version` in `cmd/agnostic-ai/main.go`.
-4. Promotes `[Unreleased]` to `## vX.Y.Z - YYYY-MM-DD` (no brackets), inserts a fresh empty `[Unreleased]` block.
+4. Drops empty `### ` subsections from `[Unreleased]`, then promotes it to `## vX.Y.Z - YYYY-MM-DD` (no brackets) and inserts a fresh empty `[Unreleased]` block.
 5. Commits `chore(release): vX.Y.Z`, creates annotated tag `vX.Y.Z`.
 6. Pushes `main` + tag. CI runs GoReleaser; release notes come from `scripts/release-notes.sh` against the matching `CHANGELOG.md` section.
 
