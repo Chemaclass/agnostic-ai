@@ -152,6 +152,7 @@ Verify with the real CLI:
 
 - Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
 - When `outputs.cursor.commands-dir` is set, each agent also emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): Markdown with optional `description` and `model` frontmatter. The rule-form emission still happens.
+- Skills flatten to a single `.mdc` rule, so a skill that bundles sibling files (scripts, assets) cannot carry them to Cursor. `sync` prints a note for each such skill instead of dropping the payloads silently. (#430)
 
 Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.commands-dir` (default empty, opt-in), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`).
 

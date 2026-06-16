@@ -52,6 +52,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}, dryRun); err != nil {
 		return err
 	}
+	noteDroppedSkillAssets(b)
 	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
 		for _, a := range b.Agents {
 			path := commandsDir + "/" + a.Name + ".md"
@@ -82,6 +83,20 @@ func command(e spec.Entry) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// noteDroppedSkillAssets surfaces a coverage note for every folder-based
+// skill that bundles sibling files. Cursor flattens each skill to a single
+// `.cursor/rules/skill-<name>.mdc`, so attached scripts and assets have no
+// native home and would otherwise vanish without a trace (#430).
+func noteDroppedSkillAssets(b spec.Bundle) {
+	n := 0
+	for _, s := range b.Skills {
+		if emit.SkillHasBundledAssets(s, emit.SkipSKILLMd) {
+			n++
+		}
+	}
+	emit.NoteCoverageGap(target, spec.KindSkill, n, "Cursor flattens skills to .mdc; bundled files are not emitted")
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {
