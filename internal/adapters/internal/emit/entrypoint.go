@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -27,6 +28,25 @@ var entryPointPaths = map[string]string{
 	"copilot":     ".github/copilot-instructions.md",
 	"opencode":    ".opencode/AGENTS.md",
 	"antigravity": ".agent/AGENTS.md",
+}
+
+// ConventionalEntryPointPaths returns the distinct conventional root
+// entry-point files across every known target (CLAUDE.md, AGENTS.md,
+// GEMINI.md, ...), sorted for stable output. Output-path overrides are
+// ignored: the set drives import's detection of a hand-authored sibling
+// entry-point that sync would otherwise overwrite (#415).
+func ConventionalEntryPointPaths() []string {
+	seen := make(map[string]struct{}, len(entryPointPaths))
+	out := make([]string, 0, len(entryPointPaths))
+	for _, p := range entryPointPaths {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // EntryPointPath returns the project-relative entry-point file for

@@ -174,6 +174,13 @@ func EntryPointPath(cfg *config.Config, target string) string {
 	return emit.EntryPointPath(cfg, target)
 }
 
+// ConventionalEntryPointPaths returns the distinct conventional root
+// entry-point files across every known target, sorted. Used by import to
+// detect a sibling entry-point that sync would overwrite.
+func ConventionalEntryPointPaths() []string {
+	return emit.ConventionalEntryPointPaths()
+}
+
 // HasLegacyRulesFile reports whether the user opted into the legacy
 // concatenated rules-file layout for target.
 func HasLegacyRulesFile(cfg *config.Config, target string) bool {
