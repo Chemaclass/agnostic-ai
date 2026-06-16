@@ -2,7 +2,7 @@
 name: gh-issues
 description: Walk over all open GitHub issues that are unassigned or assigned to the current user, and process each one via the gh-issue skill, sequentially.
 argument-hint: "[--limit N] [--label foo] [--dry-run]"
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: "Read, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *), Skill(gh-issue)"
 ---
 
