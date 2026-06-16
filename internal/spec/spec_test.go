@@ -141,6 +141,63 @@ func TestLoadAll_SkillNameFromParentDirWhenFrontmatterMissing(t *testing.T) {
 	}
 }
 
+// A markdown asset that lives next to a folder-based skill's SKILL.md is a
+// bundled asset, not a skill of its own. It must not be promoted to a
+// top-level skill (#431).
+func TestLoadAll_MarkdownAssetInsideSkillNotPromoted(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "alpha", "SKILL.md"), "---\nname: alpha\n---\nskill body")
+	mustWrite(t, filepath.Join(dir, "skills", "alpha", "examples.md"), "extra markdown asset")
+	mustWrite(t, filepath.Join(dir, "skills", "alpha", "docs", "notes.md"), "nested markdown asset")
+
+	cfg := defaultsForTest()
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	skills := Filter(entries, KindSkill)
+	if len(skills) != 1 {
+		names := make([]string, len(skills))
+		for i, s := range skills {
+			names[i] = s.Name
+		}
+		t.Fatalf("expected 1 skill, got %d: %v", len(skills), names)
+	}
+	if skills[0].Name != "alpha" {
+		t.Errorf("expected skill alpha, got %q", skills[0].Name)
+	}
+}
+
+// Flat-file skills, including ones nested in a scope subdir, stay skills.
+// They have no SKILL.md ancestor, so the asset-detection must not eat them.
+func TestLoadAll_FlatFileSkillsSurviveAssetDetection(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "alpha.md"), "flat skill")
+	mustWrite(t, filepath.Join(dir, "skills", "backend", "loader.md"), "scoped flat skill")
+	mustWrite(t, filepath.Join(dir, "skills", "beta", "SKILL.md"), "folder skill")
+
+	cfg := defaultsForTest()
+	cfg.Sources.Skills = "skills"
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := map[string]bool{}
+	for _, s := range Filter(entries, KindSkill) {
+		got[s.Name] = true
+	}
+	for _, name := range []string{"alpha", "loader", "beta"} {
+		if !got[name] {
+			t.Errorf("expected skill %q to load, got %v", name, got)
+		}
+	}
+	if len(got) != 3 {
+		t.Errorf("expected exactly 3 skills, got %d: %v", len(got), got)
+	}
+}
+
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	dir := t.TempDir()
 	cfg := defaultsForTest()

@@ -545,6 +545,22 @@ func Filter(entries []Entry, kind Kind) []Entry {
 	return out
 }
 
+// insideFolderSkill reports whether a markdown file at path lives within a
+// folder-based skill: an ancestor directory, up to and including root, that
+// holds a SKILL.md. Such files are bundled assets of that skill, not skills
+// of their own. Flat-file skills (`skills/<name>.md`, including scoped ones
+// like `skills/backend/foo.md`) have no SKILL.md ancestor and return false.
+func insideFolderSkill(path, root string) bool {
+	for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
+		if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+			return true
+		}
+		if dir == root || dir == filepath.Dir(dir) {
+			return false
+		}
+	}
+}
+
 func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]Entry, error) {
 	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -555,6 +571,12 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 			return walkErr
 		}
 		if d.IsDir() || filepath.Ext(path) != ext {
+			return nil
+		}
+		if kind == KindSkill && d.Name() != "SKILL.md" && insideFolderSkill(path, dir) {
+			// A non-SKILL.md markdown file inside a folder-based skill is a
+			// bundled asset, copied verbatim by the adapters. Promoting it
+			// to its own skill spawns a phantom skill (#431).
 			return nil
 		}
 		entry, err := parse(path)
