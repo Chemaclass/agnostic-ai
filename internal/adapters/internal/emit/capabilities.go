@@ -180,6 +180,8 @@ func countKind(b spec.Bundle, k spec.Kind) int {
 		return len(b.Commands)
 	case spec.KindSettings:
 		return len(b.Settings)
+	case spec.KindReview:
+		return len(b.Reviews)
 	}
 	return 0
 }

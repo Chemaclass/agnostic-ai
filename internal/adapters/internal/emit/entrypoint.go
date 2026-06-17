@@ -104,6 +104,7 @@ func EntryPointBody(cfg *config.Config) string {
 	writeSourceBullet(&b, "MCP servers", s.MCPs)
 	writeSourceBullet(&b, "Commands", s.Commands)
 	writeSourceBulletWithSuffix(&b, "Settings", s.Settings, " (permissions, model; Claude only today)")
+	writeSourceBulletWithSuffix(&b, "Reviews", s.Reviews, " (code-review bot guidance; Cursor BUGBOT.md today)")
 	b.WriteString("\n## Target-specific overlays\n\n")
 	b.WriteString("Per-target configuration that does not fit the agnostic spec kinds above lives under `.agnostic-ai/overlays/`. The Claude adapter, for example, captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, ...) into `.agnostic-ai/overlays/claude.settings.json` on `import claude`. `sync` reads that overlay and layers the spec-derived `hooks` key on top.\n\n")
 	b.WriteString("## Workflow\n\n")

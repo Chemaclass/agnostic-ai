@@ -38,6 +38,7 @@ type specCounts struct {
 	MCPs     int
 	Commands int
 	Settings int
+	Reviews  int
 }
 
 func newStatusCmd() *cobra.Command {
@@ -179,6 +180,7 @@ func countSpecs(b spec.Bundle) specCounts {
 		MCPs:     len(b.MCPs),
 		Commands: len(b.Commands),
 		Settings: len(b.Settings),
+		Reviews:  len(b.Reviews),
 	}
 }
 
@@ -226,6 +228,7 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		MCPs     int `json:"mcps"`
 		Commands int `json:"commands"`
 		Settings int `json:"settings"`
+		Reviews  int `json:"reviews"`
 	}
 	type statusJSON struct {
 		Project              string      `json:"project"`
@@ -248,6 +251,7 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 			MCPs:     r.Specs.MCPs,
 			Commands: r.Specs.Commands,
 			Settings: r.Specs.Settings,
+			Reviews:  r.Specs.Reviews,
 		},
 		Targets:              r.Targets,
 		FilesChangedLastSync: r.FilesChanged,
@@ -288,6 +292,9 @@ func formatSpecCounts(s specCounts) string {
 	}
 	if s.Settings > 0 {
 		parts = append(parts, fmt.Sprintf("%d settings", s.Settings))
+	}
+	if s.Reviews > 0 {
+		parts = append(parts, fmt.Sprintf("%d reviews", s.Reviews))
 	}
 	if len(parts) == 0 {
 		return "none"

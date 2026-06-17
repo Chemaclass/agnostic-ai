@@ -26,6 +26,14 @@ func OutputRulesDir(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputReviewFile returns cfg.Outputs[target].ReviewFile when set, otherwise fallback.
+func OutputReviewFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.ReviewFile != "" {
+		return o.ReviewFile
+	}
+	return fallback
+}
+
 // OutputRulesFile returns cfg.Outputs[target].RulesFile when set, otherwise fallback.
 func OutputRulesFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.RulesFile != "" {

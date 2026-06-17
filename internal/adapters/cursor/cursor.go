@@ -6,6 +6,7 @@ package cursor
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -14,15 +15,16 @@ import (
 )
 
 const (
-	target         = "cursor"
-	defaultDir     = ".cursor/rules"
-	defaultExt     = ".mdc"
-	defaultMCPFile = ".cursor/mcp.json"
+	target            = "cursor"
+	defaultDir        = ".cursor/rules"
+	defaultExt        = ".mdc"
+	defaultMCPFile    = ".cursor/mcp.json"
+	defaultReviewFile = "BUGBOT.md"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview},
 }
 
 // Adapter emits Cursor configs.
@@ -53,6 +55,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	noteDroppedSkillAssets(b)
+	if err := emitReviews(b, cfg, dryRun); err != nil {
+		return err
+	}
 	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
 		for _, a := range b.Agents {
 			path := commandsDir + "/" + a.Name + ".md"
@@ -83,6 +88,56 @@ func command(e spec.Entry) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// emitReviews writes Cursor Bugbot review guidance as a `BUGBOT.md` per
+// scope. Cursor reads a root `BUGBOT.md` plus optional per-directory files,
+// so review specs honor `EffectiveScope` the same way rules do: an unscoped
+// spec lands at the repo root, a spec under `reviews/backend/` lands at
+// `backend/BUGBOT.md`. Specs sharing a scope concatenate into that scope's
+// single file. The basename is overridable via `outputs.cursor.review-file`.
+func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if len(b.Reviews) == 0 {
+		return nil
+	}
+	base := emit.OutputReviewFile(cfg, target, defaultReviewFile)
+	byScope := map[string][]spec.Entry{}
+	var scopeOrder []string
+	for _, r := range b.Reviews {
+		scope := r.EffectiveScope()
+		if _, ok := byScope[scope]; !ok {
+			scopeOrder = append(scopeOrder, scope)
+		}
+		byScope[scope] = append(byScope[scope], r)
+	}
+	for _, scope := range scopeOrder {
+		if scopeEscapesRoot(scope) {
+			// A frontmatter `scope: ../x` would anchor BUGBOT.md outside the
+			// repo (review files sit at the project root, not under a tool
+			// dir). Skip it rather than write beyond the project.
+			continue
+		}
+		var sb strings.Builder
+		for i, r := range byScope[scope] {
+			if i > 0 {
+				sb.WriteString("\n\n")
+			}
+			sb.WriteString(strings.TrimRight(r.Body, "\n"))
+		}
+		path := filepath.Join(scope, base)
+		if err := emit.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// scopeEscapesRoot reports whether a cleaned scope points at or above the
+// repo root (a leading `..`), which would let an emitted file land outside
+// the project tree.
+func scopeEscapesRoot(scope string) bool {
+	clean := filepath.ToSlash(filepath.Clean(scope))
+	return clean == ".." || strings.HasPrefix(clean, "../")
 }
 
 // noteDroppedSkillAssets surfaces a coverage note for every folder-based

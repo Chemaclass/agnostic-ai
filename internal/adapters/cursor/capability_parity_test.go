@@ -28,6 +28,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindAgent, []string{".cursor/rules/alpha.mdc", ".cursor/rules/beta.mdc", ".cursor/rules/gamma.mdc"}},
 		{spec.KindSkill, []string{".cursor/rules/skill-uno.mdc", ".cursor/rules/skill-dos.mdc", ".cursor/rules/skill-tres.mdc"}},
 		{spec.KindMCP, []string{".cursor/mcp.json"}},
+		{spec.KindReview, []string{"BUGBOT.md", "backend/BUGBOT.md"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

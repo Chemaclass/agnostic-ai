@@ -285,6 +285,9 @@
         "rules-dir": {
           "type": "string"
         },
+        "review-file": {
+          "type": "string"
+        },
         "rules-mode": {
           "type": "string"
         },
@@ -382,6 +385,9 @@
           "type": "string"
         },
         "settings": {
+          "type": "string"
+        },
+        "reviews": {
           "type": "string"
         }
       },
