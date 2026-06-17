@@ -103,6 +103,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
 			Meta: map[string]any{"name": "default", "install": "go mod download"},
 		},
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)
 }

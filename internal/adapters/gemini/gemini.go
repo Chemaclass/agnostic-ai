@@ -25,12 +25,13 @@ const (
 	target              = "gemini"
 	defaultCommandsDir  = ".gemini/commands"
 	defaultSettingsFile = ".gemini/settings.json"
+	defaultIgnoreFile   = ".aiexclude"
 	skillFilenamePrefix = "skill-"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindIgnore},
 }
 
 // Adapter emits Gemini CLI configs.
@@ -68,6 +69,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	if err := emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+		return err
+	}
+	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return materializeHookScripts(b.HooksFor(target), dryRun)

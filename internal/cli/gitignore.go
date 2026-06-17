@@ -154,6 +154,7 @@ func protectedSourceTopDirs(cfg *config.Config) []string {
 		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules,
 		cfg.Sources.Hooks, cfg.Sources.MCPs, cfg.Sources.Commands,
 		cfg.Sources.Settings, cfg.Sources.Reviews, cfg.Sources.Environments,
+		cfg.Sources.Ignore,
 	} {
 		if top := gitignoreTopSegment(s); top != "" {
 			set[top] = struct{}{}

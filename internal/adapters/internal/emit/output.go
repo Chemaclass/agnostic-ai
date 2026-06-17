@@ -42,6 +42,14 @@ func OutputEnvironmentFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputIgnoreFile returns cfg.Outputs[target].IgnoreFile when set, otherwise fallback.
+func OutputIgnoreFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.IgnoreFile != "" {
+		return o.IgnoreFile
+	}
+	return fallback
+}
+
 // OutputRulesFile returns cfg.Outputs[target].RulesFile when set, otherwise fallback.
 func OutputRulesFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.RulesFile != "" {

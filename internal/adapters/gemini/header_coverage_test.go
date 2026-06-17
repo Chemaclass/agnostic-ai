@@ -114,6 +114,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
 		},
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)
 }

@@ -62,6 +62,7 @@ type SpecsEnvelope struct {
 	Settings     []SpecEntry `json:"settings,omitempty"`
 	Reviews      []SpecEntry `json:"reviews,omitempty"`
 	Environments []SpecEntry `json:"environments,omitempty"`
+	Ignores      []SpecEntry `json:"ignores,omitempty"`
 }
 
 // SpecEntry is the JSON shape of one spec passed to the adapter. The
@@ -173,6 +174,7 @@ func buildInput(target string, b spec.Bundle, cfg *config.Config, dryRun bool) I
 	in.Specs.Settings = entriesToWire(b.Settings)
 	in.Specs.Reviews = entriesToWire(b.Reviews)
 	in.Specs.Environments = entriesToWire(b.Environments)
+	in.Specs.Ignores = entriesToWire(b.Ignores)
 	return in
 }
 

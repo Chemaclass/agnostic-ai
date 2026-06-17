@@ -169,8 +169,10 @@ func normalizeKind(raw string) (spec.Kind, error) {
 		return spec.KindReview, nil
 	case "environment":
 		return spec.KindEnvironment, nil
+	case "ignore":
+		return spec.KindIgnore, nil
 	}
-	return "", fmt.Errorf("unknown kind %q (expected agent, skill, rule, hook, mcp, command, settings, review, environment)", raw)
+	return "", fmt.Errorf("unknown kind %q (expected agent, skill, rule, hook, mcp, command, settings, review, environment, ignore)", raw)
 }
 
 func singleEntryBundleWASM(e spec.Entry) spec.Bundle {
@@ -194,6 +196,8 @@ func singleEntryBundleWASM(e spec.Entry) spec.Bundle {
 		b.Reviews = []spec.Entry{e}
 	case spec.KindEnvironment:
 		b.Environments = []spec.Entry{e}
+	case spec.KindIgnore:
+		b.Ignores = []spec.Entry{e}
 	}
 	return b
 }
@@ -214,6 +218,7 @@ func defaultPlaygroundConfig(targets []string) *config.Config {
 			Settings:     ".agnostic-ai/settings",
 			Reviews:      ".agnostic-ai/reviews",
 			Environments: ".agnostic-ai/environments",
+			Ignore:       ".agnostic-ai/ignore",
 		},
 		Targets:       targets,
 		OnUnsupported: "warn",

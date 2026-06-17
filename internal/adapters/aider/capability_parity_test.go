@@ -53,6 +53,14 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{"### uno", "### dos", "### tres"}},
 	}
 	for _, k := range caps.Supports {
+		// Ignore patterns land in their own .aiderignore file, not inside
+		// CONVENTIONS.md, so check the path set for that kind.
+		if k == spec.KindIgnore {
+			if !pathSetContains(paths, ".aiderignore") {
+				t.Errorf("declared kind ignore has no .aiderignore output (paths: %v)", paths)
+			}
+			continue
+		}
 		found := false
 		for _, c := range cases {
 			if c.kind != k {

@@ -138,6 +138,7 @@ type Sources struct {
 	Settings     string `yaml:"settings,omitempty"     json:"settings,omitempty"`
 	Reviews      string `yaml:"reviews,omitempty"      json:"reviews,omitempty"`
 	Environments string `yaml:"environments,omitempty" json:"environments,omitempty"`
+	Ignore       string `yaml:"ignore,omitempty"       json:"ignore,omitempty"`
 }
 
 // CodexExecPolicy describes one Skylark-flavored `prefix_rule(...)` entry
@@ -164,6 +165,7 @@ type Output struct {
 	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
 	ReviewFile           string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
 	EnvironmentFile      string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
+	IgnoreFile           string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
 	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
@@ -450,6 +452,7 @@ func defaults() *Config {
 			Settings:     defaultSource("settings"),
 			Reviews:      defaultSource("reviews"),
 			Environments: defaultSource("environments"),
+			Ignore:       defaultSource("ignore"),
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -483,6 +486,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Environments == "" {
 		c.Sources.Environments = defaultSource("environments")
+	}
+	if c.Sources.Ignore == "" {
+		c.Sources.Ignore = defaultSource("ignore")
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

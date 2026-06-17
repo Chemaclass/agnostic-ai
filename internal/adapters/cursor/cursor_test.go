@@ -182,6 +182,50 @@ func TestEmit_EnvironmentFileOverride(t *testing.T) {
 	}
 }
 
+// Ignore specs fan out to .cursorignore (gitignore syntax), concatenating
+// multiple specs, overridable via outputs.cursor.ignore-file (#435).
+func TestEmit_IgnoreWritesCursorignore(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env"},
+		{Kind: spec.KindIgnore, Name: "build", Path: "ignore/build.md", Body: "dist/"},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursorignore"))
+	if err != nil {
+		t.Fatalf("read .cursorignore: %v", err)
+	}
+	if !strings.Contains(string(got), "*.env") || !strings.Contains(string(got), "dist/") {
+		t.Errorf(".cursorignore missing concatenated patterns:\n%s", got)
+	}
+	if !header.Has(string(got)) {
+		t.Errorf(".cursorignore missing provenance header:\n%s", got)
+	}
+}
+
+// The ignore output path is overridable via outputs.cursor.ignore-file.
+func TestEmit_IgnoreFileOverride(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env"},
+	})
+	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {IgnoreFile: ".aiignore"}}}
+	if err := New().Emit(b, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".aiignore"))
+	if err != nil {
+		t.Fatalf("expected .aiignore override: %v", err)
+	}
+	if !strings.Contains(string(got), "*.env") || !header.Has(string(got)) {
+		t.Errorf("override file missing pattern or header:\n%s", got)
+	}
+}
+
 // Cursor has no settings surface, so a settings spec is unsupported and
 // reported (errors under on-unsupported: error). Confirms the settings
 // kind flows through the generic capability path (#432).
