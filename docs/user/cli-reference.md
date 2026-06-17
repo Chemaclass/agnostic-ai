@@ -142,8 +142,10 @@ Once specs load, `validate` runs three native-support checks:
   - Claude: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`.
   - Codex: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `PostCompact`.
   - Gemini: `BeforeTool`, `AfterTool`, `SessionStart`, `SessionEnd`.
+  - Cursor: `beforeShellExecution`, `afterShellExecution`, `beforeMCPExecution`, `afterMCPExecution`, `beforeReadFile`, `afterFileEdit`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`, `postToolUseFailure`, `sessionStart`, `sessionEnd`, `subagentStart`, `subagentStop`, `preCompact`, `stop`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `workspaceOpen`.
 - **Missing fields.** Hook specs missing `event:` are flagged.
 - **Orphaned kinds.** When a project has hook or MCP specs but no enabled target consumes them, validate prints one summary line per orphaned kind with the targets that would unblock it.
+- **Declared sources.** Each `sources.<kind>` path explicitly set in `agnostic-ai.yaml` that does not resolve to an existing directory is flagged (e.g. `sources.skills -> .agnostic-ai/skills: directory not found (no skills will be emitted)`), so a config cannot advertise coverage it never delivers. Undeclared kinds (using the conventional default) are not flagged. Warning only: forward-looking scaffolds still validate. (#444)
 
 ## list
 
