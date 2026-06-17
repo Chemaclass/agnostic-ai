@@ -182,6 +182,8 @@ func countKind(b spec.Bundle, k spec.Kind) int {
 		return len(b.Settings)
 	case spec.KindReview:
 		return len(b.Reviews)
+	case spec.KindEnvironment:
+		return len(b.Environments)
 	}
 	return 0
 }

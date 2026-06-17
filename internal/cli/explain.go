@@ -252,14 +252,15 @@ func sortContribs(c []contribution) {
 // Identity is by Path, which is unique within a bundle.
 func bundleWithout(b spec.Bundle, e spec.Entry) spec.Bundle {
 	return spec.Bundle{
-		Agents:   filterEntries(b.Agents, e.Path),
-		Skills:   filterEntries(b.Skills, e.Path),
-		Rules:    filterEntries(b.Rules, e.Path),
-		Hooks:    filterEntries(b.Hooks, e.Path),
-		MCPs:     filterEntries(b.MCPs, e.Path),
-		Commands: filterEntries(b.Commands, e.Path),
-		Settings: filterEntries(b.Settings, e.Path),
-		Reviews:  filterEntries(b.Reviews, e.Path),
+		Agents:       filterEntries(b.Agents, e.Path),
+		Skills:       filterEntries(b.Skills, e.Path),
+		Rules:        filterEntries(b.Rules, e.Path),
+		Hooks:        filterEntries(b.Hooks, e.Path),
+		MCPs:         filterEntries(b.MCPs, e.Path),
+		Commands:     filterEntries(b.Commands, e.Path),
+		Settings:     filterEntries(b.Settings, e.Path),
+		Reviews:      filterEntries(b.Reviews, e.Path),
+		Environments: filterEntries(b.Environments, e.Path),
 	}
 }
 

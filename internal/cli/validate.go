@@ -160,6 +160,7 @@ func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
 		{spec.KindCommand, len(b.Commands), firstPath(b.Commands)},
 		{spec.KindSettings, len(b.Settings), firstPath(b.Settings)},
 		{spec.KindReview, len(b.Reviews), firstPath(b.Reviews)},
+		{spec.KindEnvironment, len(b.Environments), firstPath(b.Environments)},
 	}
 	enabled := setOf(targets...)
 	var out []validationIssue

@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,6 +82,103 @@ func TestEmit_ReviewScopeEscapeIsBlocked(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(cwd), "escape", "BUGBOT.md")); err == nil {
 		t.Errorf("escaping scope wrote BUGBOT.md outside the repo root")
+	}
+}
+
+// Environment specs pass through to .cursor/environment.json, merging
+// top-level keys and stripping agnostic routing fields (#434).
+func TestEmit_EnvironmentWritesCursorJSON(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{
+			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
+			Meta: map[string]any{"name": "default", "scope": "ignored", "install": "go mod download"},
+		},
+		{
+			Kind: spec.KindEnvironment, Name: "extra", Path: "environments/extra.yaml",
+			Meta: map[string]any{"terminals": []any{map[string]any{"name": "dev", "command": "make run"}}},
+		},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(cwd, ".cursor", "environment.json"))
+	if err != nil {
+		t.Fatalf("read environment.json: %v", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if doc["install"] != "go mod download" {
+		t.Errorf("install passthrough wrong: %v", doc["install"])
+	}
+	if _, ok := doc["terminals"]; !ok {
+		t.Errorf("second spec did not merge: %s", raw)
+	}
+	if _, leaked := doc["name"]; leaked {
+		t.Errorf("routing key name leaked into environment.json: %s", raw)
+	}
+	if _, leaked := doc["scope"]; leaked {
+		t.Errorf("routing key scope leaked into environment.json: %s", raw)
+	}
+}
+
+// A later environment spec overrides an earlier one on a key collision,
+// and the x-cursor namespace resolves (override wins, other targets drop).
+func TestEmit_EnvironmentMergeLastWinsAndResolvesMeta(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "a", Path: "environments/a.yaml", Meta: map[string]any{"install": "first"}},
+		{
+			Kind: spec.KindEnvironment, Name: "b", Path: "environments/b.yaml",
+			Meta: map[string]any{
+				"install":  "second",
+				"x-cursor": map[string]any{"start": "make run"},
+				"x-codex":  map[string]any{"setup": "pip install"},
+			},
+		},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	doc := map[string]any{}
+	raw, _ := os.ReadFile(filepath.Join(cwd, ".cursor", "environment.json"))
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if doc["install"] != "second" {
+		t.Errorf("last-wins violated: install = %v, want second", doc["install"])
+	}
+	if doc["start"] != "make run" {
+		t.Errorf("x-cursor override did not resolve: %s", raw)
+	}
+	if _, leaked := doc["x-cursor"]; leaked {
+		t.Errorf("x-cursor namespace leaked: %s", raw)
+	}
+	if _, leaked := doc["x-codex"]; leaked {
+		t.Errorf("x-codex namespace leaked into cursor output: %s", raw)
+	}
+	if _, leaked := doc["setup"]; leaked {
+		t.Errorf("other target's key leaked: %s", raw)
+	}
+}
+
+// The environment output path is overridable via outputs.cursor.environment-file.
+func TestEmit_EnvironmentFileOverride(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml", Meta: map[string]any{"install": "x"}},
+	})
+	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {EnvironmentFile: ".cursor/env.custom.json"}}}
+	if err := New().Emit(b, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.ReadFile(filepath.Join(cwd, ".cursor", "env.custom.json")); err != nil {
+		t.Errorf("expected env.custom.json override: %v", err)
 	}
 }
 

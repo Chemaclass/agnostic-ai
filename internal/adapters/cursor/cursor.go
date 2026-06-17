@@ -15,16 +15,26 @@ import (
 )
 
 const (
-	target            = "cursor"
-	defaultDir        = ".cursor/rules"
-	defaultExt        = ".mdc"
-	defaultMCPFile    = ".cursor/mcp.json"
-	defaultReviewFile = "BUGBOT.md"
+	target             = "cursor"
+	defaultDir         = ".cursor/rules"
+	defaultExt         = ".mdc"
+	defaultMCPFile     = ".cursor/mcp.json"
+	defaultReviewFile  = "BUGBOT.md"
+	defaultEnvironFile = ".cursor/environment.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment},
+}
+
+// environRoutingKeys are the agnostic-ai spec fields stripped after
+// emit.ResolveMeta before the remaining keys pass through to
+// `.cursor/environment.json`. ResolveMeta already removes the target
+// allow/deny keys and the x-<target> namespace; these three are the spec
+// identity/scoping fields it leaves in place that Cursor has no use for.
+var environRoutingKeys = map[string]struct{}{
+	"name": {}, "scope": {}, "description": {},
 }
 
 // Adapter emits Cursor configs.
@@ -56,6 +66,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 	noteDroppedSkillAssets(b)
 	if err := emitReviews(b, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitEnvironment(b, cfg, dryRun); err != nil {
 		return err
 	}
 	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
@@ -130,6 +143,41 @@ func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 	return nil
+}
+
+// emitEnvironment writes Cursor's background-agent bootstrap config to
+// `.cursor/environment.json`. The spec body is the environment.json content:
+// every key except the agnostic-ai routing fields passes through verbatim,
+// so the author controls Cursor's schema (install, terminals, ...) while
+// agnostic-ai single-sources it. Multiple environment specs merge by
+// top-level key, last spec winning. The path is overridable via
+// `outputs.cursor.environment-file`.
+func emitEnvironment(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+	if len(b.Environments) == 0 {
+		return nil
+	}
+	merged := map[string]any{}
+	for _, e := range b.Environments {
+		// Resolve the x-<target> namespace first so a cursor-specific
+		// override wins and other targets' blocks are dropped, exactly like
+		// every other adapter. Then strip the spec identity fields Cursor
+		// has no schema for.
+		for k, v := range emit.ResolveMeta(e.Meta, target) {
+			if _, skip := environRoutingKeys[k]; skip {
+				continue
+			}
+			merged[k] = v
+		}
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+	raw, err := emit.MarshalJSONIndent(merged)
+	if err != nil {
+		return fmt.Errorf("cursor environment: %w", err)
+	}
+	path := emit.OutputEnvironmentFile(cfg, target, defaultEnvironFile)
+	return emit.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // scopeEscapesRoot reports whether a cleaned scope points at or above the

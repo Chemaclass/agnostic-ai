@@ -34,6 +34,14 @@ func OutputReviewFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputEnvironmentFile returns cfg.Outputs[target].EnvironmentFile when set, otherwise fallback.
+func OutputEnvironmentFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.EnvironmentFile != "" {
+		return o.EnvironmentFile
+	}
+	return fallback
+}
+
 // OutputRulesFile returns cfg.Outputs[target].RulesFile when set, otherwise fallback.
 func OutputRulesFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.RulesFile != "" {

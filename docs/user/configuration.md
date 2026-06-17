@@ -43,6 +43,7 @@ sources:
   commands: .agnostic-ai/commands
   settings: .agnostic-ai/settings
   reviews: .agnostic-ai/reviews
+  environments: .agnostic-ai/environments
 
 # AI CLIs to emit configs for. These 12 are the default set (used when
 # `targets` is omitted). Two more adapters exist, `amp` and `warp`. They
@@ -104,6 +105,7 @@ outputs:
     rules-dir: .cursor/rules     # default
     mcp-file: .cursor/mcp.json   # default
     review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
+    environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
     # commands-dir: .cursor/commands  # opt-in: also emit each agent as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
