@@ -8,23 +8,23 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- New `settings` spec kind (`.agnostic-ai/settings/*.yaml`) single-sources agent `permissions` (allow/deny/ask) and the default `model` across tools. Claude maps them into `.claude/settings.json`; targets with no settings surface report the kind as unsupported. (#432)
-- New `review` spec kind (`.agnostic-ai/reviews/*.md`) single-sources code-review-bot guidance. Cursor emits it as scope-located `BUGBOT.md` files (root + per-directory); other targets report the kind as unsupported. (#433)
-- New `environment` spec kind (`.agnostic-ai/environments/*.yaml`) single-sources dev-env bootstrap. Cursor emits it as `.cursor/environment.json`; other targets report the kind as unsupported. (#434)
-- New `ignore` spec kind (`.agnostic-ai/ignore/*.md`) single-sources agent ignore patterns. Emits each tool's native ignore file from one list: Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
-- The `command` spec kind now emits each target's native command/prompt format without opt-in flags: Gemini `.gemini/commands/<name>.toml`, OpenCode `.opencode/commands/<name>.md`, and Amp `.agents/commands/<name>.md` join Claude and Codex. Cursor emits Custom Commands when `outputs.cursor.commands-dir` is set. (#436)
-- `validate` warns for each `sources.<kind>` path declared in `agnostic-ai.yaml` that does not resolve to an existing directory, so a config can no longer advertise coverage (skills, hooks, ...) it never emits. Undeclared kinds using the conventional default are not flagged; warning only, so forward-looking scaffolds still validate. (#444)
-- `doctor` reports an "Unmanaged config" block: known agentic config files on disk (CLAUDE.md, AGENTS.md, GEMINI.md, `.cursor/rules/*.mdc`, BUGBOT.md, per-tool agent/command/skill files, ...) that carry no agnostic-ai provenance marker, grouped with the `import` command that would single-source each. Advisory; does not affect exit code. (#440)
-- Cursor hooks: the `hook` spec kind now emits `.cursor/hooks.json` ([Cursor Hooks](https://cursor.com/docs/hooks), `version` + per-event arrays), closing the parity gap with Claude/Codex/Gemini. Cursor uses its own camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; override the path via `outputs.cursor.hooks-file`. (#438)
+- `settings` kind (`.agnostic-ai/settings/*.yaml`): single-source `permissions` and default `model`. Claude maps them into `.claude/settings.json`. (#432)
+- `review` kind (`.agnostic-ai/reviews/*.md`): Cursor emits scope-located `BUGBOT.md` files. (#433)
+- `environment` kind (`.agnostic-ai/environments/*.yaml`): Cursor emits `.cursor/environment.json`. (#434)
+- `ignore` kind (`.agnostic-ai/ignore/*.md`): one list emits Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
+- `command` kind emits natively to Gemini (`.gemini/commands/*.toml`), OpenCode and Amp (`*.md`), alongside Claude and Codex. Cursor emits Custom Commands when `commands-dir` is set. (#436)
+- Cursor hooks: `hook` kind emits `.cursor/hooks.json`. Override via `outputs.cursor.hooks-file`. (#438)
+- `doctor`: "Unmanaged config" block lists agentic files on disk not generated from `.agnostic-ai/`, each with the `import` to adopt it. (#440)
+- `validate`: warns for each declared `sources.<kind>` whose directory is missing. (#444)
 
 ### Fixed
 
-- Cursor `.mdc` rule emit no longer rewrites frontmatter cosmetically: an `alwaysApply: true` rule with empty globs keeps them empty instead of gaining `globs: "**/*"`, scalar globs like `apps/foo/**` stay unquoted instead of being double-quoted, and an empty `description:` drops its trailing space. Adopting agnostic-ai on a repo with existing Cursor rules now produces a clean diff instead of touching every rule. (#443)
-- `validate` / `lint` no longer flag `command` specs as orphaned when only Gemini, OpenCode, Amp, or Cursor are enabled. The orphan-kind map now lists every target that emits commands, matching the adapters. (#436)
-- `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)
-- `import cursor` drops the catch-all `globs: "**/*"` and empty `description` the cursor adapter emits by default, so an always-apply rule round-trips to a stable source instead of flipping its `globs` representation each cycle. (#429)
-- `sync` warns when a skill bundles sibling files (scripts, assets) the Cursor target cannot represent, since Cursor flattens each skill to a single `.mdc` rule. The payloads were dropped silently before. (#430)
-- An extra markdown file inside a folder-based skill (e.g. `skills/<name>/examples.md`) is now treated as a bundled asset instead of being loaded as its own phantom skill. The spurious top-level skill it used to emit is gone. (#431)
+- Cursor `.mdc` emit preserves frontmatter: no synthesized `globs: "**/*"` on always-apply rules, no re-quoted scalar globs, no trailing space on empty `description:`. Adopting agnostic-ai on existing Cursor rules now diffs clean. (#443)
+- `validate` / `lint` stop flagging `command` specs as orphaned when only Gemini, OpenCode, Amp, or Cursor are enabled. (#436)
+- `import` strips the provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md`, so import→sync stays byte-stable. (#429)
+- `import cursor` drops the catch-all `globs` and empty `description`, so always-apply rules round-trip stable. (#429)
+- `sync` warns when a skill bundles files Cursor cannot represent (flattened to one `.mdc`). Previously dropped silently. (#430)
+- Extra markdown inside a folder skill (e.g. `skills/<name>/examples.md`) is a bundled asset, not a phantom skill. (#431)
 
 ## v0.39.0 - 2026-06-16
 

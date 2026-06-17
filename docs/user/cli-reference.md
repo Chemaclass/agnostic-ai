@@ -145,7 +145,7 @@ Once specs load, `validate` runs three native-support checks:
   - Cursor: `beforeShellExecution`, `afterShellExecution`, `beforeMCPExecution`, `afterMCPExecution`, `beforeReadFile`, `afterFileEdit`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`, `postToolUseFailure`, `sessionStart`, `sessionEnd`, `subagentStart`, `subagentStop`, `preCompact`, `stop`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `workspaceOpen`.
 - **Missing fields.** Hook specs missing `event:` are flagged.
 - **Orphaned kinds.** When a project has hook or MCP specs but no enabled target consumes them, validate prints one summary line per orphaned kind with the targets that would unblock it.
-- **Declared sources.** Each `sources.<kind>` path explicitly set in `agnostic-ai.yaml` that does not resolve to an existing directory is flagged (e.g. `sources.skills -> .agnostic-ai/skills: directory not found (no skills will be emitted)`), so a config cannot advertise coverage it never delivers. Undeclared kinds (using the conventional default) are not flagged. Warning only: forward-looking scaffolds still validate. (#444)
+- **Declared sources.** Each `sources.<kind>` path set in `agnostic-ai.yaml` whose directory is missing is flagged, so a config cannot advertise coverage it never delivers. Undeclared kinds (using the default) are not flagged. Warning only. (#444)
 
 ## list
 
@@ -342,7 +342,7 @@ Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to 
 
 After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `command:` and whether it resolves on PATH. Missing common commands (`npx`, `uvx`, `python`, `docker`) include an inline install hint. HTTP/SSE servers (no command, only `url:`) skip the check. Advisory only: a missing binary does not change doctor's exit code.
 
-doctor also prints an **Unmanaged config block**: known agentic config files present on disk but not generated from `.agnostic-ai/` (no provenance marker), grouped by the `import` source that would adopt each. This surfaces files still single-sourced by hand (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`, etc.) so you can `agnostic-ai import <target>` them. Only header-bearing formats (markdown, TOML) are scanned; JSON config (settings.json, mcp.json, hooks.json) is merge-managed and covered by the drift block instead. Advisory only: it does not change doctor's exit code.
+doctor also prints an **Unmanaged config block**: agentic config files on disk that carry no provenance marker (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`, ...), grouped by the `import` source that adopts each. Only header-bearing formats (markdown, TOML) are scanned; JSON config is merge-managed and covered by the drift block. Advisory: does not change the exit code.
 
 Subcommands run a single check in isolation: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
 
