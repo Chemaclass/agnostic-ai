@@ -99,7 +99,7 @@ outputs:
     #     match: ["composer test"]
     # exec-policies-file: ./agnostic-ai/codex.exec-policies.yaml  # alt: external YAML list
   gemini:
-    commands-dir: .gemini/commands   # default. One .toml per agent (and per skill when opted in).
+    commands-dir: .gemini/commands   # default. One .toml per agent and per command (and per skill when opted in).
     emit-skills-as-commands: false   # default
     mcp-file: .gemini/settings.json  # default. Holds both mcpServers and hooks.
     ignore-file: .aiexclude          # default. Agent ignore patterns (gitignore syntax).
@@ -109,7 +109,7 @@ outputs:
     review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
     environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
     ignore-file: .cursorignore   # default. Agent ignore patterns (gitignore syntax).
-    # commands-dir: .cursor/commands  # opt-in: also emit each agent as a Cursor Custom Command.
+    # commands-dir: .cursor/commands  # opt-in: also emit each agent and command spec as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
     mcp-file: .vscode/mcp.json              # default
@@ -130,7 +130,7 @@ outputs:
     rules-dir: .continue/rules        # default
     mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
   amp:
-    commands-dir: .agents/commands  # default. One .md per agent.
+    commands-dir: .agents/commands  # default. One .md per agent and per command.
     skills-dir: .agents/skills      # default. One folder per skill (<name>/SKILL.md).
     mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
   zed:
@@ -141,7 +141,7 @@ outputs:
     # workflows-dir: .warp/workflows  # opt-in: emit Warp Workflow YAMLs per agent.
     mcp-file: .warp/.mcp.json     # default. Standard mcpServers schema.
   opencode:
-    commands-dir: .opencode/commands     # default. One .md per agent (and per skill when opted in).
+    commands-dir: .opencode/commands     # default. One .md per agent and per command (and per skill when opted in).
     emit-skills-as-commands: false       # default
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:

@@ -26,7 +26,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
 }
 
 // environRoutingKeys are the agnostic-ai spec fields stripped after
@@ -82,6 +82,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 				return err
 			}
 		}
+		for _, c := range b.Commands {
+			path := commandsDir + "/" + c.Name + ".md"
+			if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
+				return err
+			}
+		}
+	} else {
+		emit.NoteCoverageGap(target, spec.KindCommand, len(b.Commands), "outputs.cursor.commands-dir")
 	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }

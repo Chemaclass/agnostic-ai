@@ -385,7 +385,7 @@ Deploy the app to {{env}}.
 
 Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
-Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
+Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Cursor emits commands when `outputs.cursor.commands-dir` is set, otherwise it prints a coverage note. Other targets log a warning and skip.
 
 ## Settings
 

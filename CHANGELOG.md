@@ -12,6 +12,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - New `review` spec kind (`.agnostic-ai/reviews/*.md`) single-sources code-review-bot guidance. Cursor emits it as scope-located `BUGBOT.md` files (root + per-directory); other targets report the kind as unsupported. (#433)
 - New `environment` spec kind (`.agnostic-ai/environments/*.yaml`) single-sources dev-env bootstrap. Cursor emits it as `.cursor/environment.json`; other targets report the kind as unsupported. (#434)
 - New `ignore` spec kind (`.agnostic-ai/ignore/*.md`) single-sources agent ignore patterns. Emits each tool's native ignore file from one list: Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
+- The `command` spec kind now emits each target's native command/prompt format without opt-in flags: Gemini `.gemini/commands/<name>.toml`, OpenCode `.opencode/commands/<name>.md`, and Amp `.agents/commands/<name>.md` join Claude and Codex. Cursor emits Custom Commands when `outputs.cursor.commands-dir` is set. (#436)
 
 ### Fixed
 

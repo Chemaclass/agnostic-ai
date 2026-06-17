@@ -33,6 +33,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindAgent, []string{".gemini/commands/alpha.toml", ".gemini/commands/beta.toml", ".gemini/commands/gamma.toml"}},
+		{spec.KindCommand, []string{".gemini/commands/deploy.toml"}},
 		{spec.KindSkill, []string{".gemini/commands/skill-uno.toml", ".gemini/commands/skill-dos.toml", ".gemini/commands/skill-tres.toml"}},
 		{spec.KindRule, []string{"GEMINI-rules.md"}},
 		{spec.KindHook, []string{".gemini/settings.json"}},
@@ -85,13 +86,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
+		{Kind: spec.KindReview, Name: "bugbot", Path: "reviews/bugbot.md", Body: "review body"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (command), got %d", got)
+		t.Errorf("expected 1 capability warning (review), got %d", got)
 	}
 }
 

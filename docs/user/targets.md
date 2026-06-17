@@ -32,17 +32,17 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 |-----------------|---------------------|--------|--------------------------|-------|------|----------|----------|---------|--------------|--------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` | `.claude/settings.json` (`permissions`, `model`) | - | - | - |
 | **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` | - | - | - | - |
-| **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | inlined into `GEMINI.md` (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | - | - | - | - | `.aiexclude` |
-| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` | - | - | `BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
+| **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | inlined into `GEMINI.md` (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | `.gemini/commands/<name>.toml` | - | - | - | `.aiexclude` |
+| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | - | `.cursor/mcp.json` | `.cursor/commands/<name>.md` w/ opt-in | - | `BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | - | `.vscode/mcp.json` | - | - | - | - | - |
 | **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - | - | - | - | - | - |
 | **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.windsurf/rules/*.md`   | -     | - | - | - | - | - | - |
 | **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` | - | - | - | - | - |
-| **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | - | - | - | - | - |
+| **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | `.agents/commands/<name>.md` | - | - | - | - |
 | **zed**         | merged in `.rules` | listed in `.rules` | `.rules` | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - | - | - | - | - |
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
-| **opencode**    | `.opencode/commands/<name>.md` | `.opencode/commands/skill-<name>.md` w/ opt-in | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | - | - | - | - | - |
+| **opencode**    | `.opencode/commands/<name>.md` | `.opencode/commands/skill-<name>.md` w/ opt-in | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
 | **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - | - | - | - | - | - |
 
 Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs of that kind are present, `sync` prints a `note:` line naming the key to set (or stating the content stays source-dir only). See [Coverage notes](configuration.md#coverage-notes).
@@ -52,7 +52,7 @@ Cross-cutting kind notes:
 - **Skills**: only Claude Code executes them natively. On every other target they are reference material the agent or human reads and follows.
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, and Gemini in each tool's schema. Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks, not event-triggered hooks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (the inferred default). amp, gemini, and zed have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; amp and zed via `url` vs `command`).
-- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`) and Codex (`.codex/prompts/<name>.md`). Other targets skip with a warning.
+- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Cursor emits them as Custom Commands when `outputs.cursor.commands-dir` is set. Other targets skip with a warning.
 
 ## Per-target output
 
@@ -131,6 +131,7 @@ GEMINI.md                              # canonical entry-point pointer body (wri
 
 - **Rules**: `sync` writes `GEMINI.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, so Gemini reads them as always-on context by default. Per-directory scoping (e.g. `src/GEMINI.md` from `globs: src/**`) is no longer emitted by default. Use `outputs.gemini.rules-file: GEMINI.md` for the legacy concatenated layout.
 - **Agents**: TOML slash commands under `.gemini/commands/` per [Gemini CLI custom commands](https://geminicli.com/docs/cli/custom-commands/). Skills default to source-only; set `outputs.gemini.emit-skills-as-commands: true` to emit one `skill-<name>.toml` per skill.
+- **Commands**: one TOML per command spec under `.gemini/commands/<name>.toml`, the same surface as agents. `description` frontmatter maps to the TOML `description`; the body becomes the `prompt`.
 - **MCP + hooks**: written into `.gemini/settings.json` (`mcpServers` map, `hooks` map). Gemini keys the endpoint by transport: streamable-HTTP servers (`type: http`) use `httpUrl`, SSE servers (`type: sse`) use `url`; the adapter routes each automatically. Hooks route by `event` frontmatter (`BeforeTool`, `AfterTool`, `SessionStart`); each entry is `{matcher, command}`. Pre-existing user keys survive syncs.
 
 Config keys: `outputs.gemini.commands-dir` (default `.gemini/commands`), `outputs.gemini.mcp-file` (default `.gemini/settings.json`, also holds hooks), `outputs.gemini.emit-skills-as-commands` (default `false`), `outputs.gemini.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write), `outputs.gemini.ignore-file` (default `.aiexclude`).
@@ -147,11 +148,11 @@ Verify with the real CLI:
 
 ```
 .cursor/rules/<name>.mdc
-.cursor/commands/<name>.md           # one per agent, only when commands-dir is set
+.cursor/commands/<name>.md           # one per agent and per command spec, only when commands-dir is set
 ```
 
 - Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
-- When `outputs.cursor.commands-dir` is set, each agent also emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): Markdown with optional `description` and `model` frontmatter. The rule-form emission still happens.
+- When `outputs.cursor.commands-dir` is set, each agent and each command spec emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): Markdown with optional `description` and `model` frontmatter. The agent rule-form emission still happens. Commands have no other Cursor surface, so without `commands-dir` they stay source-only and `sync` prints a coverage note.
 - Skills flatten to a single `.mdc` rule, so a skill that bundles sibling files (scripts, assets) cannot carry them to Cursor. `sync` prints a note for each such skill instead of dropping the payloads silently. (#430)
 - Review specs emit as [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md` files: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Override the basename via `outputs.cursor.review-file`. (#433)
 - Environment specs emit as `.cursor/environment.json` (background-agent bootstrap). The spec keys pass through verbatim minus agnostic routing fields; multiple specs merge by top-level key. Override the path via `outputs.cursor.environment-file`. (#434)
@@ -279,6 +280,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 - **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, shared byte-for-byte with codex and warp so the three coexist at the same path.
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md` (Amp's [native skills layout](https://ampcode.com/manual)). Amp [removed custom slash commands in favor of skills](https://ampcode.com/news/slashing-custom-commands), so skills no longer emit as `.agents/commands/skill-<name>.md`. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte. Arbitrary `x-amp` keys pass through.
 - **Agents**: still emit as custom slash commands under `.agents/commands/<name>.md`. Amp has no documented per-agent file surface after the command removal; this path may be read for back-compat.
+- **Commands**: one markdown file per command spec under `.agents/commands/<name>.md`, the same surface as agents. `description` frontmatter passes through; the body is the prompt template.
 - **MCP**: written into `.amp/settings.json` under `amp.mcpServers` (a single dotted key, not a nested object). Stdio emits `command`/`args`/`env`; HTTP/SSE emit `url`/`headers`. Pre-existing non-managed keys (theme, editor settings) are preserved; only `amp.mcpServers` is overwritten. Workspace MCPs require explicit approval on first open (Amp's safety model).
 - **Legacy rename**: Amp's owner's manual specifies `AGENTS.md` (plural). On first sync after upgrading, any agnostic-generated `AGENT.md` at the configured root is renamed to `AGENT.md.bak`. A user-authored `AGENT.md` (no `Generated by agnostic-ai` marker) is left untouched.
 
@@ -338,12 +340,13 @@ Verify with the real terminal:
 
 ```
 .opencode/AGENTS.md                       # canonical entry-point pointer body (written by sync)
-.opencode/commands/<name>.md              # one per agent
+.opencode/commands/<name>.md              # one per agent and one per command spec
 .opencode/commands/skill-<name>.md        # one per skill, only when emit-skills-as-commands: true
 opencode.json                             # when MCP entries exist (merged with existing user config)
 ```
 
 - **Routing**: under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`. Each command file carries frontmatter filtered to the OpenCode-supported keys (`description`, `agent`, `model`, `subtask`). Pass `agent`, `model`, or `subtask` through the `x-opencode` namespace to route them in without polluting other targets.
+- **Commands**: one markdown file per command spec under `.opencode/commands/<name>.md`, the same surface as agents, with the same filtered frontmatter.
 - **MCP**: written into `opencode.json` at the project root with a `$schema` link and the `mcp` map. Stdio maps to `{type: "local", command: [...]}`; HTTP/SSE/remote maps to `{type: "remote", url, headers}`. Pre-existing non-managed keys (`theme`, `model`) are preserved; only `$schema` and `mcp` are overwritten. Drift checks (`sync --check`) read in capture mode and skip the read step, so unrelated user keys may report as drift until the next non-check sync (by design).
 
 Config keys: `outputs.opencode.commands-dir` (default `.opencode/commands`), `outputs.opencode.mcp-file` (default `opencode.json`), `outputs.opencode.emit-skills-as-commands` (default `false`), `outputs.opencode.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write).
