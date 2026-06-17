@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.40.0 - 2026-06-17
+
 ### Added
 
 - `settings` kind (`.agnostic-ai/settings/*.yaml`): single-source `permissions` and default `model`. Claude maps them into `.claude/settings.json`. (#432)
