@@ -123,6 +123,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
 		},
+		{
+			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",
+			Meta: map[string]any{
+				"model":       "claude-opus-4-8",
+				"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}, "deny": []any{"Bash(rm:*)"}},
+			},
+		},
 	}
 	return spec.NewBundle(entries)
 }

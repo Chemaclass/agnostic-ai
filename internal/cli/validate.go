@@ -158,6 +158,7 @@ func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
 		{spec.KindHook, len(b.Hooks), firstPath(b.Hooks)},
 		{spec.KindMCP, len(b.MCPs), firstPath(b.MCPs)},
 		{spec.KindCommand, len(b.Commands), firstPath(b.Commands)},
+		{spec.KindSettings, len(b.Settings), firstPath(b.Settings)},
 	}
 	enabled := setOf(targets...)
 	var out []validationIssue
@@ -172,7 +173,7 @@ func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
 		out = append(out, validationIssue{
 			Path:    kc.path,
 			Field:   string(kc.kind),
-			Message: pluralize(kc.count, string(kc.kind)) + " configured but no enabled target supports " + string(kc.kind) + "s. Enable one of: " + commaList(supporters),
+			Message: pluralize(kc.count, string(kc.kind)) + " configured but no enabled target supports " + kindPlural(kc.kind) + ". Enable one of: " + commaList(supporters),
 		})
 	}
 	return out
@@ -229,6 +230,17 @@ func pluralize(n int, kind string) string {
 		return "1 " + kind + " spec"
 	}
 	return fmt.Sprintf("%d %s specs", n, kind)
+}
+
+// kindPlural returns the plural noun for a kind, leaving kinds that
+// already end in "s" (e.g. "settings") unchanged so the message never
+// reads "settingss".
+func kindPlural(k spec.Kind) string {
+	s := string(k)
+	if strings.HasSuffix(s, "s") {
+		return s
+	}
+	return s + "s"
 }
 
 func sortStrings(s []string) {

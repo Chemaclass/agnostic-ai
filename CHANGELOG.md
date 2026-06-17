@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- New `settings` spec kind (`.agnostic-ai/settings/*.yaml`) single-sources agent `permissions` (allow/deny/ask) and the default `model` across tools. Claude maps them into `.claude/settings.json`; targets with no settings surface report the kind as unsupported. (#432)
+
 ### Fixed
 
 - `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)

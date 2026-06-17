@@ -279,6 +279,7 @@ func watchDirs(root string, cfg *config.Config) []string {
 		cfg.Sources.Rules,
 		cfg.Sources.Hooks,
 		cfg.Sources.MCPs,
+		cfg.Sources.Settings,
 	} {
 		if src != "" {
 			paths = append(paths, filepath.Join(root, src))

@@ -198,6 +198,31 @@ func TestLoadAll_FlatFileSkillsSurviveAssetDetection(t *testing.T) {
 	}
 }
 
+// A YAML file under the settings source dir loads as a settings spec
+// (#432), parsed like hooks and MCPs, with its fields kept in Meta.
+func TestLoadAll_ParsesSettingsKind(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "settings", "defaults.yaml"),
+		"model: claude-opus-4-8\npermissions:\n  allow:\n    - Bash(go test:*)\n")
+
+	cfg := defaultsForTest()
+	cfg.Sources.Settings = "settings"
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := Filter(entries, KindSettings)
+	if len(settings) != 1 {
+		t.Fatalf("expected 1 settings spec, got %d", len(settings))
+	}
+	if settings[0].Name != "defaults" {
+		t.Errorf("name = %q, want defaults (from filename)", settings[0].Name)
+	}
+	if settings[0].Meta["model"] != "claude-opus-4-8" {
+		t.Errorf("model = %v", settings[0].Meta["model"])
+	}
+}
+
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	dir := t.TempDir()
 	cfg := defaultsForTest()

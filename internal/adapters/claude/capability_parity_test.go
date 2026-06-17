@@ -36,6 +36,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindHook, []string{".claude/settings.json"}},
 		{spec.KindMCP, []string{".mcp.json"}},
 		{spec.KindCommand, []string{".claude/commands/cmd-one.md", ".claude/commands/cmd-two.md", ".claude/commands/cmd-three.md"}},
+		{spec.KindSettings, []string{".claude/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

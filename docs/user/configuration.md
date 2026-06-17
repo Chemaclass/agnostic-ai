@@ -41,6 +41,7 @@ sources:
   hooks: .agnostic-ai/hooks
   mcps: .agnostic-ai/mcps
   commands: .agnostic-ai/commands
+  settings: .agnostic-ai/settings
 
 # AI CLIs to emit configs for. These 12 are the default set (used when
 # `targets` is omitted). Two more adapters exist, `amp` and `warp`. They
@@ -384,7 +385,7 @@ Note this only affects newly scaffolded configs. An existing `agnostic-ai.yaml` 
 
 ## Claude settings
 
-The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. agnostic-ai writes each non-empty field on top of the captured overlay (from `import claude`) and below the spec-derived `hooks` block. Keys you do not set fall through to the overlay, so partial adoption works.
+The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers, so partial adoption works.
 
 ```yaml
 outputs:
@@ -425,7 +426,7 @@ outputs:
 | `statusLine` | object | `type`, `command`, and optional `padding`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
-Any setting not declared here round-trips through the overlay captured during `agnostic-ai import claude` (written to `.agnostic-ai/overlays/claude.settings.json`). When both the overlay and `outputs.claude.settings.*` declare the same key, the first-class config block wins.
+Any setting not declared here round-trips through the overlay captured during `agnostic-ai import claude` (written to `.agnostic-ai/overlays/claude.settings.json`). When both the overlay and `outputs.claude.settings.*` declare the same scalar key, the first-class config block wins. The `permissions` lists are the exception: their `allow`/`deny`/`ask` entries are unioned across the overlay, any `settings` spec, and this config, so no layer silently drops another's rules.
 
 ## Codex config
 

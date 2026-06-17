@@ -11,6 +11,20 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// Cursor has no settings surface, so a settings spec is unsupported and
+// reported (errors under on-unsupported: error). Confirms the settings
+// kind flows through the generic capability path (#432).
+func TestEmit_SettingsKindUnsupported(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "x"}},
+	})
+	err := New().Emit(b, &config.Config{OnUnsupported: "error"}, false)
+	if err == nil || !strings.Contains(err.Error(), "settings") {
+		t.Fatalf("expected unsupported-settings error, got %v", err)
+	}
+}
+
 func TestEmit_WritesMdcRule(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
