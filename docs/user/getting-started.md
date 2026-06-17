@@ -199,3 +199,5 @@ gitignore:
 ```
 
 `sync` rewrites a managed block in `.gitignore` listing every emitted path. Lines outside the block are preserved.
+
+Gitignored outputs are not in git, so a fresh clone or a new `git worktree` starts without them until `agnostic-ai sync` runs. A contributor cloning the repo runs `sync` by hand; automated worktree creation does not. Wire `sync` into your worktree bootstrap, or add a `post-checkout` hook (see [Git hooks](git-hooks.md)), so an AI session opened in a new worktree always finds its config.
