@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -332,19 +334,46 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
-	if globs == "" {
-		globs = "**/*"
-	}
 	always := alwaysApplyDefault
 	if v, ok := m["alwaysApply"].(bool); ok {
 		always = v
 	}
+	// An alwaysApply:false rule (agents, skills) defaults to a broad
+	// `**/*` auto-attach when it declares no globs. An alwaysApply:true
+	// rule ignores globs entirely, so synthesizing one there is pure
+	// round-trip noise against a hand-authored source; omit it (#443).
+	if globs == "" && !always {
+		globs = "**/*"
+	}
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.WriteString("description: " + desc + "\n")
-	fmt.Fprintf(&b, "globs: %q\n", globs)
+	// Emit an empty description as a bare `description:` key (no trailing
+	// space) so it byte-matches a hand-authored rule on round-trip (#443).
+	if desc != "" {
+		b.WriteString("description: " + desc + "\n")
+	} else {
+		b.WriteString("description:\n")
+	}
+	// Quote the globs value only when YAML needs it (a leading `*`, etc.)
+	// rather than always double-quoting, which rewrote `apps/foo/**` to
+	// `"apps/foo/**"` and broke byte round-trips (#443).
+	if globs != "" {
+		b.WriteString("globs: " + mdcScalar(globs) + "\n")
+	}
 	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// mdcScalar renders s as a YAML scalar with minimal quoting: a plain
+// value like `apps/foo/**` stays unquoted, while a value YAML cannot
+// represent plainly (a leading `*`, a colon, ...) is quoted just enough
+// to stay valid.
+func mdcScalar(s string) string {
+	out, err := yaml.Marshal(s)
+	if err != nil {
+		return fmt.Sprintf("%q", s)
+	}
+	return strings.TrimRight(string(out), "\n")
 }

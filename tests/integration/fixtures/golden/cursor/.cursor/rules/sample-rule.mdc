@@ -1,6 +1,5 @@
 ---
 description: A sample rule for golden snapshot tests.
-globs: "**/*"
 alwaysApply: true
 ---
 
