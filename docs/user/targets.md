@@ -152,7 +152,7 @@ Verify with the real CLI:
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
 ```
 
-- Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter.
+- Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter. An `alwaysApply: true` rule omits `globs` (the field is ignored when always-applied); an `alwaysApply: false` rule with no globs defaults to `**/*`. Scalar globs keep minimal YAML quoting so a hand-authored `.mdc` round-trips without cosmetic rewrites. (#443)
 - When `outputs.cursor.commands-dir` is set, each agent and each command spec emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): Markdown with optional `description` and `model` frontmatter. The agent rule-form emission still happens. Commands have no other Cursor surface, so without `commands-dir` they stay source-only and `sync` prints a coverage note.
 - Skills flatten to a single `.mdc` rule, so a skill that bundles sibling files (scripts, assets) cannot carry them to Cursor. `sync` prints a note for each such skill instead of dropping the payloads silently. (#430)
 - Review specs emit as [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md` files: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Override the basename via `outputs.cursor.review-file`. (#433)

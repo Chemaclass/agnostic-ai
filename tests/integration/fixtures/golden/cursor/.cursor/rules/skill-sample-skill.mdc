@@ -1,6 +1,6 @@
 ---
 description: A sample skill for golden snapshot tests.
-globs: "**/*"
+globs: '**/*'
 alwaysApply: false
 ---
 

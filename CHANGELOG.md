@@ -18,6 +18,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Cursor `.mdc` rule emit no longer rewrites frontmatter cosmetically: an `alwaysApply: true` rule with empty globs keeps them empty instead of gaining `globs: "**/*"`, scalar globs like `apps/foo/**` stay unquoted instead of being double-quoted, and an empty `description:` drops its trailing space. Adopting agnostic-ai on a repo with existing Cursor rules now produces a clean diff instead of touching every rule. (#443)
 - `validate` / `lint` no longer flag `command` specs as orphaned when only Gemini, OpenCode, Amp, or Cursor are enabled. The orphan-kind map now lists every target that emits commands, matching the adapters. (#436)
 - `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)
 - `import cursor` drops the catch-all `globs: "**/*"` and empty `description` the cursor adapter emits by default, so an always-apply rule round-trips to a stable source instead of flipping its `globs` representation each cycle. (#429)

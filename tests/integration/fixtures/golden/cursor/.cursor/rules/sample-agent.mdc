@@ -1,6 +1,6 @@
 ---
 description: A sample agent for golden snapshot tests.
-globs: "**/*"
+globs: '**/*'
 alwaysApply: false
 ---
 

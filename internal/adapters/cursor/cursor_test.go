@@ -352,11 +352,53 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), `globs: "**/*.go"`) {
+	// `**/*.go` needs quoting (leading `*`), so YAML uses a single-quoted
+	// scalar — not the gratuitous double-quoting the emitter used before.
+	if !strings.Contains(string(got), `globs: '**/*.go'`) {
 		t.Errorf("missing globs: %s", got)
 	}
 	if !strings.Contains(string(got), "alwaysApply: true") {
 		t.Errorf("rule should default alwaysApply=true: %s", got)
+	}
+}
+
+// A hand-authored rule with empty globs and alwaysApply:true must
+// round-trip without the emitter synthesizing `globs: "**/*"`, re-quoting
+// scalar globs, or leaving a trailing space on an empty description (#443).
+func TestEmit_MdcRuleFrontmatterByteStable(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		// Empty description + empty globs + alwaysApply:true.
+		{Kind: spec.KindRule, Name: "always", Meta: map[string]any{"alwaysApply": true}, Body: "body"},
+		// Scalar globs that does not need quoting must stay unquoted.
+		{Kind: spec.KindRule, Name: "scoped", Meta: map[string]any{"globs": "apps/foo/**", "alwaysApply": false}, Body: "body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	always, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/always.mdc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(always), "globs:") {
+		t.Errorf("alwaysApply:true rule should omit synthesized globs:\n%s", always)
+	}
+	if strings.Contains(string(always), "description: \n") {
+		t.Errorf("empty description should not carry a trailing space:\n%s", always)
+	}
+	if !strings.Contains(string(always), "description:\n") {
+		t.Errorf("expected bare `description:` key:\n%s", always)
+	}
+
+	scoped, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/scoped.mdc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(scoped), "globs: apps/foo/**\n") {
+		t.Errorf("scalar globs should stay unquoted:\n%s", scoped)
 	}
 }
 
