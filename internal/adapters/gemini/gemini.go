@@ -31,7 +31,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore},
 }
 
 // Adapter emits Gemini CLI configs.
@@ -55,6 +55,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
 	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -232,6 +235,20 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(a)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// emitCommands writes one TOML per command spec under
+// `.gemini/commands/`. Commands are the native slash-prompt surface, so
+// they emit with their bare name (no `skill-` prefix).
+func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+	for _, c := range commands {
+		path := filepath.Join(dir, c.Name+".toml")
+		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(c)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

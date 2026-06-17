@@ -38,7 +38,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits Amp configs.
@@ -66,6 +66,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
 		return err
 	}
+	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	for _, s := range b.Skills {
 		if err := emitSkill(s, skillsDir, dryRun); err != nil {
@@ -82,6 +85,19 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
 		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// emitCommands writes one slash-command markdown file per command spec
+// under `.agents/commands/`, the same surface Amp reads agent commands
+// from.
+func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+	for _, c := range commands {
+		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
+		if err := emit.WriteFile(filepath.Join(dir, c.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}

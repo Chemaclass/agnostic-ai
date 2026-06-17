@@ -14,6 +14,7 @@ func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	arts := []emit.NativeArtifact{
 		{Label: "Agents", Location: commandsDir + "/", Note: "slash commands"},
+		{Label: "Commands", Location: commandsDir + "/", Note: "slash commands"},
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		arts = append(arts, emit.NativeArtifact{Label: "Skills", Location: commandsDir + "/", Note: skillFilenamePrefix + "* commands"})

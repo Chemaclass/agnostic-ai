@@ -36,7 +36,7 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits OpenCode configs.
@@ -61,6 +61,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
 	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -151,6 +154,20 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
+		if err := emit.WriteFile(path, body, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// emitCommands writes one command markdown file per command spec under
+// `.opencode/commands/`. Commands are the native slash-prompt surface,
+// so they emit with their bare name (no `skill-` prefix).
+func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+	for _, c := range commands {
+		path := filepath.Join(dir, c.Name+".md")
+		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

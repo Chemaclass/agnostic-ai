@@ -14,7 +14,12 @@ import (
 
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"cursor": {CommandsDir: ".cursor/commands"},
+		},
+	}
+	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -26,6 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".cursor/rules/r1.mdc", ".cursor/rules/r2.mdc", ".cursor/rules/r3.mdc"}},
 		{spec.KindAgent, []string{".cursor/rules/alpha.mdc", ".cursor/rules/beta.mdc", ".cursor/rules/gamma.mdc"}},
+		{spec.KindCommand, []string{".cursor/commands/deploy.md"}},
 		{spec.KindSkill, []string{".cursor/rules/skill-uno.mdc", ".cursor/rules/skill-dos.mdc", ".cursor/rules/skill-tres.mdc"}},
 		{spec.KindMCP, []string{".cursor/mcp.json"}},
 		{spec.KindReview, []string{"BUGBOT.md", "backend/BUGBOT.md"}},
@@ -71,13 +77,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
-		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
+		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
+		t.Errorf("expected 2 capability warnings (hook/settings), got %d", got)
 	}
 }
 
