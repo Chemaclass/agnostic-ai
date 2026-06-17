@@ -87,6 +87,38 @@ npm install
 
 The trailing `--` swallows the staged paths lint-staged appends; `sync --check` reads the project root, not individual files.
 
+## Regenerate on checkout
+
+The hooks above catch drift at commit time. They do not help when generated outputs are gitignored (`gitignore.enabled: true`): a fresh clone or a new `git worktree` then starts with no `CLAUDE.md`, rules, or hooks until someone runs `sync`. A contributor cloning the repo runs `sync` by hand; automated worktree creation does not, so an AI session opened there finds no config.
+
+A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git worktree add` all fire it, so outputs regenerate themselves.
+
+lefthook (`lefthook.yml`):
+
+```yaml
+post-checkout:
+  commands:
+    sync:
+      run: agnostic-ai sync
+```
+
+Plain git (`.git/hooks/post-checkout`, `chmod +x`):
+
+```sh
+#!/bin/sh
+agnostic-ai sync
+```
+
+`post-checkout` receives three arguments; a file checkout passes `0` as the third. Guard on it if you only want the hook on branch and worktree switches:
+
+```sh
+#!/bin/sh
+[ "$3" = "1" ] || exit 0   # 1 = branch checkout, 0 = file checkout
+agnostic-ai sync
+```
+
+This needs `agnostic-ai` on `PATH` in every environment that checks out the repo. If contributors may lack the CLI, commit the generated outputs instead of gitignoring them.
+
 ## Tips
 
 - The hook needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so new contributors avoid `command not found` on their first commit.
