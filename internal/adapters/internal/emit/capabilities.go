@@ -178,13 +178,22 @@ func countKind(b spec.Bundle, k spec.Kind) int {
 		return len(b.MCPs)
 	case spec.KindCommand:
 		return len(b.Commands)
+	case spec.KindSettings:
+		return len(b.Settings)
 	}
 	return 0
 }
 
 func pluralizeKind(k spec.Kind, n int) string {
-	if n == 1 {
-		return string(k)
+	return pluralizeWord(string(k), n)
+}
+
+// pluralizeWord appends an "s" for plural counts, but leaves a word that
+// already ends in "s" (e.g. "settings") unchanged so it never doubles to
+// "settingss".
+func pluralizeWord(word string, n int) string {
+	if n == 1 || strings.HasSuffix(word, "s") {
+		return word
 	}
-	return string(k) + "s"
+	return word + "s"
 }

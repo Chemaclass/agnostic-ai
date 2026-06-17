@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(go test:*)"
+    ],
+    "deny": [
+      "Bash(rm:*)"
+    ]
+  },
+  "model": "claude-opus-4-8",
   "hooks": {
     "SessionStart": [
       {

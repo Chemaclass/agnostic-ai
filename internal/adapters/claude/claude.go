@@ -1,12 +1,13 @@
 // Package claude emits Claude Code configs.
 //
-// Claude Code natively supports all six spec kinds:
+// Claude Code natively supports all seven spec kinds:
 //   - agents   -> <dir>/agents/<name>.md
 //   - skills   -> <dir>/skills/<name>/SKILL.md
 //   - rules    -> <dir>/rules/<name>.md (one file per rule)
 //   - hooks    -> <dir>/settings.json
 //   - mcps     -> .mcp.json
 //   - commands -> <dir>/commands/<name>.md (slash commands)
+//   - settings -> <dir>/settings.json (permissions, model)
 //
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
 // CLAUDE.md is never clobbered. Claude Code does not auto-load that
@@ -49,7 +50,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
 }
 
 // Adapter emits Claude Code configs.
@@ -103,7 +104,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 
 	hooks := b.HooksFor(target)
-	if err := writeSettings(hooks, dir, cfg, dryRun); err != nil {
+	if err := writeSettings(hooks, b.Settings, dir, cfg, dryRun); err != nil {
 		return err
 	}
 
@@ -204,23 +205,28 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //     is absent, the existing `.claude/settings.json` on disk is used as
 //     the base instead so user-edited keys survive until `import claude`
 //     captures them.
-//  2. First-class fields from `outputs.claude.settings` in
+//  2. Agnostic `settings` specs (`.agnostic-ai/settings/*.yaml`), the
+//     cross-tool source for permissions and default model.
+//  3. First-class fields from `outputs.claude.settings` in
 //     `agnostic-ai.yaml` (statusLine, permissions, env, model, etc).
-//  3. Spec-derived `hooks` block, emitted via ordered JSON so
+//     Being claude-specific, these override the generic spec.
+//  4. Spec-derived `hooks` block, emitted via ordered JSON so
 //     `{type, command}` and `{matcher, hooks}` stay in lifecycle order
 //     instead of alpha-sorted map order.
 //
-// Short-circuit: all three layers empty -> write nothing.
-func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
+// Short-circuit: all layers empty -> write nothing.
+func writeSettings(hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	path := filepath.Join(dir, "settings.json")
 	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
 	if err != nil {
 		return err
 	}
+	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
+	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec {
 		return nil
 	}
 	doc := overlay
@@ -235,6 +241,22 @@ func writeSettings(hooks []spec.Entry, dir string, cfg *config.Config, dryRun bo
 		}
 		if doc == nil {
 			doc = emit.NewOrderedJSON()
+		}
+	}
+	// `permissions` is a nested object whose allow/deny/ask lists are
+	// additive security rules. A wholesale key replace would drop rules a
+	// lower layer authored (e.g. config setting only `deny` would erase a
+	// spec `allow`). Union them across overlay (base), spec, then config so
+	// no layer silently loses another's rules. Scalars keep last-wins.
+	mergedPerms := mergePermissions(docPermissions(doc), mapOf(specSettings["permissions"]), mapOf(configSettings["permissions"]))
+	delete(specSettings, "permissions")
+	delete(configSettings, "permissions")
+	if len(mergedPerms) > 0 {
+		specSettings["permissions"] = mergedPerms
+	}
+	for _, k := range orderedConfigKeys(specSettings) {
+		if err := doc.Set(k, specSettings[k]); err != nil {
+			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
 	}
 	for _, k := range orderedConfigKeys(configSettings) {

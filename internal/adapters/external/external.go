@@ -54,11 +54,12 @@ type ConfigEnvelope struct {
 
 // SpecsEnvelope buckets spec entries by kind, matching spec.Bundle.
 type SpecsEnvelope struct {
-	Agents []SpecEntry `json:"agents,omitempty"`
-	Skills []SpecEntry `json:"skills,omitempty"`
-	Rules  []SpecEntry `json:"rules,omitempty"`
-	Hooks  []SpecEntry `json:"hooks,omitempty"`
-	MCPs   []SpecEntry `json:"mcps,omitempty"`
+	Agents   []SpecEntry `json:"agents,omitempty"`
+	Skills   []SpecEntry `json:"skills,omitempty"`
+	Rules    []SpecEntry `json:"rules,omitempty"`
+	Hooks    []SpecEntry `json:"hooks,omitempty"`
+	MCPs     []SpecEntry `json:"mcps,omitempty"`
+	Settings []SpecEntry `json:"settings,omitempty"`
 }
 
 // SpecEntry is the JSON shape of one spec passed to the adapter. The
@@ -167,6 +168,7 @@ func buildInput(target string, b spec.Bundle, cfg *config.Config, dryRun bool) I
 	in.Specs.Rules = entriesToWire(b.Rules)
 	in.Specs.Hooks = entriesToWire(b.HooksFor(target))
 	in.Specs.MCPs = entriesToWire(b.MCPs)
+	in.Specs.Settings = entriesToWire(b.Settings)
 	return in
 }
 

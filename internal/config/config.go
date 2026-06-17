@@ -135,6 +135,7 @@ type Sources struct {
 	Hooks    string `yaml:"hooks,omitempty"    json:"hooks,omitempty"`
 	MCPs     string `yaml:"mcps,omitempty"     json:"mcps,omitempty"`
 	Commands string `yaml:"commands,omitempty" json:"commands,omitempty"`
+	Settings string `yaml:"settings,omitempty" json:"settings,omitempty"`
 }
 
 // CodexExecPolicy describes one Skylark-flavored `prefix_rule(...)` entry
@@ -442,6 +443,7 @@ func defaults() *Config {
 			Hooks:    defaultSource("hooks"),
 			MCPs:     defaultSource("mcps"),
 			Commands: defaultSource("commands"),
+			Settings: defaultSource("settings"),
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -466,6 +468,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Commands == "" {
 		c.Sources.Commands = defaultSource("commands")
+	}
+	if c.Sources.Settings == "" {
+		c.Sources.Settings = defaultSource("settings")
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

@@ -6,10 +6,11 @@
 | Skill   | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
 | Rule    | `rules/*.md`                              | Markdown + YAML frontmatter |
 | Hook    | `hooks/*.yaml`                            | YAML                        |
-| MCP     | `mcps/*.yaml`                             | YAML                        |
-| Command | `commands/*.md`                           | Markdown + YAML frontmatter |
+| MCP      | `mcps/*.yaml`                             | YAML                        |
+| Command  | `commands/*.md`                           | Markdown + YAML frontmatter |
+| Settings | `settings/*.yaml`                         | YAML                        |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; every `.yaml` under `hooks/` and `mcps/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; every `.yaml` under `hooks/`, `mcps/`, and `settings/`.
 
 ## Nested layout: per-directory scope
 
@@ -382,6 +383,36 @@ Deploy the app to {{env}}.
 Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
 Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
+
+## Settings
+
+Pure YAML, one file per settings group under `settings/`. A tool-neutral place to single-source agent permissions and the default model instead of hand-editing each tool's settings file.
+
+```yaml
+permissions:
+  allow:
+    - Bash(go test:*)
+  deny:
+    - Bash(rm:*)
+  ask:
+    - Bash(git push:*)
+model: claude-opus-4-8
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `permissions.allow` | no | empty | Permission rules auto-approved without prompting. |
+| `permissions.deny` | no | empty | Permission rules always blocked. |
+| `permissions.ask` | no | empty | Permission rules that prompt before running. |
+| `model` | no | empty | Default model the tool should use. |
+
+Multiple settings files merge: permission lists concatenate (de-duped, source order preserved); the last non-empty `model` wins.
+
+Native emission: Claude Code (`.claude/settings.json` `permissions` + `model`). Other targets have no equivalent settings surface and report the spec as unsupported.
+
+When the Claude-specific `outputs.claude.settings` config in `agnostic-ai.yaml` also sets these fields, scalars like `model` take the config value (it is the more specific source), while `permissions` lists are unioned across the captured overlay, the settings spec, and the config so no layer silently drops another's allow/deny/ask rules.
+
+`settings` specs are hand-authored: `import claude` does not create them. An imported `.claude/settings.json` keeps its `permissions` and `model` in the Claude-only overlay (`.agnostic-ai/overlays/claude.settings.json`), since a value like a Claude model id does not necessarily port to other tools. Author a `settings` spec when you want one source to drive multiple tools; a settings spec's `permissions` still union with the imported overlay on sync.
 
 ## Frontmatter rules
 

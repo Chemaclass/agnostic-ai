@@ -380,6 +380,9 @@
         },
         "commands": {
           "type": "string"
+        },
+        "settings": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
