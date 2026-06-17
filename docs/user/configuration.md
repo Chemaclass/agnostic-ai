@@ -109,6 +109,7 @@ outputs:
     review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
     environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
     ignore-file: .cursorignore   # default. Agent ignore patterns (gitignore syntax).
+    hooks-file: .cursor/hooks.json  # default. version + per-event arrays ({command, matcher?}).
     # commands-dir: .cursor/commands  # opt-in: also emit each agent and command spec as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
