@@ -31,14 +31,15 @@ type layerInfo struct {
 }
 
 type specCounts struct {
-	Agents   int
-	Skills   int
-	Rules    int
-	Hooks    int
-	MCPs     int
-	Commands int
-	Settings int
-	Reviews  int
+	Agents       int
+	Skills       int
+	Rules        int
+	Hooks        int
+	MCPs         int
+	Commands     int
+	Settings     int
+	Reviews      int
+	Environments int
 }
 
 func newStatusCmd() *cobra.Command {
@@ -173,14 +174,15 @@ func buildLayerInfos(projectRoot string, cfg *config.Config) []layerInfo {
 
 func countSpecs(b spec.Bundle) specCounts {
 	return specCounts{
-		Agents:   len(b.Agents),
-		Skills:   len(b.Skills),
-		Rules:    len(b.Rules),
-		Hooks:    len(b.Hooks),
-		MCPs:     len(b.MCPs),
-		Commands: len(b.Commands),
-		Settings: len(b.Settings),
-		Reviews:  len(b.Reviews),
+		Agents:       len(b.Agents),
+		Skills:       len(b.Skills),
+		Rules:        len(b.Rules),
+		Hooks:        len(b.Hooks),
+		MCPs:         len(b.MCPs),
+		Commands:     len(b.Commands),
+		Settings:     len(b.Settings),
+		Reviews:      len(b.Reviews),
+		Environments: len(b.Environments),
 	}
 }
 
@@ -221,14 +223,15 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		Path string `json:"path"`
 	}
 	type specJSON struct {
-		Agents   int `json:"agents"`
-		Skills   int `json:"skills"`
-		Rules    int `json:"rules"`
-		Hooks    int `json:"hooks"`
-		MCPs     int `json:"mcps"`
-		Commands int `json:"commands"`
-		Settings int `json:"settings"`
-		Reviews  int `json:"reviews"`
+		Agents       int `json:"agents"`
+		Skills       int `json:"skills"`
+		Rules        int `json:"rules"`
+		Hooks        int `json:"hooks"`
+		MCPs         int `json:"mcps"`
+		Commands     int `json:"commands"`
+		Settings     int `json:"settings"`
+		Reviews      int `json:"reviews"`
+		Environments int `json:"environments"`
 	}
 	type statusJSON struct {
 		Project              string      `json:"project"`
@@ -244,14 +247,15 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		Project: r.ProjectName,
 		Layers:  make([]layerJSON, len(r.Layers)),
 		Specs: specJSON{
-			Agents:   r.Specs.Agents,
-			Skills:   r.Specs.Skills,
-			Rules:    r.Specs.Rules,
-			Hooks:    r.Specs.Hooks,
-			MCPs:     r.Specs.MCPs,
-			Commands: r.Specs.Commands,
-			Settings: r.Specs.Settings,
-			Reviews:  r.Specs.Reviews,
+			Agents:       r.Specs.Agents,
+			Skills:       r.Specs.Skills,
+			Rules:        r.Specs.Rules,
+			Hooks:        r.Specs.Hooks,
+			MCPs:         r.Specs.MCPs,
+			Commands:     r.Specs.Commands,
+			Settings:     r.Specs.Settings,
+			Reviews:      r.Specs.Reviews,
+			Environments: r.Specs.Environments,
 		},
 		Targets:              r.Targets,
 		FilesChangedLastSync: r.FilesChanged,
@@ -295,6 +299,9 @@ func formatSpecCounts(s specCounts) string {
 	}
 	if s.Reviews > 0 {
 		parts = append(parts, fmt.Sprintf("%d reviews", s.Reviews))
+	}
+	if s.Environments > 0 {
+		parts = append(parts, fmt.Sprintf("%d environments", s.Environments))
 	}
 	if len(parts) == 0 {
 		return "none"

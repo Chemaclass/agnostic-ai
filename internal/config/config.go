@@ -129,14 +129,15 @@ type Gitignore struct {
 }
 
 type Sources struct {
-	Agents   string `yaml:"agents,omitempty"   json:"agents,omitempty"`
-	Skills   string `yaml:"skills,omitempty"   json:"skills,omitempty"`
-	Rules    string `yaml:"rules,omitempty"    json:"rules,omitempty"`
-	Hooks    string `yaml:"hooks,omitempty"    json:"hooks,omitempty"`
-	MCPs     string `yaml:"mcps,omitempty"     json:"mcps,omitempty"`
-	Commands string `yaml:"commands,omitempty" json:"commands,omitempty"`
-	Settings string `yaml:"settings,omitempty" json:"settings,omitempty"`
-	Reviews  string `yaml:"reviews,omitempty"  json:"reviews,omitempty"`
+	Agents       string `yaml:"agents,omitempty"   json:"agents,omitempty"`
+	Skills       string `yaml:"skills,omitempty"   json:"skills,omitempty"`
+	Rules        string `yaml:"rules,omitempty"    json:"rules,omitempty"`
+	Hooks        string `yaml:"hooks,omitempty"    json:"hooks,omitempty"`
+	MCPs         string `yaml:"mcps,omitempty"     json:"mcps,omitempty"`
+	Commands     string `yaml:"commands,omitempty" json:"commands,omitempty"`
+	Settings     string `yaml:"settings,omitempty"     json:"settings,omitempty"`
+	Reviews      string `yaml:"reviews,omitempty"      json:"reviews,omitempty"`
+	Environments string `yaml:"environments,omitempty" json:"environments,omitempty"`
 }
 
 // CodexExecPolicy describes one Skylark-flavored `prefix_rule(...)` entry
@@ -162,6 +163,7 @@ type Output struct {
 	RulesFile            string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
 	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
 	ReviewFile           string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
+	EnvironmentFile      string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
 	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
@@ -439,14 +441,15 @@ func defaults() *Config {
 	return &Config{
 		Version: 1,
 		Sources: Sources{
-			Agents:   defaultSource("agents"),
-			Skills:   defaultSource("skills"),
-			Rules:    defaultSource("rules"),
-			Hooks:    defaultSource("hooks"),
-			MCPs:     defaultSource("mcps"),
-			Commands: defaultSource("commands"),
-			Settings: defaultSource("settings"),
-			Reviews:  defaultSource("reviews"),
+			Agents:       defaultSource("agents"),
+			Skills:       defaultSource("skills"),
+			Rules:        defaultSource("rules"),
+			Hooks:        defaultSource("hooks"),
+			MCPs:         defaultSource("mcps"),
+			Commands:     defaultSource("commands"),
+			Settings:     defaultSource("settings"),
+			Reviews:      defaultSource("reviews"),
+			Environments: defaultSource("environments"),
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -477,6 +480,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Reviews == "" {
 		c.Sources.Reviews = defaultSource("reviews")
+	}
+	if c.Sources.Environments == "" {
+		c.Sources.Environments = defaultSource("environments")
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

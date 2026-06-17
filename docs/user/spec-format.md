@@ -8,10 +8,11 @@
 | Hook    | `hooks/*.yaml`                            | YAML                        |
 | MCP      | `mcps/*.yaml`                             | YAML                        |
 | Command  | `commands/*.md`                           | Markdown + YAML frontmatter |
-| Settings | `settings/*.yaml`                         | YAML                        |
-| Review   | `reviews/*.md`                            | Markdown + YAML frontmatter |
+| Settings    | `settings/*.yaml`                      | YAML                        |
+| Review      | `reviews/*.md`                         | Markdown + YAML frontmatter |
+| Environment | `environments/*.yaml`                  | YAML                        |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/` is picked up; every `.yaml` under `hooks/`, `mcps/`, and `settings/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/` is picked up; every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
 
 ## Nested layout: per-directory scope
 
@@ -430,6 +431,19 @@ Flag any handler that talks to the database directly instead of going through a 
 Review specs honor `scope` (and the source-directory layout) exactly like rules, so per-directory guidance is supported. Specs that share a scope concatenate into that scope's single review file.
 
 Native emission: Cursor [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md`: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones. Override the basename with `outputs.cursor.review-file`. Other targets have no equivalent review-rule file yet and report the spec as unsupported.
+
+## Environments
+
+Pure YAML, one file per environment group under `environments/`. A single source for how a coding agent boots its dev env (install dependencies, start services, forward ports, open terminals).
+
+```yaml
+install: go mod download
+terminals:
+  - name: dev
+    command: go run ./cmd/agnostic-ai
+```
+
+Native emission: Cursor background-agent [environment.json](https://docs.cursor.com/background-agent). The spec body is the `.cursor/environment.json` content: every key except the agnostic-ai routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) passes through verbatim, so you author Cursor's schema while agnostic-ai single-sources it. Multiple environment specs merge by top-level key (last wins). Override the path with `outputs.cursor.environment-file`. Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
 
 ## Frontmatter rules
 

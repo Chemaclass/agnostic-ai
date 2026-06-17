@@ -288,6 +288,9 @@
         "review-file": {
           "type": "string"
         },
+        "environment-file": {
+          "type": "string"
+        },
         "rules-mode": {
           "type": "string"
         },
@@ -388,6 +391,9 @@
           "type": "string"
         },
         "reviews": {
+          "type": "string"
+        },
+        "environments": {
           "type": "string"
         }
       },

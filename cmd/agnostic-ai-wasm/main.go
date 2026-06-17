@@ -167,8 +167,10 @@ func normalizeKind(raw string) (spec.Kind, error) {
 		return spec.KindSettings, nil
 	case "review":
 		return spec.KindReview, nil
+	case "environment":
+		return spec.KindEnvironment, nil
 	}
-	return "", fmt.Errorf("unknown kind %q (expected agent, skill, rule, hook, mcp, command, settings, review)", raw)
+	return "", fmt.Errorf("unknown kind %q (expected agent, skill, rule, hook, mcp, command, settings, review, environment)", raw)
 }
 
 func singleEntryBundleWASM(e spec.Entry) spec.Bundle {
@@ -190,6 +192,8 @@ func singleEntryBundleWASM(e spec.Entry) spec.Bundle {
 		b.Settings = []spec.Entry{e}
 	case spec.KindReview:
 		b.Reviews = []spec.Entry{e}
+	case spec.KindEnvironment:
+		b.Environments = []spec.Entry{e}
 	}
 	return b
 }
@@ -201,14 +205,15 @@ func defaultPlaygroundConfig(targets []string) *config.Config {
 	return &config.Config{
 		Version: 1,
 		Sources: config.Sources{
-			Agents:   ".agnostic-ai/agents",
-			Skills:   ".agnostic-ai/skills",
-			Rules:    ".agnostic-ai/rules",
-			Hooks:    ".agnostic-ai/hooks",
-			MCPs:     ".agnostic-ai/mcps",
-			Commands: ".agnostic-ai/commands",
-			Settings: ".agnostic-ai/settings",
-			Reviews:  ".agnostic-ai/reviews",
+			Agents:       ".agnostic-ai/agents",
+			Skills:       ".agnostic-ai/skills",
+			Rules:        ".agnostic-ai/rules",
+			Hooks:        ".agnostic-ai/hooks",
+			MCPs:         ".agnostic-ai/mcps",
+			Commands:     ".agnostic-ai/commands",
+			Settings:     ".agnostic-ai/settings",
+			Reviews:      ".agnostic-ai/reviews",
+			Environments: ".agnostic-ai/environments",
 		},
 		Targets:       targets,
 		OnUnsupported: "warn",

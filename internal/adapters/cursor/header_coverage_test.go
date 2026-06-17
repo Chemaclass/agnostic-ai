@@ -99,6 +99,10 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{Kind: spec.KindReview, Name: "bugbot", Path: "reviews/bugbot.md", Body: "review root guidance"},
 		{Kind: spec.KindReview, Name: "be", Path: "reviews/backend/be.md", Scope: "backend", Body: "review backend guidance"},
+		{
+			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
+			Meta: map[string]any{"name": "default", "install": "go mod download"},
+		},
 	}
 	return spec.NewBundle(entries)
 }
