@@ -164,9 +164,10 @@ func newDoctorCmd() *cobra.Command {
 			"  1. Detect installed AI CLIs on PATH.\n" +
 			"  2. Validate agnostic-ai.yaml config.\n" +
 			"  3. Report unsupported spec kinds per target.\n" +
-			"  4. Compare what sync would emit against files on disk (drift).\n" +
-			"  5. Check MCP server command binaries.\n" +
-			"  6. Suggest a concrete next step.\n\n" +
+			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/.\n" +
+			"  5. Compare what sync would emit against files on disk (drift).\n" +
+			"  6. Check MCP server command binaries.\n" +
+			"  7. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift. Subcommands run individual checks.",
 		Example: `  # Full diagnostic (CI gate)
   agnostic-ai doctor
@@ -215,6 +216,9 @@ func newDoctorCmd() *cobra.Command {
 
 			// 3. Unsupported kinds
 			reportUnsupportedKinds(cmd, cfg)
+
+			// 3b. Config present on disk but not single-sourced.
+			reportUnmanagedConfig(cmd, ".")
 
 			// 4. Drift
 			cmd.Println()
