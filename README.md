@@ -81,7 +81,7 @@ All 14 targets are first-class. The matrix shows the emission shape per kind (ev
 | Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
 | Codex CLI           |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
 | Gemini CLI          |   ✅    |   ○    |   ◐   |   ✅   |  ✅   |
-| Cursor              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Cursor              |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
 | GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Aider               |   ○    |   ○    |   ◐   |   -   |  -   |
 | Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
@@ -100,7 +100,7 @@ Legend, in descending order of native support:
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 
-Hooks are native on Claude, Codex, and Gemini; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity).
+Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
 
 The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) confirming the emitted paths against the live tool.
 
