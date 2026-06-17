@@ -13,6 +13,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - New `environment` spec kind (`.agnostic-ai/environments/*.yaml`) single-sources dev-env bootstrap. Cursor emits it as `.cursor/environment.json`; other targets report the kind as unsupported. (#434)
 - New `ignore` spec kind (`.agnostic-ai/ignore/*.md`) single-sources agent ignore patterns. Emits each tool's native ignore file from one list: Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
 - The `command` spec kind now emits each target's native command/prompt format without opt-in flags: Gemini `.gemini/commands/<name>.toml`, OpenCode `.opencode/commands/<name>.md`, and Amp `.agents/commands/<name>.md` join Claude and Codex. Cursor emits Custom Commands when `outputs.cursor.commands-dir` is set. (#436)
+- `doctor` reports an "Unmanaged config" block: known agentic config files on disk (CLAUDE.md, AGENTS.md, GEMINI.md, `.cursor/rules/*.mdc`, BUGBOT.md, per-tool agent/command/skill files, ...) that carry no agnostic-ai provenance marker, grouped with the `import` command that would single-source each. Advisory; does not affect exit code. (#440)
 - Cursor hooks: the `hook` spec kind now emits `.cursor/hooks.json` ([Cursor Hooks](https://cursor.com/docs/hooks), `version` + per-event arrays), closing the parity gap with Claude/Codex/Gemini. Cursor uses its own camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; override the path via `outputs.cursor.hooks-file`. (#438)
 
 ### Fixed

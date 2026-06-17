@@ -340,6 +340,8 @@ Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to 
 
 After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `command:` and whether it resolves on PATH. Missing common commands (`npx`, `uvx`, `python`, `docker`) include an inline install hint. HTTP/SSE servers (no command, only `url:`) skip the check. Advisory only: a missing binary does not change doctor's exit code.
 
+doctor also prints an **Unmanaged config block**: known agentic config files present on disk but not generated from `.agnostic-ai/` (no provenance marker), grouped by the `import` source that would adopt each. This surfaces files still single-sourced by hand (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`, etc.) so you can `agnostic-ai import <target>` them. Only header-bearing formats (markdown, TOML) are scanned; JSON config (settings.json, mcp.json, hooks.json) is merge-managed and covered by the drift block instead. Advisory only: it does not change doctor's exit code.
+
 Subcommands run a single check in isolation: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
 
 After the MCP block, doctor walks `.agnostic-ai/scripts/<tool>/` per tool and groups files by basename. When the same basename exists under two or more tools with different SHA-256 bodies, it prints one finding per divergent script (sizes + truncated hashes per variant) and the suggested consolidation path `.agnostic-ai/scripts/<basename>`. Divergence counts as drift and contributes to a non-zero exit, since it usually means an unnoticed import diff between tools. Not auto-fixable: choosing the winning body needs human judgement.
