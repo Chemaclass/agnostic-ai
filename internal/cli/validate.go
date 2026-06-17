@@ -30,13 +30,19 @@ func newValidateCmd() *cobra.Command {
 			}
 			entries := b.All()
 			cmd.Printf("loaded %d entries.\n", len(entries))
+			// Declared-but-missing source dirs are reported even when no
+			// specs loaded: an all-missing-sources config is exactly the
+			// case where the warning matters most (#444).
+			sourceIssues := lintMissingSources(".")
 			if len(entries) == 0 {
+				reportIssues(cmd, sourceIssues)
 				cmd.PrintErrln(emptySpecsHint)
 				return nil
 			}
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, cfg.Targets)...)
 			issues = append(issues, lintOrphanKinds(b, cfg.Targets)...)
+			issues = append(issues, sourceIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
 				return nil
