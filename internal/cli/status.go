@@ -40,6 +40,7 @@ type specCounts struct {
 	Settings     int
 	Reviews      int
 	Environments int
+	Ignores      int
 }
 
 func newStatusCmd() *cobra.Command {
@@ -183,6 +184,7 @@ func countSpecs(b spec.Bundle) specCounts {
 		Settings:     len(b.Settings),
 		Reviews:      len(b.Reviews),
 		Environments: len(b.Environments),
+		Ignores:      len(b.Ignores),
 	}
 }
 
@@ -232,6 +234,7 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		Settings     int `json:"settings"`
 		Reviews      int `json:"reviews"`
 		Environments int `json:"environments"`
+		Ignores      int `json:"ignores"`
 	}
 	type statusJSON struct {
 		Project              string      `json:"project"`
@@ -256,6 +259,7 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 			Settings:     r.Specs.Settings,
 			Reviews:      r.Specs.Reviews,
 			Environments: r.Specs.Environments,
+			Ignores:      r.Specs.Ignores,
 		},
 		Targets:              r.Targets,
 		FilesChangedLastSync: r.FilesChanged,
@@ -302,6 +306,9 @@ func formatSpecCounts(s specCounts) string {
 	}
 	if s.Environments > 0 {
 		parts = append(parts, fmt.Sprintf("%d environments", s.Environments))
+	}
+	if s.Ignores > 0 {
+		parts = append(parts, fmt.Sprintf("%d ignores", s.Ignores))
 	}
 	if len(parts) == 0 {
 		return "none"

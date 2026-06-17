@@ -173,6 +173,8 @@ func singleEntryBundle(e spec.Entry) spec.Bundle {
 		b.Reviews = []spec.Entry{e}
 	case spec.KindEnvironment:
 		b.Environments = []spec.Entry{e}
+	case spec.KindIgnore:
+		b.Ignores = []spec.Entry{e}
 	}
 	return b
 }

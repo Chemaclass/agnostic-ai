@@ -21,11 +21,12 @@ const (
 	defaultMCPFile     = ".cursor/mcp.json"
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
+	defaultIgnoreFile  = ".cursorignore"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
 }
 
 // environRoutingKeys are the agnostic-ai spec fields stripped after
@@ -69,6 +70,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	if err := emitEnvironment(b, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {

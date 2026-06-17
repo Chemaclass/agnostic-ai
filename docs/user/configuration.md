@@ -44,6 +44,7 @@ sources:
   settings: .agnostic-ai/settings
   reviews: .agnostic-ai/reviews
   environments: .agnostic-ai/environments
+  ignore: .agnostic-ai/ignore
 
 # AI CLIs to emit configs for. These 12 are the default set (used when
 # `targets` is omitted). Two more adapters exist, `amp` and `warp`. They
@@ -101,17 +102,20 @@ outputs:
     commands-dir: .gemini/commands   # default. One .toml per agent (and per skill when opted in).
     emit-skills-as-commands: false   # default
     mcp-file: .gemini/settings.json  # default. Holds both mcpServers and hooks.
+    ignore-file: .aiexclude          # default. Agent ignore patterns (gitignore syntax).
   cursor:
     rules-dir: .cursor/rules     # default
     mcp-file: .cursor/mcp.json   # default
     review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
     environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
+    ignore-file: .cursorignore   # default. Agent ignore patterns (gitignore syntax).
     # commands-dir: .cursor/commands  # opt-in: also emit each agent as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
     mcp-file: .vscode/mcp.json              # default
     # chatmodes-dir: .github/chatmodes      # opt-in: also emit each agent as a Copilot Custom Chat Mode.
   aider:
+    ignore-file: .aiderignore    # default. Agent ignore patterns (gitignore syntax).
     # Opt-in: also merge .aider.conf.yml so Aider auto-loads CONVENTIONS.md.
     # conf-file: .aider.conf.yml
     # model: gpt-4o

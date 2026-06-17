@@ -33,6 +33,7 @@ func renderConfig(base string, targets []string, gitignoreEnabled bool) string {
 	fmt.Fprintf(&sb, "  settings: %ssettings\n", prefix)
 	fmt.Fprintf(&sb, "  reviews: %sreviews\n", prefix)
 	fmt.Fprintf(&sb, "  environments: %senvironments\n", prefix)
+	fmt.Fprintf(&sb, "  ignore: %signore\n", prefix)
 	sb.WriteString("\ntargets:\n")
 	for _, t := range targets {
 		fmt.Fprintf(&sb, "  - %s\n", t)
@@ -75,7 +76,7 @@ type scaffoldOptions struct {
 
 // scaffoldKinds is the source-folder set every scaffold creates. Order
 // does not matter on disk but is preserved for stable dry-run output.
-var scaffoldKinds = []string{"agents", "skills", "rules", "hooks", "mcps", "commands", "settings", "reviews", "environments"}
+var scaffoldKinds = []string{"agents", "skills", "rules", "hooks", "mcps", "commands", "settings", "reviews", "environments", "ignore"}
 
 // scaffold creates agnostic-ai.yaml at Root and the source-folder tree
 // under Base. See scaffoldOptions for the per-field contract.

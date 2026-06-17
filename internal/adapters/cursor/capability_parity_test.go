@@ -30,6 +30,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindMCP, []string{".cursor/mcp.json"}},
 		{spec.KindReview, []string{"BUGBOT.md", "backend/BUGBOT.md"}},
 		{spec.KindEnvironment, []string{".cursor/environment.json"}},
+		{spec.KindIgnore, []string{".cursorignore"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

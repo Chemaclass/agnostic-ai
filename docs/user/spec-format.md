@@ -11,8 +11,9 @@
 | Settings    | `settings/*.yaml`                      | YAML                        |
 | Review      | `reviews/*.md`                         | Markdown + YAML frontmatter |
 | Environment | `environments/*.yaml`                  | YAML                        |
+| Ignore      | `ignore/*.md`                          | Markdown + YAML frontmatter |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/` is picked up; every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, `ignore/` is picked up; every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
 
 ## Nested layout: per-directory scope
 
@@ -444,6 +445,19 @@ terminals:
 ```
 
 Native emission: Cursor background-agent [environment.json](https://docs.cursor.com/background-agent). The spec body is the `.cursor/environment.json` content: every key except the agnostic-ai routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) passes through verbatim, so you author Cursor's schema while agnostic-ai single-sources it. Multiple environment specs merge by top-level key (last wins). Override the path with `outputs.cursor.environment-file`. Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
+
+## Ignore
+
+Markdown with optional YAML frontmatter, one file per group under `ignore/`. The body is gitignore-syntax patterns naming what an agent must not read or index. One source fans out to each tool's native ignore file.
+
+```markdown
+# Secrets and build artifacts the agent should never read
+*.env
+secrets/
+dist/
+```
+
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ## Frontmatter rules
 

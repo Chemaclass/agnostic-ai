@@ -1,9 +1,9 @@
 // Package spec loads and parses agnostic-ai source specs from disk.
 //
-// Specs come in nine kinds (agent, skill, rule, hook, mcp, command,
-// settings, review, environment). Markdown specs (agent, skill, rule,
-// command, review) use YAML frontmatter; hook, mcp, settings, and
-// environment specs are pure YAML.
+// Specs come in ten kinds (agent, skill, rule, hook, mcp, command,
+// settings, review, environment, ignore). Markdown specs (agent, skill,
+// rule, command, review, ignore) use YAML frontmatter; hook, mcp,
+// settings, and environment specs are pure YAML.
 package spec
 
 import (
@@ -34,11 +34,12 @@ const (
 	KindSettings    Kind = "settings"
 	KindReview      Kind = "review"
 	KindEnvironment Kind = "environment"
+	KindIgnore      Kind = "ignore"
 )
 
 // AllKinds is the canonical ordering used by adapters that emit
 // per-kind sections.
-var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCommand, KindSettings, KindReview, KindEnvironment}
+var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCommand, KindSettings, KindReview, KindEnvironment, KindIgnore}
 
 // Entry is a single loaded spec.
 type Entry struct {
@@ -311,6 +312,7 @@ type Bundle struct {
 	Settings     []Entry
 	Reviews      []Entry
 	Environments []Entry
+	Ignores      []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -337,6 +339,8 @@ func NewBundle(entries []Entry) Bundle {
 			b.Reviews = append(b.Reviews, e)
 		case KindEnvironment:
 			b.Environments = append(b.Environments, e)
+		case KindIgnore:
+			b.Ignores = append(b.Ignores, e)
 		}
 	}
 	return b
@@ -344,7 +348,7 @@ func NewBundle(entries []Entry) Bundle {
 
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
-	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs)+len(b.Commands)+len(b.Settings)+len(b.Reviews)+len(b.Environments))
+	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs)+len(b.Commands)+len(b.Settings)+len(b.Reviews)+len(b.Environments)+len(b.Ignores))
 	out = append(out, b.Agents...)
 	out = append(out, b.Skills...)
 	out = append(out, b.Rules...)
@@ -354,6 +358,7 @@ func (b Bundle) All() []Entry {
 	out = append(out, b.Settings...)
 	out = append(out, b.Reviews...)
 	out = append(out, b.Environments...)
+	out = append(out, b.Ignores...)
 	return out
 }
 
@@ -389,6 +394,7 @@ func (b Bundle) For(target string) Bundle {
 		Settings:     filterEntriesFor(b.Settings, target),
 		Reviews:      filterEntriesFor(b.Reviews, target),
 		Environments: filterEntriesFor(b.Environments, target),
+		Ignores:      filterEntriesFor(b.Ignores, target),
 	}
 }
 
@@ -430,6 +436,8 @@ func (b Bundle) Has(k Kind) bool {
 		return len(b.Reviews) > 0
 	case KindEnvironment:
 		return len(b.Environments) > 0
+	case KindIgnore:
+		return len(b.Ignores) > 0
 	}
 	return false
 }
@@ -470,6 +478,7 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 		b.Settings = mergeEntries(b.Settings, lb.Settings)
 		b.Reviews = mergeEntries(b.Reviews, lb.Reviews)
 		b.Environments = mergeEntries(b.Environments, lb.Environments)
+		b.Ignores = mergeEntries(b.Ignores, lb.Ignores)
 	}
 	return b, nil
 }
@@ -492,6 +501,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 		{layer.Sources.Settings, ".yaml", KindSettings, parseYAML, &b.Settings},
 		{layer.Sources.Reviews, ".md", KindReview, parseMarkdown, &b.Reviews},
 		{layer.Sources.Environments, ".yaml", KindEnvironment, parseYAML, &b.Environments},
+		{layer.Sources.Ignore, ".md", KindIgnore, parseMarkdown, &b.Ignores},
 	}
 	for _, l := range loaders {
 		if l.src == "" {

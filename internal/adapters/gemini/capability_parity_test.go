@@ -37,6 +37,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{"GEMINI-rules.md"}},
 		{spec.KindHook, []string{".gemini/settings.json"}},
 		{spec.KindMCP, []string{".gemini/settings.json"}},
+		{spec.KindIgnore, []string{".aiexclude"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

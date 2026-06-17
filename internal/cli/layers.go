@@ -35,6 +35,7 @@ func defaultLayerSources() config.Sources {
 		Settings:     "settings",
 		Reviews:      "reviews",
 		Environments: "environments",
+		Ignore:       "ignore",
 	}
 }
 

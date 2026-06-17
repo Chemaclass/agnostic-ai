@@ -25,13 +25,14 @@ import (
 )
 
 const (
-	target         = "aider"
-	defaultOutFile = "CONVENTIONS.md"
+	target            = "aider"
+	defaultOutFile    = "CONVENTIONS.md"
+	defaultIgnoreFile = ".aiderignore"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore},
 }
 
 // Adapter emits Aider configs.
@@ -67,6 +68,9 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		// source-dir only.
 		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents), "outputs.aider.rules-file")
 		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "outputs.aider.rules-file")
+	}
+	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+		return err
 	}
 	return emitConf(
 		emit.OutputConfFile(cfg, target, ""),

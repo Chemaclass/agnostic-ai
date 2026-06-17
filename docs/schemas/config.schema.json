@@ -291,6 +291,9 @@
         "environment-file": {
           "type": "string"
         },
+        "ignore-file": {
+          "type": "string"
+        },
         "rules-mode": {
           "type": "string"
         },
@@ -394,6 +397,9 @@
           "type": "string"
         },
         "environments": {
+          "type": "string"
+        },
+        "ignore": {
           "type": "string"
         }
       },
