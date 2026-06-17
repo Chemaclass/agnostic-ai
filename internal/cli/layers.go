@@ -33,6 +33,7 @@ func defaultLayerSources() config.Sources {
 		MCPs:     "mcps",
 		Commands: "commands",
 		Settings: "settings",
+		Reviews:  "reviews",
 	}
 }
 

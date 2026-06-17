@@ -1,8 +1,8 @@
 // Package spec loads and parses agnostic-ai source specs from disk.
 //
-// Specs come in seven kinds (agent, skill, rule, hook, mcp, command,
-// settings). Markdown specs (agent, skill, rule, command) use YAML
-// frontmatter; hook, mcp, and settings specs are pure YAML.
+// Specs come in eight kinds (agent, skill, rule, hook, mcp, command,
+// settings, review). Markdown specs (agent, skill, rule, command, review)
+// use YAML frontmatter; hook, mcp, and settings specs are pure YAML.
 package spec
 
 import (
@@ -31,11 +31,12 @@ const (
 	KindMCP      Kind = "mcp"
 	KindCommand  Kind = "command"
 	KindSettings Kind = "settings"
+	KindReview   Kind = "review"
 )
 
 // AllKinds is the canonical ordering used by adapters that emit
 // per-kind sections.
-var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCommand, KindSettings}
+var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCommand, KindSettings, KindReview}
 
 // Entry is a single loaded spec.
 type Entry struct {
@@ -306,6 +307,7 @@ type Bundle struct {
 	MCPs     []Entry
 	Commands []Entry
 	Settings []Entry
+	Reviews  []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -328,6 +330,8 @@ func NewBundle(entries []Entry) Bundle {
 			b.Commands = append(b.Commands, e)
 		case KindSettings:
 			b.Settings = append(b.Settings, e)
+		case KindReview:
+			b.Reviews = append(b.Reviews, e)
 		}
 	}
 	return b
@@ -335,7 +339,7 @@ func NewBundle(entries []Entry) Bundle {
 
 // All returns every entry in canonical kind order.
 func (b Bundle) All() []Entry {
-	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs)+len(b.Commands)+len(b.Settings))
+	out := make([]Entry, 0, len(b.Agents)+len(b.Skills)+len(b.Rules)+len(b.Hooks)+len(b.MCPs)+len(b.Commands)+len(b.Settings)+len(b.Reviews))
 	out = append(out, b.Agents...)
 	out = append(out, b.Skills...)
 	out = append(out, b.Rules...)
@@ -343,6 +347,7 @@ func (b Bundle) All() []Entry {
 	out = append(out, b.MCPs...)
 	out = append(out, b.Commands...)
 	out = append(out, b.Settings...)
+	out = append(out, b.Reviews...)
 	return out
 }
 
@@ -376,6 +381,7 @@ func (b Bundle) For(target string) Bundle {
 		MCPs:     filterEntriesFor(b.MCPs, target),
 		Commands: filterEntriesFor(b.Commands, target),
 		Settings: filterEntriesFor(b.Settings, target),
+		Reviews:  filterEntriesFor(b.Reviews, target),
 	}
 }
 
@@ -413,6 +419,8 @@ func (b Bundle) Has(k Kind) bool {
 		return len(b.Commands) > 0
 	case KindSettings:
 		return len(b.Settings) > 0
+	case KindReview:
+		return len(b.Reviews) > 0
 	}
 	return false
 }
@@ -451,6 +459,7 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 		b.MCPs = mergeEntries(b.MCPs, lb.MCPs)
 		b.Commands = mergeEntries(b.Commands, lb.Commands)
 		b.Settings = mergeEntries(b.Settings, lb.Settings)
+		b.Reviews = mergeEntries(b.Reviews, lb.Reviews)
 	}
 	return b, nil
 }
@@ -471,6 +480,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 		{layer.Sources.MCPs, ".yaml", KindMCP, parseYAML, &b.MCPs},
 		{layer.Sources.Commands, ".md", KindCommand, parseMarkdown, &b.Commands},
 		{layer.Sources.Settings, ".yaml", KindSettings, parseYAML, &b.Settings},
+		{layer.Sources.Reviews, ".md", KindReview, parseMarkdown, &b.Reviews},
 	}
 	for _, l := range loaders {
 		if l.src == "" {

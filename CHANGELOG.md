@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - New `settings` spec kind (`.agnostic-ai/settings/*.yaml`) single-sources agent `permissions` (allow/deny/ask) and the default `model` across tools. Claude maps them into `.claude/settings.json`; targets with no settings surface report the kind as unsupported. (#432)
+- New `review` spec kind (`.agnostic-ai/reviews/*.md`) single-sources code-review-bot guidance. Cursor emits it as scope-located `BUGBOT.md` files (root + per-directory); other targets report the kind as unsupported. (#433)
 
 ### Fixed
 

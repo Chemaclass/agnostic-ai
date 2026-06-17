@@ -60,6 +60,7 @@ type SpecsEnvelope struct {
 	Hooks    []SpecEntry `json:"hooks,omitempty"`
 	MCPs     []SpecEntry `json:"mcps,omitempty"`
 	Settings []SpecEntry `json:"settings,omitempty"`
+	Reviews  []SpecEntry `json:"reviews,omitempty"`
 }
 
 // SpecEntry is the JSON shape of one spec passed to the adapter. The
@@ -169,6 +170,7 @@ func buildInput(target string, b spec.Bundle, cfg *config.Config, dryRun bool) I
 	in.Specs.Hooks = entriesToWire(b.HooksFor(target))
 	in.Specs.MCPs = entriesToWire(b.MCPs)
 	in.Specs.Settings = entriesToWire(b.Settings)
+	in.Specs.Reviews = entriesToWire(b.Reviews)
 	return in
 }
 

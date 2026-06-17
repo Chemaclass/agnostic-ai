@@ -259,6 +259,7 @@ func bundleWithout(b spec.Bundle, e spec.Entry) spec.Bundle {
 		MCPs:     filterEntries(b.MCPs, e.Path),
 		Commands: filterEntries(b.Commands, e.Path),
 		Settings: filterEntries(b.Settings, e.Path),
+		Reviews:  filterEntries(b.Reviews, e.Path),
 	}
 }
 

@@ -97,6 +97,8 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
 		},
+		{Kind: spec.KindReview, Name: "bugbot", Path: "reviews/bugbot.md", Body: "review root guidance"},
+		{Kind: spec.KindReview, Name: "be", Path: "reviews/backend/be.md", Scope: "backend", Body: "review backend guidance"},
 	}
 	return spec.NewBundle(entries)
 }

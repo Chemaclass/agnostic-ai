@@ -136,6 +136,7 @@ type Sources struct {
 	MCPs     string `yaml:"mcps,omitempty"     json:"mcps,omitempty"`
 	Commands string `yaml:"commands,omitempty" json:"commands,omitempty"`
 	Settings string `yaml:"settings,omitempty" json:"settings,omitempty"`
+	Reviews  string `yaml:"reviews,omitempty"  json:"reviews,omitempty"`
 }
 
 // CodexExecPolicy describes one Skylark-flavored `prefix_rule(...)` entry
@@ -160,6 +161,7 @@ type Output struct {
 	File                 string            `yaml:"file,omitempty"                     json:"file,omitempty"`
 	RulesFile            string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
 	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	ReviewFile           string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
 	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
@@ -444,6 +446,7 @@ func defaults() *Config {
 			MCPs:     defaultSource("mcps"),
 			Commands: defaultSource("commands"),
 			Settings: defaultSource("settings"),
+			Reviews:  defaultSource("reviews"),
 		},
 		Targets:       DefaultTargets(),
 		OnUnsupported: "warn",
@@ -471,6 +474,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Sources.Settings == "" {
 		c.Sources.Settings = defaultSource("settings")
+	}
+	if c.Sources.Reviews == "" {
+		c.Sources.Reviews = defaultSource("reviews")
 	}
 	if c.OnUnsupported == "" {
 		c.OnUnsupported = "warn"

@@ -6,10 +6,83 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+// Review specs emit one scope-located BUGBOT.md: unscoped at the repo root,
+// scoped under its directory, with same-scope specs concatenated (#433).
+func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: "root rule one"},
+		{Kind: spec.KindReview, Name: "root2", Path: "reviews/root2.md", Body: "root rule two"},
+		{Kind: spec.KindReview, Name: "be", Path: "reviews/backend/be.md", Scope: "backend", Body: "backend rule"},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+
+	root, err := os.ReadFile(filepath.Join(cwd, "BUGBOT.md"))
+	if err != nil {
+		t.Fatalf("read root BUGBOT.md: %v", err)
+	}
+	if !strings.Contains(string(root), "root rule one") || !strings.Contains(string(root), "root rule two") {
+		t.Errorf("root BUGBOT.md missing concatenated specs:\n%s", root)
+	}
+	be, err := os.ReadFile(filepath.Join(cwd, "backend", "BUGBOT.md"))
+	if err != nil {
+		t.Fatalf("read backend BUGBOT.md: %v", err)
+	}
+	if !strings.Contains(string(be), "backend rule") {
+		t.Errorf("backend BUGBOT.md wrong content:\n%s", be)
+	}
+	if strings.Contains(string(be), "root rule") {
+		t.Errorf("scoped review leaked root content:\n%s", be)
+	}
+}
+
+// The review output basename is overridable via outputs.cursor.review-file.
+func TestEmit_ReviewFileOverride(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: "guidance"},
+	})
+	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {ReviewFile: "REVIEW.md"}}}
+	if err := New().Emit(b, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, "REVIEW.md"))
+	if err != nil {
+		t.Fatalf("expected REVIEW.md override: %v", err)
+	}
+	if !strings.Contains(string(got), "guidance") {
+		t.Errorf("override file missing body: %s", got)
+	}
+	if !header.Has(string(got)) {
+		t.Errorf("override file missing provenance header: %s", got)
+	}
+}
+
+// A frontmatter scope that escapes the repo root must not write a file
+// outside the project tree (#433 review).
+func TestEmit_ReviewScopeEscapeIsBlocked(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindReview, Name: "evil", Path: "reviews/evil.md", Meta: map[string]any{"scope": "../escape"}, Body: "x"},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(cwd), "escape", "BUGBOT.md")); err == nil {
+		t.Errorf("escaping scope wrote BUGBOT.md outside the repo root")
+	}
+}
 
 // Cursor has no settings surface, so a settings spec is unsupported and
 // reported (errors under on-unsupported: error). Confirms the settings

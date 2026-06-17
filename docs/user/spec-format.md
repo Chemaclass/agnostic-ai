@@ -9,8 +9,9 @@
 | MCP      | `mcps/*.yaml`                             | YAML                        |
 | Command  | `commands/*.md`                           | Markdown + YAML frontmatter |
 | Settings | `settings/*.yaml`                         | YAML                        |
+| Review   | `reviews/*.md`                            | Markdown + YAML frontmatter |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/` is picked up; every `.yaml` under `hooks/`, `mcps/`, and `settings/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/` is picked up; every `.yaml` under `hooks/`, `mcps/`, and `settings/`.
 
 ## Nested layout: per-directory scope
 
@@ -413,6 +414,22 @@ Native emission: Claude Code (`.claude/settings.json` `permissions` + `model`). 
 When the Claude-specific `outputs.claude.settings` config in `agnostic-ai.yaml` also sets these fields, scalars like `model` take the config value (it is the more specific source), while `permissions` lists are unioned across the captured overlay, the settings spec, and the config so no layer silently drops another's allow/deny/ask rules.
 
 `settings` specs are hand-authored: `import claude` does not create them. An imported `.claude/settings.json` keeps its `permissions` and `model` in the Claude-only overlay (`.agnostic-ai/overlays/claude.settings.json`), since a value like a Claude model id does not necessarily port to other tools. Author a `settings` spec when you want one source to drive multiple tools; a settings spec's `permissions` still union with the imported overlay on sync.
+
+## Reviews
+
+Markdown with optional YAML frontmatter, one file per guidance group under `reviews/`. A single source for code-review-bot guidance that maps to each ecosystem's native review-rule file.
+
+```markdown
+---
+scope: backend
+---
+
+Flag any handler that talks to the database directly instead of going through a repository.
+```
+
+Review specs honor `scope` (and the source-directory layout) exactly like rules, so per-directory guidance is supported. Specs that share a scope concatenate into that scope's single review file.
+
+Native emission: Cursor [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md`: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones. Override the basename with `outputs.cursor.review-file`. Other targets have no equivalent review-rule file yet and report the spec as unsupported.
 
 ## Frontmatter rules
 

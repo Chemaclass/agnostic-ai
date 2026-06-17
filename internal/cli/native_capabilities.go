@@ -49,6 +49,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindMCP:      setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode"),
 	spec.KindCommand:  setOf("claude", "codex"),
 	spec.KindSettings: setOf("claude"),
+	spec.KindReview:   setOf("cursor"),
 }
 
 func setOf(items ...string) map[string]struct{} {
