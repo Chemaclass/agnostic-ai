@@ -87,6 +87,14 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
+			Kind: spec.KindHook, Name: "audit-shell",
+			Meta: map[string]any{"event": "beforeShellExecution", "matcher": "rm|dd", "command": "echo audit"},
+		},
+		{
+			Kind: spec.KindHook, Name: "fmt-edit",
+			Meta: map[string]any{"event": "afterFileEdit", "command": "echo fmt"},
+		},
+		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
 		},

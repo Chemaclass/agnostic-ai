@@ -85,11 +85,11 @@ func TestValidate_HookEventGeminiSubsetUnknownToClaude(t *testing.T) {
 }
 
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
-	// Cursor + cline configured; neither emits hooks. The hook spec
+	// copilot + cline configured; neither emits hooks. The hook spec
 	// is dead weight and validate should say so.
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
-		"version: 1\ntargets:\n  - cursor\n  - cline\n")
+		"version: 1\ntargets:\n  - copilot\n  - cline\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)

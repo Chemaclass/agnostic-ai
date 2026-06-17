@@ -27,6 +27,19 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"BeforeTool", "AfterTool",
 		"SessionStart", "SessionEnd",
 	),
+	"cursor": setOf(
+		"beforeShellExecution", "afterShellExecution",
+		"beforeMCPExecution", "afterMCPExecution",
+		"beforeReadFile", "afterFileEdit",
+		"beforeSubmitPrompt",
+		"preToolUse", "postToolUse", "postToolUseFailure",
+		"sessionStart", "sessionEnd",
+		"subagentStart", "subagentStop",
+		"preCompact", "stop",
+		"afterAgentResponse", "afterAgentThought",
+		"beforeTabFileRead", "afterTabFileEdit",
+		"workspaceOpen",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -35,6 +48,11 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 var matcherAcceptingEvents = setOf(
 	"PreToolUse", "PostToolUse", // claude, codex
 	"BeforeTool", "AfterTool", // gemini
+	// cursor: tool/shell/MCP/file events filter on a regex matcher.
+	"beforeShellExecution", "afterShellExecution",
+	"beforeMCPExecution", "afterMCPExecution",
+	"beforeReadFile", "afterFileEdit",
+	"preToolUse", "postToolUse", "postToolUseFailure",
 )
 
 // targetsSupportingKind lists the targets whose adapter actually
@@ -45,7 +63,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "zed"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "amp", "cursor"),
 	spec.KindSettings:    setOf("claude"),

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "echo fmt"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "echo audit",
+        "matcher": "rm|dd"
+      }
+    ]
+  }
+}

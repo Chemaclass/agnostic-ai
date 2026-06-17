@@ -22,11 +22,12 @@ const (
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
 	defaultIgnoreFile  = ".cursorignore"
+	defaultHooksFile   = ".cursor/hooks.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
 }
 
 // environRoutingKeys are the agnostic-ai spec fields stripped after
@@ -91,7 +92,120 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	} else {
 		emit.NoteCoverageGap(target, spec.KindCommand, len(b.Commands), "outputs.cursor.commands-dir")
 	}
+	if err := emitHooks(b.HooksFor(target), cfg, dryRun); err != nil {
+		return err
+	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// hooksDoc is the `.cursor/hooks.json` shape per the Cursor hooks docs:
+// a numeric `version` plus a `hooks` map keyed by lifecycle event name,
+// each event holding an array of `{command, matcher?}` entries.
+type hooksDoc struct {
+	Version int            `json:"version"`
+	Hooks   map[string]any `json:"hooks"`
+}
+
+// emitHooks writes the managed `.cursor/hooks.json` from the hook specs
+// scoped to cursor. The file is overwritten each sync; a no-op when no
+// hooks resolve to output. The path is overridable via
+// `outputs.cursor.hooks-file`. Hook scripts stashed under
+// `.agnostic-ai/scripts/` materialize into `.cursor/hooks/` so the
+// emitted `command:` paths resolve.
+func emitHooks(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+	byEvent := buildHooks(hooks)
+	if len(byEvent) == 0 {
+		return nil
+	}
+	raw, err := emit.MarshalJSONIndent(hooksDoc{Version: 1, Hooks: byEvent})
+	if err != nil {
+		return fmt.Errorf("cursor hooks: %w", err)
+	}
+	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
+	if err := emit.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
+		return err
+	}
+	return materializeHookScripts(hooks, dryRun)
+}
+
+// buildHooks groups hook specs by their `event` frontmatter into Cursor's
+// `hooks.<event> = [{command, matcher?}, ...]` shape. Cursor passes the
+// event name through verbatim (no cross-tool translation), so a cursor
+// hook spec sets `event:` to a Cursor lifecycle name (e.g.
+// `beforeShellExecution`, `afterFileEdit`). `matcher` is omitted when
+// absent. A `command:` list yields one entry per element.
+func buildHooks(hooks []spec.Entry) map[string]any {
+	byEvent := map[string][]map[string]any{}
+	for _, h := range hooks {
+		event, _ := h.Meta["event"].(string)
+		if event == "" {
+			continue
+		}
+		matcher, _ := h.Meta["matcher"].(string)
+		cmds := hookCommands(h.Meta["command"])
+		if len(cmds) == 0 {
+			continue
+		}
+		for _, cmd := range cmds {
+			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
+			if matcher != "" {
+				entry["matcher"] = matcher
+			}
+			byEvent[event] = append(byEvent[event], entry)
+		}
+	}
+	out := map[string]any{}
+	for k, v := range byEvent {
+		out[k] = v
+	}
+	return out
+}
+
+// materializeHookScripts copies each hook's stashed script body from
+// `.agnostic-ai/scripts/` into `.cursor/hooks/` so the emitted
+// hooks.json references a script that exists. Hooks whose command is a
+// free-form shell expression carry no stashed body and skip silently.
+func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+	for _, h := range hooks {
+		for _, raw := range hookCommands(h.Meta["command"]) {
+			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
+			rewritten := emit.RewriteHookPath(raw, target)
+			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// hookCommands normalizes a `command:` field that may be a string or a
+// list of strings into a single []string. Empty strings drop out.
+func hookCommands(raw any) []string {
+	switch v := raw.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(v))
+		for _, s := range v {
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // command renders a Cursor Custom Command file. The Cursor docs

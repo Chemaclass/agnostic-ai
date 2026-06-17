@@ -55,6 +55,56 @@ func TestEmit_CommandSkippedWithoutCommandsDir(t *testing.T) {
 	}
 }
 
+// Hook specs emit Cursor's native .cursor/hooks.json: a numeric version
+// and a hooks map keyed by the verbatim event name, each entry carrying
+// the command and optional matcher (#438).
+func TestEmit_WritesCursorHooksJSON(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindHook, Name: "audit-shell", Meta: map[string]any{"event": "beforeShellExecution", "matcher": "rm|dd", "command": "echo audit"}},
+		{Kind: spec.KindHook, Name: "fmt-edit", Meta: map[string]any{"event": "afterFileEdit", "command": "echo fmt"}},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".cursor", "hooks.json"))
+	if err != nil {
+		t.Fatalf("read hooks file: %v", err)
+	}
+	var doc struct {
+		Version int                         `json:"version"`
+		Hooks   map[string][]map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("parse hooks.json: %v\n%s", err, data)
+	}
+	if doc.Version != 1 {
+		t.Errorf("version = %d, want 1", doc.Version)
+	}
+	shell := doc.Hooks["beforeShellExecution"]
+	if len(shell) != 1 || shell[0]["command"] != "echo audit" || shell[0]["matcher"] != "rm|dd" {
+		t.Errorf("beforeShellExecution = %#v, want one {command: echo audit, matcher: rm|dd}", shell)
+	}
+	edit := doc.Hooks["afterFileEdit"]
+	if len(edit) != 1 || edit[0]["command"] != "echo fmt" {
+		t.Errorf("afterFileEdit = %#v, want one {command: echo fmt}", edit)
+	}
+	if _, ok := edit[0]["matcher"]; ok {
+		t.Errorf("afterFileEdit entry should omit matcher, got %#v", edit[0])
+	}
+}
+
+// No hook specs means no .cursor/hooks.json is written (no surprise file).
+func TestEmit_NoHooksFileWithoutHookSpecs(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "hooks.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no hooks.json, stat err = %v", err)
+	}
+}
+
 // Review specs emit one scope-located BUGBOT.md: unscoped at the repo root,
 // scoped under its directory, with same-scope specs concatenated (#433).
 func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
