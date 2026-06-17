@@ -49,8 +49,14 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 func mergePermissions(layers ...map[string]any) map[string]any {
 	out := map[string]any{}
 	if len(layers) > 0 {
+		// Carry through only the sibling keys this adapter does not model;
+		// the three lists are recomputed below from every layer.
 		for k, v := range layers[0] {
-			out[k] = v
+			switch k {
+			case "allow", "deny", "ask":
+			default:
+				out[k] = v
+			}
 		}
 	}
 	allow, deny, ask := []any{}, []any{}, []any{}
