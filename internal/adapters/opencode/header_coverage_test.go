@@ -96,6 +96,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
 		},
+		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Deploy"}, Body: "deploy body"},
 	}
 	return spec.NewBundle(entries)
 }

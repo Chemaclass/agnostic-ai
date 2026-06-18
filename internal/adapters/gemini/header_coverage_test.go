@@ -115,6 +115,7 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{"command": "x"},
 		},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
+		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Deploy"}, Body: "deploy body"},
 	}
 	return spec.NewBundle(entries)
 }

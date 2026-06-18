@@ -13,6 +13,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - New `environment` spec kind (`.agnostic-ai/environments/*.yaml`) single-sources dev-env bootstrap. Cursor emits it as `.cursor/environment.json`; other targets report the kind as unsupported. (#434)
 - New `ignore` spec kind (`.agnostic-ai/ignore/*.md`) single-sources agent ignore patterns. Emits each tool's native ignore file from one list: Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
 
+### Changed
+
+- The `command` spec kind is now first-class on every target with a command/prompt surface: Cursor (`.cursor/commands/`), Gemini (`.gemini/commands/*.toml`), Amp (`.agents/commands/`), and OpenCode (`.opencode/commands/`) now emit command specs natively, joining Claude and Codex. On those targets a command takes precedence over a same-named agent, and `lint` warns about the clash (`LINT006`). (#436)
+
 ### Fixed
 
 - `import` strips the agnostic-ai provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md` from a generated entry-point (CLAUDE.md, AGENTS.md, ...), so the source you edit no longer gains a "Do not edit" banner and the import->sync round-trip stays byte-stable. (#429)

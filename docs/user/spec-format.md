@@ -385,7 +385,9 @@ Deploy the app to {{env}}.
 
 Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
-Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`). Other targets log a warning and skip.
+Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), Amp (`.agents/commands/<name>.md`), OpenCode (`.opencode/commands/<name>.md`). Other targets log a warning and skip.
+
+On Cursor, Gemini, Amp, and OpenCode, agents also surface as slash commands in the same directory, so an agent and a command that share a name resolve to the same file (the command wins). `agnostic-ai lint` flags this as `LINT006`; rename one to keep both.
 
 ## Settings
 

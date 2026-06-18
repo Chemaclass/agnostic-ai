@@ -67,6 +67,7 @@ func newLintCmd() *cobra.Command {
 			findings = append(findings, lintDuplicateNames(entries)...)
 			findings = append(findings, lintDeadSpecs(entries, cfg.Targets)...)
 			findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
+			findings = append(findings, lintCommandAgentNameClash(b, cfg.Targets)...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -171,6 +172,53 @@ func lintDuplicateNames(entries []spec.Entry) []lintFinding {
 		} else {
 			seen[k] = e.Path
 		}
+	}
+	return out
+}
+
+// commandSurfaceTargets are the targets that expose agents as slash
+// commands in the same directory the command kind emits to, so an agent
+// and a command sharing a name collide on one output path.
+var commandSurfaceTargets = []string{"cursor", "gemini", "amp", "opencode"}
+
+// lintCommandAgentNameClash flags an agent and a command that share a name
+// while a command-surface target is enabled. On those targets both kinds
+// emit to the same commands dir as `<name>`, so one silently overwrites the
+// other; renaming one resolves it (LINT006, warn). Claude and Codex are
+// unaffected (agents and commands live in separate directories there).
+func lintCommandAgentNameClash(b spec.Bundle, targets []string) []lintFinding {
+	enabled := setOf(targets...)
+	clash := false
+	for _, t := range commandSurfaceTargets {
+		if _, ok := enabled[t]; ok {
+			clash = true
+			break
+		}
+	}
+	if !clash {
+		return nil
+	}
+	cmdPath := make(map[string]string, len(b.Commands))
+	for _, c := range b.Commands {
+		if c.Name != "" {
+			cmdPath[c.Name] = c.Path
+		}
+	}
+	var out []lintFinding
+	for _, a := range b.Agents {
+		prior, ok := cmdPath[a.Name]
+		if !ok {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT006",
+			Severity: lintWarn,
+			Path:     a.Path,
+			Message: fmt.Sprintf(
+				"agent %q collides with command %q (%s): both emit as the slash command %q on %s — rename one",
+				a.Name, a.Name, prior, a.Name, strings.Join(commandSurfaceTargets, "/"),
+			),
+		})
 	}
 	return out
 }

@@ -36,7 +36,7 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits OpenCode configs.
@@ -60,7 +60,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
-	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+	if err := emitCommandFiles(b.Agents, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitCommandFiles(b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -147,10 +150,13 @@ func combineCommand(meta map[string]any) []string {
 	return parts
 }
 
-func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
-	for _, a := range agents {
-		path := filepath.Join(dir, a.Name+".md")
-		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
+// emitCommandFiles writes one `<name>.md` custom command per entry. It
+// backs both agents (exposed as commands) and first-class command specs,
+// since both render through commandFile.
+func emitCommandFiles(entries []spec.Entry, dir string, dryRun bool) error {
+	for _, e := range entries {
+		path := filepath.Join(dir, e.Name+".md")
+		body := emit.WithHeader(commandFile(e), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

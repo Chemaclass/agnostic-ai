@@ -22,11 +22,12 @@ const (
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
 	defaultIgnoreFile  = ".cursorignore"
+	defaultCommandsDir = ".cursor/commands"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindReview, spec.KindEnvironment, spec.KindIgnore, spec.KindCommand},
 }
 
 // environRoutingKeys are the agnostic-ai spec fields stripped after
@@ -75,12 +76,26 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
-	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
+	// Agents additionally emit as commands only when commands-dir is set
+	// (opt-in, preserved for users who depend on it). First-class command
+	// specs always emit as Cursor Custom Commands, written last so a
+	// command wins a name clash with an agent — matching the precedence on
+	// gemini/amp/opencode (lint LINT006 warns about such a clash). Both
+	// share the commands-dir override; the command kind falls back to the
+	// native default so it works without configuration.
+	if agentCmdDir := emit.OutputCommandsDir(cfg, target, ""); agentCmdDir != "" {
 		for _, a := range b.Agents {
-			path := commandsDir + "/" + a.Name + ".md"
+			path := filepath.Join(agentCmdDir, a.Name+".md")
 			if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
 				return err
 			}
+		}
+	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	for _, c := range b.Commands {
+		path := filepath.Join(commandsDir, c.Name+".md")
+		if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
+			return err
 		}
 	}
 	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

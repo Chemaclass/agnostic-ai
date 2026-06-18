@@ -28,6 +28,28 @@ func TestLintEmptySpecs_FlagsEmptyBodyAndNoDescription(t *testing.T) {
 	}
 }
 
+func TestLintCommandAgentNameClash(t *testing.T) {
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindAgent, Name: "deploy", Path: "agents/deploy.md"},
+		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md"},
+		{Kind: spec.KindAgent, Name: "review", Path: "agents/review.md"},
+	})
+
+	// A command-surface target enabled: the deploy clash warns; review does not.
+	findings := lintCommandAgentNameClash(b, []string{"cursor"})
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 clash finding, got %d: %v", len(findings), findings)
+	}
+	if findings[0].Code != "LINT006" || findings[0].Severity != lintWarn {
+		t.Errorf("expected LINT006 warn, got %s %s", findings[0].Code, findings[0].Severity)
+	}
+
+	// No command-surface target enabled (claude/codex separate the dirs): no clash.
+	if got := lintCommandAgentNameClash(b, []string{"claude", "codex"}); len(got) != 0 {
+		t.Errorf("expected no clash for non-command-surface targets, got %v", got)
+	}
+}
+
 func TestLintHookCollisions_FlagsDuplicateEventMatcher(t *testing.T) {
 	hooks := []spec.Entry{
 		{

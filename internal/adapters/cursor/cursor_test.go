@@ -226,6 +226,31 @@ func TestEmit_IgnoreFileOverride(t *testing.T) {
 	}
 }
 
+// Command specs emit as Cursor Custom Commands by default (first-class),
+// while agents emit as commands only when commands-dir is set (#436).
+func TestEmit_CommandsFirstClassAgentsOptIn(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Deploy"}, Body: "deploy steps"},
+		{Kind: spec.KindAgent, Name: "reviewer", Path: "agents/reviewer.md", Body: "review"},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "commands", "deploy.md"))
+	if err != nil {
+		t.Fatalf("command spec must emit by default: %v", err)
+	}
+	if !strings.Contains(string(got), "deploy steps") || !header.Has(string(got)) {
+		t.Errorf("command file missing body or header:\n%s", got)
+	}
+	// Agent-as-command stays opt-in: no commands-dir set, so no agent command.
+	if _, err := os.Stat(filepath.Join(cwd, ".cursor", "commands", "reviewer.md")); err == nil {
+		t.Errorf("agent emitted as command without commands-dir opt-in")
+	}
+}
+
 // Cursor has no settings surface, so a settings spec is unsupported and
 // reported (errors under on-unsupported: error). Confirms the settings
 // kind flows through the generic capability path (#432).

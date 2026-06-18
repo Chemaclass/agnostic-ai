@@ -38,7 +38,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
 }
 
 // Adapter emits Amp configs.
@@ -63,7 +63,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	emit.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+	if err := emitCommandFiles(b.Agents, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitCommandFiles(b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -78,10 +81,13 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	return emitMCPSettings(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
-	for _, a := range agents {
-		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
+// emitCommandFiles writes one `<name>.md` slash command per entry. It
+// backs both agents (exposed as commands) and first-class command specs,
+// since both render through commandFile.
+func emitCommandFiles(entries []spec.Entry, dir string, dryRun bool) error {
+	for _, e := range entries {
+		body := emit.WithHeader(commandFile(e), emit.FormatMarkdown)
+		if err := emit.WriteFile(filepath.Join(dir, e.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}
