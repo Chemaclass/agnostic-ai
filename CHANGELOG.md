@@ -10,6 +10,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `sync.dropped-summary` config: opt-in per-target summary of what each target could not fully emit (unsupported kinds dropped, downgraded kinds and the opt-in key that would carry them), regrouping the existing kind-grouped warnings by target. (#441)
 
+### Fixed
+
+- A spec whose `x-<target>` block introduces two or more new frontmatter keys now emits them in a stable alphabetical order. Map-iteration order previously leaked into the emitted bytes, so a clean tree could flip-flop and `sync --check` flagged false drift in CI.
+
 ## v0.40.0 - 2026-06-17
 
 ### Added

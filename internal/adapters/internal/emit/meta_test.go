@@ -5,6 +5,44 @@ import (
 	"testing"
 )
 
+// ResolveMetaOrdered must emit a deterministic key order: unhinted
+// top-level keys and keys introduced by an x-<target> block both append
+// alphabetically, not in Go map-iteration order. A non-deterministic
+// order would vary the emitted frontmatter bytes per run and break
+// sync --check.
+func TestResolveMetaOrdered_DeterministicKeyOrder(t *testing.T) {
+	meta := map[string]any{
+		"name":        "a",
+		"zeta":        "z", // unhinted top-level
+		"alpha":       "a", // unhinted top-level
+		"mike":        "m", // unhinted top-level
+		"x-claude":    map[string]any{"tango": 1, "bravo": 2, "yankee": 3},
+		"description": "d",
+	}
+	// Only `name` is hinted; everything else must order deterministically.
+	hint := []string{"name"}
+
+	_, first := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
+	for i := 0; i < 50; i++ {
+		_, got := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
+		if !reflect.DeepEqual(got, first) {
+			t.Fatalf("non-deterministic key order:\n run0 = %v\n run%d = %v", first, i+1, got)
+		}
+	}
+	want := []string{"name", "alpha", "description", "mike", "zeta", "bravo", "tango", "yankee"}
+	if !reflect.DeepEqual(first, want) {
+		t.Errorf("key order = %v, want %v", first, want)
+	}
+}
+
+func cloneMeta(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
 func TestResolveMeta_DropsOtherTargets(t *testing.T) {
 	in := map[string]any{
 		"name":     "r1",
