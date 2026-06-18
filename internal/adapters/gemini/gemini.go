@@ -279,9 +279,15 @@ func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
 // keys declared under `x-gemini` are emitted verbatim between description
 // and prompt (sorted, target-scoped). See #367.
 func commandTOML(e spec.Entry) string {
+	// Resolve through the per-target meta so an x-gemini.description wins
+	// over the (claude-side) top-level value, matching codex skillMarkdown.
+	// Without this the override is silently dropped (CustomTargetMeta below
+	// excludes description from the pass-through keys).
+	resolved := emit.ResolveMeta(e.Meta, target)
+	desc, _ := resolved["description"].(string)
 	var sb strings.Builder
-	if d := e.Description(); d != "" {
-		emit.WriteTOMLString(&sb, "description", d)
+	if desc != "" {
+		emit.WriteTOMLString(&sb, "description", desc)
 	}
 	if cm, keys := emit.CustomTargetMeta(e.Meta, target, "description", "prompt"); cm != nil {
 		for _, k := range keys {
@@ -290,7 +296,7 @@ func commandTOML(e spec.Entry) string {
 	}
 	body := strings.TrimSpace(e.Body)
 	if body == "" {
-		body = e.Description()
+		body = desc
 	}
 	emit.WriteTOMLMultiline(&sb, "prompt", body)
 	return sb.String()
