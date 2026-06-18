@@ -602,6 +602,21 @@ func insideFolderSkill(path, root string) bool {
 	}
 }
 
+// checkSpecName rejects a spec name that is not a single safe path
+// segment. Every adapter uses the name as a filename or directory segment
+// in its output, so a value carrying path separators or `..` could make
+// sync write outside the target directory (path traversal). Rejecting it
+// at load fails the run with a clear message instead of emitting an
+// escaping file. A name derived from a filename stem is always safe; the
+// guard matters for an author-supplied `name:` frontmatter value.
+func checkSpecName(name string) error {
+	if name != filepath.Base(name) || name == "." || name == ".." ||
+		strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') {
+		return fmt.Errorf("invalid spec name %q: must be a single path segment (no %q, %q, or path separators)", name, "/", "..")
+	}
+	return nil
+}
+
 func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]Entry, error) {
 	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -634,6 +649,9 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 			} else {
 				entry.Name = strings.TrimSuffix(d.Name(), ext)
 			}
+		}
+		if err := checkSpecName(entry.Name); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
 		}
 		entries = append(entries, entry)
 		return nil
