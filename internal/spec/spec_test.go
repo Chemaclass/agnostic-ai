@@ -223,6 +223,33 @@ func TestLoadAll_ParsesSettingsKind(t *testing.T) {
 	}
 }
 
+// A spec whose frontmatter name carries path separators or `..` is a path
+// traversal: the name becomes a filename/dir segment in every adapter, so
+// the loader rejects it instead of letting sync write outside the tree.
+func TestLoadAll_RejectsPathTraversalName(t *testing.T) {
+	for _, bad := range []string{"../escape", "../../etc/passwd", "a/b", ".."} {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "rules", "r.md"), "---\nname: "+bad+"\n---\nbody")
+		cfg := defaultsForTest()
+		if _, err := LoadAll(dir, cfg); err == nil {
+			t.Errorf("name %q: expected load error, got nil", bad)
+		}
+	}
+}
+
+func TestLoadAll_AcceptsSafeNames(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "rules", "ok.md"), "---\nname: code-style\n---\nbody")
+	cfg := defaultsForTest()
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatalf("safe name rejected: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != "code-style" {
+		t.Errorf("expected 1 entry named code-style, got %+v", entries)
+	}
+}
+
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	dir := t.TempDir()
 	cfg := defaultsForTest()

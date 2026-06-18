@@ -9,6 +9,43 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// WriteFile refuses to write a project-relative path that climbs above the
+// project root, the last line of defense against a path traversal from a
+// crafted spec name/scope.
+func TestWriteFile_RefusesProjectRootEscape(t *testing.T) {
+	dir := t.TempDir()
+	testutilChdir(t, dir)
+
+	for _, bad := range []string{"../escape.md", ".opencode/commands/../../../escape.md", ".."} {
+		if err := WriteFile(bad, "x", false); err == nil {
+			t.Errorf("path %q: expected escape rejection, got nil", bad)
+		}
+		// Confirm nothing landed outside the project dir.
+		if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "escape.md")); err == nil {
+			t.Errorf("path %q wrote a file outside the project root", bad)
+		}
+	}
+
+	// A normal in-project path still writes.
+	if err := WriteFile(".cursor/commands/deploy.md", "x", false); err != nil {
+		t.Errorf("safe in-project path rejected: %v", err)
+	}
+}
+
+// testutilChdir changes into dir for the test and restores cwd after, kept
+// local to avoid importing internal/testutil from the emit package.
+func testutilChdir(t *testing.T, dir string) {
+	t.Helper()
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+}
+
 func TestWriteFile_CreatesNestedDirs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "a", "b", "c.txt")

@@ -240,6 +240,19 @@ func normalizeTrailingNewline(content string) string {
 	return strings.TrimRight(content, "\n") + "\n"
 }
 
+// escapesProjectRoot reports whether a project-relative output path climbs
+// above the project root via `..`. Adapters always emit inside the project,
+// so a relative path that escapes upward signals a traversal (e.g. from a
+// crafted spec `name:` or `scope:`). Defense-in-depth behind the loader's
+// name check; absolute paths are left to the caller.
+func escapesProjectRoot(path string) bool {
+	if filepath.IsAbs(path) {
+		return false
+	}
+	clean := filepath.Clean(path)
+	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
+}
+
 func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
 	state.mu.Lock()
 	capturing := state.capturing
@@ -264,6 +277,9 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 	if dryRun {
 		fmt.Printf("--- %s ---\n%s\n", path, content)
 		return nil
+	}
+	if escapesProjectRoot(path) {
+		return fmt.Errorf("refusing to write outside the project root: %s", path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)

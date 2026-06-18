@@ -13,6 +13,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - A spec whose `x-<target>` block introduces two or more new frontmatter keys now emits them in a stable alphabetical order. Map-iteration order previously leaked into the emitted bytes, so a clean tree could flip-flop and `sync --check` flagged false drift in CI.
+- A spec `name:` containing path separators or `..` is rejected at load instead of being used as an output filename, closing a path traversal that could write files outside the project tree. `sync` also refuses any emitted path that escapes the project root as defense-in-depth.
 
 ## v0.40.0 - 2026-06-17
 
