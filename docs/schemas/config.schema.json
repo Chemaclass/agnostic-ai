@@ -416,6 +416,9 @@
         },
         "resolve-imports": {
           "type": "string"
+        },
+        "dropped-summary": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
