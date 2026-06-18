@@ -191,7 +191,8 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	// actually changed, so it honors the same unchanged-since-last-sync
 	// suppression as the kind-grouped flushes below instead of re-printing
 	// every run. Must run before the flushes clear the buffers.
-	if cfg.Sync.DroppedSummary && verbosity >= levelDefault && !(warningsUnchanged && notesUnchanged) {
+	dropsChanged := !warningsUnchanged || !notesUnchanged
+	if cfg.Sync.DroppedSummary && verbosity >= levelDefault && dropsChanged {
 		adapters.RenderDroppedSummary(logOut)
 	}
 	if warningsUnchanged {
