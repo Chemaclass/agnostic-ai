@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- `sync.dropped-summary` config: opt-in per-target summary of what each target could not fully emit (unsupported kinds dropped, downgraded kinds and the opt-in key that would carry them), regrouping the existing kind-grouped warnings by target. (#441)
+
 ## v0.40.0 - 2026-06-17
 
 ### Added

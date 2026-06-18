@@ -82,6 +82,12 @@ type SyncConfig struct {
 	//               sentinel block that `import` restores to the original @-line
 	// Targets that resolve imports natively (claude) always pass through.
 	ResolveImports string `yaml:"resolve-imports,omitempty" json:"resolve-imports,omitempty"`
+	// DroppedSummary prints a per-target summary after sync listing which
+	// kinds each target could not represent (unsupported) or only emits
+	// behind an opt-in key (downgraded / source-dir only), so the loss is
+	// visible per target rather than grouped by kind. Off by default; the
+	// kind-grouped warnings and coverage notes still print regardless.
+	DroppedSummary bool `yaml:"dropped-summary,omitempty" json:"dropped-summary,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write

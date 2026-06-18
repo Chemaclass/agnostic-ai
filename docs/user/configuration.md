@@ -315,6 +315,25 @@ sync:
 
 Only a line that is a lone `@path` token is treated as an import; an `@mention` inside a sentence is left untouched. Paths resolve relative to the project root.
 
+### `sync.dropped-summary`
+
+Prints a per-target summary after sync of what each target could not fully emit: kinds it has no surface for (dropped) and kinds it emits only behind an opt-in key or keeps source-dir only (downgraded). The same information already prints grouped by kind (capability warnings and coverage notes); this regroups it by target so you can scan one tool at a time. Off by default.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  dropped-summary: true
+```
+
+Example output:
+
+```
+  dropped summary (per target):
+    cursor: 2 hooks dropped (unsupported)
+    gemini: 3 skills via outputs.gemini.emit-skills-as-commands
+```
+
+
 Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix. External adapters (`agnostic-ai-adapter-<name>` binaries) have no native-artifacts protocol yet, so their section is absent from the appendix.
 
 ## `import`

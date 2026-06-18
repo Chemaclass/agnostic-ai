@@ -85,6 +85,11 @@ func ResetCapabilityWarnings() { emit.ResetCapabilityWarnings() }
 // sync pass.
 func FlushCapabilityWarnings() { emit.FlushCapabilityWarnings() }
 
+// RenderDroppedSummary writes a per-target summary of buffered capability
+// warnings and coverage notes (what each target could not fully emit)
+// without clearing either buffer. Call before the flushes.
+func RenderDroppedSummary(w io.Writer) { emit.RenderDroppedSummary(w) }
+
 // CapabilityWarningsDigest returns a stable hex digest of the currently
 // buffered capability warnings, "" when none. Used by sync to suppress
 // unchanged warning sets across runs.
