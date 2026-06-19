@@ -4,11 +4,52 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+// TestMergeJSONFile_CaptureReadsExistingUserKeys regresses #465. Capture
+// mode (used by `sync --check`, `doctor`, and `status`) must read the
+// existing file so the captured bytes carry the user's sibling keys, not
+// the managed keys alone. Otherwise drift is reported falsely and
+// `doctor --fix` writes the managed-only capture back, deleting the
+// user's keys.
+func TestMergeJSONFile_CaptureReadsExistingUserKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "opencode.json")
+	const existing = `{"theme": "dark"}`
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	StartCapture()
+	err := MergeJSONFile(path, map[string]any{"mcp": map[string]any{"fs": map[string]any{}}}, false)
+	files := StopCapture()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("want 1 captured file, got %d", len(files))
+	}
+	for _, want := range []string{`"theme"`, `"dark"`, `"mcp"`} {
+		if !strings.Contains(files[0].Content, want) {
+			t.Errorf("captured content missing %q:\n%s", want, files[0].Content)
+		}
+	}
+
+	// Capture must not write through to disk.
+	disk, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != existing {
+		t.Errorf("capture mutated disk: %s", disk)
+	}
+}
 
 func TestMigrateLegacyFile_RenamesWhenAgnosticGenerated(t *testing.T) {
 	dir := testutil.TempCwd(t)

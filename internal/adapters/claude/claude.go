@@ -233,8 +233,8 @@ func writeSettings(hooks, settings []spec.Entry, dir string, cfg *config.Config,
 	if doc == nil {
 		// No overlay yet: fall back to the existing settings.json on
 		// disk so a user-edited statusLine survives until `import
-		// claude` captures it. Skip in dryRun and capture to keep
-		// previews and `sync --check` reproducible from sources.
+		// claude` captures it. Skipped only in dryRun; capture reads it
+		// so `sync --check` and `doctor --fix` keep the user's keys.
 		doc, err = loadSettingsFromDisk(path, dryRun)
 		if err != nil {
 			return err
@@ -321,10 +321,14 @@ func loadCapturedHookEventOrder() []string {
 
 // loadSettingsFromDisk reads an existing `.claude/settings.json` as the
 // base when no captured overlay is available. Returns (nil, nil) when
-// the file is absent, in dryRun, or under capture so the path is
-// reproducible from sources.
+// the file is absent or in dryRun. Capture mode (sync --check, doctor,
+// status) still reads it: the user's keys are part input, not a pure
+// output, so the captured bytes must match what sync writes. Skipping
+// the read reported false drift and let `doctor --fix` delete those keys
+// for users who never ran `import claude` (#465). Mirrors the overlay
+// reader, which already reads during capture for the same reason (#215).
 func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
-	if dryRun || emit.IsCapturing() {
+	if dryRun {
 		return nil, nil
 	}
 	data, err := os.ReadFile(path)

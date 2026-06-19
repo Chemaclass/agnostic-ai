@@ -12,6 +12,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `doctor --fix` no longer deletes user-authored keys from config files agnostic-ai merges into rather than owns (`opencode.json`, `.amp/settings.json`, `.gemini/settings.json`, `.zed/settings.json`, `.aider.conf.yml`, `.claude/settings.json`). `doctor`, `sync --check`, and `status` ran the adapters in capture mode with the existing-file read skipped, so these files always reported false drift and `--fix` overwrote them with the managed keys only. Capture now reads them, extending the overlay fix from #215. (#465)
 - A spec whose `x-<target>` block introduces two or more new frontmatter keys now emits them in a stable alphabetical order. Map-iteration order previously leaked into the emitted bytes, so a clean tree could flip-flop and `sync --check` flagged false drift in CI.
 - A spec `name:` containing path separators or `..` is rejected at load instead of being used as an output filename, closing a path traversal that could write files outside the project tree. `sync` also refuses any emitted path that escapes the project root as defense-in-depth.
 - Gemini command/skill/agent TOML now honors an `x-gemini.description` override instead of always emitting the top-level (Claude-side) description, matching how Codex resolves per-target descriptions.

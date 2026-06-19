@@ -104,8 +104,13 @@ func emitConf(confPath, readEntry, model, weakModel string, dryRun bool) error {
 	return emit.WriteFile(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), dryRun)
 }
 
+// readExistingYAML loads the user's aider config so emitConf overwrites
+// only its managed keys. dryRun returns empty to keep `--dry-run`
+// previews pure; capture mode (sync --check, doctor, status) still reads
+// the file because its user-authored keys are part input, not a pure
+// output, so drift detection and `doctor --fix` must see them (#465).
 func readExistingYAML(path string, dryRun bool) map[string]any {
-	if dryRun || emit.IsCapturing() {
+	if dryRun {
 		return map[string]any{}
 	}
 	data, err := os.ReadFile(path)
