@@ -23,9 +23,8 @@ import (
 // user-edited siblings. Capture mode (sync --check, doctor, status)
 // still reads the existing file: the on-disk document is part input
 // (the user's sibling keys), not a pure output, so the captured bytes
-// must reflect what sync would actually write. Skipping the read
-// reported false drift and let `doctor --fix` delete the user's keys
-// (#465).
+// must reflect what sync would write. Skipping the read reported false
+// drift and let `doctor --fix` delete the user's keys (#465).
 func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	doc := readExistingJSON(path, dryRun)
 	names := make([]string, 0, len(keys))
