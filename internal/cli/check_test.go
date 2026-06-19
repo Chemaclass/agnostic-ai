@@ -183,6 +183,62 @@ func TestDoctor_NoFalseDriftAfterSyncWithOverlay(t *testing.T) {
 	}
 }
 
+// TestDoctor_Fix_PreservesUserKeysInMergedJSON regresses #465. opencode
+// shares opencode.json with the user, who keeps sibling keys next to the
+// managed `mcp` block. doctor runs the adapter in capture mode; the JSON
+// merge reader must read the existing file so captured bytes match disk.
+// Otherwise doctor reports false drift and --fix overwrites the file with
+// the managed keys only, deleting the user's siblings.
+func TestDoctor_Fix_PreservesUserKeysInMergedJSON(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte("version: 1\ntargets:\n  - opencode\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "mcps"), 0o755))
+	must(os.WriteFile(filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+		[]byte("name: fs\ncommand: fs-server\n"), 0o644))
+	// User keeps a sibling key in the shared opencode.json.
+	must(os.WriteFile(filepath.Join(dir, "opencode.json"),
+		[]byte(`{"theme": "dark"}`), 0o644))
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "opencode"})
+	must(root.Execute())
+
+	// sync merges, so the synced file carries both the user key and mcp.
+	synced := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{`"theme"`, `"mcp"`} {
+		if !strings.Contains(synced, want) {
+			t.Fatalf("post-sync opencode.json missing %s:\n%s", want, synced)
+		}
+	}
+
+	// doctor must report no drift right after a clean sync.
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"doctor", "-t", "opencode"})
+	if err := root.Execute(); err != nil {
+		t.Errorf("doctor reports false drift after clean sync: %v", err)
+	}
+
+	// doctor --fix must not delete the user's sibling key.
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"doctor", "-t", "opencode", "--fix"})
+	must(root.Execute())
+	after := readFile(t, filepath.Join(dir, "opencode.json"))
+	if !strings.Contains(after, `"theme"`) {
+		t.Errorf("doctor --fix deleted user key:\n%s", after)
+	}
+	if !strings.Contains(after, `"mcp"`) {
+		t.Errorf("doctor --fix dropped managed mcp:\n%s", after)
+	}
+}
+
 func TestDoctor_DetectsStale(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

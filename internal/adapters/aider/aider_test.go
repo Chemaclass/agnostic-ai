@@ -8,10 +8,56 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+// TestEmit_ConfFileCaptureReadsExistingUserKeys regresses #465. Under
+// capture mode (sync --check / doctor), the conf reader must read the
+// existing .aider.conf.yml so the captured bytes carry the user's keys.
+// Otherwise doctor reports false drift and --fix writes the managed keys
+// only, deleting the user's config.
+func TestEmit_ConfFileCaptureReadsExistingUserKeys(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	const existing = "auto-commits: false\nmodel: legacy-model\n"
+	if err := os.WriteFile(filepath.Join(dir, ".aider.conf.yml"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"aider": {ConfFile: ".aider.conf.yml"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+
+	emit.StartCapture()
+	err := New().Emit(spec.NewBundle(entries), cfg, false)
+	files := emit.StopCapture()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var conf string
+	for _, f := range files {
+		if strings.HasSuffix(f.Path, ".aider.conf.yml") {
+			conf = f.Content
+		}
+	}
+	if conf == "" {
+		t.Fatalf("no .aider.conf.yml captured: %v", files)
+	}
+	for _, want := range []string{"auto-commits", "legacy-model", "CONVENTIONS.md"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("captured conf missing %q:\n%s", want, conf)
+		}
+	}
+}
 
 func TestEmit_NoConventionsByDefault(t *testing.T) {
 	dir := t.TempDir()
