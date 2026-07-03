@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - "Why not symlinks" doc explaining how agnostic-ai compares to symlinks, manual copies, and shared-file `@`-includes, plus when a simpler option suffices.
+- The managed `.gitignore` block now ignores Claude Code's local artifacts when `claude` is an enabled target: `/.claude/agent-memory/` and `/.claude/settings.local.json`. They persist across `sync` runs instead of needing manual entries. (#469)
 
 ## v0.41.0 - 2026-06-19
 
