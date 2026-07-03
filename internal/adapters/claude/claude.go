@@ -70,10 +70,12 @@ func (Adapter) Name() string { return target }
 // under the same dir as generated output, so they follow the
 // `outputs.claude.dir` override too.
 func (Adapter) GitignoreHints(cfg *config.Config) []string {
-	dir := emit.OutputDir(cfg, target, defaultDir)
+	// gitignore patterns are always forward-slashed, so normalize the
+	// joined paths even though the dir override may arrive OS-native.
+	dir := filepath.ToSlash(emit.OutputDir(cfg, target, defaultDir))
 	return []string{
-		filepath.Join(dir, "agent-memory") + "/",
-		filepath.Join(dir, "settings.local.json"),
+		dir + "/agent-memory/",
+		dir + "/settings.local.json",
 	}
 }
 
