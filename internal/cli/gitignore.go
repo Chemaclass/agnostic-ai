@@ -17,6 +17,7 @@ const (
 	gitignoreBlockStart = "# >>> agnostic-ai (managed) >>>"
 	gitignoreBlockEnd   = "# <<< agnostic-ai (managed) <<<"
 	gitignoreBlockNote  = "# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh."
+	gitignoreBlockHint  = "# Not committed: a fresh clone or `git worktree` lacks these until `agnostic-ai sync` runs (e.g. a post-checkout hook)."
 )
 
 // fixedManagedEntries are the always-ignored agnostic-ai paths that are
@@ -328,6 +329,8 @@ func renderBlock(entries []string) string {
 	sb.WriteString(gitignoreBlockStart)
 	sb.WriteString("\n")
 	sb.WriteString(gitignoreBlockNote)
+	sb.WriteString("\n")
+	sb.WriteString(gitignoreBlockHint)
 	sb.WriteString("\n")
 	for _, e := range entries {
 		sb.WriteString(e)

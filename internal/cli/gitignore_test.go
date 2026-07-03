@@ -23,6 +23,20 @@ func TestReplaceManagedBlock_AppendsToExisting(t *testing.T) {
 	}
 }
 
+func TestReplaceManagedBlock_HeaderCarriesRegenHint(t *testing.T) {
+	got := replaceManagedBlock("", []string{"CLAUDE.md"})
+	if !strings.Contains(got, gitignoreBlockHint) {
+		t.Errorf("managed block header missing regen hint:\n%s", got)
+	}
+	// The hint sits on its own comment line between the note and the
+	// first ignored path, so a reader staring at .gitignore learns the
+	// outputs need `sync` to reappear.
+	want := gitignoreBlockNote + "\n" + gitignoreBlockHint + "\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("hint not on its own line after the note:\n%s", got)
+	}
+}
+
 func TestReplaceManagedBlock_ReplacesExistingBlock(t *testing.T) {
 	first := replaceManagedBlock("", []string{"CLAUDE.md"})
 	second := replaceManagedBlock(first, []string{"AGENTS.md", "GEMINI.md"})
