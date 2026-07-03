@@ -242,6 +242,30 @@ func NativeArtifactsFor(name string, cfg *config.Config) []NativeArtifact {
 	return o.NativeArtifacts(cfg)
 }
 
+// gitignoreHinter is the optional interface an adapter implements to
+// declare local artifacts the tool creates but agnostic-ai never emits
+// (e.g. a memory store, a per-user local settings file). The sync layer
+// folds the result into the managed `.gitignore` block so those paths
+// stay ignored without hand maintenance.
+type gitignoreHinter interface {
+	GitignoreHints(cfg *config.Config) []string
+}
+
+// GitignoreHintsFor returns the ignore-only paths the named target
+// declares, nil when the adapter does not implement gitignoreHinter.
+// Lookup is in-tree only: external adapters have no hint protocol yet.
+func GitignoreHintsFor(name string, cfg *config.Config) []string {
+	a, ok := registry[name]
+	if !ok {
+		return nil
+	}
+	h, ok := a.(gitignoreHinter)
+	if !ok {
+		return nil
+	}
+	return h.GitignoreHints(cfg)
+}
+
 // RenderTargetOverview renders the sentinel-marked overview appendix
 // for one entry-point file (re-exported from the emit layer).
 func RenderTargetOverview(sections []TargetArtifacts) string {

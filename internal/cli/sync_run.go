@@ -176,6 +176,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
@@ -357,6 +358,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)

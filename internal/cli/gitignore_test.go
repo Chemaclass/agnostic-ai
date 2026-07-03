@@ -414,3 +414,27 @@ func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
 		}
 	}
 }
+
+func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) {
+	cfg := &config.Config{}
+	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
+	block := buildManagedBlock(cfg, hints)
+	for _, want := range []string{"/.claude/agent-memory/", "/.claude/settings.local.json"} {
+		found := false
+		for _, e := range block {
+			if e == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("managed block missing claude hint %q, got %v", want, block)
+		}
+	}
+}
+
+func TestGitignoreHintsForTargets_AbsentWhenClaudeNotEnabled(t *testing.T) {
+	hints := gitignoreHintsForTargets(&config.Config{}, []string{"codex", "gemini"})
+	if len(hints) != 0 {
+		t.Errorf("expected no hints without claude, got %v", hints)
+	}
+}
