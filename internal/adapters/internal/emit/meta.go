@@ -162,14 +162,30 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 			appendKV(k, v)
 		}
 	}
-	for k, v := range meta {
+	// Unhinted top-level keys append in alphabetical order. Go map
+	// iteration is randomized, so sort explicitly or the emitted key order
+	// (and thus the file bytes) would vary per run, breaking sync --check.
+	unhinted := make([]string, 0, len(meta))
+	for k := range meta {
 		if walked[k] || strings.HasPrefix(k, XPrefix) || routingKeys[k] || seen[k] {
 			continue
 		}
-		appendKV(k, v)
+		unhinted = append(unhinted, k)
+	}
+	sort.Strings(unhinted)
+	for _, k := range unhinted {
+		appendKV(k, meta[k])
 	}
 	if nested, ok := meta[XPrefix+target].(map[string]any); ok {
-		for nk, nv := range nested {
+		// Same reason: iterate the x-<target> keys in sorted order so the
+		// keys it introduces emit deterministically.
+		nestedKeys := make([]string, 0, len(nested))
+		for nk := range nested {
+			nestedKeys = append(nestedKeys, nk)
+		}
+		sort.Strings(nestedKeys)
+		for _, nk := range nestedKeys {
+			nv := nested[nk]
 			if nv == nil {
 				// nil under x-<target> is a delete marker: drop the key
 				// entirely so the per-target emit reproduces the source

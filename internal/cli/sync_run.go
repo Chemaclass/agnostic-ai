@@ -176,6 +176,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
@@ -185,7 +186,17 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	digest := adapters.CapabilityWarningsDigest()
 	notesDigest := adapters.CoverageNotesDigest()
 	prev := readStateFile(root)
-	if digest != "" && digest == prev.WarningsDigest {
+	warningsUnchanged := digest != "" && digest == prev.WarningsDigest
+	notesUnchanged := notesDigest != "" && notesDigest == prev.NotesDigest
+	// Render the per-target summary only when at least one of the buffers
+	// actually changed, so it honors the same unchanged-since-last-sync
+	// suppression as the kind-grouped flushes below instead of re-printing
+	// every run. Must run before the flushes clear the buffers.
+	dropsChanged := !warningsUnchanged || !notesUnchanged
+	if cfg.Sync.DroppedSummary && verbosity >= levelDefault && dropsChanged {
+		adapters.RenderDroppedSummary(logOut)
+	}
+	if warningsUnchanged {
 		n := adapters.PendingCapabilityWarningsCount()
 		summaryf("  (%d capability warning%s unchanged since last sync; delete %s to re-show)\n",
 			n, plural(n), stateFilePath(root))
@@ -193,7 +204,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	} else {
 		adapters.FlushCapabilityWarnings()
 	}
-	if notesDigest != "" && notesDigest == prev.NotesDigest {
+	if notesUnchanged {
 		n := adapters.PendingCoverageNotesCount()
 		summaryf("  (%d coverage note%s unchanged since last sync; delete %s to re-show)\n",
 			n, plural(n), stateFilePath(root))
@@ -347,6 +358,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)

@@ -158,6 +158,7 @@ CI gate to fail PRs that drift from source specs:
 - [Getting started](docs/user/getting-started.md): first rule, first sync, in 2 minutes
 - [Spec format](docs/user/spec-format.md): frontmatter reference for every kind
 - [Examples](docs/examples/): drop-in templates
+- [Why not symlinks](docs/user/alternatives-why-not-symlinks.md): how it compares to symlinks, copies, and shared-file setups
 
 **Reference**
 - [Targets](docs/user/targets.md): what each adapter emits and where

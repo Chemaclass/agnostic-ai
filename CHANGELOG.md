@@ -10,6 +10,24 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Managed `.gitignore` block header now warns the listed paths are not committed: a fresh clone or `git worktree` lacks them until `agnostic-ai sync` runs. Points readers at a post-checkout hook.
 
+### Added
+
+- "Why not symlinks" doc explaining how agnostic-ai compares to symlinks, manual copies, and shared-file `@`-includes, plus when a simpler option suffices.
+- The managed `.gitignore` block now ignores Claude Code's local artifacts when `claude` is an enabled target: `/.claude/agent-memory/` and `/.claude/settings.local.json`. They persist across `sync` runs instead of needing manual entries. (#469)
+
+## v0.41.0 - 2026-06-19
+
+### Added
+
+- `sync.dropped-summary` config: opt-in per-target summary of what each target could not fully emit (unsupported kinds dropped, downgraded kinds and the opt-in key that would carry them), regrouping the existing kind-grouped warnings by target. (#441)
+
+### Fixed
+
+- `doctor --fix` no longer deletes user-authored keys from config files agnostic-ai merges into rather than owns (`opencode.json`, `.amp/settings.json`, `.gemini/settings.json`, `.zed/settings.json`, `.aider.conf.yml`, `.claude/settings.json`). `doctor`, `sync --check`, and `status` ran the adapters in capture mode with the existing-file read skipped, so these files always reported false drift and `--fix` overwrote them with the managed keys only. Capture now reads them, extending the overlay fix from #215. (#465)
+- A spec whose `x-<target>` block introduces two or more new frontmatter keys now emits them in a stable alphabetical order. Map-iteration order previously leaked into the emitted bytes, so a clean tree could flip-flop and `sync --check` flagged false drift in CI.
+- A spec `name:` containing path separators or `..` is rejected at load instead of being used as an output filename, closing a path traversal that could write files outside the project tree. `sync` also refuses any emitted path that escapes the project root as defense-in-depth.
+- Gemini command/skill/agent TOML now honors an `x-gemini.description` override instead of always emitting the top-level (Claude-side) description, matching how Codex resolves per-target descriptions.
+
 ## v0.40.0 - 2026-06-17
 
 ### Added

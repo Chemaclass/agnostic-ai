@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -67,6 +68,20 @@ func stripLooseFixedDuplicates(text string) string {
 		out = append(out, line)
 	}
 	return strings.Join(out, "\n")
+}
+
+// gitignoreHintsForTargets gathers the ignore-only paths every active
+// target declares: local artifacts the tool creates that agnostic-ai
+// never emits but that must stay out of version control. Riding inside
+// the managed block, they survive each sync refresh instead of needing
+// hand maintenance (#469). Hints are target-scoped, so a project that
+// does not enable the target never sees them.
+func gitignoreHintsForTargets(cfg *config.Config, targets []string) []string {
+	var out []string
+	for _, t := range targets {
+		out = append(out, adapters.GitignoreHintsFor(t, cfg)...)
+	}
+	return out
 }
 
 // normalizeAndSort converts a slice of filesystem paths to gitignore

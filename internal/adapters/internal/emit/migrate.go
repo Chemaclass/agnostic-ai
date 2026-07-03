@@ -20,10 +20,11 @@ import (
 // Used by adapters that share a project-shared config file with other
 // tooling (opencode.json `mcp`, `.amp/settings.json` `amp.mcpServers`)
 // and need to overwrite only their managed keys without clobbering
-// user-edited siblings. Capture mode skips the read so the captured
-// output is deterministic from the bundle alone; this may surface
-// unrelated user keys as drift under `sync --check`, which is the
-// intended trade-off.
+// user-edited siblings. Capture mode (sync --check, doctor, status)
+// still reads the existing file: the on-disk document is part input
+// (the user's sibling keys), not a pure output, so the captured bytes
+// must reflect what sync would write. Skipping the read reported false
+// drift and let `doctor --fix` delete the user's keys (#465).
 func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	doc := readExistingJSON(path, dryRun)
 	names := make([]string, 0, len(keys))
@@ -46,9 +47,11 @@ func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 // readExistingJSON parses path as an OrderedJSON. Missing files,
 // malformed JSON, or non-object documents return an empty OrderedJSON
 // so callers can layer their managed keys unconditionally. Source key
-// order is preserved on the round-trip via OrderedJSON.
+// order is preserved on the round-trip via OrderedJSON. dryRun returns
+// empty so `--dry-run` previews stay pure; capture mode still reads so
+// drift detection and `doctor --fix` see the user's sibling keys (#465).
 func readExistingJSON(path string, dryRun bool) *OrderedJSON {
-	if dryRun || IsCapturing() {
+	if dryRun {
 		return NewOrderedJSON()
 	}
 	data, err := os.ReadFile(path)

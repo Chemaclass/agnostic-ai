@@ -11,6 +11,26 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// An x-gemini.description override must win over the top-level (claude-side)
+// description in the emitted command TOML, mirroring codex skillMarkdown.
+func TestCommandTOML_XGeminiDescriptionWins(t *testing.T) {
+	e := spec.Entry{
+		Kind: spec.KindCommand, Name: "deploy",
+		Meta: map[string]any{
+			"description": "top-level desc",
+			"x-gemini":    map[string]any{"description": "gemini-specific desc"},
+		},
+		Body: "do it",
+	}
+	got := commandTOML(e)
+	if !strings.Contains(got, `description = "gemini-specific desc"`) {
+		t.Errorf("x-gemini.description should win, got:\n%s", got)
+	}
+	if strings.Contains(got, "top-level desc") {
+		t.Errorf("top-level description should be overridden, got:\n%s", got)
+	}
+}
+
 func TestName(t *testing.T) {
 	if got := New().Name(); got != "gemini" {
 		t.Errorf("Name() = %q, want %q", got, "gemini")

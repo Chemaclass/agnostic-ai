@@ -508,6 +508,57 @@ func TestEmit_RulesFileOverrideConcatenates(t *testing.T) {
 	}
 }
 
+// TestWriteSettings_CaptureReadsExistingSettingsWithoutOverlay regresses
+// #465. With no import overlay, writeSettings falls back to the on-disk
+// .claude/settings.json as the base. Under capture mode (sync --check /
+// doctor) that read must still happen so the captured bytes carry the
+// user's keys. Otherwise doctor reports false drift and --fix overwrites
+// settings.json with the managed keys only, deleting the user's config.
+func TestWriteSettings_CaptureReadsExistingSettingsWithoutOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const existing = `{"theme": "dark"}`
+	if err := os.WriteFile(settingsPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event":   "PostToolUse",
+			"matcher": "Edit",
+			"command": "echo hi",
+		}},
+	}
+
+	emit.StartCapture()
+	err := New().Emit(spec.NewBundle(entries), &config.Config{}, false)
+	files := emit.StopCapture()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var settings string
+	suffix := filepath.Join(".claude", "settings.json")
+	for _, f := range files {
+		if strings.HasSuffix(f.Path, suffix) {
+			settings = f.Content
+		}
+	}
+	if settings == "" {
+		t.Fatalf("no settings.json captured: %v", files)
+	}
+	for _, want := range []string{`"theme"`, `"dark"`, `"hooks"`} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("captured settings.json missing %q:\n%s", want, settings)
+		}
+	}
+}
+
 func TestEmit_WritesHookSettings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -1425,6 +1476,30 @@ func TestEmit_OutputOverride(t *testing.T) {
 	for _, p := range []string{"vendor/CLAUDE.md", "vendor/.claude/agents/a1.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("expected %s to exist", p)
+		}
+	}
+}
+
+func TestGitignoreHints_ReturnsLocalArtifacts(t *testing.T) {
+	got := New().GitignoreHints(&config.Config{})
+	want := []string{".claude/agent-memory/", ".claude/settings.local.json"}
+	if len(got) != len(want) {
+		t.Fatalf("GitignoreHints = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("GitignoreHints[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestGitignoreHints_HonorsDirOverride(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+	got := New().GitignoreHints(cfg)
+	want := []string{"vendor/.claude/agent-memory/", "vendor/.claude/settings.local.json"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("GitignoreHints[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
 }
