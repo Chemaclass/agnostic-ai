@@ -10,6 +10,7 @@ Read in order. Each builds on the previous.
 6. [CI](ci.md): drift detection in pull requests with `sync --check`.
 7. [Git hooks](git-hooks.md): pre-commit recipes for pre-commit, lefthook, husky.
 8. [Packs](packs.md): install shared spec packs (`agnostic-ai packs add`).
+9. [Why not symlinks](alternatives-why-not-symlinks.md): how agnostic-ai compares to symlinks, manual copies, and shared-file approaches, and when a simpler option suffices.
 
 ## Mental model
 
