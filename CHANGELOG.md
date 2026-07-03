@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.42.0 - 2026-07-03
+
 ### Changed
 
 - Managed `.gitignore` block header now warns the listed paths are not committed: a fresh clone or `git worktree` lacks them until `agnostic-ai sync` runs. Points readers at a post-checkout hook.
