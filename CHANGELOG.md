@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- "Why not symlinks" doc explaining how agnostic-ai compares to symlinks, manual copies, and shared-file `@`-includes, plus when a simpler option suffices.
+
 ## v0.41.0 - 2026-06-19
 
 ### Added
