@@ -47,7 +47,7 @@ Translate an existing AI CLI configuration into agnostic specs. Reads `sources:`
 agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,commands,settings.json,rules}, .mcp.json
 agnostic-ai import codex          # AGENTS.md (root + nested), .codex/{prompts,config.toml}
 agnostic-ai import claude codex   # multiple sources; AGNOSTIC_AI.md reflects the last (last-wins)
-agnostic-ai import cursor         # .cursor/rules/*.mdc
+agnostic-ai import cursor         # .cursor/rules/, .cursor/skills/, .cursor/commands/
 agnostic-ai import cline          # .clinerules/
 agnostic-ai import windsurf       # .windsurf/rules/
 agnostic-ai import continue       # .continue/rules/
@@ -108,8 +108,10 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The wa
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md`, nested subdirectories preserved |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
+| `.cursor/skills/<name>/` | `<skills>/<name>/`, full folder tree (SKILL.md + bundled assets) copied byte-for-byte |
+| `.cursor/commands/<name>.md` | `<commands>/<name>.md` (byte-identical copy, provenance header stripped) |
 
-Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`.
+Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
 
 `import cline`, `import windsurf`, `import continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 

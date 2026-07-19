@@ -22,7 +22,7 @@ The same skill spec lands as different files per target.
 | codex | `SKILL.md` with reduced `FrontmatterOrdered` (only `name` + `description`, plus `x-codex` extras); optional `agents/openai.yaml` with interface/policy/dependencies; sibling assets propagated |
 | amp | Folder per skill under `.agents/skills/<name>/SKILL.md`, reduced frontmatter (`name` + `description` only); sibling assets propagated |
 | antigravity | Folder per skill under `.agent/skills/<name>/SKILL.md`, minimal frontmatter (`name` + `description`); sibling assets propagated |
-| cursor | Flattens to a single `.cursor/rules/skill-<name>.mdc` (no nested folder); bundled sibling assets are **not** emitted |
+| cursor | Native `.cursor/skills/<name>/SKILL.md` folder; bundled sibling assets propagate byte-for-byte |
 | gemini | Reference-only by default; optional `.gemini/commands/skill-<name>.toml` when `emit-skills-as-commands: true` |
 
 Claude emits full frontmatter. Codex, amp, and antigravity reduce it to `name` + `description`. Cursor flattens the whole skill into one `.mdc` rule and drops bundled assets. A single shared file cannot be full-frontmatter and reduced-frontmatter at once. It cannot be a nested folder with assets and a flat `.mdc` without assets at once.
@@ -64,7 +64,7 @@ The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-ident
 
 ### Rules delivery is path-divergent
 
-Claude emits per-file `.claude/rules/*.md` without auto-import (reference only by default). Set `outputs.claude.rules-mode: import` to wire them via `@`-imports into `CLAUDE.md`. Codex, amp, warp, gemini, aider, and opencode have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
+Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, gemini, aider, and opencode have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
 
 ### Hooks are target-specific
 

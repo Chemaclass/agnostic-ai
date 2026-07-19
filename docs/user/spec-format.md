@@ -127,7 +127,7 @@ description: Validate YAML against a schema.
 
 Emission by target:
 
-- **Native** (`<dir>/<name>/SKILL.md`, one folder per skill): Claude Code (`.claude/skills/`), Codex (`.codex/skills/`), Amp (`.agents/skills/`), Antigravity (`.agent/skills/`).
+- **Native** (`<dir>/<name>/SKILL.md`, one folder per skill): Claude Code (`.claude/skills/`), Codex + Amp (shared `.agents/skills/`), Cursor (`.cursor/skills/`), Antigravity (`.agent/skills/`).
 - **As a rule file** (`skill-<name>.{mdc,md}`): Cursor, Cline, Windsurf, Continue.
 - **Listed by default, opt into native slash commands** via `outputs.<target>.emit-skills-as-commands: true`: Gemini, OpenCode.
 - **Listed in a `## Skills` section**: Aider, Copilot, Zed, Warp.
@@ -173,10 +173,19 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
 | `command` | yes | none | Shell command to run when triggered. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex. |
+| `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex. |
+| `async` | no | `false` | Run in the background without blocking. Claude. |
+| `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude. |
+| `shell` | no | empty | `bash` or `powershell`. Claude. |
+| `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude. |
+| `commandWindows` | no | empty | Windows-specific command override. Codex. |
 | `target` | no | empty | Single target name. Emits only there. |
 | `targets` | no | empty | List of target names. Emits only to those. |
 | `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
 | `targets-exclude` | no | empty | List of target names to block. Emits to every other configured target. |
+
+Tool-specific fields emit only where that tool's schema defines them; other targets ignore them.
 
 With none of the scoping fields set, the hook emits to every target that supports hooks. `target` takes precedence over `targets` when both appear. Exclude wins: a target in both an include and an exclude list is excluded.
 
@@ -239,9 +248,16 @@ target: codex   # shell-expanded codex path; do not leak to other tools
 |-------|---------------|
 | `PreToolUse` | Before any tool call. Matcher is the tool name regex. |
 | `PostToolUse` | After any tool call. Matcher is the tool name regex. |
+| `PostToolUseFailure` | After a tool call fails. |
+| `PermissionRequest` | When a permission dialog appears. |
 | `UserPromptSubmit` | Before the model reads a new user message. |
+| `SubagentStart` / `SubagentStop` | When a subagent spawns / finishes. |
 | `Stop` | When the model stops generating. |
 | `Notification` | When Claude Code surfaces a system notification. |
+| `SessionStart` / `SessionEnd` | When a session begins / terminates. |
+| `PreCompact` / `PostCompact` | Around context compaction. |
+
+Claude Code defines more events (`Setup`, `InstructionsLoaded`, `TaskCompleted`, `TeammateIdle`, `FileChanged`, ...); the `event:` value passes through verbatim, so any documented name works. See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) for the full list. Codex shares the `SessionStart`/`SubagentStart`/`UserPromptSubmit`/`PreToolUse`/`PermissionRequest`/`PostToolUse`/`PreCompact`/`PostCompact`/`Stop`/`SubagentStop` vocabulary.
 
 Native emission: Claude Code (`.claude/settings.json`), Codex (`.codex/hooks.json`, per-event arrays), Gemini (`.gemini/settings.json` `hooks`), Cursor (`.cursor/hooks.json`, `version` + per-event arrays). Other targets log a warning and skip. Event names pass through verbatim, so a Cursor hook sets `event:` to a Cursor name (`beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `sessionStart`, `stop`, ...). See each tool's docs for its full event list and matcher semantics.
 
@@ -385,7 +401,7 @@ Deploy the app to {{env}}.
 
 Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
-Native emission: Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Cursor emits commands when `outputs.cursor.commands-dir` is set, otherwise it prints a coverage note. Other targets log a warning and skip.
+Native emission: Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts, so its commands emit only when `outputs.codex.commands-dir` is set; otherwise `sync` prints a coverage note. Other targets log a warning and skip.
 
 ## Settings
 
@@ -496,7 +512,7 @@ Resolution per target:
 | `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
 | `gemini` | `description` (`name` becomes the `.toml` filename; `model` has no native command surface and is not emitted) |
 
-For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.codex/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
+For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
 
 ### Arbitrary custom keys
 

@@ -81,16 +81,16 @@ outputs:
     rules-dir: .claude/rules     # default. One .md per rule.
     commands-dir: .claude/commands # default. One .md per command (slash prompt).
     mcp-file: .mcp.json          # default
-    # rules-mode: import         # opt-in: wire .claude/rules/*.md into CLAUDE.md via @-imports.
+    # rules-mode: import         # legacy opt-in: also wire .claude/rules/*.md into CLAUDE.md via
+    #                            # @-imports, for Claude Code versions without native rules loading.
     # rules-file: CLAUDE.md      # opt-in: legacy concatenated rules layout.
   codex:
     agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
-    skills-dir: .codex/skills    # default. One folder per skill. Set to .agents/skills for the community shared layout.
+    skills-dir: .agents/skills   # default. One folder per skill, the path Codex CLI scans (shared with Amp).
     # shared-subagents: <bool>  # default: true (emit skills at skills-dir).
-    #                            # Set false to skip codex skill emission entirely,
-    #                            # useful when Codex CLI is configured to read
-    #                            # claude's .claude/skills/ tree directly.
-    commands-dir: .codex/prompts # default. One .md per command (slash prompt).
+    #                            # Set false to skip codex skill emission entirely.
+    # commands-dir: .codex/prompts # opt-in: legacy project prompts layout. Codex reads prompts
+    #                            # from ~/.codex/prompts only and deprecates them for skills.
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
     # exec-policies:              # opt-in. Renders .codex/rules/default.rules.
     #   - pattern: ["composer", "test"]
@@ -105,12 +105,13 @@ outputs:
     ignore-file: .aiexclude          # default. Agent ignore patterns (gitignore syntax).
   cursor:
     rules-dir: .cursor/rules     # default
+    skills-dir: .cursor/skills   # default. One folder per skill (<name>/SKILL.md + bundled assets).
+    commands-dir: .cursor/commands  # default. One .md per agent and per command.
     mcp-file: .cursor/mcp.json   # default
     review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
     environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
     ignore-file: .cursorignore   # default. Agent ignore patterns (gitignore syntax).
     hooks-file: .cursor/hooks.json  # default. version + per-event arrays ({command, matcher?}).
-    # commands-dir: .cursor/commands  # opt-in: also emit each agent and command spec as a Cursor Custom Command.
   copilot:
     instructions-dir: .github/instructions  # default. One .instructions.md per scoped rule, agent, skill.
     mcp-file: .vscode/mcp.json              # default
@@ -196,12 +197,13 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 |--------|-------|---------|-------|
 | `claude` | `dir` | `.claude` | Holds `agents/`, `skills/`, `settings.json`. |
 | `claude` | `rules-dir` | `.claude/rules` | One `.md` per rule. |
-| `claude` | `rules-mode` | _empty_ | Set to `import` to append a sentinel-marked block of `@.claude/rules/<name>.md` imports to the `CLAUDE.md` pointer body, so Claude Code loads the per-rule files (it does not auto-load `.claude/rules/`). Keeps the pointer body intact. Ignored when `rules-file` is set. |
+| `claude` | `rules-mode` | _empty_ | Set to `import` to append a sentinel-marked block of `@.claude/rules/<name>.md` imports to the `CLAUDE.md` pointer body. Only needed on Claude Code versions without native `.claude/rules/` loading; current versions auto-load the directory. Keeps the pointer body intact. Ignored when `rules-file` is set. |
 | `claude` | `rules-file` | _empty_ | When set, switches to the legacy concatenated single-file layout at that path (typically `CLAUDE.md`). `sync` skips the pointer-body write for `claude`. |
 | `claude` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema. |
 | `claude` | `settings` | _empty_ | First-class block mirroring `.claude/settings.json` keys. See [Claude settings](#claude-settings). |
 | `codex` | `agents-dir` | `.codex/agents` | One TOML per agent (Codex subagent schema). Override to `.agents/agents` for the community shared layout. |
-| `codex` | `skills-dir` | `.codex/skills` | One folder per skill (Codex skills layout). Override to `.agents/skills` for the community shared layout. |
+| `codex` | `skills-dir` | `.agents/skills` | One folder per skill (Codex skills layout, the path Codex CLI scans; shared with Amp, identical bytes dedupe). |
+| `codex` | `commands-dir` | _empty_ | When set (e.g. `.codex/prompts`), emits one `.md` per command at that path. Codex reads custom prompts from `~/.codex/prompts` only and deprecates them for skills, so this stays opt-in. |
 | `codex` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `codex`. |
 | `codex` | `mcp-file` | `.codex/config.toml` | Holds `[mcp_servers.<name>]` tables. Hooks moved out into `hooks-file`. |
 | `codex` | `hooks-file` | `.codex/hooks.json` | Per-event hook arrays in Claude `settings.json`-shaped JSON. Preferred over the legacy TOML `[[hooks.<event>]]` schema: preserves per-hook `timeout` + `statusMessage` and dedupes overlapping matchers. |
@@ -211,8 +213,9 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
 | `gemini` | `mcp-file` | `.gemini/settings.json` | Holds both `mcpServers` and `hooks`. HTTP MCP entries use `httpUrl`. |
-| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule, agent, and skill (`skill-<name>.mdc`). |
-| `cursor` | `commands-dir` | _empty_ | When set, each agent also emits as a Cursor Custom Command at `<dir>/<name>.md`. The rule-form `.mdc` emission still happens. Opt-in. |
+| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and agent. |
+| `cursor` | `skills-dir` | `.cursor/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets, the Agent Skills layout Cursor discovers). |
+| `cursor` | `commands-dir` | `.cursor/commands` | One `.md` per agent and per command spec (Cursor's standard commands location). |
 | `cursor` | `mcp-file` | `.cursor/mcp.json` | Standard `mcpServers` schema. |
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
 | `copilot` | `chatmodes-dir` | _empty_ | When set, each agent also emits as a Copilot Custom Chat Mode at `<dir>/<name>.chatmode.md`. The `agent-<name>.instructions.md` emission still happens. Opt-in. |

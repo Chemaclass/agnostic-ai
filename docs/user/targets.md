@@ -31,9 +31,9 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands | Settings | Reviews | Environments | Ignore |
 |-----------------|---------------------|--------|--------------------------|-------|------|----------|----------|---------|--------------|--------|
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` | `.claude/settings.json` (`permissions`, `model`) | - | - | - |
-| **codex**       | `.codex/agents/*.toml` | `.codex/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` | - | - | - | - |
+| **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` w/ opt-in (deprecated by Codex) | - | - | - | - |
 | **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | inlined into `GEMINI.md` (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | `.gemini/commands/<name>.toml` | - | - | - | `.aiexclude` |
-| **cursor**      | as `.mdc` (alwaysApply: false) | as `.mdc` (`skill-<name>.mdc`) | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` w/ opt-in | - | `BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
+| **cursor**      | as `.mdc` (alwaysApply: false) | `.cursor/skills/<name>/SKILL.md` | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` | - | `BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | - | `.vscode/mcp.json` | - | - | - | - | - |
 | **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - | - | - | - | - | - |
@@ -49,10 +49,10 @@ Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs
 
 Cross-cutting kind notes:
 
-- **Skills**: only Claude Code executes them natively. On every other target they are reference material the agent or human reads and follows.
+- **Skills**: Claude Code, Codex, Cursor, Amp, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex and Amp share one tree at `.agents/skills/`, which Cursor also scans. On the remaining targets skills are reference material the agent or human reads and follows.
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (the inferred default). amp, gemini, and zed have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; amp and zed via `url` vs `command`).
-- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Codex (`.codex/prompts/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Cursor emits them as Custom Commands when `outputs.cursor.commands-dir` is set. Other targets skip with a warning.
+- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
 
@@ -69,13 +69,13 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 .mcp.json
 ```
 
-- **Rules**: one file per spec under `.claude/rules/` for reference. They are not auto-imported by default: the sync-owned `CLAUDE.md` pointer body lists the source spec dir (e.g. `.agnostic-ai/rules/`), not `.claude/rules/`, and emits no `@`-import lines. To have Claude Code load the per-rule files, set `outputs.claude.rules-mode: import`: `sync` then appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body (round-trip-stripped on `import`), keeping the pointer body intact. The legacy alternative `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file and skips the pointer-body write for `claude`.
+- **Rules**: one file per spec under `.claude/rules/`. Claude Code discovers every `.md` file under that directory (recursively) at session start, so the emitted rules load natively with no extra wiring. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files. `outputs.claude.rules-mode: import` (appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, round-trip-stripped on `import`) predates native rules loading; keep it only for Claude Code versions older than the `.claude/rules/` rollout. The legacy alternative `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file and skips the pointer-body write for `claude`.
 - **Commands**: one file per spec under `.claude/commands/`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; body is the prompt template.
 - **Settings overlay**: `agnostic-ai import claude` captures the non-`hooks` portion of `.claude/settings.json` (statusLine, enabledPlugins, any top-level key) into `.agnostic-ai/overlays/claude.settings.json`. `sync -t claude` layers the spec-derived `hooks` key on top, reproducing the full settings.json from a fresh checkout. Re-run `import claude` after editing settings.json by hand.
 - **MCP import**: `import claude` reads `.mcp.json` and writes one spec under `<mcps>/<name>.yaml` per `mcpServers.<name>`. The next `sync` distributes them to codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
 - **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, includeCoAuthoredBy. They merge above the captured overlay and below the spec-derived hooks. See [Claude settings](configuration.md#claude-settings).
 
-Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`), `outputs.claude.rules-mode` (unset; set to `import` to wire `.claude/rules/*.md` into `CLAUDE.md` via `@`-imports), `outputs.claude.rules-file` (unset; switches to legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`), `outputs.claude.settings` (first-class settings block).
+Config keys: `outputs.claude.dir` (default `.claude`), `outputs.claude.rules-dir` (default `.claude/rules`, auto-loaded by Claude Code), `outputs.claude.rules-mode` (unset; set to `import` to also wire `.claude/rules/*.md` into `CLAUDE.md` via `@`-imports, only needed on Claude Code versions without native rules loading), `outputs.claude.rules-file` (unset; switches to legacy concatenated single-file layout, typically `CLAUDE.md`), `outputs.claude.commands-dir` (default `.claude/commands`), `outputs.claude.mcp-file` (default `.mcp.json`), `outputs.claude.settings` (first-class settings block).
 
 Verify with the real CLI:
 
@@ -91,28 +91,28 @@ Verify with the real CLI:
 ```
 AGENTS.md                                    # canonical entry-point pointer body (written by sync)
 .codex/agents/<name>.toml                    # one TOML per agent (Codex CLI's native path)
-.codex/skills/<name>/SKILL.md                # one folder per skill (Codex CLI's native path)
-.codex/skills/<name>/agents/openai.yaml      # optional, when x-codex provides UI/policy/deps
-.codex/prompts/<name>.md                     # one per command (slash prompt)
+.agents/skills/<name>/SKILL.md               # one folder per skill (the path Codex CLI scans)
+.agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
 .codex/config.toml                           # when MCP entries exist
 .codex/hooks.json                            # when hook entries exist
 .codex/rules/default.rules                   # opt-in, from outputs.codex.exec-policies
+.codex/prompts/<name>.md                     # opt-in via outputs.codex.commands-dir (deprecated by Codex)
 ```
 
 - **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline. Codex reads `AGENTS.md` as always-on context, so the rules reach it by default. `import codex` strips that block (the canonical rules live under the source dir). Per-directory scoping (e.g. `src/AGENTS.md` from `globs: src/**`) is no longer emitted by default. Use `outputs.codex.rules-file: AGENTS.md` for the legacy concatenated layout.
-- **Skills**: [Codex skills layout](https://developers.openai.com/codex/skills), one folder per skill with a required `SKILL.md` (frontmatter `name` + `description`, plus body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an `agents/openai.yaml` is also written for UI customization and policy declarations.
-- **Hooks**: land in `.codex/hooks.json` (override via `outputs.codex.hooks-file`), routed by `event` frontmatter (`SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `PostCompact`) into per-event arrays with `matcher` and `command`. The JSON form preserves matcher metadata the inline `[[hooks.<event>]]` TOML cannot.
+- **Skills**: [Codex skills layout](https://developers.openai.com/codex/skills), one folder per skill under `.agents/skills/` (the directory Codex scans from the cwd up to the repo root) with a required `SKILL.md` (frontmatter `name` + `description`, plus body). When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an `agents/openai.yaml` is also written for UI customization and policy declarations. Amp reads the same path; identical emitted bytes dedupe, so enabling both targets is safe. A stale managed tree at the pre-v0.43 `.codex/skills/` default is swept on sync.
+- **Hooks**: land in `.codex/hooks.json` (override via `outputs.codex.hooks-file`), routed by `event` frontmatter (`SessionStart`, `SubagentStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `Stop`, `SubagentStop`) into per-event arrays with `matcher` and `command`. Optional `timeout`, `statusMessage`, and `commandWindows` pass through. The JSON form preserves matcher metadata the inline `[[hooks.<event>]]` TOML cannot.
 - **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` in Codex's Skylark `prefix_rule(...)` form. Unset writes nothing.
 - **MCP**: lands in `.codex/config.toml`. Servers emit as `[mcp_servers.<name>]`: stdio uses `command`/`args`/`env`, HTTP/SSE uses `url`/`bearer_token_env_var`/`http_headers`. The project-tier config.toml is managed (overwritten each sync); put unmanaged Codex config in `~/.codex/config.toml`.
-- **Commands**: one file per spec under `.codex/prompts/` (project-tier mirror of `~/.codex/prompts/`). Frontmatter passes through; body is the prompt template.
+- **Commands**: not emitted by default. Codex loads custom prompts from `~/.codex/prompts/` only (no project-level discovery) and [deprecates them in favor of skills](https://developers.openai.com/codex/custom-prompts), so a project-tier prompts tree would never be read; `sync` prints a coverage note instead and sweeps a stale managed `.codex/prompts/` tree. Set `outputs.codex.commands-dir` to emit the legacy layout anyway.
 - **Import**: `import codex` captures `.codex/config.toml` minus `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. `sync -t codex` prepends it before the spec-derived sections, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any other key survive a `.codex/` wipe. On conflict with `outputs.codex.config.*` the overlay wins and the first-class key is dropped to keep TOML valid. `import codex` also reads `.codex/prompts/*.md` and writes them byte-for-byte to `<commands>/`, so user-authored prompts round-trip.
 
-Config keys: `outputs.codex.agents-dir` (default `.codex/agents`; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.codex/skills`; override to `.agents/skills`), `outputs.codex.shared-subagents` (default `true`; emits the per-skill tree at `skills-dir`. Set `false` to skip codex skill emission, useful when Codex reads claude's `.claude/skills/` tree directly), `outputs.codex.commands-dir` (default `.codex/prompts`), `outputs.codex.mcp-file` (default `.codex/config.toml`), `outputs.codex.hooks-file` (default `.codex/hooks.json`), `outputs.codex.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write), `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` (unset; write `.codex/rules/default.rules`).
+Config keys: `outputs.codex.agents-dir` (default `.codex/agents`; override to `.agents/agents` for the community shared layout), `outputs.codex.skills-dir` (default `.agents/skills`, the path Codex scans), `outputs.codex.shared-subagents` (default `true`; emits the per-skill tree at `skills-dir`. Set `false` to skip codex skill emission), `outputs.codex.commands-dir` (unset; set to e.g. `.codex/prompts` to emit the deprecated project prompts layout), `outputs.codex.mcp-file` (default `.codex/config.toml`), `outputs.codex.hooks-file` (default `.codex/hooks.json`), `outputs.codex.rules-file` (unset; writes legacy concatenated rules and skips the pointer-body write), `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` (unset; write `.codex/rules/default.rules`).
 
 Verify with the real CLI:
 
 1. Install: `npm install -g @openai/codex` ([quickstart](https://developers.openai.com/codex/cli)); `codex --version` to confirm PATH.
-2. Check the tree: `agnostic-ai sync -t codex`, then `ls .codex/agents/ .codex/skills/ .codex/prompts/`, `test -f .codex/config.toml && head -1 .codex/config.toml`, `test -f .codex/hooks.json && jq '.hooks | keys' .codex/hooks.json`. First line of config.toml must be the `# Generated by agnostic-ai` provenance comment.
+2. Check the tree: `agnostic-ai sync -t codex`, then `ls .codex/agents/ .agents/skills/`, `test -f .codex/config.toml && head -1 .codex/config.toml`, `test -f .codex/hooks.json && jq '.hooks | keys' .codex/hooks.json`. First line of config.toml must be the `# Generated by agnostic-ai` provenance comment.
 3. Validate syntax: `toml-test .codex/config.toml` and `jq empty .codex/hooks.json` should both exit `0`.
 4. `codex run "list one rule from this project"`. Codex picks up `AGENTS.md`, the agents, and skill folders. Look for `loaded N agents` / `loaded N skills`.
 5. Trigger a hook by firing the targeted `event` (e.g. an `Edit` for a `PostToolUse` hook); the `command` appears in the hook log.
@@ -148,25 +148,26 @@ Verify with the real CLI:
 
 ```
 .cursor/rules/<name>.mdc
-.cursor/commands/<name>.md           # one per agent and per command spec, only when commands-dir is set
+.cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
+.cursor/commands/<name>.md           # one per agent and per command spec
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
 ```
 
 - Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter. An always-apply rule omits `globs`; otherwise empty globs default to `**/*`. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443)
-- When `outputs.cursor.commands-dir` is set, each agent and each command spec emits as a [Cursor Custom Command](https://docs.cursor.com/agent/custom-commands): Markdown with optional `description` and `model` frontmatter. The agent rule-form emission still happens. Commands have no other Cursor surface, so without `commands-dir` they stay source-only and `sync` prints a coverage note.
-- Skills flatten to a single `.mdc` rule, so a skill that bundles sibling files (scripts, assets) cannot carry them to Cursor. `sync` prints a note for each such skill instead of dropping the payloads silently. (#430)
+- Each agent and each command spec emits as a [Cursor command](https://cursor.com/docs/agent/chat/commands) under `.cursor/commands/`: Markdown with optional `description` and `model` frontmatter. The agent rule-form emission still happens. Override the directory via `outputs.cursor.commands-dir`.
+- **Skills**: native folders under `.cursor/skills/<name>/SKILL.md` (the [Agent Skills](https://cursor.com/docs/skills.md) layout Cursor 2.4+ discovers), with every bundled sibling file (scripts, references, assets) propagated byte-for-byte. Frontmatter carries `name` + `description`; optional `paths` and `disable-model-invocation` pass through when the spec declares them. The pre-native flattened `skill-<name>.mdc` copies are no longer written and get swept by the ledger on the next sync.
 - Review specs emit as [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md` files: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Override the basename via `outputs.cursor.review-file`. (#433)
 - Environment specs emit as `.cursor/environment.json` (background-agent bootstrap). The spec keys pass through verbatim minus agnostic routing fields; multiple specs merge by top-level key. Override the path via `outputs.cursor.environment-file`. (#434)
 - Ignore specs emit as `.cursorignore` (gitignore syntax). Multiple specs concatenate. Override via `outputs.cursor.ignore-file`. (#435)
 - Hook specs emit as [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event `{command, matcher?}` arrays). Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Override via `outputs.cursor.hooks-file`. (#438)
 
-Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.commands-dir` (default empty, opt-in), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`), `outputs.cursor.review-file` (default `BUGBOT.md`), `outputs.cursor.environment-file` (default `.cursor/environment.json`), `outputs.cursor.ignore-file` (default `.cursorignore`), `outputs.cursor.hooks-file` (default `.cursor/hooks.json`).
+Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.skills-dir` (default `.cursor/skills`), `outputs.cursor.commands-dir` (default `.cursor/commands`), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`), `outputs.cursor.review-file` (default `BUGBOT.md`), `outputs.cursor.environment-file` (default `.cursor/environment.json`), `outputs.cursor.ignore-file` (default `.cursorignore`), `outputs.cursor.hooks-file` (default `.cursor/hooks.json`).
 
 Verify with the real IDE:
 
 1. Install Cursor from [cursor.com](https://cursor.com).
-2. Check the tree: `ls .cursor/rules/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` for the provenance header (it sits after the frontmatter block), `python -m json.tool .cursor/mcp.json > /dev/null`.
-3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc`; confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings.
+2. Check the tree: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` for the provenance header (it sits after the frontmatter block), `python -m json.tool .cursor/mcp.json > /dev/null`.
+3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` (confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings), the Skills list shows each `.cursor/skills/<name>/`, and the `/` command picker lists each `.cursor/commands/<name>.md`.
 4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
 5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses; trigger the matched event (e.g. a shell command for `beforeShellExecution`) and confirm the `command` runs.
 
