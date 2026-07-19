@@ -25,10 +25,15 @@ import (
 // AGENTS.md is the canonical shared path: Codex, Amp, and Warp all default to
 // it (OpenCode defaults to .opencode/AGENTS.md and Zed to .rules, so neither
 // contends here). Their entry-point pointer body is byte-identical, so sync
-// deduplicates the write and they do not collide. A genuine collision is two
-// adapters writing DIFFERENT content to one path (e.g. a conflicting
-// outputs.<target>.rules-file: AGENTS.md), which would otherwise cause silent
-// last-writer-wins and perpetual drift in `sync --check`.
+// deduplicates the write and they do not collide. The same rule applies to
+// adapter-emitted files: Codex and Amp both emit skills to
+// `.agents/skills/<name>/SKILL.md`, and for a spec without divergent
+// per-target overrides the bytes match, so the shared write is the dedup the
+// tool exists for, not a conflict. A genuine collision is two adapters
+// writing DIFFERENT content to one path (e.g. a conflicting
+// outputs.<target>.rules-file: AGENTS.md, or a skill whose x-codex/x-amp
+// overrides diverge), which would otherwise cause silent last-writer-wins
+// and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error {
 	policy := cfg.Sync.CollisionPolicy
 	if policy == "" {
@@ -39,6 +44,7 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 	}
 
 	owners := map[string][]string{}
+	contents := map[string]map[string]bool{}
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
@@ -51,11 +57,17 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		}
 		for _, f := range adapters.StopCapture() {
 			owners[f.Path] = append(owners[f.Path], t)
+			if contents[f.Path] == nil {
+				contents[f.Path] = map[string]bool{}
+			}
+			contents[f.Path][f.Content] = true
 		}
 	}
 	var lines []string
 	for path, ts := range owners {
-		if len(ts) < 2 {
+		// Byte-identical writes from several targets dedupe into one
+		// file; only divergent content is a real conflict.
+		if len(ts) < 2 || len(contents[path]) < 2 {
 			continue
 		}
 		sort.Strings(ts)
