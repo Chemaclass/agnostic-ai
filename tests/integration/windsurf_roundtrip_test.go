@@ -35,7 +35,7 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "windsurf")
 
-	if err := os.RemoveAll(filepath.Join(dir, ".windsurf")); err != nil {
+	if err := os.RemoveAll(filepath.Join(dir, ".devin")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -93,7 +93,7 @@ gitignore:
 func snapshotWindsurfEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	full := filepath.Join(root, ".windsurf")
+	full := filepath.Join(root, ".devin")
 	info, err := os.Stat(full)
 	if os.IsNotExist(err) {
 		return out

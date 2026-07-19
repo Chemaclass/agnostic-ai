@@ -1,9 +1,16 @@
-// Package windsurf emits .windsurf/rules/*.md for the Windsurf editor.
+// Package windsurf emits .devin/rules/*.md for Devin Desktop, the
+// renamed Windsurf editor (2026-06).
 //
-// Rules and agents emit as `.windsurf/rules/*.md` (always-on). When
-// `outputs.windsurf.workflows-dir` is set, each agent additionally
-// emits as a Windsurf Workflow at `<dir>/<name>.md`, invokable in
-// Cascade chat as `/<name>`.
+// Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/`
+// as a backward-compat fallback (`.windsurfrules` is legacy). Rules and
+// agents emit as always-on files into the preferred directory; set
+// `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old
+// layout. The target keeps its `windsurf` name so existing configs and
+// `x-windsurf` meta continue to work.
+//
+// When `outputs.windsurf.workflows-dir` is set, each agent additionally
+// emits as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
+// as `/<name>` (upstream still documents `.windsurf/workflows/` only).
 package windsurf
 
 import (
@@ -17,7 +24,11 @@ import (
 
 const (
 	target     = "windsurf"
-	defaultDir = ".windsurf/rules"
+	defaultDir = ".devin/rules"
+	// legacyDir is the pre-rename rules path. Devin Desktop still reads
+	// it, but managed files there predate the sync ledger on old
+	// projects, so Emit sweeps the tree explicitly (header-guarded).
+	legacyDir = ".windsurf/rules"
 )
 
 var caps = emit.Capabilities{
@@ -34,20 +45,30 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .md per rule and per agent into the rules directory.
-// When `outputs.windsurf.workflows-dir` is set, each agent additionally
-// emits as a Windsurf Workflow at `<dir>/<name>.md`; the existing
-// `.windsurf/rules/agent-<name>.md` rule-form emission stays in place
-// so users that depend on it keep working.
+// Emit writes one .md per rule and per agent into the rules directory
+// (default `.devin/rules`, the path Devin Desktop prefers). When
+// `outputs.windsurf.workflows-dir` is set, each agent additionally
+// emits as a Workflow at `<dir>/<name>.md`; the rule-form
+// `agent-<name>.md` emission stays in place so users that depend on it
+// keep working.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
+		Dir:         rulesDir,
 		AgentPrefix: "agent-",
 	}, dryRun); err != nil {
 		return err
+	}
+	// Sweep managed leftovers at the pre-rename path unless the user
+	// explicitly opted to keep emitting there. Hand-authored files (no
+	// provenance marker) survive.
+	if rulesDir != legacyDir {
+		if err := emit.RemoveGeneratedTree(legacyDir, dryRun); err != nil {
+			return err
+		}
 	}
 	return emitWorkflows(b, cfg, dryRun)
 }

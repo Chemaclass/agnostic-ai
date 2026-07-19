@@ -24,9 +24,9 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
-		{spec.KindRule, []string{".windsurf/rules/r1.md", ".windsurf/rules/r2.md", ".windsurf/rules/r3.md"}},
-		{spec.KindAgent, []string{".windsurf/rules/agent-alpha.md", ".windsurf/rules/agent-beta.md", ".windsurf/rules/agent-gamma.md"}},
-		{spec.KindSkill, []string{".windsurf/rules/skill-uno.md", ".windsurf/rules/skill-dos.md", ".windsurf/rules/skill-tres.md"}},
+		{spec.KindRule, []string{".devin/rules/r1.md", ".devin/rules/r2.md", ".devin/rules/r3.md"}},
+		{spec.KindAgent, []string{".devin/rules/agent-alpha.md", ".devin/rules/agent-beta.md", ".devin/rules/agent-gamma.md"}},
+		{spec.KindSkill, []string{".devin/rules/skill-uno.md", ".devin/rules/skill-dos.md", ".devin/rules/skill-tres.md"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

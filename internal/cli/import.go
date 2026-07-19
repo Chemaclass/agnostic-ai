@@ -15,10 +15,30 @@ import (
 
 // rulesDirImporters maps a source name to the rules directory the
 // importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly.
+// route directly; windsurf resolves its directory dynamically because
+// Devin Desktop reads two candidate trees.
 var rulesDirImporters = map[string]string{
-	"cline":    ".clinerules",
-	"windsurf": filepath.Join(".windsurf", "rules"),
+	"cline": ".clinerules",
+}
+
+// windsurfRulesDirs lists the rules directories Devin Desktop (the
+// renamed Windsurf) reads, preferred first. Import walks the first one
+// that exists so both pre- and post-rename projects round-trip.
+var windsurfRulesDirs = []string{
+	filepath.Join(".devin", "rules"),
+	filepath.Join(".windsurf", "rules"),
+}
+
+// windsurfImportDir returns the first existing candidate rules dir
+// under root, defaulting to the preferred `.devin/rules` when neither
+// exists yet.
+func windsurfImportDir(root string) string {
+	for _, d := range windsurfRulesDirs {
+		if dirExists(filepath.Join(root, d)) {
+			return d
+		}
+	}
+	return windsurfRulesDirs[0]
 }
 
 // importSources lists every source the import command accepts, used in
@@ -26,7 +46,7 @@ var rulesDirImporters = map[string]string{
 func importSources() string {
 	names := []string{
 		"aider", "amp", "antigravity", "claude", "codex", "continue", "copilot",
-		"cursor", "gemini", "opencode", "warp", "zed",
+		"cursor", "gemini", "opencode", "warp", "windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
@@ -114,6 +134,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromAntigravity(root, src, cfg)
 	case "continue":
 		return importFromContinue(root, src)
+	case "windsurf":
+		return importFromRulesDir(root, source, windsurfImportDir(root), src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
@@ -155,7 +177,7 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "aider", "amp", "warp",
-		"gemini", "copilot", "opencode", "zed":
+		"gemini", "copilot", "opencode", "zed", "windsurf":
 		return true
 	}
 	_, ok := rulesDirImporters[source]
