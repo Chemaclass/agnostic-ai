@@ -21,6 +21,7 @@ type claudeHookCommand struct {
 	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
 	Shell         string `json:"shell,omitempty"`
 	If            string `json:"if,omitempty"`
+	Once          bool   `json:"once,omitempty"`
 }
 
 type claudeHookGroup struct {
@@ -68,7 +69,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			cmds := make([]string, 0, len(g.Hooks))
 			timeout := 0
 			statusMessage, shell, ifRule := "", "", ""
-			async, asyncRewake := false, false
+			async, asyncRewake, once := false, false, false
 			for _, h := range g.Hooks {
 				if h.Command == "" {
 					continue
@@ -88,6 +89,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				}
 				async = async || h.Async
 				asyncRewake = asyncRewake || h.AsyncRewake
+				once = once || h.Once
 			}
 			if len(cmds) == 0 {
 				continue
@@ -115,6 +117,9 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			}
 			if asyncRewake {
 				doc["asyncRewake"] = true
+			}
+			if once {
+				doc["once"] = true
 			}
 			if shell != "" {
 				doc["shell"] = shell

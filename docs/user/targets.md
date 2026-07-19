@@ -33,7 +33,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` | `.claude/settings.json` (`permissions`, `model`) | - | - | - |
 | **codex**       | `.codex/agents/*.toml` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` w/ opt-in (deprecated by Codex) | - | - | - | - |
 | **gemini**      | `.gemini/commands/<name>.toml` | `.gemini/commands/skill-<name>.toml` w/ opt-in | inlined into `GEMINI.md` (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | `.gemini/commands/<name>.toml` | - | - | - | `.aiexclude` |
-| **cursor**      | as `.mdc` (alwaysApply: false) | `.cursor/skills/<name>/SKILL.md` | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` | - | `BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
+| **cursor**      | `.cursor/agents/<name>.md` | `.cursor/skills/<name>/SKILL.md` | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` | - | `.cursor/BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
 | **copilot**     | `.github/instructions/agent-<name>.instructions.md` | `.github/instructions/skill-<name>.instructions.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | - | `.vscode/mcp.json` | - | - | - | - | - |
 | **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.clinerules/*.md`       | -     | - | - | - | - | - | - |
@@ -148,26 +148,28 @@ Verify with the real CLI:
 
 ```
 .cursor/rules/<name>.mdc
+.cursor/agents/<name>.md             # one native subagent per agent spec
 .cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
-.cursor/commands/<name>.md           # one per agent and per command spec
+.cursor/commands/<name>.md           # one per command spec
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
 ```
 
-- Rules emit with `alwaysApply: true`; agents as rules with `alwaysApply: false`. Override in spec frontmatter. An always-apply rule omits `globs`; otherwise empty globs default to `**/*`. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443)
-- Each agent and each command spec emits as a [Cursor command](https://cursor.com/docs/agent/chat/commands) under `.cursor/commands/`: Markdown with optional `description` and `model` frontmatter. The agent rule-form emission still happens. Override the directory via `outputs.cursor.commands-dir`.
+- Rules emit with `alwaysApply: true` (override in spec frontmatter). An always-apply rule omits `globs`; otherwise empty globs default to `**/*`. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443)
+- **Agents**: native [Cursor subagents](https://cursor.com/docs/subagents.md) at `.cursor/agents/<name>.md` (Cursor 2.4+): frontmatter `name` + `description` plus optional `model`, `readonly`, and `is_background` when the spec declares them; the body is the system prompt. The old flattened `.mdc` and agent-as-command emissions are gone; the ledger sweeps stale copies.
+- Each command spec emits as a [Cursor command](https://cursor.com/docs/agent/chat/commands) under `.cursor/commands/`: Markdown whose body is the prompt. Override the directory via `outputs.cursor.commands-dir`.
 - **Skills**: native folders under `.cursor/skills/<name>/SKILL.md` (the [Agent Skills](https://cursor.com/docs/skills.md) layout Cursor 2.4+ discovers), with every bundled sibling file (scripts, references, assets) propagated byte-for-byte. Frontmatter carries `name` + `description`; optional `paths` and `disable-model-invocation` pass through when the spec declares them. The pre-native flattened `skill-<name>.mdc` copies are no longer written and get swept by the ledger on the next sync.
-- Review specs emit as [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md` files: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Override the basename via `outputs.cursor.review-file`. (#433)
+- Review specs emit as [Bugbot](https://cursor.com/docs/bugbot) files inside `.cursor/` directories: `.cursor/BUGBOT.md` at the repo root for unscoped specs, `<scope>/.cursor/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Bugbot always includes the root file and picks up per-directory copies while traversing up from changed files. Override the basename via `outputs.cursor.review-file`. (#433)
 - Environment specs emit as `.cursor/environment.json` (background-agent bootstrap). The spec keys pass through verbatim minus agnostic routing fields; multiple specs merge by top-level key. Override the path via `outputs.cursor.environment-file`. (#434)
 - Ignore specs emit as `.cursorignore` (gitignore syntax). Multiple specs concatenate. Override via `outputs.cursor.ignore-file`. (#435)
-- Hook specs emit as [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event `{command, matcher?}` arrays). Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Override via `outputs.cursor.hooks-file`. (#438)
+- Hook specs emit as [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event `{command, matcher?}` arrays; optional `timeout`, `loop_limit`, and `failClosed` pass through). Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Override via `outputs.cursor.hooks-file`. (#438)
 
-Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.skills-dir` (default `.cursor/skills`), `outputs.cursor.commands-dir` (default `.cursor/commands`), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`), `outputs.cursor.review-file` (default `BUGBOT.md`), `outputs.cursor.environment-file` (default `.cursor/environment.json`), `outputs.cursor.ignore-file` (default `.cursorignore`), `outputs.cursor.hooks-file` (default `.cursor/hooks.json`).
+Config keys: `outputs.cursor.rules-dir` (default `.cursor/rules`), `outputs.cursor.agents-dir` (default `.cursor/agents`), `outputs.cursor.skills-dir` (default `.cursor/skills`), `outputs.cursor.commands-dir` (default `.cursor/commands`), `outputs.cursor.mcp-file` (default `.cursor/mcp.json`), `outputs.cursor.review-file` (default `BUGBOT.md`), `outputs.cursor.environment-file` (default `.cursor/environment.json`), `outputs.cursor.ignore-file` (default `.cursorignore`), `outputs.cursor.hooks-file` (default `.cursor/hooks.json`).
 
 Verify with the real IDE:
 
 1. Install Cursor from [cursor.com](https://cursor.com).
 2. Check the tree: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` for the provenance header (it sits after the frontmatter block), `python -m json.tool .cursor/mcp.json > /dev/null`.
-3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` (confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings), the Skills list shows each `.cursor/skills/<name>/`, and the `/` command picker lists each `.cursor/commands/<name>.md`.
+3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` (confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings), the Skills list shows each `.cursor/skills/<name>/`, the agent picker lists each `.cursor/agents/<name>.md`, and the `/` command picker lists each `.cursor/commands/<name>.md`.
 4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
 5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses; trigger the matched event (e.g. a shell command for `beforeShellExecution`) and confirm the `command` runs.
 

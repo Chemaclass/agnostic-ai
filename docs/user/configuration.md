@@ -105,10 +105,11 @@ outputs:
     ignore-file: .aiexclude          # default. Agent ignore patterns (gitignore syntax).
   cursor:
     rules-dir: .cursor/rules     # default
+    agents-dir: .cursor/agents   # default. One native subagent .md per agent.
     skills-dir: .cursor/skills   # default. One folder per skill (<name>/SKILL.md + bundled assets).
-    commands-dir: .cursor/commands  # default. One .md per agent and per command.
+    commands-dir: .cursor/commands  # default. One .md per command.
     mcp-file: .cursor/mcp.json   # default
-    review-file: BUGBOT.md       # default. Per-scope Cursor Bugbot review guidance.
+    review-file: BUGBOT.md       # default basename. Lands at .cursor/BUGBOT.md (root and per scope).
     environment-file: .cursor/environment.json  # default. Background-agent bootstrap config.
     ignore-file: .cursorignore   # default. Agent ignore patterns (gitignore syntax).
     hooks-file: .cursor/hooks.json  # default. version + per-event arrays ({command, matcher?}).
@@ -213,9 +214,10 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `gemini` | `emit-skills-as-commands` | `false` | When true, skills also emit as `.gemini/commands/skill-<name>.toml`. |
 | `gemini` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `gemini`. |
 | `gemini` | `mcp-file` | `.gemini/settings.json` | Holds both `mcpServers` and `hooks`. HTTP MCP entries use `httpUrl`. |
-| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule and agent. |
+| `cursor` | `rules-dir` | `.cursor/rules` | One `.mdc` per rule. |
+| `cursor` | `agents-dir` | `.cursor/agents` | One native Cursor subagent `.md` per agent (`name`, `description`, optional `model`/`readonly`/`is_background`). |
 | `cursor` | `skills-dir` | `.cursor/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets, the Agent Skills layout Cursor discovers). |
-| `cursor` | `commands-dir` | `.cursor/commands` | One `.md` per agent and per command spec (Cursor's standard commands location). |
+| `cursor` | `commands-dir` | `.cursor/commands` | One `.md` per command spec (Cursor's standard commands location). |
 | `cursor` | `mcp-file` | `.cursor/mcp.json` | Standard `mcpServers` schema. |
 | `copilot` | `instructions-dir` | `.github/instructions` | One `.instructions.md` per scoped rule, agent, skill. `applyTo:` frontmatter derived from `globs` or scope. |
 | `copilot` | `chatmodes-dir` | _empty_ | When set, each agent also emits as a Copilot Custom Chat Mode at `<dir>/<name>.chatmode.md`. The `agent-<name>.instructions.md` emission still happens. Opt-in. |

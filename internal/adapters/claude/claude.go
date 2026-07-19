@@ -444,20 +444,22 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 // ruleMetaWithPaths maps the cross-tool `globs` scoping field (the
 // Cursor spelling, a string or list) onto Claude Code's `paths:` list so
 // one spec scopes the rule on every tool. A spec that already declares
-// `paths` wins untouched; `globs` is dropped from the Claude emit either
-// way since Claude's rule frontmatter does not define it. Returns the
+// `paths` wins untouched. `globs` and `alwaysApply` are dropped from the
+// Claude emit either way: Claude's rule frontmatter defines only
+// `paths`, and a rule without it is always-on by default. Returns the
 // input unchanged when there is nothing to translate.
 func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []string) {
 	if meta == nil {
 		return meta, keys
 	}
 	globs, hasGlobs := meta["globs"]
-	if !hasGlobs {
+	_, hasAlways := meta["alwaysApply"]
+	if !hasGlobs && !hasAlways {
 		return meta, keys
 	}
 	out := make(map[string]any, len(meta))
 	for k, v := range meta {
-		if k == "globs" {
+		if k == "globs" || k == "alwaysApply" {
 			continue
 		}
 		out[k] = v
@@ -467,13 +469,15 @@ func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []st
 	addPaths := !hasPaths && len(paths) > 0
 	outKeys := make([]string, 0, len(keys))
 	for _, k := range keys {
-		if k == "globs" {
+		switch k {
+		case "globs":
 			if addPaths {
 				outKeys = append(outKeys, "paths")
 			}
-			continue
+		case "alwaysApply":
+		default:
+			outKeys = append(outKeys, k)
 		}
-		outKeys = append(outKeys, k)
 	}
 	if addPaths {
 		out["paths"] = paths
@@ -535,6 +539,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		asyncRewake := hookBoolMeta(h.Meta, "asyncRewake")
 		shell, _ := h.Meta["shell"].(string)
 		ifRule, _ := h.Meta["if"].(string)
+		once := hookBoolMeta(h.Meta, "once")
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
@@ -549,6 +554,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 				AsyncRewake:   asyncRewake,
 				Shell:         shell,
 				If:            ifRule,
+				Once:          once,
 			})
 		}
 	}
@@ -623,6 +629,7 @@ type hookCommandEntry struct {
 	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
 	Shell         string `json:"shell,omitempty"`
 	If            string `json:"if,omitempty"`
+	Once          bool   `json:"once,omitempty"`
 }
 
 // matcherGroup mirrors the `{matcher, hooks}` JSON object in
