@@ -276,3 +276,50 @@ func writeAgnosticFile(t *testing.T, content string) {
 		t.Fatal(err)
 	}
 }
+
+// Zed and Cline join the shared AGENTS.md group: one deduplicated write
+// carries the pointer body, and the rules block the inline consumers
+// (zed among them) need is present. Cline alone does not force the
+// inline block since .clinerules/ delivers its rules natively.
+func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+	})
+
+	cfg := &config.Config{Targets: []string{"zed", "cline"}}
+	if err := writeAgnosticEntryPoints(cfg, b, []string{"zed", "cline"}, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md not written: %v", err)
+	}
+	if !strings.Contains(string(data), "My instructions.") {
+		t.Errorf("AGENTS.md missing pointer body:\n%s", data)
+	}
+	if !strings.Contains(string(data), "rule body") {
+		t.Errorf("zed inlines rules, so the shared AGENTS.md must carry them:\n%s", data)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_ClineAloneNoInlineRules(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+	})
+
+	cfg := &config.Config{Targets: []string{"cline"}}
+	if err := writeAgnosticEntryPoints(cfg, b, []string{"cline"}, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md not written: %v", err)
+	}
+	if strings.Contains(string(data), "rule body") {
+		t.Errorf("cline delivers rules via .clinerules/; AGENTS.md must stay a slim pointer:\n%s", data)
+	}
+}

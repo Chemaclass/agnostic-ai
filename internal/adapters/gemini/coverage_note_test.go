@@ -21,35 +21,21 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 	return buf
 }
 
-func TestEmit_NotesSkillGapWhenOptInUnset(t *testing.T) {
+// Skills emit natively under .gemini/skills/ now, so the old
+// emit-skills-as-commands coverage note is gone: nothing is dropped.
+func TestEmit_NoSkillNote_SkillsEmitNatively(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	emit.FlushCoverageNotes()
-	want := "3 skills reach gemini only via outputs.gemini.emit-skills-as-commands"
-	if !strings.Contains(buf.String(), want) {
-		t.Errorf("expected coverage note %q, got: %s", want, buf.String())
-	}
-}
-
-func TestEmit_NoSkillNoteWhenOptInSet(t *testing.T) {
-	testutil.TempCwd(t)
-	buf := swapNoteWarner(t)
-	cfg := &config.Config{Outputs: map[string]config.Output{
-		"gemini": {EmitSkillsAsCommands: true},
-	}}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
-		t.Fatalf("emit: %v", err)
-	}
-	emit.FlushCoverageNotes()
 	if strings.Contains(buf.String(), "reach gemini") {
-		t.Errorf("opt-in set must suppress the skill note, got: %s", buf.String())
+		t.Errorf("native skill emission must not note a gap, got: %s", buf.String())
 	}
 }
 
-func TestEmit_NoSkillNoteWhenNoSkills(t *testing.T) {
+func TestEmit_NoNotesWhenNoSkills(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 	b := spec.NewBundle([]spec.Entry{

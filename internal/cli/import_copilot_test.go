@@ -156,3 +156,28 @@ func TestImportFromCopilot_ImportsMCP(t *testing.T) {
 		t.Errorf("expected command in mcp: %s", got)
 	}
 }
+
+// Native agent profiles and skill folders round-trip into the agents
+// and skills sources; the .agent infix drops from the filename.
+func TestImportFromCopilot_NativeAgentsAndSkills(t *testing.T) {
+	dir := t.TempDir()
+	agentBody := "---\nname: reviewer\ndescription: Review diffs.\n---\nReview diffs.\n"
+	writeFile(t, filepath.Join(dir, copilotAgentsDir, "reviewer.agent.md"), agentBody)
+	writeFile(t, filepath.Join(dir, copilotSkillsDir, "greet", "SKILL.md"), "---\nname: greet\n---\nhi\n")
+	writeFile(t, filepath.Join(dir, copilotSkillsDir, "greet", "helper.sh"), "echo hi\n")
+
+	if err := importFromCopilot(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
+	if err != nil {
+		t.Fatalf("missing agents/reviewer.md: %v", err)
+	}
+	if string(got) != agentBody {
+		t.Errorf("agent not byte-identical. got %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "skills", "greet", "helper.sh")); err != nil {
+		t.Errorf("skill folder should import with assets: %v", err)
+	}
+}

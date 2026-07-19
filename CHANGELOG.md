@@ -8,6 +8,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- Gemini skills emit natively as `.gemini/skills/<name>/SKILL.md` folders with bundled assets, the workspace tier Gemini CLI scans; the `emit-skills-as-commands` opt-in now only adds the command form (#439).
+- Zed joins the shared `AGENTS.md` entry-point (rules inlined) and emits skills natively at `.agents/skills/<name>/SKILL.md`, the tree Codex and Amp share; the merged `.rules` document is now opt-in via `outputs.zed.rules-file` (#439).
+- OpenCode agents emit natively as `.opencode/agents/<name>.md` subagent definitions (frontmatter `description`, `mode`, `model`, `temperature`, `permission`) and skills as `.opencode/skills/<name>/SKILL.md` folders; agents no longer flatten to slash commands (#439).
+- Copilot agents emit natively as `.github/agents/<name>.agent.md` custom-agent profiles and skills as `.github/skills/<name>/SKILL.md` folders, replacing the flattened `agent-`/`skill-` `.instructions.md` copies (#439).
+- Cline joins the shared root `AGENTS.md` entry-point, which current Cline reads as cross-tool project instructions (#439).
+
 - Codex `skills-dir` default moved from `.codex/skills` to `.agents/skills`, the directory Codex CLI scans; `.codex/skills` was never read. Sync sweeps the stale managed tree. Amp emits the same layout at the same path; identical bytes dedupe.
 - Codex commands no longer emit to `.codex/prompts` by default: Codex loads custom prompts from `~/.codex/prompts` only and deprecates them in favor of skills. `sync` prints a coverage note and sweeps the stale managed tree; set `outputs.codex.commands-dir` to keep the legacy layout.
 - Cursor skills emit natively as `.cursor/skills/<name>/SKILL.md` folders with bundled assets propagated byte-for-byte (Cursor 2.4+ Agent Skills), replacing the flattened `skill-<name>.mdc` copies that dropped assets (#430, #439).
@@ -25,6 +31,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
 - `import cursor` captures native `.cursor/agents/*.md`, `.cursor/skills/<name>/` folders (full tree), and `.cursor/commands/*.md` alongside rules.
 - `sync.shared-skills` opt-in links byte-identical emitted skill folders across targets to one canonical copy (`.agents/skills/<name>` preferred) via per-skill relative symlinks instead of N real trees; divergent renders keep real copies (#437).
+- `import gemini` captures `.gemini/skills/` folders; `import opencode` captures `.opencode/agents/`, `.opencode/skills/`, and routes `.opencode/commands/` to command specs; `import copilot` captures `.github/agents/*.agent.md` and `.github/skills/` folders (#439).
 
 ## v0.42.0 - 2026-07-03
 

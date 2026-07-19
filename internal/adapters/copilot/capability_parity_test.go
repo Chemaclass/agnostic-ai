@@ -28,8 +28,8 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindRule, []string{".github/instructions/r1.instructions.md", ".github/instructions/r2.instructions.md", ".github/instructions/r3.instructions.md"}},
-		{spec.KindAgent, []string{".github/instructions/agent-alpha.instructions.md", ".github/instructions/agent-beta.instructions.md", ".github/instructions/agent-gamma.instructions.md"}},
-		{spec.KindSkill, []string{".github/instructions/skill-uno.instructions.md", ".github/instructions/skill-dos.instructions.md", ".github/instructions/skill-tres.instructions.md"}},
+		{spec.KindAgent, []string{".github/agents/alpha.agent.md", ".github/agents/beta.agent.md", ".github/agents/gamma.agent.md"}},
+		{spec.KindSkill, []string{".github/skills/uno/SKILL.md", ".github/skills/dos/SKILL.md", ".github/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".vscode/mcp.json"}},
 	}
 	for _, k := range caps.Supports {

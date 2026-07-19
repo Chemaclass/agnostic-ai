@@ -8,6 +8,8 @@ import (
 
 var (
 	opencodeMainFile    = filepath.Join(".opencode", "AGENTS.md")
+	opencodeAgentsDir   = filepath.Join(".opencode", "agents")
+	opencodeSkillsDir   = filepath.Join(".opencode", "skills")
 	opencodeCommandsDir = filepath.Join(".opencode", "commands")
 )
 
@@ -17,17 +19,26 @@ const (
 )
 
 // importFromOpencode reads an existing OpenCode (SST) project
-// (`.opencode/AGENTS.md`, `.opencode/commands/`, `opencode.json`) under
-// root and writes specs into the configured source directories.
+// (`.opencode/AGENTS.md`, `.opencode/agents/`, `.opencode/skills/`,
+// `.opencode/commands/`, `opencode.json`) under root and writes specs
+// into the configured source directories.
 func importFromOpencode(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := importOpencodeRules(root, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importOpencodeCommands(root, filepath.Join(root, src.Agents))
+	agents, err := importOpencodeMarkdownDir(root, opencodeAgentsDir, filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	skills, err := importSkillFolders(filepath.Join(root, opencodeSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	commands, err := importOpencodeMarkdownDir(root, opencodeCommandsDir, filepath.Join(root, src.Commands))
 	if err != nil {
 		return err
 	}
@@ -38,7 +49,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, opencodeMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d mcps\n", rules, agents, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps\n", rules, agents, skills, commands, mcps)
 	printImportNextSteps(root, "opencode")
 	return nil
 }
@@ -50,10 +61,12 @@ func importOpencodeRules(root, dstDir string) (int, error) {
 	return sliceMainFileByH2(root, opencodeMainFile, dstDir)
 }
 
-// importOpencodeCommands copies `.opencode/commands/*.md` byte-for-byte
-// into the agents source dir. Each command file becomes one agent.
-func importOpencodeCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, opencodeCommandsDir)
+// importOpencodeMarkdownDir copies every top-level `*.md` in the named
+// OpenCode dir byte-for-byte (header stripped) into dstDir. Covers the
+// flat per-file surfaces `.opencode/agents/` (native subagents) and
+// `.opencode/commands/` (slash commands).
+func importOpencodeMarkdownDir(root, dir, dstDir string) (int, error) {
+	src := filepath.Join(root, dir)
 	if !dirExists(src) {
 		return 0, nil
 	}

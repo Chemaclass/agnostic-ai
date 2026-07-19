@@ -547,3 +547,84 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// Skills emit natively as one folder per skill under .gemini/skills/,
+// the workspace tier Gemini CLI scans, without any opt-in.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{"description": "Run deployments."},
+			Body: "Deploy to production.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".gemini/skills/deploy/SKILL.md"))
+	if err != nil {
+		t.Fatalf("read SKILL.md: %v", err)
+	}
+	got := string(data)
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+	// Skills stay out of the commands dir unless the opt-in is set.
+	if _, err := os.Stat(filepath.Join(dir, ".gemini/commands/skill-deploy.toml")); !os.IsNotExist(err) {
+		t.Errorf("skill should not emit a command TOML without the opt-in, err=%v", err)
+	}
+}
+
+func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"gemini": {SkillsDir: "custom/skills"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/deploy/SKILL.md: %v", err)
+	}
+}
+
+// A folder-based source skill propagates its sibling assets into the
+// emitted folder byte-for-byte.
+func TestEmit_Skill_PropagatesBundledAssets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	src := filepath.Join(dir, ".agnostic-ai", "skills", "deploy")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: deploy\n---\nbody"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "helper.sh"), []byte("#!/bin/sh\necho hi\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{{
+		Kind: spec.KindSkill, Name: "deploy",
+		Path: filepath.Join(src, "SKILL.md"),
+		Body: "body",
+	}}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".gemini/skills/deploy/helper.sh"))
+	if err != nil {
+		t.Fatalf("bundled asset should propagate: %v", err)
+	}
+	if string(data) != "#!/bin/sh\necho hi\n" {
+		t.Errorf("asset content changed: %q", data)
+	}
+}

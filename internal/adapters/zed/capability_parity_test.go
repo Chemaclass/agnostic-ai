@@ -15,9 +15,12 @@ import (
 
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	// Rules and agents are only observable in adapter output through the
+	// legacy merged document; by default sync delivers rules via the
+	// shared AGENTS.md entry-point, which this per-adapter test cannot see.
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"zed": {TasksFile: ".zed/tasks.json"},
+			"zed": {TasksFile: ".zed/tasks.json", RulesFile: ".rules"},
 		},
 	}
 	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
@@ -36,7 +39,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".rules"}, nil},
 		{spec.KindAgent, nil, []string{"### Agent: alpha", "### Agent: beta", "### Agent: gamma"}},
-		{spec.KindSkill, nil, []string{"### uno", "### dos", "### tres"}},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md"}, nil},
 		{spec.KindMCP, []string{".zed/settings.json"}, nil},
 		{spec.KindHook, []string{".zed/tasks.json"}, nil},
 	}

@@ -7,9 +7,10 @@
 // path so users on older workflows keep their behavior.
 //
 // Agents emit as one TOML per agent under `.gemini/commands/`. Skills
-// are reference-only by default; setting
-// `outputs.gemini.emit-skills-as-commands: true` also writes a TOML per
-// skill with a `skill-` filename prefix.
+// emit natively as one folder per skill under `.gemini/skills/<name>/`
+// (SKILL.md + bundled assets), the workspace tier Gemini CLI scans.
+// Setting `outputs.gemini.emit-skills-as-commands: true` additionally
+// writes a TOML per skill with a `skill-` filename prefix.
 package gemini
 
 import (
@@ -24,6 +25,7 @@ import (
 const (
 	target              = "gemini"
 	defaultCommandsDir  = ".gemini/commands"
+	defaultSkillsDir    = ".gemini/skills"
 	defaultSettingsFile = ".gemini/settings.json"
 	defaultIgnoreFile   = ".aiexclude"
 	skillFilenamePrefix = "skill-"
@@ -43,8 +45,9 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one TOML per agent (and per skill when opted in) under
-// `.gemini/commands/`, `.gemini/settings.json`, and—when opted in via
+// Emit writes one TOML per agent under `.gemini/commands/`, one native
+// skill folder per skill under `.gemini/skills/` (plus a TOML per skill
+// when opted in), `.gemini/settings.json`, and—when opted in via
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -60,13 +63,16 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			return err
+		}
+	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
 			return err
 		}
-	} else {
-		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills),
-			"outputs.gemini.emit-skills-as-commands")
 	}
 	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
