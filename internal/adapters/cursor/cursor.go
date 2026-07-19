@@ -1,15 +1,15 @@
 // Package cursor emits Cursor editor configs.
 //
-// Rules emit as .cursor/rules/*.mdc with alwaysApply=true; agents emit
-// as rules with alwaysApply=false. Both honor a frontmatter override.
-// Skills emit natively as one folder per skill under
-// .cursor/skills/<name>/SKILL.md (the Agent Skills layout Cursor 2.4+
-// discovers), including bundled asset files. Commands emit to
-// .cursor/commands/<name>.md, Cursor's standard project commands
-// location. Hooks land in .cursor/hooks.json, MCP servers in
-// .cursor/mcp.json, Bugbot review guidance in BUGBOT.md, background
-// agent bootstrap in .cursor/environment.json, and ignore lists in
-// .cursorignore.
+// Rules emit as .cursor/rules/*.mdc with alwaysApply=true (frontmatter
+// override honored). Agents emit natively as Cursor subagents at
+// .cursor/agents/<name>.md (Cursor 2.4+). Skills emit natively as one
+// folder per skill under .cursor/skills/<name>/SKILL.md (the Agent
+// Skills layout Cursor 2.4+ discovers), including bundled asset files.
+// Commands emit to .cursor/commands/<name>.md, Cursor's standard
+// project commands location. Hooks land in .cursor/hooks.json, MCP
+// servers in .cursor/mcp.json, Bugbot review guidance in
+// .cursor/BUGBOT.md (root and per scope), background agent bootstrap in
+// .cursor/environment.json, and ignore lists in .cursorignore.
 package cursor
 
 import (
@@ -28,9 +28,12 @@ const (
 	target             = "cursor"
 	defaultDir         = ".cursor/rules"
 	defaultExt         = ".mdc"
+	defaultAgentsDir   = ".cursor/agents"
 	defaultSkillsDir   = ".cursor/skills"
 	defaultCommandsDir = ".cursor/commands"
 	defaultMCPFile     = ".cursor/mcp.json"
+	// defaultReviewFile is the Bugbot basename; each file lands inside a
+	// `.cursor/` dir (root or per scope), the location Bugbot reads.
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
 	defaultIgnoreFile  = ".cursorignore"
@@ -60,11 +63,11 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .mdc per rule and agent, one native skill folder per
-// skill under `.cursor/skills/`, one command per spec under
+// Emit writes one .mdc per rule, one native subagent per agent under
+// `.cursor/agents/`, one native skill folder per skill under
+// `.cursor/skills/`, one command per command spec under
 // `.cursor/commands/`, plus an `.cursor/mcp.json` when MCP entries
-// exist. Agents also emit as Custom Commands at the commands dir so
-// they stay invocable by name.
+// exist.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -72,13 +75,20 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
 		Dir: emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext: defaultExt,
-		// Skills emit natively under .cursor/skills/; a flattened
-		// skill-<name>.mdc copy would double-expose each skill.
-		SkipSkills:  true,
-		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
-		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
+		// Agents and skills emit natively under .cursor/agents/ and
+		// .cursor/skills/; flattened .mdc copies would double-expose
+		// each of them.
+		SkipAgents: true,
+		SkipSkills: true,
+		FormatRule: func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
+	}
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	for _, a := range b.Agents {
+		if err := emitAgent(a, agentsDir, dryRun); err != nil {
+			return err
+		}
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	for _, s := range b.Skills {
@@ -96,12 +106,6 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	for _, a := range b.Agents {
-		path := commandsDir + "/" + a.Name + ".md"
-		if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
-			return err
-		}
-	}
 	for _, c := range b.Commands {
 		path := commandsDir + "/" + c.Name + ".md"
 		if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
@@ -149,7 +153,9 @@ func emitHooks(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 // event name through verbatim (no cross-tool translation), so a cursor
 // hook spec sets `event:` to a Cursor lifecycle name (e.g.
 // `beforeShellExecution`, `afterFileEdit`). `matcher` is omitted when
-// absent. A `command:` list yields one entry per element.
+// absent. A `command:` list yields one entry per element. The optional
+// Cursor entry fields `timeout` (seconds), `loop_limit`, and
+// `failClosed` pass through from the same-named spec Meta keys.
 func buildHooks(hooks []spec.Entry) map[string]any {
 	byEvent := map[string][]map[string]any{}
 	for _, h := range hooks {
@@ -166,6 +172,11 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
 			if matcher != "" {
 				entry["matcher"] = matcher
+			}
+			for _, k := range []string{"timeout", "loop_limit", "failClosed"} {
+				if v, ok := h.Meta[k]; ok {
+					entry[k] = v
+				}
 			}
 			byEvent[event] = append(byEvent[event], entry)
 		}
@@ -224,10 +235,10 @@ func hookCommands(raw any) []string {
 	}
 }
 
-// command renders a Cursor Custom Command file. The Cursor docs
-// describe these as Markdown with optional frontmatter (`description`,
-// `model`); the body is the prompt the IDE sends when the user invokes
-// the command.
+// command renders a Cursor command file: Markdown whose body is the
+// prompt the IDE sends when the user invokes `/name`. The docs describe
+// commands as plain markdown; the optional `description`/`model`
+// frontmatter is tolerated and kept for continuity.
 func command(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
@@ -246,11 +257,14 @@ func command(e spec.Entry) string {
 }
 
 // emitReviews writes Cursor Bugbot review guidance as a `BUGBOT.md` per
-// scope. Cursor reads a root `BUGBOT.md` plus optional per-directory files,
-// so review specs honor `EffectiveScope` the same way rules do: an unscoped
-// spec lands at the repo root, a spec under `reviews/backend/` lands at
-// `backend/BUGBOT.md`. Specs sharing a scope concatenate into that scope's
-// single file. The basename is overridable via `outputs.cursor.review-file`.
+// scope, inside a `.cursor/` directory: Bugbot always includes the root
+// `.cursor/BUGBOT.md` and any `<dir>/.cursor/BUGBOT.md` found while
+// traversing upward from changed files. Review specs honor
+// `EffectiveScope` the same way rules do: an unscoped spec lands at
+// `.cursor/BUGBOT.md`, a spec under `reviews/backend/` lands at
+// `backend/.cursor/BUGBOT.md`. Specs sharing a scope concatenate into
+// that scope's single file. The basename is overridable via
+// `outputs.cursor.review-file`.
 func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if len(b.Reviews) == 0 {
 		return nil
@@ -279,7 +293,7 @@ func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			}
 			sb.WriteString(strings.TrimRight(r.Body, "\n"))
 		}
-		path := filepath.Join(scope, base)
+		path := filepath.Join(scope, ".cursor", base)
 		if err := emit.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}

@@ -41,7 +41,7 @@ func skillMarkdown(s spec.Entry) string {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
-	for _, k := range []string{"paths", "disable-model-invocation"} {
+	for _, k := range []string{"paths", "disable-model-invocation", "metadata"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)

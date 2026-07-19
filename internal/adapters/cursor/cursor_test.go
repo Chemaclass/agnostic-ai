@@ -105,8 +105,10 @@ func TestEmit_NoHooksFileWithoutHookSpecs(t *testing.T) {
 	}
 }
 
-// Review specs emit one scope-located BUGBOT.md: unscoped at the repo root,
-// scoped under its directory, with same-scope specs concatenated (#433).
+// Review specs emit one scope-located .cursor/BUGBOT.md: unscoped at the
+// repo root's .cursor/, scoped under <scope>/.cursor/, with same-scope
+// specs concatenated (#433). Bugbot reads the root .cursor/BUGBOT.md
+// plus per-directory copies while traversing up from changed files.
 func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
 	cwd := t.TempDir()
 	testutil.Chdir(t, cwd)
@@ -119,14 +121,14 @@ func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 
-	root, err := os.ReadFile(filepath.Join(cwd, "BUGBOT.md"))
+	root, err := os.ReadFile(filepath.Join(cwd, ".cursor", "BUGBOT.md"))
 	if err != nil {
 		t.Fatalf("read root BUGBOT.md: %v", err)
 	}
 	if !strings.Contains(string(root), "root rule one") || !strings.Contains(string(root), "root rule two") {
 		t.Errorf("root BUGBOT.md missing concatenated specs:\n%s", root)
 	}
-	be, err := os.ReadFile(filepath.Join(cwd, "backend", "BUGBOT.md"))
+	be, err := os.ReadFile(filepath.Join(cwd, "backend", ".cursor", "BUGBOT.md"))
 	if err != nil {
 		t.Fatalf("read backend BUGBOT.md: %v", err)
 	}
@@ -149,7 +151,7 @@ func TestEmit_ReviewFileOverride(t *testing.T) {
 	if err := New().Emit(b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	got, err := os.ReadFile(filepath.Join(cwd, "REVIEW.md"))
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "REVIEW.md"))
 	if err != nil {
 		t.Fatalf("expected REVIEW.md override: %v", err)
 	}
@@ -402,22 +404,32 @@ func TestEmit_MdcRuleFrontmatterByteStable(t *testing.T) {
 	}
 }
 
-func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
+// Agents emit natively as Cursor subagents at .cursor/agents/<name>.md
+// (Cursor 2.4+); no flattened .mdc rule copy is written anymore.
+func TestEmit_AgentWritesNativeSubagentFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
+		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{
+			"description": "reviews code",
+			"model":       "inherit",
+		}, Body: "x"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/agent1.mdc"))
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/agent1.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "alwaysApply: false") {
-		t.Errorf("agent should default alwaysApply=false: %s", got)
+	for _, want := range []string{"name: agent1", "description: reviews code", "model: inherit", "x"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in subagent file:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/agent1.mdc")); !os.IsNotExist(err) {
+		t.Errorf("flattened agent .mdc must not emit anymore, stat err=%v", err)
 	}
 }
 
@@ -525,41 +537,38 @@ func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
 	}
 }
 
-func TestEmit_CommandsDirEmitsAgentAsCommand(t *testing.T) {
+// Agents no longer emit as commands or flattened rules: the native
+// .cursor/agents/ subagent surface replaced both workarounds. The
+// documented optional frontmatter fields pass through.
+func TestEmit_AgentDoesNotEmitAsCommandOrRule(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			target: {CommandsDir: ".cursor/commands"},
-		},
-	}
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "code-reviewer", Meta: map[string]any{
-			"description": "reviews code",
-			"model":       "sonnet-4-6",
+			"description":   "reviews code",
+			"model":         "sonnet-4-6",
+			"readonly":      true,
+			"is_background": true,
 		}, Body: "Body of the prompt.\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	commandPath := filepath.Join(dir, ".cursor/commands/code-reviewer.md")
-	got, err := os.ReadFile(commandPath)
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/code-reviewer.md"))
 	if err != nil {
-		t.Fatalf("expected command file at %s: %v", commandPath, err)
+		t.Fatalf("expected native subagent file: %v", err)
 	}
-	if !strings.Contains(string(got), "description: reviews code") {
-		t.Errorf("missing description in command: %s", got)
+	for _, want := range []string{"model: sonnet-4-6", "readonly: true", "is_background: true", "Body of the prompt."} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in subagent file:\n%s", want, got)
+		}
 	}
-	if !strings.Contains(string(got), "model: sonnet-4-6") {
-		t.Errorf("missing model in command: %s", got)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/code-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("agent must not emit as a command anymore, stat err=%v", err)
 	}
-	if !strings.Contains(string(got), "Body of the prompt.") {
-		t.Errorf("missing body in command: %s", got)
-	}
-	// Rule-form emission must still happen (back-compat).
-	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/code-reviewer.mdc")); err != nil {
-		t.Errorf("rule-form emission must remain when commands-dir is set: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/code-reviewer.mdc")); !os.IsNotExist(err) {
+		t.Errorf("agent must not emit as a flattened rule anymore, stat err=%v", err)
 	}
 }
 
@@ -590,19 +599,31 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	}
 }
 
-// Agents emit as Custom Commands at the default commands dir so they
-// stay invocable by name without extra configuration.
-func TestEmit_AgentEmitsAsCommandByDefault(t *testing.T) {
+// Hook specs may carry the optional Cursor entry fields; they pass
+// through into hooks.json entries.
+func TestEmit_HookOptionalFieldsPassThrough(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
-	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+			"event":      "beforeShellExecution",
+			"command":    "guard.sh",
+			"timeout":    30,
+			"loop_limit": 3,
+			"failClosed": true,
+		}},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/agent1.md")); err != nil {
-		t.Errorf("expected agent command at default .cursor/commands: %v", err)
+	data, err := os.ReadFile(filepath.Join(dir, ".cursor/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"timeout": 30`, `"loop_limit": 3`, `"failClosed": true`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("missing %s in hooks.json:\n%s", want, data)
+		}
 	}
 }
