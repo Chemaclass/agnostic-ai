@@ -88,6 +88,13 @@ type SyncConfig struct {
 	// visible per target rather than grouped by kind. Off by default; the
 	// kind-grouped warnings and coverage notes still print regardless.
 	DroppedSummary bool `yaml:"dropped-summary,omitempty" json:"dropped-summary,omitempty"`
+	// SharedSkills replaces byte-identical emitted skill folders across
+	// targets with per-skill relative symlinks to one canonical copy
+	// (`.agents/skills/<name>` preferred) instead of materializing N real
+	// trees. Folders whose rendered bytes diverge (per-target `x-<target>`
+	// overrides, target-only assets) keep real copies. Off by default; on
+	// filesystems without symlink support sync warns and keeps copies.
+	SharedSkills bool `yaml:"shared-skills,omitempty" json:"shared-skills,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write

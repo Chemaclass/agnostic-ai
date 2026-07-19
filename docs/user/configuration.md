@@ -341,6 +341,22 @@ Example output:
 
 Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix. External adapters (`agnostic-ai-adapter-<name>` binaries) have no native-artifacts protocol yet, so their section is absent from the appendix.
 
+### `sync.shared-skills`
+
+Collapses byte-identical emitted skill folders into one canonical copy. Targets that share the Agent Skills layout (`<dir>/<name>/SKILL.md` plus bundled assets: Claude, Cursor, Codex, Amp) otherwise each get a full real copy of every skill. With the opt-in, sync keeps one real tree and replaces the others with per-skill relative symlinks. Off by default.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  shared-skills: true
+```
+
+- The canonical copy prefers `.agents/skills/<name>` (the shared path Codex and Amp scan natively); otherwise the first emitted target keeps the real tree.
+- Only folders whose rendered bytes are identical across targets are linked. A skill with per-target overrides (`x-cursor` frontmatter keys, codex-only `agents/openai.yaml`) keeps real copies for the diverging targets while identical ones still link.
+- Links are per skill folder, not per skills directory, so hand-authored skills next to managed ones are never touched.
+- Turning the option off (or a skill starting to diverge) converts links back to real trees on the next sync. Removing a skill sweeps its canonical tree and every link.
+- On filesystems without symlink support (Windows without the privilege), sync warns once and keeps real copies.
+
 ## `import`
 
 Per-source knobs for the `import` command. Empty blocks fall back to per-source defaults.

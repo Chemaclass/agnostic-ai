@@ -24,6 +24,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Hook specs carry the current Claude command-hook schema: `async`, `asyncRewake`, `shell`, `if`, and `once` emit into `.claude/settings.json` and survive `import claude` round-trips; `commandWindows` emits into `.codex/hooks.json`; `timeout`, `loop_limit`, and `failClosed` pass through to `.cursor/hooks.json`.
 - `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
 - `import cursor` captures native `.cursor/agents/*.md`, `.cursor/skills/<name>/` folders (full tree), and `.cursor/commands/*.md` alongside rules.
+- `sync.shared-skills` opt-in links byte-identical emitted skill folders across targets to one canonical copy (`.agents/skills/<name>` preferred) via per-skill relative symlinks instead of N real trees; divergent renders keep real copies (#437).
 
 ## v0.42.0 - 2026-07-03
 

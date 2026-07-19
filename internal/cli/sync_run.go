@@ -87,6 +87,11 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
 		return err
 	}
+	shared, err := planSharedSkills(cfg, b, effectiveTargets)
+	if err != nil {
+		return err
+	}
+	prev := readStateFile(root)
 	if backup {
 		adapters.SetBackup(true)
 		defer adapters.SetBackup(false)
@@ -108,6 +113,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 		}()
 	}
+	shared.reconcile(prev.Outputs, dryRun)
 	verbose := verbosity >= levelVerbose
 	filesChanged := 0
 	var ledgerSession []string
@@ -174,8 +180,13 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			return err
 		}
 	}
+	applied := shared.apply(dryRun)
+	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		for _, l := range applied {
+			entries = append(entries, l.path)
+		}
 		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
@@ -185,7 +196,6 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	digest := adapters.CapabilityWarningsDigest()
 	notesDigest := adapters.CoverageNotesDigest()
-	prev := readStateFile(root)
 	warningsUnchanged := digest != "" && digest == prev.WarningsDigest
 	notesUnchanged := notesDigest != "" && notesDigest == prev.NotesDigest
 	// Render the per-target summary only when at least one of the buffers
@@ -298,6 +308,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
 		return err
 	}
+	shared, err := planSharedSkills(cfg, b, effectiveTargets)
+	if err != nil {
+		return err
+	}
+	prev := readStateFile(root)
 	if backup {
 		adapters.SetBackup(true)
 		defer adapters.SetBackup(false)
@@ -306,6 +321,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	if gitignoreOn {
 		adapters.StartRecording()
 	}
+	shared.reconcile(prev.Outputs, dryRun)
 
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string
@@ -356,15 +372,22 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		}
 	}
 
+	applied := shared.apply(dryRun)
+	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
+	for _, l := range applied {
+		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
+	}
 	if gitignoreOn {
 		entries := adapters.StopRecording()
+		for _, l := range applied {
+			entries = append(entries, l.path)
+		}
 		entries = append(entries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, entries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
 	}
-	prev := readStateFile(root)
 	ledger := finalizeLedger(ledgerSession)
 	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)

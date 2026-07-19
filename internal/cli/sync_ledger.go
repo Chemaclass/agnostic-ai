@@ -100,6 +100,21 @@ func sweepLedgerOrphans(prior, current []string, dryRun bool) ([]string, error) 
 		if _, kept := currentSet[p]; kept {
 			continue
 		}
+		// Ledgered symlinks (shared-skills links) are removed as links:
+		// reading through them would either hit the canonical file (and
+		// delete it through the link) or dangle forever when the target
+		// is already gone.
+		if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if dryRun {
+				removed = append(removed, p)
+				continue
+			}
+			if err := os.Remove(p); err == nil {
+				removed = append(removed, p)
+				pruneAncestorDirs(p, prunedDirs)
+			}
+			continue
+		}
 		// emit.RemoveGenerated is a no-op when the file is missing or
 		// not agnostic-managed, so we can fold both "already gone" and
 		// "user took ownership" into the same code path.
