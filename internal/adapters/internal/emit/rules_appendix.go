@@ -78,7 +78,7 @@ func StripGeneratedAppendices(body string) string {
 // .cursor/rules/, cline .clinerules/, continue/windsurf/antigravity
 // rules dirs) are absent: they deliver rules without polluting the
 // pointer. Zed inlines since 1.4.2 retired the merged .rules surface in
-// favor of AGENTS.md.
+// favor of AGENTS.md; Crush has no rules directory either.
 var inlineRulesTargets = map[string]bool{
 	"codex":    true,
 	"amp":      true,
@@ -87,6 +87,7 @@ var inlineRulesTargets = map[string]bool{
 	"gemini":   true,
 	"aider":    true,
 	"opencode": true,
+	"crush":    true,
 }
 
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies

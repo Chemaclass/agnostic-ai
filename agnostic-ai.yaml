@@ -36,6 +36,10 @@ targets:
   # antigravity: Google Antigravity IDE (.agent/rules/*.md + .agent/AGENTS.md).
   # Preview product; MCP and skills support to follow once the upstream spec stabilises.
   - antigravity
+  - junie
+  - kiro
+  - crush
+  - trae
 
 # Per-target output overrides. Defaults work for everything below;
 # the aider conf-file is opt-in and demonstrates the merge feature.

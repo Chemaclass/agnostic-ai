@@ -19,6 +19,8 @@ import (
 // Devin Desktop reads two candidate trees.
 var rulesDirImporters = map[string]string{
 	"cline": ".clinerules",
+	"junie": filepath.Join(".junie", "rules"),
+	"trae":  filepath.Join(".trae", "rules"),
 }
 
 // windsurfRulesDirs lists the rules directories Devin Desktop (the

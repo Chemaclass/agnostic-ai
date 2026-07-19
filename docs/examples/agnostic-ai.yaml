@@ -28,6 +28,10 @@ targets:
   - zed
   - warp
   - opencode
+  - junie
+  - kiro
+  - crush
+  - trae
 
 # Per-target output overrides. Useful when:
 #  - You vendor configs into a non-standard path.
@@ -98,6 +102,21 @@ outputs:
     commands-dir: .opencode/commands     # default. One .md per command.
     emit-skills-as-commands: false       # default. When true, skills also emit a skill-<name>.md command.
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
+
+  junie:
+    rules-dir: .junie/rules            # default. One .md per rule, agent, and skill (Junie concatenates all).
+    mcp-file: .junie/mcp/mcp.json      # default. Standard mcpServers schema.
+
+  kiro:
+    rules-dir: .kiro/steering          # default. Steering files with inclusion frontmatter.
+    mcp-file: .kiro/settings/mcp.json  # default. Standard mcpServers schema.
+
+  crush:
+    skills-dir: .agents/skills         # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
+    mcp-file: crush.json               # default. mcp map merged; user keys preserved.
+
+  trae:
+    rules-dir: .trae/rules             # default. One .md per rule, agent, and skill.
 
 # How to react when a spec kind is not supported by a target
 # (e.g. hooks for any target other than claude).

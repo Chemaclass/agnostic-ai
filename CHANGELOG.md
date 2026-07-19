@@ -28,6 +28,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Four new targets (#474): `junie` (JetBrains Junie: `.junie/rules/` + `.junie/mcp/mcp.json`), `kiro` (AWS Kiro: `.kiro/steering/` with inclusion-mode frontmatter mapped per kind + `.kiro/settings/mcp.json`), `crush` (Charm Crush: shared `.agents/skills/` tree + `crush.json` `mcp` merge), and `trae` (ByteDance Trae: `.trae/rules/`). All four read the shared root `AGENTS.md` pointer; all join the default target set (now 16); `import junie` and `import trae` capture their rules dirs.
 - Claude rules: the cross-tool `globs` field emits as native `paths:` frontmatter in `.claude/rules/*.md`, and a Claude-spelled `paths` list maps back to Cursor `globs`, so one spec scopes a rule on both tools.
 - Hook specs carry the current Claude command-hook schema: `async`, `asyncRewake`, `shell`, `if`, and `once` emit into `.claude/settings.json` and survive `import claude` round-trips; `commandWindows` emits into `.codex/hooks.json`; `timeout`, `loop_limit`, and `failClosed` pass through to `.cursor/hooks.json`.
 - `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
