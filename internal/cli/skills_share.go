@@ -110,7 +110,7 @@ func planSkillLinks(captures []targetCapture) []skillLink {
 		roots := skillFolderRoots(tc.files)
 		for _, f := range tc.files {
 			for _, r := range roots {
-				if !strings.HasPrefix(f.Path, r+string(filepath.Separator)) {
+				if !underDir(f.Path, r) {
 					continue
 				}
 				fo := folders[r]
@@ -119,11 +119,10 @@ func planSkillLinks(captures []targetCapture) []skillLink {
 					order++
 					folders[r] = fo
 				}
-				rel, err := filepath.Rel(r, f.Path)
-				if err != nil {
-					continue
+				if rel, err := filepath.Rel(r, f.Path); err == nil {
+					fo.files[rel] = f.Content
 				}
-				fo.files[rel] = f.Content
+				break // roots are non-nested, so at most one matches
 			}
 		}
 	}
@@ -180,7 +179,7 @@ func skillFolderRoots(files []adapters.CapturedFile) []string {
 	for r := range set {
 		nested := false
 		for other := range set {
-			if other != r && strings.HasPrefix(r, other+string(filepath.Separator)) {
+			if other != r && underDir(r, other) {
 				nested = true
 				break
 			}
@@ -191,6 +190,11 @@ func skillFolderRoots(files []adapters.CapturedFile) []string {
 	}
 	sort.Strings(roots)
 	return roots
+}
+
+// underDir reports whether path lies strictly inside dir.
+func underDir(path, dir string) bool {
+	return strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
 // folderFingerprint hashes the rel-path -> content map so byte-identical
@@ -253,9 +257,8 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) {
 // through the link). A difference means an upcoming write would clobber
 // the canonical copy, so the caller must unlink first.
 func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
-	prefix := p + string(filepath.Separator)
 	for path, contents := range st.captured {
-		if !strings.HasPrefix(path, prefix) {
+		if !underDir(path, p) {
 			continue
 		}
 		disk, err := os.ReadFile(path)
@@ -302,7 +305,11 @@ func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
 			continue
 		}
 		tmp := l.path + ".agnostic-link"
-		_ = os.Remove(tmp)
+		if fi, err := os.Lstat(tmp); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			// Leftover from an interrupted swap; anything else at this
+			// name is user-owned and makes os.Symlink fail below.
+			_ = os.Remove(tmp)
+		}
 		if err := os.Symlink(rel, tmp); err != nil {
 			warnf("%v", err)
 			continue
@@ -345,7 +352,7 @@ func adjustLedgerForLinks(session []string, applied []skillLink) []string {
 	for _, p := range session {
 		under := false
 		for _, l := range applied {
-			if strings.HasPrefix(p, l.path+string(filepath.Separator)) {
+			if underDir(p, l.path) {
 				under = true
 				break
 			}
