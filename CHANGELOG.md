@@ -6,6 +6,25 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- Codex `skills-dir` default moved from `.codex/skills` to `.agents/skills`, the directory Codex CLI scans; `.codex/skills` was never read. Sync sweeps the stale managed tree. Amp emits the same layout at the same path; identical bytes dedupe.
+- Codex commands no longer emit to `.codex/prompts` by default: Codex loads custom prompts from `~/.codex/prompts` only and deprecates them in favor of skills. `sync` prints a coverage note and sweeps the stale managed tree; set `outputs.codex.commands-dir` to keep the legacy layout.
+- Cursor skills emit natively as `.cursor/skills/<name>/SKILL.md` folders with bundled assets propagated byte-for-byte (Cursor 2.4+ Agent Skills), replacing the flattened `skill-<name>.mdc` copies that dropped assets (#430, #439).
+- Cursor commands emit to `.cursor/commands/` by default, Cursor's standard commands location; the `outputs.cursor.commands-dir` opt-in gate is gone (#439).
+- Cursor agents emit natively as subagents at `.cursor/agents/<name>.md` (Cursor 2.4+), with optional `model`, `readonly`, and `is_background` frontmatter. The flattened agent `.mdc` and agent-as-command emissions are gone; the ledger sweeps stale copies (#439).
+- Cursor Bugbot files moved to where Bugbot reads them: `.cursor/BUGBOT.md` at the root and `<scope>/.cursor/BUGBOT.md` per scope, instead of the stale repo-root `BUGBOT.md`.
+- Claude rules drop the Cursor-only `alwaysApply` frontmatter on emit; Claude's rule schema defines only `paths` and an unscoped rule is always-on already.
+- Collision detection compares content, not only paths: byte-identical writes from several targets (codex + amp skills, shared legacy rules-file) dedupe instead of erroring; only divergent content collides.
+- Claude docs and comments no longer claim `.claude/rules/` is inert: current Claude Code auto-loads the directory, so `outputs.claude.rules-mode: import` is only needed on older versions.
+
+### Added
+
+- Claude rules: the cross-tool `globs` field emits as native `paths:` frontmatter in `.claude/rules/*.md`, and a Claude-spelled `paths` list maps back to Cursor `globs`, so one spec scopes a rule on both tools.
+- Hook specs carry the current Claude command-hook schema: `async`, `asyncRewake`, `shell`, `if`, and `once` emit into `.claude/settings.json` and survive `import claude` round-trips; `commandWindows` emits into `.codex/hooks.json`; `timeout`, `loop_limit`, and `failClosed` pass through to `.cursor/hooks.json`.
+- `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
+- `import cursor` captures native `.cursor/agents/*.md`, `.cursor/skills/<name>/` folders (full tree), and `.cursor/commands/*.md` alongside rules.
+
 ## v0.42.0 - 2026-07-03
 
 ### Changed

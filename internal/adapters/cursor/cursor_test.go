@@ -13,8 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// Command specs emit as Cursor Custom Commands when commands-dir is set,
-// the same opt-in surface agents use.
+// Command specs emit as Cursor commands; commands-dir relocates them.
 func TestEmit_WritesCommandFileWhenCommandsDirSet(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -40,9 +39,9 @@ func TestEmit_WritesCommandFileWhenCommandsDirSet(t *testing.T) {
 	}
 }
 
-// Without an opt-in commands-dir, Cursor has no command surface, so a
-// command spec writes nothing rather than landing in a surprise file.
-func TestEmit_CommandSkippedWithoutCommandsDir(t *testing.T) {
+// Commands emit to Cursor's standard `.cursor/commands/` location by
+// default; no opt-in is needed anymore.
+func TestEmit_CommandEmitsToDefaultCommandsDir(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Body: "Run the deploy steps."},
@@ -50,8 +49,8 @@ func TestEmit_CommandSkippedWithoutCommandsDir(t *testing.T) {
 	if err := New().Emit(b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cursor", "commands", "deploy.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no command file without commands-dir, stat err = %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "commands", "deploy.md")); err != nil {
+		t.Errorf("expected command at default .cursor/commands: %v", err)
 	}
 }
 
@@ -105,8 +104,10 @@ func TestEmit_NoHooksFileWithoutHookSpecs(t *testing.T) {
 	}
 }
 
-// Review specs emit one scope-located BUGBOT.md: unscoped at the repo root,
-// scoped under its directory, with same-scope specs concatenated (#433).
+// Review specs emit one scope-located .cursor/BUGBOT.md: unscoped at the
+// repo root's .cursor/, scoped under <scope>/.cursor/, with same-scope
+// specs concatenated (#433). Bugbot reads the root .cursor/BUGBOT.md
+// plus per-directory copies while traversing up from changed files.
 func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
 	cwd := t.TempDir()
 	testutil.Chdir(t, cwd)
@@ -119,14 +120,14 @@ func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 
-	root, err := os.ReadFile(filepath.Join(cwd, "BUGBOT.md"))
+	root, err := os.ReadFile(filepath.Join(cwd, ".cursor", "BUGBOT.md"))
 	if err != nil {
 		t.Fatalf("read root BUGBOT.md: %v", err)
 	}
 	if !strings.Contains(string(root), "root rule one") || !strings.Contains(string(root), "root rule two") {
 		t.Errorf("root BUGBOT.md missing concatenated specs:\n%s", root)
 	}
-	be, err := os.ReadFile(filepath.Join(cwd, "backend", "BUGBOT.md"))
+	be, err := os.ReadFile(filepath.Join(cwd, "backend", ".cursor", "BUGBOT.md"))
 	if err != nil {
 		t.Fatalf("read backend BUGBOT.md: %v", err)
 	}
@@ -149,7 +150,7 @@ func TestEmit_ReviewFileOverride(t *testing.T) {
 	if err := New().Emit(b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	got, err := os.ReadFile(filepath.Join(cwd, "REVIEW.md"))
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "REVIEW.md"))
 	if err != nil {
 		t.Fatalf("expected REVIEW.md override: %v", err)
 	}
@@ -402,22 +403,32 @@ func TestEmit_MdcRuleFrontmatterByteStable(t *testing.T) {
 	}
 }
 
-func TestEmit_AgentDefaultsAlwaysApplyFalse(t *testing.T) {
+// Agents emit natively as Cursor subagents at .cursor/agents/<name>.md
+// (Cursor 2.4+); no flattened .mdc rule copy is written anymore.
+func TestEmit_AgentWritesNativeSubagentFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
+		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{
+			"description": "reviews code",
+			"model":       "inherit",
+		}, Body: "x"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/agent1.mdc"))
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/agent1.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "alwaysApply: false") {
-		t.Errorf("agent should default alwaysApply=false: %s", got)
+	for _, want := range []string{"name: agent1", "description: reviews code", "model: inherit", "x"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in subagent file:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/agent1.mdc")); !os.IsNotExist(err) {
+		t.Errorf("flattened agent .mdc must not emit anymore, stat err=%v", err)
 	}
 }
 
@@ -468,7 +479,10 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 	}
 }
 
-func TestEmit_SkillWritesMdcFile(t *testing.T) {
+// Skills emit natively under `.cursor/skills/<name>/SKILL.md` (Cursor
+// 2.4+ discovers the Agent Skills layout); no flattened skill-*.mdc
+// copy is written, which would double-expose the skill.
+func TestEmit_SkillWritesNativeSkillFolder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -478,53 +492,82 @@ func TestEmit_SkillWritesMdcFile(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/skill-sk1.mdc"))
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/skills/sk1/SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "description: skill desc") {
-		t.Errorf("missing description: %s", got)
+	for _, want := range []string{"name: sk1", "description: skill desc", "skill body"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in SKILL.md:\n%s", want, got)
+		}
 	}
-	if !strings.Contains(string(got), "alwaysApply: false") {
-		t.Errorf("skill should default alwaysApply=false: %s", got)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/skill-sk1.mdc")); !os.IsNotExist(err) {
+		t.Errorf("flattened skill .mdc must not emit anymore, stat err=%v", err)
 	}
 }
 
-func TestEmit_CommandsDirEmitsAgentAsCommand(t *testing.T) {
+// The documented optional skill frontmatter fields pass through, and a
+// skills-dir override relocates the tree.
+func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			target: {CommandsDir: ".cursor/commands"},
-		},
+		Outputs: map[string]config.Output{target: {SkillsDir: "vendor/skills"}},
 	}
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "code-reviewer", Meta: map[string]any{
-			"description": "reviews code",
-			"model":       "sonnet-4-6",
-		}, Body: "Body of the prompt.\n"},
+		{Kind: spec.KindSkill, Name: "sk1", Meta: map[string]any{
+			"description":              "d",
+			"paths":                    []string{"src/**"},
+			"disable-model-invocation": true,
+		}, Body: "b"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	commandPath := filepath.Join(dir, ".cursor/commands/code-reviewer.md")
-	got, err := os.ReadFile(commandPath)
+	got, err := os.ReadFile(filepath.Join(dir, "vendor/skills/sk1/SKILL.md"))
 	if err != nil {
-		t.Fatalf("expected command file at %s: %v", commandPath, err)
+		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "description: reviews code") {
-		t.Errorf("missing description in command: %s", got)
+	for _, want := range []string{"paths:", "src/**", "disable-model-invocation: true"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in SKILL.md:\n%s", want, got)
+		}
 	}
-	if !strings.Contains(string(got), "model: sonnet-4-6") {
-		t.Errorf("missing model in command: %s", got)
+}
+
+// Agents no longer emit as commands or flattened rules: the native
+// .cursor/agents/ subagent surface replaced both workarounds. The
+// documented optional frontmatter fields pass through.
+func TestEmit_AgentDoesNotEmitAsCommandOrRule(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "code-reviewer", Meta: map[string]any{
+			"description":   "reviews code",
+			"model":         "sonnet-4-6",
+			"readonly":      true,
+			"is_background": true,
+		}, Body: "Body of the prompt.\n"},
 	}
-	if !strings.Contains(string(got), "Body of the prompt.") {
-		t.Errorf("missing body in command: %s", got)
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
 	}
-	// Rule-form emission must still happen (back-compat).
-	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/code-reviewer.mdc")); err != nil {
-		t.Errorf("rule-form emission must remain when commands-dir is set: %v", err)
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/code-reviewer.md"))
+	if err != nil {
+		t.Fatalf("expected native subagent file: %v", err)
+	}
+	for _, want := range []string{"model: sonnet-4-6", "readonly: true", "is_background: true", "Body of the prompt."} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in subagent file:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/code-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("agent must not emit as a command anymore, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/code-reviewer.mdc")); !os.IsNotExist(err) {
+		t.Errorf("agent must not emit as a flattened rule anymore, stat err=%v", err)
 	}
 }
 
@@ -555,17 +598,70 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	}
 }
 
-func TestEmit_NoCommandsDirSkipsCommandEmission(t *testing.T) {
+// Hook specs may carry the optional Cursor entry fields; they pass
+// through into hooks.json entries.
+func TestEmit_HookOptionalFieldsPassThrough(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+			"event":      "beforeShellExecution",
+			"command":    "guard.sh",
+			"timeout":    30,
+			"loop_limit": 3,
+			"failClosed": true,
+		}},
+	})
+	if err := New().Emit(b, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".cursor/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"timeout": 30`, `"loop_limit": 3`, `"failClosed": true`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("missing %s in hooks.json:\n%s", want, data)
+		}
+	}
+}
+
+// A rule scoped with the Claude spelling (`paths`) maps onto Cursor's
+// comma-joined `globs` when the rule is not always-apply; an
+// always-apply rule keeps ignoring globs entirely (#443).
+func TestEmit_RulePathsMapToGlobs(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "agent1", Meta: map[string]any{}, Body: "x"},
+		{Kind: spec.KindRule, Name: "scoped", Meta: map[string]any{
+			"alwaysApply": false,
+			"paths":       []any{"src/**/*.ts", "lib/**"},
+		}, Body: "scoped rule"},
+		{Kind: spec.KindRule, Name: "always", Meta: map[string]any{
+			"paths": []any{"src/**"},
+		}, Body: "always rule"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/agent1.md")); err == nil {
-		t.Error("commands dir not configured; should not emit command file")
+
+	scoped := readFileT(t, filepath.Join(dir, ".cursor/rules/scoped.mdc"))
+	if !strings.Contains(scoped, "globs: src/**/*.ts,lib/**") {
+		t.Errorf("paths should map to comma-joined globs:\n%s", scoped)
 	}
+	always := readFileT(t, filepath.Join(dir, ".cursor/rules/always.mdc"))
+	if strings.Contains(always, "globs:") {
+		t.Errorf("always-apply rule must not synthesize globs:\n%s", always)
+	}
+}
+
+func readFileT(t *testing.T, path string) string {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(got)
 }

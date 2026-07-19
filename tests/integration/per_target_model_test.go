@@ -15,7 +15,7 @@ import (
 // `default`, and a target with neither a match nor a default emits no
 // model at all (inherits nothing). A bare string still applies to every
 // target. Three targets are exercised because each consumes `model`
-// from a different output path: codex agent TOML, cursor command
+// from a different output path: codex agent TOML, cursor subagent
 // frontmatter, copilot chatmode frontmatter.
 func TestPerTargetModel_EmitsResolvedModelPerTarget(t *testing.T) {
 	dir := t.TempDir()
@@ -30,8 +30,6 @@ targets:
   - cursor
   - copilot
 outputs:
-  cursor:
-    commands-dir: .cursor/commands
   copilot:
     chatmodes-dir: .github/chatmodes
 gitignore:
@@ -107,16 +105,16 @@ gamma body
 
 	// alpha: per-target pick + default fallback.
 	wantModel(".codex/agents/alpha.toml", `model = "gpt-5.5"`)
-	wantModel(".cursor/commands/alpha.md", "model: cursor-opus")
+	wantModel(".cursor/agents/alpha.md", "model: cursor-opus")
 	wantModel(".github/chatmodes/alpha.chatmode.md", "model: gpt-4o")
 
 	// beta: cursor match, codex dropped (no match, no default).
-	wantModel(".cursor/commands/beta.md", "model: cursor-only")
+	wantModel(".cursor/agents/beta.md", "model: cursor-only")
 	noModel(".codex/agents/beta.toml")
 	noModel(".github/chatmodes/beta.chatmode.md")
 
 	// gamma: bare string everywhere.
 	wantModel(".codex/agents/gamma.toml", `model = "shared-model"`)
-	wantModel(".cursor/commands/gamma.md", "model: shared-model")
+	wantModel(".cursor/agents/gamma.md", "model: shared-model")
 	wantModel(".github/chatmodes/gamma.chatmode.md", "model: shared-model")
 }

@@ -11,16 +11,25 @@ import "github.com/chemaclass/agnostic-ai/internal/spec"
 // target adds a new event, append it here so validation stays useful.
 var hookEventsByTarget = map[string]map[string]struct{}{
 	"claude": setOf(
-		"PreToolUse", "PostToolUse",
-		"UserPromptSubmit",
-		"SessionStart", "SessionEnd", "Stop", "SubagentStop",
+		"Setup",
+		"PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch",
+		"PermissionRequest", "PermissionDenied",
+		"UserPromptSubmit", "UserPromptExpansion", "InstructionsLoaded",
+		"Elicitation", "ElicitationResult", "MessageDisplay",
+		"SessionStart", "SessionEnd", "Stop", "StopFailure",
+		"SubagentStart", "SubagentStop",
+		"TaskCreated", "TaskCompleted", "TeammateIdle",
 		"PreCompact", "PostCompact",
+		"ConfigChange", "CwdChanged", "FileChanged",
+		"WorktreeCreate", "WorktreeRemove",
 		"Notification",
 	),
 	"codex": setOf(
 		"PreToolUse", "PostToolUse",
+		"PermissionRequest",
 		"UserPromptSubmit",
 		"SessionStart", "SessionEnd", "Stop",
+		"SubagentStart", "SubagentStop",
 		"PreCompact", "PostCompact",
 	),
 	"gemini": setOf(
@@ -47,6 +56,12 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 // one is a no-op the user likely did not intend.
 var matcherAcceptingEvents = setOf(
 	"PreToolUse", "PostToolUse", // claude, codex
+	// claude: tool-name matcher on permission and failure events,
+	// subagent-name matcher on Subagent*, trigger matcher on
+	// PreCompact (manual|auto) and SessionStart (startup|resume|clear).
+	"PermissionRequest", "PostToolUseFailure",
+	"SubagentStart", "SubagentStop",
+	"PreCompact", "SessionStart",
 	"BeforeTool", "AfterTool", // gemini
 	// cursor: tool/shell/MCP/file events filter on a regex matcher.
 	"beforeShellExecution", "afterShellExecution",

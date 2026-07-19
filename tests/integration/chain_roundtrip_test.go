@@ -120,8 +120,10 @@ func TestRoundTrip_CodexClaudeCodex(t *testing.T) {
 	seedCodexNative(t, dir)
 	testutil.Chdir(t, dir)
 
+	// commands-dir opts back into the deprecated project prompts layout
+	// this chain seeds, so the imported command re-emits to codex.
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
-		[]byte("version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\n  commands: .agnostic-ai/commands\ntargets:\n  - claude\n  - codex\ngitignore:\n  enabled: false\n"), 0o644))
+		[]byte("version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\n  commands: .agnostic-ai/commands\ntargets:\n  - claude\n  - codex\noutputs:\n  codex:\n    commands-dir: .codex/prompts\ngitignore:\n  enabled: false\n"), 0o644))
 
 	runCmd(t, "import", "codex")
 	runCmd(t, "sync", "-t", "claude")

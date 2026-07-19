@@ -87,6 +87,9 @@ type hookCommandEntry struct {
 	Command       string `json:"command"`
 	Timeout       int    `json:"timeout,omitempty"`
 	StatusMessage string `json:"statusMessage,omitempty"`
+	// CommandWindows is Codex's optional Windows-specific command
+	// override, propagated from the spec's `commandWindows` Meta key.
+	CommandWindows string `json:"commandWindows,omitempty"`
 }
 
 // buildHooksJSON returns the rendered document or nil when no hooks
@@ -96,10 +99,11 @@ type hookCommandEntry struct {
 func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	type key struct{ event, command string }
 	type accum struct {
-		matchers      map[string]bool
-		matcherOrder  []string
-		timeout       int
-		statusMessage string
+		matchers       map[string]bool
+		matcherOrder   []string
+		timeout        int
+		statusMessage  string
+		commandWindows string
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
@@ -112,6 +116,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		matcher, _ := h.Meta["matcher"].(string)
 		timeout := hookIntMeta(h.Meta, "timeout")
 		statusMessage, _ := h.Meta["statusMessage"].(string)
+		commandWindows, _ := h.Meta["commandWindows"].(string)
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
 			k := key{event: event, command: cmd}
@@ -132,6 +137,9 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			}
 			if a.statusMessage == "" && statusMessage != "" {
 				a.statusMessage = statusMessage
+			}
+			if a.commandWindows == "" && commandWindows != "" {
+				a.commandWindows = commandWindows
 			}
 		}
 	}
@@ -159,10 +167,11 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			groupOrder = append(groupOrder, gk)
 		}
 		g.Hooks = append(g.Hooks, hookCommandEntry{
-			Type:          "command",
-			Command:       k.command,
-			Timeout:       a.timeout,
-			StatusMessage: a.statusMessage,
+			Type:           "command",
+			Command:        k.command,
+			Timeout:        a.timeout,
+			StatusMessage:  a.statusMessage,
+			CommandWindows: a.commandWindows,
 		})
 	}
 
@@ -233,11 +242,14 @@ func hookIntMeta(meta map[string]any, key string) int {
 func orderedHookEvents(seen []string) []string {
 	lifecycle := []string{
 		"SessionStart",
+		"SubagentStart",
 		"UserPromptSubmit",
 		"PreToolUse",
+		"PermissionRequest",
 		"PostToolUse",
 		"Notification",
 		"PreCompact",
+		"PostCompact",
 		"Stop",
 		"SubagentStop",
 		"SessionEnd",

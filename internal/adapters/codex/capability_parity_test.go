@@ -29,8 +29,9 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			// Opt into the legacy rules-file so KindRule has a visible
-			// landing spot inside the adapter's own emit footprint.
-			"codex": {RulesFile: "AGENTS-rules.md"},
+			// landing spot inside the adapter's own emit footprint, and
+			// into commands-dir since project prompts are opt-in now.
+			"codex": {RulesFile: "AGENTS-rules.md", CommandsDir: ".codex/prompts"},
 		},
 	}
 	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
@@ -45,7 +46,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindAgent, []string{".codex/agents/alpha.toml", ".codex/agents/beta.toml", ".codex/agents/gamma.toml"}},
-		{spec.KindSkill, []string{".codex/skills/uno/SKILL.md", ".codex/skills/dos/SKILL.md", ".codex/skills/tres/SKILL.md"}},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindRule, []string{"AGENTS-rules.md"}},
 		{spec.KindHook, []string{".codex/hooks.json"}},
 		{spec.KindMCP, []string{".codex/config.toml"}},

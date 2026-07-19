@@ -36,6 +36,12 @@ func TestSync_LegacyRulesFileCollision(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	// A codex-only fenced section makes the two merged AGENTS.md bodies
+	// diverge. Byte-identical output at a shared path dedupes instead.
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "r2.md"),
+		[]byte("---\nname: r2\n---\nshared\n\n::target codex\ncodex only\n::end\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
 gitignore:
@@ -57,6 +63,35 @@ outputs:
 	}
 	if !strings.Contains(err.Error(), "output collision") {
 		t.Errorf("expected 'output collision' in error, got: %v", err)
+	}
+}
+
+// Identical bytes at a shared path are the dedup sync exists for, not a
+// conflict: codex + amp pointing rules-file at the same AGENTS.md render
+// the same merged body when no per-target fences diverge, and the same
+// applies to the shared .agents/skills tree both emit by default.
+func TestSync_SharedPathIdenticalContent_NoCollision(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	if err := os.WriteFile(cfgPath, []byte(`version: 1
+gitignore:
+  enabled: true
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "codex,amp"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("identical shared-path content should dedupe, not collide: %v", err)
 	}
 }
 
@@ -105,6 +140,11 @@ func TestSync_CollisionPolicyFail_HardError(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	// Diverge the merged bodies; identical bytes would dedupe, not fail.
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "r2.md"),
+		[]byte("---\nname: r2\n---\nshared\n\n::target codex\ncodex only\n::end\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
 gitignore:

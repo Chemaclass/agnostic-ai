@@ -418,6 +418,36 @@ func TestImportFromClaude_PreservesHookTimeoutAndStatusMessage(t *testing.T) {
 	}
 }
 
+// async, asyncRewake, shell, and if are current command-hook schema
+// fields. Import must capture them into the spec or the next sync
+// silently strips them from settings.json.
+func TestImportFromClaude_PreservesHookAsyncShellIf(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Bash", "hooks": [
+        {"type": "command", "command": "check.sh", "async": true, "asyncRewake": true, "once": true, "shell": "bash", "if": "Bash(git *)"}
+      ]}
+    ]
+  }
+}`
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+	if err := importFromClaude(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "pretooluse")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"async: true", "asyncRewake: true", "once: true", "shell: bash", "if: Bash(git *)"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q in %s", want, data)
+		}
+	}
+}
+
 // Hook script bodies under `.claude/hooks/` are captured into
 // `.agnostic-ai/scripts/claude/` so a gitignored .claude/ tree can be
 // reconstructed by the next `sync`. Executable bit must survive the

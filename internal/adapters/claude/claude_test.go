@@ -414,6 +414,64 @@ func TestEmit_RuleWithMetaRoundTripsFrontmatter(t *testing.T) {
 	}
 }
 
+// A cross-tool `globs` scoping field (the Cursor spelling) maps onto
+// Claude Code's `paths:` frontmatter so one spec scopes the rule on both
+// tools. A spec-authored `paths` wins untouched and `globs` never leaks
+// into the Claude emit.
+func TestEmit_RuleGlobsMapToPathsFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind:     spec.KindRule,
+			Name:     "api",
+			Meta:     map[string]any{"name": "api", "globs": "src/api/**/*.ts"},
+			MetaKeys: []string{"name", "globs"},
+			Body:     "api rule\n",
+		},
+		{
+			Kind: spec.KindRule,
+			Name: "web",
+			Meta: map[string]any{
+				"name":  "web",
+				"globs": "web/**",
+				"paths": []string{"apps/web/**"},
+			},
+			MetaKeys: []string{"name", "globs", "paths"},
+			Body:     "web rule\n",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	api := readFileT(t, filepath.Join(dir, ".claude/rules/api.md"))
+	if !strings.Contains(api, "paths:") || !strings.Contains(api, "src/api/**/*.ts") {
+		t.Errorf("globs should map to paths list:\n%s", api)
+	}
+	if strings.Contains(api, "globs:") {
+		t.Errorf("globs must not leak into claude frontmatter:\n%s", api)
+	}
+
+	web := readFileT(t, filepath.Join(dir, ".claude/rules/web.md"))
+	if !strings.Contains(web, "apps/web/**") {
+		t.Errorf("spec-authored paths must win:\n%s", web)
+	}
+	if strings.Contains(web, "web/**\n") && strings.Contains(web, "globs:") {
+		t.Errorf("globs must not leak when paths present:\n%s", web)
+	}
+}
+
+func readFileT(t *testing.T, path string) string {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(got)
+}
+
 func TestEmit_AgentWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -679,6 +737,61 @@ func TestEmit_HookTimeoutAndStatusMessagePropagate(t *testing.T) {
 		if h.StatusMessage != "Running formatters" {
 			t.Errorf("expected statusMessage to propagate, got %q (%s)", h.StatusMessage, h.Command)
 		}
+	}
+}
+
+// async, asyncRewake, shell, and if are current command-hook schema
+// fields; dropping any of them on emit would strip behavior the user
+// authored (a background hook would become blocking, a scoped hook
+// would fire on every call).
+func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{
+				"event":       "PreToolUse",
+				"matcher":     "Bash",
+				"command":     "check.sh",
+				"async":       true,
+				"asyncRewake": true,
+				"once":        true,
+				"shell":       "bash",
+				"if":          "Bash(git *)",
+			},
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Hooks []struct {
+				Async       bool   `json:"async"`
+				AsyncRewake bool   `json:"asyncRewake"`
+				Once        bool   `json:"once"`
+				Shell       string `json:"shell"`
+				If          string `json:"if"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+		t.Fatalf("expected 1 group with 1 hook, got: %s", raw)
+	}
+	h := groups[0].Hooks[0]
+	if !h.Async || !h.AsyncRewake || !h.Once || h.Shell != "bash" || h.If != "Bash(git *)" {
+		t.Errorf("async/asyncRewake/once/shell/if must propagate, got %+v in:\n%s", h, raw)
 	}
 }
 

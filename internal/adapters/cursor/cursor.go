@@ -1,7 +1,15 @@
-// Package cursor emits .cursor/rules/*.mdc files for the Cursor editor.
+// Package cursor emits Cursor editor configs.
 //
-// Rules emit with alwaysApply=true; agents emit as rules with
-// alwaysApply=false. Both honor a frontmatter override.
+// Rules emit as .cursor/rules/*.mdc with alwaysApply=true (frontmatter
+// override honored). Agents emit natively as Cursor subagents at
+// .cursor/agents/<name>.md (Cursor 2.4+). Skills emit natively as one
+// folder per skill under .cursor/skills/<name>/SKILL.md (the Agent
+// Skills layout Cursor 2.4+ discovers), including bundled asset files.
+// Commands emit to .cursor/commands/<name>.md, Cursor's standard
+// project commands location. Hooks land in .cursor/hooks.json, MCP
+// servers in .cursor/mcp.json, Bugbot review guidance in
+// .cursor/BUGBOT.md (root and per scope), background agent bootstrap in
+// .cursor/environment.json, and ignore lists in .cursorignore.
 package cursor
 
 import (
@@ -20,7 +28,12 @@ const (
 	target             = "cursor"
 	defaultDir         = ".cursor/rules"
 	defaultExt         = ".mdc"
+	defaultAgentsDir   = ".cursor/agents"
+	defaultSkillsDir   = ".cursor/skills"
+	defaultCommandsDir = ".cursor/commands"
 	defaultMCPFile     = ".cursor/mcp.json"
+	// defaultReviewFile is the Bugbot basename; each file lands inside a
+	// `.cursor/` dir (root or per scope), the location Bugbot reads.
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
 	defaultIgnoreFile  = ".cursorignore"
@@ -50,25 +63,39 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .mdc per rule, agent, and skill, plus an
-// `.cursor/mcp.json` when MCP entries exist. When
-// `outputs.cursor.commands-dir` is set, also writes one Cursor Custom
-// Command per agent at that directory; the rule-form emission still
-// happens so users that depend on it keep working.
+// Emit writes one .mdc per rule, one native subagent per agent under
+// `.cursor/agents/`, one native skill folder per skill under
+// `.cursor/skills/`, one command per command spec under
+// `.cursor/commands/`, plus an `.cursor/mcp.json` when MCP entries
+// exist.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
-		Ext:         defaultExt,
-		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
-		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
-		FormatSkill: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
+		Dir: emit.OutputRulesDir(cfg, target, defaultDir),
+		Ext: defaultExt,
+		// Agents and skills emit natively under .cursor/agents/ and
+		// .cursor/skills/; flattened .mdc copies would double-expose
+		// each of them.
+		SkipAgents: true,
+		SkipSkills: true,
+		FormatRule: func(e spec.Entry) string { return emit.WithHeader(mdc(e), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}
-	noteDroppedSkillAssets(b)
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	for _, a := range b.Agents {
+		if err := emitAgent(a, agentsDir, dryRun); err != nil {
+			return err
+		}
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			return err
+		}
+	}
 	if err := emitReviews(b, cfg, dryRun); err != nil {
 		return err
 	}
@@ -78,21 +105,12 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
-	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
-		for _, a := range b.Agents {
-			path := commandsDir + "/" + a.Name + ".md"
-			if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
-				return err
-			}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	for _, c := range b.Commands {
+		path := commandsDir + "/" + c.Name + ".md"
+		if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
+			return err
 		}
-		for _, c := range b.Commands {
-			path := commandsDir + "/" + c.Name + ".md"
-			if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
-				return err
-			}
-		}
-	} else {
-		emit.NoteCoverageGap(target, spec.KindCommand, len(b.Commands), "outputs.cursor.commands-dir")
 	}
 	if err := emitHooks(b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
@@ -135,7 +153,9 @@ func emitHooks(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 // event name through verbatim (no cross-tool translation), so a cursor
 // hook spec sets `event:` to a Cursor lifecycle name (e.g.
 // `beforeShellExecution`, `afterFileEdit`). `matcher` is omitted when
-// absent. A `command:` list yields one entry per element.
+// absent. A `command:` list yields one entry per element. The optional
+// Cursor entry fields `timeout` (seconds), `loop_limit`, and
+// `failClosed` pass through from the same-named spec Meta keys.
 func buildHooks(hooks []spec.Entry) map[string]any {
 	byEvent := map[string][]map[string]any{}
 	for _, h := range hooks {
@@ -152,6 +172,11 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
 			if matcher != "" {
 				entry["matcher"] = matcher
+			}
+			for _, k := range []string{"timeout", "loop_limit", "failClosed"} {
+				if v, ok := h.Meta[k]; ok {
+					entry[k] = v
+				}
 			}
 			byEvent[event] = append(byEvent[event], entry)
 		}
@@ -210,10 +235,10 @@ func hookCommands(raw any) []string {
 	}
 }
 
-// command renders a Cursor Custom Command file. The Cursor docs
-// describe these as Markdown with optional frontmatter (`description`,
-// `model`); the body is the prompt the IDE sends when the user invokes
-// the command.
+// command renders a Cursor command file: Markdown whose body is the
+// prompt the IDE sends when the user invokes `/name`. The docs describe
+// commands as plain markdown; the optional `description`/`model`
+// frontmatter is tolerated and kept for continuity.
 func command(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
@@ -232,11 +257,14 @@ func command(e spec.Entry) string {
 }
 
 // emitReviews writes Cursor Bugbot review guidance as a `BUGBOT.md` per
-// scope. Cursor reads a root `BUGBOT.md` plus optional per-directory files,
-// so review specs honor `EffectiveScope` the same way rules do: an unscoped
-// spec lands at the repo root, a spec under `reviews/backend/` lands at
-// `backend/BUGBOT.md`. Specs sharing a scope concatenate into that scope's
-// single file. The basename is overridable via `outputs.cursor.review-file`.
+// scope, inside a `.cursor/` directory: Bugbot always includes the root
+// `.cursor/BUGBOT.md` and any `<dir>/.cursor/BUGBOT.md` found while
+// traversing upward from changed files. Review specs honor
+// `EffectiveScope` the same way rules do: an unscoped spec lands at
+// `.cursor/BUGBOT.md`, a spec under `reviews/backend/` lands at
+// `backend/.cursor/BUGBOT.md`. Specs sharing a scope concatenate into
+// that scope's single file. The basename is overridable via
+// `outputs.cursor.review-file`.
 func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if len(b.Reviews) == 0 {
 		return nil
@@ -265,7 +293,7 @@ func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			}
 			sb.WriteString(strings.TrimRight(r.Body, "\n"))
 		}
-		path := filepath.Join(scope, base)
+		path := filepath.Join(scope, ".cursor", base)
 		if err := emit.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
@@ -316,32 +344,25 @@ func scopeEscapesRoot(scope string) bool {
 	return clean == ".." || strings.HasPrefix(clean, "../")
 }
 
-// noteDroppedSkillAssets surfaces a coverage note for every folder-based
-// skill that bundles sibling files. Cursor flattens each skill to a single
-// `.cursor/rules/skill-<name>.mdc`, so attached scripts and assets have no
-// native home and would otherwise vanish without a trace (#430).
-func noteDroppedSkillAssets(b spec.Bundle) {
-	n := 0
-	for _, s := range b.Skills {
-		if emit.SkillHasBundledAssets(s, emit.SkipSKILLMd) {
-			n++
-		}
-	}
-	emit.NoteCoverageGap(target, spec.KindSkill, n, "Cursor flattens skills to .mdc; bundled files are not emitted")
-}
-
-func mdc(e spec.Entry, alwaysApplyDefault bool) string {
+// mdc renders one rule as a `.mdc` file. Rules default to
+// `alwaysApply: true`; the spec frontmatter overrides.
+func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
-	always := alwaysApplyDefault
+	always := true
 	if v, ok := m["alwaysApply"].(bool); ok {
 		always = v
 	}
-	// An alwaysApply:false rule (agents, skills) defaults to a broad
-	// `**/*` auto-attach when it declares no globs. An alwaysApply:true
-	// rule ignores globs entirely, so synthesizing one there is pure
-	// round-trip noise against a hand-authored source; omit it (#443).
+	// An alwaysApply:true rule ignores globs entirely, so synthesizing
+	// one there is pure round-trip noise against a hand-authored source;
+	// omit it (#443). An alwaysApply:false rule without globs first
+	// falls back to the Claude spelling (`paths`, a list, comma-joined),
+	// mirroring the globs->paths translation on the claude side, and
+	// then to the broad `**/*` auto-attach.
+	if globs == "" && !always {
+		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
+	}
 	if globs == "" && !always {
 		globs = "**/*"
 	}
@@ -364,6 +385,31 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// pathsToGlobs normalizes a `paths` value (the Claude spelling: a
+// scalar string or a list) into a slice of glob strings. Returns nil
+// when the key is absent or carries no usable value.
+func pathsToGlobs(paths any) []string {
+	switch v := paths.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // mdcScalar renders s as a YAML scalar with minimal quoting: a plain

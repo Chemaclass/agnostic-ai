@@ -215,3 +215,28 @@ body
 		t.Error("expected .agnostic-ai/rules/routed.md after import cursor")
 	}
 }
+
+// Native cursor agents, skills (folder + bundled assets), and commands
+// round-trip into the source dirs so sync can re-emit them everywhere.
+func TestImportFromCursor_AgentsSkillsAndCommands(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".cursor", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: d\n---\nreview\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "alpha", "SKILL.md"), "---\nname: alpha\ndescription: d\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "alpha", "scripts", "run.sh"), "#!/bin/sh\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "commands", "deploy.md"), "---\ndescription: ship\n---\n\nRun it.\n")
+	silence(t)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{
+		filepath.Join(dir, "agents", "reviewer.md"),
+		filepath.Join(dir, "skills", "alpha", "SKILL.md"),
+		filepath.Join(dir, "skills", "alpha", "scripts", "run.sh"),
+		filepath.Join(dir, "commands", "deploy.md"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("expected %s after import cursor: %v", p, err)
+		}
+	}
+}

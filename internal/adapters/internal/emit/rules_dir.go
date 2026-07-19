@@ -24,6 +24,11 @@ type RulesDirOpts struct {
 	// antigravity's `.agent/skills/<name>/SKILL.md`) and must not also
 	// leak a `skill-<name>` rule file.
 	SkipSkills bool
+	// SkipAgents suppresses the per-agent rule-form output. Set by
+	// adapters that emit agents through a native surface (e.g. cursor's
+	// `.cursor/agents/<name>.md` subagents) and must not also leak an
+	// agent rule file.
+	SkipAgents bool
 	// FormatRule renders one rule into file content. Defaults to
 	// `# <name>\n\n<body>\n` when nil.
 	FormatRule func(spec.Entry) string
@@ -66,11 +71,13 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 			return err
 		}
 	}
-	for _, a := range b.Agents {
-		name := opts.AgentPrefix + a.Name
-		path := filepath.Join(scopedDir(opts.Dir, a), name+opts.Ext)
-		if err := WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
-			return err
+	if !opts.SkipAgents {
+		for _, a := range b.Agents {
+			name := opts.AgentPrefix + a.Name
+			path := filepath.Join(scopedDir(opts.Dir, a), name+opts.Ext)
+			if err := WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
+				return err
+			}
 		}
 	}
 	if !opts.SkipSkills {

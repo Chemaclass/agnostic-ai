@@ -11,12 +11,14 @@
 // .codex/ is Codex CLI's native lookup root; set agents-dir to
 // .agents/agents for the community shared subagent layout.
 //
-// Skills emit as a folder per skill under .codex/skills/<name>/ (override
-// via outputs.codex.skills-dir) per the Codex skills layout. Each folder
-// contains a SKILL.md with `name` + `description` frontmatter plus the
-// skill body. When the spec provides `x-codex.interface`, `x-codex.policy`,
-// or `x-codex.dependencies`, an additional `agents/openai.yaml` is written
-// alongside SKILL.md for UI customization and policy declarations.
+// Skills emit as a folder per skill under .agents/skills/<name>/ (override
+// via outputs.codex.skills-dir), the path Codex CLI scans from the cwd up
+// to the repo root. Each folder contains a SKILL.md with `name` +
+// `description` frontmatter plus the skill body. When the spec provides
+// `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an
+// additional `agents/openai.yaml` is written alongside SKILL.md for UI
+// customization and policy declarations. Amp reads the same layout at the
+// same path; identical bytes dedupe, so co-enabling both is safe.
 //
 // Codex MCP servers live in `.codex/config.toml` (one
 // `[mcp_servers.<name>]` table each). Lifecycle hooks (SessionStart,
@@ -39,20 +41,24 @@ import (
 )
 
 const (
-	target             = "codex"
-	defaultAgentsDir   = ".codex/agents"
-	defaultSkillsDir   = ".codex/skills"
-	defaultCommandsDir = ".codex/prompts"
-	defaultConfigFile  = ".codex/config.toml"
-	// legacyAgentsDir and legacySkillsDir are the pre-v0.26 codex
-	// defaults that wrote under `.agents/`. Sync sweeps them after
-	// emitting to the new defaults so user projects do not carry
-	// stale agnostic-ai-managed copies of every agent and skill at
-	// two paths. The sweep only fires when the active path differs
-	// (i.e. the user did not opt back into the community shared
-	// layout via `outputs.codex.agents-dir: .agents/agents`).
-	legacyAgentsDir = ".agents/agents"
-	legacySkillsDir = ".agents/skills"
+	target            = "codex"
+	defaultAgentsDir  = ".codex/agents"
+	defaultSkillsDir  = ".agents/skills"
+	defaultConfigFile = ".codex/config.toml"
+	// legacyAgentsDir is the pre-v0.26 agents default under `.agents/`.
+	// legacySkillsDir is the v0.26..v0.42 skills default: Codex CLI
+	// only scans `.agents/skills`, so `.codex/skills` was a dead path.
+	// legacyCommandsDir is the pre-v0.43 prompts default: Codex reads
+	// custom prompts only from `~/.codex/prompts` and deprecates them
+	// in favor of skills, so the project-level copy was never loaded.
+	// Sync sweeps each legacy tree after emitting to the current
+	// default so user projects do not carry stale agnostic-ai-managed
+	// copies at two paths. The sweep only fires when the active path
+	// differs (i.e. the user did not opt into that path explicitly via
+	// the matching `outputs.codex.*` key).
+	legacyAgentsDir   = ".agents/agents"
+	legacySkillsDir   = ".codex/skills"
+	legacyCommandsDir = ".codex/prompts"
 	// configOverlayPath is the project-relative path to the captured
 	// non-hooks/non-mcp portion of `.codex/config.toml`. `agnostic-ai
 	// import codex` writes this file; the emitter prepends it before
@@ -64,9 +70,12 @@ const (
 
 var caps = emit.Capabilities{
 	Target: target,
-	// Codex consumes agents, rules, skills (the latter as listings),
-	// commands (slash prompts under .codex/prompts/), MCP servers via
+	// Codex consumes agents, rules, skills, MCP servers via
 	// .codex/config.toml, and lifecycle hooks via .codex/hooks.json.
+	// Commands stay declared-supported but emit only behind
+	// outputs.codex.commands-dir: Codex loads custom prompts from
+	// ~/.codex/prompts only and deprecates them in favor of skills, so
+	// a project-level prompts tree would never be read.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand},
 }
 
@@ -79,10 +88,12 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one TOML per agent, one folder per skill, one prompt per
-// command, .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when
-// opted in via outputs.codex.rules-file—a legacy concatenated rules
-// document. The project-root AGENTS.md is written by `sync`, not here.
+// Emit writes one TOML per agent, one folder per skill,
+// .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when opted
+// in via outputs.codex.rules-file—a legacy concatenated rules document.
+// Commands emit only when outputs.codex.commands-dir is set (Codex
+// deprecated custom prompts and never reads a project-level tree). The
+// project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -106,14 +117,19 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	for _, c := range b.Commands {
-		path := filepath.Join(commandsDir, c.Name+".md")
-		rmeta, rkeys := emit.ResolveMetaOrdered(c.Meta, c.MetaKeys, target)
-		body := emit.FrontmatterStyled(rmeta, rkeys, c.MetaStyles) + "\n" + c.Body
-		if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
-			return err
+	commandsDir := emit.OutputCommandsDir(cfg, target, "")
+	if commandsDir != "" {
+		for _, c := range b.Commands {
+			path := filepath.Join(commandsDir, c.Name+".md")
+			rmeta, rkeys := emit.ResolveMetaOrdered(c.Meta, c.MetaKeys, target)
+			body := emit.FrontmatterStyled(rmeta, rkeys, c.MetaStyles) + "\n" + c.Body
+			if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
+				return err
+			}
 		}
+	} else {
+		emit.NoteCoverageGap(target, spec.KindCommand, len(b.Commands),
+			"Codex loads custom prompts from ~/.codex/prompts only and deprecates them for skills")
 	}
 
 	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
@@ -123,7 +139,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := sweepLegacyTrees(agentsDir, skillsDir, dryRun); err != nil {
+	if err := sweepLegacyTrees(agentsDir, skillsDir, commandsDir, dryRun); err != nil {
 		return err
 	}
 	hooks := b.HooksFor(target)
@@ -139,33 +155,39 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	return emit.RestoreHelperFiles(target, dryRun)
 }
 
-// sweepLegacyTrees removes agnostic-ai-managed leftovers from the
-// pre-v0.26 `.agents/` codex layout when the user is now emitting to
-// the modern `.codex/` defaults (or any other path that differs from
-// the legacy ones). Files without the agnostic-ai header are left
-// untouched so hand-authored content survives the sweep. The cleanup
-// is skipped entirely when the active path matches the legacy one,
-// since that means the user explicitly opted back into the community
-// shared layout.
-func sweepLegacyTrees(agentsDir, skillsDir string, dryRun bool) error {
-	swept := false
+// sweepLegacyTrees removes agnostic-ai-managed leftovers from prior
+// codex default layouts when the user is now emitting to the current
+// defaults (or any other path that differs from the legacy ones):
+// pre-v0.26 agents under `.agents/agents`, v0.26..v0.42 skills under
+// `.codex/skills` (a path Codex CLI never scans), and pre-v0.43
+// prompts under `.codex/prompts` (Codex reads prompts from
+// `~/.codex/prompts` only). Files without the agnostic-ai header are
+// left untouched so hand-authored content survives the sweep. Each
+// sweep is skipped when the active path matches the legacy one, since
+// that means the user explicitly opted into that layout.
+func sweepLegacyTrees(agentsDir, skillsDir, commandsDir string, dryRun bool) error {
+	sweptAgents := false
 	if agentsDir != legacyAgentsDir {
 		if err := emit.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
 			return err
 		}
-		swept = true
+		sweptAgents = true
 	}
 	if skillsDir != legacySkillsDir {
 		if err := emit.RemoveGeneratedTree(legacySkillsDir, dryRun); err != nil {
 			return err
 		}
-		swept = true
 	}
-	if swept && !dryRun {
+	if commandsDir != legacyCommandsDir {
+		if err := emit.RemoveGeneratedTree(legacyCommandsDir, dryRun); err != nil {
+			return err
+		}
+	}
+	if sweptAgents && !dryRun {
 		// `.agents/` may now be empty; remove it so the legacy layout
 		// disappears completely. os.Remove fails silently when the
-		// directory still contains other tools' files (for example
-		// amp's `.agents/commands/`).
+		// directory still contains other files (for example the skills
+		// emitted to `.agents/skills/` or amp's `.agents/commands/`).
 		_ = os.Remove(".agents")
 	}
 	return nil
@@ -190,13 +212,13 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 
 // codexEmitsSkills reports whether the codex adapter should write the
 // per-skill tree on this sync. Defaults to true so codex picks up the
-// emitted skills at its native `.codex/skills/<name>/` lookup path.
+// emitted skills at its native `.agents/skills/<name>/` lookup path.
 //
-// The legacy claude-aware suppression default is gone now that codex
-// emits to `.codex/skills/` (not `.agents/skills/`); claude's
-// `.claude/skills/` no longer overlaps so duplication is not a concern.
-// Users who explicitly want to skip codex skill emission (e.g. because
-// they redirect Codex CLI to read claude's tree) opt out with
+// Amp emits the same SKILL.md layout to the same default path. Both
+// renderers produce identical bytes for a spec without per-target
+// overrides, so the double write dedupes; a spec with divergent
+// `x-codex`/`x-amp` overrides surfaces through the collision check.
+// Users who explicitly want to skip codex skill emission opt out with
 // `outputs.codex.shared-subagents: false`.
 func codexEmitsSkills(cfg *config.Config) bool {
 	if cfg == nil {

@@ -121,7 +121,7 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 	hooks := []spec.Entry{
 		{
 			Kind: spec.KindHook, Name: "bad", Path: "hooks/bad.yaml",
-			Meta: map[string]any{"event": "SessionStart", "matcher": "Bash"},
+			Meta: map[string]any{"event": "SessionEnd", "matcher": "Bash"},
 		},
 		{
 			Kind: spec.KindHook, Name: "ok", Path: "hooks/ok.yaml",
@@ -129,7 +129,7 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 		},
 		{
 			Kind: spec.KindHook, Name: "no-matcher", Path: "hooks/nm.yaml",
-			Meta: map[string]any{"event": "SessionStart"},
+			Meta: map[string]any{"event": "SessionEnd"},
 		},
 	}
 	findings := lintHookMatcherMisuse(hooks)
