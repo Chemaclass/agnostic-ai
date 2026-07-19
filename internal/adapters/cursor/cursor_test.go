@@ -13,8 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// Command specs emit as Cursor Custom Commands when commands-dir is set,
-// the same opt-in surface agents use.
+// Command specs emit as Cursor commands; commands-dir relocates them.
 func TestEmit_WritesCommandFileWhenCommandsDirSet(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -626,4 +625,43 @@ func TestEmit_HookOptionalFieldsPassThrough(t *testing.T) {
 			t.Errorf("missing %s in hooks.json:\n%s", want, data)
 		}
 	}
+}
+
+// A rule scoped with the Claude spelling (`paths`) maps onto Cursor's
+// comma-joined `globs` when the rule is not always-apply; an
+// always-apply rule keeps ignoring globs entirely (#443).
+func TestEmit_RulePathsMapToGlobs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "scoped", Meta: map[string]any{
+			"alwaysApply": false,
+			"paths":       []any{"src/**/*.ts", "lib/**"},
+		}, Body: "scoped rule"},
+		{Kind: spec.KindRule, Name: "always", Meta: map[string]any{
+			"paths": []any{"src/**"},
+		}, Body: "always rule"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	scoped := readFileT(t, filepath.Join(dir, ".cursor/rules/scoped.mdc"))
+	if !strings.Contains(scoped, "globs: src/**/*.ts,lib/**") {
+		t.Errorf("paths should map to comma-joined globs:\n%s", scoped)
+	}
+	always := readFileT(t, filepath.Join(dir, ".cursor/rules/always.mdc"))
+	if strings.Contains(always, "globs:") {
+		t.Errorf("always-apply rule must not synthesize globs:\n%s", always)
+	}
+}
+
+func readFileT(t *testing.T, path string) string {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(got)
 }

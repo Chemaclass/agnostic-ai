@@ -56,6 +56,12 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 // one is a no-op the user likely did not intend.
 var matcherAcceptingEvents = setOf(
 	"PreToolUse", "PostToolUse", // claude, codex
+	// claude: tool-name matcher on permission and failure events,
+	// subagent-name matcher on Subagent*, trigger matcher on
+	// PreCompact (manual|auto) and SessionStart (startup|resume|clear).
+	"PermissionRequest", "PostToolUseFailure",
+	"SubagentStart", "SubagentStop",
+	"PreCompact", "SessionStart",
 	"BeforeTool", "AfterTool", // gemini
 	// cursor: tool/shell/MCP/file events filter on a regex matcher.
 	"beforeShellExecution", "afterShellExecution",

@@ -753,12 +753,14 @@ func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
 			Kind: spec.KindHook,
 			Name: "h1",
 			Meta: map[string]any{
-				"event":   "PreToolUse",
-				"matcher": "Bash",
-				"command": "check.sh",
-				"async":   true,
-				"shell":   "bash",
-				"if":      "Bash(git *)",
+				"event":       "PreToolUse",
+				"matcher":     "Bash",
+				"command":     "check.sh",
+				"async":       true,
+				"asyncRewake": true,
+				"once":        true,
+				"shell":       "bash",
+				"if":          "Bash(git *)",
 			},
 		},
 	}
@@ -772,9 +774,11 @@ func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
 	var doc struct {
 		Hooks map[string][]struct {
 			Hooks []struct {
-				Async bool   `json:"async"`
-				Shell string `json:"shell"`
-				If    string `json:"if"`
+				Async       bool   `json:"async"`
+				AsyncRewake bool   `json:"asyncRewake"`
+				Once        bool   `json:"once"`
+				Shell       string `json:"shell"`
+				If          string `json:"if"`
 			} `json:"hooks"`
 		} `json:"hooks"`
 	}
@@ -786,8 +790,8 @@ func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
 		t.Fatalf("expected 1 group with 1 hook, got: %s", raw)
 	}
 	h := groups[0].Hooks[0]
-	if !h.Async || h.Shell != "bash" || h.If != "Bash(git *)" {
-		t.Errorf("async/shell/if must propagate, got %+v in:\n%s", h, raw)
+	if !h.Async || !h.AsyncRewake || !h.Once || h.Shell != "bash" || h.If != "Bash(git *)" {
+		t.Errorf("async/asyncRewake/once/shell/if must propagate, got %+v in:\n%s", h, raw)
 	}
 }
 

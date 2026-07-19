@@ -202,3 +202,27 @@ func TestEmit_HooksJSON_HonorsHooksFileOverride(t *testing.T) {
 		t.Errorf("expected default path skipped when override set, got: %v", err)
 	}
 }
+
+// commandWindows is Codex's optional Windows command override; it must
+// land on the emitted hook entry.
+func TestEmit_HookCommandWindowsPropagates(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event":          "PreToolUse",
+			"command":        "check.sh",
+			"commandWindows": "check.ps1",
+		}},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"commandWindows": "check.ps1"`) {
+		t.Errorf("commandWindows missing in hooks.json:\n%s", got)
+	}
+}

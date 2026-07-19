@@ -25,7 +25,7 @@ The same skill spec lands as different files per target.
 | cursor | Native `.cursor/skills/<name>/SKILL.md` folder; bundled sibling assets propagate byte-for-byte |
 | gemini | Reference-only by default; optional `.gemini/commands/skill-<name>.toml` when `emit-skills-as-commands: true` |
 
-Claude emits full frontmatter. Codex, amp, and antigravity reduce it to `name` + `description`. Cursor flattens the whole skill into one `.mdc` rule and drops bundled assets. A single shared file cannot be full-frontmatter and reduced-frontmatter at once. It cannot be a nested folder with assets and a flat `.mdc` without assets at once.
+Claude emits full frontmatter. Codex, amp, cursor, and antigravity reduce it to `name` + `description` plus each tool's documented optional keys. Gemini has no skill folder at all. A single shared file cannot be full-frontmatter and reduced-frontmatter at once, and a shared folder cannot carry per-tool extras (codex's `agents/openai.yaml`, cursor's `metadata`) without leaking them to tools that reject unknown files or keys.
 
 ### MCP server config diverges in schema and key names
 

@@ -154,7 +154,7 @@ Verify with the real CLI:
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
 ```
 
-- Rules emit with `alwaysApply: true` (override in spec frontmatter). An always-apply rule omits `globs`; otherwise empty globs default to `**/*`. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443)
+- Rules emit with `alwaysApply: true` (override in spec frontmatter). An always-apply rule omits `globs`; a non-always rule without `globs` falls back to the Claude-spelled `paths` list (comma-joined), then to `**/*`. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443)
 - **Agents**: native [Cursor subagents](https://cursor.com/docs/subagents.md) at `.cursor/agents/<name>.md` (Cursor 2.4+): frontmatter `name` + `description` plus optional `model`, `readonly`, and `is_background` when the spec declares them; the body is the system prompt. The old flattened `.mdc` and agent-as-command emissions are gone; the ledger sweeps stale copies.
 - Each command spec emits as a [Cursor command](https://cursor.com/docs/agent/chat/commands) under `.cursor/commands/`: Markdown whose body is the prompt. Override the directory via `outputs.cursor.commands-dir`.
 - **Skills**: native folders under `.cursor/skills/<name>/SKILL.md` (the [Agent Skills](https://cursor.com/docs/skills.md) layout Cursor 2.4+ discovers), with every bundled sibling file (scripts, references, assets) propagated byte-for-byte. Frontmatter carries `name` + `description`; optional `paths` and `disable-model-invocation` pass through when the spec declares them. The pre-native flattened `skill-<name>.mdc` copies are no longer written and get swept by the ledger on the next sync.

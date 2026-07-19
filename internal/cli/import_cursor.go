@@ -16,13 +16,18 @@ import (
 )
 
 // importFromCursor reads existing Cursor config (.cursor/rules/*.mdc,
-// .cursor/skills/<name>/ folders, .cursor/commands/*.md) under root and
-// writes specs into the configured source directories.
+// .cursor/agents/*.md, .cursor/skills/<name>/ folders,
+// .cursor/commands/*.md) under root and writes specs into the
+// configured source directories.
 func importFromCursor(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Commands); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
 		return err
 	}
 	rules, err := importCursorRules(root, filepath.Join(root, src.Rules))
+	if err != nil {
+		return err
+	}
+	agents, err := importCursorMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -30,11 +35,11 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	commands, err := importCursorCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importCursorMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d skills, %d commands\n", rules, skills, commands)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands\n", rules, agents, skills, commands)
 	printImportNextSteps(root, "cursor")
 	return nil
 }
@@ -71,10 +76,11 @@ func importCursorSkills(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-// importCursorCommands copies `.cursor/commands/*.md` byte-for-byte into
-// dstDir, stripping the agnostic-ai provenance header when present.
-func importCursorCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, ".cursor", "commands")
+// importCursorMarkdownFiles copies every top-level `*.md` in src
+// byte-for-byte into dstDir, stripping the agnostic-ai provenance
+// header when present. Covers Cursor's flat per-file surfaces:
+// `.cursor/agents/*.md` (subagents) and `.cursor/commands/*.md`.
+func importCursorMarkdownFiles(src, dstDir string) (int, error) {
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil

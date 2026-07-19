@@ -80,7 +80,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		// each of them.
 		SkipAgents: true,
 		SkipSkills: true,
-		FormatRule: func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
+		FormatRule: func(e spec.Entry) string { return emit.WithHeader(mdc(e), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}
@@ -344,18 +344,25 @@ func scopeEscapesRoot(scope string) bool {
 	return clean == ".." || strings.HasPrefix(clean, "../")
 }
 
-func mdc(e spec.Entry, alwaysApplyDefault bool) string {
+// mdc renders one rule as a `.mdc` file. Rules default to
+// `alwaysApply: true`; the spec frontmatter overrides.
+func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
-	always := alwaysApplyDefault
+	always := true
 	if v, ok := m["alwaysApply"].(bool); ok {
 		always = v
 	}
-	// An alwaysApply:false rule (agents, skills) defaults to a broad
-	// `**/*` auto-attach when it declares no globs. An alwaysApply:true
-	// rule ignores globs entirely, so synthesizing one there is pure
-	// round-trip noise against a hand-authored source; omit it (#443).
+	// An alwaysApply:true rule ignores globs entirely, so synthesizing
+	// one there is pure round-trip noise against a hand-authored source;
+	// omit it (#443). An alwaysApply:false rule without globs first
+	// falls back to the Claude spelling (`paths`, a list, comma-joined),
+	// mirroring the globs->paths translation on the claude side, and
+	// then to the broad `**/*` auto-attach.
+	if globs == "" && !always {
+		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
+	}
 	if globs == "" && !always {
 		globs = "**/*"
 	}
@@ -378,6 +385,31 @@ func mdc(e spec.Entry, alwaysApplyDefault bool) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// pathsToGlobs normalizes a `paths` value (the Claude spelling: a
+// scalar string or a list) into a slice of glob strings. Returns nil
+// when the key is absent or carries no usable value.
+func pathsToGlobs(paths any) []string {
+	switch v := paths.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // mdcScalar renders s as a YAML scalar with minimal quoting: a plain

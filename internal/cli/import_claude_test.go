@@ -427,7 +427,7 @@ func TestImportFromClaude_PreservesHookAsyncShellIf(t *testing.T) {
   "hooks": {
     "PreToolUse": [
       {"matcher": "Bash", "hooks": [
-        {"type": "command", "command": "check.sh", "async": true, "shell": "bash", "if": "Bash(git *)"}
+        {"type": "command", "command": "check.sh", "async": true, "asyncRewake": true, "once": true, "shell": "bash", "if": "Bash(git *)"}
       ]}
     ]
   }
@@ -441,7 +441,7 @@ func TestImportFromClaude_PreservesHookAsyncShellIf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"async: true", "shell: bash", "if: Bash(git *)"} {
+	for _, want := range []string{"async: true", "asyncRewake: true", "once: true", "shell: bash", "if: Bash(git *)"} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("expected %q in %s", want, data)
 		}

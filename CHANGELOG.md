@@ -20,10 +20,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- Claude rules: the cross-tool `globs` field emits as native `paths:` frontmatter in `.claude/rules/*.md`, scoping a rule to matching files on Claude and Cursor from one spec.
+- Claude rules: the cross-tool `globs` field emits as native `paths:` frontmatter in `.claude/rules/*.md`, and a Claude-spelled `paths` list maps back to Cursor `globs`, so one spec scopes a rule on both tools.
 - Hook specs carry the current Claude command-hook schema: `async`, `asyncRewake`, `shell`, `if`, and `once` emit into `.claude/settings.json` and survive `import claude` round-trips; `commandWindows` emits into `.codex/hooks.json`; `timeout`, `loop_limit`, and `failClosed` pass through to `.cursor/hooks.json`.
 - `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
-- `import cursor` captures native `.cursor/skills/<name>/` folders (full tree) and `.cursor/commands/*.md` alongside rules.
+- `import cursor` captures native `.cursor/agents/*.md`, `.cursor/skills/<name>/` folders (full tree), and `.cursor/commands/*.md` alongside rules.
 
 ## v0.42.0 - 2026-07-03
 
