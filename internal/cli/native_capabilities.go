@@ -11,16 +11,25 @@ import "github.com/chemaclass/agnostic-ai/internal/spec"
 // target adds a new event, append it here so validation stays useful.
 var hookEventsByTarget = map[string]map[string]struct{}{
 	"claude": setOf(
-		"PreToolUse", "PostToolUse",
-		"UserPromptSubmit",
-		"SessionStart", "SessionEnd", "Stop", "SubagentStop",
+		"Setup",
+		"PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch",
+		"PermissionRequest", "PermissionDenied",
+		"UserPromptSubmit", "UserPromptExpansion", "InstructionsLoaded",
+		"Elicitation", "ElicitationResult", "MessageDisplay",
+		"SessionStart", "SessionEnd", "Stop", "StopFailure",
+		"SubagentStart", "SubagentStop",
+		"TaskCreated", "TaskCompleted", "TeammateIdle",
 		"PreCompact", "PostCompact",
+		"ConfigChange", "CwdChanged", "FileChanged",
+		"WorktreeCreate", "WorktreeRemove",
 		"Notification",
 	),
 	"codex": setOf(
 		"PreToolUse", "PostToolUse",
+		"PermissionRequest",
 		"UserPromptSubmit",
 		"SessionStart", "SessionEnd", "Stop",
+		"SubagentStart", "SubagentStop",
 		"PreCompact", "PostCompact",
 	),
 	"gemini": setOf(

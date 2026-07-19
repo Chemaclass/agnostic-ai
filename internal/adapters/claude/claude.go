@@ -10,13 +10,16 @@
 //   - settings -> <dir>/settings.json (permissions, model)
 //
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
-// CLAUDE.md is never clobbered. Claude Code does not auto-load that
-// directory, so by default the files are inert. Set
-// `outputs.claude.rules-mode: import` to append a sentinel-marked block of
-// `@.claude/rules/<name>.md` imports to the CLAUDE.md pointer body, keeping
-// the pointer body intact while wiring the rules in. Set
-// `outputs.claude.rules-file: CLAUDE.md` to fall back to the legacy
-// concatenated single-file layout instead.
+// CLAUDE.md is never clobbered. Claude Code auto-loads every `.md` file
+// under that directory (recursively) at session start, and scopes a rule
+// to matching files when its frontmatter carries a `paths:` glob list. A
+// spec that declares the cross-tool `globs` field (the Cursor spelling)
+// emits it as `paths` here so one spec scopes the rule on both tools.
+// `outputs.claude.rules-mode: import` (which appends a sentinel-marked
+// block of `@.claude/rules/<name>.md` imports to the CLAUDE.md pointer
+// body) predates native rules loading and stays only for users pinned to
+// older Claude Code versions. Set `outputs.claude.rules-file: CLAUDE.md`
+// to fall back to the legacy concatenated single-file layout instead.
 package claude
 
 import (
@@ -411,8 +414,9 @@ func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 }
 
 // writeRules emits rules per-file under `.claude/rules/<name>.md` by
-// default. Setting `outputs.claude.rules-file` switches back to the
-// legacy single-file concatenated layout (typically CLAUDE.md).
+// default; Claude Code discovers every `.md` under that directory at
+// session start. Setting `outputs.claude.rules-file` switches back to
+// the legacy single-file concatenated layout (typically CLAUDE.md).
 func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	if len(rules) == 0 {
 		return nil
@@ -428,12 +432,78 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	for _, r := range rules {
 		path := filepath.Join(rulesDir, r.EffectiveScope(), r.Name+".md")
-		body := emit.WithHeader(emit.DocumentStyled(r.Meta, r.MetaKeys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
+		meta, keys := ruleMetaWithPaths(r.Meta, r.MetaKeys)
+		body := emit.WithHeader(emit.DocumentStyled(meta, keys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// ruleMetaWithPaths maps the cross-tool `globs` scoping field (the
+// Cursor spelling, a string or list) onto Claude Code's `paths:` list so
+// one spec scopes the rule on every tool. A spec that already declares
+// `paths` wins untouched; `globs` is dropped from the Claude emit either
+// way since Claude's rule frontmatter does not define it. Returns the
+// input unchanged when there is nothing to translate.
+func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []string) {
+	if meta == nil {
+		return meta, keys
+	}
+	globs, hasGlobs := meta["globs"]
+	if !hasGlobs {
+		return meta, keys
+	}
+	out := make(map[string]any, len(meta))
+	for k, v := range meta {
+		if k == "globs" {
+			continue
+		}
+		out[k] = v
+	}
+	_, hasPaths := meta["paths"]
+	paths := globsToPaths(globs)
+	addPaths := !hasPaths && len(paths) > 0
+	outKeys := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if k == "globs" {
+			if addPaths {
+				outKeys = append(outKeys, "paths")
+			}
+			continue
+		}
+		outKeys = append(outKeys, k)
+	}
+	if addPaths {
+		out["paths"] = paths
+	}
+	return out, outKeys
+}
+
+// globsToPaths normalizes a `globs` value into the list shape Claude's
+// `paths:` field expects: a scalar string becomes a one-element list, a
+// list passes through with each element stringified.
+func globsToPaths(globs any) []string {
+	switch v := globs.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // hookSettingsJSONWithOrder returns the `"hooks"` block as ordered JSON.
@@ -461,6 +531,10 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		}
 		timeout := hookIntMeta(h.Meta, "timeout")
 		statusMessage, _ := h.Meta["statusMessage"].(string)
+		async := hookBoolMeta(h.Meta, "async")
+		asyncRewake := hookBoolMeta(h.Meta, "asyncRewake")
+		shell, _ := h.Meta["shell"].(string)
+		ifRule, _ := h.Meta["if"].(string)
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
@@ -471,6 +545,10 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 				Command:       emit.RewriteHookPath(cmd, target),
 				Timeout:       timeout,
 				StatusMessage: statusMessage,
+				Async:         async,
+				AsyncRewake:   asyncRewake,
+				Shell:         shell,
+				If:            ifRule,
 			})
 		}
 	}
@@ -530,15 +608,21 @@ func mergePreferredAndLifecycle(preferred, seen []string) []string {
 // `encoding/json` emit the fields in declaration order rather than the
 // alpha-sorted order map iteration would produce.
 //
-// `Timeout` and `StatusMessage` are optional Claude schema fields that
-// propagate from the spec's `timeout` / `statusMessage` Meta keys. They
+// The optional fields propagate from the same-named spec Meta keys and
 // `omitempty` so specs that don't set them produce the historic minimal
-// `{type, command}` payload.
+// `{type, command}` payload. `async`, `asyncRewake`, `shell`, and `if`
+// are current command-hook schema fields; dropping them on emit would
+// silently strip behavior a user authored in settings.json (import
+// captures them for the round-trip).
 type hookCommandEntry struct {
 	Type          string `json:"type"`
 	Command       string `json:"command"`
 	Timeout       int    `json:"timeout,omitempty"`
 	StatusMessage string `json:"statusMessage,omitempty"`
+	Async         bool   `json:"async,omitempty"`
+	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
+	Shell         string `json:"shell,omitempty"`
+	If            string `json:"if,omitempty"`
 }
 
 // matcherGroup mirrors the `{matcher, hooks}` JSON object in
@@ -549,19 +633,40 @@ type matcherGroup struct {
 	Hooks   []hookCommandEntry `json:"hooks"`
 }
 
-// hookEventLifecycleOrder names the canonical sequence Claude Code
-// documentation uses when listing hook events. Events that appear in
+// hookEventLifecycleOrder names the canonical sequence the Claude Code
+// hooks reference uses when listing hook events. Events that appear in
 // the user's spec but are not in this list fall through to the tail in
 // the order they were first encountered.
 var hookEventLifecycleOrder = []string{
+	"Setup",
 	"SessionStart",
 	"UserPromptSubmit",
+	"UserPromptExpansion",
+	"InstructionsLoaded",
 	"PreToolUse",
+	"PermissionRequest",
+	"PermissionDenied",
 	"PostToolUse",
-	"Notification",
-	"PreCompact",
-	"Stop",
+	"PostToolUseFailure",
+	"PostToolBatch",
+	"Elicitation",
+	"ElicitationResult",
+	"MessageDisplay",
+	"SubagentStart",
 	"SubagentStop",
+	"TaskCreated",
+	"TaskCompleted",
+	"Stop",
+	"StopFailure",
+	"TeammateIdle",
+	"Notification",
+	"ConfigChange",
+	"CwdChanged",
+	"FileChanged",
+	"PreCompact",
+	"PostCompact",
+	"WorktreeCreate",
+	"WorktreeRemove",
 	"SessionEnd",
 }
 
@@ -608,6 +713,19 @@ func hookIntMeta(meta map[string]any, key string) int {
 		return n
 	}
 	return 0
+}
+
+// hookBoolMeta reads a bool-typed meta key, accepting bool and the
+// string forms "true"/"false" a hand-edited YAML may carry. Returns
+// false when missing or any other type.
+func hookBoolMeta(meta map[string]any, key string) bool {
+	switch v := meta[key].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true"
+	}
+	return false
 }
 
 // hookCommands normalizes a `command:` field that may be a string or a

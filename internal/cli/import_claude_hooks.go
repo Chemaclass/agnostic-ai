@@ -17,6 +17,10 @@ type claudeHookCommand struct {
 	Command       string `json:"command"`
 	Timeout       int    `json:"timeout,omitempty"`
 	StatusMessage string `json:"statusMessage,omitempty"`
+	Async         bool   `json:"async,omitempty"`
+	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
+	Shell         string `json:"shell,omitempty"`
+	If            string `json:"if,omitempty"`
 }
 
 type claudeHookGroup struct {
@@ -63,7 +67,8 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 		for _, g := range s.Hooks[event] {
 			cmds := make([]string, 0, len(g.Hooks))
 			timeout := 0
-			statusMessage := ""
+			statusMessage, shell, ifRule := "", "", ""
+			async, asyncRewake := false, false
 			for _, h := range g.Hooks {
 				if h.Command == "" {
 					continue
@@ -75,6 +80,14 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				if h.StatusMessage != "" && statusMessage == "" {
 					statusMessage = h.StatusMessage
 				}
+				if h.Shell != "" && shell == "" {
+					shell = h.Shell
+				}
+				if h.If != "" && ifRule == "" {
+					ifRule = h.If
+				}
+				async = async || h.Async
+				asyncRewake = asyncRewake || h.AsyncRewake
 			}
 			if len(cmds) == 0 {
 				continue
@@ -96,6 +109,18 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			}
 			if statusMessage != "" {
 				doc["statusMessage"] = statusMessage
+			}
+			if async {
+				doc["async"] = true
+			}
+			if asyncRewake {
+				doc["asyncRewake"] = true
+			}
+			if shell != "" {
+				doc["shell"] = shell
+			}
+			if ifRule != "" {
+				doc["if"] = ifRule
 			}
 			raw, err := yaml.Marshal(doc)
 			if err != nil {
