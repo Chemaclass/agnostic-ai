@@ -45,35 +45,9 @@ func importFromCursor(root string, src config.Sources) error {
 }
 
 // importCursorSkills copies each `.cursor/skills/<name>/` directory tree
-// byte-for-byte into `<dstDir>/<name>/`. SKILL.md must exist for the
-// folder to count as a skill; every sibling file and nested subdirectory
-// is mirrored verbatim so a round-trip preserves the full payload.
+// byte-for-byte into `<dstDir>/<name>/` via importSkillFolders.
 func importCursorSkills(root, dstDir string) (int, error) {
-	src := filepath.Join(root, ".cursor", "skills")
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
-	}
-	count := 0
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		skillSrc := filepath.Join(src, e.Name())
-		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
-			continue
-		} else if err != nil {
-			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
-		}
-		if err := copyDirTree(skillSrc, filepath.Join(dstDir, e.Name())); err != nil {
-			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
-		}
-		count++
-	}
-	return count, nil
+	return importSkillFolders(filepath.Join(root, ".cursor", "skills"), dstDir)
 }
 
 // importCursorMarkdownFiles copies every top-level `*.md` in src

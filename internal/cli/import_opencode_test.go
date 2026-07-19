@@ -36,19 +36,38 @@ func TestImportFromOpencode_MirrorsAgentsMd(t *testing.T) {
 	}
 }
 
-func TestImportFromOpencode_CopiesCommands(t *testing.T) {
+// Commands land in the commands source; native agents and skill folders
+// land in theirs. Pre-native projects that only had agents-as-commands
+// import those files as command specs, matching what OpenCode runs today.
+func TestImportFromOpencode_AgentsSkillsAndCommands(t *testing.T) {
 	dir := t.TempDir()
-	body := "---\nname: reviewer\n---\n\nReview diffs.\n"
-	writeFile(t, filepath.Join(dir, opencodeCommandsDir, "reviewer.md"), body)
+	cmdBody := "---\ndescription: Ship it\n---\n\nDeploy steps.\n"
+	writeFile(t, filepath.Join(dir, opencodeCommandsDir, "deploy.md"), cmdBody)
+	agentBody := "---\ndescription: Review diffs.\nmode: subagent\n---\n\nReview diffs.\n"
+	writeFile(t, filepath.Join(dir, opencodeAgentsDir, "reviewer.md"), agentBody)
+	writeFile(t, filepath.Join(dir, opencodeSkillsDir, "greet", "SKILL.md"), "---\nname: greet\n---\nhi\n")
+	writeFile(t, filepath.Join(dir, opencodeSkillsDir, "greet", "helper.sh"), "echo hi\n")
+
 	if err := importFromOpencode(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
+
+	got, err := os.ReadFile(filepath.Join(dir, "commands", "deploy.md"))
+	if err != nil {
+		t.Fatalf("missing commands/deploy.md: %v", err)
+	}
+	if string(got) != cmdBody {
+		t.Errorf("command not byte-identical. got %q", got)
+	}
+	got, err = os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
 	if err != nil {
 		t.Fatalf("missing agents/reviewer.md: %v", err)
 	}
-	if string(got) != body {
+	if string(got) != agentBody {
 		t.Errorf("agent not byte-identical. got %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "skills", "greet", "helper.sh")); err != nil {
+		t.Errorf("skill folder should import with assets: %v", err)
 	}
 }
 

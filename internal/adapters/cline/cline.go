@@ -1,9 +1,12 @@
 // Package cline emits .clinerules/*.md for the Cline VSCode extension.
 //
-// Rules and agents emit as `.clinerules/*.md` (always-on). When
-// `outputs.cline.workflows-dir` is set, each agent additionally emits
-// as a Cline Workflow at `<dir>/<name>.md`, invokable in chat as
-// `/<name>.md` (Cline's slash-command surface for workflows).
+// Rules and agents emit as `.clinerules/*.md` (always-on). Cline also
+// reads the cross-tool root `AGENTS.md`, which is written centrally by
+// `sync` as a slim pointer to the source specs (shared with codex, amp,
+// warp, and zed). When `outputs.cline.workflows-dir` is set, each agent
+// additionally emits as a Cline Workflow at `<dir>/<name>.md`,
+// invokable in chat as `/<name>.md` (Cline's slash-command surface for
+// workflows).
 package cline
 
 import (

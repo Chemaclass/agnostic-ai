@@ -138,3 +138,21 @@ description = "right"
 		t.Errorf("expected boundary match to skip 'description-extra', got %q", got)
 	}
 }
+
+// Native .gemini/skills folders round-trip into the skills source with
+// their bundled assets.
+func TestImportFromGemini_NativeSkillFolders(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".gemini", "skills", "greet", "SKILL.md"), "---\nname: greet\n---\nhi\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "skills", "greet", "helper.sh"), "echo hi\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "skills", "greet", "SKILL.md")); err != nil {
+		t.Errorf("skill should import: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "skills", "greet", "helper.sh")); err != nil {
+		t.Errorf("skill assets should import: %v", err)
+	}
+}

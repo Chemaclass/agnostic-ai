@@ -39,7 +39,12 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".codex/agents/*.toml", "codex"},
 	{".agents/skills/*/SKILL.md", "codex"},
 	{".gemini/commands/*.toml", "gemini"},
+	{".gemini/skills/*/SKILL.md", "gemini"},
 	{".opencode/commands/*.md", "opencode"},
+	{".opencode/agents/*.md", "opencode"},
+	{".opencode/skills/*/SKILL.md", "opencode"},
+	{".github/agents/*.md", "copilot"},
+	{".github/skills/*/SKILL.md", "copilot"},
 	{".agents/commands/*.md", "amp"},
 }
 

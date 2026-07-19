@@ -73,7 +73,9 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 
 // Each agent writes one command file under .opencode/commands/ with
 // description frontmatter (required by OpenCode).
-func TestEmit_Agent_WritesCommandWithDescriptionFrontmatter(t *testing.T) {
+// Agents emit natively as one markdown per agent under .opencode/agents/,
+// OpenCode's subagent surface, not as slash commands.
+func TestEmit_Agent_WritesNativeAgentFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -87,19 +89,23 @@ func TestEmit_Agent_WritesCommandWithDescriptionFrontmatter(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/pr-reviewer.md"))
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/pr-reviewer.md"))
 	for _, want := range []string{
 		"---",
 		"description: Review PRs like an owner.",
 		"Open the PR. Read it. Comment.",
 	} {
-		if !strings.Contains(cmd, want) {
-			t.Errorf("missing %q in %s", want, cmd)
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".opencode/commands/pr-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("agents must not emit as commands anymore, err=%v", err)
 	}
 }
 
-// x-opencode.{agent,model,subtask} pass through into the command frontmatter.
+// x-opencode.{mode,model,temperature,permission} pass through into the
+// native agent frontmatter.
 func TestEmit_Agent_XOpencodePassesThrough(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -110,9 +116,9 @@ func TestEmit_Agent_XOpencodePassesThrough(t *testing.T) {
 			Meta: map[string]any{
 				"description": "Do thing.",
 				"x-opencode": map[string]any{
-					"agent":   "build",
-					"model":   "openai/gpt-5",
-					"subtask": true,
+					"mode":        "subagent",
+					"model":       "openai/gpt-5",
+					"temperature": 0.2,
 				},
 			},
 			Body: "body",
@@ -121,15 +127,15 @@ func TestEmit_Agent_XOpencodePassesThrough(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/ag1.md"))
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/ag1.md"))
 	for _, want := range []string{
 		"description: Do thing.",
-		"agent: build",
+		"mode: subagent",
 		"model: openai/gpt-5",
-		"subtask: true",
+		"temperature: 0.2",
 	} {
-		if !strings.Contains(cmd, want) {
-			t.Errorf("missing %q in %s", want, cmd)
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
 		}
 	}
 }
@@ -148,7 +154,7 @@ func TestEmit_Agent_OnlyAllowedFrontmatterKeys(t *testing.T) {
 				"name":        "ag",
 				"globs":       "src/**",
 				"tools":       []any{"Read"},
-				"x-opencode":  map[string]any{"agent": "build"},
+				"x-opencode":  map[string]any{"mode": "subagent"},
 			},
 			Body: "body",
 		},
@@ -156,10 +162,10 @@ func TestEmit_Agent_OnlyAllowedFrontmatterKeys(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/ag.md"))
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/ag.md"))
 	for _, leaked := range []string{"globs:", "tools:", "name:", "x-opencode:"} {
-		if strings.Contains(cmd, leaked) {
-			t.Errorf("unexpected leaked frontmatter %q in %s", leaked, cmd)
+		if strings.Contains(got, leaked) {
+			t.Errorf("unexpected leaked frontmatter %q in %s", leaked, got)
 		}
 	}
 }
@@ -262,12 +268,12 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 		},
 	}
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "ag", Meta: map[string]any{"description": "x"}, Body: "x"},
+		{Kind: spec.KindCommand, Name: "deploy", Meta: map[string]any{"description": "x"}, Body: "x"},
 	}
 	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "vendor/oc/commands/ag.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "vendor/oc/commands/deploy.md")); err != nil {
 		t.Errorf("expected override path written: %v", err)
 	}
 }
@@ -415,4 +421,58 @@ func readFile(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(data)
+}
+
+// Skills emit natively as one folder per skill under .opencode/skills/,
+// without any opt-in; the command form stays opt-in on top.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{"description": "Run deployments."},
+			Body: "Deploy to production.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".opencode/skills/deploy/SKILL.md"))
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"opencode": {SkillsDir: "custom/skills"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/deploy/SKILL.md: %v", err)
+	}
+}
+
+func TestEmit_Agent_AgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"opencode": {AgentsDir: "custom/agents"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag", Body: "body"}}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/agents/ag.md")); err != nil {
+		t.Errorf("expected custom/agents/ag.md: %v", err)
+	}
 }

@@ -104,8 +104,9 @@ func TestEmit_LegacyRulesFile_WritesAlwaysOnRules(t *testing.T) {
 	}
 }
 
-// Agents always emit as catch-all instructions with the agent- prefix.
-func TestEmit_Agent_WritesAgentPrefixedInstruction(t *testing.T) {
+// Agents emit natively as custom agent profiles under .github/agents/,
+// not as flattened catch-all instructions.
+func TestEmit_Agent_WritesNativeAgentProfile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -120,20 +121,53 @@ func TestEmit_Agent_WritesAgentPrefixedInstruction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readFile(t, filepath.Join(dir, ".github/instructions/agent-pr-reviewer.instructions.md"))
+	got := readFile(t, filepath.Join(dir, ".github/agents/pr-reviewer.agent.md"))
 	for _, want := range []string{
-		"applyTo: \"**\"",
-		"Review PRs like an owner.",
+		"name: pr-reviewer",
+		"description: Review PRs like an owner.",
 		"Open the PR. Read it. Comment.",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/agent-pr-reviewer.instructions.md")); !os.IsNotExist(err) {
+		t.Errorf("agents must not emit as flattened instructions anymore, err=%v", err)
+	}
 }
 
-// Skills emit as catch-all instructions with the skill- prefix.
-func TestEmit_Skill_WritesSkillPrefixedInstruction(t *testing.T) {
+// x-copilot.{tools,model} pass through into the agent profile frontmatter.
+func TestEmit_Agent_ToolsAndModelPassThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "researcher",
+			Meta: map[string]any{
+				"description": "Research things.",
+				"x-copilot": map[string]any{
+					"tools": []any{"read", "search"},
+					"model": "gpt-5",
+				},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".github/agents/researcher.agent.md"))
+	for _, want := range []string{"tools:", "- read", "- search", "model: gpt-5"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// Skills emit natively as one folder per skill under .github/skills/,
+// not as flattened catch-all instructions.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -141,6 +175,7 @@ func TestEmit_Skill_WritesSkillPrefixedInstruction(t *testing.T) {
 			Kind: spec.KindSkill,
 			Name: "yaml-validator",
 			Path: "skills/yaml-validator.md",
+			Meta: map[string]any{"description": "Validate YAML."},
 			Body: "Validate YAML with the schema.",
 		},
 	}
@@ -148,17 +183,19 @@ func TestEmit_Skill_WritesSkillPrefixedInstruction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readFile(t, filepath.Join(dir, ".github/instructions/skill-yaml-validator.instructions.md"))
-	if !strings.Contains(got, "applyTo: \"**\"") {
-		t.Errorf("skill instructions missing applyTo: %s", got)
+	got := readFile(t, filepath.Join(dir, ".github/skills/yaml-validator/SKILL.md"))
+	for _, want := range []string{"name: yaml-validator", "description: Validate YAML.", "Validate YAML with the schema."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
 	}
-	if !strings.Contains(got, "Validate YAML with the schema.") {
-		t.Errorf("skill instructions missing body: %s", got)
+	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/skill-yaml-validator.instructions.md")); !os.IsNotExist(err) {
+		t.Errorf("skills must not emit as flattened instructions anymore, err=%v", err)
 	}
 }
 
-// A custom key under x-copilot reaches the instruction frontmatter
-// alongside applyTo (which stays double-quoted). See #367.
+// A custom key under x-copilot reaches the SKILL.md frontmatter while
+// shared top-level keys stay stripped. See #367.
 func TestEmit_Skill_CustomXCopilotKeyReachesFrontmatter(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -177,10 +214,7 @@ func TestEmit_Skill_CustomXCopilotKeyReachesFrontmatter(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".github/instructions/skill-yaml-validator.instructions.md"))
-	if !strings.Contains(got, "applyTo: \"**\"") {
-		t.Errorf("instruction lost double-quoted applyTo: %s", got)
-	}
+	got := readFile(t, filepath.Join(dir, ".github/skills/yaml-validator/SKILL.md"))
 	if !strings.Contains(got, "some-copilot-key: manual") {
 		t.Errorf("missing custom x-copilot key in %s", got)
 	}
@@ -315,9 +349,9 @@ func TestEmit_ChatmodesDirEmitsAgentAsChatmode(t *testing.T) {
 			t.Errorf("missing %q in chatmode body:\n%s", want, got)
 		}
 	}
-	// Catch-all instruction-form emission preserved.
-	if _, err := os.Stat(filepath.Join(dir, ".github/instructions/agent-researcher.instructions.md")); err != nil {
-		t.Errorf("instruction-form must remain when chatmodes-dir is set: %v", err)
+	// The native agent profile still emits alongside the chat mode.
+	if _, err := os.Stat(filepath.Join(dir, ".github/agents/researcher.agent.md")); err != nil {
+		t.Errorf("agent profile must remain when chatmodes-dir is set: %v", err)
 	}
 }
 

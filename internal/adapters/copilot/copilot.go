@@ -12,9 +12,10 @@
 // legacy concatenated always-on-rules layout at that path so users on
 // older workflows keep their behavior.
 //
-// Agents and skills always emit as catch-all instructions
-// (`applyTo: "**"`) with `agent-` or `skill-` filename prefixes so
-// they remain discoverable to Copilot's tools surface.
+// Agents emit natively as custom-agent profiles at
+// `.github/agents/<name>.agent.md` and skills as one folder per skill
+// at `.github/skills/<name>/SKILL.md` with bundled assets, the two
+// surfaces Copilot discovers directly.
 package copilot
 
 import (
@@ -31,10 +32,11 @@ import (
 const (
 	target                 = "copilot"
 	defaultInstructionsDir = ".github/instructions"
+	defaultAgentsDir       = ".github/agents"
+	defaultSkillsDir       = ".github/skills"
 	defaultMCPFile         = ".vscode/mcp.json"
 	instructionFileSuffix  = ".instructions.md"
-	agentFilenamePrefix    = "agent-"
-	skillFilenamePrefix    = "skill-"
+	agentFileSuffix        = ".agent.md"
 	catchAllApplyTo        = "**"
 )
 
@@ -52,12 +54,12 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes per-file instructions, the optional legacy concatenated
-// always-on rules file (only when `outputs.copilot.rules-file` is
-// set), and `.vscode/mcp.json` when MCP entries exist. When
-// `outputs.copilot.chatmodes-dir` is set, also writes one Copilot
-// Custom Chat Mode per agent at that directory; the catch-all
-// instruction-form emission still happens for back-compat. The
+// Emit writes per-rule instructions, one native agent profile per
+// agent, one native skill folder per skill, the optional legacy
+// concatenated always-on rules file (only when
+// `outputs.copilot.rules-file` is set), and `.vscode/mcp.json` when MCP
+// entries exist. When `outputs.copilot.chatmodes-dir` is set, also
+// writes one Copilot Custom Chat Mode per agent at that directory. The
 // `.github/copilot-instructions.md` entry-point is written by `sync`,
 // not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -66,6 +68,15 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 	if err := emitInstructionFiles(b, cfg, dryRun); err != nil {
 		return err
+	}
+	if err := emitAgents(b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emit.WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
+			return err
+		}
 	}
 	if err := emitChatmodes(b, cfg, dryRun); err != nil {
 		return err
@@ -126,12 +137,12 @@ func renderChatmode(e spec.Entry) string {
 	return b.String()
 }
 
-// emitInstructionFiles writes one `.instructions.md` per rule, agent, and
-// skill. Scoped rules carry their `applyTo` glob; always-on rules emit as
-// catch-all (`applyTo: "**"`) instructions, the same shape agents and skills
-// use, so they reach Copilot by default. The one exception: when the user
-// opted into the legacy concatenated layout via `outputs.copilot.rules-file`,
-// always-on rules go there instead and are skipped here to avoid duplication.
+// emitInstructionFiles writes one `.instructions.md` per rule. Scoped
+// rules carry their `applyTo` glob; always-on rules emit as catch-all
+// (`applyTo: "**"`) instructions so they reach Copilot by default. The
+// one exception: when the user opted into the legacy concatenated
+// layout via `outputs.copilot.rules-file`, always-on rules go there
+// instead and are skipped here to avoid duplication.
 func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputInstructionsDir(cfg, target, defaultInstructionsDir)
 	legacyRulesFile := emit.OutputRulesFile(cfg, target, "") != ""
@@ -140,26 +151,16 @@ func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error 
 		if isAlwaysOn(r) && legacyRulesFile {
 			continue
 		}
-		if err := writeInstruction(dir, "", applyToFor(r), r, dryRun); err != nil {
-			return err
-		}
-	}
-	for _, a := range b.Agents {
-		if err := writeInstruction(dir, agentFilenamePrefix, catchAllApplyTo, a, dryRun); err != nil {
-			return err
-		}
-	}
-	for _, s := range b.Skills {
-		if err := writeInstruction(dir, skillFilenamePrefix, catchAllApplyTo, s, dryRun); err != nil {
+		if err := writeInstruction(dir, applyToFor(r), r, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// writeInstruction writes one `<prefix><name>.instructions.md` into dir.
-func writeInstruction(dir, prefix, applyTo string, e spec.Entry, dryRun bool) error {
-	path := filepath.Join(dir, prefix+e.Name+instructionFileSuffix)
+// writeInstruction writes one `<name>.instructions.md` into dir.
+func writeInstruction(dir, applyTo string, e spec.Entry, dryRun bool) error {
+	path := filepath.Join(dir, e.Name+instructionFileSuffix)
 	body := emit.WithHeader(renderInstruction(e, applyTo), emit.FormatMarkdown)
 	return emit.WriteFile(path, body, dryRun)
 }

@@ -43,8 +43,37 @@ func TestEmit_NoHookNoteWhenTasksFileSet(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 	emit.FlushCoverageNotes()
-	if strings.Contains(buf.String(), "reach zed") {
+	if strings.Contains(buf.String(), "hooks reach zed") {
 		t.Errorf("tasks-file set must suppress the hook note, got: %s", buf.String())
+	}
+}
+
+// Agents only reach Zed through the legacy merged document, so the gap
+// is noted by default and suppressed once outputs.zed.rules-file is set.
+func TestEmit_NotesAgentGapWhenRulesFileUnset(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "agents reach zed only via outputs.zed.rules-file") {
+		t.Errorf("expected agent coverage note, got: %s", buf.String())
+	}
+}
+
+func TestEmit_NoAgentNoteWhenRulesFileSet(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"zed": {RulesFile: ".rules"},
+	}}
+	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "agents reach zed") {
+		t.Errorf("rules-file set must suppress the agent note, got: %s", buf.String())
 	}
 }
 

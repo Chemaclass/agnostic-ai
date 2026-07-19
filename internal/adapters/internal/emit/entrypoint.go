@@ -23,6 +23,8 @@ var entryPointPaths = map[string]string{
 	"codex":       "AGENTS.md",
 	"amp":         "AGENTS.md",
 	"warp":        "AGENTS.md",
+	"zed":         "AGENTS.md",
+	"cline":       "AGENTS.md",
 	"gemini":      "GEMINI.md",
 	"aider":       "CONVENTIONS.md",
 	"copilot":     ".github/copilot-instructions.md",

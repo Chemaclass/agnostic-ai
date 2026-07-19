@@ -32,9 +32,9 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
-		{spec.KindAgent, []string{".opencode/commands/alpha.md", ".opencode/commands/beta.md", ".opencode/commands/gamma.md"}},
+		{spec.KindAgent, []string{".opencode/agents/alpha.md", ".opencode/agents/beta.md", ".opencode/agents/gamma.md"}},
 		{spec.KindCommand, []string{".opencode/commands/deploy.md"}},
-		{spec.KindSkill, []string{".opencode/commands/skill-uno.md", ".opencode/commands/skill-dos.md", ".opencode/commands/skill-tres.md"}},
+		{spec.KindSkill, []string{".opencode/skills/uno/SKILL.md", ".opencode/skills/dos/SKILL.md", ".opencode/skills/tres/SKILL.md"}},
 		{spec.KindRule, []string{"AGENTS-rules.md"}},
 		{spec.KindMCP, []string{"opencode.json"}},
 	}

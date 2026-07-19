@@ -17,7 +17,10 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestEmit_WritesDotRules(t *testing.T) {
+// Zed retired its rules library in favor of AGENTS.md + skills, so the
+// adapter no longer writes a merged .rules by default; sync owns the
+// AGENTS.md entry-point (with rules inlined) instead.
+func TestEmit_NoDotRulesByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -26,11 +29,74 @@ func TestEmit_WritesDotRules(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".rules")); !os.IsNotExist(err) {
+		t.Errorf(".rules should not be written by default, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write AGENTS.md; sync owns the entry-point, err=%v", err)
+	}
+}
+
+// outputs.zed.rules-file restores the legacy merged document for users
+// still on the pre-skills Zed layout.
+func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"zed": {RulesFile: ".rules"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "agent body"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	got := readFile(t, filepath.Join(dir, ".rules"))
-	for _, want := range []string{"rule body", "<!-- source: rules/r1.md -->"} {
+	for _, want := range []string{"rule body", "agent body"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+}
+
+// Skills emit natively as one folder per skill under .agents/skills/,
+// the project-local path Zed 1.4.2+ scans. The renderer matches the
+// codex/amp output byte-for-byte so the shared tree dedupes.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{"description": "Run deployments."},
+			Body: "Deploy to production.",
+		},
+	}
+	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/deploy/SKILL.md"))
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"zed": {SkillsDir: "custom/skills"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/deploy/SKILL.md: %v", err)
 	}
 }
 

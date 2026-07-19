@@ -6,10 +6,13 @@
 // is set, this adapter instead writes the legacy concatenated layout
 // at that path so users on older workflows keep their behavior.
 //
-// Agents emit as per-file slash commands at `.opencode/commands/<name>.md`
-// with native OpenCode frontmatter (`description`, optional `agent`,
-// `model`, `subtask`). Skills are reference-only by default; opt into
-// command emission via `outputs.opencode.emit-skills-as-commands: true`.
+// Agents emit natively as subagent definitions at
+// `.opencode/agents/<name>.md` (frontmatter `description`, `mode`,
+// `model`, `temperature`, `permission`). Skills emit natively as one
+// folder per skill at `.opencode/skills/<name>/SKILL.md` with bundled
+// assets; `outputs.opencode.emit-skills-as-commands: true` additionally
+// writes the command form. Command specs emit at
+// `.opencode/commands/<name>.md`.
 package opencode
 
 import (
@@ -23,6 +26,8 @@ import (
 
 const (
 	target              = "opencode"
+	defaultAgentsDir    = ".opencode/agents"
+	defaultSkillsDir    = ".opencode/skills"
 	defaultCommandsDir  = ".opencode/commands"
 	defaultMCPFile      = "opencode.json"
 	skillFilenamePrefix = "skill-"
@@ -48,31 +53,34 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one command file per agent (and per skill when opted
-// in), `opencode.json` for MCP servers, and—when opted in via
-// outputs.opencode.rules-file—a legacy concatenated rules document.
-// The `.opencode/AGENTS.md` entry-point is written by `sync`, not
-// here.
+// Emit writes one native agent definition per agent, one native skill
+// folder per skill (plus the command form when opted in), one command
+// file per command spec, `opencode.json` for MCP servers, and—when
+// opted in via outputs.opencode.rules-file—a legacy concatenated rules
+// document. The `.opencode/AGENTS.md` entry-point is written by `sync`,
+// not here.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
-	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-
-	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+	if err := emitAgents(b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
 		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emit.WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
+			return err
+		}
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
 			return err
 		}
-	} else {
-		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills),
-			"outputs.opencode.emit-skills-as-commands")
 	}
 	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
@@ -148,17 +156,6 @@ func combineCommand(meta map[string]any) []string {
 	}
 	parts = append(parts, emit.StringSlice(meta["args"])...)
 	return parts
-}
-
-func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
-	for _, a := range agents {
-		path := filepath.Join(dir, a.Name+".md")
-		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // emitCommands writes one command markdown file per command spec under

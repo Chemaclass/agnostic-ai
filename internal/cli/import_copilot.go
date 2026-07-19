@@ -17,12 +17,15 @@ import (
 var (
 	copilotMainFile        = filepath.Join(".github", "copilot-instructions.md")
 	copilotInstructionsDir = filepath.Join(".github", "instructions")
+	copilotAgentsDir       = filepath.Join(".github", "agents")
+	copilotSkillsDir       = filepath.Join(".github", "skills")
 	copilotChatmodesDir    = filepath.Join(".github", "chatmodes")
 	copilotMCPFile         = filepath.Join(".vscode", "mcp.json")
 )
 
 const (
 	copilotInstructionSuffix = ".instructions.md"
+	copilotAgentSuffix       = ".agent.md"
 	copilotChatmodeSuffix    = ".chatmode.md"
 )
 
@@ -38,6 +41,14 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	agents, err := importCopilotAgents(root, filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	skills, err := importSkillFolders(filepath.Join(root, copilotSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
 	chatmodes, err := importCopilotChatmodes(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
@@ -50,9 +61,43 @@ func importFromCopilot(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		counts.rules, counts.agents+chatmodes, counts.skills, mcps)
+		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, mcps)
 	printImportNextSteps(root, "copilot")
 	return nil
+}
+
+// importCopilotAgents copies every native agent profile under
+// `.github/agents/` into the agents source dir. Both documented
+// filename forms are accepted (`<name>.agent.md` and `<name>.md`); the
+// `.agent` infix is dropped so the spec lands at `<agents>/<name>.md`.
+// The agnostic-ai provenance header is stripped when present.
+func importCopilotAgents(root, dstDir string) (int, error) {
+	src := filepath.Join(root, copilotAgentsDir)
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		name := strings.TrimSuffix(strings.TrimSuffix(e.Name(), ".md"), ".agent")
+		srcPath := filepath.Join(src, e.Name())
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcPath, err)
+		}
+		dst := filepath.Join(dstDir, name+".md")
+		if err := importWriteFile(dst, []byte(header.Strip(string(data))), 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", dst, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 type copilotCounts struct{ rules, agents, skills int }

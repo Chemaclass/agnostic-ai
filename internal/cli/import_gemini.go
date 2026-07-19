@@ -26,7 +26,7 @@ const (
 // `.gemini/settings.json`) under root and writes specs into the
 // configured source directories.
 func importFromGemini(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := importGeminiRules(root, filepath.Join(root, src.Rules), src)
@@ -34,6 +34,10 @@ func importFromGemini(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importGeminiCommands(root, filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	skills, err := importSkillFolders(filepath.Join(root, ".gemini", "skills"), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -47,7 +51,7 @@ func importFromGemini(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d mcps, %d hooks\n", rules, agents, mcps, hooks)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks\n", rules, agents, skills, mcps, hooks)
 	printImportNextSteps(root, "gemini")
 	return nil
 }

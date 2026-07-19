@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -8,6 +9,39 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
+
+// importSkillFolders copies each `<srcDir>/<name>/` directory tree that
+// contains a SKILL.md into `<dstDir>/<name>/` byte-for-byte, so a
+// round-trip preserves the full payload (scripts, references, assets).
+// Folders without a SKILL.md are skipped; a missing srcDir imports
+// nothing. Shared by every importer whose tool uses the Agent Skills
+// folder layout (cursor, gemini, opencode, copilot).
+func importSkillFolders(srcDir, dstDir string) (int, error) {
+	entries, err := os.ReadDir(srcDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", srcDir, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		skillSrc := filepath.Join(srcDir, e.Name())
+		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+		}
+		if err := copyDirTree(skillSrc, filepath.Join(dstDir, e.Name())); err != nil {
+			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+		}
+		count++
+	}
+	return count, nil
+}
 
 // copyDirTree walks srcDir recursively and writes every regular file
 // byte-for-byte into the matching location under dstDir, recreating
