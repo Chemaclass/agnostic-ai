@@ -1,7 +1,15 @@
-// Package cursor emits .cursor/rules/*.mdc files for the Cursor editor.
+// Package cursor emits Cursor editor configs.
 //
-// Rules emit with alwaysApply=true; agents emit as rules with
-// alwaysApply=false. Both honor a frontmatter override.
+// Rules emit as .cursor/rules/*.mdc with alwaysApply=true; agents emit
+// as rules with alwaysApply=false. Both honor a frontmatter override.
+// Skills emit natively as one folder per skill under
+// .cursor/skills/<name>/SKILL.md (the Agent Skills layout Cursor 2.4+
+// discovers), including bundled asset files. Commands emit to
+// .cursor/commands/<name>.md, Cursor's standard project commands
+// location. Hooks land in .cursor/hooks.json, MCP servers in
+// .cursor/mcp.json, Bugbot review guidance in BUGBOT.md, background
+// agent bootstrap in .cursor/environment.json, and ignore lists in
+// .cursorignore.
 package cursor
 
 import (
@@ -20,6 +28,8 @@ const (
 	target             = "cursor"
 	defaultDir         = ".cursor/rules"
 	defaultExt         = ".mdc"
+	defaultSkillsDir   = ".cursor/skills"
+	defaultCommandsDir = ".cursor/commands"
 	defaultMCPFile     = ".cursor/mcp.json"
 	defaultReviewFile  = "BUGBOT.md"
 	defaultEnvironFile = ".cursor/environment.json"
@@ -50,25 +60,32 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .mdc per rule, agent, and skill, plus an
-// `.cursor/mcp.json` when MCP entries exist. When
-// `outputs.cursor.commands-dir` is set, also writes one Cursor Custom
-// Command per agent at that directory; the rule-form emission still
-// happens so users that depend on it keep working.
+// Emit writes one .mdc per rule and agent, one native skill folder per
+// skill under `.cursor/skills/`, one command per spec under
+// `.cursor/commands/`, plus an `.cursor/mcp.json` when MCP entries
+// exist. Agents also emit as Custom Commands at the commands dir so
+// they stay invocable by name.
 func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
-		Ext:         defaultExt,
+		Dir: emit.OutputRulesDir(cfg, target, defaultDir),
+		Ext: defaultExt,
+		// Skills emit natively under .cursor/skills/; a flattened
+		// skill-<name>.mdc copy would double-expose each skill.
+		SkipSkills:  true,
 		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(mdc(e, true), emit.FormatMarkdown) },
 		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
-		FormatSkill: func(e spec.Entry) string { return emit.WithHeader(mdc(e, false), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}
-	noteDroppedSkillAssets(b)
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	for _, s := range b.Skills {
+		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			return err
+		}
+	}
 	if err := emitReviews(b, cfg, dryRun); err != nil {
 		return err
 	}
@@ -78,21 +95,18 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
-	if commandsDir := emit.OutputCommandsDir(cfg, target, ""); commandsDir != "" {
-		for _, a := range b.Agents {
-			path := commandsDir + "/" + a.Name + ".md"
-			if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
-				return err
-			}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	for _, a := range b.Agents {
+		path := commandsDir + "/" + a.Name + ".md"
+		if err := emit.WriteFile(path, emit.WithHeader(command(a), emit.FormatMarkdown), dryRun); err != nil {
+			return err
 		}
-		for _, c := range b.Commands {
-			path := commandsDir + "/" + c.Name + ".md"
-			if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
-				return err
-			}
+	}
+	for _, c := range b.Commands {
+		path := commandsDir + "/" + c.Name + ".md"
+		if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
+			return err
 		}
-	} else {
-		emit.NoteCoverageGap(target, spec.KindCommand, len(b.Commands), "outputs.cursor.commands-dir")
 	}
 	if err := emitHooks(b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
@@ -314,20 +328,6 @@ func emitEnvironment(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 func scopeEscapesRoot(scope string) bool {
 	clean := filepath.ToSlash(filepath.Clean(scope))
 	return clean == ".." || strings.HasPrefix(clean, "../")
-}
-
-// noteDroppedSkillAssets surfaces a coverage note for every folder-based
-// skill that bundles sibling files. Cursor flattens each skill to a single
-// `.cursor/rules/skill-<name>.mdc`, so attached scripts and assets have no
-// native home and would otherwise vanish without a trace (#430).
-func noteDroppedSkillAssets(b spec.Bundle) {
-	n := 0
-	for _, s := range b.Skills {
-		if emit.SkillHasBundledAssets(s, emit.SkipSKILLMd) {
-			n++
-		}
-	}
-	emit.NoteCoverageGap(target, spec.KindSkill, n, "Cursor flattens skills to .mdc; bundled files are not emitted")
 }
 
 func mdc(e spec.Entry, alwaysApplyDefault bool) string {

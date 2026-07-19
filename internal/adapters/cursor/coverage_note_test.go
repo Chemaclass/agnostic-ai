@@ -23,10 +23,10 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 	return buf
 }
 
-// A skill that bundles a non-markdown payload cannot be represented in
-// Cursor's flat .mdc rule, so the payload is dropped. The user must be
-// told instead of losing the files silently (#430).
-func TestEmit_NotesGapWhenSkillBundlesAssets(t *testing.T) {
+// Cursor discovers native skill folders, so a skill's bundled payload
+// propagates byte-for-byte instead of being dropped with a coverage
+// note (the pre-native behavior from #430).
+func TestEmit_SkillBundledAssetsPropagate(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
@@ -48,35 +48,16 @@ func TestEmit_NotesGapWhenSkillBundlesAssets(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 
-	emit.FlushCoverageNotes()
-	want := "1 skill reaches cursor only in the source dir"
-	if !strings.Contains(buf.String(), want) {
-		t.Errorf("expected coverage note %q, got: %s", want, buf.String())
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor", "skills", "alpha", "scripts", "run.sh"))
+	if err != nil {
+		t.Fatalf("bundled asset must propagate to the native skill folder: %v", err)
 	}
-}
-
-// A skill with no sibling payload loses nothing on Cursor, so no note fires.
-func TestEmit_NoGapWhenSkillHasNoAssets(t *testing.T) {
-	dir := testutil.TempCwd(t)
-	buf := swapNoteWarner(t)
-
-	skillDir := filepath.Join(dir, "skills", "alpha")
-	if err := os.MkdirAll(skillDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("body"), 0o644); err != nil {
-		t.Fatal(err)
+	if string(got) != "#!/bin/sh\n" {
+		t.Errorf("asset not byte-identical: %q", got)
 	}
 
-	b := spec.NewBundle([]spec.Entry{
-		{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillDir, "SKILL.md"), Body: "body"},
-	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
-		t.Fatalf("emit: %v", err)
-	}
-
-	if got := emit.PendingCoverageNotesCount(); got != 0 {
-		t.Errorf("skill without assets must buffer no note, count=%d", got)
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("native skill emission must buffer no coverage note, count=%d", n)
 	}
 	emit.FlushCoverageNotes()
 	if buf.Len() != 0 {

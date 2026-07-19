@@ -32,7 +32,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".cursor/rules/r1.mdc", ".cursor/rules/r2.mdc", ".cursor/rules/r3.mdc"}},
 		{spec.KindAgent, []string{".cursor/rules/alpha.mdc", ".cursor/rules/beta.mdc", ".cursor/rules/gamma.mdc"}},
 		{spec.KindCommand, []string{".cursor/commands/deploy.md"}},
-		{spec.KindSkill, []string{".cursor/rules/skill-uno.mdc", ".cursor/rules/skill-dos.mdc", ".cursor/rules/skill-tres.mdc"}},
+		{spec.KindSkill, []string{".cursor/skills/uno/SKILL.md", ".cursor/skills/dos/SKILL.md", ".cursor/skills/tres/SKILL.md"}},
 		{spec.KindHook, []string{".cursor/hooks.json"}},
 		{spec.KindMCP, []string{".cursor/mcp.json"}},
 		{spec.KindReview, []string{"BUGBOT.md", "backend/BUGBOT.md"}},

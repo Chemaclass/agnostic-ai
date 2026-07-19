@@ -40,9 +40,9 @@ func TestEmit_WritesCommandFileWhenCommandsDirSet(t *testing.T) {
 	}
 }
 
-// Without an opt-in commands-dir, Cursor has no command surface, so a
-// command spec writes nothing rather than landing in a surprise file.
-func TestEmit_CommandSkippedWithoutCommandsDir(t *testing.T) {
+// Commands emit to Cursor's standard `.cursor/commands/` location by
+// default; no opt-in is needed anymore.
+func TestEmit_CommandEmitsToDefaultCommandsDir(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Body: "Run the deploy steps."},
@@ -50,8 +50,8 @@ func TestEmit_CommandSkippedWithoutCommandsDir(t *testing.T) {
 	if err := New().Emit(b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cursor", "commands", "deploy.md")); !os.IsNotExist(err) {
-		t.Errorf("expected no command file without commands-dir, stat err = %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "commands", "deploy.md")); err != nil {
+		t.Errorf("expected command at default .cursor/commands: %v", err)
 	}
 }
 
@@ -468,7 +468,10 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 	}
 }
 
-func TestEmit_SkillWritesMdcFile(t *testing.T) {
+// Skills emit natively under `.cursor/skills/<name>/SKILL.md` (Cursor
+// 2.4+ discovers the Agent Skills layout); no flattened skill-*.mdc
+// copy is written, which would double-expose the skill.
+func TestEmit_SkillWritesNativeSkillFolder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -478,15 +481,47 @@ func TestEmit_SkillWritesMdcFile(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/skill-sk1.mdc"))
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/skills/sk1/SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "description: skill desc") {
-		t.Errorf("missing description: %s", got)
+	for _, want := range []string{"name: sk1", "description: skill desc", "skill body"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in SKILL.md:\n%s", want, got)
+		}
 	}
-	if !strings.Contains(string(got), "alwaysApply: false") {
-		t.Errorf("skill should default alwaysApply=false: %s", got)
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/skill-sk1.mdc")); !os.IsNotExist(err) {
+		t.Errorf("flattened skill .mdc must not emit anymore, stat err=%v", err)
+	}
+}
+
+// The documented optional skill frontmatter fields pass through, and a
+// skills-dir override relocates the tree.
+func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{target: {SkillsDir: "vendor/skills"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "sk1", Meta: map[string]any{
+			"description":              "d",
+			"paths":                    []string{"src/**"},
+			"disable-model-invocation": true,
+		}, Body: "b"},
+	}
+	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "vendor/skills/sk1/SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"paths:", "src/**", "disable-model-invocation: true"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in SKILL.md:\n%s", want, got)
+		}
 	}
 }
 
@@ -555,7 +590,9 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	}
 }
 
-func TestEmit_NoCommandsDirSkipsCommandEmission(t *testing.T) {
+// Agents emit as Custom Commands at the default commands dir so they
+// stay invocable by name without extra configuration.
+func TestEmit_AgentEmitsAsCommandByDefault(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -565,7 +602,7 @@ func TestEmit_NoCommandsDirSkipsCommandEmission(t *testing.T) {
 	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/agent1.md")); err == nil {
-		t.Error("commands dir not configured; should not emit command file")
+	if _, err := os.Stat(filepath.Join(dir, ".cursor/commands/agent1.md")); err != nil {
+		t.Errorf("expected agent command at default .cursor/commands: %v", err)
 	}
 }

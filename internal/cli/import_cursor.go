@@ -15,19 +15,91 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// importFromCursor reads existing Cursor config (.cursor/rules/*.mdc)
-// under root and writes specs into the configured source directories.
+// importFromCursor reads existing Cursor config (.cursor/rules/*.mdc,
+// .cursor/skills/<name>/ folders, .cursor/commands/*.md) under root and
+// writes specs into the configured source directories.
 func importFromCursor(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Commands); err != nil {
 		return err
 	}
-	n, err := importCursorRules(root, filepath.Join(root, src.Rules))
+	rules, err := importCursorRules(root, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules\n", n)
+	skills, err := importCursorSkills(root, filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	commands, err := importCursorCommands(root, filepath.Join(root, src.Commands))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d skills, %d commands\n", rules, skills, commands)
 	printImportNextSteps(root, "cursor")
 	return nil
+}
+
+// importCursorSkills copies each `.cursor/skills/<name>/` directory tree
+// byte-for-byte into `<dstDir>/<name>/`. SKILL.md must exist for the
+// folder to count as a skill; every sibling file and nested subdirectory
+// is mirrored verbatim so a round-trip preserves the full payload.
+func importCursorSkills(root, dstDir string) (int, error) {
+	src := filepath.Join(root, ".cursor", "skills")
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		skillSrc := filepath.Join(src, e.Name())
+		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+		}
+		if err := copyDirTree(skillSrc, filepath.Join(dstDir, e.Name())); err != nil {
+			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+		}
+		count++
+	}
+	return count, nil
+}
+
+// importCursorCommands copies `.cursor/commands/*.md` byte-for-byte into
+// dstDir, stripping the agnostic-ai provenance header when present.
+func importCursorCommands(root, dstDir string) (int, error) {
+	src := filepath.Join(root, ".cursor", "commands")
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		srcPath := filepath.Join(src, e.Name())
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcPath, err)
+		}
+		out := header.Strip(string(data))
+		dstPath := filepath.Join(dstDir, e.Name())
+		if err := importWriteFile(dstPath, []byte(out), 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", dstPath, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 // importCursorRules translates each .cursor/rules/**/*.mdc into a matching
