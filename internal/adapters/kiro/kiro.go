@@ -42,11 +42,11 @@ import (
 )
 
 const (
-	target             = "kiro"
-	defaultSteeringDir = ".kiro/steering"
-	defaultMCPFile     = ".kiro/settings/mcp.json"
-	agentFilePrefix    = "agent-"
-	skillFilePrefix    = "skill-"
+	target              = "kiro"
+	defaultSteeringDir  = ".kiro/steering"
+	defaultMCPFile      = ".kiro/settings/mcp.json"
+	agentFilenamePrefix = "agent-"
+	skillFilenamePrefix = "skill-"
 )
 
 var caps = emit.Capabilities{
@@ -102,7 +102,7 @@ func emitRules(rules []spec.Entry, dir string, dryRun bool) error {
 // `inclusion: manual`, so an agent loads only when invoked by name.
 func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
-		path := filepath.Join(dir, agentFilePrefix+a.Name+".md")
+		path := filepath.Join(dir, agentFilenamePrefix+a.Name+".md")
 		body := emit.WithHeader(renderAgent(a), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
@@ -119,7 +119,7 @@ func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
 func emitSkills(skills []spec.Entry, dir string, dryRun bool) error {
 	withAssets := 0
 	for _, s := range skills {
-		path := filepath.Join(dir, skillFilePrefix+s.Name+".md")
+		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
 		body := emit.WithHeader(renderSkill(s), emit.FormatMarkdown)
 		if err := emit.WriteFile(path, body, dryRun); err != nil {
 			return err
