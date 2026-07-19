@@ -2,7 +2,6 @@ package codex
 
 import (
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -52,35 +51,10 @@ func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
 	return nil
 }
 
+// skillMarkdown renders SKILL.md through the shared renderer, excluding
+// the keys routed to agents/openai.yaml so nothing is emitted twice.
 func skillMarkdown(s spec.Entry) string {
-	// Resolve description through the per-target meta so a spec
-	// carrying `x-codex.description` wins over the (claude-side) top-
-	// level value. Without this, every divergent skill imported via
-	// PR #310 still emitted the claude description (#312).
-	resolved := emit.ResolveMeta(s.Meta, target)
-	desc, _ := resolved["description"].(string)
-	if desc == "" {
-		desc = s.Name
-	}
-	meta := map[string]any{
-		"name":        s.Name,
-		"description": desc,
-	}
-	keys := []string{"name", "description"}
-	// Pass through arbitrary x-codex keys the published schema does not
-	// cover. The spec author opts in by declaring them under x-codex, so
-	// SKILL.md stays valid for plain specs (shared top-level keys remain
-	// stripped) while custom keys still reach Codex. The hand-emitted
-	// name/description and the keys routed to agents/openai.yaml are
-	// excluded so nothing is emitted twice. See #367.
-	exclude := append([]string{"name", "description"}, openaiYAMLKeys...)
-	emit.MergeCustomTargetMeta(meta, &keys, s.Meta, target, exclude...)
-	front := emit.FrontmatterOrdered(meta, keys)
-	body := strings.TrimSpace(s.Body)
-	if body == "" {
-		return front + "\n"
-	}
-	return front + "\n" + body + "\n"
+	return emit.SkillMarkdown(s, target, openaiYAMLKeys...)
 }
 
 // openaiYAML returns the YAML body for the optional agents/openai.yaml
