@@ -15,11 +15,15 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/continueai"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/external"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/junie"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/zed"
@@ -393,6 +397,10 @@ var registry = map[string]Adapter{
 	"warp":        warp.New(),
 	"opencode":    opencode.New(),
 	"antigravity": antigravity.New(),
+	"junie":       junie.New(),
+	"kiro":        kiro.New(),
+	"crush":       crush.New(),
+	"trae":        trae.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to

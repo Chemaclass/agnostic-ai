@@ -449,6 +449,7 @@ func DefaultTargets() []string {
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
+		"junie", "kiro", "crush", "trae",
 	}
 }
 

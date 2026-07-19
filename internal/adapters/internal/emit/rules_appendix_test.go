@@ -135,14 +135,14 @@ func TestRenderRulesImportAppendix_RoundTrips(t *testing.T) {
 }
 
 func TestInlinesRulesIntoEntryPoint(t *testing.T) {
-	inline := []string{"codex", "amp", "warp", "zed", "gemini", "aider", "opencode"}
+	inline := []string{"codex", "amp", "warp", "zed", "gemini", "aider", "opencode", "crush"}
 	for _, tgt := range inline {
 		if !InlinesRulesIntoEntryPoint(tgt) {
 			t.Errorf("%s should inline rules into its entry-point", tgt)
 		}
 	}
 	// Targets with a native rules destination must not inline.
-	for _, tgt := range []string{"claude", "cursor", "cline", "continue", "windsurf", "antigravity", "copilot"} {
+	for _, tgt := range []string{"claude", "cursor", "cline", "continue", "windsurf", "antigravity", "copilot", "junie", "kiro", "trae"} {
 		if InlinesRulesIntoEntryPoint(tgt) {
 			t.Errorf("%s has a native rules destination and must not inline", tgt)
 		}

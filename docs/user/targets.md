@@ -14,15 +14,19 @@ Each adapter emits in its tool's native format: separate files where the tool su
 | **warp**        | `AGENTS.md`                       |
 | **zed**         | `AGENTS.md`                       |
 | **cline**       | `AGENTS.md`                       |
+| **junie**       | `AGENTS.md`                       |
+| **kiro**        | `AGENTS.md`                       |
+| **crush**       | `AGENTS.md`                       |
+| **trae**        | `AGENTS.md`                       |
 | **gemini**      | `GEMINI.md`                       |
 | **aider**       | `CONVENTIONS.md`                  |
 | **copilot**     | `.github/copilot-instructions.md` |
 | **opencode**    | `.opencode/AGENTS.md`             |
 | **antigravity** | `.agent/AGENTS.md`                |
 
-Targets sharing a path (codex + amp + warp + zed + cline at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
+Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, and trae at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 
-Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless.
+Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
@@ -46,12 +50,16 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
 | **opencode**    | `.opencode/agents/<name>.md` | `.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
 | **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - | - | - | - | - | - |
+| **junie**       | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.junie/rules/*.md` | - | `.junie/mcp/mcp.json` | - | - | - | - | - |
+| **kiro**        | `.kiro/steering/agent-<name>.md` (`inclusion: manual`) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | - | `.kiro/settings/mcp.json` | - | - | - | - | - |
+| **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
+| **trae**        | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.trae/rules/*.md` | - | - | - | - | - | - | - |
 
 Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs of that kind are present, `sync` prints a `note:` line naming the key to set (or stating the content stays source-dir only). See [Coverage notes](configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Gemini, OpenCode, Copilot, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, and Zed share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, and Continue skills flatten to rule-form files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, and Crush share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (10 of 14, see matrix). Aider, Cline, Windsurf, and Antigravity have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (the inferred default). amp, gemini, and zed have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; amp and zed via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
@@ -407,6 +415,83 @@ Verify with the real IDE:
 4. Open one of `.agent/rules/<name>.md` and verify the per-rule file is picked up; confirm each `.agent/skills/<name>/SKILL.md` loads as a skill.
 5. Trigger an agent action (e.g. ask for a refactor); the rules apply, with no schema-validation log entries referencing `.agent/`.
 
+### Junie (`junie`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
+.junie/rules/<name>.md        # one per rule (Junie concatenates every .md in the dir)
+.junie/rules/agent-<name>.md  # one per agent
+.junie/rules/skill-<name>.md  # one per skill
+.junie/mcp/mcp.json           # when MCP entries exist
+```
+
+JetBrains Junie reads the root `AGENTS.md` natively and concatenates every Markdown file under `.junie/rules/`, so rules, agents, and skills emit one file each there (`.junie/guidelines.md` is the legacy single-file location and is not written). MCP servers use the standard `mcpServers` schema at `.junie/mcp/mcp.json` (`command`/`args`/`env` local, `url`/`headers` remote).
+
+Config keys: `outputs.junie.rules-dir` (default `.junie/rules`), `outputs.junie.mcp-file` (default `.junie/mcp/mcp.json`).
+
+Verify with the real agent:
+
+1. Install the Junie plugin in a JetBrains IDE (or the Junie CLI, [docs](https://junie.jetbrains.com/docs/)).
+2. Check the tree: `ls AGENTS.md .junie/rules/`, `grep "Generated by agnostic-ai" .junie/rules/*.md`, `python -m json.tool .junie/mcp/mcp.json > /dev/null`.
+3. Ask Junie to list its guidelines; the rule bodies from `.junie/rules/` apply.
+
+### Kiro (`kiro`)
+
+```
+AGENTS.md                          # canonical entry-point pointer body (written by sync, shared path)
+.kiro/steering/<name>.md           # one per rule (inclusion: always, or fileMatch + fileMatchPattern from globs)
+.kiro/steering/agent-<name>.md     # one per agent (inclusion: manual)
+.kiro/steering/skill-<name>.md     # one per skill (inclusion: auto + name + description)
+.kiro/settings/mcp.json            # when MCP entries exist
+```
+
+AWS Kiro loads [steering files](https://kiro.dev/docs/steering/) whose YAML frontmatter must be the first content in the file. The adapter maps spec kinds onto Kiro's inclusion modes: unscoped rules are `always`, globbed rules become `fileMatch` with `fileMatchPattern`, agents are `manual` (invoked via `#steering-file-name`), and skills are `auto` with `name` + `description` so Kiro activates them on matching requests. Kiro also reads the root `AGENTS.md` (always included), which carries the shared pointer body. Skills with bundled sibling assets surface a coverage note: a flat steering file cannot carry the assets.
+
+Config keys: `outputs.kiro.rules-dir` (default `.kiro/steering`), `outputs.kiro.mcp-file` (default `.kiro/settings/mcp.json`).
+
+Verify with the real IDE:
+
+1. Install Kiro from [kiro.dev](https://kiro.dev).
+2. Check the tree: `ls AGENTS.md .kiro/steering/ .kiro/settings/mcp.json`, `head -2 .kiro/steering/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`.
+3. Open the project; the steering panel lists every file with its inclusion mode and no parse warnings.
+
+### Crush (`crush`)
+
+```
+AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed)
+crush.json                         # when MCP entries exist (merged with existing user config)
+```
+
+Charm [Crush](https://github.com/charmbracelet/crush) reads the root `AGENTS.md` natively and has no per-rule directory, so rule bodies inline into the shared entry-point. Skills emit into `.agents/skills/`, the first project path Crush scans; the render is byte-identical with codex/amp/zed so the shared tree dedupes. MCP servers merge into the `mcp` key of `crush.json` (`{type: stdio, command, args, env}` or `{type: http, url, headers}`); user-managed keys (`models`, `providers`, `lsp`, `options`) survive every sync. Agents have no Crush surface and skip with a warning.
+
+Config keys: `outputs.crush.skills-dir` (default `.agents/skills`), `outputs.crush.mcp-file` (default `crush.json`).
+
+Verify with the real CLI:
+
+1. Install: `brew install charmbracelet/tap/crush` (or see the [README](https://github.com/charmbracelet/crush)).
+2. Check the tree: `ls AGENTS.md .agents/skills/`, `python -m json.tool crush.json > /dev/null`.
+3. Launch `crush`; the context loads `AGENTS.md`, the skills list shows each `.agents/skills/<name>/`, and each `mcp.<name>` connects.
+
+### Trae (`trae`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
+.trae/rules/<name>.md         # one per rule
+.trae/rules/agent-<name>.md   # one per agent
+.trae/rules/skill-<name>.md   # one per skill
+```
+
+ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.trae/rules/` and the root `AGENTS.md` natively. Agents and skills flatten to rule-form files for now; Trae's dedicated skill and custom-agent formats move here once their file layouts are documented.
+
+Config keys: `outputs.trae.rules-dir` (default `.trae/rules`).
+
+Verify with the real IDE:
+
+1. Install Trae from [trae.ai](https://www.trae.ai).
+2. Check the tree: `ls AGENTS.md .trae/rules/`, `grep "Generated by agnostic-ai" .trae/rules/*.md`.
+3. Open the project; the Rules panel lists every `.trae/rules/*.md` with no parse warnings.
+
 ## Selecting targets
 
 Persistent (config):
@@ -426,7 +511,7 @@ agnostic-ai sync -t claude,cursor,copilot
 
 CLI flag overrides config. Unknown targets log a warning and skip.
 
-The default target set is 12: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity. **Amp** and **Warp** are opt-in. Both share the root `AGENTS.md` entry-point with Codex and add no new entry-point, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp`) to emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`).
+The default target set is 16: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae. **Amp** and **Warp** are opt-in. Both share the root `AGENTS.md` entry-point with Codex and add no new entry-point, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp`) to emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`).
 
 Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries before confirming.
 

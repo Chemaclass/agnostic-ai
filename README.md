@@ -45,7 +45,7 @@ Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 
 Run `agnostic-ai sync`. Two layers emit per target:
 
-**1. Slim entry-point** at the project root, body shared across targets. `CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
+**1. Slim entry-point** at the project root, body shared across targets. `CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
 
 ```markdown
 # AI Project Conventions
@@ -72,35 +72,39 @@ Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.cont
 
 ## Supported targets
 
-All 14 targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
+All 18 targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
 
-`sync` enables 12 by default. Amp and Warp share Codex's root `AGENTS.md`, so they stay opt-in: add them to `targets:` or pass `-t amp,warp`.
+`sync` enables 16 by default. Amp and Warp share Codex's root `AGENTS.md`, so they stay opt-in: add them to `targets:` or pass `-t amp,warp`.
 
-| Target              | Agents | Skills | Rules | Hooks | MCPs |
-|---------------------|:------:|:------:|:-----:|:-----:|:----:|
-| Claude Code         |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI           |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
-| Gemini CLI          |   ✅    |   ○    |   ◐   |   ✅   |  ✅   |
-| Cursor              |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| GitHub Copilot      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Aider               |   ○    |   ○    |   ◐   |   -   |  -   |
-| Cline               |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Windsurf            |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Continue            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Amp                 |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
-| Zed                 |   ◐    |   ◐    |   ◐   |   ○   |  ✅   |
-| Warp                |   ○    |   ○    |   ◐   |   -   |  ✅   |
-| OpenCode            |   ✅    |   ○    |   ◐   |   -   |  ✅   |
-| Google Antigravity  |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Target                  | Agents | Skills | Rules | Hooks | MCPs |
+|-------------------------|:------:|:------:|:-----:|:-----:|:----:|
+| Claude Code             |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| Codex CLI               |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
+| Gemini CLI              |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
+| Cursor                  |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
+| GitHub Copilot          |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Aider                   |   ○    |   ○    |   ◐   |   -   |  -   |
+| Cline                   |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Windsurf / Devin        |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Continue                |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Amp                     |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
+| Zed                     |   ○    |   ✅    |   ◐   |   ○   |  ✅   |
+| Warp                    |   ○    |   ○    |   ◐   |   -   |  ✅   |
+| OpenCode                |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
+| Google Antigravity      |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Junie (JetBrains)       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+| Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
+| Trae (ByteDance)        |   ✅    |   ✅    |   ✅   |   -   |  -   |
 
 Legend, in descending order of native support:
 
 - **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
-- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, OpenCode) inline rule bodies into their entry-point file; Zed merges agents, skills, and rules into `.rules`.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush) inline rule bodies into their entry-point file.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 
-Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 10 of the 14 targets in each tool's native schema (every target except Aider, Cline, Windsurf, and Antigravity). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
+Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 13 of the 18 targets in each tool's native schema (every target except Aider, Cline, Windsurf, Trae, and Antigravity). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
 
 The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) confirming the emitted paths against the live tool.
 

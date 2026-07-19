@@ -157,6 +157,17 @@ outputs:
     rules-dir: .agent/rules             # default. One .md per rule and per agent.
     skills-dir: .agent/skills           # default. One folder per skill (<name>/SKILL.md).
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
+  junie:
+    rules-dir: .junie/rules             # default. One .md per rule, agent, and skill.
+    mcp-file: .junie/mcp/mcp.json       # default. Standard mcpServers schema.
+  kiro:
+    rules-dir: .kiro/steering           # default. Steering files with inclusion frontmatter.
+    mcp-file: .kiro/settings/mcp.json   # default. Standard mcpServers schema.
+  crush:
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
+    mcp-file: crush.json                # default. mcp map merged; user keys preserved.
+  trae:
+    rules-dir: .trae/rules              # default. One .md per rule, agent, and skill.
 
 # What to do when a spec kind is unsupported by a target
 # (e.g. hooks for Cursor, or mcps for Cline).
@@ -263,10 +274,17 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `antigravity` | `rules-dir` | `.agent/rules` | One `.md` per rule and per agent. |
 | `antigravity` | `skills-dir` | `.agent/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout). |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
+| `junie` | `rules-dir` | `.junie/rules` | One `.md` per rule, agent, and skill (Junie concatenates every file in the dir). |
+| `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
+| `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`), agent (`manual`), and skill (`auto` + name + description). |
+| `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
+| `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
+| `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http`). User keys (`models`, `providers`, `lsp`) preserved. |
+| `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule, agent, and skill. |
 
 ## `targets`
 
-When omitted: the 12 default adapters above (every adapter except `amp` and `warp`, which share `codex`'s root `AGENTS.md` pointer body and so add no new entry-point). Enabling `amp` or `warp` alongside `codex` is safe: the identical body is written once via auto-dedup. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
+When omitted: the 16 default adapters above (every adapter except `amp` and `warp`, which share `codex`'s root `AGENTS.md` pointer body and so add no new entry-point). Enabling `amp` or `warp` alongside `codex` is safe: the identical body is written once via auto-dedup. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ### Interactive target selection
 

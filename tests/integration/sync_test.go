@@ -33,6 +33,9 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		".clinerules/sample-rule.md",
 		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
+		".junie/rules/sample-rule.md",
+		".kiro/steering/sample-rule.md",
+		".trae/rules/sample-rule.md",
 		".claude/agents/sample-agent.md",
 		".claude/settings.json",
 	}

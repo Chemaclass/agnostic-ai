@@ -34,13 +34,17 @@ var allTargets = []targetChoice{
 	{Name: "copilot", Desc: "GitHub Copilot"},
 	{Name: "aider", Desc: "Aider (aider.chat)"},
 	{Name: "cline", Desc: "Cline (VSCode extension)"},
-	{Name: "windsurf", Desc: "Windsurf (Codeium)"},
+	{Name: "windsurf", Desc: "Windsurf / Devin Desktop"},
 	{Name: "continue", Desc: "Continue (continue.dev)"},
 	{Name: "amp", Desc: "Amp (Sourcegraph)"},
 	{Name: "zed", Desc: "Zed editor"},
 	{Name: "warp", Desc: "Warp terminal"},
 	{Name: "opencode", Desc: "OpenCode"},
 	{Name: "antigravity", Desc: "Google Antigravity"},
+	{Name: "junie", Desc: "Junie (JetBrains)"},
+	{Name: "kiro", Desc: "Kiro (AWS)"},
+	{Name: "crush", Desc: "Crush (Charm)"},
+	{Name: "trae", Desc: "Trae (ByteDance)"},
 }
 
 // allTargetNames returns just the canonical names of allTargets.
@@ -187,6 +191,10 @@ var targetMarkers = map[string][]string{
 	"warp":        {".warp"},
 	"opencode":    {".opencode"},
 	"antigravity": {".agent"},
+	"junie":       {".junie"},
+	"kiro":        {".kiro"},
+	"crush":       {"crush.json", ".crush"},
+	"trae":        {".trae"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
