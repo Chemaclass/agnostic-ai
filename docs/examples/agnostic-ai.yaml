@@ -97,6 +97,14 @@ outputs:
 # (e.g. hooks for any target other than claude).
 on-unsupported: warn   # warn | error | silent
 
+# Global sync behavior. Per-target overrides live under outputs.<target>.
+sync:
+  collision-policy: prompt   # prompt | prefer-spec | fail
+  target-overview: false     # append a generated artifacts appendix to each entry-point
+  resolve-imports: passthrough   # passthrough | strip | inline (@path lines in AGNOSTIC_AI.md)
+  dropped-summary: false     # per-target summary of dropped/downgraded kinds after sync
+  shared-skills: false       # link byte-identical emitted skill folders to one canonical copy
+
 # Auto-managed .gitignore block listing every generated path.
 # Lines outside the block are preserved.
 gitignore:

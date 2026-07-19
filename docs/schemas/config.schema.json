@@ -419,6 +419,9 @@
         },
         "dropped-summary": {
           "type": "boolean"
+        },
+        "shared-skills": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

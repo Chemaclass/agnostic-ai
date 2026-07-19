@@ -157,6 +157,14 @@ func RemoveGenerated(path string, dryRun bool) error {
 	return emit.RemoveGenerated(path, dryRun)
 }
 
+// RemoveGeneratedTree removes every provenance-marked file under dir via
+// RemoveGenerated and prunes emptied subdirectories bottom-up. Re-exported
+// so the cli package can swap a fully managed skill folder for a symlink
+// during shared-skills emission.
+func RemoveGeneratedTree(dir string, dryRun bool) error {
+	return emit.RemoveGeneratedTree(dir, dryRun)
+}
+
 // StartTransaction begins recording pre-write file state so that Rollback
 // can undo all writes if a sync pass fails partway through.
 func StartTransaction() { emit.StartTransaction() }
