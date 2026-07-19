@@ -14,6 +14,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Copilot agents emit natively as `.github/agents/<name>.agent.md` custom-agent profiles and skills as `.github/skills/<name>/SKILL.md` folders, replacing the flattened `agent-`/`skill-` `.instructions.md` copies (#439).
 - Cline joins the shared root `AGENTS.md` entry-point, which current Cline reads as cross-tool project instructions (#439).
 - All SKILL.md emitters render through one shared function, so the byte parity the shared `.agents/skills` tree and `sync.shared-skills` depend on is enforced structurally; Antigravity SKILL.md gains `x-antigravity` frontmatter passthrough as a result (#439).
+- Windsurf rules emit to `.devin/rules/`, the path Devin Desktop (the renamed Windsurf) prefers; managed leftovers at `.windsurf/rules/` are swept, `import windsurf` reads whichever tree exists, and `outputs.windsurf.rules-dir: .windsurf/rules` keeps the old layout (#473).
 
 - Codex `skills-dir` default moved from `.codex/skills` to `.agents/skills`, the directory Codex CLI scans; `.codex/skills` was never read. Sync sweeps the stale managed tree. Amp emits the same layout at the same path; identical bytes dedupe.
 - Codex commands no longer emit to `.codex/prompts` by default: Codex loads custom prompts from `~/.codex/prompts` only and deprecates them in favor of skills. `sync` prints a coverage note and sweeps the stale managed tree; set `outputs.codex.commands-dir` to keep the legacy layout.
