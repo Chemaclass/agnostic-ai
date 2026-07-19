@@ -25,10 +25,11 @@ const (
 )
 
 // codexSkillsDirs lists every per-skill folder the importer scans.
-// `.codex/skills/` is Codex CLI's native lookup path; `.agents/skills/`
-// is the older community shared layout. Both are scanned so an upgrade
-// picks up either location.
-var codexSkillsDirs = []string{".codex/skills", ".agents/skills"}
+// `.agents/skills/` is Codex CLI's native lookup path; `.codex/skills/`
+// is the v0.26..v0.42 agnostic-ai default that Codex never scanned.
+// Both are read so an upgrade picks up either location. The native path
+// comes first so a skill present in both prefers the file Codex reads.
+var codexSkillsDirs = []string{".agents/skills", ".codex/skills"}
 
 // importCodexAgents reads every `<root>/<dir>/*.toml` agent file (where
 // <dir> is one of `.agents/agents/` or `.codex/agents/`) and writes one

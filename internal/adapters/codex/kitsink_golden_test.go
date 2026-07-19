@@ -37,7 +37,9 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"codex": {RulesFile: "AGENTS-rules.md"},
+			// commands-dir opts into the deprecated project prompts
+			// layout so the snapshot keeps covering command emission.
+			"codex": {RulesFile: "AGENTS-rules.md", CommandsDir: ".codex/prompts"},
 		},
 	}
 	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {

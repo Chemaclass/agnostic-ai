@@ -52,7 +52,7 @@ func codexRulesFileFromCfg(cfg *config.Config) string {
 
 // importFromCodex reads existing Codex config (AGENTS.md hierarchy,
 // `.codex/agents/*.toml` (or legacy `.agents/agents/*.toml`),
-// `.codex/skills/<name>/SKILL.md` (or `.agents/skills/<name>/SKILL.md`), and
+// `.agents/skills/<name>/SKILL.md` (or legacy `.codex/skills/<name>/SKILL.md`), and
 // `.codex/config.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
