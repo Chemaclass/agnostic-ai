@@ -4,7 +4,7 @@ Read in order. Each builds on the previous.
 
 1. [Getting started](getting-started.md): install, scaffold, first sync. ~5 min.
 2. [Spec format](spec-format.md): the ten kinds (agent, skill, rule, hook, MCP, command, settings, review, environment, ignore), per-directory scope, and the `x-<target>` namespace for tool-specific extensions.
-3. [Targets](targets.md): capability matrix and per-target output paths (14 tools).
+3. [Targets](targets.md): capability matrix and per-target output paths (18 tools).
 4. [Configuration](configuration.md): `agnostic-ai.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
 5. [CLI reference](cli-reference.md): every command and flag, including `sync --watch`, `sync --check`, `sync --backup`, `init --demo`, `init --all`, `import <source>`, `revert`, `doctor`, `status`, and `--json` output on `sync`/`revert`/`doctor`/`status`.
 6. [CI](ci.md): drift detection in pull requests with `sync --check`.

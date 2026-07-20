@@ -68,7 +68,7 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-Same shape lands at `.claude/rules/`, `.windsurf/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`.
+Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`.
 
 ## Supported targets
 
@@ -144,7 +144,7 @@ agnostic-ai sync          # emit native config for every target
 Edit specs under `.agnostic-ai/`, run `sync` again. Already have `.cursor/rules` or `AGENTS.md`?
 
 ```bash
-agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, continue, ...
+agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, junie, trae, ...
 ```
 
 CI gate to fail PRs that drift from source specs:

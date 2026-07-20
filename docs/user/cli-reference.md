@@ -49,7 +49,7 @@ agnostic-ai import codex          # AGENTS.md (root + nested), .codex/{prompts,c
 agnostic-ai import claude codex   # multiple sources; AGNOSTIC_AI.md reflects the last (last-wins)
 agnostic-ai import cursor         # .cursor/rules/, .cursor/agents/, .cursor/skills/, .cursor/commands/
 agnostic-ai import cline          # .clinerules/
-agnostic-ai import windsurf       # .windsurf/rules/
+agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
 agnostic-ai import continue       # .continue/rules/
 ```
 
@@ -58,7 +58,7 @@ agnostic-ai import continue       # .continue/rules/
 - Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
 - When another target's entry-point exists with different hand-authored content (e.g. a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that it holds unique content the next `sync` would overwrite. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` before syncing to keep it.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, plus `all`.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, plus `all`.
 
 `import claude`:
 
@@ -114,7 +114,7 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The wa
 
 Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
 
-`import cline`, `import windsurf`, `import continue` read the matching rules directory (`.clinerules/`, `.windsurf/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
+`import cline`, `import windsurf`, `import junie`, `import trae`, and `import continue` read the matching rules directory (`.clinerules/`, `.devin/rules/` with `.windsurf/rules/` fallback, `.junie/rules/`, `.trae/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
 | Source filename | Becomes |
 |-----------------|---------|
