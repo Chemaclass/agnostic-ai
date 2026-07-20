@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.43.0 - 2026-07-20
+
 ### Changed
 
 - Gemini skills emit natively as `.gemini/skills/<name>/SKILL.md` folders with bundled assets, the workspace tier Gemini CLI scans; the `emit-skills-as-commands` opt-in now only adds the command form (#439).
