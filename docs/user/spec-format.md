@@ -32,13 +32,18 @@ Adapters that produce per-directory output honor the scope:
 
 | Target          | Scoped layout                              |
 |-----------------|--------------------------------------------|
-| `cursor`        | `<scope>/.cursor/rules/<name>.mdc`         |
-| `cline`         | `<scope>/.clinerules/<name>.md`            |
-| `windsurf`      | `<scope>/.windsurf/rules/<name>.md`        |
-| `continue`      | `<scope>/.continue/rules/<name>.md`        |
+| `claude`        | `.claude/rules/<scope>/<name>.md`          |
+| `cursor`        | `.cursor/rules/<scope>/<name>.mdc`         |
+| `cline`         | `.clinerules/<scope>/<name>.md`            |
+| `windsurf`      | `.devin/rules/<scope>/<name>.md`           |
+| `continue`      | `.continue/rules/<scope>/<name>.md`        |
+| `junie`         | `.junie/rules/<scope>/<name>.md`           |
+| `trae`          | `.trae/rules/<scope>/<name>.md`            |
+| `antigravity`   | `.agent/rules/<scope>/<name>.md`           |
+| `kiro`          | `inclusion: fileMatch` + `fileMatchPattern: <scope>/**` on one flat `.kiro/steering/<name>.md` (no nested dirs) |
 | `copilot`       | `<scope>/**` glob on one `.github/instructions/<name>.instructions.md` (no nested dirs) |
 
-Single-document targets (`claude` CLAUDE.md, `aider` CONVENTIONS.md) merge regardless of scope. Source-dir targets (`codex`, `gemini`, `amp`, `warp`) reference rules from the spec dir and no longer emit per-directory scoped files (e.g. `src/AGENTS.md`) by default. The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+The scoped output nests inside the tool's rules directory (not a `<scope>/.cursor/...` tree at the repo root), so drift detection and the orphan sweep keep working. Single-document targets (`aider` CONVENTIONS.md) merge regardless of scope. Inline targets (`codex`, `gemini`, `amp`, `warp`, `zed`, `opencode`, `crush`) carry rule bodies in their entry-point file and do not emit per-directory scoped files (e.g. `src/AGENTS.md`). The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
 
 A frontmatter `scope:` field is also accepted as a fallback when moving the file is impractical (a single rule scoped to a subtree).
 
@@ -524,9 +529,13 @@ Per surface:
 |--------|---------|---------------------|
 | `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
 | `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
-| `copilot` | `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
-| `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` (skills-as-commands) |
-| `amp` | command `.md` frontmatter | every `x-amp` key beyond `description` (skills-as-commands) |
-| `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array; skills-as-commands) |
+| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` |
+| `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`metadata` |
+| `cursor` | agent `.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`model`/`readonly`/`is_background` |
+| `copilot` | rule `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
+| `copilot` | `.agent.md` frontmatter | every `x-copilot` key beyond `name`/`description`/`tools`/`model` |
+| `opencode` | agent `.md` frontmatter | every `x-opencode` key beyond `description`/`mode`/`model`/`temperature`/`permission` |
+| `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` |
+| `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
 
-Targets that emit no surface for a spec kind drop arbitrary custom keys. Gemini TOML accepts scalars and string arrays only; nested tables are skipped.
+Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro steering files carry no passthrough). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.

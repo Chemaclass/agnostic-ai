@@ -51,26 +51,30 @@ Each tool reads its instruction file at a tool-specific path.
 | Target | Entry-point file |
 |--------|------------------|
 | claude | `CLAUDE.md` |
-| codex | `AGENTS.md` |
-| amp | `AGENTS.md` (shared with codex/warp) |
-| warp | `AGENTS.md` (shared with codex/amp) |
+| codex | `AGENTS.md` (shared with amp/warp/zed/cline/junie/kiro/crush/trae) |
+| amp | `AGENTS.md` (shared) |
+| warp | `AGENTS.md` (shared) |
 | gemini | `GEMINI.md` |
 | aider | `CONVENTIONS.md` |
 | copilot | `.github/copilot-instructions.md` |
 | opencode | `.opencode/AGENTS.md` |
 | antigravity | `.agent/AGENTS.md` |
 
-The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across codex, amp, and warp for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, `.opencode/AGENTS.md`, and `.agent/AGENTS.md` each have a different path and different inlined rule content. One symlink points at one path, so it cannot serve every tool's location at once.
+The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across its nine consumers (codex, amp, warp, zed, cline, junie, kiro, crush, trae) for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, `.opencode/AGENTS.md`, and `.agent/AGENTS.md` each have a different path and different inlined rule content. One symlink points at one path, so it cannot serve every tool's location at once.
 
 ### Rules delivery is path-divergent
 
-Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, gemini, aider, and opencode have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
+Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, and crush have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Cursor, cline, windsurf, continue, junie, kiro, trae, and antigravity each get one file per rule in their own directory and format. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
 
 ### Hooks are target-specific
 
-Event names differ: Claude and Codex use `SessionStart`/`PreToolUse`/`PostToolUse`, Gemini uses `BeforeTool`/`AfterTool`, Cursor uses camelCase `beforeShellExecution`/`afterFileEdit`. Format differs: JSON vs TOML. Zed has no lifecycle-hook surface; when `outputs.zed.tasks-file` is set, hook specs emit as on-demand Zed Tasks runnable from the command palette. Aider, Cline, Windsurf, Continue, Antigravity, Amp, Warp, and Copilot skip hooks entirely. No single hook file is correct for more than one of these.
+Event names differ: Claude and Codex use `SessionStart`/`PreToolUse`/`PostToolUse`, Gemini uses `BeforeTool`/`AfterTool`, Cursor uses camelCase `beforeShellExecution`/`afterFileEdit`. Format differs: JSON vs TOML. Zed has no lifecycle-hook surface; when `outputs.zed.tasks-file` is set, hook specs emit as on-demand Zed Tasks runnable from the command palette. Aider, Cline, Windsurf, Continue, Antigravity, Amp, Warp, Copilot, Junie, Kiro, Crush, and Trae skip hooks entirely. No single hook file is correct for more than one of these.
 
-These divergences live at the emit-function level (`DocumentStyled` vs `FrontmatterOrdered`, the `httpUrl`/`url` branch in `buildMCPServer`, the inline-rules map), not at the spec input level. The same `SKILL.md` source must be transformed into different bytes for each target. A symlink or unmodified copy cannot transform.
+These divergences live at the emit-function level (`DocumentStyled` vs `FrontmatterOrdered`, the `httpUrl`/`url` branch in `buildMCPServer`, the inline-rules map), not at the spec input level. A skill with per-target overrides (`x-cursor` keys, codex-only `agents/openai.yaml`) must become different bytes per target. A symlink or unmodified copy cannot transform.
+
+### Where symlinks do work, sync manages them for you
+
+When several targets DO render identical bytes (a plain skill folder on codex, amp, zed, and crush), the duplication is real, and `sync.shared-skills: true` collapses it: one canonical copy plus per-skill relative symlinks, planned from the rendered output each sync. See [`sync.shared-skills`](configuration.md#syncshared-skills). The difference from hand-rolled links: sync only links folders whose rendered bytes match, unlinks them the moment a target's render diverges, sweeps them with the skill, and degrades to real copies on filesystems without symlink support. A hand-made `.claude/skills -> ../.cursor/skills` link has none of those guards.
 
 ## Comparison
 

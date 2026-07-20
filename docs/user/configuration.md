@@ -189,7 +189,7 @@ gitignore:
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version. Reserved for future migrations. |
 | `sources` | map | see below | Per-kind source directories (relative to config file). |
-| `targets` | list | 12 default adapters | Adapter names to emit. Defaults to every adapter except `amp` and `warp`. Unknown targets log a warning and skip. |
+| `targets` | list | 16 default adapters | Adapter names to emit. Defaults to every adapter except `amp` and `warp`. Unknown targets log a warning and skip. |
 | `outputs` | map | see below | Per-target output path overrides. |
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
@@ -332,7 +332,7 @@ sync:
   target-overview: true
 ```
 
-The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, and warp all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
+The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, zed, cline, junie, kiro, crush, and trae all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
 ### `sync.resolve-imports`
 

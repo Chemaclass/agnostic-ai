@@ -59,7 +59,7 @@ agnostic-ai import claude         # CLAUDE.md + .claude/{agents,skills,settings.
 agnostic-ai import codex          # AGENTS.md (root + nested)
 agnostic-ai import cursor         # .cursor/rules/*.mdc
 agnostic-ai import cline          # .clinerules/
-agnostic-ai import windsurf       # .windsurf/rules/
+agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
 agnostic-ai import continue       # .continue/rules/
 agnostic-ai sync                  # fan out to every target in the config
 ```
@@ -147,14 +147,18 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── GEMINI.md                                    # for Gemini CLI
 ├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands
 ├── CONVENTIONS.md                               # for Aider
-├── .rules                                       # for Zed
+├── .agents/skills/<name>/SKILL.md               # shared skills tree (Codex / Amp / Zed / Crush)
 ├── .opencode/AGENTS.md                          # for OpenCode
-├── .opencode/commands/<name>.md                 # for OpenCode slash commands
+├── .opencode/agents/<name>.md                   # for OpenCode subagents
 ├── .github/copilot-instructions.md              # for Copilot (always-on rules)
-├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules + agents + skills
+├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules
+├── .github/agents/<name>.agent.md               # for Copilot custom agents
 ├── .cursor/rules/conventional-commits.mdc       # for Cursor
 ├── .clinerules/conventional-commits.md          # for Cline
-├── .windsurf/rules/conventional-commits.md      # for Windsurf
+├── .devin/rules/conventional-commits.md         # for Windsurf / Devin Desktop
+├── .junie/rules/conventional-commits.md         # for Junie
+├── .kiro/steering/conventional-commits.md       # for Kiro
+├── .trae/rules/conventional-commits.md          # for Trae
 └── .continue/rules/conventional-commits.md      # for Continue
 ```
 
