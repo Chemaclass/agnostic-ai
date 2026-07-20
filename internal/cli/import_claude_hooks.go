@@ -10,28 +10,9 @@ import (
 	"sort"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 )
-
-type claudeHookCommand struct {
-	Type          string `json:"type"`
-	Command       string `json:"command"`
-	Timeout       int    `json:"timeout,omitempty"`
-	StatusMessage string `json:"statusMessage,omitempty"`
-	Async         bool   `json:"async,omitempty"`
-	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
-	Shell         string `json:"shell,omitempty"`
-	If            string `json:"if,omitempty"`
-	Once          bool   `json:"once,omitempty"`
-}
-
-type claudeHookGroup struct {
-	Matcher string              `json:"matcher"`
-	Hooks   []claudeHookCommand `json:"hooks"`
-}
-
-type claudeSettings struct {
-	Hooks map[string][]claudeHookGroup `json:"hooks"`
-}
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
 // matcher group into dstDir. Filenames come from hookSpecName so the
@@ -50,7 +31,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
-	var s claudeSettings
+	var s claudehooks.Settings
 	if err := json.Unmarshal(data, &s); err != nil {
 		return 0, fmt.Errorf("parse %s: %w", src, err)
 	}
