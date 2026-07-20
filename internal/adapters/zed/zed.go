@@ -60,10 +60,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	for _, s := range b.Skills {
-		if err := emit.WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
-			return err
-		}
+	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
 	}
 	// Agents have no per-agent surface in current Zed; only the legacy
 	// merged document carries their bodies.

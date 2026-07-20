@@ -1,10 +1,8 @@
 package codex
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -50,15 +48,15 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 		if err := os.RemoveAll(expectedDir); err != nil {
 			t.Fatalf("clean expected dir: %v", err)
 		}
-		if err := copyEmittedTree(dir, expectedDir); err != nil {
+		if err := testutil.CopyEmittedTree(dir, expectedDir, "AGENTS.md"); err != nil {
 			t.Fatalf("copy: %v", err)
 		}
 		t.Logf("kit-sink golden updated: %s", expectedDir)
 		return
 	}
 
-	got := walkRel(t, dir)
-	want, err := loadKitSinkExpected(expectedDir)
+	got := testutil.WalkRel(t, dir)
+	want, err := testutil.LoadExpectedTree(expectedDir)
 	if err != nil {
 		t.Fatalf("load expected: %v", err)
 	}
@@ -88,57 +86,4 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 			t.Errorf("unexpected output file: %s (run UPDATE_GOLDEN=1 to accept)", rel)
 		}
 	}
-}
-
-func loadKitSinkExpected(root string) (map[string]string, error) {
-	out := map[string]string{}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = string(data)
-		return nil
-	})
-	return out, err
-}
-
-func copyEmittedTree(srcDir, dstDir string) error {
-	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rel, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
-		// Skip files that belong to the agnostic-ai source tree or the
-		// project-root AGENTS.md (owned by sync, not the adapter).
-		relSlash := filepath.ToSlash(rel)
-		if relSlash == "AGENTS.md" || strings.HasPrefix(relSlash, ".agnostic-ai/") {
-			return nil
-		}
-		dst := filepath.Join(dstDir, rel)
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(dst, data, 0o644)
-	})
 }

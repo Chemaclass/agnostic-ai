@@ -64,10 +64,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	for _, s := range b.Skills {
-		if err := emit.WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
-			return err
-		}
+	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
