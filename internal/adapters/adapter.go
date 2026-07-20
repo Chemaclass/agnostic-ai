@@ -43,13 +43,11 @@ type OrderedJSON = emit.OrderedJSON
 // NewOrderedJSON returns an empty OrderedJSON ready for Set / Get.
 func NewOrderedJSON() *OrderedJSON { return emit.NewOrderedJSON() }
 
-// MarshalJSONIndent renders v as indented JSON without HTML escaping,
-// preserving OrderedJSON insertion order when v is an OrderedJSON.
-func MarshalJSONIndent(v any) ([]byte, error) { return emit.MarshalJSONIndent(v) }
-
-// MarshalJSONIndentWith is MarshalJSONIndent with a caller-supplied
-// indent string ("  ", "    ", "\t"). Used by import-side overlay
-// writers that preserve the indent of the captured file.
+// MarshalJSONIndentWith renders v as indented JSON without HTML
+// escaping, with a caller-supplied indent string ("  ", "    ", "\t").
+// Preserves OrderedJSON insertion order when v is an OrderedJSON. Used
+// by import-side overlay writers that preserve the indent of the
+// captured file.
 func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
 	return emit.MarshalJSONIndentWith(v, indent)
 }
@@ -128,13 +126,6 @@ func StartRecording() { emit.StartRecording() }
 
 // StopRecording returns the recorded paths and disables recording.
 func StopRecording() []string { return emit.StopRecording() }
-
-// StartCounting begins tracking the number of files written to disk.
-// Does not affect IO. Used by sync to record files_changed in the state file.
-func StartCounting() { emit.StartCounting() }
-
-// StopCounting returns the count of files written since StartCounting.
-func StopCounting() int { return emit.StopCounting() }
 
 // StartDetailedRecording begins collecting per-file write results alongside
 // real writes. Determines each file's action (create/update/skip) by
@@ -288,13 +279,6 @@ func RenderTargetOverview(sections []TargetArtifacts) string {
 // any pre-existing block first (re-exported from the emit layer).
 func AppendTargetOverview(body, overview string) string {
 	return emit.AppendTargetOverview(body, overview)
-}
-
-// StripTargetOverview removes the sentinel-marked overview block from
-// body (re-exported from the emit layer). Import uses it so the
-// AGNOSTIC_AI.md round-trip stays lossless.
-func StripTargetOverview(body string) string {
-	return emit.StripTargetOverview(body)
 }
 
 // RulesStartMarker and RulesEndMarker mirror the emit-layer sentinels so
