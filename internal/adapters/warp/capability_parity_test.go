@@ -1,7 +1,6 @@
 package warp
 
 import (
-	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,7 +25,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 
-	paths := walkRel(t, dir)
+	paths := testutil.WalkRel(t, dir)
 	body := readFile(t, filepath.Join(dir, "AGENTS-rules.md"))
 	type expect struct {
 		kind     spec.Kind
@@ -100,29 +99,6 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
 		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
 	}
-}
-
-func walkRel(t *testing.T, root string) []string {
-	t.Helper()
-	var out []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		out = append(out, filepath.ToSlash(rel))
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk %s: %v", root, err)
-	}
-	return out
 }
 
 func pathSetContains(paths []string, needle string) bool {

@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -521,7 +522,7 @@ func globsToPaths(globs any) []string {
 func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.OrderedJSON {
 	doc := emit.NewOrderedJSON()
 	type matcherKey struct{ event, matcher string }
-	byKey := map[matcherKey][]hookCommandEntry{}
+	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	keyOrder := []matcherKey{}
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -545,7 +546,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 			keyOrder = append(keyOrder, k)
 		}
 		for _, cmd := range cmds {
-			byKey[k] = append(byKey[k], hookCommandEntry{
+			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:          "command",
 				Command:       emit.RewriteHookPath(cmd, target),
 				Timeout:       timeout,
@@ -558,13 +559,13 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 			})
 		}
 	}
-	byEvent := map[string][]matcherGroup{}
+	byEvent := map[string][]claudehooks.Group{}
 	eventOrder := []string{}
 	for _, k := range keyOrder {
 		if _, seen := byEvent[k.event]; !seen {
 			eventOrder = append(eventOrder, k.event)
 		}
-		byEvent[k.event] = append(byEvent[k.event], matcherGroup{Matcher: k.matcher, Hooks: byKey[k]})
+		byEvent[k.event] = append(byEvent[k.event], claudehooks.Group{Matcher: k.matcher, Hooks: byKey[k]})
 	}
 	for event, groups := range byEvent {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
@@ -609,36 +610,9 @@ func mergePreferredAndLifecycle(preferred, seen []string) []string {
 	return out
 }
 
-// hookCommandEntry mirrors the `{type, command}` JSON object Claude Code
-// expects inside a matcher group's `hooks` array. Using a struct lets
-// `encoding/json` emit the fields in declaration order rather than the
-// alpha-sorted order map iteration would produce.
-//
-// The optional fields propagate from the same-named spec Meta keys and
-// `omitempty` so specs that don't set them produce the historic minimal
-// `{type, command}` payload. `async`, `asyncRewake`, `shell`, and `if`
-// are current command-hook schema fields; dropping them on emit would
-// silently strip behavior a user authored in settings.json (import
-// captures them for the round-trip).
-type hookCommandEntry struct {
-	Type          string `json:"type"`
-	Command       string `json:"command"`
-	Timeout       int    `json:"timeout,omitempty"`
-	StatusMessage string `json:"statusMessage,omitempty"`
-	Async         bool   `json:"async,omitempty"`
-	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
-	Shell         string `json:"shell,omitempty"`
-	If            string `json:"if,omitempty"`
-	Once          bool   `json:"once,omitempty"`
-}
-
-// matcherGroup mirrors the `{matcher, hooks}` JSON object in
-// settings.json's hook event arrays. Same rationale as
-// hookCommandEntry: ordered struct fields beat sorted map keys.
-type matcherGroup struct {
-	Matcher string             `json:"matcher"`
-	Hooks   []hookCommandEntry `json:"hooks"`
-}
+// The `.claude/settings.json` hook wire structs (matcher groups and
+// command entries) live in internal/adapters/claudehooks so the importer
+// decodes the exact shape this emitter writes.
 
 // hookEventLifecycleOrder names the canonical sequence the Claude Code
 // hooks reference uses when listing hook events. Events that appear in

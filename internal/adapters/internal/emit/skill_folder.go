@@ -51,3 +51,16 @@ func WriteSkillFolder(s spec.Entry, target, skillsDir string, dryRun bool) error
 	}
 	return PropagateSkillAssets(s, folder, SkipSKILLMd, dryRun)
 }
+
+// WriteSkillFolders writes the standard Agent Skills folder layout for
+// every skill into skillsDir. It is the multi-skill form of
+// WriteSkillFolder, shared by the adapters that emit skills through the
+// native folder layout with no per-target customization.
+func WriteSkillFolders(skills []spec.Entry, target, skillsDir string, dryRun bool) error {
+	for _, s := range skills {
+		if err := WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}

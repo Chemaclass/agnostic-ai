@@ -12,6 +12,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 )
 
 // Codex stores subagents and skills under `.agents/`. Older layouts used
@@ -733,7 +735,9 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	var s claudeSettings // identical shape: hooks[<event>][n].{matcher, hooks[m].{...}}
+	// .codex/hooks.json uses the same shape as .claude/settings.json:
+	// hooks[<event>][n].{matcher, hooks[m].{...}}.
+	var s claudehooks.Settings
 	if err := json.Unmarshal(data, &s); err != nil {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
