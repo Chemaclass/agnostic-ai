@@ -43,6 +43,11 @@ func stateFilePath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".agnostic-ai", ".sync-state")
 }
 
+// readStateFile loads the sync-state cache. A missing or corrupt file
+// yields the zero value on purpose: the state is a self-healing cache the
+// next sync rewrites, so an unreadable one means "no prior state" rather
+// than a fatal error. Mirrors lastSyncTimestamp, which swallows the same
+// read for the same reason.
 func readStateFile(projectRoot string) syncStateFile {
 	var s syncStateFile
 	data, err := os.ReadFile(stateFilePath(projectRoot))
