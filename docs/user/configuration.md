@@ -46,7 +46,7 @@ sources:
   environments: .agnostic-ai/environments
   ignore: .agnostic-ai/ignore
 
-# AI CLIs to emit configs for. These 12 are the default set (used when
+# AI CLIs to emit configs for. These 16 are the default set (used when
 # `targets` is omitted). Two more adapters exist, `amp` and `warp`. They
 # share the root `AGENTS.md` pointer body with `codex` (written once via
 # auto-dedup, since the body is byte-identical), so they add no new
@@ -66,6 +66,10 @@ targets:
   - zed
   - opencode
   - antigravity
+  - junie
+  - kiro
+  - crush
+  - trae
 
 # Per-target output overrides. Each target accepts only the fields
 # relevant to it. Defaults shown in comments. The root entry-point file

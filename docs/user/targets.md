@@ -233,7 +233,7 @@ Verify with the real CLI:
 ### Cline (`cline`)
 
 ```
-AGENTS.md                            # canonical entry-point pointer body (written by sync, shared with codex/amp/warp/zed)
+AGENTS.md                            # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
 .clinerules/<name>.md
 .clinerules/workflows/<name>.md      # one per agent, only when workflows-dir is set
 ```
@@ -295,13 +295,13 @@ Verify with the real extension:
 ### Amp (`amp`)
 
 ```
-AGENTS.md                              # canonical entry-point pointer body (written by sync, shared with codex/warp)
+AGENTS.md                              # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
 .agents/commands/<name>.md             # one per agent
 .agents/skills/<name>/SKILL.md         # one folder per skill (Amp's native skills path)
 .amp/settings.json                     # when MCP entries exist (merged with existing user config)
 ```
 
-- **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, shared byte-for-byte with codex and warp so the three coexist at the same path.
+- **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, shared byte-for-byte with codex, warp, zed, and crush so they coexist at the same path.
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md` (Amp's [native skills layout](https://ampcode.com/manual)). Amp [removed custom slash commands in favor of skills](https://ampcode.com/news/slashing-custom-commands), so skills no longer emit as `.agents/commands/skill-<name>.md`. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte. Arbitrary `x-amp` keys pass through.
 - **Agents**: still emit as custom slash commands under `.agents/commands/<name>.md`. Amp has no documented per-agent file surface after the command removal; this path may be read for back-compat.
 - **Commands**: one markdown file per command spec under `.agents/commands/<name>.md`, the same surface as agents. `description` frontmatter passes through; the body is the prompt template.
@@ -322,14 +322,14 @@ Verify with the real CLI:
 ### Zed (`zed`)
 
 ```
-AGENTS.md                              # canonical entry-point pointer body + inlined rules (written by sync, shared with codex/amp/warp/cline)
-.agents/skills/<name>/SKILL.md         # one folder per skill (shared tree with codex/amp)
+AGENTS.md                              # canonical entry-point pointer body + inlined rules (written by sync, shared across the AGENTS.md consumers)
+.agents/skills/<name>/SKILL.md         # one folder per skill (shared tree with codex/amp/crush)
 .zed/settings.json                     # when MCP entries exist (merged with existing user config)
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
 
-- **Rules**: Zed 1.4.2 retired its rules library; always-on project instructions are the root `AGENTS.md`. `sync` writes the pointer body plus the sentinel-marked `## Rules` block there, shared byte-for-byte with codex, amp, and warp. Set `outputs.zed.rules-file: .rules` to keep the legacy merged document (which also carries agent bodies) for older Zed versions.
-- **Skills**: native [Zed skills](https://zed.dev/docs/ai/skills) folders at `.agents/skills/<name>/SKILL.md`, the cross-tool path codex and amp emit too. Identical rendered bytes dedupe into one write; divergent `x-zed` overrides surface through the collision check.
+- **Rules**: Zed 1.4.2 retired its rules library; always-on project instructions are the root `AGENTS.md`. `sync` writes the pointer body plus the sentinel-marked `## Rules` block there, shared byte-for-byte with codex, amp, warp, and crush. Set `outputs.zed.rules-file: .rules` to keep the legacy merged document (which also carries agent bodies) for older Zed versions.
+- **Skills**: native [Zed skills](https://zed.dev/docs/ai/skills) folders at `.agents/skills/<name>/SKILL.md`, the cross-tool path codex, amp, and crush emit too. Identical rendered bytes dedupe into one write; divergent `x-zed` overrides surface through the collision check.
 - **Agents**: no per-agent surface in current Zed; sync prints a coverage note unless `outputs.zed.rules-file` is set (the merged document carries agent sections).
 - **MCP**: written into `.zed/settings.json` under `context_servers` (Zed's key, not `mcpServers`). Stdio servers use a flat `command`/`args`/`env` shape; remote (HTTP / SSE) servers use a native `url`/`headers` shape. User-managed keys (theme, buffer_font_size) are preserved.
 - **Hooks**: when `outputs.zed.tasks-file` is set, every hook spec emits as a [Zed Task](https://zed.dev/docs/tasks) using `sh -c "<hook command>"`. The hook name is the label (description appended after an em-dash when present). Zed has no lifecycle-hook surface, so tasks run on demand from the command palette.
@@ -347,12 +347,12 @@ Verify with the real editor:
 ### Warp (`warp`)
 
 ```
-AGENTS.md                              # canonical entry-point pointer body (written by sync, shared with codex/amp)
+AGENTS.md                              # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
 .warp/workflows/<name>.yaml            # one per agent, only when workflows-dir is set
 .warp/.mcp.json                        # when MCP entries exist
 ```
 
-- **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, shared byte-for-byte with codex and amp so the three coexist at the same path.
+- **Rules**: `sync` writes `AGENTS.md` with the pointer body plus a sentinel-marked `## Rules` block holding every rule body inline, shared byte-for-byte with codex, amp, zed, and crush so they coexist at the same path.
 - **Workflows**: when `outputs.warp.workflows-dir` is set, each agent emits as a [Warp Workflow](https://docs.warp.dev/features/warp-drive/workflows) YAML at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). The `command:` is the agent body verbatim; tailor it to a Warp-friendly shell snippet.
 - **Legacy rename**: Warp's current Rules docs specify `AGENTS.md` per the AGENTS.md standard. On first sync after upgrading, any agnostic-generated `WARP.md` at the configured root is renamed to `WARP.md.bak`. A user-authored `WARP.md` (no `Generated by agnostic-ai` marker) is left untouched.
 
