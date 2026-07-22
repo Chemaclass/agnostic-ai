@@ -149,6 +149,56 @@ func TestSyncJSON_Actions(t *testing.T) {
 	}
 }
 
+// TestSyncJSON_UnknownTargetRecordsError verifies the JSON sync path reports a
+// per-target resolve failure as an error record and keeps emitting the
+// remaining targets instead of aborting the whole run. This pins the shared
+// emitTarget helper's continue-on-failure contract for the JSON path.
+func TestSyncJSON_UnknownTargetRecordsError(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	const bogus = "definitely-not-a-real-target"
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude," + bogus, "--json"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a per-target resolve error must not fail the JSON sync: %v", err)
+	}
+
+	result := assertJSONShape(t, out)
+
+	errRecs, _ := result["errors"].([]any)
+	foundBogus := false
+	for _, e := range errRecs {
+		rec, _ := e.(map[string]any)
+		if target, _ := rec["target"].(string); target == bogus {
+			foundBogus = true
+			if msg, _ := rec["message"].(string); msg == "" {
+				t.Error("error record for the unknown target has an empty message")
+			}
+		}
+	}
+	if !foundBogus {
+		t.Errorf("expected an error record for %q; got: %s", bogus, out.String())
+	}
+
+	// The valid target must still emit: the loop continues past the failure.
+	writes, _ := result["writes"].([]any)
+	foundClaude := false
+	for _, w := range writes {
+		rec, _ := w.(map[string]any)
+		if target, _ := rec["target"].(string); target == "claude" {
+			foundClaude = true
+			break
+		}
+	}
+	if !foundClaude {
+		t.Errorf("expected claude writes despite the unknown target; got: %s", out.String())
+	}
+}
+
 func TestSyncCheckJSON_Shape(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
