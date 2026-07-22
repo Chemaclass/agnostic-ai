@@ -13,9 +13,11 @@ agnostic-ai/
 │       ├── adapter.go              # Adapter interface + registry
 │       ├── internal/emit/          # shared write helpers (capture/recording/backup, MCP, output paths)
 │       ├── header/                 # provenance-header helper shared across adapters
+│       ├── claudehooks/            # Claude settings.json hook schema (shared by emit + import)
 │       ├── external/               # plugin-protocol passthrough adapter
-│       └── claude/ codex/ gemini/ cursor/ copilot/ aider/ cline/
-│           windsurf/ continueai/ amp/ zed/ warp/ opencode/ antigravity/
+│       └── claude/ codex/ gemini/ cursor/ copilot/ aider/ cline/ windsurf/
+│           continueai/ amp/ zed/ warp/ opencode/ antigravity/ junie/ kiro/
+│           crush/ trae/
 ├── .agnostic-ai/                   # dogfood source specs
 ├── docs/                           # user docs, internal docs, examples
 └── Makefile

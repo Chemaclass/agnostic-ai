@@ -141,7 +141,7 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── rules/
 │   └── conventional-commits.md
 ├── .claude/rules/<name>.md                      # for Claude Code (project rules)
-├── AGENTS.md                                    # for Codex / Amp / Warp (shared open standard)
+├── AGENTS.md                                    # shared open standard (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae)
 ├── .codex/agents/<name>.toml                    # for Codex subagents
 ├── .agents/commands/<name>.md                   # for Amp slash commands
 ├── GEMINI.md                                    # for Gemini CLI
