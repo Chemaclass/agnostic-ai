@@ -32,8 +32,8 @@ type syncStateFile struct {
 	// Outputs lists every file path the previous sync wrote (create or
 	// update or skip), relative to the project root. The next sync uses
 	// it to detect orphans: any path present in the prior ledger but
-	// absent from the current write set is swept via
-	// emit.RemoveGenerated. The header-guarded sweep skips
+	// absent from the current write set is swept via the emit
+	// session's RemoveGenerated. The header-guarded sweep skips
 	// user-authored files. An empty list (older state files, or first
 	// sync after upgrade) disables the sweep so projects without a
 	// recorded baseline never lose files.
