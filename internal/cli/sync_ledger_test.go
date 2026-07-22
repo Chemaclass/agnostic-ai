@@ -55,7 +55,7 @@ func TestSweepLedgerOrphans_RemovesProvenanceFilesNotInCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := sweepLedgerOrphans([]string{orphan}, []string{"active/new.toml"}, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), []string{orphan}, []string{"active/new.toml"}, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestSweepLedgerOrphans_LeavesUserFilesUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := sweepLedgerOrphans([]string{userPath}, nil, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), []string{userPath}, nil, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestSweepLedgerOrphans_LeavesUserFilesUntouched(t *testing.T) {
 }
 
 func TestSweepLedgerOrphans_EmptyPriorIsNoOp(t *testing.T) {
-	removed, err := sweepLedgerOrphans(nil, []string{"x"}, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), nil, []string{"x"}, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestSweepLedgerOrphans_KeepsPathStillInCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := sweepLedgerOrphans([]string{path}, []string{path}, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), []string{path}, []string{path}, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestSweepLedgerOrphans_DryRunDoesNotTouchDisk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := sweepLedgerOrphans([]string{path}, nil, true)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), []string{path}, nil, true)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestSweepLedgerOrphans_KeepsParentWhenSiblingsRemain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := sweepLedgerOrphans([]string{orphan}, nil, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), []string{orphan}, nil, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestSweepLedgerOrphans_PartialRunDoesNotDeleteOtherTargets(t *testing.T) {
 
 	prior := []string{".claude/CLAUDE.md", other}
 	ledger := reconcilePartialLedger([]string{".claude/CLAUDE.md"}, prior, false)
-	removed, err := sweepLedgerOrphans(prior, ledger, false)
+	removed, err := sweepLedgerOrphans(adapters.NewSession(), prior, ledger, false)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}

@@ -24,7 +24,7 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 func TestEmit_NotesAgentGapWhenWorkflowsDirUnset(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	emit.FlushCoverageNotes()
@@ -43,7 +43,7 @@ func TestEmit_NoAgentNoteWhenWorkflowsDirSet(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"warp": {WorkflowsDir: ".warp/workflows"},
 	}}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	emit.FlushCoverageNotes()
@@ -63,7 +63,7 @@ func TestEmit_NoNotesWhenNoAgentsOrSkills(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "x"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCoverageNotesCount(); got != 0 {

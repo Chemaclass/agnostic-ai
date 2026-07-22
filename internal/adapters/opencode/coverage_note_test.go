@@ -26,7 +26,7 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 func TestEmit_NoSkillNote_SkillsEmitNatively(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	emit.FlushCoverageNotes()
@@ -41,7 +41,7 @@ func TestEmit_NoNotesWhenNoSkills(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "x"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCoverageNotesCount(); got != 0 {

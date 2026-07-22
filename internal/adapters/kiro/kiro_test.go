@@ -23,7 +23,7 @@ func TestEmit_RuleUnscoped_InclusionAlways(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule body"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,7 +50,7 @@ func TestEmit_RuleWithGlobs_FileMatch(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body", Meta: map[string]any{"globs": "**/*.go"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,7 +78,7 @@ func TestEmit_RuleWithScope_FileMatch(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func TestEmit_Agent_ManualSteering(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ship-it", Body: "Run the release."}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -128,7 +128,7 @@ func TestEmit_Skill_AutoSteeringWithNameDescription(t *testing.T) {
 			Body: "Fill in the form fields.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -156,7 +156,7 @@ func TestEmit_Skill_DescriptionFallsBackToName(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "no-desc", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -175,7 +175,7 @@ func TestEmit_RulesDirOverride(t *testing.T) {
 
 	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule body"}}
 	cfg := &config.Config{Outputs: map[string]config.Output{"kiro": {RulesDir: "custom/steering"}}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/steering/r1.md")); err != nil {
@@ -193,7 +193,7 @@ func TestEmit_MCPFileWritten(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "args": []any{"-y", "server"}}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -215,7 +215,7 @@ func TestEmit_NoMCPEntriesNoFile(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule body"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".kiro/settings/mcp.json")); !os.IsNotExist(err) {
@@ -245,7 +245,7 @@ func TestEmit_SkillWithBundledAssets_NotesCoverageGap(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillDir, "SKILL.md"), Body: "body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -265,7 +265,7 @@ func TestEmit_SkillWithoutBundledAssets_NoCoverageGap(t *testing.T) {
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "s1", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if n := emit.PendingCoverageNotesCount(); n != 0 {
@@ -282,7 +282,7 @@ func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "a1", Body: "agent body"},
 		{Kind: spec.KindSkill, Name: "s1", Body: "skill body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {

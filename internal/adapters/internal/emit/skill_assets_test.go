@@ -31,6 +31,7 @@ func TestFolderBasedSkill(t *testing.T) {
 // propagation must copy nothing — otherwise every sibling skill body leaks
 // into this skill's folder (#387).
 func TestPropagateSkillAssets_FlatFileSkipsSiblings(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	skillsDir := filepath.Join(dir, "skills")
 	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
@@ -44,7 +45,7 @@ func TestPropagateSkillAssets_FlatFileSkipsSiblings(t *testing.T) {
 
 	s := spec.Entry{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillsDir, "alpha.md")}
 	dst := filepath.Join(dir, "out", "alpha")
-	if err := PropagateSkillAssets(s, dst, skipNothing, false); err != nil {
+	if err := sess.PropagateSkillAssets(s, dst, skipNothing, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,6 +57,7 @@ func TestPropagateSkillAssets_FlatFileSkipsSiblings(t *testing.T) {
 // A folder-based skill owns its directory, so every sibling asset (minus the
 // re-rendered SKILL.md) propagates into the emitted folder.
 func TestPropagateSkillAssets_FolderCopiesSiblings(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	srcSkill := filepath.Join(dir, "skills", "alpha")
 	if err := os.MkdirAll(filepath.Join(srcSkill, "scripts"), 0o755); err != nil {
@@ -71,7 +73,7 @@ func TestPropagateSkillAssets_FolderCopiesSiblings(t *testing.T) {
 	s := spec.Entry{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(srcSkill, "SKILL.md")}
 	dst := filepath.Join(dir, "out", "alpha")
 	skip := func(rel string) bool { return rel == "SKILL.md" }
-	if err := PropagateSkillAssets(s, dst, skip, false); err != nil {
+	if err := sess.PropagateSkillAssets(s, dst, skip, false); err != nil {
 		t.Fatal(err)
 	}
 

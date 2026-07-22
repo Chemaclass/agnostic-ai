@@ -15,11 +15,11 @@ import (
 // optional `tools` and `model` keys, with the prompt as the body.
 // Arbitrary `x-copilot` keys (target, user-invocable, mcp-servers, ...)
 // pass through for the rest of the documented schema.
-func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -25,7 +26,7 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 		{Kind: spec.KindSkill, Name: "sk1", Body: "skill"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{".continue/rules/r1.md", ".continue/rules/agent-ag1.md", ".continue/rules/skill-sk1.md"} {
@@ -49,7 +50,7 @@ func TestEmit_MCP_StdioWritesPerServerYAML(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".continue/mcpServers/fs.yaml"))
@@ -82,7 +83,7 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".continue/mcpServers/linear.yaml"))
@@ -111,7 +112,7 @@ func TestEmit_MCP_DirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/mcp/fs.yaml")); err != nil {
@@ -135,7 +136,7 @@ func TestEmit_AssistantsDirEmitsAgentsAsAssistants(t *testing.T) {
 			"continue": {AssistantsDir: ".continue/assistants"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".continue/assistants/ship-it.yaml"))
@@ -157,7 +158,7 @@ func TestEmit_NoAssistantsDirNoEmit(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "x"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".continue/assistants")); !os.IsNotExist(err) {
@@ -178,7 +179,7 @@ func TestEmit_OutputsCarryProvenanceHeader(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "ag1", Meta: map[string]any{"description": "d"}, Body: "agent body"},
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{
@@ -203,7 +204,7 @@ func TestEmit_MCP_NoFilesWhenNoEntries(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".continue/mcpServers")); !os.IsNotExist(err) {

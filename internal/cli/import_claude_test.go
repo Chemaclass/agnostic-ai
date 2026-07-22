@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -194,7 +195,7 @@ func TestImportFromClaude_FullSyncImportCycleIsMarkerStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadBundle: %v", err)
 	}
-	if err := (claude.Adapter{}).Emit(bundle, cfg, false); err != nil {
+	if err := (claude.Adapter{}).Emit(adapters.NewSession(), bundle, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	emitted, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "reviewer.md"))
@@ -611,7 +612,7 @@ func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadBundle: %v", err)
 	}
-	if err := (claude.Adapter{}).Emit(bundle, cfg, false); err != nil {
+	if err := (claude.Adapter{}).Emit(adapters.NewSession(), bundle, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))

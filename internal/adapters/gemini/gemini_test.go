@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -44,7 +45,7 @@ func TestEmit_WritesCommandFile(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship it"}, Body: "Run the deploy steps."},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".gemini", "commands", "deploy.toml"))
@@ -65,7 +66,7 @@ func TestEmit_NoRootGEMINIMd_ByDefault(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "house-style", Body: "Be terse."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "GEMINI.md")); !os.IsNotExist(err) {
@@ -82,7 +83,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "house-style", Body: "Be terse."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "GEMINI.md"))
@@ -103,7 +104,7 @@ func TestEmit_Agent_WritesCommandTOML(t *testing.T) {
 			Body: "Open the PR. Read it. Comment.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/pr-reviewer.toml"))
@@ -132,7 +133,7 @@ func TestEmit_Skill_NoCommandByDefault(t *testing.T) {
 			Body: "Body content.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gemini/commands/yaml-validator.toml")); !os.IsNotExist(err) {
@@ -160,7 +161,7 @@ func TestEmit_Skill_EmitsAsCommand_WhenOptIn(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/skill-yaml-validator.toml"))
@@ -201,7 +202,7 @@ func TestEmit_Skill_CustomXGeminiKeysReachTOML(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/skill-yaml-validator.toml"))
@@ -242,7 +243,7 @@ func TestEmit_Skill_DropsForeignCustomKeys(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/skill-yaml-validator.toml"))
@@ -262,7 +263,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "ag", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/commands/ag.toml")); err != nil {
@@ -285,7 +286,7 @@ func TestEmit_MCP_StdioWritesMcpServersKey(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -316,7 +317,7 @@ func TestEmit_MCP_HTTPUsesHttpUrlKey(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -342,7 +343,7 @@ func TestEmit_MCP_SSEUsesUrlKey(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -377,7 +378,7 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -411,7 +412,7 @@ func TestEmit_Hook_CommandAsList(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -437,7 +438,7 @@ func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 			Meta: map[string]any{"command": "echo nope"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gemini/settings.json")); !os.IsNotExist(err) {
@@ -459,7 +460,7 @@ func TestEmit_Settings_PreservesExistingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
@@ -486,7 +487,7 @@ func TestEmit_Settings_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/gemini.json")); err != nil {
@@ -500,7 +501,7 @@ func TestEmit_Settings_NoFileWhenNoMCPOrHooks(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gemini/settings.json")); !os.IsNotExist(err) {
@@ -511,7 +512,7 @@ func TestEmit_Settings_NoFileWhenNoMCPOrHooks(t *testing.T) {
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "GEMINI.md")); !os.IsNotExist(err) {
@@ -530,7 +531,7 @@ func TestEmit_Agent_TOMLEscapesQuotesAndBackslashes(t *testing.T) {
 			Body: `Body with "quotes" and a \ backslash.`,
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/tricky.toml"))
@@ -561,7 +562,7 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 			Body: "Deploy to production.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -588,7 +589,7 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 		Outputs: map[string]config.Output{"gemini": {SkillsDir: "custom/skills"}},
 	}
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
@@ -617,7 +618,7 @@ func TestEmit_Skill_PropagatesBundledAssets(t *testing.T) {
 		Path: filepath.Join(src, "SKILL.md"),
 		Body: "body",
 	}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".gemini/skills/deploy/helper.sh"))

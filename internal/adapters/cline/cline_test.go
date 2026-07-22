@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -24,7 +25,7 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 		{Kind: spec.KindSkill, Name: "sk1", Body: "skill"},
 	}
-	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md", ".clinerules/skill-sk1.md"} {
@@ -41,7 +42,7 @@ func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "auth", Scope: "backend/api", Body: "rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".clinerules/backend/api/auth.md")); err != nil {
@@ -70,7 +71,7 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 			"cline": {WorkflowsDir: ".clinerules/workflows"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,7 +105,7 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule"},
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md"} {
@@ -123,7 +124,7 @@ func TestEmit_NoWorkflowsDirNoEmit(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "agent"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".clinerules/workflows")); !os.IsNotExist(err) {

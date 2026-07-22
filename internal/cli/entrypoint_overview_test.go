@@ -26,7 +26,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewAppendsAppendix(t *testing.T) {
 		},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -60,7 +60,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewOffByDefault(t *testing.T) {
 	writeAgnosticFile(t, "# Project\n")
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -80,7 +80,7 @@ func TestWriteAgnosticEntryPoints_TargetOverviewSharedPathListsEachConsumer(t *t
 		Sync:    config.SyncConfig{TargetOverview: true},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
@@ -108,7 +108,7 @@ func TestCollectEntryPointDrift_NoDriftAfterSyncWithOverview(t *testing.T) {
 		Sync:    config.SyncConfig{TargetOverview: true},
 	}
 
-	if err := writeAgnosticEntryPoints(cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	rep, err := collectEntryPointDrift(cfg, spec.Bundle{}, cfg.Targets)

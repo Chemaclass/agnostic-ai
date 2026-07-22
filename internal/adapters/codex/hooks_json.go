@@ -26,7 +26,7 @@ const defaultHooksFile = ".codex/hooks.json"
 // Codex does not fire the same command twice on overlapping events.
 //
 // No-op when no hooks emit.
-func emitHooksJSON(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	doc := buildHooksJSON(hooks)
 	if doc == nil {
 		return nil
@@ -37,8 +37,8 @@ func emitHooksJSON(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	}
 	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	// `.codex/hooks.json` lives under .codex/ alongside config.toml;
-	// emit.WriteFile already handles parent-dir creation.
-	return emit.WriteFile(path, string(body)+"\n", dryRun)
+	// WriteFile already handles parent-dir creation.
+	return sess.WriteFile(path, string(body)+"\n", dryRun)
 }
 
 // hooksDoc is the top-level `.codex/hooks.json` shape:

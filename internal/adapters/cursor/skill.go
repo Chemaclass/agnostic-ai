@@ -21,13 +21,13 @@ import (
 // documented optional `paths` and `disable-model-invocation` frontmatter
 // keys pass through when the spec declares them; arbitrary `x-cursor`
 // keys pass through as well.
-func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
+func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) error {
 	folder := filepath.Join(skillsDir, s.Name)
 
-	if err := emit.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(skillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
+	if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(skillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
 		return err
 	}
-	return emit.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun)
+	return sess.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun)
 }
 
 func skillMarkdown(s spec.Entry) string {

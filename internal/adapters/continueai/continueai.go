@@ -38,25 +38,25 @@ func (Adapter) Name() string { return target }
 // plus one .yaml per MCP entry under `.continue/mcpServers/`. When
 // `outputs.continue.assistants-dir` is set, each agent additionally
 // emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
 	}, dryRun); err != nil {
 		return err
 	}
-	if err := emitAssistants(b, cfg, dryRun); err != nil {
+	if err := emitAssistants(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	return emitMCPServers(b.MCPs, emit.OutputMCPDir(cfg, target, defaultMCPDir), dryRun)
+	return emitMCPServers(sess, b.MCPs, emit.OutputMCPDir(cfg, target, defaultMCPDir), dryRun)
 }
 
 // emitAssistants writes one Continue Assistant YAML per agent into the
 // configured assistants dir. No-op when the dir is unset.
-func emitAssistants(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitAssistants(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputAssistantsDir(cfg, target, "")
 	if dir == "" {
 		return nil
@@ -67,7 +67,7 @@ func emitAssistants(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 		path := filepath.Join(dir, a.Name+".yaml")
-		if err := emit.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
 	}
@@ -112,7 +112,7 @@ func assistantYAML(e spec.Entry) (string, error) {
 
 // emitMCPServers writes one YAML per MCP entry. Continue's loader picks
 // up each file as a single server config (per the Continue docs).
-func emitMCPServers(mcps []spec.Entry, dir string, dryRun bool) error {
+func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bool) error {
 	for _, m := range mcps {
 		if m.Name == "" {
 			continue
@@ -122,7 +122,7 @@ func emitMCPServers(mcps []spec.Entry, dir string, dryRun bool) error {
 			return err
 		}
 		path := filepath.Join(dir, m.Name+".yaml")
-		if err := emit.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
 	}

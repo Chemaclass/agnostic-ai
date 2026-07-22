@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -29,7 +30,7 @@ func TestEmit_ExecPolicies_WritesSkylarkDSL(t *testing.T) {
 			},
 		}},
 	}}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
@@ -56,7 +57,7 @@ func TestEmit_ExecPolicies_WritesSkylarkDSL(t *testing.T) {
 func TestEmit_ExecPolicies_NoFileWhenUnset(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/rules/default.rules")); !os.IsNotExist(err) {
@@ -73,7 +74,7 @@ func TestEmit_ExecPolicies_EmptyPatternErrors(t *testing.T) {
 			{Pattern: nil, Decision: "allow"},
 		}},
 	}}
-	err := New().Emit(spec.NewBundle(nil), cfg, false)
+	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
 	if err == nil || !strings.Contains(err.Error(), "pattern must not be empty") {
 		t.Errorf("expected pattern-empty error, got: %v", err)
 	}
@@ -86,7 +87,7 @@ func TestEmit_ExecPolicies_BadDecisionErrors(t *testing.T) {
 			{Pattern: []string{"x"}, Decision: "maybe"},
 		}},
 	}}
-	err := New().Emit(spec.NewBundle(nil), cfg, false)
+	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
 	if err == nil || !strings.Contains(err.Error(), "decision must be allow|forbidden|ask") {
 		t.Errorf("expected bad-decision error, got: %v", err)
 	}
@@ -116,7 +117,7 @@ func TestEmit_ExecPolicies_LoadsFromFile(t *testing.T) {
 			ExecPoliciesFile: policiesFile,
 		},
 	}}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
@@ -159,7 +160,7 @@ func TestEmit_ExecPolicies_AutoLoadsOverlay(t *testing.T) {
 
 	// No outputs.codex.exec-policies, no exec-policies-file. Adapter
 	// should still emit because the overlay is present.
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
@@ -190,7 +191,7 @@ func TestEmit_ExecPolicies_RendersCapturedFileHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
@@ -223,7 +224,7 @@ func TestEmit_ExecPolicies_InlineSuppressesOverlay(t *testing.T) {
 			{Pattern: []string{"from-inline"}, Decision: "allow"},
 		}},
 	}}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))

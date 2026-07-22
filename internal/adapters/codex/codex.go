@@ -94,7 +94,7 @@ func (Adapter) Name() string { return target }
 // Commands emit only when outputs.codex.commands-dir is set (Codex
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -104,14 +104,14 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".toml")
-		if err := emit.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
 			return err
 		}
 	}
 
 	if codexEmitsSkills(cfg) {
 		for _, s := range b.Skills {
-			if err := emitSkill(s, skillsDir, dryRun); err != nil {
+			if err := emitSkill(sess, s, skillsDir, dryRun); err != nil {
 				return err
 			}
 		}
@@ -123,7 +123,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			path := filepath.Join(commandsDir, c.Name+".md")
 			rmeta, rkeys := emit.ResolveMetaOrdered(c.Meta, c.MetaKeys, target)
 			body := emit.FrontmatterStyled(rmeta, rkeys, c.MetaStyles) + "\n" + c.Body
-			if err := emit.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
+			if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 				return err
 			}
 		}
@@ -132,27 +132,27 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			"Codex loads custom prompts from ~/.codex/prompts only and deprecates them for skills")
 	}
 
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
 
-	if err := emitConfigTOML(b, cfg, dryRun); err != nil {
+	if err := emitConfigTOML(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := sweepLegacyTrees(agentsDir, skillsDir, commandsDir, dryRun); err != nil {
+	if err := sweepLegacyTrees(sess, agentsDir, skillsDir, commandsDir, dryRun); err != nil {
 		return err
 	}
 	hooks := b.HooksFor(target)
-	if err := emitHooksJSON(hooks, cfg, dryRun); err != nil {
+	if err := emitHooksJSON(sess, hooks, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitExecPolicies(cfg, dryRun); err != nil {
+	if err := emitExecPolicies(sess, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := materializeHookScripts(hooks, dryRun); err != nil {
 		return err
 	}
-	return emit.RestoreHelperFiles(target, dryRun)
+	return sess.RestoreHelperFiles(target, dryRun)
 }
 
 // sweepLegacyTrees removes agnostic-ai-managed leftovers from prior
@@ -165,21 +165,21 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // left untouched so hand-authored content survives the sweep. Each
 // sweep is skipped when the active path matches the legacy one, since
 // that means the user explicitly opted into that layout.
-func sweepLegacyTrees(agentsDir, skillsDir, commandsDir string, dryRun bool) error {
+func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir string, dryRun bool) error {
 	sweptAgents := false
 	if agentsDir != legacyAgentsDir {
-		if err := emit.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
+		if err := sess.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
 			return err
 		}
 		sweptAgents = true
 	}
 	if skillsDir != legacySkillsDir {
-		if err := emit.RemoveGeneratedTree(legacySkillsDir, dryRun); err != nil {
+		if err := sess.RemoveGeneratedTree(legacySkillsDir, dryRun); err != nil {
 			return err
 		}
 	}
 	if commandsDir != legacyCommandsDir {
-		if err := emit.RemoveGeneratedTree(legacyCommandsDir, dryRun); err != nil {
+		if err := sess.RemoveGeneratedTree(legacyCommandsDir, dryRun); err != nil {
 			return err
 		}
 	}
@@ -236,7 +236,7 @@ func codexEmitsSkills(cfg *config.Config) bool {
 // sync. The overlay (`.agnostic-ai/overlays/codex.config.toml`) carries
 // every user-authored key outside hooks/mcp_servers so a wipe of
 // `.codex/` between import and sync does not destroy them.
-func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	var codexCfg *config.CodexConfig
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
@@ -252,9 +252,9 @@ func emitConfigTOML(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		// agnostic-ai-managed config.toml on disk (e.g. the user removed
 		// the last MCP/hook/overlay). Clean it up so target files never
 		// drift from the source specs.
-		return emit.RemoveGenerated(path, dryRun)
+		return sess.RemoveGenerated(path, dryRun)
 	}
-	return emit.WriteFile(path, body, dryRun)
+	return sess.WriteFile(path, body, dryRun)
 }
 
 // loadConfigOverlay returns the overlay body bytes and the set of

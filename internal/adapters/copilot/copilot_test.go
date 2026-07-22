@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -30,7 +31,7 @@ func TestEmit_RuleWithGlobs_WritesScopedInstruction(t *testing.T) {
 			Body: "Prefer named exports.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,7 +67,7 @@ func TestEmit_RuleAlwaysOn_WritesCatchAllInstruction(t *testing.T) {
 			Body: "Use Conventional Commits.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,7 +96,7 @@ func TestEmit_LegacyRulesFile_WritesAlwaysOnRules(t *testing.T) {
 			Body: "Use Conventional Commits.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".github/copilot-instructions.md"))
@@ -117,7 +118,7 @@ func TestEmit_Agent_WritesNativeAgentProfile(t *testing.T) {
 			Body: "Open the PR. Read it. Comment.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -154,7 +155,7 @@ func TestEmit_Agent_ToolsAndModelPassThrough(t *testing.T) {
 			Body: "body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".github/agents/researcher.agent.md"))
@@ -179,7 +180,7 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 			Body: "Validate YAML with the schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -211,7 +212,7 @@ func TestEmit_Skill_CustomXCopilotKeyReachesFrontmatter(t *testing.T) {
 			Body: "Validate YAML with the schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".github/skills/yaml-validator/SKILL.md"))
@@ -236,7 +237,7 @@ func TestEmit_RuleWithScope_DerivesApplyToFromScope(t *testing.T) {
 			Body:  "Validate inputs at the boundary.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -263,7 +264,7 @@ func TestEmit_InstructionsDirOverride(t *testing.T) {
 			Body: "rule body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/instructions/r1.instructions.md")); err != nil {
@@ -285,7 +286,7 @@ func TestEmit_MCPFile_Unchanged(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -301,7 +302,7 @@ func TestEmit_MCPFile_Unchanged(t *testing.T) {
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".github/copilot-instructions.md")); !os.IsNotExist(err) {
@@ -337,7 +338,7 @@ func TestEmit_ChatmodesDirEmitsAgentAsChatmode(t *testing.T) {
 			"tools":       []any{"Read", "Grep", "Bash"},
 		}, Body: "You are a researcher.\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".github/chatmodes/researcher.chatmode.md"))
@@ -362,7 +363,7 @@ func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "x", Meta: map[string]any{}, Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".github/chatmodes/x.chatmode.md")); err == nil {

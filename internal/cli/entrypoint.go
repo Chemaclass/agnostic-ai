@@ -30,8 +30,8 @@ import (
 // triggers a one-line warning before the overwrite so the user knows
 // their content is about to be replaced. This is the same heuristic
 // the importer uses to skip files it did not write.
-func writeAgnosticEntryPoints(cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
-	body, err := resolveAgnosticBody(cfg, dryRun)
+func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
+	body, err := resolveAgnosticBody(sess, cfg, dryRun)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func writeAgnosticEntryPoints(cfg *config.Config, b spec.Bundle, targets []strin
 	}
 	for _, f := range files {
 		warnOnHandAuthoredEntryPoint(f.Path)
-		if err := adapters.WriteFile(f.Path, f.Content, dryRun); err != nil {
+		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
 		}
 	}
@@ -211,7 +211,7 @@ func warnOnHandAuthoredEntryPoint(path string) {
 // resolveAgnosticBody returns the raw (no header) body for entry-point files.
 // When AGNOSTIC_AI.md exists its content drives all targets; when absent the
 // template is generated, written to AGNOSTIC_AI.md, and returned.
-func resolveAgnosticBody(cfg *config.Config, dryRun bool) (string, error) {
+func resolveAgnosticBody(sess *adapters.Session, cfg *config.Config, dryRun bool) (string, error) {
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	if err == nil {
 		return header.Strip(string(data)), nil
@@ -221,7 +221,7 @@ func resolveAgnosticBody(cfg *config.Config, dryRun bool) (string, error) {
 	}
 	body := adapters.EntryPointBody(cfg)
 	rendered := header.With(body, header.FormatMarkdown)
-	if err := adapters.WriteFile(adapters.AgnosticEntryPointPath, rendered, dryRun); err != nil {
+	if err := sess.WriteFile(adapters.AgnosticEntryPointPath, rendered, dryRun); err != nil {
 		return "", fmt.Errorf("write %s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 	return body, nil

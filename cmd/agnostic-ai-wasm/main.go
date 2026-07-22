@@ -81,15 +81,16 @@ func render(_ js.Value, args []js.Value) any {
 
 	files := []any{}
 	errs := []any{}
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			errs = append(errs, jsErrorEntry(t, err))
 			continue
 		}
-		adapters.StartCapture()
-		err = adapter.Emit(bundle, cfg, false)
-		captured := adapters.StopCapture()
+		sess.StartCapture()
+		err = adapter.Emit(sess, bundle, cfg, false)
+		captured := sess.StopCapture()
 		if err != nil {
 			errs = append(errs, jsErrorEntry(t, err))
 			continue

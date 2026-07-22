@@ -59,42 +59,42 @@ func (Adapter) Name() string { return target }
 // opted in via outputs.opencode.rules-file—a legacy concatenated rules
 // document. The `.opencode/AGENTS.md` entry-point is written by `sync`,
 // not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
-	if err := emitAgents(b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
-		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
+		if err := emitSkillCommands(sess, b.Skills, commandsDir, dryRun); err != nil {
 			return err
 		}
 	}
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitMCPConfig writes (or merges into) opencode.json with the `mcp`
 // map and a `$schema` link. Routes through emit.MergeJSONFile so any
 // pre-existing user-managed keys (theme, model, ...) survive the sync;
 // only `$schema` and `mcp` are overwritten.
-func emitMCPConfig(mcps []spec.Entry, path string, dryRun bool) error {
+func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
 	if len(mcps) == 0 {
 		return nil
 	}
-	return emit.MergeJSONFile(path, map[string]any{
+	return sess.MergeJSONFile(path, map[string]any{
 		"$schema": opencodeSchemaURL,
 		"mcp":     buildMCPMap(mcps),
 	}, dryRun)
@@ -159,22 +159,22 @@ func combineCommand(meta map[string]any) []string {
 // emitCommands writes one command markdown file per command spec under
 // `.opencode/commands/`. Commands are the native slash-prompt surface,
 // so they emit with their bare name (no `skill-` prefix).
-func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
 		path := filepath.Join(dir, c.Name+".md")
 		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
+func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
 		body := emit.WithHeader(commandFile(s), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}

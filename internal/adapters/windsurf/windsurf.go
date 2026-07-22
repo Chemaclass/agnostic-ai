@@ -51,12 +51,12 @@ func (Adapter) Name() string { return target }
 // emits as a Workflow at `<dir>/<name>.md`; the rule-form
 // `agent-<name>.md` emission stays in place so users that depend on it
 // keep working.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
-	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         rulesDir,
 		AgentPrefix: "agent-",
 	}, dryRun); err != nil {
@@ -66,23 +66,23 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	// explicitly opted to keep emitting there. Hand-authored files (no
 	// provenance marker) survive.
 	if rulesDir != legacyDir {
-		if err := emit.RemoveGeneratedTree(legacyDir, dryRun); err != nil {
+		if err := sess.RemoveGeneratedTree(legacyDir, dryRun); err != nil {
 			return err
 		}
 	}
-	return emitWorkflows(b, cfg, dryRun)
+	return emitWorkflows(sess, b, cfg, dryRun)
 }
 
 // emitWorkflows writes one workflow per agent under the configured
 // workflows directory. No-op when the dir is unset.
-func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputWorkflowsDir(cfg, target, "")
 	if dir == "" {
 		return nil
 	}
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, a.Name+".md")
-		if err := emit.WriteFile(path, emit.WithHeader(renderWorkflow(a), emit.FormatMarkdown), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(renderWorkflow(a), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}

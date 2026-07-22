@@ -183,9 +183,10 @@ func singleEntryBundle(e spec.Entry) spec.Bundle {
 // in memory instead of writing to disk. dryRun is false because dryRun
 // prints to stdout, which would defeat the purpose of capturing.
 func captureEmit(a adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
-	adapters.StartCapture()
-	err := adapters.EmitWithProvenance(a, b, cfg, false)
-	captured := adapters.StopCapture()
+	sess := adapters.NewSession()
+	sess.StartCapture()
+	err := adapters.EmitWithProvenance(sess, a, b, cfg, false)
+	captured := sess.StopCapture()
 	if err != nil {
 		return nil, err
 	}

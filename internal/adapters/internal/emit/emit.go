@@ -48,11 +48,14 @@ type WrittenFile struct {
 	Action string
 }
 
-// state holds the package-global mode flags. Adapters and the CLI mutate
-// state through SetBackup, StartCapture, StopCapture, and StartRecording;
-// every read in WriteFile takes the same mutex so go test -race stays
-// clean and library reuse from concurrent goroutines is safe.
-var state struct {
+// Session holds the mutable mode flags for one emission pass: capture,
+// recording, counting, detailed recording, backup, and transaction
+// buffers. Each sync run owns its own Session (see NewSession) so two
+// runs in the same process — concurrent library use, parallel wasm
+// renders — never share capture/recording buffers or cross-talk. Every
+// read and write takes the same mutex so go test -race stays clean when
+// a single Session is shared across goroutines.
+type Session struct {
 	mu          sync.Mutex
 	capturing   bool
 	captured    []CapturedFile
@@ -67,43 +70,48 @@ var state struct {
 	txLog       []txEntry
 }
 
+// NewSession returns a Session with every mode off, ready to be threaded
+// through one emission pass. Adapters and the CLI toggle modes on it and
+// pass it to WriteFile and friends; each sync run constructs its own.
+func NewSession() *Session { return &Session{} }
+
 // SetBackup toggles backup mode. When enabled, WriteFile copies an
 // existing file to `<path>.bak` before overwriting (only when the new
 // content differs). Pair SetBackup(true) with SetBackup(false) once the
 // sync pass completes.
-func SetBackup(b bool) {
-	state.mu.Lock()
-	state.backup = b
-	state.mu.Unlock()
+func (s *Session) SetBackup(b bool) {
+	s.mu.Lock()
+	s.backup = b
+	s.mu.Unlock()
 }
 
 // StartCapture redirects subsequent WriteFile calls to an in-memory buffer
 // instead of touching disk or stdout. Used by `sync --check`, `doctor`,
 // and `revert` to inspect what each adapter would emit.
-func StartCapture() {
-	state.mu.Lock()
-	state.capturing = true
-	state.captured = nil
-	state.mu.Unlock()
+func (s *Session) StartCapture() {
+	s.mu.Lock()
+	s.capturing = true
+	s.captured = nil
+	s.mu.Unlock()
 }
 
 // IsCapturing reports whether capture mode is active. Adapters that
 // perform side-effects beyond `WriteFile` (e.g. one-shot file renames
 // for migrations) should consult it and no-op when true, so dry-check
 // modes do not mutate the working tree.
-func IsCapturing() bool {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	return state.capturing
+func (s *Session) IsCapturing() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.capturing
 }
 
 // StopCapture returns the captured files and disables capture mode.
-func StopCapture() []CapturedFile {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.capturing = false
-	out := state.captured
-	state.captured = nil
+func (s *Session) StopCapture() []CapturedFile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.capturing = false
+	out := s.captured
+	s.captured = nil
 	return out
 }
 
@@ -111,39 +119,39 @@ func StopCapture() []CapturedFile {
 // Unlike capture mode this does not suppress IO. Used by `sync` to learn
 // every emitted path in a single pass for follow-up actions like
 // .gitignore management.
-func StartRecording() {
-	state.mu.Lock()
-	state.recording = true
-	state.recorded = nil
-	state.mu.Unlock()
+func (s *Session) StartRecording() {
+	s.mu.Lock()
+	s.recording = true
+	s.recorded = nil
+	s.mu.Unlock()
 }
 
 // StopRecording returns the recorded paths and disables recording.
-func StopRecording() []string {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.recording = false
-	out := state.recorded
-	state.recorded = nil
+func (s *Session) StopRecording() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.recording = false
+	out := s.recorded
+	s.recorded = nil
 	return out
 }
 
 // StartCounting begins tracking the number of files written to disk.
 // Does not affect IO.
-func StartCounting() {
-	state.mu.Lock()
-	state.counting = true
-	state.counted = 0
-	state.mu.Unlock()
+func (s *Session) StartCounting() {
+	s.mu.Lock()
+	s.counting = true
+	s.counted = 0
+	s.mu.Unlock()
 }
 
 // StopCounting returns the count of files written since StartCounting
 // and disables counting mode.
-func StopCounting() int {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.counting = false
-	n := state.counted
+func (s *Session) StopCounting() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.counting = false
+	n := s.counted
 	return n
 }
 
@@ -153,52 +161,52 @@ func StopCounting() int {
 // "skip") by comparing the new content against what is on disk before writing.
 // Files whose content is unchanged are not rewritten and are recorded with
 // action "skip".
-func StartDetailedRecording() {
-	state.mu.Lock()
-	state.detailing = true
-	state.detailed = nil
-	state.mu.Unlock()
+func (s *Session) StartDetailedRecording() {
+	s.mu.Lock()
+	s.detailing = true
+	s.detailed = nil
+	s.mu.Unlock()
 }
 
 // StopDetailedRecording returns the collected write records and disables
 // detailed recording mode.
-func StopDetailedRecording() []WrittenFile {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.detailing = false
-	out := state.detailed
-	state.detailed = nil
+func (s *Session) StopDetailedRecording() []WrittenFile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.detailing = false
+	out := s.detailed
+	s.detailed = nil
 	return out
 }
 
 // StartTransaction begins recording pre-write file state so that Rollback
 // can undo all writes if a sync pass fails partway through. Commit clears
 // the log on success.
-func StartTransaction() {
-	state.mu.Lock()
-	state.transacting = true
-	state.txLog = nil
-	state.mu.Unlock()
+func (s *Session) StartTransaction() {
+	s.mu.Lock()
+	s.transacting = true
+	s.txLog = nil
+	s.mu.Unlock()
 }
 
 // Commit clears the transaction log and disables transaction mode. Call
 // after a successful sync to release the log.
-func Commit() {
-	state.mu.Lock()
-	state.transacting = false
-	state.txLog = nil
-	state.mu.Unlock()
+func (s *Session) Commit() {
+	s.mu.Lock()
+	s.transacting = false
+	s.txLog = nil
+	s.mu.Unlock()
 }
 
 // Rollback undoes all file writes recorded since StartTransaction. New files
 // are removed; overwritten files are restored from their pre-write content.
 // All entries are attempted; errors are joined and returned.
-func Rollback() error {
-	state.mu.Lock()
-	log := state.txLog
-	state.txLog = nil
-	state.transacting = false
-	state.mu.Unlock()
+func (s *Session) Rollback() error {
+	s.mu.Lock()
+	log := s.txLog
+	s.txLog = nil
+	s.transacting = false
+	s.mu.Unlock()
 
 	var errs []error
 	for i := len(log) - 1; i >= 0; i-- {
@@ -223,8 +231,8 @@ func Rollback() error {
 // appended to the recorder. When detailed recording mode is active, the
 // action (create/update/skip) is determined by comparing against existing
 // content; unchanged files are skipped and not rewritten.
-func WriteFile(path, content string, dryRun bool) error {
-	return writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, dryRun)
+func (s *Session) WriteFile(path, content string, dryRun bool) error {
+	return s.writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, dryRun)
 }
 
 // normalizeTrailingNewline collapses any run of trailing newlines into
@@ -253,23 +261,23 @@ func escapesProjectRoot(path string) bool {
 	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
 }
 
-func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
-	state.mu.Lock()
-	capturing := state.capturing
-	backup := state.backup
-	recording := state.recording
-	detailing := state.detailing
-	transacting := state.transacting
+func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
+	s.mu.Lock()
+	capturing := s.capturing
+	backup := s.backup
+	recording := s.recording
+	detailing := s.detailing
+	transacting := s.transacting
 	if capturing {
-		state.captured = append(state.captured, CapturedFile{Path: path, Content: content})
+		s.captured = append(s.captured, CapturedFile{Path: path, Content: content})
 	}
 	if recording {
-		state.recorded = append(state.recorded, path)
+		s.recorded = append(s.recorded, path)
 	}
-	if state.counting && !capturing && !dryRun {
-		state.counted++
+	if s.counting && !capturing && !dryRun {
+		s.counted++
 	}
-	state.mu.Unlock()
+	s.mu.Unlock()
 
 	if capturing {
 		return nil
@@ -294,9 +302,9 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 			action = "create"
 		case err == nil && string(existing) == content:
 			// File is already up to date; skip the write.
-			state.mu.Lock()
-			state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip"})
-			state.mu.Unlock()
+			s.mu.Lock()
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip"})
+			s.mu.Unlock()
 			return nil
 		default:
 			action = "update"
@@ -307,9 +315,9 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 			if action == "update" {
 				pre = existing
 			}
-			state.mu.Lock()
-			state.txLog = append(state.txLog, txEntry{path: path, content: pre})
-			state.mu.Unlock()
+			s.mu.Lock()
+			s.txLog = append(s.txLog, txEntry{path: path, content: pre})
+			s.mu.Unlock()
 		}
 		if backup && action == "update" {
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
@@ -319,24 +327,24 @@ func writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) erro
 		if err := os.WriteFile(path, []byte(content), mode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
-		state.mu.Lock()
-		state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action})
-		state.mu.Unlock()
+		s.mu.Lock()
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action})
+		s.mu.Unlock()
 		return nil
 	}
 
 	// Log pre-write state for rollback.
 	if transacting {
 		pre, readErr := os.ReadFile(path)
-		state.mu.Lock()
+		s.mu.Lock()
 		switch {
 		case readErr == nil:
-			state.txLog = append(state.txLog, txEntry{path: path, content: pre})
+			s.txLog = append(s.txLog, txEntry{path: path, content: pre})
 		case os.IsNotExist(readErr):
-			state.txLog = append(state.txLog, txEntry{path: path, content: nil})
+			s.txLog = append(s.txLog, txEntry{path: path, content: nil})
 		}
 		// Other read errors: skip logging; the write below will also fail.
-		state.mu.Unlock()
+		s.mu.Unlock()
 	}
 
 	if backup {
@@ -387,7 +395,7 @@ func IsAbsent(err error) bool {
 // recording logs the removal as a "delete" action so `sync` accounting
 // includes the cleaned-up file. Transaction logging captures the
 // pre-removal bytes so Rollback can restore the file.
-func RemoveGenerated(path string, dryRun bool) error {
+func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 	existing, err := os.ReadFile(path)
 	if IsAbsent(err) {
 		return nil
@@ -399,11 +407,11 @@ func RemoveGenerated(path string, dryRun bool) error {
 		return nil
 	}
 
-	state.mu.Lock()
-	capturing := state.capturing
-	detailing := state.detailing
-	transacting := state.transacting
-	state.mu.Unlock()
+	s.mu.Lock()
+	capturing := s.capturing
+	detailing := s.detailing
+	transacting := s.transacting
+	s.mu.Unlock()
 
 	if capturing {
 		return nil
@@ -414,9 +422,9 @@ func RemoveGenerated(path string, dryRun bool) error {
 	}
 
 	if transacting {
-		state.mu.Lock()
-		state.txLog = append(state.txLog, txEntry{path: path, content: existing})
-		state.mu.Unlock()
+		s.mu.Lock()
+		s.txLog = append(s.txLog, txEntry{path: path, content: existing})
+		s.mu.Unlock()
 	}
 
 	if err := os.Remove(path); err != nil && !IsAbsent(err) {
@@ -424,9 +432,9 @@ func RemoveGenerated(path string, dryRun bool) error {
 	}
 
 	if detailing {
-		state.mu.Lock()
-		state.detailed = append(state.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete"})
-		state.mu.Unlock()
+		s.mu.Lock()
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete"})
+		s.mu.Unlock()
 	}
 	return nil
 }
@@ -443,7 +451,7 @@ func RemoveGenerated(path string, dryRun bool) error {
 // transaction modes via RemoveGenerated; directory removals only
 // happen on the real path (no transaction logging) since an empty
 // directory has no content to restore.
-func RemoveGeneratedTree(dir string, dryRun bool) error {
+func (s *Session) RemoveGeneratedTree(dir string, dryRun bool) error {
 	info, err := os.Stat(dir)
 	if IsAbsent(err) {
 		return nil
@@ -468,16 +476,16 @@ func RemoveGeneratedTree(dir string, dryRun bool) error {
 		return fmt.Errorf("walk %s: %w", dir, err)
 	}
 	for _, p := range filePaths {
-		if err := RemoveGenerated(p, dryRun); err != nil {
+		if err := s.RemoveGenerated(p, dryRun); err != nil {
 			return err
 		}
 	}
 	if dryRun {
 		return nil
 	}
-	state.mu.Lock()
-	capturing := state.capturing
-	state.mu.Unlock()
+	s.mu.Lock()
+	capturing := s.capturing
+	s.mu.Unlock()
 	if capturing {
 		return nil
 	}
@@ -531,7 +539,7 @@ func removeEmptyDirs(dir string) error {
 // relative to srcDir (forward slashes). Returning true skips the file
 // — adapters use this to exclude SKILL.md when they re-render the
 // frontmatter themselves and only want sibling assets propagated.
-func CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) error {
+func (s *Session) CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) error {
 	info, err := os.Stat(srcDir)
 	if err != nil {
 		if IsAbsent(err) {
@@ -565,7 +573,7 @@ func CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) er
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		dst := filepath.Join(dstDir, rel)
-		return writeFileWithMode(dst, string(data), fi.Mode().Perm(), dryRun)
+		return s.writeFileWithMode(dst, string(data), fi.Mode().Perm(), dryRun)
 	})
 }
 

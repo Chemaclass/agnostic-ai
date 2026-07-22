@@ -42,16 +42,16 @@ func (Adapter) Name() string { return target }
 // Emit writes one .md per rule, agent, and skill into the rules
 // directory, then writes the MCP server file when the bundle has any
 // MCP entries.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
 	}, dryRun); err != nil {
 		return err
 	}
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }

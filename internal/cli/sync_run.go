@@ -85,21 +85,22 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 // text sync); writes holds the recorded write events and is empty in dry-run.
 // The recording buffer is always stopped before returning, so no global
 // recording state leaks.
-func emitTarget(t string, b spec.Bundle, cfg *config.Config, dryRun bool) (writes []adapters.WrittenFile, resolved bool, err error) {
+func emitTarget(sess *adapters.Session, t string, b spec.Bundle, cfg *config.Config, dryRun bool) (writes []adapters.WrittenFile, resolved bool, err error) {
 	adapter, err := adapters.Resolve(t)
 	if err != nil {
 		return nil, false, err
 	}
-	adapters.StartDetailedRecording()
-	if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
-		adapters.StopDetailedRecording()
+	sess.StartDetailedRecording()
+	if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, dryRun); err != nil {
+		sess.StopDetailedRecording()
 		return nil, true, err
 	}
-	return adapters.StopDetailedRecording(), true, nil
+	return sess.StopDetailedRecording(), true, nil
 }
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
 	start := time.Now()
+	sess := adapters.NewSession()
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	cfg, b, err := loadProject(root)
@@ -119,27 +120,27 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	prev := readStateFile(root)
 	if backup {
-		adapters.SetBackup(true)
-		defer adapters.SetBackup(false)
+		sess.SetBackup(true)
+		defer sess.SetBackup(false)
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 	if gitignoreOn {
-		adapters.StartRecording()
+		sess.StartRecording()
 		// Safety net for the early returns below: the success path
 		// consumes the recorded paths for the .gitignore block, after
 		// which this deferred call no-ops (StopRecording is idempotent).
-		defer adapters.StopRecording()
+		defer sess.StopRecording()
 	}
 	if !dryRun {
-		adapters.StartTransaction()
+		sess.StartTransaction()
 		defer func() {
 			if retErr != nil {
 				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
-				if rbErr := adapters.Rollback(); rbErr != nil {
+				if rbErr := sess.Rollback(); rbErr != nil {
 					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 				}
 			} else {
-				adapters.Commit()
+				sess.Commit()
 			}
 		}()
 	}
@@ -148,7 +149,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	filesChanged := 0
 	var ledgerSession []string
 	for _, t := range effectiveTargets {
-		writes, resolved, err := emitTarget(t, b, cfg, dryRun)
+		writes, resolved, err := emitTarget(sess, t, b, cfg, dryRun)
 		if err != nil {
 			if !resolved {
 				fmt.Fprintf(os.Stderr, "! %v\n", err)
@@ -166,12 +167,12 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
 		}
 	}
-	adapters.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
-		adapters.StopDetailedRecording()
+	sess.StartDetailedRecording()
+	if err := writeAgnosticEntryPoints(sess, cfg, b, effectiveTargets, dryRun); err != nil {
+		sess.StopDetailedRecording()
 		return err
 	}
-	entryWrites := adapters.StopDetailedRecording()
+	entryWrites := sess.StopDetailedRecording()
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession)
 		created, updated, _ := classifyDetailedWrites(entryWrites)
@@ -184,10 +185,10 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
 		}
 	}
-	applied := shared.apply(dryRun)
+	applied := shared.apply(sess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	if gitignoreOn {
-		entries := adapters.StopRecording()
+		entries := sess.StopRecording()
 		for _, l := range applied {
 			entries = append(entries, l.path)
 		}
@@ -228,7 +229,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	ledger := finalizeLedger(ledgerSession)
 	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
-	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
+	removed, sweepErr := sweepLedgerOrphans(sess, prev.Outputs, ledger, dryRun)
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
@@ -309,6 +310,7 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+	sess := adapters.NewSession()
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	defer adapters.ResetCapabilityWarnings()
@@ -330,20 +332,20 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 	prev := readStateFile(root)
 	if backup {
-		adapters.SetBackup(true)
-		defer adapters.SetBackup(false)
+		sess.SetBackup(true)
+		defer sess.SetBackup(false)
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 	if gitignoreOn {
-		adapters.StartRecording()
-		defer adapters.StopRecording()
+		sess.StartRecording()
+		defer sess.StopRecording()
 	}
 	shared.reconcile(prev.Outputs, dryRun)
 
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string
 	for _, t := range effectiveTargets {
-		writes, _, err := emitTarget(t, b, cfg, dryRun)
+		writes, _, err := emitTarget(sess, t, b, cfg, dryRun)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue
@@ -352,12 +354,12 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		appendFileRecords(&out, t, writes)
 	}
 
-	adapters.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
-		adapters.StopDetailedRecording()
+	sess.StartDetailedRecording()
+	if err := writeAgnosticEntryPoints(sess, cfg, b, effectiveTargets, dryRun); err != nil {
+		sess.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {
-		entryWrites := adapters.StopDetailedRecording()
+		entryWrites := sess.StopDetailedRecording()
 		recordLedgerWrites(entryWrites, &ledgerSession)
 		appendFileRecords(&out, "agnostic-ai", entryWrites)
 		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
@@ -368,13 +370,13 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		}
 	}
 
-	applied := shared.apply(dryRun)
+	applied := shared.apply(sess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
 	}
 	if gitignoreOn {
-		entries := adapters.StopRecording()
+		entries := sess.StopRecording()
 		for _, l := range applied {
 			entries = append(entries, l.path)
 		}
@@ -386,7 +388,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 	ledger := finalizeLedger(ledgerSession)
 	ledger = reconcilePartialLedger(ledger, prev.Outputs, coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
-	removed, sweepErr := sweepLedgerOrphans(prev.Outputs, ledger, dryRun)
+	removed, sweepErr := sweepLedgerOrphans(sess, prev.Outputs, ledger, dryRun)
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}

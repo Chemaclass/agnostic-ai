@@ -44,7 +44,7 @@ func TestEmit_SkillBundledAssetsPropagate(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillDir, "SKILL.md"), Body: "body"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 

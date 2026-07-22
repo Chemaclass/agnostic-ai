@@ -7,17 +7,18 @@ import (
 )
 
 func TestTransaction_RollbackRestoresOverwrittenFile(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
 	if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	StartTransaction()
-	if err := WriteFile(path, "modified", false); err != nil {
+	sess.StartTransaction()
+	if err := sess.WriteFile(path, "modified", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rollback(); err != nil {
+	if err := sess.Rollback(); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
 
@@ -31,14 +32,15 @@ func TestTransaction_RollbackRestoresOverwrittenFile(t *testing.T) {
 }
 
 func TestTransaction_RollbackDeletesNewFile(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "newfile.md")
 
-	StartTransaction()
-	if err := WriteFile(path, "created", false); err != nil {
+	sess.StartTransaction()
+	if err := sess.WriteFile(path, "created", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rollback(); err != nil {
+	if err := sess.Rollback(); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
 
@@ -48,17 +50,18 @@ func TestTransaction_RollbackDeletesNewFile(t *testing.T) {
 }
 
 func TestTransaction_CommitPreservesWrites(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
 	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	StartTransaction()
-	if err := WriteFile(path, "new", false); err != nil {
+	sess.StartTransaction()
+	if err := sess.WriteFile(path, "new", false); err != nil {
 		t.Fatal(err)
 	}
-	Commit()
+	sess.Commit()
 
 	got, err := os.ReadFile(path)
 	if err != nil {
@@ -70,6 +73,7 @@ func TestTransaction_CommitPreservesWrites(t *testing.T) {
 }
 
 func TestTransaction_RollbackMultipleFilesInReverseOrder(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	fileA := filepath.Join(dir, "a.md")
 	fileB := filepath.Join(dir, "b.md")
@@ -77,14 +81,14 @@ func TestTransaction_RollbackMultipleFilesInReverseOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	StartTransaction()
-	if err := WriteFile(fileA, "a-new", false); err != nil {
+	sess.StartTransaction()
+	if err := sess.WriteFile(fileA, "a-new", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteFile(fileB, "b-created", false); err != nil {
+	if err := sess.WriteFile(fileB, "b-created", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rollback(); err != nil {
+	if err := sess.Rollback(); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
 
@@ -101,23 +105,25 @@ func TestTransaction_RollbackMultipleFilesInReverseOrder(t *testing.T) {
 }
 
 func TestTransaction_RollbackNoOpsWithoutStart(t *testing.T) {
-	if err := Rollback(); err != nil {
+	sess := NewSession()
+	if err := sess.Rollback(); err != nil {
 		t.Errorf("rollback with no transaction should be a no-op, got %v", err)
 	}
 }
 
 func TestTransaction_CommitClearsLog(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "file.md")
 
-	StartTransaction()
-	if err := WriteFile(path, "v1", false); err != nil {
+	sess.StartTransaction()
+	if err := sess.WriteFile(path, "v1", false); err != nil {
 		t.Fatal(err)
 	}
-	Commit()
+	sess.Commit()
 
 	// Second rollback should be a no-op (log was cleared by Commit).
-	if err := Rollback(); err != nil {
+	if err := sess.Rollback(); err != nil {
 		t.Errorf("rollback after commit should be no-op, got %v", err)
 	}
 	got, err := os.ReadFile(path)
@@ -130,6 +136,7 @@ func TestTransaction_CommitClearsLog(t *testing.T) {
 }
 
 func TestTransaction_RollbackWithDetailedRecordingMode(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	existing := filepath.Join(dir, "existing.md")
 	brand := filepath.Join(dir, "brand-new.md")
@@ -137,16 +144,16 @@ func TestTransaction_RollbackWithDetailedRecordingMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	StartDetailedRecording()
-	StartTransaction()
-	if err := WriteFile(existing, "after", false); err != nil {
+	sess.StartDetailedRecording()
+	sess.StartTransaction()
+	if err := sess.WriteFile(existing, "after", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteFile(brand, "fresh", false); err != nil {
+	if err := sess.WriteFile(brand, "fresh", false); err != nil {
 		t.Fatal(err)
 	}
-	StopDetailedRecording()
-	if err := Rollback(); err != nil {
+	sess.StopDetailedRecording()
+	if err := sess.Rollback(); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
 

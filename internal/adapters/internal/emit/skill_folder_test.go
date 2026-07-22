@@ -58,6 +58,7 @@ func TestSkillMarkdown_TargetMetaPassesThroughAndExcludes(t *testing.T) {
 }
 
 func TestWriteSkillFolder_WritesSKILLMdAndAssets(t *testing.T) {
+	sess := NewSession()
 	dir := testutil.TempCwd(t)
 	src := filepath.Join(dir, "srcskill")
 	if err := os.MkdirAll(src, 0o755); err != nil {
@@ -74,7 +75,7 @@ func TestWriteSkillFolder_WritesSKILLMdAndAssets(t *testing.T) {
 		Path: filepath.Join(src, "SKILL.md"),
 		Body: "body",
 	}
-	if err := WriteSkillFolder(s, "zed", "out/skills", false); err != nil {
+	if err := sess.WriteSkillFolder(s, "zed", "out/skills", false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "out/skills/deploy/SKILL.md"))

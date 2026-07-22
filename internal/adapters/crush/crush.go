@@ -53,27 +53,27 @@ func (Adapter) Name() string { return target }
 // Emit writes one native skill folder per skill under .agents/skills/
 // and crush.json for MCP servers. The project-root AGENTS.md (with
 // rule bodies inlined) is written by `sync`, not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitMCPConfig writes (or merges into) crush.json with the `mcp` map.
 // Routes through emit.MergeJSONFile so any pre-existing user-managed
 // keys (models, providers, lsp, options, ...) survive the sync; only
 // `mcp` is overwritten.
-func emitMCPConfig(mcps []spec.Entry, path string, dryRun bool) error {
+func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
 	servers := buildMCPMap(mcps)
 	if len(servers) == 0 {
 		return nil
 	}
-	return emit.MergeJSONFile(path, map[string]any{"mcp": servers}, dryRun)
+	return sess.MergeJSONFile(path, map[string]any{"mcp": servers}, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {

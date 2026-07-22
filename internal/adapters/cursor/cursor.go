@@ -68,11 +68,11 @@ func (Adapter) Name() string { return target }
 // `.cursor/skills/`, one command per command spec under
 // `.cursor/commands/`, plus an `.cursor/mcp.json` when MCP entries
 // exist.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir: emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext: defaultExt,
 		// Agents and skills emit natively under .cursor/agents/ and
@@ -86,36 +86,36 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	for _, a := range b.Agents {
-		if err := emitAgent(a, agentsDir, dryRun); err != nil {
+		if err := emitAgent(sess, a, agentsDir, dryRun); err != nil {
 			return err
 		}
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	for _, s := range b.Skills {
-		if err := emitSkill(s, skillsDir, dryRun); err != nil {
+		if err := emitSkill(sess, s, skillsDir, dryRun); err != nil {
 			return err
 		}
 	}
-	if err := emitReviews(b, cfg, dryRun); err != nil {
+	if err := emitReviews(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitEnvironment(b, cfg, dryRun); err != nil {
+	if err := emitEnvironment(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	for _, c := range b.Commands {
 		path := commandsDir + "/" + c.Name + ".md"
-		if err := emit.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(command(c), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
-	if err := emitHooks(b.HooksFor(target), cfg, dryRun); err != nil {
+	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
 	}
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // hooksDoc is the `.cursor/hooks.json` shape per the Cursor hooks docs:
@@ -132,7 +132,7 @@ type hooksDoc struct {
 // `outputs.cursor.hooks-file`. Hook scripts stashed under
 // `.agnostic-ai/scripts/` materialize into `.cursor/hooks/` so the
 // emitted `command:` paths resolve.
-func emitHooks(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	byEvent := buildHooks(hooks)
 	if len(byEvent) == 0 {
 		return nil
@@ -142,7 +142,7 @@ func emitHooks(hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 		return fmt.Errorf("cursor hooks: %w", err)
 	}
 	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
-	if err := emit.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
+	if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
 		return err
 	}
 	return materializeHookScripts(hooks, dryRun)
@@ -265,7 +265,7 @@ func command(e spec.Entry) string {
 // `backend/.cursor/BUGBOT.md`. Specs sharing a scope concatenate into
 // that scope's single file. The basename is overridable via
 // `outputs.cursor.review-file`.
-func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if len(b.Reviews) == 0 {
 		return nil
 	}
@@ -294,7 +294,7 @@ func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			sb.WriteString(strings.TrimRight(r.Body, "\n"))
 		}
 		path := filepath.Join(scope, ".cursor", base)
-		if err := emit.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
@@ -308,7 +308,7 @@ func emitReviews(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // agnostic-ai single-sources it. Multiple environment specs merge by
 // top-level key, last spec winning. The path is overridable via
 // `outputs.cursor.environment-file`.
-func emitEnvironment(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if len(b.Environments) == 0 {
 		return nil
 	}
@@ -333,7 +333,7 @@ func emitEnvironment(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return fmt.Errorf("cursor environment: %w", err)
 	}
 	path := emit.OutputEnvironmentFile(cfg, target, defaultEnvironFile)
-	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+	return sess.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // scopeEscapesRoot reports whether a cleaned scope points at or above the

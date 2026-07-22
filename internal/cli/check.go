@@ -42,18 +42,19 @@ func collectDrift(targets []string) ([]driftReport, error) {
 	if err := detectCollisions(cfg, b, targets); err != nil {
 		return nil, err
 	}
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "! %v\n", err)
 			continue
 		}
-		adapters.StartCapture()
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, false); err != nil {
-			adapters.StopCapture()
+		sess.StartCapture()
+		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
+			sess.StopCapture()
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		files := adapters.StopCapture()
+		files := sess.StopCapture()
 
 		rep := driftReport{Target: t}
 		for _, f := range files {
@@ -313,9 +314,10 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
 // reports. Files in sync are left untouched. Returns the number of files
 // written.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
+	sess := adapters.NewSession()
 	if backup {
-		adapters.SetBackup(true)
-		defer adapters.SetBackup(false)
+		sess.SetBackup(true)
+		defer sess.SetBackup(false)
 	}
 	written := 0
 	for _, r := range reports {
@@ -323,7 +325,7 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			continue
 		}
 		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.Stale...) {
-			if err := adapters.WriteFile(f.Path, f.Content, false); err != nil {
+			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
 			written++

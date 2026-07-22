@@ -77,17 +77,18 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 // returns the per-target file sets. No files touch disk.
 func captureRenders(cfg *config.Config, b spec.Bundle, targets []string) ([]targetCapture, error) {
 	var out []targetCapture
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		adapters.StartCapture()
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, false); err != nil {
-			adapters.StopCapture()
+		sess.StartCapture()
+		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
+			sess.StopCapture()
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		out = append(out, targetCapture{target: t, files: adapters.StopCapture()})
+		out = append(out, targetCapture{target: t, files: sess.StopCapture()})
 	}
 	return out, nil
 }
@@ -280,7 +281,7 @@ func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
 // privilege) degrades to real copies without ever losing the tree.
 // Folders that still contain user-authored files after the managed
 // sweep keep their real copy. Returns the links now in place.
-func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
+func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillLink {
 	var applied []skillLink
 	warned := false
 	warnf := func(format string, a ...any) {
@@ -314,7 +315,7 @@ func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
 			warnf("%v", err)
 			continue
 		}
-		if err := adapters.RemoveGeneratedTree(l.path, false); err != nil {
+		if err := sess.RemoveGeneratedTree(l.path, false); err != nil {
 			_ = os.Remove(tmp)
 			warnf("%v", err)
 			continue

@@ -13,6 +13,7 @@ import (
 // recording (and therefore added to the managed .gitignore block) rather
 // than written silently via raw os.WriteFile.
 func TestRestoreHelperFiles_IsRecorded(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	chdirHelper(t, dir)
 
@@ -24,11 +25,11 @@ func TestRestoreHelperFiles_IsRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	StartRecording()
-	if err := RestoreHelperFiles("claude", false); err != nil {
+	sess.StartRecording()
+	if err := sess.RestoreHelperFiles("claude", false); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	paths := StopRecording()
+	paths := sess.StopRecording()
 
 	want := filepath.Join(".claude", "README.md")
 	found := false
@@ -48,6 +49,7 @@ func TestRestoreHelperFiles_IsRecorded(t *testing.T) {
 // TestRestoreHelperFiles_PreservesMode keeps an executable overlay helper
 // (e.g. a hook script) executable after restore.
 func TestRestoreHelperFiles_PreservesMode(t *testing.T) {
+	sess := NewSession()
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not support the unix executable bit")
 	}
@@ -62,7 +64,7 @@ func TestRestoreHelperFiles_PreservesMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := RestoreHelperFiles("claude", false); err != nil {
+	if err := sess.RestoreHelperFiles("claude", false); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 

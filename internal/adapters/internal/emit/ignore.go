@@ -24,10 +24,10 @@ func IgnoreBody(ignores []spec.Entry) string {
 // gitignore-style ignore file (.cursorignore, .aiexclude, .aiderignore)
 // understands. No-op when the patterns are empty so a target never writes a
 // surprise empty ignore file.
-func WriteIgnoreFile(ignores []spec.Entry, path string, dryRun bool) error {
+func (s *Session) WriteIgnoreFile(ignores []spec.Entry, path string, dryRun bool) error {
 	body := IgnoreBody(ignores)
 	if body == "" {
 		return nil
 	}
-	return WriteFile(path, WithHeader(body+"\n", FormatShell), dryRun)
+	return s.WriteFile(path, WithHeader(body+"\n", FormatShell), dryRun)
 }

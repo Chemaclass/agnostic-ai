@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -24,7 +25,7 @@ func TestEmit_WritesCommandFileWhenCommandsDirSet(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship it"}, Body: "Run the deploy steps."},
 	})
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".cursor", "commands", "deploy.md"))
@@ -46,7 +47,7 @@ func TestEmit_CommandEmitsToDefaultCommandsDir(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Body: "Run the deploy steps."},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".cursor", "commands", "deploy.md")); err != nil {
@@ -63,7 +64,7 @@ func TestEmit_WritesCursorHooksJSON(t *testing.T) {
 		{Kind: spec.KindHook, Name: "audit-shell", Meta: map[string]any{"event": "beforeShellExecution", "matcher": "rm|dd", "command": "echo audit"}},
 		{Kind: spec.KindHook, Name: "fmt-edit", Meta: map[string]any{"event": "afterFileEdit", "command": "echo fmt"}},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".cursor", "hooks.json"))
@@ -96,7 +97,7 @@ func TestEmit_WritesCursorHooksJSON(t *testing.T) {
 // No hook specs means no .cursor/hooks.json is written (no surprise file).
 func TestEmit_NoHooksFileWithoutHookSpecs(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".cursor", "hooks.json")); !os.IsNotExist(err) {
@@ -116,7 +117,7 @@ func TestEmit_ReviewWritesBugbotPerScope(t *testing.T) {
 		{Kind: spec.KindReview, Name: "root2", Path: "reviews/root2.md", Body: "root rule two"},
 		{Kind: spec.KindReview, Name: "be", Path: "reviews/backend/be.md", Scope: "backend", Body: "backend rule"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -147,7 +148,7 @@ func TestEmit_ReviewFileOverride(t *testing.T) {
 		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: "guidance"},
 	})
 	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {ReviewFile: "REVIEW.md"}}}
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "REVIEW.md"))
@@ -170,7 +171,7 @@ func TestEmit_ReviewScopeEscapeIsBlocked(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindReview, Name: "evil", Path: "reviews/evil.md", Meta: map[string]any{"scope": "../escape"}, Body: "x"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(cwd), "escape", "BUGBOT.md")); err == nil {
@@ -193,7 +194,7 @@ func TestEmit_EnvironmentWritesCursorJSON(t *testing.T) {
 			Meta: map[string]any{"terminals": []any{map[string]any{"name": "dev", "command": "make run"}}},
 		},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(cwd, ".cursor", "environment.json"))
@@ -234,7 +235,7 @@ func TestEmit_EnvironmentMergeLastWinsAndResolvesMeta(t *testing.T) {
 			},
 		},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	doc := map[string]any{}
@@ -267,7 +268,7 @@ func TestEmit_EnvironmentFileOverride(t *testing.T) {
 		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml", Meta: map[string]any{"install": "x"}},
 	})
 	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {EnvironmentFile: ".cursor/env.custom.json"}}}
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if _, err := os.ReadFile(filepath.Join(cwd, ".cursor", "env.custom.json")); err != nil {
@@ -284,7 +285,7 @@ func TestEmit_IgnoreWritesCursorignore(t *testing.T) {
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env"},
 		{Kind: spec.KindIgnore, Name: "build", Path: "ignore/build.md", Body: "dist/"},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	got, err := os.ReadFile(filepath.Join(cwd, ".cursorignore"))
@@ -307,7 +308,7 @@ func TestEmit_IgnoreFileOverride(t *testing.T) {
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env"},
 	})
 	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {IgnoreFile: ".aiignore"}}}
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	got, err := os.ReadFile(filepath.Join(cwd, ".aiignore"))
@@ -327,7 +328,7 @@ func TestEmit_SettingsKindUnsupported(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "x"}},
 	})
-	err := New().Emit(b, &config.Config{OnUnsupported: "error"}, false)
+	err := New().Emit(emit.NewSession(), b, &config.Config{OnUnsupported: "error"}, false)
 	if err == nil || !strings.Contains(err.Error(), "settings") {
 		t.Fatalf("expected unsupported-settings error, got %v", err)
 	}
@@ -346,7 +347,7 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 			Body: "rule body",
 		},
 	}
-	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/my-rule.mdc"))
@@ -376,7 +377,7 @@ func TestEmit_MdcRuleFrontmatterByteStable(t *testing.T) {
 		// Scalar globs that does not need quoting must stay unquoted.
 		{Kind: spec.KindRule, Name: "scoped", Meta: map[string]any{"globs": "apps/foo/**", "alwaysApply": false}, Body: "body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -415,7 +416,7 @@ func TestEmit_AgentWritesNativeSubagentFile(t *testing.T) {
 			"model":       "inherit",
 		}, Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/agent1.md"))
@@ -439,7 +440,7 @@ func TestEmit_NestedScopeRoutesUnderSubdir(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".cursor/rules/backend/auth.mdc")); err != nil {
@@ -467,7 +468,7 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/mcp.json"))
@@ -489,7 +490,7 @@ func TestEmit_SkillWritesNativeSkillFolder(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "sk1", Meta: map[string]any{"description": "skill desc"}, Body: "skill body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/skills/sk1/SKILL.md"))
@@ -522,7 +523,7 @@ func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
 			"disable-model-invocation": true,
 		}, Body: "b"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "vendor/skills/sk1/SKILL.md"))
@@ -551,7 +552,7 @@ func TestEmit_AgentDoesNotEmitAsCommandOrRule(t *testing.T) {
 			"is_background": true,
 		}, Body: "Body of the prompt.\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/agents/code-reviewer.md"))
@@ -578,7 +579,7 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Meta: map[string]any{"description": "d"}, Body: "body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/r1.mdc"))
@@ -613,7 +614,7 @@ func TestEmit_HookOptionalFieldsPassThrough(t *testing.T) {
 			"failClosed": true,
 		}},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".cursor/hooks.json"))
@@ -643,7 +644,7 @@ func TestEmit_RulePathsMapToGlobs(t *testing.T) {
 			"paths": []any{"src/**"},
 		}, Body: "always rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 

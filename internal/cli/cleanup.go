@@ -110,18 +110,19 @@ func syncBackupPaths(cfg *config.Config, b spec.Bundle) ([]string, error) {
 		seen[bak] = true
 		out = append(out, bak)
 	}
+	sess := adapters.NewSession()
 	for _, t := range cfg.Targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		adapters.StartCapture()
+		sess.StartCapture()
 		// dryRun=true: capture the paths without writing anything.
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, true); err != nil {
-			adapters.StopCapture()
+		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+			sess.StopCapture()
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		for _, f := range adapters.StopCapture() {
+		for _, f := range sess.StopCapture() {
 			add(f.Path)
 		}
 	}

@@ -20,11 +20,11 @@ import (
 //
 // No-op when the source path is unknown (empty Path, e.g. in-memory specs
 // from the WASM playground) so adapters stay safe for non-disk callers.
-func PropagateSkillAssets(s spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
-	if !FolderBasedSkill(s) {
+func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
+	if !FolderBasedSkill(sk) {
 		return nil
 	}
-	return CopyTree(filepath.Dir(s.Path), dstDir, skip, dryRun)
+	return s.CopyTree(filepath.Dir(sk.Path), dstDir, skip, dryRun)
 }
 
 // SkipSKILLMd is the common sibling-asset skip predicate: it excludes the

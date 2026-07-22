@@ -84,7 +84,7 @@ func (Adapter) GitignoreHints(cfg *config.Config) []string {
 }
 
 // Emit writes the agents, skills, rules, and hook settings.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, "agents", a.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -103,10 +103,10 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		folder := filepath.Join(dir, "skills", s.Name)
 		path := filepath.Join(folder, "SKILL.md")
 		body := emit.WithHeader(emit.DocumentStyled(s.Meta, s.MetaKeys, s.MetaStyles, s.Body, target), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
-		if err := emit.PropagateSkillAssets(s, folder, claudeSkillSkipFor(s), dryRun); err != nil {
+		if err := sess.PropagateSkillAssets(s, folder, claudeSkillSkipFor(s), dryRun); err != nil {
 			return err
 		}
 	}
@@ -115,17 +115,17 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(c.Meta, c.MetaKeys, c.MetaStyles, c.Body, target), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
 
-	if err := writeRules(b.Rules, cfg, dryRun); err != nil {
+	if err := writeRules(sess, b.Rules, cfg, dryRun); err != nil {
 		return err
 	}
 
 	hooks := b.HooksFor(target)
-	if err := writeSettings(hooks, b.Settings, dir, cfg, dryRun); err != nil {
+	if err := writeSettings(sess, hooks, b.Settings, dir, cfg, dryRun); err != nil {
 		return err
 	}
 
@@ -133,11 +133,11 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
-	if err := emit.RestoreHelperFiles(target, dryRun); err != nil {
+	if err := sess.RestoreHelperFiles(target, dryRun); err != nil {
 		return err
 	}
 
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from
@@ -236,7 +236,7 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //     instead of alpha-sorted map order.
 //
 // Short-circuit: all layers empty -> write nothing.
-func writeSettings(hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
+func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	path := filepath.Join(dir, "settings.json")
 	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
 	if err != nil {
@@ -298,7 +298,7 @@ func writeSettings(hooks, settings []spec.Entry, dir string, cfg *config.Config,
 	if err != nil {
 		return err
 	}
-	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+	return sess.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // detectSettingsIndent sniffs the indent style of the overlay (preferred,
@@ -418,7 +418,7 @@ func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 // default; Claude Code discovers every `.md` under that directory at
 // session start. Setting `outputs.claude.rules-file` switches back to
 // the legacy single-file concatenated layout (typically CLAUDE.md).
-func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
+func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -428,14 +428,14 @@ func writeRules(rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 		for _, r := range rules {
 			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
 		}
-		return emit.WriteFile(rulesFile, sb.String(), dryRun)
+		return sess.WriteFile(rulesFile, sb.String(), dryRun)
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	for _, r := range rules {
 		path := filepath.Join(rulesDir, r.EffectiveScope(), r.Name+".md")
 		meta, keys := ruleMetaWithPaths(r.Meta, r.MetaKeys)
 		body := emit.WithHeader(emit.DocumentStyled(meta, keys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}

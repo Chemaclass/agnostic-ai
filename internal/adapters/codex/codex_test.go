@@ -20,7 +20,7 @@ func TestEmit_NoRootAgentsMd_ByDefault(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 		{Kind: spec.KindAgent, Name: "ag1", Path: "agents/ag1.md", Body: "agent body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
@@ -37,7 +37,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
@@ -62,7 +62,7 @@ func TestEmit_AgentTOMLFile(t *testing.T) {
 				},
 			}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/agents/pr-reviewer.toml"))
@@ -88,7 +88,7 @@ func TestEmit_AgentTOML_NoExtras(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "explorer", Body: "Trace execution paths."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/agents/explorer.toml"))
@@ -118,7 +118,7 @@ func TestEmit_AgentTOML_RespectsAgentsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "scout", Body: "Look around."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/agents/scout.toml")); err != nil {
@@ -135,7 +135,7 @@ func TestEmit_SkillFolderLayout(t *testing.T) {
 			Body: "Run yamllint, then suggest fixes.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
@@ -164,7 +164,7 @@ func TestEmit_SharedSubagentsFalse_SkipsSkillEmission(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); !os.IsNotExist(err) {
@@ -183,7 +183,7 @@ func TestEmit_SharedSubagentsTrue_EmitsSkills(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
@@ -204,7 +204,7 @@ func TestEmit_SkillsEmitWhenClaudeAlsoEnabled(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
@@ -220,7 +220,7 @@ func TestEmit_SkillsEmitWhenCodexAlone(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
@@ -244,7 +244,7 @@ func TestEmit_SharedSubagents_ExplicitTrueRedundantButOK(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "Run yamllint.",
 			Meta: map[string]any{"description": "Validate YAML."}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md")); err != nil {
@@ -259,7 +259,7 @@ func TestEmit_SkillFolder_DefaultsDescriptionToName(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "explorer",
 			Body: "Trace the call graph."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/explorer/SKILL.md"))
@@ -286,7 +286,7 @@ func TestEmit_SkillFolder_HonorsXCodexDescription(t *testing.T) {
 			},
 			Body: "body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/changelog/SKILL.md"))
@@ -325,7 +325,7 @@ func TestEmit_SkillFolder_OpenAIYAMLFromXCodex(t *testing.T) {
 				},
 			}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/agents/openai.yaml"))
@@ -370,7 +370,7 @@ func TestEmit_SkillFolder_CustomXCodexKeyReachesFrontmatter(t *testing.T) {
 				},
 			}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
@@ -392,7 +392,7 @@ func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "explorer", Body: "Look around."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/explorer/agents/openai.yaml")); err == nil {
@@ -426,7 +426,7 @@ func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
 			Meta: map[string]any{"description": "Validate YAML."},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -462,7 +462,7 @@ func TestEmit_SkillFolder_RespectsSkillsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "explorer", Body: "Look around."},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex/skills/explorer/SKILL.md")); err != nil {
@@ -487,7 +487,7 @@ func TestEmit_WritesCommand_OnlyWhenCommandsDirSet(t *testing.T) {
 			Body: "Run the deploy.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/prompts/deploy.md")); !os.IsNotExist(err) {
@@ -497,7 +497,7 @@ func TestEmit_WritesCommand_OnlyWhenCommandsDirSet(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"codex": {CommandsDir: ".codex/prompts"},
 	}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/prompts/deploy.md"))
@@ -522,7 +522,7 @@ func TestEmit_SweepsLegacyPromptsDir(t *testing.T) {
 	if err := os.WriteFile(stale, []byte(emit.HeaderBlock(emit.FormatMarkdown)+"old prompt\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
@@ -541,7 +541,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/prompts/deploy.md")); err != nil {
@@ -565,7 +565,7 @@ func TestEmit_OutputsCarryProvenanceHeader(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"codex": {CommandsDir: ".codex/prompts"},
 	}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{
@@ -609,7 +609,7 @@ func TestEmit_ProvenanceHeaderToggleOff_SuppressesEverywhere(t *testing.T) {
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
 	}
 	defer emit.ProvenanceFor(cfg, "codex")()
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{
@@ -636,7 +636,7 @@ func TestEmit_AgentBody_PerTargetFences(t *testing.T) {
 
 	body := "Shared intro.\n\n::target codex\nCodex-only paragraph.\n::end\n\n::target claude\nClaude-only paragraph.\n::end\n\nShared outro.\n"
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "diverge", Body: body}}
-	if err := New().Emit(spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".codex/agents/diverge.toml"))
@@ -668,7 +668,7 @@ func TestEmit_AgentScopedToOtherTarget_SkipsCodex(t *testing.T) {
 			Meta: map[string]any{"target": "claude"}},
 		{Kind: spec.KindAgent, Name: "both", Body: "y"},
 	}
-	if err := New().Emit(spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries).For("codex"), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/agents/claude-only.toml")); !os.IsNotExist(err) {
