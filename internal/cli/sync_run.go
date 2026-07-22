@@ -294,6 +294,18 @@ func shortDuration(d time.Duration) string {
 	}
 }
 
+// appendFileRecords sorts each write event into out.Writes or out.Skipped, tagged by target.
+func appendFileRecords(out *jsonOutput, target string, writes []adapters.WrittenFile) {
+	for _, f := range writes {
+		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
+		if f.Action == "skip" {
+			out.Skipped = append(out.Skipped, rec)
+		} else {
+			out.Writes = append(out.Writes, rec)
+		}
+	}
+}
+
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
@@ -337,14 +349,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			continue
 		}
 		recordLedgerWrites(writes, &ledgerSession)
-		for _, f := range writes {
-			rec := fileRecord{Target: t, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
-			if f.Action == "skip" {
-				out.Skipped = append(out.Skipped, rec)
-			} else {
-				out.Writes = append(out.Writes, rec)
-			}
-		}
+		appendFileRecords(&out, t, writes)
 	}
 
 	adapters.StartDetailedRecording()
@@ -354,14 +359,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	} else {
 		entryWrites := adapters.StopDetailedRecording()
 		recordLedgerWrites(entryWrites, &ledgerSession)
-		for _, f := range entryWrites {
-			rec := fileRecord{Target: "agnostic-ai", Path: f.Path, Action: f.Action, Bytes: f.Bytes}
-			if f.Action == "skip" {
-				out.Skipped = append(out.Skipped, rec)
-			} else {
-				out.Writes = append(out.Writes, rec)
-			}
-		}
+		appendFileRecords(&out, "agnostic-ai", entryWrites)
 		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
 		// syncs without going through emit, so register it for the
 		// ledger by hand.
