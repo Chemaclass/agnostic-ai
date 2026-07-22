@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
@@ -77,6 +78,26 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 	return os.WriteFile(p, data, 0o644)
 }
 
+// emitTarget resolves target t and emits it under detailed recording, shared by
+// the text, dry-run, and JSON sync paths so the resolve+record+emit boilerplate
+// lives in one place. resolved reports whether the adapter resolved, letting
+// callers tell a resolve failure (skippable) from an emit failure (fatal for
+// text sync); writes holds the recorded write events and is empty in dry-run.
+// The recording buffer is always stopped before returning, so no global
+// recording state leaks.
+func emitTarget(t string, b spec.Bundle, cfg *config.Config, dryRun bool) (writes []adapters.WrittenFile, resolved bool, err error) {
+	adapter, err := adapters.Resolve(t)
+	if err != nil {
+		return nil, false, err
+	}
+	adapters.StartDetailedRecording()
+	if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
+		adapters.StopDetailedRecording()
+		return nil, true, err
+	}
+	return adapters.StopDetailedRecording(), true, nil
+}
+
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string) (retErr error) {
 	start := time.Now()
 	adapters.ResetCapabilityWarnings()
@@ -104,6 +125,10 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 	if gitignoreOn {
 		adapters.StartRecording()
+		// Safety net for the early returns below: the success path
+		// consumes the recorded paths for the .gitignore block, after
+		// which this deferred call no-ops (StopRecording is idempotent).
+		defer adapters.StopRecording()
 	}
 	if !dryRun {
 		adapters.StartTransaction()
@@ -122,40 +147,34 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	verbose := verbosity >= levelVerbose
 	filesChanged := 0
 	var ledgerSession []string
-	if !dryRun {
-		for _, t := range effectiveTargets {
-			adapter, err := adapters.Resolve(t)
-			if err != nil {
+	for _, t := range effectiveTargets {
+		writes, resolved, err := emitTarget(t, b, cfg, dryRun)
+		if err != nil {
+			if !resolved {
 				fmt.Fprintf(os.Stderr, "! %v\n", err)
 				continue
 			}
-			adapters.StartDetailedRecording()
-			if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
-				adapters.StopDetailedRecording()
-				if gitignoreOn {
-					adapters.StopRecording()
-				}
-				return fmt.Errorf("%s: %w", t, err)
-			}
-			writes := adapters.StopDetailedRecording()
-			recordLedgerWrites(writes, &ledgerSession)
-			created, updated, skipped := classifyDetailedWrites(writes)
-			filesChanged += created + updated
-			if verbose {
-				verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
-			}
+			return fmt.Errorf("%s: %w", t, err)
 		}
-		adapters.StartDetailedRecording()
-		if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
-			adapters.StopDetailedRecording()
-			if gitignoreOn {
-				adapters.StopRecording()
-			}
-			return err
+		if dryRun {
+			continue
 		}
-		writes := adapters.StopDetailedRecording()
 		recordLedgerWrites(writes, &ledgerSession)
-		created, updated, _ := classifyDetailedWrites(writes)
+		created, updated, skipped := classifyDetailedWrites(writes)
+		filesChanged += created + updated
+		if verbose {
+			verbosef("→ %s: %d created, %d updated, %d unchanged\n", t, created, updated, skipped)
+		}
+	}
+	adapters.StartDetailedRecording()
+	if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
+		adapters.StopDetailedRecording()
+		return err
+	}
+	entryWrites := adapters.StopDetailedRecording()
+	if !dryRun {
+		recordLedgerWrites(entryWrites, &ledgerSession)
+		created, updated, _ := classifyDetailedWrites(entryWrites)
 		filesChanged += created + updated
 		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
 		// subsequent syncs and skips the re-write, so detailed
@@ -163,26 +182,6 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		// the ledger does not treat the source body as an orphan.
 		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
 			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
-		}
-	} else {
-		for _, t := range effectiveTargets {
-			adapter, err := adapters.Resolve(t)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "! %v\n", err)
-				continue
-			}
-			if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
-				if gitignoreOn {
-					adapters.StopRecording()
-				}
-				return fmt.Errorf("%s: %w", t, err)
-			}
-		}
-		if err := writeAgnosticEntryPoints(cfg, b, effectiveTargets, dryRun); err != nil {
-			if gitignoreOn {
-				adapters.StopRecording()
-			}
-			return err
 		}
 	}
 	applied := shared.apply(dryRun)
@@ -295,6 +294,18 @@ func shortDuration(d time.Duration) string {
 	}
 }
 
+// appendFileRecords sorts each write event into out.Writes or out.Skipped, tagged by target.
+func appendFileRecords(out *jsonOutput, target string, writes []adapters.WrittenFile) {
+	for _, f := range writes {
+		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
+		if f.Action == "skip" {
+			out.Skipped = append(out.Skipped, rec)
+		} else {
+			out.Writes = append(out.Writes, rec)
+		}
+	}
+}
+
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
@@ -325,33 +336,20 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 	if gitignoreOn {
 		adapters.StartRecording()
+		defer adapters.StopRecording()
 	}
 	shared.reconcile(prev.Outputs, dryRun)
 
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string
 	for _, t := range effectiveTargets {
-		adapter, err := adapters.Resolve(t)
+		writes, _, err := emitTarget(t, b, cfg, dryRun)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue
 		}
-		adapters.StartDetailedRecording()
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, dryRun); err != nil {
-			adapters.StopDetailedRecording()
-			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
-			continue
-		}
-		writes := adapters.StopDetailedRecording()
 		recordLedgerWrites(writes, &ledgerSession)
-		for _, f := range writes {
-			rec := fileRecord{Target: t, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
-			if f.Action == "skip" {
-				out.Skipped = append(out.Skipped, rec)
-			} else {
-				out.Writes = append(out.Writes, rec)
-			}
-		}
+		appendFileRecords(&out, t, writes)
 	}
 
 	adapters.StartDetailedRecording()
@@ -359,16 +357,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		adapters.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {
-		writes := adapters.StopDetailedRecording()
-		recordLedgerWrites(writes, &ledgerSession)
-		for _, f := range writes {
-			rec := fileRecord{Target: "agnostic-ai", Path: f.Path, Action: f.Action, Bytes: f.Bytes}
-			if f.Action == "skip" {
-				out.Skipped = append(out.Skipped, rec)
-			} else {
-				out.Writes = append(out.Writes, rec)
-			}
-		}
+		entryWrites := adapters.StopDetailedRecording()
+		recordLedgerWrites(entryWrites, &ledgerSession)
+		appendFileRecords(&out, "agnostic-ai", entryWrites)
 		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
 		// syncs without going through emit, so register it for the
 		// ledger by hand.
