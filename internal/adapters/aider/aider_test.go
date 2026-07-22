@@ -36,9 +36,10 @@ func TestEmit_ConfFileCaptureReadsExistingUserKeys(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
 
-	emit.StartCapture()
-	err := New().Emit(spec.NewBundle(entries), cfg, false)
-	files := emit.StopCapture()
+	sess := emit.NewSession()
+	sess.StartCapture()
+	err := New().Emit(sess, spec.NewBundle(entries), cfg, false)
+	files := sess.StopCapture()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +72,7 @@ func TestEmit_NoConventionsByDefault(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
-	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "CONVENTIONS.md")); !os.IsNotExist(err) {
@@ -93,7 +94,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1.md", Body: "skill body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "CONVENTIONS.md"))
@@ -128,7 +129,7 @@ func TestEmit_WritesConfFileWhenConfigured(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	doc := readConf(t, filepath.Join(dir, ".aider.conf.yml"))
@@ -161,7 +162,7 @@ func TestEmit_ConfFileMergesPreservingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	doc := readConf(t, filepath.Join(dir, ".aider.conf.yml"))
@@ -192,7 +193,7 @@ func TestEmit_ConfFileDoesNotDuplicateReadEntry(t *testing.T) {
 			"aider": {ConfFile: ".aider.conf.yml"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	doc := readConf(t, filepath.Join(dir, ".aider.conf.yml"))
@@ -217,7 +218,7 @@ func TestEmit_ConfFilePromotesScalarRead(t *testing.T) {
 			"aider": {ConfFile: ".aider.conf.yml"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	doc := readConf(t, filepath.Join(dir, ".aider.conf.yml"))

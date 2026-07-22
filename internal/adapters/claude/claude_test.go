@@ -30,7 +30,7 @@ func TestEmit_WritesAgent(t *testing.T) {
 			Body: "do reviews",
 		},
 	}
-	if err := a.Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "reviewer.md"))
@@ -57,7 +57,7 @@ func TestEmit_PreservesArbitraryAgentFrontmatter(t *testing.T) {
 			"tools":             []any{"Read", "Edit"},
 		},
 	}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude/agents/reviewer.md"))
@@ -83,7 +83,7 @@ func TestEmit_WritesSkillNested(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "validator", Body: "skill body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/skills/validator/SKILL.md")); err != nil {
@@ -109,7 +109,7 @@ func TestEmit_PreservesArbitrarySkillFrontmatter(t *testing.T) {
 			},
 		},
 	}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
@@ -149,7 +149,7 @@ func TestEmit_CustomXClaudeKeyReachesSkillFrontmatter(t *testing.T) {
 			},
 		},
 	}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
@@ -188,7 +188,7 @@ func TestEmit_PropagatesSkillAssets(t *testing.T) {
 			Body: "body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -242,7 +242,7 @@ func TestEmit_FlatFileSkillsDoNotLeakSiblings(t *testing.T) {
 		})
 	}
 
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -300,7 +300,7 @@ func TestEmit_SkipsCodexOnlySkillAssets(t *testing.T) {
 			Body: "body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -319,7 +319,7 @@ func TestEmit_WritesRulesPerFile(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
 		{Kind: spec.KindRule, Name: "r2", Body: "rule two"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -344,7 +344,7 @@ func TestEmit_NestedRuleScopePreservedUnderRulesDir(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "auth", Scope: "backend/api", Body: "rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/rules/backend/api/auth.md")); err != nil {
@@ -362,7 +362,7 @@ func TestEmit_RuleWithoutMetaHasNoLeadingBlankLineOrSyntheticHeading(t *testing.
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body line\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/rules/r1.md"))
@@ -392,7 +392,7 @@ func TestEmit_RuleWithMetaRoundTripsFrontmatter(t *testing.T) {
 			Body: "rule body\n",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/rules/r1.md"))
@@ -442,7 +442,7 @@ func TestEmit_RuleGlobsMapToPathsFrontmatter(t *testing.T) {
 			Body:     "web rule\n",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -479,7 +479,7 @@ func TestEmit_AgentWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "reviewer", Body: "do reviews\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/agents/reviewer.md"))
@@ -501,7 +501,7 @@ func TestEmit_SkillWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "validator", Body: "skill body\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/skills/validator/SKILL.md"))
@@ -523,7 +523,7 @@ func TestEmit_CommandWithoutMetaHasNoLeadingBlankLine(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Body: "run deploy\n"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/commands/deploy.md"))
@@ -551,7 +551,7 @@ func TestEmit_RulesFileOverrideConcatenates(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
 		{Kind: spec.KindRule, Name: "r2", Body: "rule two"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -593,9 +593,10 @@ func TestWriteSettings_CaptureReadsExistingSettingsWithoutOverlay(t *testing.T) 
 		}},
 	}
 
-	emit.StartCapture()
-	err := New().Emit(spec.NewBundle(entries), &config.Config{}, false)
-	files := emit.StopCapture()
+	sess := emit.NewSession()
+	sess.StartCapture()
+	err := New().Emit(sess, spec.NewBundle(entries), &config.Config{}, false)
+	files := sess.StopCapture()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +633,7 @@ func TestEmit_WritesHookSettings(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -671,7 +672,7 @@ func TestEmit_HookTargetScopingFiltersOtherTargets(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -705,7 +706,7 @@ func TestEmit_HookTimeoutAndStatusMessagePropagate(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -764,7 +765,7 @@ func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -813,7 +814,7 @@ func TestEmit_Hook_RewritesSiblingHookPathToClaude(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -840,7 +841,7 @@ func TestEmit_MergesHooksBySameEventAndMatcher(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "cmd2",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -882,7 +883,7 @@ func TestEmit_HookCommandAsList(t *testing.T) {
 			"command": []any{"cmd1", "cmd2", "cmd3"},
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -918,7 +919,7 @@ func TestEmit_PreservesUserKeysInSettings(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(settingsPath)
@@ -962,7 +963,7 @@ func TestEmit_LoadsSettingsOverlay(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -997,7 +998,7 @@ func TestEmit_OverlayWithoutHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1038,7 +1039,7 @@ func TestEmit_OverlayKeyOrderSurvivesSync(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1122,14 +1123,14 @@ func TestEmit_SettingsJSONIsByteStable_ComplexOverlay(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Write", "command": "echo wrote",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 1: %v", err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 2: %v", err)
 	}
 	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1149,14 +1150,14 @@ func TestEmit_SettingsJSONIsByteStableNoOverlay(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 1: %v", err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 2: %v", err)
 	}
 	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1188,14 +1189,14 @@ func TestEmit_SettingsJSONIsByteStableAcrossSyncs(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 1: %v", err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("emit 2: %v", err)
 	}
 	second, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1236,7 +1237,7 @@ func TestEmit_CapturePreservesOverlay(t *testing.T) {
 	}
 
 	// Real sync first, capture disk bytes.
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatalf("sync emit: %v", err)
 	}
 	disk, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1245,12 +1246,13 @@ func TestEmit_CapturePreservesOverlay(t *testing.T) {
 	}
 
 	// Capture-mode emit, compare against disk.
-	emit.StartCapture()
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		emit.StopCapture()
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := New().Emit(sess, spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		sess.StopCapture()
 		t.Fatalf("capture emit: %v", err)
 	}
-	files := emit.StopCapture()
+	files := sess.StopCapture()
 	var captured string
 	for _, f := range files {
 		if filepath.Base(f.Path) == "settings.json" {
@@ -1275,7 +1277,7 @@ func TestEmit_NoOverlayNoHooks_SkipsSettings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/settings.json")); !os.IsNotExist(err) {
@@ -1297,7 +1299,7 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
@@ -1327,7 +1329,7 @@ func TestEmit_MCP_RemoteCarriesType_StdioDoesNot(t *testing.T) {
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "npx"}},
 		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://mcp.example.com/mcp"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
@@ -1361,7 +1363,7 @@ func TestEmit_MCPFileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "x", Meta: map[string]any{"command": "true"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/.mcp.json")); err != nil {
@@ -1384,7 +1386,7 @@ func TestEmit_WritesCommand(t *testing.T) {
 			Body: "Run the deploy.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/commands/deploy.md"))
@@ -1410,7 +1412,7 @@ func TestEmit_AllOutputsCarryProvenanceHeader(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"},
 		{Kind: spec.KindCommand, Name: "cmd1", Meta: map[string]any{"description": "d"}, Body: "command body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{
@@ -1453,7 +1455,7 @@ func TestEmit_ProvenanceHeaderToggleOff_SuppressesLegacyRulesFile(t *testing.T) 
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
 	}
 	defer emit.ProvenanceFor(cfg, "claude")()
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -1477,7 +1479,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/commands/deploy.md")); err != nil {
@@ -1513,7 +1515,7 @@ func TestEmit_SettingsJSON_HookEventOrderRespectsCapturedSidecar(t *testing.T) {
 			"event": "PreToolUse", "matcher": "Bash", "command": "echo pre",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1554,7 +1556,7 @@ func TestEmit_SettingsJSON_PreservesSourceIndent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -1583,7 +1585,7 @@ func TestEmit_OutputOverride(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 		{Kind: spec.KindAgent, Name: "a1", Body: "y"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{"vendor/CLAUDE.md", "vendor/.claude/agents/a1.md"} {

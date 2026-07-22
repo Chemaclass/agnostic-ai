@@ -32,19 +32,19 @@ var openaiYAMLKeys = []string{"interface", "policy", "dependencies"}
 // `agents/openai.yaml` overlay derived from `x-codex` is written last
 // so a spec-authored value wins over any verbatim copy of the same
 // path from the source tree.
-func emitSkill(s spec.Entry, skillsDir string, dryRun bool) error {
+func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) error {
 	folder := filepath.Join(skillsDir, s.Name)
 
-	if err := emit.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(skillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
+	if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(skillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
 		return err
 	}
 
-	if err := emit.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {
+	if err := sess.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {
 		return err
 	}
 
 	if yamlBody := openaiYAML(s); yamlBody != "" {
-		if err := emit.WriteFile(filepath.Join(folder, "agents", "openai.yaml"), emit.WithHeader(yamlBody, emit.FormatYAML), dryRun); err != nil {
+		if err := sess.WriteFile(filepath.Join(folder, "agents", "openai.yaml"), emit.WithHeader(yamlBody, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
 	}

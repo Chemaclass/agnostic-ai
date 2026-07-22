@@ -78,15 +78,15 @@ func reconcilePartialLedger(ledger, priorOutputs []string, coversAll bool) []str
 }
 
 // sweepLedgerOrphans removes every path the previous sync wrote but
-// the current sync did not. Each candidate flows through
-// emit.RemoveGenerated, which leaves user-authored files (no agnostic
-// provenance marker) on disk. Returns the list of paths actually
-// removed (or that would be removed when dryRun is true).
+// the current sync did not. Each candidate flows through the emit
+// session's RemoveGenerated, which leaves user-authored files (no
+// agnostic provenance marker) on disk. Returns the list of paths
+// actually removed (or that would be removed when dryRun is true).
 //
 // After each successful removal, empty parent directories are pruned
 // bottom-up until a non-empty ancestor (or the project root) blocks
 // the walk. The project root itself is never removed.
-func sweepLedgerOrphans(prior, current []string, dryRun bool) ([]string, error) {
+func sweepLedgerOrphans(sess *adapters.Session, prior, current []string, dryRun bool) ([]string, error) {
 	if len(prior) == 0 {
 		return nil, nil
 	}
@@ -115,11 +115,11 @@ func sweepLedgerOrphans(prior, current []string, dryRun bool) ([]string, error) 
 			}
 			continue
 		}
-		// emit.RemoveGenerated is a no-op when the file is missing or
+		// RemoveGenerated is a no-op when the file is missing or
 		// not agnostic-managed, so we can fold both "already gone" and
 		// "user took ownership" into the same code path.
 		existedBefore := fileExists(p)
-		if err := adapters.RemoveGenerated(p, dryRun); err != nil {
+		if err := sess.RemoveGenerated(p, dryRun); err != nil {
 			return removed, err
 		}
 		if dryRun {

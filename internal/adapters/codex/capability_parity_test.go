@@ -33,7 +33,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 			"codex": {RulesFile: "AGENTS-rules.md", CommandsDir: ".codex/prompts"},
 		},
 	}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 0 {

@@ -29,7 +29,7 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 // back to `.<tool>/<basename>` with its mode bits preserved. No-op when
 // the overlay tree is missing or empty — projects that did not capture
 // any helpers have nothing to restore.
-func RestoreHelperFiles(tool string, dryRun bool) error {
+func (s *Session) RestoreHelperFiles(tool string, dryRun bool) error {
 	srcDir := filepath.Join(agnosticOverlayDir, tool)
 	entries, err := os.ReadDir(srcDir)
 	if IsAbsent(err) {
@@ -62,7 +62,7 @@ func RestoreHelperFiles(tool string, dryRun bool) error {
 		// but never ignored or tracked as an output. Mode is preserved so
 		// executable helpers stay executable; content is written
 		// byte-identical (no trailing-newline normalization).
-		if err := writeFileWithMode(dst, string(body), info.Mode().Perm(), dryRun); err != nil {
+		if err := s.writeFileWithMode(dst, string(body), info.Mode().Perm(), dryRun); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 	}

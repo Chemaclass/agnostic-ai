@@ -50,35 +50,35 @@ func (Adapter) Name() string { return target }
 // when opted in), `.gemini/settings.json`, and—when opted in via
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
-	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+	if err := emitAgentCommands(sess, b.Agents, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
-		if err := emitSkillCommands(b.Skills, commandsDir, dryRun); err != nil {
+		if err := emitSkillCommands(sess, b.Skills, commandsDir, dryRun); err != nil {
 			return err
 		}
 	}
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitSettings(b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+	if err := emitSettings(sess, b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
 		return err
 	}
-	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return materializeHookScripts(b.HooksFor(target), dryRun)
@@ -104,7 +104,7 @@ func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 // emitSettings writes (or merges into) .gemini/settings.json with the
 // `mcpServers` and `hooks` keys. Routes through emit.MergeJSONFile so
 // any user-managed Gemini settings survive the sync.
-func emitSettings(b spec.Bundle, path string, dryRun bool) error {
+func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
 		keys["mcpServers"] = servers
@@ -115,7 +115,7 @@ func emitSettings(b spec.Bundle, path string, dryRun bool) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	return emit.MergeJSONFile(path, keys, dryRun)
+	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
 // buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit
@@ -235,11 +235,11 @@ func hookCommands(raw any) []string {
 	}
 }
 
-func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
+func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(a)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -249,22 +249,22 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 // emitCommands writes one TOML per command spec under
 // `.gemini/commands/`. Commands are the native slash-prompt surface, so
 // they emit with their bare name (no `skill-` prefix).
-func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
 		path := filepath.Join(dir, c.Name+".toml")
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(c)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func emitSkillCommands(skills []spec.Entry, dir string, dryRun bool) error {
+func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".toml")
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(s)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}

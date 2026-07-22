@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -24,7 +25,7 @@ func TestEmit_WritesCommandFile(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship it"}, Body: "Run the deploy steps."},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".agents", "commands", "deploy.md"))
@@ -48,7 +49,7 @@ func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
@@ -68,7 +69,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
@@ -88,7 +89,7 @@ func TestEmit_Agent_WritesCommandFile(t *testing.T) {
 			Body: "Open the PR. Read it. Comment.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	cmd := readFile(t, filepath.Join(dir, ".agents/commands/pr-reviewer.md"))
@@ -115,7 +116,7 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
@@ -141,7 +142,7 @@ func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "yaml-validator", Body: "body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/yaml-validator/SKILL.md")); err != nil {
@@ -166,7 +167,7 @@ func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
@@ -191,7 +192,7 @@ func TestEmit_MigratesLegacyAGENTMd_WhenAgnosticGenerated(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r", Body: "new rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENT.md")); !os.IsNotExist(err) {
@@ -215,7 +216,7 @@ func TestEmit_KeepsLegacyAGENTMd_WhenUserAuthored(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r", Body: "new rule"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "AGENT.md"))
@@ -238,7 +239,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "ag", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/amp/commands/ag.md")); err != nil {
@@ -261,7 +262,7 @@ func TestEmit_MCP_StdioWritesAmpMcpServersKey(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
@@ -291,7 +292,7 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
@@ -320,7 +321,7 @@ func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
@@ -347,7 +348,7 @@ func TestEmit_MCP_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/amp.json")); err != nil {
@@ -361,7 +362,7 @@ func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".amp/settings.json")); !os.IsNotExist(err) {
@@ -371,7 +372,7 @@ func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
 
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {

@@ -38,11 +38,11 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule, agent, and skill into the rules
 // directory (default `.trae/rules`).
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	return emit.RulesDirectory(b, emit.RulesDirOpts{
+	return sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
 	}, dryRun)

@@ -13,9 +13,9 @@ import (
 // documented fields (`name`, `description`, `model`, `readonly`,
 // `is_background`) when the spec declares them; arbitrary `x-cursor`
 // keys pass through. The body is the agent's system prompt.
-func emitAgent(a spec.Entry, agentsDir string, dryRun bool) error {
+func emitAgent(sess *emit.Session, a spec.Entry, agentsDir string, dryRun bool) error {
 	path := filepath.Join(agentsDir, a.Name+".md")
-	return emit.WriteFile(path, emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown), dryRun)
+	return sess.WriteFile(path, emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown), dryRun)
 }
 
 func agentMarkdown(a spec.Entry) string {

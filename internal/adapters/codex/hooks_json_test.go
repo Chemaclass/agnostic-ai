@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -38,7 +39,7 @@ func TestEmit_HooksJSON_UnionsMatchersForSameEventCommand(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
@@ -88,7 +89,7 @@ func TestEmit_HooksJSON_DropsIdenticalDuplicates(t *testing.T) {
 			"command": "echo dup",
 		},
 	}
-	if err := New().Emit(spec.NewBundle([]spec.Entry{dup, dup}), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{dup, dup}), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
@@ -114,7 +115,7 @@ func TestEmit_HooksJSON_PreservesTimeoutAndStatusMessage(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
@@ -141,7 +142,7 @@ func TestEmit_HooksJSON_HooksMoveOutOfConfigToml(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/hooks.json")); err != nil {
@@ -168,7 +169,7 @@ func TestEmit_HooksJSON_PreservesMatcherTokenOrder(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
@@ -192,7 +193,7 @@ func TestEmit_HooksJSON_HonorsHooksFileOverride(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex.hooks.json")); err != nil {
@@ -215,7 +216,7 @@ func TestEmit_HookCommandWindowsPropagates(t *testing.T) {
 			"commandWindows": "check.ps1",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -26,7 +27,7 @@ func TestEmit_NoDotRulesByDefault(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".rules")); !os.IsNotExist(err) {
@@ -49,7 +50,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "agent body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".rules"))
@@ -74,7 +75,7 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 			Body: "Deploy to production.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/deploy/SKILL.md"))
@@ -92,7 +93,7 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 		Outputs: map[string]config.Output{"zed": {SkillsDir: "custom/skills"}},
 	}
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
@@ -116,7 +117,7 @@ func TestEmit_MCP_StdioWritesContextServers(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".zed/settings.json"))
@@ -155,7 +156,7 @@ func TestEmit_MCP_HTTPWritesNativeURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".zed/settings.json"))
@@ -190,7 +191,7 @@ func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".zed/settings.json"))
@@ -217,7 +218,7 @@ func TestEmit_MCP_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/zed.json")); err != nil {
@@ -231,7 +232,7 @@ func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".zed/settings.json")); !os.IsNotExist(err) {
@@ -246,7 +247,7 @@ func TestEmit_MCP_SkipsStdioWithoutCommand(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "bad", Meta: map[string]any{}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".zed/settings.json")); !os.IsNotExist(err) {
@@ -278,7 +279,7 @@ func TestEmit_TasksFileEmitsHooksAsTasks(t *testing.T) {
 			"zed": {TasksFile: ".zed/tasks.json"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".zed/tasks.json"))
@@ -302,7 +303,7 @@ func TestEmit_NoTasksFileNoEmit(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{"command": "gofmt"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".zed/tasks.json")); !os.IsNotExist(err) {
@@ -321,7 +322,7 @@ func TestEmit_TasksSkipsHooksWithoutCommand(t *testing.T) {
 			"zed": {TasksFile: ".zed/tasks.json"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".zed/tasks.json")); !os.IsNotExist(err) {

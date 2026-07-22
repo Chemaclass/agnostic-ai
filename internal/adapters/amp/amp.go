@@ -55,34 +55,34 @@ func (Adapter) Name() string { return target }
 // servers, and—when opted in via outputs.amp.rules-file—a legacy
 // concatenated rules document. The project-root AGENTS.md is written by
 // `sync`, not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
-	emit.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
+	sess.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	if err := emitAgentCommands(b.Agents, commandsDir, dryRun); err != nil {
+	if err := emitAgentCommands(sess, b.Agents, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitCommands(b.Commands, commandsDir, dryRun); err != nil {
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitMCPSettings(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitMCPSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
+func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
+		if err := sess.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -92,10 +92,10 @@ func emitAgentCommands(agents []spec.Entry, dir string, dryRun bool) error {
 // emitCommands writes one slash-command markdown file per command spec
 // under `.agents/commands/`, the same surface Amp reads agent commands
 // from.
-func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
 		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
-		if err := emit.WriteFile(filepath.Join(dir, c.Name+".md"), body, dryRun); err != nil {
+		if err := sess.WriteFile(filepath.Join(dir, c.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -106,11 +106,11 @@ func emitCommands(commands []spec.Entry, dir string, dryRun bool) error {
 // `amp.mcpServers` map. Routes through emit.MergeJSONFile so any
 // pre-existing user-managed keys (theme, editor settings, ...) survive
 // the sync; only `amp.mcpServers` is overwritten.
-func emitMCPSettings(mcps []spec.Entry, path string, dryRun bool) error {
+func emitMCPSettings(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
 	if len(mcps) == 0 {
 		return nil
 	}
-	return emit.MergeJSONFile(path, map[string]any{
+	return sess.MergeJSONFile(path, map[string]any{
 		ampMCPKey: buildMCPMap(mcps),
 	}, dryRun)
 }

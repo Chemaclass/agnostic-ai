@@ -44,21 +44,21 @@ func SkillMarkdown(s spec.Entry, target string, exclude ...string) string {
 // plus every sibling asset propagated byte-for-byte. Adapters with
 // extra per-skill artifacts (codex) or a wider frontmatter allowlist
 // (cursor, claude) keep their own emit path.
-func WriteSkillFolder(s spec.Entry, target, skillsDir string, dryRun bool) error {
-	folder := filepath.Join(skillsDir, s.Name)
-	if err := WriteFile(filepath.Join(folder, "SKILL.md"), WithHeader(SkillMarkdown(s, target), FormatMarkdown), dryRun); err != nil {
+func (s *Session) WriteSkillFolder(sk spec.Entry, target, skillsDir string, dryRun bool) error {
+	folder := filepath.Join(skillsDir, sk.Name)
+	if err := s.WriteFile(filepath.Join(folder, "SKILL.md"), WithHeader(SkillMarkdown(sk, target), FormatMarkdown), dryRun); err != nil {
 		return err
 	}
-	return PropagateSkillAssets(s, folder, SkipSKILLMd, dryRun)
+	return s.PropagateSkillAssets(sk, folder, SkipSKILLMd, dryRun)
 }
 
 // WriteSkillFolders writes the standard Agent Skills folder layout for
 // every skill into skillsDir. It is the multi-skill form of
 // WriteSkillFolder, shared by the adapters that emit skills through the
 // native folder layout with no per-target customization.
-func WriteSkillFolders(skills []spec.Entry, target, skillsDir string, dryRun bool) error {
-	for _, s := range skills {
-		if err := WriteSkillFolder(s, target, skillsDir, dryRun); err != nil {
+func (s *Session) WriteSkillFolders(skills []spec.Entry, target, skillsDir string, dryRun bool) error {
+	for _, sk := range skills {
+		if err := s.WriteSkillFolder(sk, target, skillsDir, dryRun); err != nil {
 			return err
 		}
 	}

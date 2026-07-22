@@ -49,13 +49,13 @@ func (Adapter) Name() string { return target }
 // Aider's project config file so it auto-loads the conventions
 // document. The default CONVENTIONS.md is written centrally by `sync`
 // as a slim pointer body.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	outFile := emit.OutputFile(cfg, target, defaultOutFile)
 	if rulesFile := emit.OutputRulesFile(cfg, target, ""); rulesFile != "" {
-		if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
+		if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
 			Title:              "Conventions",
 			AgentSectionPrefix: "Agent: ",
 		}, dryRun); err != nil {
@@ -69,10 +69,11 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents), "outputs.aider.rules-file")
 		emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "outputs.aider.rules-file")
 	}
-	if err := emit.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return emitConf(
+		sess,
 		emit.OutputConfFile(cfg, target, ""),
 		outFile,
 		emit.OutputModel(cfg, target, ""),
@@ -85,7 +86,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // No-op when confPath is empty so existing users see no surprise
 // writes. The read entry is appended to any pre-existing `read:` list
 // without duplicating; model and weak-model overwrite when set.
-func emitConf(confPath, readEntry, model, weakModel string, dryRun bool) error {
+func emitConf(sess *emit.Session, confPath, readEntry, model, weakModel string, dryRun bool) error {
 	if confPath == "" {
 		return nil
 	}
@@ -101,7 +102,7 @@ func emitConf(confPath, readEntry, model, weakModel string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", confPath, err)
 	}
-	return emit.WriteFile(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), dryRun)
+	return sess.WriteFile(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), dryRun)
 }
 
 // readExistingYAML loads the user's aider config so emitConf overwrites

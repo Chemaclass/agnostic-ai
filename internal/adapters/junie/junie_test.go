@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -26,7 +27,7 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "ag1", Body: "agent"},
 		{Kind: spec.KindSkill, Name: "sk1", Body: "skill"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{".junie/rules/r1.md", ".junie/rules/agent-ag1.md", ".junie/rules/skill-sk1.md"} {
@@ -53,7 +54,7 @@ func TestEmit_RulesDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/junie-rules/r1.md")); err != nil {
@@ -78,7 +79,7 @@ func TestEmit_MCPFileWritten(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".junie/mcp/mcp.json"))
@@ -99,7 +100,7 @@ func TestEmit_NoMCPFileWhenNoEntries(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".junie/mcp/mcp.json")); !os.IsNotExist(err) {
@@ -112,7 +113,7 @@ func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "agent"}}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {

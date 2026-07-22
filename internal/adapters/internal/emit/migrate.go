@@ -25,7 +25,7 @@ import (
 // (the user's sibling keys), not a pure output, so the captured bytes
 // must reflect what sync would write. Skipping the read reported false
 // drift and let `doctor --fix` delete the user's keys (#465).
-func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
+func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	doc := readExistingJSON(path, dryRun)
 	names := make([]string, 0, len(keys))
 	for k := range keys {
@@ -41,7 +41,7 @@ func MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
-	return WriteFile(path, string(raw)+"\n", dryRun)
+	return s.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // readExistingJSON parses path as an OrderedJSON. Missing files,
@@ -90,8 +90,8 @@ const ProvenanceMarker = header.Marker
 //
 // On success, renames `<rootDir>/<legacyName>` to `<rootDir>/<legacyName>.bak`
 // and prints a one-line warning to Warner.
-func MigrateLegacyFile(cfg *config.Config, target, legacyName, defaultNewPath string, dryRun bool) {
-	if dryRun || IsCapturing() {
+func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defaultNewPath string, dryRun bool) {
+	if dryRun || s.IsCapturing() {
 		return
 	}
 	rootDir := filepath.Dir(OutputFile(cfg, target, defaultNewPath))

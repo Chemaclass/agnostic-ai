@@ -66,32 +66,32 @@ func (Adapter) Name() string { return target }
 // Emit writes one steering file per rule, agent, and skill into the
 // steering directory, plus `.kiro/settings/mcp.json` when MCP entries
 // exist.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	dir := emit.OutputRulesDir(cfg, target, defaultSteeringDir)
-	if err := emitRules(b.Rules, dir, dryRun); err != nil {
+	if err := emitRules(sess, b.Rules, dir, dryRun); err != nil {
 		return err
 	}
-	if err := emitAgents(b.Agents, dir, dryRun); err != nil {
+	if err := emitAgents(sess, b.Agents, dir, dryRun); err != nil {
 		return err
 	}
-	if err := emitSkills(b.Skills, dir, dryRun); err != nil {
+	if err := emitSkills(sess, b.Skills, dir, dryRun); err != nil {
 		return err
 	}
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitRules writes one `<dir>/<name>.md` per rule. Rules that target a
 // glob or a source-layout scope render `inclusion: fileMatch`;
 // everything else renders `inclusion: always`.
-func emitRules(rules []spec.Entry, dir string, dryRun bool) error {
+func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) error {
 	for _, r := range rules {
 		path := filepath.Join(dir, r.Name+".md")
 		body := emit.WithHeader(renderRule(r), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -100,11 +100,11 @@ func emitRules(rules []spec.Entry, dir string, dryRun bool) error {
 
 // emitAgents writes one `<dir>/agent-<name>.md` per agent with
 // `inclusion: manual`, so an agent loads only when invoked by name.
-func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, agentFilenamePrefix+a.Name+".md")
 		body := emit.WithHeader(renderAgent(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -116,12 +116,12 @@ func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
 // against user requests. Folder-based skills that carry sibling assets
 // beyond SKILL.md surface a coverage note, since a flat steering file
 // cannot represent bundled files.
-func emitSkills(skills []spec.Entry, dir string, dryRun bool) error {
+func emitSkills(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
 	withAssets := 0
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
 		body := emit.WithHeader(renderSkill(s), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 		if emit.SkillHasBundledAssets(s, emit.SkipSKILLMd) {

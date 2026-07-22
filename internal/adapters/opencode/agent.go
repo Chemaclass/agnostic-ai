@@ -18,11 +18,11 @@ var agentFrontmatterKeys = []string{"description", "mode", "model", "temperature
 // `.opencode/agents/` (plural; the singular dir is legacy) with
 // frontmatter `description`, `mode` (primary|subagent|all), `model`,
 // `temperature`, and `permission`, followed by the system-prompt body.
-func emitAgents(agents []spec.Entry, dir string, dryRun bool) error {
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}

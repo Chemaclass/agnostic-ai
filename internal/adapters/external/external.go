@@ -130,7 +130,7 @@ func (a *Adapter) Name() string { return a.name }
 // writes any files the adapter returns through the shared emit layer.
 // Adapter-reported warnings go to the package warner; adapter errors
 // become a returned error.
-func (a *Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (a *Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	in := buildInput(a.name, b, cfg, dryRun)
 	out, err := run(a.command(), in)
 	if err != nil {
@@ -146,7 +146,7 @@ func (a *Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return fmt.Errorf("%s: %s", a.name, strings.Join(out.Errors, "; "))
 	}
 	for _, f := range out.Files {
-		if err := emit.WriteFile(f.Path, f.Content, dryRun); err != nil {
+		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("%s: %w", a.name, err)
 		}
 	}

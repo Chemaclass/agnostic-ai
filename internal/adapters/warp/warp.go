@@ -49,30 +49,30 @@ func (Adapter) Name() string { return target }
 // outputs.warp.rules-file—a legacy concatenated rules document. The
 // project-root AGENTS.md is written by `sync`, not here. Legacy
 // agnostic-generated WARP.md is migrated to WARP.md.bak on first sync.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
-	emit.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
+	sess.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
 
-	if err := emitWorkflows(b, cfg, dryRun); err != nil {
+	if err := emitWorkflows(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
 		Title:              "AGENTS.md",
 		AgentSectionPrefix: "Agent: ",
 	}, dryRun); err != nil {
 		return err
 	}
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitWorkflows writes one .warp/workflows/<name>.yaml per agent. The
 // agent body becomes the workflow `command:`; description and tags are
 // pulled from frontmatter when present.
-func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	// Warp has no native skill surface: skills never reach it regardless of
 	// workflows-dir, so note the gap unconditionally.
 	emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "no native skill surface")
@@ -88,7 +88,7 @@ func emitWorkflows(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 			return err
 		}
 		path := filepath.Join(dir, a.Name+".yaml")
-		if err := emit.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
 	}

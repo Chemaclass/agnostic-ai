@@ -45,17 +45,18 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 
 	owners := map[string][]string{}
 	contents := map[string]map[string]bool{}
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		adapters.StartCapture()
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, false); err != nil {
-			adapters.StopCapture()
+		sess.StartCapture()
+		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
+			sess.StopCapture()
 			return fmt.Errorf("%s: %w", t, err)
 		}
-		for _, f := range adapters.StopCapture() {
+		for _, f := range sess.StopCapture() {
 			owners[f.Path] = append(owners[f.Path], t)
 			if contents[f.Path] == nil {
 				contents[f.Path] = map[string]bool{}

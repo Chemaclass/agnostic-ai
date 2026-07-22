@@ -62,34 +62,34 @@ func (Adapter) Name() string { return target }
 // writes one Copilot Custom Chat Mode per agent at that directory. The
 // `.github/copilot-instructions.md` entry-point is written by `sync`,
 // not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emitInstructionFiles(b, cfg, dryRun); err != nil {
+	if err := emitInstructionFiles(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitAgents(b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitChatmodes(b, cfg, dryRun); err != nil {
+	if err := emitChatmodes(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitLegacyRulesFile(b, cfg, dryRun); err != nil {
+	if err := emitLegacyRulesFile(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	return emit.WriteMCPFile(b.MCPs, emit.MCPSchemaVSCodeServers,
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaVSCodeServers,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitChatmodes writes one `.chatmode.md` per agent under the
 // configured chat-modes directory. No-op when the dir is unset, so
 // existing setups are unaffected.
-func emitChatmodes(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitChatmodes(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputChatmodesDir(cfg, target, "")
 	if dir == "" {
 		return nil
@@ -97,7 +97,7 @@ func emitChatmodes(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, a.Name+".chatmode.md")
 		body := emit.WithHeader(renderChatmode(a), emit.FormatMarkdown)
-		if err := emit.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
@@ -141,7 +141,7 @@ func renderChatmode(e spec.Entry) string {
 // one exception: when the user opted into the legacy concatenated
 // layout via `outputs.copilot.rules-file`, always-on rules go there
 // instead and are skipped here to avoid duplication.
-func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitInstructionFiles(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputInstructionsDir(cfg, target, defaultInstructionsDir)
 	legacyRulesFile := emit.OutputRulesFile(cfg, target, "") != ""
 
@@ -149,7 +149,7 @@ func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error 
 		if isAlwaysOn(r) && legacyRulesFile {
 			continue
 		}
-		if err := writeInstruction(dir, applyToFor(r), r, dryRun); err != nil {
+		if err := writeInstruction(sess, dir, applyToFor(r), r, dryRun); err != nil {
 			return err
 		}
 	}
@@ -157,17 +157,17 @@ func emitInstructionFiles(b spec.Bundle, cfg *config.Config, dryRun bool) error 
 }
 
 // writeInstruction writes one `<name>.instructions.md` into dir.
-func writeInstruction(dir, applyTo string, e spec.Entry, dryRun bool) error {
+func writeInstruction(sess *emit.Session, dir, applyTo string, e spec.Entry, dryRun bool) error {
 	path := filepath.Join(dir, e.Name+instructionFileSuffix)
 	body := emit.WithHeader(renderInstruction(e, applyTo), emit.FormatMarkdown)
-	return emit.WriteFile(path, body, dryRun)
+	return sess.WriteFile(path, body, dryRun)
 }
 
 // emitLegacyRulesFile writes always-on rules to the
 // outputs.copilot.rules-file path (when set). No-op when the user has
 // not opted into the legacy concatenated layout; `sync` writes the
 // canonical pointer body to `.github/copilot-instructions.md` instead.
-func emitLegacyRulesFile(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitLegacyRulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	rulesFile := emit.OutputRulesFile(cfg, target, "")
 	if rulesFile == "" {
 		return nil
@@ -183,7 +183,7 @@ func emitLegacyRulesFile(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	for _, r := range alwaysOn {
 		emit.WriteSection(&sb, r.Name, r)
 	}
-	return emit.WriteFile(rulesFile, sb.String(), dryRun)
+	return sess.WriteFile(rulesFile, sb.String(), dryRun)
 }
 
 func alwaysOnRules(rules []spec.Entry) []spec.Entry {

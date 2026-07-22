@@ -7,15 +7,16 @@ import (
 )
 
 func TestWriteFile_BackupCreatesBakWhenContentDiffers(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
 	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	SetBackup(true)
-	defer SetBackup(false)
+	sess.SetBackup(true)
+	defer sess.SetBackup(false)
 
-	if err := WriteFile(path, "new", false); err != nil {
+	if err := sess.WriteFile(path, "new", false); err != nil {
 		t.Fatal(err)
 	}
 	bak, err := os.ReadFile(path + ".bak")
@@ -35,6 +36,7 @@ func TestWriteFile_BackupCreatesBakWhenContentDiffers(t *testing.T) {
 }
 
 func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
 	// File on disk already ends with normalized trailing newline so the
@@ -42,10 +44,10 @@ func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
 	if err := os.WriteFile(path, []byte("same\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	SetBackup(true)
-	defer SetBackup(false)
+	sess.SetBackup(true)
+	defer sess.SetBackup(false)
 
-	if err := WriteFile(path, "same", false); err != nil {
+	if err := sess.WriteFile(path, "same", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {
@@ -54,12 +56,13 @@ func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
 }
 
 func TestWriteFile_BackupSkippedForNewFile(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fresh.md")
-	SetBackup(true)
-	defer SetBackup(false)
+	sess.SetBackup(true)
+	defer sess.SetBackup(false)
 
-	if err := WriteFile(path, "content", false); err != nil {
+	if err := sess.WriteFile(path, "content", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {
@@ -68,12 +71,13 @@ func TestWriteFile_BackupSkippedForNewFile(t *testing.T) {
 }
 
 func TestWriteFile_BackupOffByDefault(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
 	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteFile(path, "new", false); err != nil {
+	if err := sess.WriteFile(path, "new", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {

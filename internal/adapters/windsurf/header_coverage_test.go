@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -20,7 +21,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			"windsurf": {WorkflowsDir: ".windsurf/workflows"},
 		},
 	}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 

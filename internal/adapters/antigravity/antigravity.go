@@ -46,13 +46,13 @@ func (Adapter) Name() string { return target }
 // outputs.antigravity.rules-file, a legacy merged document at that
 // path. The `.agent/AGENTS.md` entry-point is written by `sync`, not
 // here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	// Skills emit through the native folder layout below, so suppress
 	// the rule-form `skill-<name>.md` output from RulesDirectory.
-	if err := emit.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultRulesDir),
 		AgentPrefix: "agent-",
 		SkipSkills:  true,
@@ -60,8 +60,8 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
+	return sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
 }

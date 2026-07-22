@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -25,7 +26,7 @@ func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
@@ -46,7 +47,7 @@ func TestEmit_Skill_WritesSharedSkillFolder(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
@@ -64,7 +65,7 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 		Outputs: map[string]config.Output{"crush": {SkillsDir: "custom/skills"}},
 	}
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "yaml-validator", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/yaml-validator/SKILL.md")); err != nil {
@@ -87,7 +88,7 @@ func TestEmit_MCP_StdioWritesCrushJSON(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "crush.json"))
@@ -118,7 +119,7 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "crush.json"))
@@ -145,7 +146,7 @@ func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "crush.json"))
@@ -173,7 +174,7 @@ func TestEmit_MCP_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/crush.json")); err != nil {
@@ -187,7 +188,7 @@ func TestEmit_NoCrushJSONWhenNoMCPs(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "crush.json")); !os.IsNotExist(err) {
@@ -203,7 +204,7 @@ func TestEmit_MCP_SkipsStdioWithoutCommand(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "bad", Meta: map[string]any{}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "crush.json")); !os.IsNotExist(err) {
@@ -213,7 +214,7 @@ func TestEmit_MCP_SkipsStdioWithoutCommand(t *testing.T) {
 
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "crush.json")); !os.IsNotExist(err) {

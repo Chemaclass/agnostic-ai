@@ -89,11 +89,12 @@ func TestAdapter_Emit_RoundTrips(t *testing.T) {
 		OnUnsupported: "warn",
 	}
 
-	emit.StartCapture()
-	if err := adapter.Emit(bundle, cfg, false); err != nil {
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := adapter.Emit(sess, bundle, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	files := emit.StopCapture()
+	files := sess.StopCapture()
 	if len(files) != 1 {
 		t.Fatalf("expected 1 captured file, got %d", len(files))
 	}
@@ -107,7 +108,7 @@ func TestAdapter_Emit_RoundTrips(t *testing.T) {
 
 func TestAdapter_Emit_AdapterErrorBubbles(t *testing.T) {
 	adapter := NewWithCommand("fake", helperCommand("fail"))
-	err := adapter.Emit(spec.Bundle{}, &config.Config{}, false)
+	err := adapter.Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false)
 	if err == nil || !strings.Contains(err.Error(), "adapter said no") {
 		t.Fatalf("err=%v, want contains 'adapter said no'", err)
 	}
@@ -120,11 +121,12 @@ func TestAdapter_Emit_WarningsRoutedToWarner(t *testing.T) {
 	t.Cleanup(func() { emit.Warner = old })
 
 	adapter := NewWithCommand("fake", helperCommand("warn"))
-	emit.StartCapture()
-	if err := adapter.Emit(spec.Bundle{}, &config.Config{}, false); err != nil {
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := adapter.Emit(sess, spec.Bundle{}, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	_ = emit.StopCapture()
+	_ = sess.StopCapture()
 
 	if !strings.Contains(buf.String(), "deprecated config field") {
 		t.Errorf("warner=%q, want warning text", buf.String())
@@ -133,7 +135,7 @@ func TestAdapter_Emit_WarningsRoutedToWarner(t *testing.T) {
 
 func TestAdapter_Emit_RejectsBadJSON(t *testing.T) {
 	adapter := NewWithCommand("fake", helperCommand("bad-json"))
-	err := adapter.Emit(spec.Bundle{}, &config.Config{}, false)
+	err := adapter.Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false)
 	if err == nil || !strings.Contains(err.Error(), "decode output") {
 		t.Fatalf("err=%v, want decode error", err)
 	}

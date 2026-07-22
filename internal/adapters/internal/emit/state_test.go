@@ -7,14 +7,15 @@ import (
 )
 
 func TestCapture_SuppressesIOAndRecordsContent(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "captured.md")
 
-	StartCapture()
-	if err := WriteFile(path, "hello", false); err != nil {
+	sess.StartCapture()
+	if err := sess.WriteFile(path, "hello", false); err != nil {
 		t.Fatal(err)
 	}
-	files := StopCapture()
+	files := sess.StopCapture()
 
 	if len(files) != 1 {
 		t.Fatalf("expected 1 captured file, got %d", len(files))
@@ -28,31 +29,33 @@ func TestCapture_SuppressesIOAndRecordsContent(t *testing.T) {
 }
 
 func TestStopCapture_AfterStartCaptureClearsState(t *testing.T) {
-	StartCapture()
-	if err := WriteFile("a.md", "x", false); err != nil {
+	sess := NewSession()
+	sess.StartCapture()
+	if err := sess.WriteFile("a.md", "x", false); err != nil {
 		t.Fatal(err)
 	}
-	first := StopCapture()
+	first := sess.StopCapture()
 	if len(first) != 1 {
 		t.Fatalf("expected 1 file, got %d", len(first))
 	}
 	// Starting a new capture should not see the prior content.
-	StartCapture()
-	second := StopCapture()
+	sess.StartCapture()
+	second := sess.StopCapture()
 	if len(second) != 0 {
 		t.Errorf("expected fresh capture, got %d", len(second))
 	}
 }
 
 func TestRecording_DoesNotSuppressIO(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "recorded.md")
 
-	StartRecording()
-	if err := WriteFile(path, "hello", false); err != nil {
+	sess.StartRecording()
+	if err := sess.WriteFile(path, "hello", false); err != nil {
 		t.Fatal(err)
 	}
-	paths := StopRecording()
+	paths := sess.StopRecording()
 
 	if len(paths) != 1 || paths[0] != path {
 		t.Errorf("recorded = %+v", paths)
@@ -63,17 +66,18 @@ func TestRecording_DoesNotSuppressIO(t *testing.T) {
 }
 
 func TestStopRecording_AfterStartClearsState(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
-	StartRecording()
-	if err := WriteFile(filepath.Join(dir, "a.md"), "x", false); err != nil {
+	sess.StartRecording()
+	if err := sess.WriteFile(filepath.Join(dir, "a.md"), "x", false); err != nil {
 		t.Fatal(err)
 	}
-	first := StopRecording()
+	first := sess.StopRecording()
 	if len(first) != 1 {
 		t.Fatalf("expected 1 path, got %d", len(first))
 	}
-	StartRecording()
-	second := StopRecording()
+	sess.StartRecording()
+	second := sess.StopRecording()
 	if len(second) != 0 {
 		t.Errorf("expected fresh recording, got %d", len(second))
 	}

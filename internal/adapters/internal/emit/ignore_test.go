@@ -22,9 +22,10 @@ func TestIgnoreBody_ConcatenatesTrimmed(t *testing.T) {
 }
 
 func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".cursorignore")
-	if err := WriteIgnoreFile([]spec.Entry{{Body: "*.env"}}, path, false); err != nil {
+	if err := sess.WriteIgnoreFile([]spec.Entry{{Body: "*.env"}}, path, false); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	data, err := os.ReadFile(path)
@@ -41,9 +42,10 @@ func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
 }
 
 func TestWriteIgnoreFile_NoOpWhenEmpty(t *testing.T) {
+	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".cursorignore")
-	if err := WriteIgnoreFile(nil, path, false); err != nil {
+	if err := sess.WriteIgnoreFile(nil, path, false); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {

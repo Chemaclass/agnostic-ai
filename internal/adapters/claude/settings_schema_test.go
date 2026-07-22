@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -43,7 +44,7 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -111,7 +112,7 @@ func TestEmit_FirstClassSettings_WinsOverOverlay(t *testing.T) {
 			"claude": {Settings: &config.ClaudeSettings{Model: "claude-opus-4-7"}},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -142,7 +143,7 @@ func TestEmit_FirstClassSettings_ConfigOnly_NoOverlayNoHooks(t *testing.T) {
 			"claude": {Settings: &config.ClaudeSettings{Model: "claude-opus-4-7"}},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -177,7 +178,7 @@ func TestEmit_FirstClassSettings_WithHooks(t *testing.T) {
 			"event": "PostToolUse", "matcher": "Edit", "command": "fmt",
 		}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
@@ -205,7 +206,7 @@ func TestEmit_FirstClassSettings_NilSettingsLeavesNothing(t *testing.T) {
 			"claude": {Dir: ".claude"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude/settings.json")); !os.IsNotExist(err) {

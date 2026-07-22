@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -72,7 +73,7 @@ func TestEmit_SettingsSpecWritesSettingsJSON(t *testing.T) {
 		"model":       "claude-opus-4-8",
 		"permissions": map[string]any{"deny": []any{"Bash(rm:*)"}},
 	})})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -100,7 +101,7 @@ func TestEmit_ConfigSettingsOverrideSpec(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"claude": {Settings: &config.ClaudeSettings{Model: "config-model"}},
 	}}
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := readSettings(t, dir)["model"]; got != "config-model" {
@@ -118,7 +119,7 @@ func TestEmit_SpecAndConfigPermissionsUnion(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"claude": {Settings: &config.ClaudeSettings{Permissions: &config.ClaudePermissions{Deny: []string{"Bash(rm:*)"}}}},
 	}}
-	if err := New().Emit(b, cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	perms := readSettings(t, dir)["permissions"].(map[string]any)
@@ -148,7 +149,7 @@ func TestEmit_OverlayPermissionsSurviveSpec(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{settingsEntry(map[string]any{
 		"permissions": map[string]any{"deny": []any{"Bash(rm:*)"}},
 	})})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	perms := readSettings(t, dir)["permissions"].(map[string]any)

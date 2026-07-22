@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -24,7 +25,7 @@ func TestEmit_WritesCommandFile(t *testing.T) {
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship it"}, Body: "Run the deploy steps."},
 	})
-	if err := New().Emit(b, &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".opencode", "commands", "deploy.md"))
@@ -45,7 +46,7 @@ func TestEmit_NoAgentsMd_ByDefault(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".opencode/AGENTS.md")); !os.IsNotExist(err) {
@@ -62,7 +63,7 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".opencode/AGENTS.md"))
@@ -86,7 +87,7 @@ func TestEmit_Agent_WritesNativeAgentFile(t *testing.T) {
 			Body: "Open the PR. Read it. Comment.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".opencode/agents/pr-reviewer.md"))
@@ -124,7 +125,7 @@ func TestEmit_Agent_XOpencodePassesThrough(t *testing.T) {
 			Body: "body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".opencode/agents/ag1.md"))
@@ -159,7 +160,7 @@ func TestEmit_Agent_OnlyAllowedFrontmatterKeys(t *testing.T) {
 			Body: "body",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".opencode/agents/ag.md"))
@@ -183,7 +184,7 @@ func TestEmit_Skill_NoCommandByDefault(t *testing.T) {
 			Body: "Body content.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".opencode/commands/yaml-validator.md")); !os.IsNotExist(err) {
@@ -211,7 +212,7 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/skill-yaml-validator.md"))
@@ -247,7 +248,7 @@ func TestEmit_Skill_CustomXOpencodeKeyReachesFrontmatter(t *testing.T) {
 			Body: "Validate against schema.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/skill-yaml-validator.md"))
@@ -270,7 +271,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindCommand, Name: "deploy", Meta: map[string]any{"description": "x"}, Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/oc/commands/deploy.md")); err != nil {
@@ -293,7 +294,7 @@ func TestEmit_MCP_StdioWritesLocalCommand(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "opencode.json"))
@@ -327,7 +328,7 @@ func TestEmit_MCP_HTTPWritesRemoteURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "opencode.json"))
@@ -354,7 +355,7 @@ func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "opencode.json"))
@@ -381,7 +382,7 @@ func TestEmit_MCP_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/opencode.json")); err != nil {
@@ -395,7 +396,7 @@ func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "opencode.json")); !os.IsNotExist(err) {
@@ -406,7 +407,7 @@ func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
-	if err := New().Emit(spec.NewBundle(nil), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".opencode/AGENTS.md")); !os.IsNotExist(err) {
@@ -436,7 +437,7 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 			Body: "Deploy to production.",
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".opencode/skills/deploy/SKILL.md"))
@@ -454,7 +455,7 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 		Outputs: map[string]config.Output{"opencode": {SkillsDir: "custom/skills"}},
 	}
 	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
@@ -469,7 +470,7 @@ func TestEmit_Agent_AgentsDirOverride(t *testing.T) {
 		Outputs: map[string]config.Output{"opencode": {AgentsDir: "custom/agents"}},
 	}
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag", Body: "body"}}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/agents/ag.md")); err != nil {

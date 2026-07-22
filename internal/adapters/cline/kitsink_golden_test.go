@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -28,7 +29,7 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 			"cline": {WorkflowsDir: ".clinerules/workflows"},
 		},
 	}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 

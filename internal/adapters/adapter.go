@@ -60,19 +60,16 @@ func DetectJSONIndent(data []byte) string { return emit.DetectJSONIndent(data) }
 // emit tree can consume detailed recording output.
 type WrittenFile = emit.WrittenFile
 
-// StartCapture redirects subsequent adapter writes to an in-memory buffer.
-// Pair with StopCapture. Used by drift detection (`sync --check`, `doctor`)
-// and `revert` to inspect what each adapter would emit without touching disk.
-func StartCapture() { emit.StartCapture() }
+// Session mirrors emit.Session so the cli and cmd layers — which cannot
+// import the internal emit tree — can construct one emission session per
+// sync run and drive its capture / recording / backup / transaction
+// modes and file writes directly through the exported methods.
+type Session = emit.Session
 
-// StopCapture returns the captured files and disables capture mode.
-func StopCapture() []CapturedFile { return emit.StopCapture() }
-
-// SetBackup toggles backup mode on the shared emit layer. When enabled,
-// adapter writes copy any pre-existing target file to `<path>.bak` before
-// overwriting. Used by `sync --backup` to leave a recovery trail that
-// `revert` can restore from.
-func SetBackup(b bool) { emit.SetBackup(b) }
+// NewSession returns a fresh emission Session with every mode off. Each
+// sync run constructs its own so two runs in the same process never
+// share capture or recording buffers.
+func NewSession() *Session { return emit.NewSession() }
 
 // SetWarner redirects capability warnings emitted by adapters. The CLI uses
 // this to suppress warnings under --quiet.
@@ -117,58 +114,6 @@ func CoverageNotesDigest() string { return emit.CoverageNotesDigest() }
 // PendingCoverageNotesCount returns the number of distinct
 // (target, kind, via) coverage notes currently buffered.
 func PendingCoverageNotesCount() int { return emit.PendingCoverageNotesCount() }
-
-// StartRecording begins collecting written paths alongside real writes.
-// Unlike capture mode it does not suppress IO. Used by `sync` to learn
-// every emitted path in a single pass for follow-up actions like
-// .gitignore management.
-func StartRecording() { emit.StartRecording() }
-
-// StopRecording returns the recorded paths and disables recording.
-func StopRecording() []string { return emit.StopRecording() }
-
-// StartDetailedRecording begins collecting per-file write results alongside
-// real writes. Determines each file's action (create/update/skip) by
-// comparing new content against the existing file before writing.
-func StartDetailedRecording() { emit.StartDetailedRecording() }
-
-// StopDetailedRecording returns the collected write records and disables
-// detailed recording mode.
-func StopDetailedRecording() []WrittenFile { return emit.StopDetailedRecording() }
-
-// WriteFile writes content to path through the shared emit layer,
-// honoring the current capture, recording, and backup modes.
-func WriteFile(path, content string, dryRun bool) error {
-	return emit.WriteFile(path, content, dryRun)
-}
-
-// RemoveGenerated deletes path when it carries the agnostic-ai
-// provenance header, leaving user-authored files untouched. Honors
-// the same dryRun / capture / detailing / transaction modes as
-// WriteFile. Re-exported so the cli package can use it for the
-// sync-ledger orphan sweep without crossing the emit internal
-// boundary.
-func RemoveGenerated(path string, dryRun bool) error {
-	return emit.RemoveGenerated(path, dryRun)
-}
-
-// RemoveGeneratedTree removes every provenance-marked file under dir via
-// RemoveGenerated and prunes emptied subdirectories bottom-up. Re-exported
-// so the cli package can swap a fully managed skill folder for a symlink
-// during shared-skills emission.
-func RemoveGeneratedTree(dir string, dryRun bool) error {
-	return emit.RemoveGeneratedTree(dir, dryRun)
-}
-
-// StartTransaction begins recording pre-write file state so that Rollback
-// can undo all writes if a sync pass fails partway through.
-func StartTransaction() { emit.StartTransaction() }
-
-// Commit clears the transaction log after a successful sync.
-func Commit() { emit.Commit() }
-
-// Rollback undoes all file writes recorded since StartTransaction.
-func Rollback() error { return emit.Rollback() }
 
 // AgnosticEntryPointPath is the canonical CLI-agnostic entry-point
 // path under .agnostic-ai/ (re-exported from the emit layer for
@@ -346,9 +291,10 @@ func ApplyImportMode(body, mode string) (string, error) {
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.
 	Name() string
-	// Emit renders the bundle as files for this target. dryRun prints
-	// rather than writing.
-	Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error
+	// Emit renders the bundle as files for this target, routing every
+	// write through sess so the caller owns the capture / recording /
+	// backup / transaction buffers. dryRun prints rather than writing.
+	Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error
 }
 
 // EmitWithProvenance wraps adapter.Emit with the per-target provenance
@@ -361,9 +307,9 @@ type Adapter interface {
 // emit.WithHeader honor it. CLI dispatch sites (sync, check, status,
 // revert, render, collision) should prefer this wrapper over a bare
 // adapter.Emit.
-func EmitWithProvenance(a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	defer emit.ProvenanceFor(cfg, a.Name())()
-	return a.Emit(b.For(a.Name()), cfg, dryRun)
+	return a.Emit(sess, b.For(a.Name()), cfg, dryRun)
 }
 
 var registry = map[string]Adapter{

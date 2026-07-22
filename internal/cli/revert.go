@@ -65,21 +65,22 @@ func newRevertCmd() *cobra.Command {
 				return runRevertJSON(cmd, effective, dryRun, force)
 			}
 
+			sess := adapters.NewSession()
 			for _, t := range effective {
 				adapter, err := adapters.Resolve(t)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "! %v\n", err)
 					continue
 				}
-				adapters.StartCapture()
+				sess.StartCapture()
 				// Pass dryRun=true so any adapter that writes outside
-				// emit.WriteFile (e.g. a future os.Mkdir for an empty
+				// WriteFile (e.g. a future os.Mkdir for an empty
 				// output dir) does not side-effect during revert.
-				if err := adapters.EmitWithProvenance(adapter, b, cfg, true); err != nil {
-					adapters.StopCapture()
+				if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+					sess.StopCapture()
 					return fmt.Errorf("%s: %w", t, err)
 				}
-				files := adapters.StopCapture()
+				files := sess.StopCapture()
 				summaryf("← revert %s\n", t)
 				var restored, removed, preserved int
 				for _, f := range files {
@@ -193,19 +194,20 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 	}
 
 	out := jsonOutput{Version: "1", Command: "revert"}
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue
 		}
-		adapters.StartCapture()
-		if err := adapters.EmitWithProvenance(adapter, b, cfg, true); err != nil {
-			adapters.StopCapture()
+		sess.StartCapture()
+		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+			sess.StopCapture()
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue
 		}
-		files := adapters.StopCapture()
+		files := sess.StopCapture()
 		for _, f := range files {
 			action, err := revertOne(f.Path, dryRun, force)
 			if err != nil {

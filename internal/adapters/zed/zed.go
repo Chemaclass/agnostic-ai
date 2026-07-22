@@ -55,12 +55,12 @@ func (Adapter) Name() string { return target }
 // and `.zed/settings.json` with the `context_servers` map when MCP
 // entries exist. The root AGENTS.md entry-point (with rule bodies
 // inlined) is written by `sync`, not here.
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := emit.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	// Agents have no per-agent surface in current Zed; only the legacy
@@ -68,16 +68,16 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if emit.OutputRulesFile(cfg, target, "") == "" {
 		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents), "outputs.zed.rules-file")
 	}
-	if err := emit.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
+	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{
 		Title:              "Project rules",
 		AgentSectionPrefix: "Agent: ",
 	}, dryRun); err != nil {
 		return err
 	}
-	if err := emitTasks(b.HooksFor(target), emit.OutputTasksFile(cfg, target, ""), dryRun); err != nil {
+	if err := emitTasks(sess, b.HooksFor(target), emit.OutputTasksFile(cfg, target, ""), dryRun); err != nil {
 		return err
 	}
-	return emitContextServers(b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitContextServers(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitTasks writes one Zed Task per hook spec into the configured
@@ -85,7 +85,7 @@ func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
 // setups are unaffected. Each hook becomes a `sh -c "<command>"` task
 // whose label is the hook's name; the description (when present)
 // prefixes the label so it shows up in the command palette.
-func emitTasks(hooks []spec.Entry, path string, dryRun bool) error {
+func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool) error {
 	if path == "" {
 		emit.NoteCoverageGap(target, spec.KindHook, len(hooks), "outputs.zed.tasks-file")
 		return nil
@@ -116,19 +116,19 @@ func emitTasks(hooks []spec.Entry, path string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal zed tasks: %w", err)
 	}
-	return emit.WriteFile(path, string(raw)+"\n", dryRun)
+	return sess.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
 // emitContextServers writes (or merges into) .zed/settings.json with
 // the `context_servers` map. Routes through emit.MergeJSONFile so any
 // pre-existing user-managed Zed settings survive the sync; only
 // `context_servers` is overwritten.
-func emitContextServers(mcps []spec.Entry, path string, dryRun bool) error {
+func emitContextServers(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
 	servers := buildContextServers(mcps)
 	if len(servers) == 0 {
 		return nil
 	}
-	return emit.MergeJSONFile(path, map[string]any{zedMCPKey: servers}, dryRun)
+	return sess.MergeJSONFile(path, map[string]any{zedMCPKey: servers}, dryRun)
 }
 
 func buildContextServers(mcps []spec.Entry) map[string]any {

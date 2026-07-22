@@ -101,17 +101,18 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 // whose on-disk content differs from what would be emitted, and returns all
 // would-be emitted paths (for mtime fallback).
 func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (driftFiles int, allPaths []string, err error) {
+	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		adapters.StartCapture()
-		if emitErr := adapters.EmitWithProvenance(adapter, b, cfg, false); emitErr != nil {
-			adapters.StopCapture()
+		sess.StartCapture()
+		if emitErr := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); emitErr != nil {
+			sess.StopCapture()
 			return 0, nil, fmt.Errorf("%s: %w", t, emitErr)
 		}
-		files := adapters.StopCapture()
+		files := sess.StopCapture()
 		for _, f := range files {
 			allPaths = append(allPaths, f.Path)
 			disk, readErr := os.ReadFile(f.Path)

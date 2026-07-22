@@ -28,7 +28,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 			"aider": {RulesFile: "CONVENTIONS.md"},
 		},
 	}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 			"aider": {RulesFile: "CONVENTIONS.md"},
 		},
 	}
-	if err := New().Emit(kitSinkBundle(), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 0 {
@@ -116,7 +116,7 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 3 {

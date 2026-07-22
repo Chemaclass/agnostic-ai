@@ -48,7 +48,7 @@ type RulesDirOpts struct {
 // Tools that load rules recursively from `.cursor/rules/`, `.clinerules/`,
 // etc. pick up the scoped output automatically, and the output stays inside
 // the tool directory instead of leaking a `<scope>/` tree at the repo root.
-func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
+func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	if opts.Ext == "" {
 		opts.Ext = ".md"
 	}
@@ -67,7 +67,7 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 
 	for _, r := range b.Rules {
 		path := filepath.Join(scopedDir(opts.Dir, r), r.Name+opts.Ext)
-		if err := WriteFile(path, opts.FormatRule(r), dryRun); err != nil {
+		if err := s.WriteFile(path, opts.FormatRule(r), dryRun); err != nil {
 			return err
 		}
 	}
@@ -75,16 +75,16 @@ func RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 		for _, a := range b.Agents {
 			name := opts.AgentPrefix + a.Name
 			path := filepath.Join(scopedDir(opts.Dir, a), name+opts.Ext)
-			if err := WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
+			if err := s.WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
 				return err
 			}
 		}
 	}
 	if !opts.SkipSkills {
-		for _, s := range b.Skills {
-			name := opts.SkillPrefix + s.Name
-			path := filepath.Join(scopedDir(opts.Dir, s), name+opts.Ext)
-			if err := WriteFile(path, opts.FormatSkill(s), dryRun); err != nil {
+		for _, sk := range b.Skills {
+			name := opts.SkillPrefix + sk.Name
+			path := filepath.Join(scopedDir(opts.Dir, sk), name+opts.Ext)
+			if err := s.WriteFile(path, opts.FormatSkill(sk), dryRun); err != nil {
 				return err
 			}
 		}

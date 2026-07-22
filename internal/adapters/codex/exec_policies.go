@@ -36,7 +36,7 @@ const (
 //
 // No-op when neither field is set so users who do not opt in get no
 // surprise file under `.codex/rules/`.
-func emitExecPolicies(cfg *config.Config, dryRun bool) error {
+func emitExecPolicies(sess *emit.Session, cfg *config.Config, dryRun bool) error {
 	policies, err := loadExecPolicies(cfg)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func emitExecPolicies(cfg *config.Config, dryRun bool) error {
 	body := renderExecPoliciesSkylark(policies, header)
 	// Skylark uses `#` line comments — same as YAML — so reuse the YAML
 	// header so the provenance banner sits inside a comment block.
-	return emit.WriteFile(defaultExecPoliciesFile, emit.WithHeader(body, emit.FormatYAML), dryRun)
+	return sess.WriteFile(defaultExecPoliciesFile, emit.WithHeader(body, emit.FormatYAML), dryRun)
 }
 
 // loadExecPoliciesHeader reads the file-level comment captured by

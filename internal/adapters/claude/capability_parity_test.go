@@ -19,7 +19,7 @@ import (
 // fix the emit path.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
@@ -65,7 +65,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
-	if err := New().Emit(kitSinkBundle(), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 0 {

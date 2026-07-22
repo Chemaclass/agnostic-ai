@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -26,7 +27,7 @@ func TestEmit_MCP_StdioWritesConfigToml(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -57,7 +58,7 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -97,7 +98,7 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
@@ -135,7 +136,7 @@ func TestEmit_Hook_TargetScopingFiltersOtherTargets(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
@@ -163,7 +164,7 @@ func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
@@ -198,7 +199,7 @@ func TestEmit_Hook_RewritesSiblingHookPathToCodex(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
@@ -221,7 +222,7 @@ func TestEmit_Hook_SkipsWhenNoEvent(t *testing.T) {
 			Meta: map[string]any{"command": "echo"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/config.toml")); !os.IsNotExist(err) {
@@ -244,7 +245,7 @@ func TestEmit_ConfigToml_FileOverride(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "vendor/codex.toml")); err != nil {
@@ -258,7 +259,7 @@ func TestEmit_ConfigToml_NoFileWhenNoMCPOrHooks(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/config.toml")); !os.IsNotExist(err) {
@@ -281,7 +282,7 @@ func TestEmit_ConfigToml_RemovesOrphanWhenNothingToRender(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
@@ -304,7 +305,7 @@ func TestEmit_ConfigToml_PreservesHandAuthoredWhenNothingToRender(t *testing.T) 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
@@ -340,7 +341,7 @@ func TestEmit_SweepsLegacyAgentsAndSkillsDirs(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "current", Body: "x"},
 		{Kind: spec.KindSkill, Name: "fresh", Body: "y"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -376,7 +377,7 @@ func TestEmit_SweepSkippedWhenUserOptsIntoLegacyDir(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "active", Body: "x"},
 	}
-	if err := New().Emit(spec.NewBundle(entries), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -399,7 +400,7 @@ func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -429,7 +430,7 @@ func TestEmit_MCP_Roots(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -452,7 +453,7 @@ func TestEmit_MCP_EnvEscapesQuotesAndBackslashes(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -475,7 +476,7 @@ func TestEmit_CodexConfig_SandboxAndApprovalPolicy(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -504,7 +505,7 @@ func TestEmit_CodexConfig_ModelReasoningAndHistory(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -532,7 +533,7 @@ func TestEmit_CodexConfig_Notify(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -563,7 +564,7 @@ func TestEmit_CodexConfig_Profiles(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -610,7 +611,7 @@ func TestEmit_CodexConfig_ModelProviders(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -657,7 +658,7 @@ model = "gpt-5"
 			Meta: map[string]any{"command": "npx"},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -693,7 +694,7 @@ func TestEmit_CodexConfig_OverlayWinsOnDuplicate(t *testing.T) {
 			"codex": {Config: &config.CodexConfig{Model: "from-cfg", Sandbox: "workspace-write"}},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -716,7 +717,7 @@ func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
 			"codex": {Config: &config.CodexConfig{}},
 		},
 	}
-	if err := New().Emit(spec.NewBundle(nil), cfg, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/config.toml")); !os.IsNotExist(err) {
