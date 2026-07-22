@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-shell coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release playground-build playground-serve playground-clean
+.PHONY: build test test-race test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -18,6 +18,13 @@ test-race:
 
 test-shell:
 	bashunit scripts/release_test.sh
+
+# bench runs the permanent sync-hot-path benchmark suite. It is not part
+# of preflight or CI: benchmarks are for local comparison, not pass/fail.
+# `-run '^$$'` skips the unit tests so only Benchmark* functions run. See
+# docs/internal/benchmarks.md for how to read and extend the suite.
+bench:
+	go test -run '^$$' -bench . -benchmem ./...
 
 lint:
 	golangci-lint run

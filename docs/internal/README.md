@@ -8,6 +8,7 @@
 6. [Contributing a preset](contributing-presets.md): adding an `init --preset <name>` pack.
 7. [Decision log](decisions.md): historical design choices.
 8. [Roadmap](roadmap.md): planned directions.
+9. [Benchmarks](benchmarks.md): permanent sync-hot-path bench suite and how to extend it.
 
 ## House rules
 
