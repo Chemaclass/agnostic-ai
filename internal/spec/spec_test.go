@@ -9,6 +9,7 @@ import (
 )
 
 func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
+	t.Parallel()
 	meta, keys, _, body, err := splitFrontmatter([]byte("hello world"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -25,6 +26,7 @@ func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
 }
 
 func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
+	t.Parallel()
 	input := []byte("---\nname: foo\ndescription: bar\n---\nbody here\n")
 	meta, keys, _, body, err := splitFrontmatter(input)
 	if err != nil {
@@ -42,6 +44,7 @@ func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
 }
 
 func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
+	t.Parallel()
 	input := []byte("---\n---\nbody only\n")
 	meta, _, _, body, err := splitFrontmatter(input)
 	if err != nil {
@@ -56,6 +59,7 @@ func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
 }
 
 func TestSplitFrontmatter_MalformedYAML(t *testing.T) {
+	t.Parallel()
 	input := []byte("---\n: : :\n---\nbody\n")
 	if _, _, _, _, err := splitFrontmatter(input); err == nil {
 		t.Fatal("expected error on malformed yaml")
@@ -63,6 +67,7 @@ func TestSplitFrontmatter_MalformedYAML(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
+	t.Parallel()
 	entries := []Entry{
 		{Kind: KindAgent, Name: "a"},
 		{Kind: KindRule, Name: "r"},
@@ -77,6 +82,7 @@ func TestFilter(t *testing.T) {
 }
 
 func TestLoadAll_ParsesEachKind(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	mustWrite(t, filepath.Join(dir, "agents", "a1.md"),
@@ -108,6 +114,7 @@ func TestLoadAll_ParsesEachKind(t *testing.T) {
 }
 
 func TestLoadAll_NameFromFilenameIfMissing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "rules", "implicit-name.md"), "body without frontmatter")
 
@@ -122,6 +129,7 @@ func TestLoadAll_NameFromFilenameIfMissing(t *testing.T) {
 }
 
 func TestLoadAll_SkillNameFromParentDirWhenFrontmatterMissing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "skills", "my-skill", "SKILL.md"), "skill body without frontmatter")
 
@@ -145,6 +153,7 @@ func TestLoadAll_SkillNameFromParentDirWhenFrontmatterMissing(t *testing.T) {
 // bundled asset, not a skill of its own. It must not be promoted to a
 // top-level skill (#431).
 func TestLoadAll_MarkdownAssetInsideSkillNotPromoted(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "skills", "alpha", "SKILL.md"), "---\nname: alpha\n---\nskill body")
 	mustWrite(t, filepath.Join(dir, "skills", "alpha", "examples.md"), "extra markdown asset")
@@ -172,6 +181,7 @@ func TestLoadAll_MarkdownAssetInsideSkillNotPromoted(t *testing.T) {
 // Flat-file skills, including ones nested in a scope subdir, stay skills.
 // They have no SKILL.md ancestor, so the asset-detection must not eat them.
 func TestLoadAll_FlatFileSkillsSurviveAssetDetection(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "skills", "alpha.md"), "flat skill")
 	mustWrite(t, filepath.Join(dir, "skills", "backend", "loader.md"), "scoped flat skill")
@@ -201,6 +211,7 @@ func TestLoadAll_FlatFileSkillsSurviveAssetDetection(t *testing.T) {
 // A YAML file under the settings source dir loads as a settings spec
 // (#432), parsed like hooks and MCPs, with its fields kept in Meta.
 func TestLoadAll_ParsesSettingsKind(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "settings", "defaults.yaml"),
 		"model: claude-opus-4-8\npermissions:\n  allow:\n    - Bash(go test:*)\n")
@@ -227,6 +238,7 @@ func TestLoadAll_ParsesSettingsKind(t *testing.T) {
 // traversal: the name becomes a filename/dir segment in every adapter, so
 // the loader rejects it instead of letting sync write outside the tree.
 func TestLoadAll_RejectsPathTraversalName(t *testing.T) {
+	t.Parallel()
 	for _, bad := range []string{"../escape", "../../etc/passwd", "a/b", ".."} {
 		dir := t.TempDir()
 		mustWrite(t, filepath.Join(dir, "rules", "r.md"), "---\nname: "+bad+"\n---\nbody")
@@ -238,6 +250,7 @@ func TestLoadAll_RejectsPathTraversalName(t *testing.T) {
 }
 
 func TestLoadAll_AcceptsSafeNames(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "rules", "ok.md"), "---\nname: code-style\n---\nbody")
 	cfg := defaultsForTest()
@@ -251,6 +264,7 @@ func TestLoadAll_AcceptsSafeNames(t *testing.T) {
 }
 
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	cfg := defaultsForTest()
 	entries, err := LoadAll(dir, cfg)
@@ -263,6 +277,7 @@ func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 }
 
 func TestLoadAll_DerivesScopeFromLayout(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "rules", "root.md"), "body")
 	mustWrite(t, filepath.Join(dir, "rules", "backend", "auth.md"), "body")
@@ -300,6 +315,7 @@ func TestLoadAll_DerivesScopeFromLayout(t *testing.T) {
 }
 
 func TestEffectiveScope_FrontmatterFallback(t *testing.T) {
+	t.Parallel()
 	e := Entry{Meta: map[string]any{"scope": "/frontend/"}}
 	if got := e.EffectiveScope(); got != "frontend" {
 		t.Errorf("expected scope frontend, got %q", got)
@@ -311,6 +327,7 @@ func TestEffectiveScope_FrontmatterFallback(t *testing.T) {
 }
 
 func TestParseYAML_HookFields(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.yaml")
 	mustWrite(t, path, "name: foo\nevent: PreToolUse\ncommand: \"true\"\n")
@@ -325,6 +342,7 @@ func TestParseYAML_HookFields(t *testing.T) {
 }
 
 func TestLoadLayered_HigherLayerOverridesByName(t *testing.T) {
+	t.Parallel()
 	base := t.TempDir()
 	over := t.TempDir()
 
@@ -368,6 +386,7 @@ func TestLoadLayered_HigherLayerOverridesByName(t *testing.T) {
 }
 
 func TestLoadLayered_PreservesOrderForExistingNames(t *testing.T) {
+	t.Parallel()
 	base := t.TempDir()
 	over := t.TempDir()
 
@@ -395,6 +414,7 @@ func TestLoadLayered_PreservesOrderForExistingNames(t *testing.T) {
 }
 
 func TestLoadBundle_TagsLayerProject(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "rules", "x.md"), "---\nname: x\n---\nbody")
 	bundle, err := LoadBundle(dir, defaultsForTest())
@@ -407,6 +427,7 @@ func TestLoadBundle_TagsLayerProject(t *testing.T) {
 }
 
 func TestEntry_EmitsTo(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		meta   map[string]any
@@ -449,6 +470,7 @@ func TestEntry_EmitsTo(t *testing.T) {
 // entries scoped to their target. Mirrors Bundle.HooksFor across
 // agents/skills/rules/mcps/commands. Closes #292.
 func TestBundle_For(t *testing.T) {
+	t.Parallel()
 	b := Bundle{
 		Agents: []Entry{
 			{Kind: KindAgent, Name: "a1"},
@@ -529,6 +551,7 @@ func equalSlices(a, b []string) bool {
 }
 
 func TestBundle_HooksFor(t *testing.T) {
+	t.Parallel()
 	all := Bundle{Hooks: []Entry{
 		{Kind: KindHook, Name: "a"},
 		{Kind: KindHook, Name: "b", Meta: map[string]any{"target": "claude"}},

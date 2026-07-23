@@ -6,6 +6,7 @@ import (
 )
 
 func TestRenderTargetOverview_SingleTargetFlatBullets(t *testing.T) {
+	t.Parallel()
 	out := RenderTargetOverview([]TargetArtifacts{{
 		Target: "claude",
 		Artifacts: []NativeArtifact{
@@ -28,6 +29,7 @@ func TestRenderTargetOverview_SingleTargetFlatBullets(t *testing.T) {
 }
 
 func TestRenderTargetOverview_SharedPathRendersPerTargetHeadings(t *testing.T) {
+	t.Parallel()
 	out := RenderTargetOverview([]TargetArtifacts{
 		{Target: "codex", Artifacts: []NativeArtifact{{Label: "Agents", Location: ".codex/agents/"}}},
 		{Target: "amp", Artifacts: []NativeArtifact{{Label: "Skills", Location: ".agents/skills/"}}},
@@ -38,6 +40,7 @@ func TestRenderTargetOverview_SharedPathRendersPerTargetHeadings(t *testing.T) {
 }
 
 func TestRenderTargetOverview_EmptyWhenNoArtifacts(t *testing.T) {
+	t.Parallel()
 	if out := RenderTargetOverview(nil); out != "" {
 		t.Errorf("nil sections: got %q, want empty", out)
 	}
@@ -48,6 +51,7 @@ func TestRenderTargetOverview_EmptyWhenNoArtifacts(t *testing.T) {
 }
 
 func TestStripTargetOverview_RoundTrip(t *testing.T) {
+	t.Parallel()
 	body := "# Conventions\n\nEdit sources.\n"
 	overview := RenderTargetOverview([]TargetArtifacts{{
 		Target:    "claude",
@@ -60,6 +64,7 @@ func TestStripTargetOverview_RoundTrip(t *testing.T) {
 }
 
 func TestStripTargetOverview_NoBlockUnchanged(t *testing.T) {
+	t.Parallel()
 	body := "# Conventions\n\nNo block here.\n"
 	if got := StripTargetOverview(body); got != body {
 		t.Errorf("got %q, want unchanged", got)
@@ -67,6 +72,7 @@ func TestStripTargetOverview_NoBlockUnchanged(t *testing.T) {
 }
 
 func TestStripTargetOverview_TruncatedBlockHeals(t *testing.T) {
+	t.Parallel()
 	body := "# Conventions\n\n" + OverviewStartMarker + "\ntruncated, no end marker"
 	got := StripTargetOverview(body)
 	if got != "# Conventions\n" {
@@ -75,6 +81,7 @@ func TestStripTargetOverview_TruncatedBlockHeals(t *testing.T) {
 }
 
 func TestAppendTargetOverview_DoesNotStack(t *testing.T) {
+	t.Parallel()
 	body := "# Conventions\n"
 	overview := RenderTargetOverview([]TargetArtifacts{{
 		Target:    "claude",

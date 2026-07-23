@@ -9,6 +9,7 @@ import (
 )
 
 func TestMCPDocument_ServersMap(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -49,6 +50,7 @@ func TestMCPDocument_ServersMap(t *testing.T) {
 }
 
 func TestMCPDocument_VSCodeServers(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -72,6 +74,7 @@ func TestMCPDocument_VSCodeServers(t *testing.T) {
 }
 
 func TestMCPDocument_HTTPTransport(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -98,6 +101,7 @@ func TestMCPDocument_HTTPTransport(t *testing.T) {
 }
 
 func TestMCPDocument_DescriptionAndDisabled(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -127,6 +131,7 @@ func TestMCPDocument_DescriptionAndDisabled(t *testing.T) {
 }
 
 func TestMCPDocument_Roots(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -149,6 +154,7 @@ func TestMCPDocument_Roots(t *testing.T) {
 }
 
 func TestMCPDocument_SSETransport(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -183,6 +189,7 @@ func TestMCPDocument_SSETransport(t *testing.T) {
 }
 
 func TestMCPDocument_StdioTypeOnlyWhenVSCodeSchema(t *testing.T) {
+	t.Parallel()
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -208,6 +215,7 @@ func TestMCPDocument_StdioTypeOnlyWhenVSCodeSchema(t *testing.T) {
 }
 
 func TestMCPDocument_EmptySkips(t *testing.T) {
+	t.Parallel()
 	got, err := MCPDocument(nil, MCPSchemaServersMap)
 	if err != nil {
 		t.Fatal(err)

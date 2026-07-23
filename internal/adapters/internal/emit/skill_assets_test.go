@@ -9,6 +9,7 @@ import (
 )
 
 func TestFolderBasedSkill(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		path string
@@ -31,6 +32,7 @@ func TestFolderBasedSkill(t *testing.T) {
 // propagation must copy nothing — otherwise every sibling skill body leaks
 // into this skill's folder (#387).
 func TestPropagateSkillAssets_FlatFileSkipsSiblings(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	skillsDir := filepath.Join(dir, "skills")
@@ -57,6 +59,7 @@ func TestPropagateSkillAssets_FlatFileSkipsSiblings(t *testing.T) {
 // A folder-based skill owns its directory, so every sibling asset (minus the
 // re-rendered SKILL.md) propagates into the emitted folder.
 func TestPropagateSkillAssets_FolderCopiesSiblings(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	srcSkill := filepath.Join(dir, "skills", "alpha")
@@ -88,6 +91,7 @@ func TestPropagateSkillAssets_FolderCopiesSiblings(t *testing.T) {
 func skipNothing(string) bool { return false }
 
 func TestSkillHasBundledAssets(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	withAssets := filepath.Join(dir, "skills", "alpha")

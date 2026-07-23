@@ -7,6 +7,7 @@ import (
 )
 
 func TestTransaction_RollbackRestoresOverwrittenFile(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
@@ -32,6 +33,7 @@ func TestTransaction_RollbackRestoresOverwrittenFile(t *testing.T) {
 }
 
 func TestTransaction_RollbackDeletesNewFile(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "newfile.md")
@@ -50,6 +52,7 @@ func TestTransaction_RollbackDeletesNewFile(t *testing.T) {
 }
 
 func TestTransaction_CommitPreservesWrites(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
@@ -73,6 +76,7 @@ func TestTransaction_CommitPreservesWrites(t *testing.T) {
 }
 
 func TestTransaction_RollbackMultipleFilesInReverseOrder(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	fileA := filepath.Join(dir, "a.md")
@@ -105,6 +109,7 @@ func TestTransaction_RollbackMultipleFilesInReverseOrder(t *testing.T) {
 }
 
 func TestTransaction_RollbackNoOpsWithoutStart(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	if err := sess.Rollback(); err != nil {
 		t.Errorf("rollback with no transaction should be a no-op, got %v", err)
@@ -112,6 +117,7 @@ func TestTransaction_RollbackNoOpsWithoutStart(t *testing.T) {
 }
 
 func TestTransaction_CommitClearsLog(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "file.md")
@@ -136,6 +142,7 @@ func TestTransaction_CommitClearsLog(t *testing.T) {
 }
 
 func TestTransaction_RollbackWithDetailedRecordingMode(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	existing := filepath.Join(dir, "existing.md")

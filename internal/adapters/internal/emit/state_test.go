@@ -7,6 +7,7 @@ import (
 )
 
 func TestCapture_SuppressesIOAndRecordsContent(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "captured.md")
@@ -29,6 +30,7 @@ func TestCapture_SuppressesIOAndRecordsContent(t *testing.T) {
 }
 
 func TestStopCapture_AfterStartCaptureClearsState(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	sess.StartCapture()
 	if err := sess.WriteFile("a.md", "x", false); err != nil {
@@ -47,6 +49,7 @@ func TestStopCapture_AfterStartCaptureClearsState(t *testing.T) {
 }
 
 func TestRecording_DoesNotSuppressIO(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "recorded.md")
@@ -66,6 +69,7 @@ func TestRecording_DoesNotSuppressIO(t *testing.T) {
 }
 
 func TestStopRecording_AfterStartClearsState(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	sess.StartRecording()
@@ -84,6 +88,7 @@ func TestStopRecording_AfterStartClearsState(t *testing.T) {
 }
 
 func TestSourceComment(t *testing.T) {
+	t.Parallel()
 	if got := SourceComment(""); got != "" {
 		t.Errorf("empty path should return empty, got %q", got)
 	}
@@ -93,6 +98,7 @@ func TestSourceComment(t *testing.T) {
 }
 
 func TestWriteSection_RendersHeadingProvenanceDescBody(t *testing.T) {
+	t.Parallel()
 	var sb stringBuilder
 	WriteSection(sb.Builder(), "my-heading", entryFixture())
 	got := sb.String()

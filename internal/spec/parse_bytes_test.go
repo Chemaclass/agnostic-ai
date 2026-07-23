@@ -3,6 +3,7 @@ package spec
 import "testing"
 
 func TestParseMarkdownBytes_RuleWithFrontmatter(t *testing.T) {
+	t.Parallel()
 	body := []byte("---\nname: my-rule\ndescription: short\nglobs: \"**/*\"\nalwaysApply: true\n---\n\nrule body line one.\n")
 	e, err := ParseMarkdownBytes(KindRule, body)
 	if err != nil {
@@ -32,6 +33,7 @@ func TestParseMarkdownBytes_RuleWithFrontmatter(t *testing.T) {
 }
 
 func TestParseMarkdownBytes_NoFrontmatter(t *testing.T) {
+	t.Parallel()
 	e, err := ParseMarkdownBytes(KindRule, []byte("just body, no frontmatter\n"))
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +47,7 @@ func TestParseMarkdownBytes_NoFrontmatter(t *testing.T) {
 }
 
 func TestParseMarkdownBytes_CRLF(t *testing.T) {
+	t.Parallel()
 	body := []byte("---\r\nname: crlf\r\n---\r\nbody\r\n")
 	e, err := ParseMarkdownBytes(KindRule, body)
 	if err != nil {
@@ -56,6 +59,7 @@ func TestParseMarkdownBytes_CRLF(t *testing.T) {
 }
 
 func TestParseMarkdownBytes_MalformedYAMLErrors(t *testing.T) {
+	t.Parallel()
 	body := []byte("---\nname: ok\nbroken: [unterminated\n---\nbody\n")
 	if _, err := ParseMarkdownBytes(KindRule, body); err == nil {
 		t.Error("expected error for malformed YAML in frontmatter")
@@ -63,6 +67,7 @@ func TestParseMarkdownBytes_MalformedYAMLErrors(t *testing.T) {
 }
 
 func TestParseYAMLBytes_HookFields(t *testing.T) {
+	t.Parallel()
 	body := []byte("name: fmt-hook\nevent: PostToolUse\ncommand: \"echo\"\n")
 	e, err := ParseYAMLBytes(KindHook, body)
 	if err != nil {
@@ -80,6 +85,7 @@ func TestParseYAMLBytes_HookFields(t *testing.T) {
 }
 
 func TestParseYAMLBytes_EmptyDocument(t *testing.T) {
+	t.Parallel()
 	e, err := ParseYAMLBytes(KindMCP, []byte(""))
 	if err != nil {
 		t.Fatal(err)

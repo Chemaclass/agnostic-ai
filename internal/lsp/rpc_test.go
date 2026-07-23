@@ -8,6 +8,7 @@ import (
 )
 
 func TestRoundTrip_SimpleMessage(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
 	msg := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "initialize"}
@@ -26,6 +27,7 @@ func TestRoundTrip_SimpleMessage(t *testing.T) {
 }
 
 func TestReader_MultipleMessages(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
 	for i := range 3 {
@@ -44,6 +46,7 @@ func TestReader_MultipleMessages(t *testing.T) {
 }
 
 func TestServer_Initialize(t *testing.T) {
+	t.Parallel()
 	var in, out bytes.Buffer
 	w := NewWriter(&in)
 	_ = w.Send(map[string]any{
@@ -70,6 +73,7 @@ func TestServer_Initialize(t *testing.T) {
 }
 
 func TestURIConversion(t *testing.T) {
+	t.Parallel()
 	cases := []struct{ uri, path string }{
 		{"file:///tmp/foo.md", "/tmp/foo.md"},
 		{"file:///home/user/proj/rules/x.md", "/home/user/proj/rules/x.md"},

@@ -8,6 +8,7 @@ import (
 // Bodies without `::target` fences pass through unchanged. The common
 // case carries no fence — keep it cheap.
 func TestEntry_BodyFor_NoFences_Unchanged(t *testing.T) {
+	t.Parallel()
 	body := "# Test\n\n## Workflow\n\nStep 1.\n"
 	e := Entry{Body: body}
 	if got := e.BodyFor("claude"); got != body {
@@ -21,6 +22,7 @@ func TestEntry_BodyFor_NoFences_Unchanged(t *testing.T) {
 // A fenced section pinned to the matching target emits without the
 // fence markers but with surrounding whitespace preserved.
 func TestEntry_BodyFor_MatchingFence_RendersInline(t *testing.T) {
+	t.Parallel()
 	body := "Intro line.\n\n::target codex\nCodex-only paragraph.\n::end\n\nOutro.\n"
 	e := Entry{Body: body}
 	got := e.BodyFor("codex")
@@ -34,6 +36,7 @@ func TestEntry_BodyFor_MatchingFence_RendersInline(t *testing.T) {
 // (including the marker lines) so the rendered body reads cleanly for
 // the active target.
 func TestEntry_BodyFor_NonMatchingFence_Dropped(t *testing.T) {
+	t.Parallel()
 	body := "Intro.\n\n::target codex\nCodex stuff.\n::end\n\nOutro.\n"
 	e := Entry{Body: body}
 	got := e.BodyFor("claude")
@@ -46,6 +49,7 @@ func TestEntry_BodyFor_NonMatchingFence_Dropped(t *testing.T) {
 // Multiple consecutive fences for different targets emit only the
 // matching one.
 func TestEntry_BodyFor_MultipleFences_MatchOneOnly(t *testing.T) {
+	t.Parallel()
 	body := "Shared header.\n\n::target claude\nClaude paragraph.\n::end\n\n::target codex\nCodex paragraph.\n::end\n\nShared footer.\n"
 	e := Entry{Body: body}
 	if got := e.BodyFor("claude"); !strings.Contains(got, "Claude paragraph.") || strings.Contains(got, "Codex paragraph.") {
@@ -61,6 +65,7 @@ func TestEntry_BodyFor_MultipleFences_MatchOneOnly(t *testing.T) {
 
 // `::targets <a> <b>` allow-lists multiple targets in one fence.
 func TestEntry_BodyFor_TargetsList_MatchesAny(t *testing.T) {
+	t.Parallel()
 	body := "::targets claude codex\nShared section.\n::end\n"
 	e := Entry{Body: body}
 	if got := e.BodyFor("claude"); !strings.Contains(got, "Shared section.") {
@@ -77,6 +82,7 @@ func TestEntry_BodyFor_TargetsList_MatchesAny(t *testing.T) {
 // An unterminated fence runs to end-of-body. Avoids dropping the rest
 // of the file on a typo while still rendering deterministically.
 func TestEntry_BodyFor_UnterminatedFence_RunsToEnd(t *testing.T) {
+	t.Parallel()
 	body := "Intro.\n\n::target codex\nNo end marker.\n"
 	e := Entry{Body: body}
 	if got := e.BodyFor("codex"); !strings.Contains(got, "No end marker.") {
@@ -91,6 +97,7 @@ func TestEntry_BodyFor_UnterminatedFence_RunsToEnd(t *testing.T) {
 // for the source view / round-trip emit where the fence syntax is the
 // canonical form on disk.
 func TestEntry_BodyFor_EmptyTarget_PreservesFences(t *testing.T) {
+	t.Parallel()
 	body := "::target codex\nx\n::end\n"
 	e := Entry{Body: body}
 	if got := e.BodyFor(""); got != body {

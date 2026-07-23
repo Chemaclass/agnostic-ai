@@ -77,6 +77,7 @@ func helperCommand(mode string) func() *exec.Cmd {
 }
 
 func TestAdapter_Emit_RoundTrips(t *testing.T) {
+	t.Parallel()
 	adapter := NewWithCommand("fake", helperCommand("echo"))
 
 	bundle := spec.Bundle{
@@ -107,6 +108,7 @@ func TestAdapter_Emit_RoundTrips(t *testing.T) {
 }
 
 func TestAdapter_Emit_AdapterErrorBubbles(t *testing.T) {
+	t.Parallel()
 	adapter := NewWithCommand("fake", helperCommand("fail"))
 	err := adapter.Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false)
 	if err == nil || !strings.Contains(err.Error(), "adapter said no") {
@@ -134,6 +136,7 @@ func TestAdapter_Emit_WarningsRoutedToWarner(t *testing.T) {
 }
 
 func TestAdapter_Emit_RejectsBadJSON(t *testing.T) {
+	t.Parallel()
 	adapter := NewWithCommand("fake", helperCommand("bad-json"))
 	err := adapter.Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false)
 	if err == nil || !strings.Contains(err.Error(), "decode output") {
@@ -153,6 +156,7 @@ func TestNew_ReturnsErrNotFound_OnMissingBinary(t *testing.T) {
 }
 
 func TestValidateName(t *testing.T) {
+	t.Parallel()
 	bad := []string{"", "foo/bar", `foo\bar`, "-foo"}
 	for _, n := range bad {
 		if err := validateName(n); err == nil {
@@ -168,6 +172,7 @@ func TestValidateName(t *testing.T) {
 }
 
 func TestBuildInput_PreservesEntryFields(t *testing.T) {
+	t.Parallel()
 	b := spec.Bundle{
 		Agents: []spec.Entry{{
 			Kind:  spec.KindAgent,
@@ -193,6 +198,7 @@ func TestBuildInput_PreservesEntryFields(t *testing.T) {
 }
 
 func TestEncodeOutput_DefaultsProtocolVersion(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	if err := EncodeOutput(&buf, Output{Files: []File{{Path: "x"}}}); err != nil {
 		t.Fatal(err)

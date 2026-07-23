@@ -33,6 +33,7 @@ func fullCompare(path, content string) (DiskState, error) {
 // different content (the one case a naive size check would get wrong), the
 // size-precheck verdict has to equal the full-compare verdict.
 func TestCompareToDisk_MatchesFullCompareOracle(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewPCG(0x9e3779b9, 0x7f4a7c15))
 	dir := t.TempDir()
 	const iters = 3000
@@ -64,6 +65,7 @@ func TestCompareToDisk_MatchesFullCompareOracle(t *testing.T) {
 // content that is the same length as the file on disk but different byte for
 // byte must still be caught as stale. Size may never mask drift.
 func TestCompareToDisk_SameSizeDifferentContentIsStale(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "same-size")
 	if err := os.WriteFile(path, []byte("hello world"), filePerm); err != nil {
@@ -80,6 +82,7 @@ func TestCompareToDisk_SameSizeDifferentContentIsStale(t *testing.T) {
 }
 
 func TestCompareToDisk_Verdicts(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	tests := []struct {
 		name    string

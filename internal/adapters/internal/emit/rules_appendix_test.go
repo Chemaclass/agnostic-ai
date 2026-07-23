@@ -16,6 +16,7 @@ func ruleBundle() spec.Bundle {
 }
 
 func TestRenderRulesAppendix_EmitsEachRuleBody(t *testing.T) {
+	t.Parallel()
 	got := RenderRulesAppendix(ruleBundle())
 	for _, want := range []string{
 		RulesStartMarker, RulesEndMarker,
@@ -29,12 +30,14 @@ func TestRenderRulesAppendix_EmitsEachRuleBody(t *testing.T) {
 }
 
 func TestRenderRulesAppendix_EmptyWhenNoRules(t *testing.T) {
+	t.Parallel()
 	if got := RenderRulesAppendix(spec.Bundle{}); got != "" {
 		t.Errorf("want empty appendix for ruleless bundle, got %q", got)
 	}
 }
 
 func TestAppendRulesAppendix_DoesNotStack(t *testing.T) {
+	t.Parallel()
 	body := "# Pointer body\n"
 	app := RenderRulesAppendix(ruleBundle())
 	once := AppendRulesAppendix(body, app)
@@ -48,6 +51,7 @@ func TestAppendRulesAppendix_DoesNotStack(t *testing.T) {
 }
 
 func TestStripRulesAppendix_RoundTrips(t *testing.T) {
+	t.Parallel()
 	body := "# Pointer body\n"
 	withRules := AppendRulesAppendix(body, RenderRulesAppendix(ruleBundle()))
 	if got := StripRulesAppendix(withRules); got != body {
@@ -56,6 +60,7 @@ func TestStripRulesAppendix_RoundTrips(t *testing.T) {
 }
 
 func TestStripGeneratedAppendices_RemovesRulesAndOverview(t *testing.T) {
+	t.Parallel()
 	body := "# Pointer body\n"
 	withRules := AppendRulesAppendix(body, RenderRulesAppendix(ruleBundle()))
 	withBoth := AppendTargetOverview(withRules, RenderTargetOverview([]TargetArtifacts{
@@ -71,6 +76,7 @@ func importCfg(mode string) *config.Config {
 }
 
 func TestImportsRulesIntoEntryPoint(t *testing.T) {
+	t.Parallel()
 	if !ImportsRulesIntoEntryPoint(importCfg("import"), "claude") {
 		t.Error("claude with rules-mode: import should import rules into CLAUDE.md")
 	}
@@ -86,6 +92,7 @@ func TestImportsRulesIntoEntryPoint(t *testing.T) {
 }
 
 func TestImportsRulesIntoEntryPoint_LegacyRulesFileOverrides(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"claude": {RulesMode: "import", RulesFile: "CLAUDE.md"},
 	}}
@@ -95,6 +102,7 @@ func TestImportsRulesIntoEntryPoint_LegacyRulesFileOverrides(t *testing.T) {
 }
 
 func TestRenderRulesImportAppendix_EmitsImportLines(t *testing.T) {
+	t.Parallel()
 	got := RenderRulesImportAppendix(importCfg("import"), "claude", ruleBundle())
 	for _, want := range []string{
 		RulesStartMarker, RulesEndMarker, "## Rules",
@@ -111,6 +119,7 @@ func TestRenderRulesImportAppendix_EmitsImportLines(t *testing.T) {
 }
 
 func TestRenderRulesImportAppendix_HonorsRulesDirOverride(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{Outputs: map[string]config.Output{
 		"claude": {RulesMode: "import", RulesDir: ".claude/conventions"},
 	}}
@@ -121,12 +130,14 @@ func TestRenderRulesImportAppendix_HonorsRulesDirOverride(t *testing.T) {
 }
 
 func TestRenderRulesImportAppendix_EmptyWhenNoRules(t *testing.T) {
+	t.Parallel()
 	if got := RenderRulesImportAppendix(importCfg("import"), "claude", spec.Bundle{}); got != "" {
 		t.Errorf("want empty import appendix for ruleless bundle, got %q", got)
 	}
 }
 
 func TestRenderRulesImportAppendix_RoundTrips(t *testing.T) {
+	t.Parallel()
 	body := "# Pointer body\n"
 	withImports := AppendRulesAppendix(body, RenderRulesImportAppendix(importCfg("import"), "claude", ruleBundle()))
 	if got := StripRulesAppendix(withImports); got != body {
@@ -135,6 +146,7 @@ func TestRenderRulesImportAppendix_RoundTrips(t *testing.T) {
 }
 
 func TestInlinesRulesIntoEntryPoint(t *testing.T) {
+	t.Parallel()
 	inline := []string{"codex", "amp", "warp", "zed", "gemini", "aider", "opencode", "crush"}
 	for _, tgt := range inline {
 		if !InlinesRulesIntoEntryPoint(tgt) {

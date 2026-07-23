@@ -3,6 +3,7 @@ package emit
 import "testing"
 
 func TestDocument_EmptyMetaReturnsBodyOnly(t *testing.T) {
+	t.Parallel()
 	got := Document(nil, "hello body\n", "claude")
 	if got != "hello body\n" {
 		t.Errorf("expected body-only, got %q", got)
@@ -10,6 +11,7 @@ func TestDocument_EmptyMetaReturnsBodyOnly(t *testing.T) {
 }
 
 func TestDocument_EmptyMetaMapReturnsBodyOnly(t *testing.T) {
+	t.Parallel()
 	got := Document(map[string]any{}, "hello body\n", "claude")
 	if got != "hello body\n" {
 		t.Errorf("expected body-only, got %q", got)
@@ -17,6 +19,7 @@ func TestDocument_EmptyMetaMapReturnsBodyOnly(t *testing.T) {
 }
 
 func TestDocument_PrependsFrontmatterWithSeparatingNewline(t *testing.T) {
+	t.Parallel()
 	got := Document(map[string]any{"name": "r1"}, "body line\n", "claude")
 	want := "---\nname: r1\n---\n\nbody line\n"
 	if got != want {
@@ -25,6 +28,7 @@ func TestDocument_PrependsFrontmatterWithSeparatingNewline(t *testing.T) {
 }
 
 func TestDocument_ResolvesTargetSpecificMeta(t *testing.T) {
+	t.Parallel()
 	meta := map[string]any{
 		"name":     "r1",
 		"x-claude": map[string]any{"allowed-tools": []any{"Read"}},

@@ -11,7 +11,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
-	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // TestEmit_ConfFileCaptureReadsExistingUserKeys regresses #465. Under
@@ -20,8 +19,8 @@ import (
 // Otherwise doctor reports false drift and --fix writes the managed keys
 // only, deleting the user's config.
 func TestEmit_ConfFileCaptureReadsExistingUserKeys(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	const existing = "auto-commits: false\nmodel: legacy-model\n"
 	if err := os.WriteFile(filepath.Join(dir, ".aider.conf.yml"), []byte(existing), 0o644); err != nil {
@@ -29,7 +28,7 @@ func TestEmit_ConfFileCaptureReadsExistingUserKeys(t *testing.T) {
 	}
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"aider": {ConfFile: ".aider.conf.yml"},
+			"aider": {ConfFile: filepath.Join(dir, ".aider.conf.yml")},
 		},
 	}
 	entries := []spec.Entry{
@@ -61,8 +60,8 @@ func TestEmit_ConfFileCaptureReadsExistingUserKeys(t *testing.T) {
 }
 
 func TestEmit_NoConventionsByDefault(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	a := New()
 	if a.Name() != "aider" {
@@ -84,11 +83,11 @@ func TestEmit_NoConventionsByDefault(t *testing.T) {
 }
 
 func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{
-		Outputs: map[string]config.Output{"aider": {RulesFile: "CONVENTIONS.md"}},
+		Outputs: map[string]config.Output{"aider": {RulesFile: filepath.Join(dir, "CONVENTIONS.md")}},
 	}
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
@@ -114,13 +113,13 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 }
 
 func TestEmit_WritesConfFileWhenConfigured(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"aider": {
-				ConfFile:  ".aider.conf.yml",
+				ConfFile:  filepath.Join(dir, ".aider.conf.yml"),
 				Model:     "gpt-4o",
 				WeakModel: "gpt-4o-mini",
 			},
@@ -146,8 +145,8 @@ func TestEmit_WritesConfFileWhenConfigured(t *testing.T) {
 }
 
 func TestEmit_ConfFileMergesPreservingUserKeys(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	existing := "auto-commits: false\nread:\n  - notes.md\nmodel: legacy-model\n"
 	if err := os.WriteFile(filepath.Join(dir, ".aider.conf.yml"), []byte(existing), 0o644); err != nil {
@@ -156,7 +155,7 @@ func TestEmit_ConfFileMergesPreservingUserKeys(t *testing.T) {
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"aider": {ConfFile: ".aider.conf.yml"},
+			"aider": {ConfFile: filepath.Join(dir, ".aider.conf.yml")},
 		},
 	}
 	entries := []spec.Entry{
@@ -180,8 +179,8 @@ func TestEmit_ConfFileMergesPreservingUserKeys(t *testing.T) {
 }
 
 func TestEmit_ConfFileDoesNotDuplicateReadEntry(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	existing := "read:\n  - CONVENTIONS.md\n"
 	if err := os.WriteFile(filepath.Join(dir, ".aider.conf.yml"), []byte(existing), 0o644); err != nil {
@@ -190,7 +189,7 @@ func TestEmit_ConfFileDoesNotDuplicateReadEntry(t *testing.T) {
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"aider": {ConfFile: ".aider.conf.yml"},
+			"aider": {ConfFile: filepath.Join(dir, ".aider.conf.yml")},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
@@ -205,8 +204,8 @@ func TestEmit_ConfFileDoesNotDuplicateReadEntry(t *testing.T) {
 }
 
 func TestEmit_ConfFilePromotesScalarRead(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	testutil.Chdir(t, dir)
 
 	existing := "read: notes.md\n"
 	if err := os.WriteFile(filepath.Join(dir, ".aider.conf.yml"), []byte(existing), 0o644); err != nil {
@@ -215,7 +214,7 @@ func TestEmit_ConfFilePromotesScalarRead(t *testing.T) {
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"aider": {ConfFile: ".aider.conf.yml"},
+			"aider": {ConfFile: filepath.Join(dir, ".aider.conf.yml")},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {

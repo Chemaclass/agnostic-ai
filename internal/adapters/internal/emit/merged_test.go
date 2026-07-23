@@ -9,6 +9,7 @@ import (
 )
 
 func TestMergedDocument_SkipsWhenEmpty(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "OUT.md")
@@ -25,6 +26,7 @@ func TestMergedDocument_SkipsWhenEmpty(t *testing.T) {
 }
 
 func TestMergedDocument_WritesWhenNonEmpty(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "OUT.md")

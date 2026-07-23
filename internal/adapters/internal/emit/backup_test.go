@@ -7,6 +7,7 @@ import (
 )
 
 func TestWriteFile_BackupCreatesBakWhenContentDiffers(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
@@ -36,6 +37,7 @@ func TestWriteFile_BackupCreatesBakWhenContentDiffers(t *testing.T) {
 }
 
 func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
@@ -56,6 +58,7 @@ func TestWriteFile_BackupSkippedWhenContentEqual(t *testing.T) {
 }
 
 func TestWriteFile_BackupSkippedForNewFile(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fresh.md")
@@ -71,6 +74,7 @@ func TestWriteFile_BackupSkippedForNewFile(t *testing.T) {
 }
 
 func TestWriteFile_BackupOffByDefault(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "CLAUDE.md")
