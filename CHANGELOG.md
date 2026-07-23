@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `import kiro` and `import crush` close the last round-trip gap: every one of the 18 emitted targets now imports back. `kiro` reads `.kiro/steering/*.md` (mapping `inclusion: always` to unscoped rules and `fileMatch` + `fileMatchPattern` to `globs:` rules, plus `agent-`/`skill-` steering files) and `.kiro/settings/mcp.json`; `crush` reads the inlined `## Rules` block in `AGENTS.md`, `.agents/skills/<name>/SKILL.md`, and the `crush.json` `mcp` map (#494).
 - `--profile <file>` (or `AGNOSTIC_AI_PROFILE`) writes a `runtime/pprof` CPU profile of the run, and `sync --verbose` appends per-target wall time (`in Nms`) to each target line, so a slow sync attributes to a specific adapter. Off by default, stdlib profiler only (#491).
 - `sync --check` gains actionable drift output: `--diff` prints a unified diff per drifted file (truncated when large), `--format=github` emits GitHub Actions `::error` annotations that surface inline on the PR, and a failing check now prints the reconcile command (`agnostic-ai sync`) on stderr and points its error and the config-error hints at `agnostic-ai doctor`. Exit codes and the `--json` schema are unchanged (#488).
 - `sync --jobs <n>` emits targets in parallel (default: one worker per CPU; `1` forces serial). The emitted tree, summary, JSON, gitignore block, and warnings stay byte-identical regardless of the worker count (#487).

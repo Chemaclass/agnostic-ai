@@ -59,7 +59,7 @@ agnostic-ai import continue       # .continue/rules/
 - Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
 - When another target's entry-point exists with different hand-authored content (e.g. a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that it holds unique content the next `sync` would overwrite. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` before syncing to keep it.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, plus `all`.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, plus `all`. Every emitted target can also be imported.
 
 `import claude`:
 
@@ -125,6 +125,30 @@ Reads `.cursor/rules/**` recursively, so nested rule directories are imported to
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
 The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected.
+
+`import kiro` reverses the Kiro steering layout. Steering files are flat under `.kiro/steering/` and carry a frontmatter-first `inclusion:` block; the filename prefix picks the kind:
+
+| Source | Becomes |
+|--------|---------|
+| `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (unscoped rule) |
+| `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
+| `.kiro/steering/agent-<name>.md` | `<agents>/<name>.md` |
+| `.kiro/steering/skill-<name>.md` | `<skills>/<name>/SKILL.md` |
+| `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec drops them without changing Kiro's output): a rule's source-layout scope collapses into an equivalent `globs:`, a steering agent keeps only its body, and a steering skill keeps only its SKILL.md (bundled sibling assets are flattened on emit).
+
+`import crush` reverses the Crush layout. Crush has no per-rule directory, so rules ride inside the shared `AGENTS.md`:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
+| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http`) | `<mcps>/<name>.yaml` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Lossy on round-trip: rules reach Crush only through the inlined block, which carries no `globs`/scope, so rule scoping does not round-trip (Crush's output is unaffected either way).
 
 ## validate
 
