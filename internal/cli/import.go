@@ -48,7 +48,7 @@ func windsurfImportDir(root string) string {
 func importSources() string {
 	names := []string{
 		"aider", "amp", "antigravity", "claude", "codex", "continue", "copilot",
-		"cursor", "gemini", "opencode", "warp", "windsurf", "zed",
+		"crush", "cursor", "gemini", "kiro", "opencode", "warp", "windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
@@ -136,6 +136,10 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromAntigravity(root, src, cfg)
 	case "continue":
 		return importFromContinue(root, src)
+	case "kiro":
+		return importFromKiro(root, src)
+	case "crush":
+		return importFromCrush(root, src)
 	case "windsurf":
 		return importFromRulesDir(root, source, windsurfImportDir(root), src)
 	}
@@ -179,7 +183,7 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "aider", "amp", "warp",
-		"gemini", "copilot", "opencode", "zed", "windsurf":
+		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush":
 		return true
 	}
 	_, ok := rulesDirImporters[source]
