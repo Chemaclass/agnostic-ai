@@ -50,13 +50,13 @@ A spec kind (hook, mcp, command, ...) is in the bundle but the target adapter do
 
 Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.
 
-**Fix:** run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one.
+**Fix:** run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-004: Config decode failed
 
 The config file was found but could not be parsed as YAML, or its keys do not match the schema.
 
-**Fix:** validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence.
+**Fix:** validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-102: Targets emit to the same output path
 

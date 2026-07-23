@@ -29,13 +29,13 @@ var registry = map[Code]Entry{
 		Code:  CodeConfigMissing,
 		Title: "Config file missing",
 		Cause: "Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.",
-		Fix:   "Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one.",
+		Fix:   "Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.",
 	},
 	CodeConfigDecode: {
 		Code:  CodeConfigDecode,
 		Title: "Config decode failed",
 		Cause: "The config file was found but could not be parsed as YAML, or its keys do not match the expected schema.",
-		Fix:   "Validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence.",
+		Fix:   "Validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.",
 	},
 	CodeOutputCollision: {
 		Code:  CodeOutputCollision,
