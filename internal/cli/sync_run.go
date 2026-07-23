@@ -112,6 +112,7 @@ type targetEmit struct {
 	recorded []string // gitignore paths; empty unless gitignore recording is on
 	resolved bool     // false when the adapter could not be resolved (skippable)
 	err      error
+	dur      time.Duration // wall time the target's emit took, for the verbose summary
 }
 
 // resolveJobs maps the --jobs flag to a worker count: 0 or negative means
@@ -216,12 +217,14 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 				if gitignoreOn {
 					sess.StartRecording()
 				}
+				emitStart := time.Now()
 				writes, resolved, err := emitTarget(sess, targets[idx], b, cfg, dryRun)
+				emitDur := time.Since(emitStart)
 				var recorded []string
 				if gitignoreOn {
 					recorded = sess.StopRecording()
 				}
-				results[idx] = targetEmit{target: targets[idx], writes: writes, recorded: recorded, resolved: resolved, err: err}
+				results[idx] = targetEmit{target: targets[idx], writes: writes, recorded: recorded, resolved: resolved, err: err, dur: emitDur}
 				if failFast && err != nil && resolved {
 					return fmt.Errorf("%s: %w", targets[idx], err)
 				}
@@ -390,7 +393,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		created, updated, skipped := classifyDetailedWrites(e.writes)
 		filesChanged += created + updated
 		if verbose {
-			verbosef("→ %s: %d created, %d updated, %d unchanged\n", e.target, created, updated, skipped)
+			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", e.target, created, updated, skipped, e.dur.Milliseconds())
 		}
 	}
 

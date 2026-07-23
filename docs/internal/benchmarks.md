@@ -77,3 +77,37 @@ When you propose a hot-path change, add a third `proposed` sub-benchmark
 next to these two, run all three side by side, and compute the crossover
 before touching the production code. Keep the bench after the proposal
 closes: future runtime or compiler changes can re-measure it cheaply.
+
+## Profiling a slow sync
+
+The benchmark suite measures the hot paths in-repo. To diagnose a slow
+`sync` in the field (a large monorepo, a specific adapter), `sync` has two
+opt-in hooks that need no benchmark harness.
+
+`--profile <file>` (or `AGNOSTIC_AI_PROFILE=<file>`) writes a
+`runtime/pprof` CPU profile of the whole run. It uses the stdlib profiler
+only and is off by default. Read it with the standard tool:
+
+```bash
+agnostic-ai sync --profile cpu.prof
+go tool pprof -top cpu.prof
+go tool pprof -http=:0 cpu.prof   # flame graph in the browser
+```
+
+`sync --verbose` appends per-target wall time to each target line, so a
+slow run attributes to a specific adapter without a profile:
+
+```
+→ claude: 12 created, 3 updated, 0 unchanged in 42ms
+→ codex: 40 created, 0 updated, 2 unchanged in 210ms
+✓ synced 2 targets · 55 files · 260ms
+```
+
+Each per-target time is measured around that target's emit and reported
+independently, so under `--jobs > 1` the times overlap. Read them as
+per-adapter cost, not a serial breakdown of the run total.
+
+The flag lives on the root command (`internal/cli/root.go`): profiling
+starts in the persistent pre-run hook and stops in the persistent post-run
+hook, so the profile covers a completed run. The per-target stopwatch wraps
+the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
