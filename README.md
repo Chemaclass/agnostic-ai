@@ -4,7 +4,7 @@
 
 ### **One spec. Every AI CLI. Zero drift.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 9 more in their native format.
+Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 13 more in their native format.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
@@ -21,7 +21,7 @@ You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`.
 
 agnostic-ai keeps one source of truth in plain Markdown plus YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects, in its native location, byte-stable across runs.
 
-- **Stateless adapters.** Same input, same output. Diffable, reviewable.
+- **Stateless adapters.** Same input, same output. Diffable, reviewable, safe to emit in parallel (`sync --jobs`).
 - **Uniform entry-point.** One pointer body shared across every target's root file.
 - **Round-trip safe.** Provenance marker plus style preservation keeps `import` then `sync` byte-stable.
 - **Scoped rules.** `rules/backend/auth.md` routes to `.cursor/rules/backend/auth.mdc` and `.github/instructions/auth.instructions.md` with `applyTo: backend/**`.
