@@ -751,7 +751,7 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 	if !drift {
 		return nil
 	}
-	fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai sync")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai sync")
 	return errDriftDetected()
 }
 
@@ -765,12 +765,12 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 	for _, r := range reports {
 		for _, f := range r.Missing {
 			drift = true
-			fmt.Fprintf(out, "::error file=%s::%s is missing; run agnostic-ai sync to generate it\n",
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s is missing; run agnostic-ai sync to generate it\n",
 				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)))
 		}
 		for _, f := range r.Stale {
 			drift = true
-			fmt.Fprintf(out, "::error file=%s,line=%d::%s drifted from specs; run agnostic-ai sync to reconcile\n",
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s drifted from specs; run agnostic-ai sync to reconcile\n",
 				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
 		}
 	}
@@ -789,12 +789,12 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 	out := cmd.OutOrStdout()
 	for _, r := range reports {
 		for _, f := range r.Missing {
-			fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
+			_, _ = fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
 		}
 		for _, f := range r.Stale {
 			disk, err := os.ReadFile(f.Path)
 			if err != nil {
-				fmt.Fprintf(out, "%s: %v\n", f.Path, err)
+				_, _ = fmt.Fprintf(out, "%s: %v\n", f.Path, err)
 				continue
 			}
 			_, _ = fmt.Fprint(out, unifiedDiff(f.Path, string(disk), f.Content, diffBodyMax))
