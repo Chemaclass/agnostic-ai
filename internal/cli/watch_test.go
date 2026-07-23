@@ -74,7 +74,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off", false)
+		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off", false, 1)
 	}()
 
 	// Wait for initial sync.
@@ -157,7 +157,7 @@ func TestWatchSync_PollFallback(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll = true exercises the polling backend explicitly.
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true, 1)
 	}()
 
 	time.Sleep(80 * time.Millisecond)
@@ -269,7 +269,7 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll=true: deterministic across platforms.
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, false, false, "off", true)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, false, false, "off", true, 1)
 	}()
 
 	codexConfig := filepath.Join(dir, ".codex", "config.toml")

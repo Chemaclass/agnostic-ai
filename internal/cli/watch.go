@@ -28,24 +28,24 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 // watchSync runs an initial sync, then re-runs whenever a watched path
 // changes. When forcePoll is false it tries fsnotify and falls back to
 // polling if the watcher cannot be created.
-func watchSync(ctx context.Context, pollInterval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, forcePoll bool) error {
-	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
+func watchSync(ctx context.Context, pollInterval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, forcePoll bool, jobs int) error {
+	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 		return err
 	}
 	if !forcePoll {
-		err := watchSyncFsnotify(ctx, root, targets, dryRun, backup, gitignoreFlag)
+		err := watchSyncFsnotify(ctx, root, targets, dryRun, backup, gitignoreFlag, jobs)
 		if err == nil || ctx.Err() != nil {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "! fsnotify unavailable (%v); falling back to polling\n", err)
 	}
-	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag)
+	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag, jobs)
 }
 
 // watchSyncFsnotify watches via OS file events. Returns the first
 // unrecoverable setup error so the caller can fall back to polling.
 // Per-event errors during the loop are logged and the loop continues.
-func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			printWatchEvent(lastEvent)
 			adapters.ResetCapabilityWarnings()
 			adapters.ResetCoverageNotes()
-			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
+			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
 			// Pick up source roots that may have appeared (e.g. a
@@ -125,7 +125,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 
 // watchSyncPoll is the original mtime-poll loop. Used as a fallback
 // when fsnotify fails (e.g. some network mounts) or with --watch-poll.
-func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string) error {
+func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 			changed := firstChangedPath(snapshot, curr)
 			snapshot = curr
 			printWatchEvent(changed)
-			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag); err != nil {
+			if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
 			if newCfg, err := config.Load(root); err == nil {

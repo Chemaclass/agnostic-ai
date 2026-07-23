@@ -391,6 +391,14 @@ sync:
 - Turning the option off (or a skill starting to diverge) converts links back to real trees on the next sync. Removing a skill sweeps its canonical tree and every link.
 - On filesystems without symlink support (Windows without the privilege), sync warns once and keeps real copies.
 
+### Parallel emission (`--jobs`)
+
+`sync` emits each target on its own worker. The `--jobs <n>` flag bounds how many run at once: `0` (the default) uses one worker per CPU, and `1` forces the old serial path. There is no config-file key; it is a per-run flag on `sync`.
+
+The output never depends on the value. The emitted file tree, the summary counts, the JSON result, the `.gitignore` block, and the capability warnings are byte-identical whether one worker or many ran, so parallelism is safe to leave on. Drop to `--jobs 1` only when you want deterministic goroutine-free ordering for debugging. Targets that write a shared path (the `AGENTS.md` pointer family) are coordinated so exactly one target creates the file and the rest skip it, matching serial emission.
+
+Parallelism helps most on large projects with many targets. On a small spec set or a single target it is close to free either way, since the worker count is capped at the number of targets.
+
 ## `import`
 
 Per-source knobs for the `import` command. Empty blocks fall back to per-source defaults.

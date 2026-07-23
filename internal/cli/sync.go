@@ -17,6 +17,7 @@ func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
 	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets bool
 	var gitignoreFlag string
+	var jobs int
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -106,12 +107,12 @@ func newSyncCmd() *cobra.Command {
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
-				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll)
+				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", effective, dryRun, backup, gitignoreFlag)
+				return runSyncJSON(cmd, ".", effective, dryRun, backup, gitignoreFlag, jobs)
 			}
-			return runSyncOnce(".", effective, dryRun, backup, gitignoreFlag)
+			return runSyncOnce(".", effective, dryRun, backup, gitignoreFlag, jobs)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
@@ -126,6 +127,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
+	cmd.Flags().IntVar(&jobs, "jobs", 0, "Number of targets to emit in parallel (0 = one per CPU; 1 = serial). Output is identical regardless.")
 	registerTargetCompletion(cmd)
 	return cmd
 }

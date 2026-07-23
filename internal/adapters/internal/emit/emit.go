@@ -261,6 +261,31 @@ func escapesProjectRoot(path string) bool {
 	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
 }
 
+// pathLocks serializes concurrent writes to the same output path across
+// sessions. Parallel sync (`--jobs > 1`) emits every target on its own
+// Session, but several targets legitimately write the SAME shared path
+// (e.g. the AGENTS.md family of pointer files). Without coordination two
+// targets race the read-classify-write critical section below: both observe
+// the path missing, both classify a "create", both log a rollback entry,
+// and both call os.WriteFile. A per-path mutex makes exactly one target
+// create the file and the rest observe it present with identical content
+// and skip — matching serial emission, keeping the transaction log free of
+// duplicate entries, and never tearing a half-written file.
+//
+// This is pure write coordination, not shared business state: the map holds
+// one mutex per distinct path for the process lifetime (bounded by the
+// output tree, freed on exit) and carries no data of its own.
+var pathLocks sync.Map // map[string]*sync.Mutex
+
+// lockPath acquires the write mutex for path (keyed by its cleaned form so
+// spellings of the same file coincide) and returns the unlock func.
+func lockPath(path string) func() {
+	m, _ := pathLocks.LoadOrStore(filepath.Clean(path), &sync.Mutex{})
+	mu := m.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
 	s.mu.Lock()
 	capturing := s.capturing
@@ -289,6 +314,13 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 	if escapesProjectRoot(path) {
 		return fmt.Errorf("refusing to write outside the project root: %s", path)
 	}
+	// Serialize the read-classify-write below against any other session
+	// targeting the same path so concurrent emitters cannot both see it
+	// missing. Held until the write and its rollback/detail bookkeeping
+	// complete. Ordering is always pathLock (outer) then s.mu (inner); the
+	// early s.mu section above has already been released, so no goroutine
+	// holds s.mu while acquiring a path lock and the two never deadlock.
+	defer lockPath(path)()
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}

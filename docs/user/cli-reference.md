@@ -237,6 +237,7 @@ agnostic-ai sync [flags]
 | `--watch` | Keep the process alive and re-emit on spec, config, or overlay changes. Watched roots: `agnostic-ai.yaml` + `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai.local/`, and `.agnostic-ai/overlays/` (so a hand-edit to `claude.settings.json` / `codex.config.toml` re-emits). Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
 | `--watch-poll` | Force the polling backend (200 ms) even when fsnotify is available. Use on network mounts or container volumes where fsnotify misses events. Requires `--watch`. |
 | `--all` | Emit every configured target without the first-sync picker. Useful for ad-hoc full emission or scripted runs that bypass prompts. |
+| `--jobs <n>` | Number of targets to emit in parallel. `0` (default) uses one worker per CPU; `1` forces serial emission. Output (files, summary, JSON, gitignore, warnings) is byte-identical regardless of the value, so lower it only to debug or pin ordering. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
 ### First-sync target picker
@@ -257,6 +258,7 @@ agnostic-ai sync --except codex        # all configured targets except codex
 agnostic-ai sync --dry-run             # preview
 agnostic-ai sync --check               # CI gate: fail if outputs are stale
 agnostic-ai sync --backup              # leave a .bak trail for revert
+agnostic-ai sync --jobs 1              # force serial emission (default: one worker per CPU)
 agnostic-ai sync --watch               # re-emit on spec changes; Ctrl+C exits
 agnostic-ai sync --json                # machine-readable output
 agnostic-ai sync --check --json        # machine-readable drift report
