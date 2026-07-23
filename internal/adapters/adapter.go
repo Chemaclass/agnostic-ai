@@ -115,6 +115,21 @@ func CoverageNotesDigest() string { return emit.CoverageNotesDigest() }
 // (target, kind, via) coverage notes currently buffered.
 func PendingCoverageNotesCount() int { return emit.PendingCoverageNotesCount() }
 
+// OrderBufferedDropsByTarget reorders the buffered capability warnings and
+// coverage notes to the given target sequence so their flushed output is
+// deterministic regardless of the order concurrent emission appended them
+// in (sync --jobs > 1). A no-op for serial emission.
+func OrderBufferedDropsByTarget(order []string) { emit.OrderBufferedDropsByTarget(order) }
+
+// SetProvenanceEnabled overrides the process-wide provenance-header toggle
+// and returns the previous value. The parallel sync path pins it per
+// provenance-homogeneous batch so concurrently emitting adapters never
+// observe a half-applied toggle; see internal/adapters/internal/emit/header.go.
+func SetProvenanceEnabled(b bool) bool { return emit.SetProvenanceEnabled(b) }
+
+// ProvenanceEnabled reports the current provenance-header toggle state.
+func ProvenanceEnabled() bool { return emit.ProvenanceEnabled() }
+
 // AgnosticEntryPointPath is the canonical CLI-agnostic entry-point
 // path under .agnostic-ai/ (re-exported from the emit layer for
 // callers in the cli package).

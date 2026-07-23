@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- `sync --jobs <n>` emits targets in parallel (default: one worker per CPU; `1` forces serial). The emitted tree, summary, JSON, gitignore block, and warnings stay byte-identical regardless of the worker count (#487).
+
 ## v0.43.0 - 2026-07-20
 
 ### Changed

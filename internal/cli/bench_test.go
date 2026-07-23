@@ -87,26 +87,41 @@ func BenchmarkSyncEmit(b *testing.B) {
 // reconcile the ledger, and write state. The fixture is primed with one
 // sync before timing so the measured iterations are the steady-state
 // re-sync (create-then-skip), the common dev and CI path.
+//
+// Each spec count runs twice — serial (--jobs 1) and parallel (--jobs 0 =
+// one worker per CPU) — so the two subjects sit side by side per
+// bench-before-perf-refactor.md and the parallel-emission crossover
+// (the spec count where fan-out beats serial) is read straight off the
+// numbers.
 func BenchmarkSyncFull(b *testing.B) {
+	jobsCases := []struct {
+		name string
+		jobs int
+	}{
+		{"serial", 1},   // status-quo: today's sequential emission
+		{"parallel", 0}, // proposed: bounded fan-out, one worker per CPU
+	}
 	for _, n := range []int{10, 100} {
-		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
-			root := benchProject(b, n)
-			benchQuiet(b)
-			benchChdir(b, root)
-			benchIsolateGlobalLayer(b)
-			// Prime once so timed iterations measure the re-sync path.
-			if err := runSyncOnce(".", nil, false, false, "off"); err != nil {
-				b.Fatal(err)
-			}
-			resetBenchBuffers()
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				if err := runSyncOnce(".", nil, false, false, "off"); err != nil {
+		for _, jc := range jobsCases {
+			b.Run(fmt.Sprintf("specs=%d/%s", n, jc.name), func(b *testing.B) {
+				root := benchProject(b, n)
+				benchQuiet(b)
+				benchChdir(b, root)
+				benchIsolateGlobalLayer(b)
+				// Prime once so timed iterations measure the re-sync path.
+				if err := runSyncOnce(".", nil, false, false, "off", jc.jobs); err != nil {
 					b.Fatal(err)
 				}
-			}
-		})
+				resetBenchBuffers()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					if err := runSyncOnce(".", nil, false, false, "off", jc.jobs); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
 	}
 }
 
