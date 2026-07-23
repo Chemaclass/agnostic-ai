@@ -53,6 +53,35 @@ func TestNew_WritesRule(t *testing.T) {
 	}
 }
 
+func TestNew_DryRunPrintsScaffoldWithoutWriting(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "rule", "no-console-log", "--dry-run"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := out.String()
+	// The preview names the destination path...
+	if !strings.Contains(got, filepath.Join(".agnostic-ai", "rules", "no-console-log.md")) {
+		t.Errorf("dry-run output missing target path:\n%s", got)
+	}
+	// ...and prints the rendered frontmatter and body.
+	if !strings.Contains(got, "name: no-console-log") {
+		t.Errorf("dry-run output missing rendered frontmatter:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: true") {
+		t.Errorf("dry-run output missing rendered body:\n%s", got)
+	}
+	// Nothing may land on disk.
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "no-console-log.md")); !os.IsNotExist(err) {
+		t.Errorf("dry-run wrote a file, want none: %v", err)
+	}
+}
+
 func TestNew_HookEmitsYAML(t *testing.T) {
 	dir := setupEmptyProject(t)
 	testutil.Chdir(t, dir)

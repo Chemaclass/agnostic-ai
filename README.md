@@ -147,6 +147,8 @@ Edit specs under `.agnostic-ai/`, run `sync` again. Already have `.cursor/rules`
 agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, junie, trae, ...
 ```
 
+Enable shell tab-completion (optional): `agnostic-ai completion <shell>` for bash, zsh, fish, or powershell.
+
 CI gate to fail PRs that drift from source specs:
 
 ```yaml

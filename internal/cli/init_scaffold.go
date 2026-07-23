@@ -213,6 +213,8 @@ func listPresetFiles(baseDir, preset string) error {
 // suggested next step is `sync` (the source dirs are not empty).
 // Otherwise the suggested next step is `import <target>`. Detected
 // CLI configs under root are surfaced as concrete `import` follow-ups.
+// A closing tip points at `completion` so first-time users discover
+// shell tab-completion (never auto-installed; instructions only).
 func printNextSteps(root, base string, targets []string, seeded bool) {
 	summaryf("✓ initialized agnostic-ai project at %s\n", baseLabel(base))
 	if len(targets) > 0 {
@@ -227,19 +229,19 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 		summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
 	}
-	detected := detectExistingTargets(root)
-	if len(detected) == 0 {
-		return
+	if detected := detectExistingTargets(root); len(detected) > 0 {
+		summaryf("\n")
+		summaryf("detected existing config:\n")
+		for i, d := range detected {
+			if i >= 3 {
+				summaryf("  (and %d more)\n", len(detected)-3)
+				break
+			}
+			summaryf("  agnostic-ai import %s\n", d)
+		}
 	}
 	summaryf("\n")
-	summaryf("detected existing config:\n")
-	for i, d := range detected {
-		if i >= 3 {
-			summaryf("  (and %d more)\n", len(detected)-3)
-			return
-		}
-		summaryf("  agnostic-ai import %s\n", d)
-	}
+	summaryf("tip: enable shell tab-completion with `agnostic-ai completion <shell>` (bash, zsh, fish, powershell).\n")
 }
 
 // baseLabel renders the user-facing label for the scaffold root. "."

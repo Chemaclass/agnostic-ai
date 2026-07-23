@@ -49,6 +49,17 @@ The generated `agnostic-ai.yaml` carries a `yaml-language-server` comment pointi
     └── mcps/
 ```
 
+### Add a single spec
+
+`new <kind> <name>` scaffolds one spec (agent, skill, rule, hook, or MCP) with kind-appropriate frontmatter, under the source dir configured for that kind:
+
+```bash
+agnostic-ai new rule no-console-log            # writes .agnostic-ai/rules/no-console-log.md
+agnostic-ai new rule no-console-log --dry-run  # preview the path and rendered body, write nothing
+```
+
+`--dry-run` prints the destination path plus the frontmatter and body it would write, so you can check the shape before it lands on disk.
+
 ### Import an existing AI CLI config
 
 After `init`, run `import <source>` to translate an existing config into agnostic specs under the configured `sources:` paths:
