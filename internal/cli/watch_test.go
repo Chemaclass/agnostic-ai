@@ -546,10 +546,13 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	// Pin the summary sink and verbosity so the assertion never depends on
+	// global state a prior test left behind (e.g. a `--quiet` run).
 	buf := &safeBuffer{}
-	prev := logOut
+	prevOut, prevVerbosity := logOut, verbosity
 	logOut = buf
-	t.Cleanup(func() { logOut = prev })
+	verbosity = levelDefault
+	t.Cleanup(func() { logOut, verbosity = prevOut, prevVerbosity })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
