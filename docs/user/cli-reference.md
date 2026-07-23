@@ -12,6 +12,7 @@ agnostic-ai [command] [flags]
 | `--version` | Print version and exit |
 | `-q, --quiet` | Errors only |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
+| `--profile <file>` | Write a `runtime/pprof` CPU profile of the run to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Off by default; stdlib profiler only. Read it with `go tool pprof <file>`. |
 
 ## init
 
@@ -241,6 +242,20 @@ agnostic-ai sync [flags]
 | `--all` | Emit every configured target without the first-sync picker. Useful for ad-hoc full emission or scripted runs that bypass prompts. |
 | `--jobs <n>` | Number of targets to emit in parallel. `0` (default) uses one worker per CPU; `1` forces serial emission. Output (files, summary, JSON, gitignore, warnings) is byte-identical regardless of the value, so lower it only to debug or pin ordering. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
+
+### Profiling a slow sync
+
+Two opt-in hooks show where `sync` spends its time.
+
+- `--profile <file>` (or `AGNOSTIC_AI_PROFILE=<file>`) writes a `runtime/pprof` CPU profile of the whole run. Open it with `go tool pprof <file>`. Off by default, stdlib profiler only.
+- `--verbose` appends per-target wall time to each target line, so cost attributes to a specific adapter.
+
+```
+→ claude: 12 created, 3 updated, 0 unchanged in 42ms
+✓ synced 1 target · 3 files · 44ms
+```
+
+The top summary line keeps the run total. Per-target times are measured around each emit, so under `--jobs > 1` they overlap: read them as per-adapter cost, not a serial breakdown.
 
 ### First-sync target picker
 
