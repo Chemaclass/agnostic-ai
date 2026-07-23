@@ -554,7 +554,11 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	verbosity = levelDefault
 	t.Cleanup(func() { logOut, verbosity = prevOut, prevVerbosity })
 
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	// Generous ceilings so the assertion never flakes on a loaded CI
+	// runner: under `-race` the poll -> debounce -> re-sync chain can take
+	// seconds. The waits below break as soon as the expected output lands,
+	// so the common path still finishes in well under a second.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	done := make(chan error, 1)
@@ -565,7 +569,7 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 
 	// Wait for the initial full sync to land claude's agent file.
 	claudeAgent := filepath.Join(dir, ".claude", "agents", "a1.md")
-	waitForFile(t, claudeAgent, 2*time.Second)
+	waitForFile(t, claudeAgent, 10*time.Second)
 
 	// Touch the claude-scoped agent spec; ensure the mtime advances first.
 	specPath := filepath.Join(dir, ".agnostic-ai", "agents", "a1.md")
@@ -579,7 +583,7 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	}
 
 	want := "re-syncing 1 target: claude"
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if strings.Contains(buf.String(), want) {
 			break
