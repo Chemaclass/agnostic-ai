@@ -357,7 +357,7 @@ Use Conventional Commits.</pre>
       <div class="step">
         <div class="num">03 · GUARD</div>
         <h3>Never drift</h3>
-        <p><code>sync --check</code> re-emits in memory and fails CI on any difference. <code>import</code> pulls existing configs back into specs; the round-trip stays byte-stable.</p>
+        <p><code>sync --check</code> re-emits in memory and fails CI on any difference, printing a per-file diff of what drifted. <code>import</code> pulls existing configs back into specs; the round-trip stays byte-stable.</p>
       </div>
     </div>
 
