@@ -141,7 +141,7 @@ agnostic-ai init --demo   # scaffold specs with one example per folder
 agnostic-ai sync          # emit native config for every target
 ```
 
-Edit specs under `.agnostic-ai/`, run `sync` again. Already have `.cursor/rules` or `AGENTS.md`?
+Edit specs under `.agnostic-ai/` and run `sync` again, or `sync --watch` to re-emit on every save (only the affected targets). Already have `.cursor/rules` or `AGENTS.md`?
 
 ```bash
 agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, junie, trae, ...
