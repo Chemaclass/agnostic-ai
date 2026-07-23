@@ -7,9 +7,10 @@ The rule blocks refactoring a hot path without a bench, so this suite is a
 prerequisite for the perf work (capture fast-path, parallel emission,
 render memoization).
 
-The benchmarks live in `internal/cli/bench_test.go`, colocated so they can
-call the unexported sync internals directly. Fixtures use `testing` only,
-no external deps.
+Most benchmarks live in `internal/cli/bench_test.go`, colocated so they can
+call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
+in `internal/adapters/internal/emit` beside the compare helper it measures.
+Fixtures use `testing` only, no external deps.
 
 ## Run
 
@@ -42,6 +43,7 @@ not pass or fail.
 | `BenchmarkSyncCheck` | The `--check` capture-compare pass against an in-sync tree. |
 | `BenchmarkEntryPointRender` | Entry-point body render plus byte-dedupe across targets. |
 | `BenchmarkFolderFingerprint` | Shared-skills folder fingerprint (`folderFingerprint`). |
+| `BenchmarkCompareToDisk` | Capture-compare drift verdict: status-quo full read vs the `CompareToDisk` size-precheck fast path, swept by scenario and file size. |
 
 ## Read the output
 
