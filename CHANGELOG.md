@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `sync --check` gains actionable drift output: `--diff` prints a unified diff per drifted file (truncated when large), `--format=github` emits GitHub Actions `::error` annotations that surface inline on the PR, and a failing check now prints the reconcile command (`agnostic-ai sync`) on stderr and points its error and the config-error hints at `agnostic-ai doctor`. Exit codes and the `--json` schema are unchanged (#488).
 - `sync --jobs <n>` emits targets in parallel (default: one worker per CPU; `1` forces serial). The emitted tree, summary, JSON, gitignore block, and warnings stay byte-identical regardless of the worker count (#487).
 
 ## v0.43.0 - 2026-07-20

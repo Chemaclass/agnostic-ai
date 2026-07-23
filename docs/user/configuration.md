@@ -399,6 +399,20 @@ The output never depends on the value. The emitted file tree, the summary counts
 
 Parallelism helps most on large projects with many targets. On a small spec set or a single target it is close to free either way, since the worker count is capped at the number of targets.
 
+### Actionable `--check` output (`--diff`, `--format`)
+
+`sync --check` is the CI drift gate. Two per-run flags make a red build self-explanatory; there is no config-file key for either.
+
+- `--diff` prints a unified diff per drifted file (on-disk vs what sync would write) instead of only counts. Off by default so CI logs stay lean; large diffs truncate with a summary line.
+- `--format=github` emits GitHub Actions `::error file=...,line=...::` annotations so drift surfaces inline on the pull request. The default `human` format keeps the per-target table. `--json` still selects the machine-readable report and takes precedence.
+
+A failing `--check` prints the reconcile command (`agnostic-ai sync`) on stderr and points its error at `agnostic-ai doctor` for a full diagnosis. Exit codes are unchanged: non-zero on drift in every format.
+
+```bash
+agnostic-ai sync --check --diff            # unified diff of every drifted file
+agnostic-ai sync --check --format=github   # inline PR annotations in CI
+```
+
 ## `import`
 
 Per-source knobs for the `import` command. Empty blocks fall back to per-source defaults.

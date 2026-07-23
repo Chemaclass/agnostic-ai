@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -701,9 +702,186 @@ func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport) error {
 		return err
 	}
 	if hasDrift {
-		return fmt.Errorf("drift detected")
+		return errDriftDetected()
 	}
 	return nil
+}
+
+// checkFormatHuman is the default `--check` report: a per-target table.
+// checkFormatGitHub emits GitHub Actions annotations. JSON output stays
+// behind the separate `--json` flag, which takes precedence over --format.
+const (
+	checkFormatHuman  = "human"
+	checkFormatGitHub = "github"
+)
+
+// validateCheckFormat rejects an unknown `--format` value so a typo fails
+// fast instead of silently falling back to the human table.
+func validateCheckFormat(format string) error {
+	switch format {
+	case checkFormatHuman, checkFormatGitHub:
+		return nil
+	}
+	return fmt.Errorf("--format: expected %q or %q, got %q", checkFormatHuman, checkFormatGitHub, format)
+}
+
+// errDriftDetected is the failure a drifting `sync --check` returns. It names
+// `agnostic-ai doctor` so a bare CI line still points at the full diagnosis;
+// the reconcile command prints separately as a stderr hint.
+func errDriftDetected() error {
+	return fmt.Errorf("drift detected; run `agnostic-ai doctor` for a full diagnosis")
+}
+
+// reportCheckDrift renders a `sync --check` result in the requested text
+// format and returns a non-zero error when any target drifts. The report
+// goes to stdout; the fix hint goes to stderr, so a machine reading stdout (a
+// captured log, a github matcher) sees only the drift lines. Presentation
+// only: it never writes files or changes what counts as drift.
+func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, diff bool) error {
+	var drift bool
+	switch format {
+	case checkFormatGitHub:
+		drift = printDriftGitHub(cmd, reports)
+	default:
+		drift = printDrift(reports)
+	}
+	if diff {
+		printDriftDiffs(cmd, reports)
+	}
+	if !drift {
+		return nil
+	}
+	fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai sync")
+	return errDriftDetected()
+}
+
+// printDriftGitHub emits one GitHub Actions error annotation per drifted file
+// so drift surfaces inline on the pull request. Missing files carry no line;
+// stale files point at the first changed line. Returns true if any target
+// drifted, so an in-sync run emits nothing and stays silent.
+func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
+	out := cmd.OutOrStdout()
+	drift := false
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			drift = true
+			fmt.Fprintf(out, "::error file=%s::%s is missing; run agnostic-ai sync to generate it\n",
+				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)))
+		}
+		for _, f := range r.Stale {
+			drift = true
+			fmt.Fprintf(out, "::error file=%s,line=%d::%s drifted from specs; run agnostic-ai sync to reconcile\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
+		}
+	}
+	return drift
+}
+
+// diffBodyMax caps the changed lines shown per file so a large rewrite does
+// not flood CI logs. Past it, a summary line reports the remainder.
+const diffBodyMax = 200
+
+// printDriftDiffs prints a unified diff for every drifted file: the on-disk
+// content against what sync would write. Missing files show a concise create
+// line rather than a full body. Only drifted files produce output, so an
+// in-sync run stays silent. Presentation only; nothing is written.
+func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
+	out := cmd.OutOrStdout()
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
+		}
+		for _, f := range r.Stale {
+			disk, err := os.ReadFile(f.Path)
+			if err != nil {
+				fmt.Fprintf(out, "%s: %v\n", f.Path, err)
+				continue
+			}
+			_, _ = fmt.Fprint(out, unifiedDiff(f.Path, string(disk), f.Content, diffBodyMax))
+		}
+	}
+}
+
+// unifiedDiff renders a minimal unified diff between the on-disk content
+// (have) and what sync would write (want), keyed by path. It trims the shared
+// leading and trailing lines and prints the differing middle as one hunk:
+// on-disk lines with `-`, would-write lines with `+`. Output past maxLines is
+// dropped with a summary so CI logs stay lean. A display helper over line
+// slices, not a general diff engine.
+func unifiedDiff(path, have, want string, maxLines int) string {
+	haveLines := splitLines(have)
+	wantLines := splitLines(want)
+
+	p := commonPrefix(haveLines, wantLines)
+	s := 0
+	for s < len(haveLines)-p && s < len(wantLines)-p &&
+		haveLines[len(haveLines)-1-s] == wantLines[len(wantLines)-1-s] {
+		s++
+	}
+	removed := haveLines[p : len(haveLines)-s]
+	added := wantLines[p : len(wantLines)-s]
+
+	var b strings.Builder
+	slash := filepath.ToSlash(path)
+	fmt.Fprintf(&b, "--- %s (on disk)\n", slash)
+	fmt.Fprintf(&b, "+++ %s (agnostic-ai sync)\n", slash)
+	fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", p+1, len(removed), p+1, len(added))
+
+	shown := 0
+	body := len(removed) + len(added)
+	write := func(mark string, lines []string) {
+		for _, ln := range lines {
+			if shown >= maxLines {
+				return
+			}
+			fmt.Fprintf(&b, "%s%s\n", mark, ln)
+			shown++
+		}
+	}
+	write("-", removed)
+	write("+", added)
+	if body > maxLines {
+		fmt.Fprintf(&b, "... %d more changed line(s) truncated\n", body-maxLines)
+	}
+	return b.String()
+}
+
+// firstChangedLine returns the 1-based line where the on-disk file at path
+// first differs from want, or 1 when the file is unreadable. Only used to aim
+// a github annotation; never load-bearing.
+func firstChangedLine(path, want string) int {
+	disk, err := os.ReadFile(path)
+	if err != nil {
+		return 1
+	}
+	return commonPrefix(splitLines(string(disk)), splitLines(want)) + 1
+}
+
+// commonPrefix returns the count of leading lines a and b share.
+func commonPrefix(a, b []string) int {
+	n := 0
+	for n < len(a) && n < len(b) && a[n] == b[n] {
+		n++
+	}
+	return n
+}
+
+// githubData escapes a value for the message body of a github workflow
+// command. `%` is escaped first so later escapes are not re-escaped.
+func githubData(s string) string {
+	s = strings.ReplaceAll(s, "%", "%25")
+	s = strings.ReplaceAll(s, "\r", "%0D")
+	s = strings.ReplaceAll(s, "\n", "%0A")
+	return s
+}
+
+// githubProp escapes a value used as a github workflow command property
+// (file=...). Properties additionally escape `:` and `,`.
+func githubProp(s string) string {
+	s = githubData(filepath.ToSlash(s))
+	s = strings.ReplaceAll(s, ":", "%3A")
+	s = strings.ReplaceAll(s, ",", "%2C")
+	return s
 }
 
 // resolveGitignore picks the effective gitignore mode: the --gitignore

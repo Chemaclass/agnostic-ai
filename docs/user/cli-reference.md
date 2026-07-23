@@ -232,6 +232,8 @@ agnostic-ai sync [flags]
 | `--except <list>` | Emit all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
 | `--dry-run` | Print to stdout instead of writing files |
 | `--check` | Compare emitted output to disk; exit non-zero on drift. Writes nothing. |
+| `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). Off by default so CI logs stay lean. Large diffs are truncated with a summary line. |
+| `--format <human\|github>` | With `--check`, the drift report format. `human` (default) is the per-target table; `github` emits GitHub Actions `::error` annotations so drift surfaces inline on the pull request. `--json` still selects JSON and takes precedence. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert` to restore. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Keep the process alive and re-emit on spec, config, or overlay changes. Watched roots: `agnostic-ai.yaml` + `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai.local/`, and `.agnostic-ai/overlays/` (so a hand-edit to `claude.settings.json` / `codex.config.toml` re-emits). Uses OS file events (fsnotify) with a 50 ms debounce; falls back to a 200 ms poll where fsnotify fails. Ctrl+C exits cleanly. Incompatible with `--check`. |
@@ -257,6 +259,8 @@ agnostic-ai sync --only claude,cursor  # only claude and cursor
 agnostic-ai sync --except codex        # all configured targets except codex
 agnostic-ai sync --dry-run             # preview
 agnostic-ai sync --check               # CI gate: fail if outputs are stale
+agnostic-ai sync --check --diff        # show a unified diff of every drifted file
+agnostic-ai sync --check --format=github  # GitHub Actions annotations, inline on the PR
 agnostic-ai sync --backup              # leave a .bak trail for revert
 agnostic-ai sync --jobs 1              # force serial emission (default: one worker per CPU)
 agnostic-ai sync --watch               # re-emit on spec changes; Ctrl+C exits
@@ -265,6 +269,15 @@ agnostic-ai sync --check --json        # machine-readable drift report
 ```
 
 `--only` and `--except` validate names against the configured targets and error on unknown names (no silent skip).
+
+### Reading a failing `--check`
+
+A drifting `--check` exits non-zero and, on stderr, prints the one command that reconciles it: `agnostic-ai sync`. The error line itself points at `agnostic-ai doctor` for a full diagnosis. Two flags make the failure self-explanatory without a local re-run:
+
+- `--diff` prints a unified diff per drifted file (on-disk content vs what sync would write), so you see the exact changed lines. Missing files show a one-line create summary; large diffs truncate with a count.
+- `--format=github` swaps the human table for GitHub Actions `::error file=...,line=...::` annotations. Drop it in a CI step and drift surfaces inline on the pull request. `--json` still selects the machine-readable report and wins if both are set.
+
+Exit codes are unchanged: zero when in sync, non-zero on drift, in every format.
 
 **JSON output schema (version 1):**
 

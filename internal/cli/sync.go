@@ -15,8 +15,8 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets bool
-	var gitignoreFlag string
+	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets, diff bool
+	var gitignoreFlag, format string
 	var jobs int
 
 	cmd := &cobra.Command{
@@ -37,6 +37,12 @@ func newSyncCmd() *cobra.Command {
   # CI gate: non-zero exit when output drifts from specs
   agnostic-ai sync --check
 
+  # Show a unified diff of every drifted file
+  agnostic-ai sync --check --diff
+
+  # Emit GitHub Actions annotations so drift surfaces inline on the PR
+  agnostic-ai sync --check --format=github
+
   # Back up each existing file to <path>.bak before overwriting
   agnostic-ai sync --backup
 
@@ -47,6 +53,9 @@ func newSyncCmd() *cobra.Command {
   agnostic-ai sync --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
+				return err
+			}
+			if err := validateCheckFormat(format); err != nil {
 				return err
 			}
 			if len(only) > 0 && len(except) > 0 {
@@ -96,10 +105,7 @@ func newSyncCmd() *cobra.Command {
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports)
 				}
-				if printDrift(reports) {
-					return fmt.Errorf("drift detected")
-				}
-				return nil
+				return reportCheckDrift(cmd, reports, format, diff)
 			}
 			if watchPoll && !watch {
 				return fmt.Errorf("--watch-poll requires --watch")
@@ -120,6 +126,8 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&except, "except", nil, "Emit all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
+	cmd.Flags().BoolVar(&diff, "diff", false, "With --check, print a unified diff per drifted file (default: counts only, so CI logs stay lean)")
+	cmd.Flags().StringVar(&format, "format", checkFormatHuman, "With --check, drift report format: 'human' or 'github' (GitHub Actions ::error annotations)")
 	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
