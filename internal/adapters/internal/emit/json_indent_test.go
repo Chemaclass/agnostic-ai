@@ -6,6 +6,7 @@ import (
 )
 
 func TestDetectJSONIndent(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		in   string
@@ -28,6 +29,7 @@ func TestDetectJSONIndent(t *testing.T) {
 }
 
 func TestMarshalJSONIndentWith_PreservesIndent(t *testing.T) {
+	t.Parallel()
 	doc := NewOrderedJSON()
 	_ = doc.Set("a", 1)
 

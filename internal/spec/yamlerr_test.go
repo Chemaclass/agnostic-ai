@@ -16,6 +16,7 @@ import (
 const codePrefix = "[AAI-001] "
 
 func TestFormatYAMLError_LineAndCol(t *testing.T) {
+	t.Parallel()
 	err := errors.New("yaml: line 3: column 5: did not find expected key")
 	got := formatYAMLError("rules/x.md", err, 1).Error()
 	want := codePrefix + "rules/x.md:4:5: did not find expected key"
@@ -25,6 +26,7 @@ func TestFormatYAMLError_LineAndCol(t *testing.T) {
 }
 
 func TestFormatYAMLError_LineOnly(t *testing.T) {
+	t.Parallel()
 	err := errors.New("yaml: line 2: mapping values are not allowed in this context")
 	got := formatYAMLError("hooks/h.yaml", err, 0).Error()
 	want := codePrefix + "hooks/h.yaml:2:1: mapping values are not allowed in this context"
@@ -34,6 +36,7 @@ func TestFormatYAMLError_LineOnly(t *testing.T) {
 }
 
 func TestFormatYAMLError_Unparseable(t *testing.T) {
+	t.Parallel()
 	err := errors.New("totally unrecognized format")
 	got := formatYAMLError("p.md", err, 0).Error()
 	want := codePrefix + "p.md:1:1: totally unrecognized format"
@@ -43,12 +46,14 @@ func TestFormatYAMLError_Unparseable(t *testing.T) {
 }
 
 func TestFormatYAMLError_NilReturnsNil(t *testing.T) {
+	t.Parallel()
 	if formatYAMLError("x", nil, 0) != nil {
 		t.Error("expected nil error to round-trip")
 	}
 }
 
 func TestFormatYAMLError_TypeErrorUsesFirstMessage(t *testing.T) {
+	t.Parallel()
 	te := &yaml.TypeError{Errors: []string{
 		"yaml: line 4: column 1: cannot unmarshal !!str into int",
 	}}
@@ -60,6 +65,7 @@ func TestFormatYAMLError_TypeErrorUsesFirstMessage(t *testing.T) {
 }
 
 func TestParseMarkdown_FrontmatterErrorIncludesPathAndLine(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "broken.md")
 	// `:` at start of yaml line is invalid; yaml reports the offending
@@ -84,6 +90,7 @@ func TestParseMarkdown_FrontmatterErrorIncludesPathAndLine(t *testing.T) {
 }
 
 func TestParseYAML_ErrorIncludesPathAndPosition(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "h.yaml")
 	// yaml.v3 reports a position for this construct; the exact line

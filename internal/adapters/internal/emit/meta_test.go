@@ -11,6 +11,7 @@ import (
 // order would vary the emitted frontmatter bytes per run and break
 // sync --check.
 func TestResolveMetaOrdered_DeterministicKeyOrder(t *testing.T) {
+	t.Parallel()
 	meta := map[string]any{
 		"name":        "a",
 		"zeta":        "z", // unhinted top-level
@@ -44,6 +45,7 @@ func cloneMeta(m map[string]any) map[string]any {
 }
 
 func TestResolveMeta_DropsOtherTargets(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":     "r1",
 		"x-claude": map[string]any{"allowed-tools": []any{"Read"}},
@@ -60,6 +62,7 @@ func TestResolveMeta_DropsOtherTargets(t *testing.T) {
 }
 
 func TestCustomTargetMeta_ReturnsSortedNonExcludedKeys(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"description": "top-level wins",
 		"x-codex": map[string]any{
@@ -82,6 +85,7 @@ func TestCustomTargetMeta_ReturnsSortedNonExcludedKeys(t *testing.T) {
 }
 
 func TestCustomTargetMeta_AbsentOrEmptyReturnsNil(t *testing.T) {
+	t.Parallel()
 	for _, in := range []map[string]any{
 		{"name": "r1"},
 		{"x-codex": map[string]any{}},
@@ -95,6 +99,7 @@ func TestCustomTargetMeta_AbsentOrEmptyReturnsNil(t *testing.T) {
 }
 
 func TestResolveMeta_TargetOverridesTopLevel(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":     "r1",
 		"model":    "haiku",
@@ -107,6 +112,7 @@ func TestResolveMeta_TargetOverridesTopLevel(t *testing.T) {
 }
 
 func TestResolveMeta_NoMatchingNamespaceLeaves(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":     "r1",
 		"x-cursor": map[string]any{"globs": "src/**"},
@@ -119,12 +125,14 @@ func TestResolveMeta_NoMatchingNamespaceLeaves(t *testing.T) {
 }
 
 func TestResolveMeta_NilMap(t *testing.T) {
+	t.Parallel()
 	if got := ResolveMeta(nil, "claude"); got != nil {
 		t.Errorf("expected nil pass-through, got %#v", got)
 	}
 }
 
 func TestResolveMeta_StripsRoutingKeys(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":            "r1",
 		"description":     "desc",
@@ -141,6 +149,7 @@ func TestResolveMeta_StripsRoutingKeys(t *testing.T) {
 }
 
 func TestResolveMetaOrdered_StripsRoutingKeysFromOrder(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":        "r1",
 		"target":      "claude",
@@ -162,6 +171,7 @@ func TestResolveMetaOrdered_StripsRoutingKeysFromOrder(t *testing.T) {
 // (#304). Without this, a codex agent that never had `model:` inherited
 // claude's `model: haiku` after a round-trip import.
 func TestResolveMeta_NilUnderXTargetDeletesKey(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":  "agent",
 		"model": "haiku",
@@ -183,6 +193,7 @@ func TestResolveMeta_NilUnderXTargetDeletesKey(t *testing.T) {
 // `x-<target>.<key>` with a value overrides the top-level value for
 // that target while leaving every other target's view alone (#304).
 func TestResolveMeta_XTargetOverridesValue(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":        "agent",
 		"description": "claude-side description",
@@ -201,6 +212,7 @@ func TestResolveMeta_XTargetOverridesValue(t *testing.T) {
 // Deletion under x-<target> must also drop the key from the ordered key
 // slice so renderers that iterate `ordered` don't emit a stray entry.
 func TestResolveMetaOrdered_NilUnderXTargetDropsOrder(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":  "agent",
 		"model": "haiku",
@@ -217,6 +229,7 @@ func TestResolveMetaOrdered_NilUnderXTargetDropsOrder(t *testing.T) {
 }
 
 func TestResolveMeta_StringModelPassesThrough(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{"name": "a", "model": "gpt-4o"}
 	got := ResolveMeta(in, "codex")
 	if got["model"] != "gpt-4o" {
@@ -225,6 +238,7 @@ func TestResolveMeta_StringModelPassesThrough(t *testing.T) {
 }
 
 func TestResolveMeta_PerTargetModelPicksTarget(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name": "a",
 		"model": map[string]any{
@@ -242,6 +256,7 @@ func TestResolveMeta_PerTargetModelPicksTarget(t *testing.T) {
 }
 
 func TestResolveMeta_PerTargetModelFallsBackToDefault(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name": "a",
 		"model": map[string]any{
@@ -255,6 +270,7 @@ func TestResolveMeta_PerTargetModelFallsBackToDefault(t *testing.T) {
 }
 
 func TestResolveMeta_PerTargetModelNoMatchNoDefaultDrops(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":  "a",
 		"model": map[string]any{"claude": "claude-opus-4-8"},
@@ -266,6 +282,7 @@ func TestResolveMeta_PerTargetModelNoMatchNoDefaultDrops(t *testing.T) {
 }
 
 func TestResolveMetaOrdered_PerTargetModelDropKeepsOrderClean(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":  "a",
 		"model": map[string]any{"claude": "opus"},
@@ -279,6 +296,7 @@ func TestResolveMetaOrdered_PerTargetModelDropKeepsOrderClean(t *testing.T) {
 }
 
 func TestResolveMeta_XTargetOverridesPerTargetMap(t *testing.T) {
+	t.Parallel()
 	in := map[string]any{
 		"name":     "a",
 		"model":    map[string]any{"claude": "opus", "default": "gpt-4o"},

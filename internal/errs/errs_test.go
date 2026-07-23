@@ -9,6 +9,7 @@ import (
 )
 
 func TestCoded_PrefixIncludesCode(t *testing.T) {
+	t.Parallel()
 	err := Coded(CodeSpecParse, "boom")
 	want := "[AAI-001] boom"
 	if err.Error() != want {
@@ -17,6 +18,7 @@ func TestCoded_PrefixIncludesCode(t *testing.T) {
 }
 
 func TestCoded_FormatArgsExpand(t *testing.T) {
+	t.Parallel()
 	err := Coded(CodeConfigDecode, "parse %s: %s", "agnostic-ai.yaml", "bad indent")
 	if !strings.Contains(err.Error(), "parse agnostic-ai.yaml: bad indent") {
 		t.Errorf("missing formatted args: %q", err.Error())
@@ -27,6 +29,7 @@ func TestCoded_FormatArgsExpand(t *testing.T) {
 }
 
 func TestCoded_WrapPreservesIs(t *testing.T) {
+	t.Parallel()
 	err := Coded(CodeConfigMissing, "read %s: %w", "agnostic-ai.yaml", fs.ErrNotExist)
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Error("errors.Is should still match wrapped sentinel")
@@ -37,6 +40,7 @@ func TestCoded_WrapPreservesIs(t *testing.T) {
 }
 
 func TestCoded_WrapPreservesAs(t *testing.T) {
+	t.Parallel()
 	original := &fs.PathError{Op: "open", Path: "x", Err: fs.ErrNotExist}
 	err := Coded(CodeUnsupportedKind, "missing dir: %w", original)
 	var pe *fs.PathError
@@ -49,6 +53,7 @@ func TestCoded_WrapPreservesAs(t *testing.T) {
 }
 
 func TestCodeOf_NilAndPlainReturnEmpty(t *testing.T) {
+	t.Parallel()
 	if got := CodeOf(nil); got != "" {
 		t.Errorf("CodeOf(nil)=%q, want empty", got)
 	}
@@ -58,6 +63,7 @@ func TestCodeOf_NilAndPlainReturnEmpty(t *testing.T) {
 }
 
 func TestIsCode_ShapeOnly(t *testing.T) {
+	t.Parallel()
 	cases := map[string]bool{
 		"AAI-001":  true,
 		"AAI-9999": true,
@@ -74,6 +80,7 @@ func TestIsCode_ShapeOnly(t *testing.T) {
 }
 
 func TestRegistry_AllCoveredCodesHaveEntries(t *testing.T) {
+	t.Parallel()
 	codes := []Code{
 		CodeSpecParse, CodeUnsupportedKind, CodeConfigMissing, CodeConfigDecode,
 		CodeOutputCollision,
@@ -93,6 +100,7 @@ func TestRegistry_AllCoveredCodesHaveEntries(t *testing.T) {
 }
 
 func TestAll_SortedByCode(t *testing.T) {
+	t.Parallel()
 	all := All()
 	if len(all) == 0 {
 		t.Fatal("All(): want non-empty")

@@ -3,6 +3,7 @@ package emit
 import "testing"
 
 func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name, cmd, target, want string
 	}{

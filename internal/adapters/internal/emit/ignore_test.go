@@ -10,6 +10,7 @@ import (
 )
 
 func TestIgnoreBody_ConcatenatesTrimmed(t *testing.T) {
+	t.Parallel()
 	got := IgnoreBody([]spec.Entry{
 		{Body: "*.env\n"},
 		{Body: "  \n"}, // blank-only: skipped
@@ -22,6 +23,7 @@ func TestIgnoreBody_ConcatenatesTrimmed(t *testing.T) {
 }
 
 func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".cursorignore")
@@ -42,6 +44,7 @@ func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
 }
 
 func TestWriteIgnoreFile_NoOpWhenEmpty(t *testing.T) {
+	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".cursorignore")

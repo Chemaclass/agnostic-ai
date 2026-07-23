@@ -6,6 +6,7 @@ import (
 )
 
 func TestWriteTOMLString_EscapesQuotesAndBackslashes(t *testing.T) {
+	t.Parallel()
 	var sb strings.Builder
 	WriteTOMLString(&sb, "description", `Says "hi" with a \ slash`)
 	got := sb.String()
@@ -16,6 +17,7 @@ func TestWriteTOMLString_EscapesQuotesAndBackslashes(t *testing.T) {
 }
 
 func TestWriteTOMLMultiline_PreservesNewlinesEscapesDelimiter(t *testing.T) {
+	t.Parallel()
 	var sb strings.Builder
 	WriteTOMLMultiline(&sb, "prompt", "line1\nline2 with \"quotes\"\n")
 	got := sb.String()
@@ -32,6 +34,7 @@ func TestWriteTOMLMultiline_PreservesNewlinesEscapesDelimiter(t *testing.T) {
 }
 
 func TestWriteTOMLMultiline_AppendsTrailingNewlineWhenMissing(t *testing.T) {
+	t.Parallel()
 	var sb strings.Builder
 	WriteTOMLMultiline(&sb, "prompt", "no-trailing-newline")
 	got := sb.String()
@@ -41,6 +44,7 @@ func TestWriteTOMLMultiline_AppendsTrailingNewlineWhenMissing(t *testing.T) {
 }
 
 func TestWriteTOMLStringArray(t *testing.T) {
+	t.Parallel()
 	var sb strings.Builder
 	WriteTOMLStringArray(&sb, "names", []string{"alpha", "beta"})
 	got := sb.String()
@@ -51,6 +55,7 @@ func TestWriteTOMLStringArray(t *testing.T) {
 }
 
 func TestWriteTOMLValue_TypedScalarsAndArrays(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		v    any
@@ -78,6 +83,7 @@ func TestWriteTOMLValue_TypedScalarsAndArrays(t *testing.T) {
 }
 
 func TestWriteTOMLValue_SkipsUnsupported(t *testing.T) {
+	t.Parallel()
 	for _, v := range []any{
 		map[string]any{"nested": "table"},
 		[]any{"a", 1}, // mixed-type array
@@ -94,6 +100,7 @@ func TestWriteTOMLValue_SkipsUnsupported(t *testing.T) {
 }
 
 func TestEscapeTOMLBasic(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in, want string
 	}{

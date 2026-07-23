@@ -8,6 +8,7 @@ import (
 )
 
 func TestRouteScope_SourceLayoutWinsOverGlobs(t *testing.T) {
+	t.Parallel()
 	r := spec.Entry{
 		Scope: "backend",
 		Meta:  map[string]any{"globs": "frontend/**"},
@@ -18,6 +19,7 @@ func TestRouteScope_SourceLayoutWinsOverGlobs(t *testing.T) {
 }
 
 func TestRouteScope_GlobsPrefixWhenNoSourceScope(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		globs string
 		want  string
@@ -38,6 +40,7 @@ func TestRouteScope_GlobsPrefixWhenNoSourceScope(t *testing.T) {
 }
 
 func TestGroupRulesByScope_BucketsByRouteScope(t *testing.T) {
+	t.Parallel()
 	rules := []spec.Entry{
 		{Name: "root1"},
 		{Name: "scoped", Scope: "backend"},

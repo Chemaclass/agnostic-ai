@@ -7,6 +7,7 @@ import (
 )
 
 func TestOutputResolvers_FallbackWhenUnset(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{}
 	cases := []struct {
 		name string
@@ -26,6 +27,7 @@ func TestOutputResolvers_FallbackWhenUnset(t *testing.T) {
 }
 
 func TestOutputResolvers_OverrideWins(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
 			"x": {
@@ -55,6 +57,7 @@ func TestOutputResolvers_OverrideWins(t *testing.T) {
 }
 
 func TestOutputResolvers_EmptyOverrideUsesFallback(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{Outputs: map[string]config.Output{"x": {}}}
 	if got := OutputFile(cfg, "x", "fallback"); got != "fallback" {
 		t.Errorf("expected fallback when override empty, got %q", got)
