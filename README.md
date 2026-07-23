@@ -176,7 +176,8 @@ CI gate to fail PRs that drift from source specs:
 - [Packs](docs/user/packs.md): share spec bundles across repos
 
 **Tools**
-- [Playground](https://chemaclass.github.io/agnostic-ai/): paste a spec, see what every adapter emits (WASM, runs offline)
+- [Landing page](https://chemaclass.github.io/agnostic-ai/): the visual why / what / how
+- [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, see what every adapter emits (WASM, runs offline)
 - [Editor extensions](editors/): VS Code (shipped), JetBrains (planned)
 
 **Contributing**

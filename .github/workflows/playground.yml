@@ -1,11 +1,11 @@
-name: Playground
+name: Pages
 
-# Builds the WebAssembly playground and publishes docs/playground/ to
-# GitHub Pages on every push to main and on demand. Tag pushes are
-# intentionally excluded: the release commit lands on main first and
-# triggers a deploy through that path. The github-pages environment is
-# branch-restricted to main, so a tag-triggered deploy would fail the
-# protection rule.
+# Builds the WebAssembly playground, assembles the site (landing page at
+# the root, playground under /playground/), and publishes it to GitHub
+# Pages on every push to main and on demand. Tag pushes are intentionally
+# excluded: the release commit lands on main first and triggers a deploy
+# through that path. The github-pages environment is branch-restricted to
+# main, so a tag-triggered deploy would fail the protection rule.
 on:
   push:
     branches:
@@ -41,10 +41,17 @@ jobs:
           ls -lh docs/playground/
           gzip -c docs/playground/agnostic-ai.wasm | wc -c | awk '{printf "wasm gzipped: %d bytes\n", $1}'
 
+      - name: Assemble site
+        run: |
+          rm -rf _site
+          mkdir -p _site/playground
+          cp docs/site/index.html _site/index.html
+          cp -R docs/playground/. _site/playground/
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/playground
+          path: _site
 
   deploy:
     name: Deploy to Pages

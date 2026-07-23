@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agnostic-ai — one spec, every AI CLI, zero drift</title>
+<meta name="description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 13 more in each tool's native format, byte-stable across runs.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='white' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f6f5f9; --surface:#ffffff; --surface-2:#f0eef6;
+  --ink:#1a1823; --ink-soft:#413d52; --muted:#6e6a7c;
+  --line:#e4e1ec; --line-soft:#eeecf3;
+  --accent:#6d28d9; --accent-ink:#ffffff; --accent-soft:#f0e9fd;
+  --cyan:#0e7490; --warn:#b4531f; --good:#0e7490;
+  --shadow:0 1px 2px rgba(26,24,35,.04), 0 12px 32px -12px rgba(26,24,35,.14);
+  --mono:ui-monospace,"JetBrains Mono","SFMono-Regular","SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --maxw:64rem; --prose:44rem;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#131017; --surface:#1b1826; --surface-2:#221e30;
+    --ink:#ecebf2; --ink-soft:#c3bfd2; --muted:#8b859c;
+    --line:#2a2636; --line-soft:#231f30;
+    --accent:#a78bfa; --accent-ink:#17121f; --accent-soft:#241a3a;
+    --cyan:#22d3ee; --warn:#e08a5a; --good:#22d3ee;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="light"]{
+  --paper:#f6f5f9; --surface:#ffffff; --surface-2:#f0eef6;
+  --ink:#1a1823; --ink-soft:#413d52; --muted:#6e6a7c;
+  --line:#e4e1ec; --line-soft:#eeecf3;
+  --accent:#6d28d9; --accent-ink:#ffffff; --accent-soft:#f0e9fd;
+  --cyan:#0e7490; --warn:#b4531f; --good:#0e7490;
+  --shadow:0 1px 2px rgba(26,24,35,.04), 0 12px 32px -12px rgba(26,24,35,.14);
+}
+:root[data-theme="dark"]{
+  --paper:#131017; --surface:#1b1826; --surface-2:#221e30;
+  --ink:#ecebf2; --ink-soft:#c3bfd2; --muted:#8b859c;
+  --line:#2a2636; --line-soft:#231f30;
+  --accent:#a78bfa; --accent-ink:#17121f; --accent-soft:#241a3a;
+  --cyan:#22d3ee; --warn:#e08a5a; --good:#22d3ee;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+a{color:inherit}
+h1,h2,h3{text-wrap:balance; line-height:1.1; margin:0}
+code,kbd{font-family:var(--mono)}
+.wrap{max-width:var(--maxw); margin-inline:auto; padding-inline:1.5rem}
+.eyebrow{
+  font-family:var(--mono); font-size:.72rem; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--accent);
+  display:inline-flex; align-items:center; gap:.6rem; margin:0 0 1.1rem;
+}
+.eyebrow::before{content:""; width:1.6rem; height:1px; background:var(--accent); opacity:.6}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
+
+/* header */
+header.site{
+  position:sticky; top:0; z-index:20;
+  background:color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--line-soft);
+}
+.bar{display:flex; align-items:center; gap:1rem; height:60px}
+.brand{display:flex; align-items:center; gap:.6rem; font-family:var(--mono); font-weight:700; letter-spacing:-.01em; text-decoration:none}
+.logo{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,#7c3aed,#06b6d4); display:grid; place-items:center; color:#fff; font-family:var(--mono); font-weight:700; font-size:15px; box-shadow:0 2px 8px -2px rgba(124,58,237,.6)}
+.nav{margin-left:auto; display:flex; align-items:center; gap:.4rem}
+.nav a{font-size:.9rem; color:var(--ink-soft); text-decoration:none; padding:.4rem .7rem; border-radius:8px}
+.nav a:hover{color:var(--ink); background:var(--surface-2)}
+.nav .hideable{display:none}
+@media (min-width:720px){.nav .hideable{display:inline-block}}
+.iconbtn{width:36px; height:36px; display:grid; place-items:center; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); border-radius:9px; cursor:pointer}
+.iconbtn:hover{color:var(--ink); border-color:var(--accent)}
+.iconbtn svg{width:17px; height:17px}
+:root:not([data-theme="dark"]) .moon{display:none}
+:root[data-theme="dark"] .moon{display:block}
+:root[data-theme="dark"] .sun{display:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sun{display:none} :root:not([data-theme="light"]) .moon{display:block}}
+
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; gap:.5rem; font-family:var(--sans);
+  font-weight:600; font-size:.95rem; text-decoration:none; cursor:pointer;
+  padding:.7rem 1.15rem; border-radius:10px; border:1px solid transparent; transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent); color:var(--accent-ink); box-shadow:0 6px 20px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+.btn-primary:hover{box-shadow:0 10px 26px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+.btn-ghost{background:var(--surface); color:var(--ink); border-color:var(--line)}
+.btn-ghost:hover{border-color:var(--accent); color:var(--accent)}
+.btn svg{width:16px; height:16px}
+
+/* section rhythm */
+section{padding-block:clamp(3.5rem,8vw,6rem)}
+.band{background:var(--surface); border-block:1px solid var(--line-soft)}
+.lead{color:var(--ink-soft); font-size:1.12rem; max-width:var(--prose)}
+h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-weight:700; letter-spacing:-.02em}
+.title .dim{color:var(--muted)}
+
+/* hero */
+.hero{padding-top:clamp(3rem,7vw,5rem); padding-bottom:clamp(3rem,7vw,5rem)}
+.hero h1{font-family:var(--mono); font-weight:700; letter-spacing:-.03em; font-size:clamp(2.3rem,6.4vw,4rem)}
+.hero h1 .g{background:linear-gradient(100deg,var(--accent),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero .lead{margin-top:1.4rem; font-size:1.2rem}
+.hero .cta{display:flex; flex-wrap:wrap; gap:.75rem; margin-top:2rem}
+.hero-grid{display:grid; grid-template-columns:1fr; gap:3rem; align-items:center}
+@media (min-width:940px){.hero-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
+.stats{display:flex; gap:2rem; margin-top:2.4rem; flex-wrap:wrap}
+.stat .n{font-family:var(--mono); font-size:1.7rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); line-height:1}
+.stat .l{font-size:.82rem; color:var(--muted); margin-top:.35rem}
+
+/* transform diagram (hero) */
+.transform{position:relative; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:1.25rem; box-shadow:var(--shadow)}
+.transform .caption{font-family:var(--mono); font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:.9rem; display:flex; justify-content:space-between}
+.tgrid{display:grid; grid-template-columns:1fr; gap:.9rem; position:relative}
+.spec-card{background:var(--surface-2); border:1px solid var(--line); border-radius:11px; overflow:hidden}
+.spec-card .fname{font-family:var(--mono); font-size:.74rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); color:var(--ink-soft); display:flex; align-items:center; gap:.45rem}
+.dot{width:8px; height:8px; border-radius:50%}
+.spec-card pre{margin:0; padding:.7rem .8rem; font-family:var(--mono); font-size:.72rem; line-height:1.55; color:var(--ink-soft); overflow-x:auto}
+.k{color:var(--accent)} .s{color:var(--cyan)}
+.outs{display:grid; gap:.5rem}
+.outfile{display:flex; align-items:center; gap:.6rem; font-family:var(--mono); font-size:.76rem; padding:.5rem .7rem; background:var(--surface-2); border:1px solid var(--line); border-radius:9px; color:var(--ink-soft)}
+.outfile .tick{color:var(--good); flex:none}
+.outfile b{color:var(--ink); font-weight:600}
+.connectors{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible}
+.connectors path{fill:none; stroke:var(--accent); stroke-width:1.5; opacity:.5}
+.draw{stroke-dasharray:1; stroke-dashoffset:1; animation:draw .9s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.draw{animation:none; stroke-dashoffset:0}}
+
+/* problem / why */
+.compare{display:grid; grid-template-columns:1fr; gap:1rem; margin-top:2.2rem}
+@media (min-width:760px){.compare{grid-template-columns:1fr 1fr}}
+.panel{border:1px solid var(--line); border-radius:14px; background:var(--surface); overflow:hidden}
+.panel .head{padding:.7rem 1rem; font-family:var(--mono); font-size:.78rem; letter-spacing:.03em; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:.5rem}
+.panel.bad .head{color:var(--warn)} .panel.good .head{color:var(--good)}
+.panel ul{list-style:none; margin:0; padding:.85rem 1rem; display:grid; gap:.5rem}
+.panel li{display:flex; gap:.6rem; align-items:baseline; font-size:.92rem; color:var(--ink-soft)}
+.panel li code{font-size:.82rem; color:var(--ink); background:var(--surface-2); padding:.05rem .4rem; border-radius:5px}
+.mark{font-family:var(--mono); flex:none; width:1.1rem}
+.bad .mark{color:var(--warn)} .good .mark{color:var(--good)}
+
+/* tools grid */
+.tools{display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; margin-top:2.2rem}
+@media (min-width:560px){.tools{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:860px){.tools{grid-template-columns:repeat(3,1fr)}}
+.tool{display:flex; align-items:center; gap:.7rem; padding:.7rem .85rem; border:1px solid var(--line); border-radius:11px; background:var(--surface); font-size:.9rem}
+.tool .badge{font-family:var(--mono); font-size:.62rem; font-weight:600; letter-spacing:.04em; padding:.12rem .4rem; border-radius:5px; margin-left:auto; text-transform:uppercase}
+.tool .badge.def{color:var(--good); background:color-mix(in srgb,var(--good) 12%,transparent)}
+.tool .badge.opt{color:var(--muted); background:var(--surface-2)}
+.tool .g{width:9px; height:9px; border-radius:3px; background:linear-gradient(135deg,var(--accent),var(--cyan)); flex:none}
+.tname{font-weight:600; color:var(--ink)} .tpath{font-family:var(--mono); font-size:.72rem; color:var(--muted)}
+.tool .meta{display:flex; flex-direction:column; min-width:0}
+.tool .tpath{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+/* how: steps + code */
+.how-steps{display:grid; grid-template-columns:1fr; gap:1.1rem; margin-top:2.4rem}
+@media (min-width:820px){.how-steps{grid-template-columns:repeat(3,1fr)}}
+.step{position:relative; padding:1.3rem 1.2rem; border:1px solid var(--line); border-radius:14px; background:var(--surface)}
+.step .num{font-family:var(--mono); font-size:.72rem; font-weight:700; color:var(--accent); letter-spacing:.1em}
+.step h3{font-size:1.05rem; margin:.5rem 0 .5rem; font-family:var(--sans); font-weight:650}
+.step p{margin:0; font-size:.92rem; color:var(--ink-soft)}
+.step code{font-size:.82rem; color:var(--accent); background:var(--accent-soft); padding:.05rem .35rem; border-radius:5px}
+
+.example{margin-top:2.6rem; display:grid; grid-template-columns:1fr; gap:1rem; align-items:stretch}
+@media (min-width:860px){.example{grid-template-columns:1fr auto 1fr}}
+.codeblock{border:1px solid var(--line); border-radius:13px; overflow:hidden; background:var(--surface); display:flex; flex-direction:column}
+.codeblock .fname{font-family:var(--mono); font-size:.74rem; padding:.55rem .85rem; border-bottom:1px solid var(--line); color:var(--ink-soft); display:flex; align-items:center; gap:.5rem}
+.codeblock pre{margin:0; padding:.85rem; overflow-x:auto; font-family:var(--mono); font-size:.78rem; line-height:1.6; color:var(--ink-soft); flex:1}
+.arrowcol{display:grid; place-items:center; color:var(--accent); font-family:var(--mono)}
+.arrowcol .cmd{font-size:.72rem; color:var(--muted); text-align:center}
+.arrowcol .a{font-size:1.4rem; margin:.3rem 0}
+@media (max-width:859px){.arrowcol .a{transform:rotate(90deg)}}
+.cmt{color:var(--muted)}
+.outstack{display:grid; gap:1rem}
+
+/* feature row */
+.feat{display:grid; grid-template-columns:1fr; gap:1rem; margin-top:2.4rem}
+@media (min-width:720px){.feat{grid-template-columns:repeat(2,1fr)}}
+.fcard{display:flex; gap:.85rem; padding:1.05rem 1.1rem; border:1px solid var(--line); border-radius:13px; background:var(--surface)}
+.fcard .ic{flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent)}
+.fcard .ic svg{width:18px; height:18px}
+.fcard h3{font-size:.98rem; font-family:var(--sans); font-weight:650; margin:0 0 .25rem}
+.fcard p{margin:0; font-size:.88rem; color:var(--ink-soft)}
+.fcard code{font-family:var(--mono); font-size:.8rem; color:var(--ink); background:var(--surface-2); padding:.03rem .3rem; border-radius:4px}
+
+/* cta */
+.cta-band{background:linear-gradient(160deg,var(--surface),var(--surface-2)); border-block:1px solid var(--line-soft)}
+.cta-inner{text-align:center; display:grid; place-items:center; gap:1.4rem}
+.cta-inner h2{font-family:var(--mono); font-size:clamp(1.6rem,4vw,2.3rem); font-weight:700; letter-spacing:-.02em}
+.install{display:inline-flex; align-items:center; gap:.75rem; font-family:var(--mono); font-size:.92rem; background:var(--paper); border:1px solid var(--line); border-radius:11px; padding:.65rem .9rem; color:var(--ink)}
+.install .p{color:var(--accent)}
+.copy{border:none; background:var(--surface-2); color:var(--ink-soft); border-radius:7px; padding:.3rem .5rem; cursor:pointer; font-family:var(--mono); font-size:.72rem}
+.copy:hover{color:var(--ink)}
+
+/* footer */
+footer.site{border-top:1px solid var(--line); padding-block:2.5rem; color:var(--muted); font-size:.88rem}
+footer .row{display:flex; flex-wrap:wrap; gap:1.5rem; align-items:center; justify-content:space-between}
+footer a{color:var(--ink-soft); text-decoration:none}
+footer a:hover{color:var(--accent)}
+footer .links{display:flex; gap:1.3rem; flex-wrap:wrap}
+.tagline{font-family:var(--mono); font-size:.82rem; color:var(--muted); margin-top:1.4rem}
+.reveal{opacity:0; transform:translateY(14px); transition:opacity .6s ease, transform .6s ease}
+.reveal.in{opacity:1; transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1; transform:none; transition:none}}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="#top"><span class="logo">a</span>agnostic-ai</a>
+    <nav class="nav">
+      <a class="hideable" href="#why">Why</a>
+      <a class="hideable" href="#what">What</a>
+      <a class="hideable" href="#how">How</a>
+      <a class="hideable" href="playground/">Playground</a>
+      <a href="https://github.com/Chemaclass/agnostic-ai">GitHub</a>
+      <button class="iconbtn" id="theme" aria-label="Toggle color theme" title="Toggle theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Open source · Go CLI</p>
+      <h1>One spec.<br>Every AI CLI.<br><span class="g">Zero drift.</span></h1>
+      <p class="lead">You write <code>CLAUDE.md</code>, then <code>.cursor/rules</code>, then <code>GEMINI.md</code>, then <code>AGENTS.md</code> — the same content in four formats. Switch tools and you rewrite everything. agnostic-ai keeps <strong>one source of truth</strong> and emits each tool's native config, byte-stable across runs.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="playground/">Try the playground
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="n">18</div><div class="l">AI CLIs supported</div></div>
+        <div class="stat"><div class="n">16</div><div class="l">enabled by default</div></div>
+        <div class="stat"><div class="n">1</div><div class="l">source of truth</div></div>
+      </div>
+    </div>
+
+    <div class="transform" aria-hidden="true">
+      <div class="caption"><span>one&nbsp;spec</span><span>native&nbsp;output</span></div>
+      <div class="tgrid" id="tgrid">
+        <div class="spec-card" id="src">
+          <div class="fname"><span class="dot" style="background:var(--accent)"></span>.agnostic-ai/rules/commits.md</div>
+<pre><span class="cmt">---</span>
+<span class="k">name</span>: conventional-commits
+<span class="k">globs</span>: <span class="s">"**/*"</span>
+<span class="cmt">---</span>
+Use Conventional Commits.</pre>
+        </div>
+        <div class="outs">
+          <div class="outfile" id="o0"><span class="tick">✓</span><b>CLAUDE.md</b></div>
+          <div class="outfile" id="o1"><span class="tick">✓</span>.cursor/rules/<b>commits.mdc</b></div>
+          <div class="outfile" id="o2"><span class="tick">✓</span><b>GEMINI.md</b> · <b>AGENTS.md</b></div>
+          <div class="outfile" id="o3"><span class="tick">✓</span>.junie/rules · .kiro/steering · <b>+13</b></div>
+        </div>
+        <svg class="connectors" id="conns"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="band" id="why">
+  <div class="wrap">
+    <p class="eyebrow">Why</p>
+    <h2 class="title">Same content, <span class="dim">N formats, endless drift.</span></h2>
+    <p class="lead">Every AI coding tool invented its own config file. The instructions are identical; only the wrapper differs. Copy-paste keeps them in sync until it doesn't — and a stale <code>GEMINI.md</code> is a silent bug.</p>
+    <div class="compare">
+      <div class="panel bad">
+        <div class="head">Without agnostic-ai</div>
+        <ul>
+          <li><span class="mark">✕</span>Write the same rule into <code>CLAUDE.md</code>, <code>.cursor/rules</code>, <code>GEMINI.md</code>, <code>AGENTS.md</code>…</li>
+          <li><span class="mark">✕</span>Edit one, forget the others. They drift apart.</li>
+          <li><span class="mark">✕</span>Onboard a new tool: hand-port everything again.</li>
+          <li><span class="mark">✕</span>No way to tell in review which files fell behind.</li>
+        </ul>
+      </div>
+      <div class="panel good">
+        <div class="head">With agnostic-ai</div>
+        <ul>
+          <li><span class="mark">✓</span>Write it <b>once</b> in plain Markdown + YAML frontmatter.</li>
+          <li><span class="mark">✓</span>Run <code>sync</code>; every tool gets its native format.</li>
+          <li><span class="mark">✓</span>New tool? Add one line to <code>targets</code>.</li>
+          <li><span class="mark">✓</span><code>sync --check</code> fails CI the moment output drifts.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT -->
+<section id="what">
+  <div class="wrap">
+    <p class="eyebrow">What</p>
+    <h2 class="title">One source of truth, <span class="dim">18 tools, each native.</span></h2>
+    <p class="lead">Author agents, skills, rules, hooks, commands, and MCP servers under <code>.agnostic-ai/</code>. Stateless adapters translate them into every target's documented location and shape — aligned with the <a href="https://agents.md" style="color:var(--accent)">AGENTS.md</a> open standard. 16 targets emit by default; Amp and Warp are opt-in.</p>
+    <div class="tools">
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Claude Code</span><span class="tpath">.claude/ · CLAUDE.md</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Codex CLI</span><span class="tpath">AGENTS.md · .codex/</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Gemini CLI</span><span class="tpath">GEMINI.md · .gemini/</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Cursor</span><span class="tpath">.cursor/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">GitHub Copilot</span><span class="tpath">.github/</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Cline</span><span class="tpath">.clinerules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Windsurf / Devin</span><span class="tpath">.devin/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Continue</span><span class="tpath">.continue/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Zed</span><span class="tpath">.agents/skills</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">OpenCode</span><span class="tpath">.opencode/</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Antigravity</span><span class="tpath">.agent/</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Aider</span><span class="tpath">CONVENTIONS.md</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Junie (JetBrains)</span><span class="tpath">.junie/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Kiro (AWS)</span><span class="tpath">.kiro/steering</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Crush (Charm)</span><span class="tpath">.agents/skills · crush.json</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Trae (ByteDance)</span><span class="tpath">.trae/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Amp</span><span class="tpath">AGENTS.md · .agents/</span></div><span class="badge opt">opt-in</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Warp</span><span class="tpath">AGENTS.md · .warp/</span></div><span class="badge opt">opt-in</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="band" id="how">
+  <div class="wrap">
+    <p class="eyebrow">How</p>
+    <h2 class="title">Two layers, <span class="dim">one command.</span></h2>
+    <p class="lead">Drop a file in <code>.agnostic-ai/</code>, run <code>agnostic-ai sync</code>. Each target gets two things: a slim shared entry-point that points at the canonical body, and the real spec rendered into that tool's native per-file location.</p>
+
+    <div class="how-steps">
+      <div class="step">
+        <div class="num">01 · AUTHOR</div>
+        <h3>Write once</h3>
+        <p>One Markdown file with YAML frontmatter under <code>.agnostic-ai/rules/</code>, <code>agents/</code>, <code>skills/</code>, <code>hooks/</code>, or <code>mcps/</code>. Plain, reviewable, tool-agnostic.</p>
+      </div>
+      <div class="step">
+        <div class="num">02 · SYNC</div>
+        <h3>Emit native</h3>
+        <p>Stateless adapters write each target's format at the path it auto-loads. Same input, same bytes — diffable and reviewable. Run targets in parallel with <code>--jobs</code>.</p>
+      </div>
+      <div class="step">
+        <div class="num">03 · GUARD</div>
+        <h3>Never drift</h3>
+        <p><code>sync --check</code> re-emits in memory and fails CI on any difference. <code>import</code> pulls existing configs back into specs; the round-trip stays byte-stable.</p>
+      </div>
+    </div>
+
+    <div class="example">
+      <div class="codeblock">
+        <div class="fname"><span class="dot" style="background:var(--accent)"></span>.agnostic-ai/rules/conventional-commits.md</div>
+<pre><span class="cmt">---</span>
+<span class="k">name</span>: conventional-commits
+<span class="k">description</span>: Always use Conventional Commits.
+<span class="k">globs</span>: <span class="s">"**/*"</span>
+<span class="k">alwaysApply</span>: <span class="s">true</span>
+<span class="cmt">---</span>
+
+Use Conventional Commits. Subject under
+72 chars. Body explains why, not what.</pre>
+      </div>
+      <div class="arrowcol">
+        <div class="cmd">agnostic-ai</div>
+        <div class="a">→</div>
+        <div class="cmd">sync</div>
+      </div>
+      <div class="outstack">
+        <div class="codeblock">
+          <div class="fname"><span class="dot" style="background:var(--cyan)"></span>CLAUDE.md &nbsp;<span class="cmt">— shared pointer</span></div>
+<pre># AI Project Conventions
+
+Every supported AI tool reads this
+body from its native entry-point.</pre>
+        </div>
+        <div class="codeblock">
+          <div class="fname"><span class="dot" style="background:var(--cyan)"></span>.cursor/rules/conventional-commits.mdc</div>
+<pre><span class="cmt">---</span>
+<span class="k">description</span>: Always use Conventional…
+<span class="k">globs</span>: <span class="s">"**/*"</span>
+<span class="cmt">---</span>
+<span class="cmt">&lt;!-- Generated by agnostic-ai --&gt;</span>
+Use Conventional Commits. Subject…</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><h3>Byte-stable, reviewable</h3><p>Stateless adapters mean same input, same output. Generated files diff cleanly and are safe to commit or ignore.</p></div>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg></div>
+        <div><h3>Round-trip safe</h3><p>A provenance marker plus style preservation keeps <code>import</code> then <code>sync</code> byte-stable. Adopt gradually from what you already have.</p></div>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></div>
+        <div><h3>Scoped rules</h3><p><code>rules/backend/auth.md</code> routes to <code>.cursor/rules/backend/auth.mdc</code> and Copilot's <code>applyTo: backend/**</code> automatically.</p></div>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg></div>
+        <div><h3>CI gate in one line</h3><p>Drop the <code>check</code> action into your workflow and PRs fail the moment generated config drifts from source.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-band">
+  <div class="wrap cta-inner">
+    <p class="eyebrow" style="justify-content:center">Get started in two minutes</p>
+    <h2>Write the rule once.<br>Every AI tool obeys it.</h2>
+    <div class="install">
+      <span><span class="p">$</span> go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest</span>
+      <button class="copy" id="copy" aria-label="Copy install command">copy</button>
+    </div>
+    <div class="cta">
+      <a class="btn btn-primary" href="playground/">Open the playground
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user">Read the docs</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="row">
+      <a class="brand" href="#top" style="text-decoration:none"><span class="logo">a</span>agnostic-ai</a>
+      <div class="links">
+        <a href="playground/">Playground</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai">GitHub</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user">Docs</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai/releases">Releases</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai/blob/main/LICENSE">MIT</a>
+      </div>
+    </div>
+    <p class="tagline">Write the rule once. Every AI tool obeys it. Outlive the tool.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Theme toggle: persists choice, stamps data-theme (overrides prefers-color-scheme).
+  var root=document.documentElement, key="aai-theme";
+  try{var saved=localStorage.getItem(key); if(saved) root.setAttribute("data-theme",saved);}catch(e){}
+  document.getElementById("theme").addEventListener("click",function(){
+    var dark=matchMedia("(prefers-color-scheme:dark)").matches;
+    var cur=root.getAttribute("data-theme")||(dark?"dark":"light");
+    var next=cur==="dark"?"light":"dark";
+    root.setAttribute("data-theme",next);
+    try{localStorage.setItem(key,next);}catch(e){}
+  });
+
+  // Copy install command.
+  var copy=document.getElementById("copy");
+  copy&&copy.addEventListener("click",function(){
+    navigator.clipboard&&navigator.clipboard.writeText("go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest").then(function(){
+      copy.textContent="copied"; setTimeout(function(){copy.textContent="copy";},1400);
+    });
+  });
+
+  // Hero connectors: draw curves from the spec card to each native output.
+  var reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  function drawConns(){
+    var svg=document.getElementById("conns"), grid=document.getElementById("tgrid"), src=document.getElementById("src");
+    if(!svg||!grid||!src) return;
+    var gb=grid.getBoundingClientRect(), sb=src.getBoundingClientRect();
+    svg.setAttribute("viewBox","0 0 "+gb.width+" "+gb.height);
+    var x1=sb.left-gb.left+sb.width/2, y1=sb.bottom-gb.top;
+    var paths="";
+    ["o0","o1","o2","o3"].forEach(function(id,i){
+      var el=document.getElementById(id); if(!el) return;
+      var b=el.getBoundingClientRect();
+      var x2=b.left-gb.left+14, y2=b.top-gb.top+b.height/2;
+      var my=(y1+y2)/2;
+      paths+='<path d="M'+x1+' '+y1+' C '+x1+' '+my+' '+x2+' '+(y2-30)+' '+x2+' '+y2+'" class="'+(reduce?'':'draw')+'" style="animation-delay:'+(i*0.12)+'s; stroke-dasharray:'+(reduce?'none':420)+'; stroke-dashoffset:'+(reduce?0:420)+'"/>';
+    });
+    svg.innerHTML=paths;
+  }
+  window.addEventListener("load",drawConns);
+  window.addEventListener("resize",function(){clearTimeout(window.__r); window.__r=setTimeout(drawConns,150);});
+
+  // Scroll reveal for bands.
+  if("IntersectionObserver" in window && !reduce){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in"); io.unobserve(e.target);}});},{threshold:.12});
+    document.querySelectorAll(".compare,.tools,.how-steps,.example,.feat").forEach(function(el){el.classList.add("reveal"); io.observe(el);});
+  }
+})();
+</script>
+</body>
+</html>
