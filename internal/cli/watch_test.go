@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -336,4 +339,277 @@ func TestIsIgnoredEvent_SyncStateFile(t *testing.T) {
 	if !isIgnoredEvent(ev) {
 		t.Error(".sync-state writes must be ignored to avoid feedback loops")
 	}
+}
+
+// setupIncrementalFixture writes a project with three targets and one
+// spec per relevant kind: a plain rule (every target emits rules), an
+// agent scoped to claude only, and a review (only cursor emits reviews).
+// The mix lets the incremental-watch tests assert that a change re-syncs
+// exactly the affected target subset.
+func setupIncrementalFixture(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte("version: 1\ntargets: [claude, cursor, gemini]\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "rules"), 0o755))
+	must(os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"),
+		[]byte("---\nname: r1\n---\nrule body"), 0o644))
+	must(os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "agents"), 0o755))
+	must(os.WriteFile(filepath.Join(dir, ".agnostic-ai", "agents", "a1.md"),
+		[]byte("---\nname: a1\ntarget: claude\ndescription: claude-only agent\n---\nagent body"), 0o644))
+	must(os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "reviews"), 0o755))
+	must(os.WriteFile(filepath.Join(dir, ".agnostic-ai", "reviews", "rev1.md"),
+		[]byte("---\nname: rev1\n---\nreview body"), 0o644))
+	return dir
+}
+
+func TestPlanWatchResync_RuleHitsEveryRuleEmitter(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	configured := []string{"claude", "cursor", "gemini"}
+	plan := planWatchResync(".", cfg, b, []string{filepath.Join(".agnostic-ai", "rules", "r1.md")}, configured)
+
+	if plan.full {
+		t.Fatalf("a rule edit must stay incremental, got full re-sync: %+v", plan)
+	}
+	if plan.reason != "rule" {
+		t.Errorf("reason = %q, want %q", plan.reason, "rule")
+	}
+	if !slices.Equal(plan.targets, configured) {
+		t.Errorf("rule edit targets = %v, want %v (every rule-emitting target)", plan.targets, configured)
+	}
+}
+
+func TestPlanWatchResync_ClaudeScopedAgentHitsOnlyClaude(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := planWatchResync(".", cfg, b,
+		[]string{filepath.Join(".agnostic-ai", "agents", "a1.md")},
+		[]string{"claude", "cursor", "gemini"})
+
+	if plan.full {
+		t.Fatalf("a claude-scoped agent edit must stay incremental, got full: %+v", plan)
+	}
+	if !slices.Equal(plan.targets, []string{"claude"}) {
+		t.Errorf("claude-scoped agent targets = %v, want [claude]", plan.targets)
+	}
+}
+
+func TestPlanWatchResync_ConfigChangeForcesFull(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := planWatchResync(".", cfg, b, []string{"agnostic-ai.yaml"}, []string{"claude", "cursor"})
+	if !plan.full {
+		t.Errorf("editing agnostic-ai.yaml must force a full re-sync, got %+v", plan)
+	}
+}
+
+func TestPlanWatchResync_OverlayChangeForcesFull(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	overlay := filepath.Join(agnosticOverlayDir, "codex.config.toml")
+	plan := planWatchResync(".", cfg, b, []string{overlay}, []string{"claude", "codex"})
+	if !plan.full {
+		t.Errorf("an overlay edit must force a full re-sync, got %+v", plan)
+	}
+}
+
+func TestPlanWatchResync_DeletedSpecForcesFull(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A path under rules/ with no matching bundle entry models a delete or
+	// rename: the kind is known but the spec is gone, so fall back to full.
+	gone := filepath.Join(".agnostic-ai", "rules", "gone.md")
+	plan := planWatchResync(".", cfg, b, []string{gone}, []string{"claude", "cursor"})
+	if !plan.full {
+		t.Errorf("a removed/renamed spec must force a full re-sync, got %+v", plan)
+	}
+}
+
+func TestPlanWatchResync_UnknownPathForcesFull(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := planWatchResync(".", cfg, b, []string{"README.md"}, []string{"claude", "cursor"})
+	if !plan.full {
+		t.Errorf("an unrecognized path must force a full re-sync, got %+v", plan)
+	}
+}
+
+func TestPlanWatchResync_KindWithNoConfiguredEmitterSkips(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Reviews are emitted only by cursor. With cursor absent from the
+	// configured set the change maps to no target: it is attributed (not a
+	// full re-sync), just with an empty subset the caller skips.
+	rev := filepath.Join(".agnostic-ai", "reviews", "rev1.md")
+	plan := planWatchResync(".", cfg, b, []string{rev}, []string{"claude", "gemini"})
+	if plan.full {
+		t.Fatalf("a review edit is attributable, not a full re-sync: %+v", plan)
+	}
+	if len(plan.targets) != 0 {
+		t.Errorf("review edit with no cursor configured should map to no targets, got %v", plan.targets)
+	}
+}
+
+func TestPlanWatchResync_MultiKindBurstUnionsTargets(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A save-all burst that touches both the claude-scoped agent and the
+	// shared rule re-syncs the union: claude (agent + rule) plus every
+	// other rule-emitting target.
+	changed := []string{
+		filepath.Join(".agnostic-ai", "agents", "a1.md"),
+		filepath.Join(".agnostic-ai", "rules", "r1.md"),
+	}
+	plan := planWatchResync(".", cfg, b, changed, []string{"claude", "cursor", "gemini"})
+	if plan.full {
+		t.Fatalf("a multi-spec burst must stay incremental, got full: %+v", plan)
+	}
+	if !slices.Equal(plan.targets, []string{"claude", "cursor", "gemini"}) {
+		t.Errorf("multi-kind burst targets = %v, want the union", plan.targets)
+	}
+	if plan.reason != "agent, rule" {
+		t.Errorf("reason = %q, want %q", plan.reason, "agent, rule")
+	}
+}
+
+// safeBuffer is a mutex-guarded buffer so the watch goroutine can write
+// the summary while the test goroutine reads it under -race.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *safeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *safeBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// TestWatchSync_IncrementalReSyncsOnlyAffectedTarget drives the real
+// watch loop end to end: editing a claude-scoped agent spec must re-sync
+// only claude, and the summary must name that single target rather than
+// reporting a full re-sync of every configured target.
+func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
+	dir := setupIncrementalFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	// Pin the summary sink and verbosity so the assertion never depends on
+	// global state a prior test left behind (e.g. a `--quiet` run).
+	buf := &safeBuffer{}
+	prevOut, prevVerbosity := logOut, verbosity
+	logOut = buf
+	verbosity = levelDefault
+	t.Cleanup(func() { logOut, verbosity = prevOut, prevVerbosity })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		// forcePoll=true keeps the test deterministic across platforms.
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude", "cursor"}, false, false, "off", true, 1)
+	}()
+
+	// Wait for the initial full sync to land claude's agent file.
+	claudeAgent := filepath.Join(dir, ".claude", "agents", "a1.md")
+	waitForFile(t, claudeAgent, 2*time.Second)
+
+	// Touch the claude-scoped agent spec; ensure the mtime advances first.
+	specPath := filepath.Join(dir, ".agnostic-ai", "agents", "a1.md")
+	content, err := os.ReadFile(specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if err := os.WriteFile(specPath, append(content, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	want := "re-syncing 1 target: claude"
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(buf.String(), want) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, want) {
+		t.Errorf("incremental summary missing %q; got:\n%s", want, got)
+	}
+	if strings.Contains(got, "full re-sync") {
+		t.Errorf("a claude-scoped agent edit must not trigger a full re-sync; got:\n%s", got)
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// waitForFile blocks until path exists or the timeout elapses.
+func waitForFile(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", path)
 }
