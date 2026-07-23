@@ -26,14 +26,19 @@ var newSpecKinds = []string{
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 func newNewCmd() *cobra.Command {
+	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "new <kind> <name>",
 		Short: "Scaffold a single spec file with kind-appropriate frontmatter.",
 		Long: "Creates one spec file under the directory configured for <kind> " +
 			"in agnostic-ai.yaml. Replaces 'copy from --demo and edit' as " +
-			"the starting point for a single new agent, skill, rule, hook, or MCP.",
+			"the starting point for a single new agent, skill, rule, hook, or MCP. " +
+			"Pass --dry-run to preview the path and rendered body without writing.",
 		Example: `  # Add a new rule
   agnostic-ai new rule no-console-log
+
+  # Preview the scaffold without writing it
+  agnostic-ai new rule no-console-log --dry-run
 
   # Add a new agent
   agnostic-ai new agent code-reviewer
@@ -63,13 +68,17 @@ func newNewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			body := newSpecTemplate(kind, name)
+			if dryRun {
+				summaryf("would create %s\n\n%s", path, body)
+				return nil
+			}
 			if _, err := os.Stat(path); err == nil {
 				return fmt.Errorf("%s already exists", path)
 			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 			}
-			body := newSpecTemplate(kind, name)
 			if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 				return fmt.Errorf("write %s: %w", path, err)
 			}
@@ -78,6 +87,8 @@ func newNewCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
+		"Print the spec that would be scaffolded (path plus rendered frontmatter and body) without writing it.")
 	return cmd
 }
 

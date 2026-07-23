@@ -590,3 +590,14 @@ func TestScaffold_DetectsExistingTargetsAndSuggestsImports(t *testing.T) {
 		t.Errorf("expected codex import hint:\n%s", out)
 	}
 }
+
+func TestScaffold_NextStepsPointAtCompletion(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "agnostic-ai completion <shell>") {
+		t.Errorf("next steps should point at shell completion:\n%s", buf.String())
+	}
+}
