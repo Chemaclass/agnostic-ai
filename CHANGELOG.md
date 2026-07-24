@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.44.0 - 2026-07-24
+
 ### Added
 
 - `new --dry-run` previews a spec scaffold (destination path plus rendered frontmatter and body) without writing it, and `init`'s post-scaffold next steps now point at `agnostic-ai completion <shell>` for shell tab-completion (#495).
