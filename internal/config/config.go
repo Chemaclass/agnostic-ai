@@ -450,6 +450,7 @@ func DefaultTargets() []string {
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
+		"qoder", "openhands", "factory", "kilo",
 	}
 }
 

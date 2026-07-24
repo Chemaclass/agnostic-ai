@@ -45,6 +45,13 @@ var allTargets = []targetChoice{
 	{Name: "kiro", Desc: "Kiro (AWS)"},
 	{Name: "crush", Desc: "Crush (Charm)"},
 	{Name: "trae", Desc: "Trae (ByteDance)"},
+	{Name: "qoder", Desc: "Qoder (Alibaba)"},
+	{Name: "openhands", Desc: "OpenHands (All Hands)"},
+	{Name: "factory", Desc: "Factory Droid"},
+	{Name: "kilo", Desc: "Kilo Code"},
+	{Name: "jules", Desc: "Jules (Google, cloud)"},
+	{Name: "goose", Desc: "Goose (Block)"},
+	{Name: "augment", Desc: "Augment Code"},
 }
 
 // allTargetNames returns just the canonical names of allTargets.
@@ -195,6 +202,12 @@ var targetMarkers = map[string][]string{
 	"kiro":        {".kiro"},
 	"crush":       {"crush.json", ".crush"},
 	"trae":        {".trae"},
+	"qoder":       {".qoder"},
+	"openhands":   {".openhands"},
+	"factory":     {".factory"},
+	"kilo":        {".kilo", "kilo.jsonc", ".kilocode"},
+	"goose":       {".goosehints"},
+	"augment":     {".augment-guidelines"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of

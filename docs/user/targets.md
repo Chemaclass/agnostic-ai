@@ -18,15 +18,22 @@ Each adapter emits in its tool's native format: separate files where the tool su
 | **kiro**        | `AGENTS.md`                       |
 | **crush**       | `AGENTS.md`                       |
 | **trae**        | `AGENTS.md`                       |
+| **jules**       | `AGENTS.md`                       |
+| **goose**       | `AGENTS.md`                       |
+| **augment**     | `AGENTS.md`                       |
+| **qoder**       | `AGENTS.md`                       |
+| **openhands**   | `AGENTS.md`                       |
+| **factory**     | `AGENTS.md`                       |
+| **kilo**        | `AGENTS.md`                       |
 | **gemini**      | `GEMINI.md`                       |
 | **aider**       | `CONVENTIONS.md`                  |
 | **copilot**     | `.github/copilot-instructions.md` |
 | **opencode**    | `.opencode/AGENTS.md`             |
 | **antigravity** | `.agent/AGENTS.md`                |
 
-Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, and trae at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
+Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 
-Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless.
+Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, augment, openhands, factory, kilo) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
@@ -54,14 +61,21 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **kiro**        | `.kiro/steering/agent-<name>.md` (`inclusion: manual`) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | - | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
 | **trae**        | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.trae/rules/*.md` | - | - | - | - | - | - | - |
+| **qoder**       | - | - | `.qoder/rules/<name>.md` | - | - | - | - | - | - | - |
+| **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
+| **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
+| **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcpServers`) | - | - | - | - | - |
+| **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
+| **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
+| **augment**     | - | - | inlined into `AGENTS.md` (opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
 
 Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs of that kind are present, `sync` prints a `note:` line naming the key to set (or stating the content stays source-dir only). See [Coverage notes](configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, and Crush share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, and OpenHands share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (13 of 18, see matrix). Aider, Cline, Windsurf, Trae, and Antigravity have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode, crush), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush tags stdio explicitly; the others infer it as the default). amp, gemini, zed, junie, and kiro have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; the rest via `url` vs `command`).
+- **MCP servers**: propagate to every target with a project-scoped MCP file (14 of 25, see matrix). Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, warp, continue, opencode, crush), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush tags stdio explicitly; the others infer it as the default). amp, gemini, zed, junie, kiro, and kilo have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; the rest via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
@@ -492,6 +506,125 @@ Verify with the real IDE:
 2. Check the tree: `ls AGENTS.md .trae/rules/`, `grep "Generated by agnostic-ai" .trae/rules/*.md`.
 3. Open the project; the Rules panel lists every `.trae/rules/*.md` with no parse warnings.
 
+### Qoder (`qoder`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
+.qoder/rules/<name>.md        # one per rule (native, one file per rule)
+```
+
+Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules from `.qoder/rules/` natively, one Markdown file per rule, and also reads the root `AGENTS.md`. The per-rule files take precedence over `AGENTS.md`, so rules emit there rather than inlining into the shared pointer. Agents, skills, hooks, and MCP have no Qoder surface yet and skip with a warning. `import qoder` reads `.qoder/rules/*.md` back into rule specs.
+
+Config keys: `outputs.qoder.rules-dir` (default `.qoder/rules`).
+
+Verify with the real IDE:
+
+1. Install Qoder from [qoder.com](https://qoder.com).
+2. Check the tree: `ls AGENTS.md .qoder/rules/`, `grep "Generated by agnostic-ai" .qoder/rules/*.md` for the provenance header.
+3. Open the project; the rules panel lists every `.qoder/rules/*.md` with no parse warnings.
+
+### OpenHands (`openhands`)
+
+```
+AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed/crush)
+```
+
+All Hands [OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` natively and loads skills from `.agents/skills/`, the same cross-tool tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree dedupes into one write. OpenHands has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Agents, hooks, and MCP have no OpenHands surface yet and skip with a warning.
+
+Config keys: `outputs.openhands.skills-dir` (default `.agents/skills`).
+
+Verify with the real CLI:
+
+1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
+2. Check the tree: `ls AGENTS.md .agents/skills/`, `test -f .agents/skills/*/SKILL.md`.
+3. Launch OpenHands; the context loads `AGENTS.md` and each `.agents/skills/<name>/` appears as a skill.
+
+### Factory (`factory`)
+
+```
+AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.factory/droids/<name>.md          # one custom-droid profile per agent
+```
+
+Factory [Droid](https://docs.factory.ai/cli/configuration/custom-droids) reads the root `AGENTS.md` natively and loads custom droids from `.factory/droids/`. Each agent emits as one `<name>.md` profile with `name`, `description`, and optional `model` / `tools` frontmatter; arbitrary `x-factory` keys pass through. Factory has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Skills, hooks, and MCP have no Factory surface yet and skip with a warning.
+
+Config keys: `outputs.factory.agents-dir` (default `.factory/droids`).
+
+Verify with the real CLI:
+
+1. Install the Factory CLI ([custom-droids docs](https://docs.factory.ai/cli/configuration/custom-droids)).
+2. Check the tree: `ls AGENTS.md .factory/droids/`, `grep "Generated by agnostic-ai" .factory/droids/*.md` for the provenance header (it sits after the frontmatter).
+3. Launch `droid`; each `.factory/droids/<name>.md` appears in the droid picker.
+
+### Kilo (`kilo`)
+
+```
+AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.kilo/agents/<name>.md             # one per agent
+kilo.jsonc                         # when MCP entries exist (merged with existing user config)
+```
+
+Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent. MCP servers merge into the `mcpServers` map of `kilo.jsonc`: stdio uses `command`/`args`/`env`, remote uses `url`/`headers`. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
+
+Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
+
+Verify with the real IDE:
+
+1. Install Kilo Code ([docs](https://kilo.ai/docs)).
+2. Check the tree: `ls AGENTS.md .kilo/agents/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
+3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcpServers.<name>` from `kilo.jsonc` connects.
+
+### Jules (`jules`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+```
+
+Google [Jules](https://jules.google/docs) is a cloud agent. It reads the root `AGENTS.md` and has no project-local surface of its own, so it contributes nothing but the shared pointer body and the inlined `## Rules` block. Enabling it adds no unique output, which is why it stays opt-in (see [Selecting targets](#selecting-targets)). Agents, skills, hooks, and MCP skip with a warning.
+
+Config keys: none.
+
+Verify with the real agent:
+
+1. Sign in to Jules ([docs](https://jules.google/docs)).
+2. Check the tree: `ls AGENTS.md`.
+3. Point Jules at the repo; it reads `AGENTS.md` as project context.
+
+### Goose (`goose`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.goosehints                   # opt-in concatenated rules, only when rules-file is set
+```
+
+Block [Goose](https://goose-docs.ai) reads both the root `AGENTS.md` and a `.goosehints` file. By default rule bodies inline into the shared `AGENTS.md` `## Rules` block, so Goose needs no extra file. Set `outputs.goose.rules-file: .goosehints` to also write a concatenated `.goosehints` document. Goose adds no unique default output, so it stays opt-in (see [Selecting targets](#selecting-targets)). Agents, skills, hooks, and MCP skip with a warning.
+
+Config keys: `outputs.goose.rules-file` (unset; opt-in, writes a concatenated `.goosehints` document).
+
+Verify with the real CLI:
+
+1. Install Goose ([docs](https://goose-docs.ai)).
+2. Check the tree: `ls AGENTS.md`, plus `.goosehints` when `outputs.goose.rules-file` is set.
+3. Launch `goose`; it reads `AGENTS.md` (and `.goosehints` when present) as context.
+
+### Augment (`augment`)
+
+```
+AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.augment-guidelines           # opt-in concatenated rules, only when rules-file is set
+```
+
+[Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`. By default rule bodies inline into the shared `AGENTS.md` `## Rules` block. Set `outputs.augment.rules-file: .augment-guidelines` to also write a concatenated `.augment-guidelines` document, Augment's native guidelines file. Augment adds no unique default output, so it stays opt-in (see [Selecting targets](#selecting-targets)). Agents, skills, hooks, and MCP skip with a warning.
+
+Config keys: `outputs.augment.rules-file` (unset; opt-in, writes a concatenated `.augment-guidelines` document).
+
+Verify with the real extension:
+
+1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
+2. Check the tree: `ls AGENTS.md`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set.
+3. Open the project; Augment reads `AGENTS.md` (and `.augment-guidelines` when present) as guidelines.
+
 ## Selecting targets
 
 Persistent (config):
@@ -511,7 +644,7 @@ agnostic-ai sync -t claude,cursor,copilot
 
 CLI flag overrides config. Unknown targets log a warning and skip.
 
-The default target set is 16: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae. **Amp** and **Warp** are opt-in. Both share the root `AGENTS.md` entry-point with Codex and add no new entry-point, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp`) to emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`).
+The default target set is 20: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae, qoder, openhands, factory, kilo. **Amp**, **Warp**, **Jules**, **Goose**, and **Augment** are opt-in: each only contributes to the shared root `AGENTS.md` pointer body and adds no unique default output, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp,jules,goose,augment`). Amp and Warp then emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`); Jules adds nothing further, and Goose and Augment write their native rules file only when `outputs.goose.rules-file` / `outputs.augment.rules-file` is set.
 
 Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries before confirming.
 

@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Seven new targets (#479): `qoder` (Alibaba Qoder: native `.qoder/rules/<name>.md`, one file per rule), `openhands` (All Hands OpenHands: the shared `.agents/skills/<name>/SKILL.md` tree), `factory` (Factory Droid: `.factory/droids/<name>.md` with `x-factory` passthrough), `kilo` (Kilo Code: `.kilo/agents/<name>.md` + `kilo.jsonc` `mcpServers`), `jules` (Google Jules, cloud: shared `AGENTS.md` only), `goose` (Block Goose: opt-in `.goosehints`), and `augment` (Augment Code: opt-in `.augment-guidelines`). All seven read the shared root `AGENTS.md` pointer. `qoder`, `openhands`, `factory`, and `kilo` join the default set (now 20 of 25); `jules`, `goose`, and `augment` stay opt-in; `kilo` brings MCP to 14 of 25 targets; `import qoder` captures its rules dir.
+
 ## v0.44.0 - 2026-07-24
 
 ### Added

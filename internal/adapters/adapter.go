@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -18,11 +19,17 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/external"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/jules"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/junie"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
@@ -346,6 +353,13 @@ var registry = map[string]Adapter{
 	"kiro":        kiro.New(),
 	"crush":       crush.New(),
 	"trae":        trae.New(),
+	"jules":       jules.New(),
+	"goose":       goose.New(),
+	"augment":     augment.New(),
+	"qoder":       qoder.New(),
+	"openhands":   openhands.New(),
+	"factory":     factory.New(),
+	"kilo":        kilo.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to

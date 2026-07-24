@@ -75,19 +75,27 @@ func StripGeneratedAppendices(body string) string {
 // no native rules directory: their only always-on context surface is the
 // single entry-point file, so sync inlines rule bodies there. Targets
 // that emit a real per-rule destination (claude .claude/rules/, cursor
-// .cursor/rules/, cline .clinerules/, continue/windsurf/antigravity
-// rules dirs) are absent: they deliver rules without polluting the
-// pointer. Zed inlines since 1.4.2 retired the merged .rules surface in
-// favor of AGENTS.md; Crush has no rules directory either.
+// .cursor/rules/, cline .clinerules/, qoder .qoder/rules/,
+// continue/windsurf/antigravity rules dirs) are absent: they deliver
+// rules without polluting the pointer. Zed inlines since 1.4.2 retired
+// the merged .rules surface in favor of AGENTS.md; Crush and the batch-2
+// AGENTS.md tools (jules, goose, augment, openhands, factory, kilo) have
+// no rules directory either.
 var inlineRulesTargets = map[string]bool{
-	"codex":    true,
-	"amp":      true,
-	"warp":     true,
-	"zed":      true,
-	"gemini":   true,
-	"aider":    true,
-	"opencode": true,
-	"crush":    true,
+	"codex":     true,
+	"amp":       true,
+	"warp":      true,
+	"zed":       true,
+	"gemini":    true,
+	"aider":     true,
+	"opencode":  true,
+	"crush":     true,
+	"jules":     true,
+	"goose":     true,
+	"augment":   true,
+	"openhands": true,
+	"factory":   true,
+	"kilo":      true,
 }
 
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
