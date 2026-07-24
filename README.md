@@ -4,7 +4,7 @@
 
 ### **One spec. Every AI CLI. Zero drift.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and 13 more in their native format.
+Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and **20** more in their native format.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chemaclass/agnostic-ai)](https://goreportcard.com/report/github.com/chemaclass/agnostic-ai)
@@ -45,7 +45,7 @@ Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 
 Run `agnostic-ai sync`. Two layers emit per target:
 
-**1. Slim entry-point** at the project root, body shared across targets. `CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
+**1. Slim entry-point** at the project root, body shared across targets. `CLAUDE.md`, `AGENTS.md` (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae / Jules / Goose / Augment / Qoder / OpenHands / Factory / Kilo), `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.agnostic-ai/AGNOSTIC_AI.md` all carry the same pointer:
 
 ```markdown
 # AI Project Conventions
@@ -68,13 +68,13 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`.
+Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`, `.qoder/rules/`.
 
 ## Supported targets
 
-All 18 targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
+All **25** targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
 
-`sync` enables 16 by default. Amp and Warp share Codex's root `AGENTS.md`, so they stay opt-in: add them to `targets:` or pass `-t amp,warp`.
+`sync` enables 20 by default. Amp, Warp, Jules, Goose, and Augment each only contribute to the shared root `AGENTS.md` and add no unique default output, so they stay opt-in: add them to `targets:` or pass `-t amp,warp,jules,goose,augment`.
 
 | Target                  | Agents | Skills | Rules | Hooks | MCPs |
 |-------------------------|:------:|:------:|:-----:|:-----:|:----:|
@@ -96,15 +96,22 @@ All 18 targets are first-class. The matrix shows the emission shape per kind (ev
 | Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Trae (ByteDance)        |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Qoder (Alibaba)         |   -    |   -    |   ✅   |   -   |  -   |
+| OpenHands (All Hands)   |   -    |   ✅    |   ◐   |   -   |  -   |
+| Factory (Droid)         |   ✅    |   -    |   ◐   |   -   |  -   |
+| Kilo Code               |   ✅    |   -    |   ◐   |   -   |  ✅   |
+| Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
+| Goose (Block)           |   -    |   -    |   ◐   |   -   |  -   |
+| Augment Code            |   -    |   -    |   ◐   |   -   |  -   |
 
 Legend, in descending order of native support:
 
 - **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
-- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush) inline rule bodies into their entry-point file.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush, Jules, Goose, Augment, OpenHands, Factory, Kilo) inline rule bodies into their entry-point file.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 
-Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 13 of the 18 targets in each tool's native schema (every target except Aider, Cline, Windsurf, Trae, and Antigravity). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
+Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 14 of the 25 targets in each tool's native schema (every target except Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface: Jules, Goose, Augment, Qoder, OpenHands, and Factory). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
 
 The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) confirming the emitted paths against the live tool.
 

@@ -43,7 +43,7 @@ Adapters that produce per-directory output honor the scope:
 | `kiro`          | `inclusion: fileMatch` + `fileMatchPattern: <scope>/**` on one flat `.kiro/steering/<name>.md` (no nested dirs) |
 | `copilot`       | `<scope>/**` glob on one `.github/instructions/<name>.instructions.md` (no nested dirs) |
 
-The scoped output nests inside the tool's rules directory (not a `<scope>/.cursor/...` tree at the repo root), so drift detection and the orphan sweep keep working. Single-document targets (`aider` CONVENTIONS.md) merge regardless of scope. Inline targets (`codex`, `gemini`, `amp`, `warp`, `zed`, `opencode`, `crush`) carry rule bodies in their entry-point file and do not emit per-directory scoped files (e.g. `src/AGENTS.md`). The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
+The scoped output nests inside the tool's rules directory (not a `<scope>/.cursor/...` tree at the repo root), so drift detection and the orphan sweep keep working. Single-document targets (`aider` CONVENTIONS.md) merge regardless of scope. Inline targets (`codex`, `gemini`, `amp`, `warp`, `zed`, `opencode`, `crush`, `jules`, `goose`, `augment`, `openhands`, `factory`, `kilo`) carry rule bodies in their entry-point file and do not emit per-directory scoped files (e.g. `src/AGENTS.md`). The scope stays in the source provenance comment (`<!-- source: rules/backend/auth.md -->`).
 
 A frontmatter `scope:` field is also accepted as a fallback when moving the file is impractical (a single rule scoped to a subtree).
 

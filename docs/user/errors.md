@@ -60,7 +60,7 @@ The config file was found but could not be parsed as YAML, or its keys do not ma
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, zed, cline, junie, kiro, crush and trae). Last-writer-wins would mask drift.
+Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory and kilo). Last-writer-wins would mask drift.
 
 **Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
 
@@ -74,7 +74,7 @@ The argument to `agnostic-ai import` matches no registered source.
 
 A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
-**Fix:** check the spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+**Fix:** check the spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 

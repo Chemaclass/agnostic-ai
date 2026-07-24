@@ -152,13 +152,13 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── rules/
 │   └── conventional-commits.md
 ├── .claude/rules/<name>.md                      # for Claude Code (project rules)
-├── AGENTS.md                                    # shared open standard (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae)
+├── AGENTS.md                                    # shared open standard (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae / Jules / Goose / Augment / Qoder / OpenHands / Factory / Kilo)
 ├── .codex/agents/<name>.toml                    # for Codex subagents
 ├── .agents/commands/<name>.md                   # for Amp slash commands
 ├── GEMINI.md                                    # for Gemini CLI
 ├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands
 ├── CONVENTIONS.md                               # for Aider
-├── .agents/skills/<name>/SKILL.md               # shared skills tree (Codex / Amp / Zed / Crush)
+├── .agents/skills/<name>/SKILL.md               # shared skills tree (Codex / Amp / Zed / Crush / OpenHands)
 ├── .opencode/AGENTS.md                          # for OpenCode
 ├── .opencode/agents/<name>.md                   # for OpenCode subagents
 ├── .github/copilot-instructions.md              # for Copilot (always-on rules)
