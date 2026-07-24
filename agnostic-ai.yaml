@@ -11,16 +11,15 @@ version: 1
 # mcps,commands}` relative to this file, so the `sources:` block is omitted.
 # Set it only to point a kind somewhere else.
 
-# AI CLIs to emit configs for. Every adapter the tool ships is enabled
-# so the project itself acts as the end-to-end fixture for each emitter.
-# Comment any out to skip.
+# AI CLIs to emit configs for. Every adapter the tool ships is enabled,
+# so this repo is the end-to-end fixture for each emitter. Comment any
+# out to skip.
 #
-# Note: codex, amp, and warp all default to root `AGENTS.md` per the
-# community AGENTS.md spec. Only one can own the root file in a project,
-# so the dogfood set keeps codex (which also emits .codex/config.toml)
-# and drops amp and warp. Real users pick the one matching their CLI.
-# `sync` now fails fast with an output-collision error if more than one
-# is enabled without an `outputs.<target>.file` override.
+# codex, amp, warp, zed, cline, junie, kiro, crush, and trae all read the
+# root `AGENTS.md`. Sync writes it once: the byte-identical pointer body
+# (plus the shared inline rules block) deduplicates across them, so they
+# coexist with no collision. Only divergent content at the same path
+# errors, which an `outputs.<target>.file` override would resolve.
 targets:
   - claude
   - codex
@@ -40,6 +39,8 @@ targets:
   - kiro
   - crush
   - trae
+  - amp
+  - warp
 
 # Per-target output overrides. Defaults work for everything below;
 # the aider conf-file is opt-in and demonstrates the merge feature.
