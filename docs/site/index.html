@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agnostic-ai — one spec, every AI CLI, zero drift</title>
-<meta name="description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 13 more in each tool's native format, byte-stable across runs.">
+<meta name="description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format, byte-stable across runs.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='white' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -249,8 +249,8 @@ footer .links{display:flex; gap:1.3rem; flex-wrap:wrap}
         <a class="btn btn-ghost" href="#how">See how it works</a>
       </div>
       <div class="stats">
-        <div class="stat"><div class="n">18</div><div class="l">AI CLIs supported</div></div>
-        <div class="stat"><div class="n">16</div><div class="l">enabled by default</div></div>
+        <div class="stat"><div class="n">25</div><div class="l">AI CLIs supported</div></div>
+        <div class="stat"><div class="n">20</div><div class="l">enabled by default</div></div>
         <div class="stat"><div class="n">1</div><div class="l">source of truth</div></div>
       </div>
     </div>
@@ -311,7 +311,7 @@ Use Conventional Commits.</pre>
 <section id="what">
   <div class="wrap">
     <p class="eyebrow">What</p>
-    <h2 class="title">One source of truth, <span class="dim">18 tools, each native.</span></h2>
+    <h2 class="title">One source of truth, <span class="dim">25 tools, each native.</span></h2>
     <p class="lead">Author agents, skills, rules, hooks, commands, and MCP servers under <code>.agnostic-ai/</code>. Stateless adapters translate them into every target's documented location and shape — aligned with the <a href="https://agents.md" style="color:var(--accent)">AGENTS.md</a> open standard. 16 targets emit by default; Amp and Warp are opt-in.</p>
     <div class="tools">
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Claude Code</span><span class="tpath">.claude/ · CLAUDE.md</span></div><span class="badge def">default</span></div>
@@ -330,8 +330,15 @@ Use Conventional Commits.</pre>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Kiro (AWS)</span><span class="tpath">.kiro/steering</span></div><span class="badge def">default</span></div>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Crush (Charm)</span><span class="tpath">.agents/skills · crush.json</span></div><span class="badge def">default</span></div>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Trae (ByteDance)</span><span class="tpath">.trae/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Qoder (Alibaba)</span><span class="tpath">.qoder/rules</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">OpenHands</span><span class="tpath">.agents/skills</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Factory Droid</span><span class="tpath">.factory/droids</span></div><span class="badge def">default</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Kilo Code</span><span class="tpath">.kilo/agents · kilo.jsonc</span></div><span class="badge def">default</span></div>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Amp</span><span class="tpath">AGENTS.md · .agents/</span></div><span class="badge opt">opt-in</span></div>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Warp</span><span class="tpath">AGENTS.md · .warp/</span></div><span class="badge opt">opt-in</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Jules (Google)</span><span class="tpath">AGENTS.md (cloud)</span></div><span class="badge opt">opt-in</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Goose (Block)</span><span class="tpath">.goosehints</span></div><span class="badge opt">opt-in</span></div>
+      <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Augment</span><span class="tpath">.augment-guidelines</span></div><span class="badge opt">opt-in</span></div>
     </div>
   </div>
 </section>

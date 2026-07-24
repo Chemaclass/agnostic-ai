@@ -20,7 +20,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
-- MCP for 13/18 targets. Aider/Cline/Windsurf/Trae/Antigravity lack project-scoped MCP.
+- MCP for 14/25 targets. Aider/Cline/Windsurf/Trae/Antigravity and the AGENTS.md-only tools (jules/goose/augment/qoder/openhands/factory) lack project-scoped MCP.
 - Hooks beyond Claude: Codex `.codex/config.toml`, Gemini `.gemini/settings.json`.
 
 ## Open
