@@ -21,6 +21,7 @@ var rulesDirImporters = map[string]string{
 	"cline": ".clinerules",
 	"junie": filepath.Join(".junie", "rules"),
 	"trae":  filepath.Join(".trae", "rules"),
+	"qoder": filepath.Join(".qoder", "rules"),
 }
 
 // windsurfRulesDirs lists the rules directories Devin Desktop (the

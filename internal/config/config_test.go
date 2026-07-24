@@ -80,13 +80,16 @@ on-unsupported: error
 }
 
 func TestDefaultTargets(t *testing.T) {
-	// amp and warp are intentionally absent: both share root AGENTS.md
-	// with codex, so the safe default keeps codex as the sole owner.
+	// amp, warp, jules, goose, and augment are intentionally absent:
+	// each only contributes to the shared root AGENTS.md and has no
+	// unique default output, so the default set keeps to targets with a
+	// native surface of their own.
 	want := []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
+		"qoder", "openhands", "factory", "kilo",
 	}
 	targets := DefaultTargets()
 	if len(targets) != len(want) {
