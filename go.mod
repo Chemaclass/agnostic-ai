@@ -1,6 +1,6 @@
 module github.com/chemaclass/agnostic-ai
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/invopop/jsonschema v0.14.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
