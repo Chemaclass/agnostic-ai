@@ -17,12 +17,17 @@ import (
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the factory adapter's
 // header-coverage contract: every Markdown file the adapter writes
 // must carry the agnostic-ai provenance marker, landing after the
-// frontmatter block as Droid CLI requires.
+// frontmatter block as Droid CLI requires. `.factory/mcp.json`
+// legitimately skips the header (JSON has no comment syntax agnostic-ai
+// emits into) but the test still asserts the file is non-empty so a
+// regression that produces an empty file trips here.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -37,6 +42,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty JSON output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -62,9 +77,13 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the factory
-// adapter declares in caps.Supports (Rule, Agent) with three
+// adapter declares in caps.Supports (Rule, Agent, MCP) with three
 // specimens per kind. Rules are included even though this adapter
-// never writes them itself (see factory.go).
+// never writes them itself (see factory.go). The MCP specimens cover
+// stdio, HTTP, and a genuinely `disabled: true` server: Factory's
+// schema documents a real `disabled` key, unlike Claude Code, Cursor,
+// and Copilot, so this fixture (unlike kilo's pre-B9 one) must
+// actually set the flag to exercise the pass-through.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -73,6 +92,18 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read"}}, Body: "gamma body"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
+		{
+			Kind: spec.KindMCP, Name: "disabled-server",
+			Meta: map[string]any{"command": "x", "disabled": true},
+		},
 	}
 	return spec.NewBundle(entries)
 }

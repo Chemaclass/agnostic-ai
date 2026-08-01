@@ -105,3 +105,27 @@ func EscapeTOMLBasic(s string) string {
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	return s
 }
+
+// WriteTOMLMCPStdioFields writes the `command`, `args`, and `env`
+// fields for a stdio-transport MCP server into the current TOML table.
+// Shared by every adapter that renders MCP servers as TOML (Codex's
+// `[mcp_servers.<name>]` block tables, OpenHands' `[[mcp.stdio_servers]]`
+// array-of-tables) so the field set and string escaping stay identical
+// across both rather than each hand-rolling its own copy.
+func WriteTOMLMCPStdioFields(sb *strings.Builder, meta map[string]any) {
+	if cmd, _ := meta["command"].(string); cmd != "" {
+		WriteTOMLString(sb, "command", cmd)
+	}
+	if args := StringSlice(meta["args"]); len(args) > 0 {
+		WriteTOMLStringArray(sb, "args", args)
+	}
+	WriteTOMLInlineStringTable(sb, "env", StringMap(meta["env"]))
+}
+
+// WriteTOMLMCPURLField writes the `url` field shared by every remote-
+// transport MCP server (http, sse, ...) into the current TOML table.
+func WriteTOMLMCPURLField(sb *strings.Builder, meta map[string]any) {
+	if url, _ := meta["url"].(string); url != "" {
+		WriteTOMLString(sb, "url", url)
+	}
+}

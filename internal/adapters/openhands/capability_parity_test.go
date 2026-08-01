@@ -34,6 +34,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
+		{spec.KindMCP, []string{"config.toml"}},
 	}
 	for _, k := range caps.Supports {
 		if k == spec.KindRule {
@@ -74,7 +75,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
 // every kind openhands does not declare in caps.Supports (Agent, Hook,
-// Command, MCP, Settings). A future caps.Supports expansion needs to
+// Command, Settings). A future caps.Supports expansion needs to
 // delete the matching row here and demonstrate the emit path that
 // backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -86,14 +87,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "helper body"},
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
-		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 5 {
-		t.Errorf("expected 5 capability warnings (agent/hook/command/mcp/settings), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 4 {
+		t.Errorf("expected 4 capability warnings (agent/hook/command/settings), got %d", got)
 	}
 }
 

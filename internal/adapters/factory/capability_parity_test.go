@@ -34,6 +34,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindAgent, []string{".factory/droids/alpha.md", ".factory/droids/beta.md", ".factory/droids/gamma.md"}},
+		{spec.KindMCP, []string{".factory/mcp.json"}},
 	}
 	for _, k := range caps.Supports {
 		if k == spec.KindRule {
@@ -74,7 +75,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
 // every kind factory does not declare in caps.Supports (Skill, Hook,
-// MCP, Command). A future caps.Supports expansion needs to delete the
+// Command). A future caps.Supports expansion needs to delete the
 // matching row here and demonstrate the emit path that backs the new
 // claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -85,14 +86,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSkill, Name: "s1", Path: "skills/s1/SKILL.md", Body: "skill body"},
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
-		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 4 {
-		t.Errorf("expected 4 capability warnings (skill/hook/mcp/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
+		t.Errorf("expected 3 capability warnings (skill/hook/command), got %d", got)
 	}
 }
 

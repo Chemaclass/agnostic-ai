@@ -8,6 +8,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- MCP servers propagate to three more targets: `factory` (`.factory/mcp.json`, including native `disabled` support), `qoder` (`.mcp.json`, the identical file and schema Claude Code already writes there, deduplicated when both are enabled), and `openhands` (`./config.toml` `[mcp]`, split into `stdio_servers`/`sse_servers`/`shttp_servers` arrays since OpenHands has no `type` field). MCP coverage is now 17 of 25 targets. `validate` and `sync --watch` also stop treating MCP specs as orphaned or unaffected on a `qoder`/`factory`/`openhands`-only project.
+
+### Fixed
+
+- Kilo Code MCP servers now write `"enabled": false` when a spec sets `disabled: true`; Kilo Code's own documented schema carries an `enabled` key and this adapter previously wrote no disable state at all, so a disabled spec produced a fully enabled server with no warning.
+
+### Added
+
 - `target-audit` skill plus a `target-auditor` agent: a repeatable, parallel audit of every registered adapter against its vendor's current docs, reporting evidence-backed drift (moved paths, new native surfaces, schema changes, deprecations) and optionally filing one issue per finding. Backed by `scripts/target-facts.sh`, which derives batches from the adapter registry and dumps a target's declared capabilities, default output paths, adapter package doc, and `docs/user/targets.md` rows in one call, and by a per-target list of vendor doc and changelog URLs that `tests/integration/target_audit_sources_test.go` keeps in sync with the registry.
 - `target-audit --fix` closes what it finds: after filing issues it spawns one `adapter-fixer` agent per fix bucket, each in its own git worktree, each opening a PR with the finding's evidence and `Closes #N`. Buckets by severity, not by tool: one PR per breaking finding, one batched PR for additive native surfaces, one docs PR for the rest. It never merges, so audit, fix, and merge stay three separate actors.
 - MCP servers accept `type: ws`. A WebSocket entry previously matched no transport branch and was written with no `command`, no `url`, and no `type`: a malformed server object emitted with no warning on both `.mcp.json` (Claude Code) and `.cursor/mcp.json`. It now shares the remote shape (`url`, `headers`, explicit `type`), which is what Claude Code and Qoder both document.

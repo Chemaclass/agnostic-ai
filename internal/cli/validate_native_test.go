@@ -111,6 +111,39 @@ func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	}
 }
 
+// targetsSupportingKind[spec.KindMCP] is a hand-maintained mirror of
+// each adapter's caps.Supports, used by validate's orphan-kind check
+// and by sync --watch's incremental re-sync (affectedTargetsForKind).
+// factory, qoder, and openhands gained native MCP support (target-audit
+// 2026-08-01); a project with only one of them enabled and an MCP spec
+// must not be flagged as orphaned, and (separately, exercised by the
+// adapter packages) must actually re-sync on watch.
+func TestValidate_MCPNotOrphanedOnNewlySupportedTargets(t *testing.T) {
+	for _, target := range []string{"qoder", "factory", "openhands"} {
+		t.Run(target, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+				"version: 1\ntargets:\n  - "+target+"\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+				"name: fs\ncommand: npx\n")
+			testutil.Chdir(t, dir)
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"validate"})
+			out := &bytes.Buffer{}
+			root.SetOut(out)
+			root.SetErr(&bytes.Buffer{})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("validate: %v", err)
+			}
+			got := out.String()
+			if strings.Contains(got, "no enabled target supports mcps") {
+				t.Errorf("%s now supports MCP; must not be flagged as orphaned, got: %s", target, got)
+			}
+		})
+	}
+}
+
 func TestValidate_MissingHookEventField(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),

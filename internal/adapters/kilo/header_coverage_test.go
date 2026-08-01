@@ -79,7 +79,12 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle exercising every kind the kilo
 // adapter declares in caps.Supports (Rule, Agent, MCP) with three
 // specimens per kind. Rules are included even though this adapter
-// never writes them itself (see kilo.go).
+// never writes them itself (see kilo.go). "disabled-server" actually
+// sets `disabled: true` (B9, target-audit 2026-08-01 follow-up: the
+// fixture was named for a server that never carried the flag, so the
+// kit sink emitted with no disable state at all before and after the
+// #518 schema fix; this fixture now exercises the path its name
+// promises).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -98,7 +103,7 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x"},
+			Meta: map[string]any{"command": "x", "disabled": true},
 		},
 	}
 	return spec.NewBundle(entries)

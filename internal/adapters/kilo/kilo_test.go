@@ -277,6 +277,63 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	}
 }
 
+// B9 (target-audit 2026-08-01, follow-up): Kilo Code's MCP schema
+// documents "enabled": true alongside type/command/environment/timeout,
+// but this adapter wrote no disable state at all, so a spec marked
+// `disabled: true` produced a fully enabled server with no warning.
+func TestEmit_MCP_DisabledWritesEnabledFalse(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	if !strings.Contains(got, `"enabled": false`) {
+		t.Errorf("Kilo Code's schema documents `enabled`; a disabled: true spec must write it, got:\n%s", got)
+	}
+}
+
+// A spec that does not set `disabled` must not gain an `enabled` key:
+// Kilo Code's own default (enabled) needs no explicit key, mirroring
+// the codex adapter's identical convention for its `enabled` field.
+func TestEmit_MCP_NotDisabledNoEnabledKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	if strings.Contains(got, `"enabled"`) {
+		t.Errorf("expected no enabled key when disabled is unset, got:\n%s", got)
+	}
+}
+
+// The disabled -> enabled translation applies to remote servers too,
+// not only stdio.
+func TestEmit_MCP_HTTPDisabledWritesEnabledFalse(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "linear",
+			Meta: map[string]any{"type": "http", "url": "https://mcp.linear.app", "disabled": true},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	if !strings.Contains(got, `"enabled": false`) {
+		t.Errorf("expected enabled: false on a disabled remote server, got:\n%s", got)
+	}
+}
+
 // A stdio entry with no args still gets a one-element command array,
 // never a bare string.
 func TestEmit_MCP_StdioNoArgsStillArray(t *testing.T) {
