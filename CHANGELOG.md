@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.45.0 - 2026-08-02
+
 ### Added
 
 - MCP servers propagate to three more targets: `factory` (`.factory/mcp.json`, including native `disabled` support), `qoder` (`.mcp.json`, the identical file and schema Claude Code already writes there, deduplicated when both are enabled), and `openhands` (`./config.toml` `[mcp]`, split into `stdio_servers`/`sse_servers`/`shttp_servers` arrays since OpenHands has no `type` field). MCP coverage is now 17 of 25 targets. `validate` and `sync --watch` also stop treating MCP specs as orphaned or unaffected on a `qoder`/`factory`/`openhands`-only project.
