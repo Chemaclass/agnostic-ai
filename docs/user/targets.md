@@ -33,7 +33,7 @@ Each adapter emits in its tool's native format: separate files where the tool su
 
 Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 
-Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, augment, openhands, factory, kilo) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless.
+Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, kilo) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless. Augment now also has a native `.augment/rules/<name>.md` directory (see below) but keeps inlining into AGENTS.md too: the vendor does not cleanly establish the two surfaces' relative precedence, so this adapter does not assume the native directory makes the inline copy redundant.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
@@ -67,13 +67,13 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
-| **augment**     | - | - | inlined into `AGENTS.md` (opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
+| **augment**     | `.augment/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.augment/rules/<name>.md` (+ inlined into `AGENTS.md`; opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
 
 Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs of that kind are present, `sync` prints a `note:` line naming the key to set (or stating the content stays source-dir only). See [Coverage notes](configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, and Windsurf execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, and Windsurf share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline reads its own `.cline/skills/`. Warp has no skill surface; on Aider, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, and Augment execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, and Augment share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline reads its own `.cline/skills/`, and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Warp has no skill surface; on Aider, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (15 of 25, see matrix). Aider, Cline, Windsurf, Trae, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
@@ -620,18 +620,22 @@ Verify with the real CLI:
 
 ```
 AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
-.augment-guidelines           # opt-in concatenated rules, only when rules-file is set
+.augment/
+├── rules/<name>.md           # one per rule
+└── agents/<name>.md          # one per agent
+.agents/skills/<name>/SKILL.md  # one folder per skill (shared cross-tool tree)
+.augment-guidelines           # opt-in legacy concatenated rules, only when rules-file is set
 ```
 
-[Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`. By default rule bodies inline into the shared `AGENTS.md` `## Rules` block. Set `outputs.augment.rules-file: .augment-guidelines` to also write a concatenated `.augment-guidelines` document, Augment's native guidelines file. Augment adds no unique default output, so it stays opt-in (see [Selecting targets](#selecting-targets)). Agents, skills, hooks, and MCP skip with a warning.
+[Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`, with rule bodies inlined into the shared `## Rules` block, and also loads rules natively from `.augment/rules/`. Each rule frontmatter carries `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. There is no `name` key for rules. Agents load from `.augment/agents/`, one `<name>.md` per agent, with `name` (required), `description` (falls back to the spec name), `color`, and `model` when set. `tools` and `disabled_tools` are real Augment fields but only in Augment's own vocabulary (`view`, `codebase-retrieval`, `str-replace-editor`, ...), not Claude-style names, so agnostic-ai's generic `tools` field never reaches them: an agent that sets it surfaces a coverage note, and `x-augment: {tools: [...]}` / `x-augment: {disabled_tools: [...]}` is the way to reach Augment's real per-tool access control. Skills emit into the shared `.agents/skills/` tree, which Augment also scans directly alongside `.claude/skills/` and `.augment/skills/`. Set `outputs.augment.rules-file: .augment-guidelines` to additionally write the legacy concatenated document; the vendor's own precedence order truncates it first under budget pressure, which is why it stays opt-in rather than the default rules surface. Hooks and MCP skip with a warning.
 
-Config keys: `outputs.augment.rules-file` (unset; opt-in, writes a concatenated `.augment-guidelines` document).
+Config keys: `outputs.augment.rules-dir` (default `.augment/rules`), `outputs.augment.agents-dir` (default `.augment/agents`), `outputs.augment.skills-dir` (default `.agents/skills`), `outputs.augment.rules-file` (unset; opt-in, writes the legacy concatenated `.augment-guidelines` document).
 
 Verify with the real extension:
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
-2. Check the tree: `ls AGENTS.md`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set.
-3. Open the project; Augment reads `AGENTS.md` (and `.augment-guidelines` when present) as guidelines.
+2. Check the tree: `ls AGENTS.md .augment/rules/ .augment/agents/ .agents/skills/`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set.
+3. Open the project; Augment reads `AGENTS.md`, `.augment/rules/`, `.augment/agents/`, and `.agents/skills/` (and `.augment-guidelines` when present).
 
 ## Selecting targets
 
@@ -652,7 +656,7 @@ agnostic-ai sync -t claude,cursor,copilot
 
 CLI flag overrides config. Unknown targets log a warning and skip.
 
-The default target set is 20: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae, qoder, openhands, factory, kilo. **Amp**, **Warp**, **Jules**, **Goose**, and **Augment** are opt-in: each only contributes to the shared root `AGENTS.md` pointer body and adds no unique default output, so plain `sync` skips them. Add them to `targets:` (or pass `-t amp,warp,jules,goose,augment`). Amp and Warp then emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`); Jules adds nothing further, and Goose and Augment write their native rules file only when `outputs.goose.rules-file` / `outputs.augment.rules-file` is set.
+The default target set is 20: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae, qoder, openhands, factory, kilo. **Amp**, **Warp**, **Jules**, **Goose**, and **Augment** are opt-in, excluded from the default set so enabling them is a deliberate choice. Add them to `targets:` (or pass `-t amp,warp,jules,goose,augment`). Amp and Warp then emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`); Augment emits `.augment/rules/`, `.augment/agents/`, and shares `.agents/skills/` by default, plus the legacy `.augment-guidelines` document when `outputs.augment.rules-file` is set; Jules adds nothing beyond the shared pointer body; Goose writes its native rules file only when `outputs.goose.rules-file` is set.
 
 Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries before confirming.
 

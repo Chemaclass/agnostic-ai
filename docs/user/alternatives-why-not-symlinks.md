@@ -65,7 +65,7 @@ The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-ident
 
 ### Rules delivery is path-divergent
 
-Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, augment, openhands, factory, and kilo have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Cursor, cline, windsurf, continue, junie, kiro, trae, qoder, and antigravity each get one file per rule in their own directory and format. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
+Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and kilo have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Cursor, cline, windsurf, continue, junie, kiro, trae, qoder, antigravity, and augment each get one file per rule in their own directory and format; augment inlines into `AGENTS.md` too, on top of its native `.augment/rules/` directory. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
 
 ### Hooks are target-specific
 

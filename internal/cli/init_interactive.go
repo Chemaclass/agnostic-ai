@@ -207,7 +207,7 @@ var targetMarkers = map[string][]string{
 	"factory":     {".factory"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode"},
 	"goose":       {".goosehints"},
-	"augment":     {".augment-guidelines"},
+	"augment":     {".augment", ".augment-guidelines"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
