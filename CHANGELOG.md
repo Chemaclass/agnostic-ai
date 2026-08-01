@@ -9,46 +9,25 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - MCP servers propagate to three more targets: `factory` (`.factory/mcp.json`, including native `disabled` support), `qoder` (`.mcp.json`, the identical file and schema Claude Code already writes there, deduplicated when both are enabled), and `openhands` (`./config.toml` `[mcp]`, split into `stdio_servers`/`sse_servers`/`shttp_servers` arrays since OpenHands has no `type` field). MCP coverage is now 17 of 25 targets. `validate` and `sync --watch` also stop treating MCP specs as orphaned or unaffected on a `qoder`/`factory`/`openhands`-only project.
-
-### Fixed
-
-- Kilo Code MCP servers now write `"enabled": false` when a spec sets `disabled: true`; Kilo Code's own documented schema carries an `enabled` key and this adapter previously wrote no disable state at all, so a disabled spec produced a fully enabled server with no warning.
-
-### Added
-
 - `target-audit` skill plus a `target-auditor` agent: a repeatable, parallel audit of every registered adapter against its vendor's current docs, reporting evidence-backed drift (moved paths, new native surfaces, schema changes, deprecations) and optionally filing one issue per finding. Backed by `scripts/target-facts.sh`, which derives batches from the adapter registry and dumps a target's declared capabilities, default output paths, adapter package doc, and `docs/user/targets.md` rows in one call, and by a per-target list of vendor doc and changelog URLs that `tests/integration/target_audit_sources_test.go` keeps in sync with the registry.
 - `target-audit --fix` closes what it finds: after filing issues it spawns one `adapter-fixer` agent per fix bucket, each in its own git worktree, each opening a PR with the finding's evidence and `Closes #N`. Buckets by severity, not by tool: one PR per breaking finding, one batched PR for additive native surfaces, one docs PR for the rest. It never merges, so audit, fix, and merge stay three separate actors.
 - MCP servers accept `type: ws`. A WebSocket entry previously matched no transport branch and was written with no `command`, no `url`, and no `type`: a malformed server object emitted with no warning on both `.mcp.json` (Claude Code) and `.cursor/mcp.json`. It now shares the remote shape (`url`, `headers`, explicit `type`), which is what Claude Code and Qoder both document.
 - Seven new targets (#479): `qoder` (Alibaba Qoder: native `.qoder/rules/<name>.md`, one file per rule), `openhands` (All Hands OpenHands: the shared `.agents/skills/<name>/SKILL.md` tree), `factory` (Factory Droid: `.factory/droids/<name>.md` with `x-factory` passthrough), `kilo` (Kilo Code: `.kilo/agents/<name>.md` + `kilo.jsonc` `mcp`), `jules` (Google Jules, cloud: shared `AGENTS.md` only), `goose` (Block Goose: opt-in `.goosehints`), and `augment` (Augment Code: opt-in `.augment-guidelines`). All seven read the shared root `AGENTS.md` pointer. `qoder`, `openhands`, `factory`, and `kilo` join the default set (now 20 of 25); `jules`, `goose`, and `augment` stay opt-in; `kilo` brings MCP to 14 of 25 targets; `import qoder` captures its rules dir.
+- Antigravity MCP servers land in `.agents/mcp_config.json` under `mcpServers`. Remote entries use `serverUrl`: Antigravity's doc says the legacy `url` / `httpUrl` names are not supported, so the shared `mcpServers`-with-`url` builder does not apply here. stdio entries carry `command`, `args`, and `env`.
+- Augment gets three native surfaces it was missing entirely: one file per rule at `.augment/rules/<name>.md` (`type: agent_requested` with `alwaysApply: false`, otherwise the vendor default `always_apply` stays implicit), one file per agent at `.augment/agents/<name>.md`, and skills into the shared `.agents/skills/<name>/SKILL.md` tree. An agent's generic `tools` list is never Augment's own vocabulary, so it now surfaces a coverage note instead of silently restricting nothing; `x-augment.tools` / `x-augment.disabled_tools` reach Augment's real per-tool access control directly.
 
 ### Fixed
 
+- Kilo Code MCP servers now write `"enabled": false` when a spec sets `disabled: true`; Kilo Code's own documented schema carries an `enabled` key and this adapter previously wrote no disable state at all, so a disabled spec produced a fully enabled server with no warning.
 - Kilo Code MCP servers now write under the `mcp` key with `type: "local"`/`"remote"`, one combined `command` array, and `environment` in place of `env`; the previous `mcpServers` shape was never read by Kilo Code. Agent frontmatter drops `name` (Kilo Code takes it from the filename) and `tools` (Kilo Code has no such key); a spec's `tools` allowlist now surfaces a coverage note instead of looking like it restricted the agent.
-
-### Fixed
-
 - `docs/user/targets.md` drops Warp from the MCP `type`-field list (Warp's schema has no such key), adds the `SessionEnd` Codex hook event the emitter already sends, marks Gemini's hook list as a non-exhaustive example instead of all 11 events, and confirms the Amp `.agents/commands/` path is no longer read now that command removal has held since 2026-01-29.
 - Refreshed ten stale vendor doc URLs in the target-audit skill's `references/sources.md`: Codex's six doc pages moved to `learn.chatgpt.com` (one, `/rules`, pointed at the wrong topic), Kilo moved to `kilo.ai`, and Claude, Gemini, Antigravity, Junie, Cline, Continue, and Cursor each get a corrected or added entry. Trae joins the client-rendered-docs warning list.
-
-### Fixed
-
 - Codex exec-policy `decision` now accepts `allow`, `forbidden`, `prompt`; `ask` was never a valid Codex CLI literal and rendered a rule Codex silently ignored, and the vendor-correct `prompt` used to fail validation.
 - `outputs.claude.settings.enabledPlugins` is now a map of `plugin-id@marketplace-id` to boolean, matching Claude Code's own settings schema; the previous list-of-strings shape could not express the required marketplace qualifier and never actually enabled a plugin.
 - MCP `disabled: true` now maps to Codex's real `enabled = false` key instead of a `disabled` key Codex never reads. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server at all, so agnostic-ai stops writing the field for them and reports a coverage note instead of silently doing nothing.
-
-### Fixed
-
 - Cline and Windsurf skills emit as a folder per skill (`.cline/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`, the latter shared with Codex, Amp, Zed, Crush, and OpenHands) instead of a flat `skill-<name>.md` file that neither tool ever loaded as a skill. `import cline` and `import windsurf` reconstruct skills from the new folder tree, and still read the old flat form for projects synced before this fix.
-
-### Added
-
-- Antigravity MCP servers land in `.agents/mcp_config.json` under `mcpServers`. Remote entries use `serverUrl`: Antigravity's doc says the legacy `url` / `httpUrl` names are not supported, so the shared `mcpServers`-with-`url` builder does not apply here. stdio entries carry `command`, `args`, and `env`.
-
-- Augment gets three native surfaces it was missing entirely: one file per rule at `.augment/rules/<name>.md` (`type: agent_requested` with `alwaysApply: false`, otherwise the vendor default `always_apply` stays implicit), one file per agent at `.augment/agents/<name>.md`, and skills into the shared `.agents/skills/<name>/SKILL.md` tree. An agent's generic `tools` list is never Augment's own vocabulary, so it now surfaces a coverage note instead of silently restricting nothing; `x-augment.tools` / `x-augment.disabled_tools` reach Augment's real per-tool access control directly.
-### Fixed
-
 - Antigravity rules and skills now default to `.agents/rules` / `.agents/skills`, the plural paths Antigravity itself now prefers. The old `.agent/rules` / `.agent/skills` singular form still reads for backward compatibility, but a stale managed copy there is swept on sync, and `.agents/skills` is also the tree Codex, Amp, Zed, Crush, and OpenHands already write, so skills dedupe there too. `import antigravity` reads whichever path exists, preferring the plural form.
-
+- The `targetsSupportingKind` map in `internal/cli` is now enforced against what each adapter declares, so a target that gains a capability can no longer be omitted from it. That map drives the orphan-kind validator and incremental `sync --watch`; when it drifted, users were told their specs were dead weight and the affected targets were skipped on re-sync. It had drifted for `antigravity` (skills), `factory`/`qoder`/`openhands` (MCP), and `augment` (agents and skills). All four are corrected.
 ## v0.44.0 - 2026-07-24
 
 ### Added
