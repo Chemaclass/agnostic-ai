@@ -52,6 +52,46 @@ func TestImportFromWarp_ImportsWorkflowsAsAgents(t *testing.T) {
 	}
 }
 
+// Round-trip for #538: workflow fields beyond name/command/description/
+// tags must survive an import under x-warp so a sync -> import -> sync
+// cycle does not silently drop them.
+func TestImportFromWarp_WorkflowExtraFieldsRoundTripUnderXWarp(t *testing.T) {
+	dir := t.TempDir()
+	wf := "name: deploy\ndescription: ship\ncommand: ./deploy.sh\nshells:\n  - zsh\nauthor: release-eng\n"
+	writeFile(t, filepath.Join(dir, warpWorkflowsDir, "deploy.yaml"), wf)
+	if err := importFromWarp(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "agents", "deploy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(data)
+	for _, want := range []string{"x-warp:", "shells:", "- zsh", "author: release-eng"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in agent file:\n%s", want, out)
+		}
+	}
+}
+
+// A workflow with only the known fields must not gain an empty x-warp
+// block.
+func TestImportFromWarp_NoXWarpBlockForPlainWorkflow(t *testing.T) {
+	dir := t.TempDir()
+	wf := "name: deploy\ncommand: ./deploy.sh\n"
+	writeFile(t, filepath.Join(dir, warpWorkflowsDir, "deploy.yaml"), wf)
+	if err := importFromWarp(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "agents", "deploy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "x-warp") {
+		t.Errorf("unexpected x-warp block for a plain workflow:\n%s", data)
+	}
+}
+
 func TestImportFromWarp_ImportsMCPServers(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

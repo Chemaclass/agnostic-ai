@@ -21,6 +21,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Kilo Code skills emit into the shared `.agents/skills/<name>/SKILL.md` tree, the compatibility path Kilo Code itself documents as loaded by default, deduping with Codex, Amp, Zed, Crush, OpenHands, Windsurf, and Augment instead of adding a second on-disk copy under `.kilo/skills/`.
 - Qoder agents now emit natively at `.qoder/agents/<name>.md` (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as Qoder's documented comma-separated string, safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style; `import qoder` reconstructs it as a list so every other target keeps working too (#529).
 - Windsurf ignore specs merge into `.devinignore`, gitignore syntax under a provenance header, matching the shape Aider, Cursor, and Gemini already use (#530).
+- Crush MCP http/sse entries accept `oauth`, `oauth_client_id`, `oauth_client_secret`, and `oauth_callback_port`, shipped in Crush v0.87.0 (#531). Crush skills accept `x-crush.user-invocable: true` to also add the skill to the command palette (ctrl+p) (#540).
+- Codex and Gemini MCP stdio servers accept `cwd` (working directory for the server process), added to the cross-tool MCP spec; Codex http servers also accept `auth` (`oauth` or `chatgpt`) (#532). Codex hooks accept `additionalContextLimit`, a token threshold for how much hook output reaches the model (#533).
+- Warp workflows accept `x-warp` passthrough for documented YAML fields (`shells`, `arguments`, `source_url`, `author`, `author_url`) that had no native surface before; `import warp` captures them back (#538). Zed Tasks accept the same kind of `x-zed` passthrough for `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`; `import zed` captures them back (#539).
 
 ### Fixed
 

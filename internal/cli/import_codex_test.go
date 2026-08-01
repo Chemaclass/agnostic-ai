@@ -550,6 +550,40 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 	}
 }
 
+// Round-trip for #532: cwd (stdio) and auth (http) must survive an
+// import so a sync -> import -> sync cycle does not silently drop a
+// field the previous sync just wrote to .codex/config.toml.
+func TestImportFromCodex_MCPCwdAndAuthRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.fs]
+command = "npx"
+cwd = "/workspace/project"
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+auth = "oauth"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	fs, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatalf("read fs.yaml: %v", err)
+	}
+	if !strings.Contains(string(fs), "cwd: /workspace/project") {
+		t.Errorf("fs.yaml missing cwd:\n%s", fs)
+	}
+
+	github, err := os.ReadFile(filepath.Join(dir, "mcps", "github.yaml"))
+	if err != nil {
+		t.Fatalf("read github.yaml: %v", err)
+	}
+	if !strings.Contains(string(github), "auth: oauth") {
+		t.Errorf("github.yaml missing auth:\n%s", github)
+	}
+}
+
 // Regression for the target-audit fix: the codex emitter now writes
 // Codex's own `enabled = false` key instead of the never-recognized
 // `disabled = true`. The importer must translate that key back to the
@@ -641,6 +675,33 @@ func TestImportFromCodex_HooksFromHooksJSON(t *testing.T) {
 		if !strings.Contains(string(postData), want) {
 			t.Errorf("expected %q in PostToolUse spec:\n%s", want, postData)
 		}
+	}
+}
+
+// Round-trip for #533: additionalContextLimit must survive an import so
+// a sync -> import -> sync cycle does not silently drop the field the
+// previous sync just wrote to .codex/hooks.json.
+func TestImportFromCodex_HookAdditionalContextLimitRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "lint.sh", "additionalContextLimit": 2000}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, _ := os.ReadFile(post)
+	if !strings.Contains(string(data), "additionalContextLimit: 2000") {
+		t.Errorf("expected additionalContextLimit in spec:\n%s", data)
 	}
 }
 

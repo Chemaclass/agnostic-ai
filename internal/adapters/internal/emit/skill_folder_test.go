@@ -57,6 +57,40 @@ func TestSkillMarkdown_TargetMetaPassesThroughAndExcludes(t *testing.T) {
 	}
 }
 
+// crush is the only shared-tree target with a documented `user-invocable:
+// true` skill frontmatter flag (adds the skill to the command palette).
+// It reaches crush's render through the same generic x-<target>
+// passthrough every other custom key uses, so it must appear for crush
+// and must not leak into a sibling target's byte-identical render. See
+// #540.
+func TestSkillMarkdown_CrushUserInvocablePassesThroughWithoutLeaking(t *testing.T) {
+	plain := spec.Entry{
+		Kind: spec.KindSkill, Name: "deploy",
+		Meta: map[string]any{"description": "Ship it."},
+		Body: "Run the pipeline.",
+	}
+	base := SkillMarkdown(plain, "codex")
+
+	withFlag := spec.Entry{
+		Kind: spec.KindSkill, Name: "deploy",
+		Meta: map[string]any{
+			"description": "Ship it.",
+			"x-crush":     map[string]any{"user-invocable": true},
+		},
+		Body: "Run the pipeline.",
+	}
+	got := SkillMarkdown(withFlag, "crush")
+	if !strings.Contains(got, "user-invocable: true") {
+		t.Errorf("expected user-invocable: true in crush render:\n%s", got)
+	}
+
+	for _, target := range []string{"codex", "amp", "zed", "gemini", "opencode", "copilot"} {
+		if sib := SkillMarkdown(withFlag, target); sib != base {
+			t.Errorf("%s render should ignore x-crush and match the plain baseline:\n%q\nvs\n%q", target, sib, base)
+		}
+	}
+}
+
 func TestWriteSkillFolder_WritesSKILLMdAndAssets(t *testing.T) {
 	sess := NewSession()
 	dir := testutil.TempCwd(t)

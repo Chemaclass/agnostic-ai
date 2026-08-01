@@ -201,12 +201,25 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	switch transport {
 	case "stdio":
 		emit.WriteTOMLMCPStdioFields(sb, m.Meta)
+		// cwd is documented for codex (and gemini) stdio servers but is
+		// not part of the shared WriteTOMLMCPStdioFields helper: that
+		// helper is also used by OpenHands, which has no cwd support
+		// confirmed. See #532.
+		if cwd, _ := m.Meta["cwd"].(string); cwd != "" {
+			emit.WriteTOMLString(sb, "cwd", cwd)
+		}
 	case "http", "sse":
 		emit.WriteTOMLMCPURLField(sb, m.Meta)
 		if t, _ := m.Meta["bearer_token_env_var"].(string); t != "" {
 			emit.WriteTOMLString(sb, "bearer_token_env_var", t)
 		}
 		emit.WriteTOMLInlineStringTable(sb, "http_headers", emit.StringMap(m.Meta["headers"]))
+		// auth (`oauth` | `chatgpt`) is documented for codex http
+		// servers. Passed through verbatim; codex validates the enum
+		// itself. See #532.
+		if auth, _ := m.Meta["auth"].(string); auth != "" {
+			emit.WriteTOMLString(sb, "auth", auth)
+		}
 	}
 	writeMCPSharedFields(sb, m.Meta)
 	sb.WriteString("\n")

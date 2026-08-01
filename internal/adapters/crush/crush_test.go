@@ -58,6 +58,33 @@ func TestEmit_Skill_WritesSharedSkillFolder(t *testing.T) {
 	}
 }
 
+// crush README documents `user-invocable: true` skill frontmatter to add
+// the skill to the command palette (ctrl+p). It reaches crush's SKILL.md
+// through the generic x-crush passthrough the shared renderer already
+// honors, so no crush-specific code path is needed. See #540.
+func TestEmit_Skill_UserInvocablePassesThroughUnderXCrush(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "yaml-validator",
+			Meta: map[string]any{
+				"description": "Validate YAML.",
+				"x-crush":     map[string]any{"user-invocable": true},
+			},
+			Body: "Validate against schema.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/yaml-validator/SKILL.md"))
+	if !strings.Contains(got, "user-invocable: true") {
+		t.Errorf("SKILL.md missing user-invocable: true:\n%s", got)
+	}
+}
+
 func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -132,6 +159,66 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+}
+
+// crush README documents oauth/oauth_client_id/oauth_client_secret/
+// oauth_callback_port on http/sse entries (v0.87.0, "MCP OAuth
+// implementation"). See #531.
+func TestEmit_MCP_HTTPWritesOAuthFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type":                "http",
+				"url":                 "https://mcp.linear.app",
+				"oauth":               true,
+				"oauth_client_id":     "abc123",
+				"oauth_client_secret": "shh",
+				"oauth_callback_port": 8080,
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	for _, want := range []string{
+		`"oauth": true`,
+		`"oauth_client_id": "abc123"`,
+		`"oauth_client_secret": "shh"`,
+		`"oauth_callback_port": 8080`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// oauth is only meaningful for http/sse entries; a stdio entry must not
+// pick up an oauth block accidentally.
+func TestEmit_MCP_StdioIgnoresOAuthFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"oauth":   true,
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	if strings.Contains(got, "oauth") {
+		t.Errorf("stdio entry should not emit oauth fields: %s", got)
 	}
 }
 

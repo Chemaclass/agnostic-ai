@@ -90,6 +90,10 @@ type hookCommandEntry struct {
 	// CommandWindows is Codex's optional Windows-specific command
 	// override, propagated from the spec's `commandWindows` Meta key.
 	CommandWindows string `json:"commandWindows,omitempty"`
+	// AdditionalContextLimit caps how many tokens of this hook's output
+	// reach the model, propagated from the spec's `additionalContextLimit`
+	// Meta key. See learn.chatgpt.com/docs/hooks.
+	AdditionalContextLimit int `json:"additionalContextLimit,omitempty"`
 }
 
 // buildHooksJSON returns the rendered document or nil when no hooks
@@ -99,11 +103,12 @@ type hookCommandEntry struct {
 func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	type key struct{ event, command string }
 	type accum struct {
-		matchers       map[string]bool
-		matcherOrder   []string
-		timeout        int
-		statusMessage  string
-		commandWindows string
+		matchers               map[string]bool
+		matcherOrder           []string
+		timeout                int
+		statusMessage          string
+		commandWindows         string
+		additionalContextLimit int
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
@@ -117,6 +122,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		timeout := hookIntMeta(h.Meta, "timeout")
 		statusMessage, _ := h.Meta["statusMessage"].(string)
 		commandWindows, _ := h.Meta["commandWindows"].(string)
+		additionalContextLimit := hookIntMeta(h.Meta, "additionalContextLimit")
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
 			k := key{event: event, command: cmd}
@@ -140,6 +146,9 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			}
 			if a.commandWindows == "" && commandWindows != "" {
 				a.commandWindows = commandWindows
+			}
+			if a.additionalContextLimit == 0 && additionalContextLimit != 0 {
+				a.additionalContextLimit = additionalContextLimit
 			}
 		}
 	}
@@ -167,11 +176,12 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			groupOrder = append(groupOrder, gk)
 		}
 		g.Hooks = append(g.Hooks, hookCommandEntry{
-			Type:           "command",
-			Command:        k.command,
-			Timeout:        a.timeout,
-			StatusMessage:  a.statusMessage,
-			CommandWindows: a.commandWindows,
+			Type:                   "command",
+			Command:                k.command,
+			Timeout:                a.timeout,
+			StatusMessage:          a.statusMessage,
+			CommandWindows:         a.commandWindows,
+			AdditionalContextLimit: a.additionalContextLimit,
 		})
 	}
 

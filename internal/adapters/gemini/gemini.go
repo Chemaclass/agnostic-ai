@@ -11,6 +11,10 @@
 // (SKILL.md + bundled assets), the workspace tier Gemini CLI scans.
 // Setting `outputs.gemini.emit-skills-as-commands: true` additionally
 // writes a TOML per skill with a `skill-` filename prefix.
+//
+// MCP stdio servers accept an optional `cwd` (working directory for the
+// server process), the same field Codex documents; it is part of the
+// cross-tool MCP spec, not a gemini-only extension.
 package gemini
 
 import (
@@ -149,6 +153,9 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		}
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 			out["args"] = args
+		}
+		if cwd, _ := e.Meta["cwd"].(string); cwd != "" {
+			out["cwd"] = cwd
 		}
 	case "http":
 		// Gemini CLI uses `httpUrl` for the streamable-HTTP endpoint.

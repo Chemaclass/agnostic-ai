@@ -227,3 +227,28 @@ func TestEmit_HookCommandWindowsPropagates(t *testing.T) {
 		t.Errorf("commandWindows missing in hooks.json:\n%s", got)
 	}
 }
+
+// learn.chatgpt.com/docs/hooks documents additionalContextLimit (token
+// threshold for model visibility) alongside type/command/timeout/
+// statusMessage/commandWindows/matcher. See #533.
+func TestEmit_HookAdditionalContextLimitPropagates(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event":                  "PostToolUse",
+			"command":                "lint.sh",
+			"additionalContextLimit": 2000,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"additionalContextLimit": 2000`) {
+		t.Errorf("additionalContextLimit missing in hooks.json:\n%s", got)
+	}
+}

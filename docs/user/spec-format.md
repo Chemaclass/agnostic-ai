@@ -186,6 +186,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `shell` | no | empty | `bash` or `powershell`. Claude. |
 | `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude. |
 | `commandWindows` | no | empty | Windows-specific command override. Codex. |
+| `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. |
 | `target` | no | empty | Single target name. Emits only there. |
 | `targets` | no | empty | List of target names. Emits only to those. |
 | `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
@@ -359,6 +360,7 @@ env:
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
+| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
@@ -546,7 +548,7 @@ Per surface:
 |--------|---------|---------------------|
 | `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
 | `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
-| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` |
+| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` (e.g. crush's `user-invocable: true`, which adds the skill to the command palette) |
 | `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`metadata` |
 | `cursor` | agent `.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`model`/`readonly`/`is_background` |
 | `copilot` | rule `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
@@ -556,5 +558,7 @@ Per surface:
 | `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
 | `kiro` | agent `.md` frontmatter | every `x-kiro` key beyond `description`/`model` (`name` is excluded: Kiro's agent schema has none, identity comes from the filename) |
 | `qoder` | agent `.md` frontmatter | every `x-qoder` key beyond `name`/`description`/`model`/`tools`/`skills`/`mcpServers` |
+| `warp` | workflow `.yaml` | every `x-warp` key beyond `name`/`command`/`description`/`tags` (e.g. `shells`, `arguments`, `source_url`, `author`, `author_url`) |
+| `zed` | task (in `outputs.zed.tasks-file`) | every `x-zed` key beyond `label`/`command`/`args` (e.g. `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, `reevaluate_context`) |
 
 Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule and skill steering files carry no passthrough; kiro agents do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.

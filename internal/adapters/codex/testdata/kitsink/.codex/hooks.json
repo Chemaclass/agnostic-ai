@@ -27,7 +27,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "gofmt -w"
+            "command": "gofmt -w",
+            "additionalContextLimit": 2000
           }
         ]
       }

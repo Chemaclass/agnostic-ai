@@ -7,9 +7,12 @@
 // path so users on older workflows keep their behavior.
 //
 // When `outputs.warp.workflows-dir` is set, each agent emits as a Warp
-// Workflow YAML at `<dir>/<name>.yaml`. Previous releases of this
-// adapter wrote `WARP.md` (the legacy name), which newer Warp versions
-// no longer read.
+// Workflow YAML at `<dir>/<name>.yaml` (`name`/`command`/`description`/
+// `tags`). Other documented workflow fields (`shells`, `arguments`,
+// `source_url`, `author`, `author_url`) pass through when declared
+// under `x-warp`; `import warp` captures them back the same way.
+// Previous releases of this adapter wrote `WARP.md` (the legacy name),
+// which newer Warp versions no longer read.
 package warp
 
 import (
@@ -98,7 +101,12 @@ func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun
 // workflowYAML renders one agent as a Warp Workflow per the
 // docs.warp.dev schema (name, command, description, tags). The body
 // goes into `command:` verbatim; users tailor it to a Warp-friendly
-// shell snippet from there.
+// shell snippet from there. Any other documented workflow field
+// (`shells`, `arguments`, `source_url`, `author`, `author_url`, ...)
+// passes through when declared under `x-warp`, the same
+// emit.MergeCustomTargetMeta pattern opencode.go's commandFile uses.
+// yaml.Marshal on a plain map sorts keys alphabetically, so the
+// resulting key order is deterministic regardless of merge order.
 func workflowYAML(e spec.Entry) (string, error) {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
@@ -114,6 +122,8 @@ func workflowYAML(e spec.Entry) (string, error) {
 	if len(tags) > 0 {
 		doc["tags"] = tags
 	}
+	var keys []string
+	emit.MergeCustomTargetMeta(doc, &keys, e.Meta, target, "name", "command", "description", "tags")
 
 	raw, err := yaml.Marshal(doc)
 	if err != nil {

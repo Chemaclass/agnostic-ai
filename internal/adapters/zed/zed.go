@@ -17,7 +17,11 @@
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
 // as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
 // configured tasks JSON, runnable on demand from the command palette
-// (Zed has no lifecycle-hook surface).
+// (Zed has no lifecycle-hook surface). Other documented Task fields
+// (`cwd`, `env`, `shell`, `reveal`, `hide`, `save`,
+// `allow_concurrent_runs`, `use_new_terminal`, `tags`,
+// `reevaluate_context`) pass through when declared under `x-zed`;
+// `import zed` captures them back the same way.
 package zed
 
 import (
@@ -84,7 +88,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // tasks JSON file. No-op when the tasks-file is unset, so existing
 // setups are unaffected. Each hook becomes a `sh -c "<command>"` task
 // whose label is the hook's name; the description (when present)
-// prefixes the label so it shows up in the command palette.
+// prefixes the label so it shows up in the command palette. Other
+// documented Zed Task fields (`cwd`, `env`, `shell`, `reveal`, `hide`,
+// `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`,
+// `reevaluate_context`) pass through when declared under `x-zed`.
 func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool) error {
 	if path == "" {
 		emit.NoteCoverageGap(target, spec.KindHook, len(hooks), "outputs.zed.tasks-file")
@@ -103,11 +110,14 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 		if d := h.Description(); d != "" {
 			label = h.Name + " — " + d
 		}
-		tasks = append(tasks, map[string]any{
+		task := map[string]any{
 			"label":   label,
 			"command": "sh",
 			"args":    []string{"-c", cmd},
-		})
+		}
+		var keys []string
+		emit.MergeCustomTargetMeta(task, &keys, h.Meta, target, "label", "command", "args")
+		tasks = append(tasks, task)
 	}
 	if len(tasks) == 0 {
 		return nil

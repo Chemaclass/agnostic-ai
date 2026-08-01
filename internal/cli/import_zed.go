@@ -48,6 +48,14 @@ func importFromZed(root string, src config.Sources) error {
 	return nil
 }
 
+// zedTaskTopLevel are the task keys captured as first-class hook spec
+// fields. Any other documented Zed Task field (zed.dev/docs/tasks:
+// `cwd`, `env`, `shell`, `reveal`, `hide`, `save`,
+// `allow_concurrent_runs`, `use_new_terminal`, `tags`,
+// `reevaluate_context`) is preserved under `x-zed` so a sync -> import
+// -> sync cycle does not silently drop it (#539).
+var zedTaskTopLevel = map[string]bool{"label": true, "command": true, "args": true}
+
 // importZedTasks reads `.zed/tasks.json` and writes one hook yaml per
 // task entry. Each Zed task has `label`, `command`, and optional `args`;
 // we synthesize an `event: OnDemand` since Zed has no native lifecycle
@@ -90,6 +98,16 @@ func importZedTasks(root, dstDir string) (int, error) {
 		}
 		if desc != "" {
 			doc["description"] = desc
+		}
+		xzed := map[string]any{}
+		for k, v := range t {
+			if zedTaskTopLevel[k] {
+				continue
+			}
+			xzed[k] = v
+		}
+		if len(xzed) > 0 {
+			doc["x-zed"] = xzed
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {

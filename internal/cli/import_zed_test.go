@@ -56,6 +56,46 @@ func TestImportFromZed_ImportsTasksAsHooks(t *testing.T) {
 	}
 }
 
+// Round-trip for #539: task fields beyond label/command/args must
+// survive an import under x-zed so a sync -> import -> sync cycle does
+// not silently drop them.
+func TestImportFromZed_TaskExtraFieldsRoundTripUnderXZed(t *testing.T) {
+	dir := t.TempDir()
+	tasks := `[
+  {"label": "fmt", "command": "sh", "args": ["-c", "gofmt -w ."], "cwd": "$ZED_WORKTREE_ROOT", "shell": "bash"}
+]`
+	writeFile(t, filepath.Join(dir, zedTasksFile), tasks)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "hooks", "fmt.yaml"))
+	if err != nil {
+		t.Fatalf("missing hooks/fmt.yaml: %v", err)
+	}
+	for _, want := range []string{"x-zed:", "cwd: $ZED_WORKTREE_ROOT", "shell: bash"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("expected %q in hook file: %s", want, got)
+		}
+	}
+}
+
+// A task with only the known fields must not gain an empty x-zed block.
+func TestImportFromZed_NoXZedBlockForPlainTask(t *testing.T) {
+	dir := t.TempDir()
+	tasks := `[{"label": "fmt", "command": "sh", "args": ["-c", "gofmt -w ."]}]`
+	writeFile(t, filepath.Join(dir, zedTasksFile), tasks)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "hooks", "fmt.yaml"))
+	if err != nil {
+		t.Fatalf("missing hooks/fmt.yaml: %v", err)
+	}
+	if strings.Contains(string(got), "x-zed") {
+		t.Errorf("unexpected x-zed block for a plain task:\n%s", got)
+	}
+}
+
 func TestImportFromZed_ImportsContextServers(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{

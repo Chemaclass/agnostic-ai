@@ -623,15 +623,24 @@ type codexHookEntry struct {
 	Command       string `toml:"command"`
 	Timeout       int    `toml:"timeout"`
 	StatusMessage string `toml:"statusMessage"`
+	// AdditionalContextLimit mirrors the hooks.json field of the same
+	// name (see codexHookSlot / mergeCodexHooksJSON); captured here too
+	// so a hand-authored `[[hooks.<event>]]` TOML block round-trips it.
+	AdditionalContextLimit int `toml:"additionalContextLimit"`
 }
 
 type codexMCPEntry struct {
-	Command           string            `toml:"command"`
-	Args              []string          `toml:"args"`
-	Env               map[string]string `toml:"env"`
+	Command string            `toml:"command"`
+	Args    []string          `toml:"args"`
+	Env     map[string]string `toml:"env"`
+	// Cwd is the stdio server's working directory
+	// (learn.chatgpt.com/docs/config-file/config-reference). See #532.
+	Cwd               string            `toml:"cwd"`
 	URL               string            `toml:"url"`
 	BearerTokenEnvVar string            `toml:"bearer_token_env_var"`
 	HTTPHeaders       map[string]string `toml:"http_headers"`
+	// Auth is the http server's auth mode (`oauth` | `chatgpt`). See #532.
+	Auth string `toml:"auth"`
 	// Shared fields the codex emitter writes via writeMCPSharedFields.
 	// Round-tripping requires capturing them here so a re-sync does
 	// not silently drop description / enabled / roots metadata.
@@ -761,10 +770,11 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 				k := codexHookKey{event: event, matcher: g.Matcher, command: h.Command}
 				slot, exists := hooks[k]
 				entry := codexHookEntry{
-					Matcher:       g.Matcher,
-					Command:       h.Command,
-					Timeout:       h.Timeout,
-					StatusMessage: h.StatusMessage,
+					Matcher:                g.Matcher,
+					Command:                h.Command,
+					Timeout:                h.Timeout,
+					StatusMessage:          h.StatusMessage,
+					AdditionalContextLimit: h.AdditionalContextLimit,
 				}
 				if !exists {
 					hooks[k] = &codexHookSlot{
@@ -817,6 +827,9 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 		if h.StatusMessage != "" {
 			doc["statusMessage"] = h.StatusMessage
 		}
+		if h.AdditionalContextLimit != 0 {
+			doc["additionalContextLimit"] = h.AdditionalContextLimit
+		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {
 			return count, fmt.Errorf("marshal hook %s: %w", name, err)
@@ -863,6 +876,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			if len(s.HTTPHeaders) > 0 {
 				doc["headers"] = s.HTTPHeaders
 			}
+			if s.Auth != "" {
+				doc["auth"] = s.Auth
+			}
 		default:
 			doc["type"] = "stdio"
 			if s.Command != "" {
@@ -870,6 +886,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			}
 			if len(s.Args) > 0 {
 				doc["args"] = s.Args
+			}
+			if s.Cwd != "" {
+				doc["cwd"] = s.Cwd
 			}
 		}
 		if len(s.Env) > 0 {

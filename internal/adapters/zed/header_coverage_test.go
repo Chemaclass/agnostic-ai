@@ -84,7 +84,10 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindHook, Name: "fmt-go",
-			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w"},
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w",
+				"x-zed": map[string]any{"cwd": "$ZED_WORKTREE_ROOT", "shell": "bash"},
+			},
 		},
 		{
 			Kind: spec.KindHook, Name: "lint-pre",
