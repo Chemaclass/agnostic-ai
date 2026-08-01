@@ -72,9 +72,11 @@ outputs:
 
   cline:
     rules-dir: .clinerules    # default. Root AGENTS.md pointer written by sync (shared path).
+    skills-dir: .cline/skills # default. One folder per skill (Cline's recommended skills path).
 
   windsurf:
     rules-dir: .devin/rules     # default. Devin Desktop (renamed Windsurf) prefers .devin/; .windsurf/rules still read.
+    skills-dir: .agents/skills  # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
 
   continue:
     rules-dir: .continue/rules     # default

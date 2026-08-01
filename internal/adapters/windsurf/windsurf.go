@@ -5,8 +5,13 @@
 // as a backward-compat fallback (`.windsurfrules` is legacy). Rules and
 // agents emit as always-on files into the preferred directory; set
 // `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old
-// layout. The target keeps its `windsurf` name so existing configs and
-// `x-windsurf` meta continue to work.
+// layout. Skills emit as a folder per skill under
+// `.agents/skills/<name>/SKILL.md`, the tree Devin Desktop discovers
+// skills from (docs.devin.ai/desktop/cascade/skills); the renderer
+// matches codex, amp, zed, crush, and openhands byte-for-byte, so
+// identical skills dedupe under `sync.shared-skills`. The target keeps
+// its `windsurf` name so existing configs and `x-windsurf` meta
+// continue to work.
 //
 // When `outputs.windsurf.workflows-dir` is set, each agent additionally
 // emits as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
@@ -29,6 +34,10 @@ const (
 	// it, but managed files there predate the sync ledger on old
 	// projects, so Emit sweeps the tree explicitly (header-guarded).
 	legacyDir = ".windsurf/rules"
+	// defaultSkillsDir is the shared cross-tool skills tree Devin
+	// Desktop scans; codex, amp, zed, crush, and openhands already
+	// write here, so identical skill folders dedupe.
+	defaultSkillsDir = ".agents/skills"
 )
 
 var caps = emit.Capabilities{
@@ -46,11 +55,13 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule and per agent into the rules directory
-// (default `.devin/rules`, the path Devin Desktop prefers). When
-// `outputs.windsurf.workflows-dir` is set, each agent additionally
-// emits as a Workflow at `<dir>/<name>.md`; the rule-form
-// `agent-<name>.md` emission stays in place so users that depend on it
-// keep working.
+// (default `.devin/rules`, the path Devin Desktop prefers), and one
+// folder per skill under the skills directory (default
+// `.agents/skills`, Devin Desktop's native SKILL.md tree; a flat file
+// there never loads as a skill). When `outputs.windsurf.workflows-dir`
+// is set, each agent additionally emits as a Workflow at
+// `<dir>/<name>.md`; the rule-form `agent-<name>.md` emission stays in
+// place so users that depend on it keep working.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -59,6 +70,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         rulesDir,
 		AgentPrefix: "agent-",
+		SkipSkills:  true,
 	}, dryRun); err != nil {
 		return err
 	}
@@ -69,6 +81,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		if err := sess.RemoveGeneratedTree(legacyDir, dryRun); err != nil {
 			return err
 		}
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
 	}
 	return emitWorkflows(sess, b, cfg, dryRun)
 }

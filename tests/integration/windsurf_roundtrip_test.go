@@ -10,11 +10,14 @@ import (
 )
 
 // TestWindsurfRoundTrip_SyncImportSyncIsByteEqual is the windsurf
-// audit's byte-stability gate from #336 acceptance criterion C.
-// Workflows excluded: the shared rules-dir importer reclassifies by
-// filename prefix, so a workflow at .windsurf/workflows/<agent>.md
-// would re-import as a rule and double the spec set (same carve-out
-// as the cline audit).
+// audit's byte-stability gate from #336 acceptance criterion C. Skills
+// live under the shared .agents/skills/ tree (folder-per-skill), not
+// .devin/rules/, since a flat file there never loads as a skill
+// (docs.devin.ai/desktop/cascade/skills); the snapshot and wipe steps
+// below cover both trees. Workflows excluded: the shared rules-dir
+// importer reclassifies by filename prefix, so a workflow at
+// .windsurf/workflows/<agent>.md would re-import as a rule and double
+// the spec set (same carve-out as the cline audit).
 func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -26,6 +29,9 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	if len(first) == 0 {
 		t.Fatalf("first sync produced no windsurf output")
 	}
+	if !anyPathUnder(first, ".agents/skills/") {
+		t.Fatalf("first sync produced no windsurf skill folders: %v", sortedKeys(first))
+	}
 
 	for _, sub := range []string{"agents", "skills", "rules"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
@@ -35,8 +41,10 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "windsurf")
 
-	if err := os.RemoveAll(filepath.Join(dir, ".devin")); err != nil {
-		t.Fatal(err)
+	for _, sub := range []string{".devin", ".agents"} {
+		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	runCmd(t, "sync", "-t", "windsurf")
@@ -90,40 +98,45 @@ gitignore:
 	}
 }
 
+// snapshotWindsurfEmit reads every file under .devin/ (rules, agents)
+// and .agents/ (skill folders) and returns a relative-path -> bytes
+// map.
 func snapshotWindsurfEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	full := filepath.Join(root, ".devin")
-	info, err := os.Stat(full)
-	if os.IsNotExist(err) {
-		return out
-	}
-	if err != nil {
-		t.Fatalf("stat %s: %v", full, err)
-	}
-	if !info.IsDir() {
-		return out
-	}
-	err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	for _, sub := range []string{".devin", ".agents"} {
+		full := filepath.Join(root, sub)
+		info, err := os.Stat(full)
+		if os.IsNotExist(err) {
+			continue
 		}
-		if d.IsDir() {
+		if err != nil {
+			t.Fatalf("stat %s: %v", full, err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+		err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			out[filepath.ToSlash(rel)] = string(data)
 			return nil
-		}
-		rel, err := filepath.Rel(root, path)
+		})
 		if err != nil {
-			return err
+			t.Fatalf("walk %s: %v", full, err)
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = string(data)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk %s: %v", full, err)
 	}
 	return out
 }

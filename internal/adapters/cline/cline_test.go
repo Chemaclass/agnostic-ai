@@ -12,7 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEmit_WritesRulesAndAgents(t *testing.T) {
+func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -28,10 +28,36 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md", ".clinerules/skill-sk1.md"} {
+	for _, p := range []string{".clinerules/r1.md", ".clinerules/agent-ag1.md", ".cline/skills/sk1/SKILL.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}
+	}
+	// The pre-fix flat form must not be written; Cline only loads
+	// SKILL.md from a folder (docs.cline.bot/customization/skills).
+	if _, err := os.Stat(filepath.Join(dir, ".clinerules/skill-sk1.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no flat .clinerules/skill-sk1.md, err=%v", err)
+	}
+}
+
+// TestEmit_SkillsDirOverride_WritesToCustomDir confirms
+// outputs.cline.skills-dir redirects the folder-per-skill output,
+// consistent with every other emit.OutputSkillsDir consumer.
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"cline": {SkillsDir: "custom/skills"},
+		},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/sk1/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/sk1/SKILL.md: %v", err)
 	}
 }
 

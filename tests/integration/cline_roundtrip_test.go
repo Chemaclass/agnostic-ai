@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -12,7 +13,7 @@ import (
 // TestClineRoundTrip_SyncImportSyncIsByteEqual is the cline audit's
 // byte-stability gate from #328 acceptance criterion C:
 //
-//	sync cline -> snapshot .clinerules/*
+//	sync cline -> snapshot .clinerules/* and .cline/skills/*
 //	           -> wipe source specs
 //	           -> import cline
 //	           -> wipe emit
@@ -20,7 +21,10 @@ import (
 //	           -> assert byte-for-byte identical
 //
 // The fixture covers every cline-supported kind (agents, skills,
-// rules) with three specimens each. The workflows-dir branch is
+// rules) with three specimens each. Skills live under .cline/skills/
+// (folder-per-skill), not .clinerules/, since a flat file there never
+// loads as a skill (docs.cline.bot/customization/skills); the snapshot
+// and wipe steps below cover both trees. The workflows-dir branch is
 // intentionally left off: the importer reclassifies every .md it
 // finds under .clinerules/ by filename prefix, so a workflow at
 // .clinerules/workflows/<agent>.md would re-import as a rule named
@@ -38,6 +42,9 @@ func TestClineRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	if len(first) == 0 {
 		t.Fatalf("first sync produced no cline output")
 	}
+	if !anyPathUnder(first, ".cline/skills/") {
+		t.Fatalf("first sync produced no cline skill folders: %v", sortedKeys(first))
+	}
 
 	for _, sub := range []string{"agents", "skills", "rules"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
@@ -47,8 +54,10 @@ func TestClineRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "cline")
 
-	if err := os.RemoveAll(filepath.Join(dir, ".clinerules")); err != nil {
-		t.Fatal(err)
+	for _, sub := range []string{".clinerules", ".cline"} {
+		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	runCmd(t, "sync", "-t", "cline")
@@ -102,40 +111,56 @@ gitignore:
 	}
 }
 
+// snapshotClineEmit reads every file under .clinerules/ (rules, agents)
+// and .cline/ (skill folders) and returns a relative-path -> bytes map.
 func snapshotClineEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	full := filepath.Join(root, ".clinerules")
-	info, err := os.Stat(full)
-	if os.IsNotExist(err) {
-		return out
-	}
-	if err != nil {
-		t.Fatalf("stat %s: %v", full, err)
-	}
-	if !info.IsDir() {
-		return out
-	}
-	err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	for _, sub := range []string{".clinerules", ".cline"} {
+		full := filepath.Join(root, sub)
+		info, err := os.Stat(full)
+		if os.IsNotExist(err) {
+			continue
 		}
-		if d.IsDir() {
+		if err != nil {
+			t.Fatalf("stat %s: %v", full, err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+		err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			out[filepath.ToSlash(rel)] = string(data)
 			return nil
-		}
-		rel, err := filepath.Rel(root, path)
+		})
 		if err != nil {
-			return err
+			t.Fatalf("walk %s: %v", full, err)
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = string(data)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk %s: %v", full, err)
 	}
 	return out
+}
+
+// anyPathUnder reports whether any key of snapshot has prefix. Used to
+// assert a round-trip snapshot actually exercised a given subtree
+// instead of passing vacuously because that tree was empty.
+func anyPathUnder(snapshot map[string]string, prefix string) bool {
+	for p := range snapshot {
+		if strings.HasPrefix(p, prefix) {
+			return true
+		}
+	}
+	return false
 }

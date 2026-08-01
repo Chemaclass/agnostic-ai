@@ -28,6 +28,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `outputs.claude.settings.enabledPlugins` is now a map of `plugin-id@marketplace-id` to boolean, matching Claude Code's own settings schema; the previous list-of-strings shape could not express the required marketplace qualifier and never actually enabled a plugin.
 - MCP `disabled: true` now maps to Codex's real `enabled = false` key instead of a `disabled` key Codex never reads. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server at all, so agnostic-ai stops writing the field for them and reports a coverage note instead of silently doing nothing.
 
+### Fixed
+
+- Cline and Windsurf skills emit as a folder per skill (`.cline/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`, the latter shared with Codex, Amp, Zed, Crush, and OpenHands) instead of a flat `skill-<name>.md` file that neither tool ever loaded as a skill. `import cline` and `import windsurf` reconstruct skills from the new folder tree, and still read the old flat form for projects synced before this fix.
+
 ## v0.44.0 - 2026-07-24
 
 ### Added

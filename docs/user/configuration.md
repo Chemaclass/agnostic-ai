@@ -136,10 +136,12 @@ outputs:
     # model: gpt-4o
     # weak-model: gpt-4o-mini
   cline:
-    rules-dir: .clinerules       # default. One .md per rule, agent, and skill.
+    rules-dir: .clinerules       # default. One .md per rule and per agent.
+    skills-dir: .cline/skills    # default. One folder per skill (<name>/SKILL.md), Cline's recommended path.
     # workflows-dir: .clinerules/workflows  # opt-in: also emit each agent as a Cline Workflow (/<name>.md).
   windsurf:
-    rules-dir: .devin/rules      # default. One .md per rule, agent, and skill (Devin Desktop, the renamed Windsurf).
+    rules-dir: .devin/rules      # default. One .md per rule and per agent (Devin Desktop, the renamed Windsurf).
+    skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
     # workflows-dir: .windsurf/workflows    # opt-in: also emit each agent as a Workflow (/<name>).
   continue:
     rules-dir: .continue/rules        # default
@@ -269,9 +271,11 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
-| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
+| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
+| `cline` | `skills-dir` | `.cline/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Cline's recommended skills path. |
 | `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The rule-form emission still happens. Opt-in. |
-| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. |
+| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. |
+| `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |

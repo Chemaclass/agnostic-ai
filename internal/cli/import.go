@@ -15,41 +15,22 @@ import (
 
 // rulesDirImporters maps a source name to the rules directory the
 // importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly; windsurf resolves its directory dynamically because
-// Devin Desktop reads two candidate trees.
+// route directly; cline and windsurf also have dedicated importers
+// (import_cline.go, import_windsurf.go) because each additionally
+// reconstructs skills from its native `SKILL.md` folder tree.
 var rulesDirImporters = map[string]string{
-	"cline": ".clinerules",
 	"junie": filepath.Join(".junie", "rules"),
 	"trae":  filepath.Join(".trae", "rules"),
 	"qoder": filepath.Join(".qoder", "rules"),
-}
-
-// windsurfRulesDirs lists the rules directories Devin Desktop (the
-// renamed Windsurf) reads, preferred first. Import walks the first one
-// that exists so both pre- and post-rename projects round-trip.
-var windsurfRulesDirs = []string{
-	filepath.Join(".devin", "rules"),
-	filepath.Join(".windsurf", "rules"),
-}
-
-// windsurfImportDir returns the first existing candidate rules dir
-// under root, defaulting to the preferred `.devin/rules` when neither
-// exists yet.
-func windsurfImportDir(root string) string {
-	for _, d := range windsurfRulesDirs {
-		if dirExists(filepath.Join(root, d)) {
-			return d
-		}
-	}
-	return windsurfRulesDirs[0]
 }
 
 // importSources lists every source the import command accepts, used in
 // help text and error messages.
 func importSources() string {
 	names := []string{
-		"aider", "amp", "antigravity", "claude", "codex", "continue", "copilot",
-		"crush", "cursor", "gemini", "kiro", "opencode", "warp", "windsurf", "zed",
+		"aider", "amp", "antigravity", "claude", "cline", "codex", "continue",
+		"copilot", "crush", "cursor", "gemini", "kiro", "opencode", "warp",
+		"windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
@@ -119,6 +100,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		})
 	case "cursor":
 		return importFromCursor(root, src)
+	case "cline":
+		return importFromCline(root, src)
 	case "aider":
 		return importFromAider(root, src)
 	case "amp":
@@ -142,7 +125,7 @@ func runImport(root, source string, cfg *config.Config) error {
 	case "crush":
 		return importFromCrush(root, src)
 	case "windsurf":
-		return importFromRulesDir(root, source, windsurfImportDir(root), src)
+		return importFromWindsurf(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
@@ -183,7 +166,7 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 // isKnownImportSource reports whether source is dispatched by runImport.
 func isKnownImportSource(source string) bool {
 	switch source {
-	case "claude", "codex", "cursor", "aider", "amp", "warp",
+	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
 		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush":
 		return true
 	}
