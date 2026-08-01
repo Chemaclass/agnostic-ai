@@ -554,5 +554,6 @@ Per surface:
 | `opencode` | agent `.md` frontmatter | every `x-opencode` key beyond `description`/`mode`/`model`/`temperature`/`permission` |
 | `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` |
 | `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
+| `kiro` | agent `.md` frontmatter | every `x-kiro` key beyond `description`/`model` (`name` is excluded: Kiro's agent schema has none, identity comes from the filename) |
 
-Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro steering files carry no passthrough). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.
+Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule and skill steering files carry no passthrough; kiro agents do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.

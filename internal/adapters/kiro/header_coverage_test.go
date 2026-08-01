@@ -17,8 +17,9 @@ import (
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the kiro adapter's
 // header-coverage contract: every Markdown file the adapter writes
 // must carry the agnostic-ai provenance marker, and land after the
-// frontmatter block Kiro requires as the file's first bytes. The
-// `.kiro/settings/mcp.json` file is JSON-exempt.
+// frontmatter block Kiro requires as the file's first bytes. JSON
+// output (`.kiro/settings/mcp.json`, `.kiro/hooks/<name>.json`) is
+// exempt: JSON has no comment syntax to carry the marker in.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -75,8 +76,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kiro
-// adapter declares in caps.Supports (Agent, Skill, Rule, MCP) with
-// three specimens per kind.
+// adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Hook)
+// with three specimens per kind.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body", Meta: map[string]any{"globs": "**/*.go"}},
@@ -88,6 +89,18 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body", Meta: map[string]any{"description": "handles uno"}},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body", Meta: map[string]any{"description": "handles dos"}},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body", Meta: map[string]any{"description": "handles tres"}},
+		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w"},
+		},
+		{
+			Kind: spec.KindHook, Name: "lint-pre",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "Write", "command": "echo pre"},
+		},
+		{
+			Kind: spec.KindHook, Name: "session-start",
+			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
+		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

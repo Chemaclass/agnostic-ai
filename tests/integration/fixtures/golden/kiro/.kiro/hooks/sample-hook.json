@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": [
+    {
+      "name": "sample-hook",
+      "trigger": "PostToolUse",
+      "matcher": "Edit",
+      "action": {
+        "type": "command",
+        "command": "echo edited"
+      }
+    }
+  ]
+}

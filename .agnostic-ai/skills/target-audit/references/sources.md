@@ -116,9 +116,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## kiro
 
-- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/
+- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/ · /docs/custom-agents/ · /docs/cli/custom-agents/configuration-reference/
 - changelog: https://kiro.dev/changelog
-- watch: steering `inclusion:` values (`always` / `fileMatch` / `manual`), agent hooks (Kiro has a hooks surface the adapter does not emit to yet).
+- watch: steering `inclusion:` values (`always` / `fileMatch`), the agent `tools` field's identifier vocabulary (unconfirmed as of 2026-08-01, so this adapter drops it rather than guess), and whether Kiro documents further hook `trigger` values beyond the 10 confirmed.
 
 ## crush
 

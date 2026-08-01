@@ -106,6 +106,9 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	if _, ok := first[".kiro/steering/r-go.md"]; !ok {
 		t.Fatalf("first emit produced no kiro steering files: %v", keys(first))
 	}
+	if _, ok := first[".kiro/agents/my-agent.md"]; !ok {
+		t.Fatalf("first emit produced no native kiro agent file: %v", keys(first))
+	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
 		t.Fatalf("wipe source specs: %v", err)
@@ -124,9 +127,13 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	if strings.Contains(rAlways, "globs:") {
 		t.Errorf("always rule should be unscoped (no globs):\n%s", rAlways)
 	}
-	// Agent and skill round-trip through steering-file prefixes.
+	// Agent round-trips through the native `.kiro/agents/` surface.
+	// Kiro's agent frontmatter carries no `name:` key, so the file must
+	// land at the exact `my-agent.md` path for spec loading's filename
+	// fallback to recover the identity; readFile itself fails the test
+	// if the path is wrong.
 	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "my-agent.md"))
-	if !strings.Contains(agent, "name: my-agent") || !strings.Contains(agent, "Agent body here.") {
+	if !strings.Contains(agent, "Agent body here.") {
 		t.Errorf("agent not reconstructed:\n%s", agent)
 	}
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))

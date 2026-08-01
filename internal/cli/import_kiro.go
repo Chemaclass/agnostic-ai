@@ -14,6 +14,7 @@ import (
 
 const (
 	kiroSteeringDir = ".kiro/steering"
+	kiroAgentsDir   = ".kiro/agents"
 	kiroMCPFile     = ".kiro/settings/mcp.json"
 	kiroMCPKey      = "mcpServers"
 	kiroMainFile    = "AGENTS.md"
@@ -22,26 +23,41 @@ const (
 // importFromKiro reads an existing AWS Kiro project and writes specs into
 // the configured source directories, reversing the kiro emit:
 //
+//   - `.kiro/agents/*.md` native agent profiles carry a frontmatter-first
+//     `description`/`model` block (no `name:`; identity comes from the
+//     filename, same as spec loading's own fallback). Copied verbatim
+//     minus the provenance header, so `model` and any `x-kiro` keys
+//     round-trip untouched.
 //   - `.kiro/steering/*.md` steering files carry a frontmatter-first
 //     `inclusion:` block. The filename prefix picks the kind
 //     (`agent-<name>.md` -> agent, `skill-<name>.md` -> skill, otherwise
 //     a rule) and a rule's `inclusion:` maps back to scope: `fileMatch`
 //     with `fileMatchPattern` becomes a `globs:` rule, `always` an
-//     unscoped rule.
+//     unscoped rule. The `agent-<name>.md` form is the flattened surface
+//     this adapter wrote before agents moved to `.kiro/agents/`; still
+//     read here for projects synced before that change, and merged with
+//     `.kiro/agents/` by name (the native file wins on a collision,
+//     since `importKiroAgents` runs second).
 //   - `.kiro/settings/mcp.json` (`mcpServers` map) reconstructs MCP specs.
 //   - `AGENTS.md` (the shared entry-point Kiro reads directly) mirrors to
 //     `.agnostic-ai/AGNOSTIC_AI.md`.
 //
 // Lossy fields (Kiro's emit cannot carry them, so a round-trip drops them
 // without changing Kiro's output): a rule's source-layout scope collapses
-// into an equivalent `globs:`; a steering agent keeps only its body (Kiro
-// agents hold no description or model); a steering skill keeps only its
-// SKILL.md content (bundled sibling assets flatten away on emit).
+// into an equivalent `globs:`; a legacy steering agent keeps only its body
+// (the flattened form held no description or model); a steering skill
+// keeps only its SKILL.md content (bundled sibling assets flatten away on
+// emit). Hooks have no import support yet (matches Cursor, which also
+// emits hooks natively with no read-back path).
 func importFromKiro(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importKiroSteering(root, src)
+	if err != nil {
+		return err
+	}
+	agents, err := importKiroAgents(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -54,9 +70,43 @@ func importFromKiro(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		c.rules, c.agents, c.skills, mcps)
+		c.rules, c.agents+agents, c.skills, mcps)
 	printImportNextSteps(root, "kiro")
 	return nil
+}
+
+// importKiroAgents copies every native agent profile under
+// `.kiro/agents/` into the agents source dir verbatim, stripping the
+// agnostic-ai provenance header when present. Kiro's agent frontmatter
+// carries no `name:` key, so spec loading's own filename fallback
+// recovers the identity; `description`, `model`, and any `x-kiro` keys
+// pass through unchanged. A missing directory imports nothing.
+func importKiroAgents(root, dstDir string) (int, error) {
+	src := filepath.Join(root, kiroAgentsDir)
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		srcPath := filepath.Join(src, e.Name())
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcPath, err)
+		}
+		dst := filepath.Join(dstDir, e.Name())
+		if err := importWriteFile(dst, []byte(header.Strip(string(data))), 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", dst, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 // importKiroSteering walks the flat `.kiro/steering/` directory and

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": [
+    {
+      "name": "session-start",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "echo session"
+      }
+    }
+  ]
+}
