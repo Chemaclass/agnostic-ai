@@ -33,6 +33,8 @@ Each adapter emits in its tool's native format: separate files where the tool su
 
 Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 
+Junie is the one target with a second, preferred entry-point file: JetBrains' own lookup order checks `.junie/AGENTS.md` before falling back to the root `AGENTS.md` above, so the junie adapter writes the identical canonical pointer body to `.junie/AGENTS.md` too (target-audit 2026-08-01). Both files always carry the same body; there is nothing to reconcile by hand.
+
 Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, kilo) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless. Augment now also has a native `.augment/rules/<name>.md` directory (see below) but keeps inlining into AGENTS.md too: the vendor does not cleanly establish the two surfaces' relative precedence, so this adapter does not assume the native directory makes the inline copy redundant.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
@@ -57,14 +59,14 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
 | **opencode**    | `.opencode/agents/<name>.md` | `.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
 | **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agents/skills/<name>/SKILL.md` | `.agents/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | `.agents/mcp_config.json` | - | - | - | - | - |
-| **junie**       | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.junie/rules/*.md` | - | `.junie/mcp/mcp.json` | - | - | - | - | - |
+| **junie**       | as `.md` rule (`agent-<name>.md`) | `.junie/skills/<name>/SKILL.md` | `.junie/rules/*.md` | - | `.junie/mcp/mcp.json` | - | - | - | - | - |
 | **kiro**        | `.kiro/agents/<name>.md` (native agent profile) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | `.kiro/hooks/<name>.json` | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
 | **trae**        | as `.md` rule (`agent-<name>.md`) | `.trae/skills/<name>/SKILL.md` | `.trae/rules/*.md` | - | - | `.trae/commands/<name>.md` | - | - | - | - |
 | **qoder**       | - | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
-| **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
+| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
 | **augment**     | `.augment/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.augment/rules/<name>.md` (+ inlined into `AGENTS.md`; opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
@@ -73,7 +75,7 @@ Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, Trae, and Augment execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, and Augment share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline and Trae each read their own tree (`.cline/skills/`, `.trae/skills/`), and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Warp has no skill surface; on Aider, Continue, and Junie skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, Trae, Augment, Junie, and Kilo Code execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, Augment, and Kilo Code share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline, Trae, and Junie each read their own tree (`.cline/skills/`, `.trae/skills/`, `.junie/skills/`), and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Kilo Code also documents `.agents/skills/` itself as a "loaded by default" compatibility path, which is why it defaults there directly instead of adding a second on-disk copy under `.kilo/skills/`. Warp has no skill surface; on Aider and Continue skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`), and Kiro (`.kiro/hooks/<name>.json`, one file per hook; Kiro also has `PreTaskExec`/`PostTaskExec`/`PostFileCreate`/`PostFileSave`/`PostFileDelete` events the others do not). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (18 of 25, see matrix). Aider, Cline, Windsurf, Trae, Jules, Goose, and Augment have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo, factory, qoder), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`). OpenHands has no `type` field either, but unlike that group it has no shared key shape to infer from: transport is implied entirely by which `[mcp]` array (`stdio_servers`, `sse_servers`, `shttp_servers`) a server lands in. Qoder's `.mcp.json` is the identical file and schema Claude Code writes there; enabling both dedupes into one write instead of colliding. See [`disabled` support by target](spec-format.md#disabled-support-by-target) for which of these targets honor a spec's `disabled: true` (Codex, Factory, and Kilo Code do; Claude Code, Cursor, Copilot, and Qoder do not).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), Amp (`.agents/commands/<name>.md`), and Trae (`.trae/commands/<name>.md`, `name` + `description` frontmatter only). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
@@ -440,22 +442,23 @@ Verify with the real IDE:
 ### Junie (`junie`)
 
 ```
-AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
-.junie/rules/<name>.md        # one per rule (Junie concatenates every .md in the dir)
-.junie/rules/agent-<name>.md  # one per agent
-.junie/rules/skill-<name>.md  # one per skill
-.junie/mcp/mcp.json           # when MCP entries exist
+AGENTS.md                        # root entry-point pointer body (written by sync, shared path; fallback)
+.junie/AGENTS.md                 # preferred entry-point pointer body (mirrors AGENTS.md; written by this adapter)
+.junie/rules/<name>.md           # one per rule (Junie concatenates every .md in the dir)
+.junie/rules/agent-<name>.md     # one per agent
+.junie/skills/<name>/SKILL.md    # one folder per skill, plus any bundled assets
+.junie/mcp/mcp.json              # when MCP entries exist
 ```
 
-JetBrains Junie reads the root `AGENTS.md` natively and concatenates every Markdown file under `.junie/rules/`, so rules, agents, and skills emit one file each there (`.junie/guidelines.md` is the legacy single-file location and is not written). MCP servers use the standard `mcpServers` schema at `.junie/mcp/mcp.json` (`command`/`args`/`env` local, `url`/`headers` remote).
+JetBrains Junie checks a custom path, then `.junie/AGENTS.md` ("the most preferred standard location"), then falls back to the root `AGENTS.md` only "if no file is found in the `.junie` folder" (junie.jetbrains.com/docs/junie-ide-plugin.html, target-audit 2026-08-01). This adapter writes the same canonical pointer body to both locations so the file Junie actually reads is always current, regardless of how that fallback rule resolves once `.junie/rules/` or `.junie/skills/` exist. Junie also concatenates every Markdown file under `.junie/rules/`, so rules and agents emit one file each there (`.junie/guidelines.md` is the legacy single-file location and is not written). Skills emit into their own native folder tree at `.junie/skills/<name>/SKILL.md` (Junie's Native Agent Skills feature, shipped 2026-07-31): a flat file never loads as a skill, and bundled sibling assets copy byte-for-byte. MCP servers use the standard `mcpServers` schema at `.junie/mcp/mcp.json` (`command`/`args`/`env` local, `url`/`headers` remote).
 
-Config keys: `outputs.junie.rules-dir` (default `.junie/rules`), `outputs.junie.mcp-file` (default `.junie/mcp/mcp.json`).
+Config keys: `outputs.junie.rules-dir` (default `.junie/rules`), `outputs.junie.skills-dir` (default `.junie/skills`), `outputs.junie.mcp-file` (default `.junie/mcp/mcp.json`). `.junie/AGENTS.md` is a fixed path, not configurable.
 
 Verify with the real agent:
 
 1. Install the Junie plugin in a JetBrains IDE (or the Junie CLI, [docs](https://junie.jetbrains.com/docs/)).
-2. Check the tree: `ls AGENTS.md .junie/rules/`, `grep "Generated by agnostic-ai" .junie/rules/*.md`, `python -m json.tool .junie/mcp/mcp.json > /dev/null`.
-3. Ask Junie to list its guidelines; the rule bodies from `.junie/rules/` apply.
+2. Check the tree: `ls AGENTS.md .junie/AGENTS.md .junie/rules/ .junie/skills/`, `grep "Generated by agnostic-ai" .junie/rules/*.md`, `python -m json.tool .junie/mcp/mcp.json > /dev/null`.
+3. Ask Junie to list its guidelines; the rule bodies from `.junie/rules/` apply, and each `.junie/skills/<name>/` folder appears as a skill.
 
 ### Kiro (`kiro`)
 
@@ -589,18 +592,19 @@ Verify with the real CLI:
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .kilo/agents/<name>.md             # one per agent
+.agents/skills/<name>/SKILL.md     # one folder per skill, plus any bundled assets (shared cross-tool tree)
 kilo.jsonc                         # when MCP entries exist (merged with existing user config)
 ```
 
-Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
+Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree (target-audit 2026-08-01): Kilo Code documents its own `.kilo/skills/` path, but also lists `.agents/skills/` as a compatibility directory "loaded by default", and that is the same tree codex, amp, zed, crush, openhands, windsurf, and augment already write byte-identically, so pointing here dedupes instead of adding a second on-disk copy. MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Hooks have no Kilo surface yet and skip with a warning.
 
-Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
+Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.skills-dir` (default `.agents/skills`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
 
 Verify with the real IDE:
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
-2. Check the tree: `ls AGENTS.md .kilo/agents/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
-3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
+2. Check the tree: `ls AGENTS.md .kilo/agents/ .agents/skills/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
+3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker, each `.agents/skills/<name>/` folder loads as a skill, and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
 
 ### Jules (`jules`)
 

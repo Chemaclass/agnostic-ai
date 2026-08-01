@@ -16,8 +16,8 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the kilo adapter's
 // header-coverage contract: a sync that exercises every kind this
-// adapter emits directly (agents, MCP) must land an agnostic-ai
-// provenance header on each resulting non-JSONC file. `kilo.jsonc`
+// adapter emits directly (agents, skills, MCP) must land an
+// agnostic-ai provenance header on each resulting non-JSONC file. `kilo.jsonc`
 // legitimately skips the header (JSON has no comment syntax agnostic-ai
 // emits into) but the test still asserts the file is non-empty so a
 // regression that produces an empty file trips here.
@@ -77,14 +77,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
-// adapter declares in caps.Supports (Rule, Agent, MCP) with three
-// specimens per kind. Rules are included even though this adapter
-// never writes them itself (see kilo.go). "disabled-server" actually
-// sets `disabled: true` (B9, target-audit 2026-08-01 follow-up: the
-// fixture was named for a server that never carried the flag, so the
-// kit sink emitted with no disable state at all before and after the
-// #518 schema fix; this fixture now exercises the path its name
-// promises).
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
+// three specimens per kind. Rules are included even though this
+// adapter never writes them itself (see kilo.go). "disabled-server"
+// actually sets `disabled: true` (B9, target-audit 2026-08-01
+// follow-up: the fixture was named for a server that never carried the
+// flag, so the kit sink emitted with no disable state at all before
+// and after the #518 schema fix; this fixture now exercises the path
+// its name promises). Skill names (uno/dos/tres) match every other
+// `.agents/skills/` writer's kit-sink fixture so the golden output can
+// diff byte-for-byte against theirs (target-audit 2026-08-01).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -93,6 +95,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read"}}, Body: "gamma body"},
+		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
+		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
+		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

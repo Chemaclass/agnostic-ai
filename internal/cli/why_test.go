@@ -260,3 +260,75 @@ targets:
 		}
 	}
 }
+
+// TestWhy_RootAGENTSMdNotConfusedWithJunieMirror guards against a
+// regression the junie adapter's own `.junie/AGENTS.md` entry-point
+// mirror could reintroduce: findEmittingAdapter runs every registered
+// adapter's capture output (regardless of the project's `targets:`
+// list), and `.junie/AGENTS.md` shares a basename with the root
+// `AGENTS.md` this test queries. The basename-only fallback must not
+// let that unrelated nested file outrank the dedicated entry-point
+// resolution for an exact top-level query.
+func TestWhy_RootAGENTSMdNotConfusedWithJunieMirror(t *testing.T) {
+	dir := setupWhyFixture(t)
+	cfg := `version: 1
+sources:
+  rules: rules
+targets:
+  - codex
+`
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got whyOutput
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if got.Target != "codex" {
+		t.Errorf("root AGENTS.md must resolve to codex (the inlined-rules entry-point consumer), not junie's unrelated .junie/AGENTS.md mirror; got %q", got.Target)
+	}
+}
+
+// TestWhy_JunieAGENTSMdMirrorResolvesToJunie confirms the exact-path
+// query for junie's own entry-point mirror still resolves correctly:
+// the fix for the collision above must not make `.junie/AGENTS.md`
+// itself untraceable.
+func TestWhy_JunieAGENTSMdMirrorResolvesToJunie(t *testing.T) {
+	dir := setupWhyFixture(t)
+	cfg := `version: 1
+sources:
+  rules: rules
+targets:
+  - junie
+`
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"why", ".junie/AGENTS.md", "--format", "json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got whyOutput
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if got.Target != "junie" {
+		t.Errorf("expected junie as the .junie/AGENTS.md emitter, got %q", got.Target)
+	}
+}

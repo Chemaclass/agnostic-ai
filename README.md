@@ -99,7 +99,7 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 | Qoder (Alibaba)         |   -    |   -    |   ✅   |   -   |  ✅   |
 | OpenHands (All Hands)   |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Factory (Droid)         |   ✅    |   -    |   ◐   |   -   |  ✅   |
-| Kilo Code               |   ✅    |   -    |   ◐   |   -   |  ✅   |
+| Kilo Code               |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
 | Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
 | Goose (Block)           |   -    |   -    |   ◐   |   -   |  -   |
 | Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  -   |

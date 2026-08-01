@@ -194,6 +194,51 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 	}
 }
 
+// Skills write into the shared .agents/skills/ tree (target-audit
+// 2026-08-01: Kilo Code documents .kilo/skills/ as its own path, but
+// also lists .agents/skills/ as a "loaded by default" compatibility
+// dir, and that is the tree codex/amp/zed/crush/openhands/windsurf/
+// augment already write; pointing here dedupes instead of adding a
+// second on-disk copy). Bundled assets propagate alongside SKILL.md.
+func TestEmit_Skill_WritesSharedAgentsSkillsFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "reviewer-kit", Meta: map[string]any{"description": "Review helpers."}, Body: "Use these helpers."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/reviewer-kit/SKILL.md"))
+	for _, want := range []string{"name: reviewer-kit", "description: Review helpers.", "Use these helpers."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kilo/skills")); !os.IsNotExist(err) {
+		t.Errorf("expected no second copy under .kilo/skills, err=%v", err)
+	}
+}
+
+// TestEmit_SkillsDirOverride_WritesToCustomDir confirms
+// outputs.kilo.skills-dir redirects the folder-per-skill output,
+// consistent with every other emit.OutputSkillsDir consumer.
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"kilo": {SkillsDir: ".kilo/skills"}}}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kilo/skills/sk1/SKILL.md")); err != nil {
+		t.Errorf("expected .kilo/skills/sk1/SKILL.md: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default skills dir once overridden, err=%v", err)
+	}
+}
+
 // Stdio MCP merges into kilo.jsonc under mcp.<name> (target-audit
 // 2026-08-01, B1: Kilo Code reads mcp, not the deprecated mcpServers
 // key). command and args combine into one command array, and type:

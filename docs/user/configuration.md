@@ -170,7 +170,8 @@ outputs:
     mcp-file: .agents/mcp_config.json   # default. mcpServers map; remote entries use serverUrl, not url.
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
   junie:
-    rules-dir: .junie/rules             # default. One .md per rule, agent, and skill.
+    rules-dir: .junie/rules             # default. One .md per rule and per agent.
+    skills-dir: .junie/skills           # default. One folder per skill (<name>/SKILL.md), Junie's native Agent Skills layout.
     mcp-file: .junie/mcp/mcp.json       # default. Standard mcpServers schema.
   kiro:
     rules-dir: .kiro/steering           # default. Steering files with inclusion frontmatter (rules + skills).
@@ -195,6 +196,7 @@ outputs:
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
     agents-dir: .kilo/agents            # default. One .md per agent.
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
     mcp-file: kilo.jsonc                # default. mcp map merged (not mcpServers); user keys preserved.
   goose:
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
@@ -312,7 +314,8 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
 | `antigravity` | `mcp-file` | `.agents/mcp_config.json` | `mcpServers` map. Remote entries use `serverUrl`; Antigravity's doc says the legacy `url` / `httpUrl` names are not supported. |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
-| `junie` | `rules-dir` | `.junie/rules` | One `.md` per rule, agent, and skill (Junie concatenates every file in the dir). |
+| `junie` | `rules-dir` | `.junie/rules` | One `.md` per rule and per agent (Junie concatenates every file in the dir). |
+| `junie` | `skills-dir` | `.junie/skills` | One folder per skill (`<name>/SKILL.md`, Junie's native Agent Skills layout, shipped 2026-07-31); a flat file there never loads as a skill. |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
 | `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`) and skill (`auto` + name + description). |
 | `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `x-kiro` passthrough for `tools`/`mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
@@ -330,6 +333,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent. |
+| `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |

@@ -26,6 +26,14 @@
 // spec that sets `tools` instead surfaces a coverage note rather than
 // silently dropping the restriction.
 //
+// Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree
+// (override via outputs.kilo.skills-dir): Kilo Code documents its own
+// `.kilo/skills/` path, but also lists `.agents/skills/` as a
+// compatibility directory "loaded by default" (target-audit
+// 2026-08-01), and that is the same tree codex, amp, zed, crush,
+// openhands, windsurf, and augment already write byte-identically, so
+// pointing here dedupes instead of adding a second on-disk copy.
+//
 // MCP servers merge into the project `kilo.jsonc` (override via
 // outputs.kilo.mcp-file) under an `mcp` map, the key current Kilo Code
 // reads (`mcpServers` is the deprecated MCP-spec 2025-03-26 form).
@@ -56,6 +64,11 @@ const (
 	target           = "kilo"
 	defaultAgentsDir = ".kilo/agents"
 	defaultMCPFile   = "kilo.jsonc"
+	// defaultSkillsDir is the shared cross-tool skills tree Kilo Code
+	// scans by default (alongside its own .kilo/skills/); codex, amp,
+	// zed, crush, openhands, windsurf, and augment already write here,
+	// so identical skill folders dedupe under sync.shared-skills.
+	defaultSkillsDir = ".agents/skills"
 )
 
 var caps = emit.Capabilities{
@@ -63,7 +76,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Kilo Code reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill},
 }
 
 // Adapter emits Kilo Code configs.
@@ -76,7 +89,8 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one agent Markdown file per agent spec under
-// `.kilo/agents/`, plus a merged `kilo.jsonc` for MCP servers. The
+// `.kilo/agents/`, one shared `.agents/skills/<name>/SKILL.md` folder
+// per skill, plus a merged `kilo.jsonc` for MCP servers. The
 // project-root AGENTS.md (rules' single source of truth for Kilo
 // Code) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -85,6 +99,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	if err := emitAgents(sess, b.Agents, dir, dryRun); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
