@@ -108,8 +108,8 @@ jobs:
         run: |
           curl -sSL https://bashunit.typeddevs.com/install.sh | bash -s -- /usr/local/bin
 
-      - name: Run release.sh tests
-        run: bashunit scripts/release_test.sh
+      - name: Run shell tests
+        run: make test-shell
 
   vscode:
     name: VS Code extension

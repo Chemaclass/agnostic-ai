@@ -2,7 +2,12 @@
 
 Canonical vendor docs for every registered target. Auditors fetch from
 here instead of searching, which is the single biggest cost saver in a
-run: 25 targets x 2-6 pages is a fixed, known list.
+run: a fixed, known list of pages beats discovery every time.
+
+One `## <target>` section is required per registered target, each with a
+`docs:` line and a `watch:` line.
+`tests/integration/target_audit_sources_test.go` enforces that, so a new
+adapter cannot merge without its vendor docs landing here too.
 
 Every URL below returned HTTP 200 on **2026-08-01**. Vendors move doc
 hosts often (the Codex skills path moved twice in 2026), so a 404 is
@@ -101,7 +106,7 @@ and do not conclude "page is empty" from a curl body.
 
 - docs: https://antigravity.google/docs · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
 - changelog: (none published; use the docs page diff)
-- watch: unresolved `.agent/` vs `.agents/` rules-dir question — the adapter uses `.agent/`. Official confirmation either way is a high-value finding.
+- watch: unresolved `.agent/` vs `.agents/` rules-dir question. The adapter uses `.agent/`. Official confirmation either way is a high-value finding.
 
 ## junie
 
@@ -113,7 +118,7 @@ and do not conclude "page is empty" from a curl body.
 
 - docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/
 - changelog: https://kiro.dev/changelog
-- watch: steering `inclusion:` values (`always` / `fileMatch` / `manual`), agent hooks — Kiro has a hooks surface the adapter does not emit to yet.
+- watch: steering `inclusion:` values (`always` / `fileMatch` / `manual`), agent hooks (Kiro has a hooks surface the adapter does not emit to yet).
 
 ## crush
 
@@ -125,7 +130,7 @@ and do not conclude "page is empty" from a curl body.
 
 - docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/mcp
 - changelog: (none published; use the docs page diff)
-- watch: MCP is documented but the adapter emits none — confirm the project-scoped file path.
+- watch: MCP is documented but the adapter emits none. Confirm the project-scoped file path.
 
 ## jules
 
@@ -155,7 +160,7 @@ and do not conclude "page is empty" from a curl body.
 
 - docs: https://docs.openhands.dev/overview/skills
 - changelog: https://github.com/All-Hands-AI/OpenHands/releases
-- watch: `.agents/skills/` shared tree, microagents (`.openhands/microagents/`) — a surface the adapter does not emit to.
+- watch: `.agents/skills/` shared tree, microagents (`.openhands/microagents/`), a surface the adapter does not emit to.
 
 ## factory
 
