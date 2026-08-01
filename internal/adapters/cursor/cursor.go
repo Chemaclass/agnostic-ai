@@ -369,16 +369,21 @@ func mdc(e spec.Entry) string {
 	}
 	// An alwaysApply:true rule ignores globs entirely, so synthesizing
 	// one there is pure round-trip noise against a hand-authored source;
-	// omit it (#443). An alwaysApply:false rule without globs first
-	// falls back to the Claude spelling (`paths`, a list, comma-joined),
-	// mirroring the globs->paths translation on the claude side, and
-	// then to the broad `**/*` auto-attach.
+	// omit it (#443). An alwaysApply:false rule without globs falls back
+	// to the Claude spelling (`paths`, a list, comma-joined), mirroring
+	// the globs->paths translation on the claude side.
 	if globs == "" && !always {
 		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
 	}
-	if globs == "" && !always {
-		globs = "**/*"
-	}
+	// cursor.com/docs/rules defines an explicit alwaysApply/description/
+	// globs matrix: alwaysApply:false with a description and no globs is
+	// "Agent reads the description and pulls the rule in when relevant"
+	// (relevance-based selection), and alwaysApply:false with neither is
+	// "Included only when you @-mention the rule in chat" (manual only).
+	// Neither means "match every file". Synthesizing `globs: "**/*"` for
+	// either turned it into an unconditional auto-attach, functionally
+	// alwaysApply:true (#536); leave globs empty instead so Cursor picks
+	// the mode that actually matches what the rule declares.
 	var b strings.Builder
 	b.WriteString("---\n")
 	// Emit an empty description as a bare `description:` key (no trailing

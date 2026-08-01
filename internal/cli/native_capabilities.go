@@ -34,7 +34,12 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
+		"BeforeAgent", "AfterAgent",
+		"Notification",
 		"SessionStart", "SessionEnd",
+		"PreCompress",
+		"BeforeModel", "AfterModel",
+		"BeforeToolSelection",
 	),
 	"cursor": setOf(
 		"beforeShellExecution", "afterShellExecution",

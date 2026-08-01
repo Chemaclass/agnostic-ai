@@ -84,6 +84,46 @@ func TestValidate_HookEventGeminiSubsetUnknownToClaude(t *testing.T) {
 	}
 }
 
+// geminicli.com/docs/reference/configuration documents 11 hook events;
+// hookEventsByTarget tracked only 4. The emitter passes `event:` through
+// verbatim (a generic passthrough, confirmed in gemini.go's buildHooks),
+// so the other 7 already worked and validate flagged them as unknown by
+// mistake (#537).
+func TestValidate_AcceptsAllDocumentedGeminiHookEvents(t *testing.T) {
+	events := []string{
+		"BeforeTool", "AfterTool",
+		"BeforeAgent", "AfterAgent",
+		"Notification",
+		"SessionStart", "SessionEnd",
+		"PreCompress",
+		"BeforeModel", "AfterModel",
+		"BeforeToolSelection",
+	}
+	for _, event := range events {
+		t.Run(event, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+				"version: 1\ntargets:\n  - gemini\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+				"name: h\nevent: "+event+"\nmatcher: \"\"\ncommand: \"true\"\n")
+			testutil.Chdir(t, dir)
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"validate"})
+			out := &bytes.Buffer{}
+			root.SetOut(out)
+			root.SetErr(&bytes.Buffer{})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("validate: %v", err)
+			}
+			got := out.String()
+			if strings.Contains(got, "unknown hook event") {
+				t.Errorf("gemini documents %q; validate should accept it, got: %s", event, got)
+			}
+		})
+	}
+}
+
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	// copilot + cline configured; neither emits hooks. The hook spec
 	// is dead weight and validate should say so.
