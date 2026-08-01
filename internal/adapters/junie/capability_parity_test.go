@@ -31,7 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".junie/rules/r1.md", ".junie/rules/r2.md", ".junie/rules/r3.md"}},
 		{spec.KindAgent, []string{".junie/rules/agent-alpha.md", ".junie/rules/agent-beta.md", ".junie/rules/agent-gamma.md"}},
-		{spec.KindSkill, []string{".junie/rules/skill-uno.md", ".junie/rules/skill-dos.md", ".junie/rules/skill-tres.md"}},
+		{spec.KindSkill, []string{".junie/skills/uno/SKILL.md", ".junie/skills/dos/SKILL.md", ".junie/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".junie/mcp/mcp.json"}},
 	}
 	for _, k := range caps.Supports {

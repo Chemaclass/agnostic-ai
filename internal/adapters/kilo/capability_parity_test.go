@@ -33,6 +33,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindAgent, []string{".kilo/agents/alpha.md", ".kilo/agents/beta.md", ".kilo/agents/gamma.md"}},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"kilo.jsonc"}},
 	}
 	for _, k := range caps.Supports {
@@ -73,8 +74,9 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind kilo does not declare in caps.Supports (Skill, Hook,
-// Command). A future caps.Supports expansion needs to delete the
+// every kind kilo does not declare in caps.Supports (Hook, Command).
+// Skill moved out of this set once .agents/skills/ landed (target-audit
+// 2026-08-01); a future caps.Supports expansion needs to delete the
 // matching row here and demonstrate the emit path that backs the new
 // claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -83,15 +85,14 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSkill, Name: "s1", Path: "skills/s1/SKILL.md", Body: "skill body"},
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (skill/hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
 	}
 }
 

@@ -93,3 +93,13 @@ func WithHeader(content string, format Format) string {
 	}
 	return header.With(content, format)
 }
+
+// StripHeader removes a leading agnostic-ai provenance header from
+// content, the read-side counterpart to WithHeader. Re-exports
+// header.Strip. Adapters that read back a previously generated file
+// (e.g. mirroring .agnostic-ai/AGNOSTIC_AI.md's body into a
+// target-native entry-point copy) call this before re-wrapping the
+// body in their own WithHeader call, so the two headers never stack.
+func StripHeader(content string) string {
+	return header.Strip(content)
+}

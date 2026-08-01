@@ -126,6 +126,8 @@ Reads `.cursor/rules/**` recursively, so nested rule directories are imported to
 
 The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected.
 
+`import junie` additionally reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
+
 `import kiro` reverses the Kiro steering layout. Steering files are flat under `.kiro/steering/` and carry a frontmatter-first `inclusion:` block; the filename prefix picks the kind:
 
 | Source | Becomes |

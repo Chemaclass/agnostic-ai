@@ -91,19 +91,27 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
 
-	target, hit, err := findEmittingAdapter(rel, resolved, b, cfg)
+	target, hit, exact, err := findEmittingAdapter(rel, resolved, b, cfg)
 	if err != nil {
 		return whyOutput{}, err
 	}
-	if target == "" {
+	if target == "" || !exact {
 		// Entry-point files (AGENTS.md, GEMINI.md, CONVENTIONS.md, ...) are
 		// written by sync's entry-point distribution, not by any adapter,
-		// so findEmittingAdapter never matches them. Recognize the inlined
-		// rules appendix and credit each rule spec as a section source.
+		// so findEmittingAdapter never finds an exact (rel- or abs-path)
+		// match for them. It can still surface a weak, best-effort basename
+		// match against an unrelated per-target file that happens to share
+		// the same leaf name at a different directory depth (e.g. Junie's
+		// own `.junie/AGENTS.md` entry-point mirror versus the root
+		// `AGENTS.md` this project-relative query means). Prefer the
+		// entry-point resolution whenever it applies; only fall back to a
+		// weak adapter match when this path inlines no rules at all.
 		if report, ok := traceEntryPointFile(rel, cfg, b, projectRoot); ok {
 			return report, nil
 		}
-		return whyOutput{}, whyNotTrackedError(input, projectRoot)
+		if target == "" {
+			return whyOutput{}, whyNotTrackedError(input, projectRoot)
+		}
 	}
 
 	adapter, err := adapters.Resolve(target)
@@ -199,10 +207,12 @@ func normalizeInputPath(input, projectRoot string) (absolute, relative string, e
 }
 
 // findEmittingAdapter runs every registered adapter in capture mode and
-// returns the target name plus the captured file matching the user input.
+// returns the target name plus the captured file matching the user input,
+// and whether that match was exact (project-relative or absolute path
+// equality) as opposed to the basename-only fallback (best effort).
 // Match order: project-relative path equality, then absolute path
-// equality, then basename equality (best effort).
-func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (string, adapters.CapturedFile, error) {
+// equality, then basename equality.
+func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (string, adapters.CapturedFile, bool, error) {
 	type match struct {
 		target string
 		file   adapters.CapturedFile
@@ -216,7 +226,7 @@ func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (st
 		}
 		captured, err := captureEmit(adapter, b, cfg)
 		if err != nil {
-			return "", adapters.CapturedFile{}, fmt.Errorf("%s: %w", name, err)
+			return "", adapters.CapturedFile{}, false, fmt.Errorf("%s: %w", name, err)
 		}
 		for _, f := range captured {
 			score := scoreCapturedMatch(f.Path, rel, abs)
@@ -226,7 +236,7 @@ func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (st
 		}
 	}
 	if len(matches) == 0 {
-		return "", adapters.CapturedFile{}, nil
+		return "", adapters.CapturedFile{}, false, nil
 	}
 	// Highest score wins. Within the same score, prefer the first registry
 	// entry to keep output deterministic.
@@ -236,7 +246,8 @@ func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (st
 		}
 		return matches[i].target < matches[j].target
 	})
-	return matches[0].target, matches[0].file, nil
+	best := matches[0]
+	return best.target, best.file, best.score >= 2, nil
 }
 
 // scoreCapturedMatch ranks how closely a captured path matches the user
