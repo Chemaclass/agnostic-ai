@@ -111,6 +111,30 @@ func TestDetectExistingTargets_AgentsAgentsTriggersCodex(t *testing.T) {
 	}
 }
 
+func TestDetectExistingTargets_AgentsRulesTriggersAntigravity(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	got := detectExistingTargets(dir)
+	want := []string{"antigravity"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestDetectExistingTargets_LegacyAgentTriggersAntigravity(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".agent", "rules"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	got := detectExistingTargets(dir)
+	want := []string{"antigravity"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestDetectExistingTargets_CanonicalOrder(t *testing.T) {
 	dir := t.TempDir()
 	// Create in non-canonical order; result must still follow allTargets.

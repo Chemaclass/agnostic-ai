@@ -16,10 +16,11 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the antigravity
 // adapter's header-coverage contract: every file the adapter writes
-// must carry the agnostic-ai provenance marker. The kit-sink bundle
-// exercises both supported kinds (agents, rules) and opts into the
-// legacy rules-file so all observable outputs sit inside the
-// adapter's emit footprint.
+// must carry the agnostic-ai provenance marker. `.agents/mcp_config.json`
+// legitimately skips the header (JSON has no comment syntax). The
+// kit-sink bundle exercises every supported kind (agents, rules,
+// skills, MCP) and opts into the legacy rules-file so all observable
+// outputs sit inside the adapter's emit footprint.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -30,6 +31,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -44,6 +47,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty exempt output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -67,8 +80,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 
 // kitSinkBundle returns a Bundle that exercises every kind the
 // antigravity adapter declares in caps.Supports with three specimens
-// per kind. Hook/Command/MCP entries are intentionally absent so the
-// capability-parity test can assert the warning channel.
+// per kind (two for MCP, covering stdio and remote). Hook/Command
+// entries are intentionally absent so the capability-parity test can
+// assert the warning channel.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -80,6 +94,18 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "s1", Path: "skills/s1/SKILL.md", Meta: map[string]any{"description": "skill 1"}, Body: "skill 1 body"},
 		{Kind: spec.KindSkill, Name: "s2", Path: "skills/s2/SKILL.md", Meta: map[string]any{"description": "skill 2"}, Body: "skill 2 body"},
 		{Kind: spec.KindSkill, Name: "s3", Path: "skills/s3/SKILL.md", Meta: map[string]any{"description": "skill 3"}, Body: "skill 3 body"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"env":     map[string]any{"ROOT": "/tmp"},
+			},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

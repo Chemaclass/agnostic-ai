@@ -377,8 +377,9 @@ Targets with native MCP propagation:
 | Zed | `.zed/settings.json` | `context_servers` (stdio: `command`/`args`/`env`; HTTP/SSE: native `url`/`headers`) |
 | Warp | `.warp/.mcp.json` | standard `mcpServers` |
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
+| Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
 
-Aider, Cline, Windsurf, and Antigravity have no project-scoped MCP file and skip with a warning.
+Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
 
 ## Commands
 

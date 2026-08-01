@@ -68,7 +68,7 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agent/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`, `.qoder/rules/`.
+Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agents/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`, `.qoder/rules/`.
 
 ## Supported targets
 
@@ -91,7 +91,7 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 | Zed                     |   ○    |   ✅    |   ◐   |   ○   |  ✅   |
 | Warp                    |   ○    |   ○    |   ◐   |   -   |  ✅   |
 | OpenCode                |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
-| Google Antigravity      |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Google Antigravity      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Junie (JetBrains)       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
@@ -111,7 +111,7 @@ Legend, in descending order of native support:
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 
-Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 14 of the 25 targets in each tool's native schema (every target except Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface: Jules, Goose, Augment, Qoder, OpenHands, and Factory). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
+Hooks are native on Claude, Codex, Gemini, and Cursor; Zed runs them as on-demand tasks via opt-in `outputs.zed.tasks-file`. MCPs propagate to 15 of the 25 targets in each tool's native schema (every target except Aider, Cline, Windsurf, Trae, and the six new AGENTS.md-reading tools with no MCP surface: Jules, Goose, Augment, Qoder, OpenHands, and Factory). The matrix shows the five headline kinds; `command`, `settings`, `review`, `environment`, and `ignore` round out the [full matrix](docs/user/targets.md) (e.g. `command` is native on Claude, Codex, Gemini, OpenCode, and Amp).
 
 The matrix tracks the adapter's current output, locked by golden-snapshot tests. Each target carries a **Verify with the real CLI** checklist in [targets](docs/user/targets.md) confirming the emitted paths against the live tool.
 

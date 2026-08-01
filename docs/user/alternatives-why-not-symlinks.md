@@ -21,7 +21,7 @@ The same skill spec lands as different files per target.
 | claude | `SKILL.md` with full `DocumentStyled` frontmatter (all keys from `spec.Meta`); sibling assets propagated byte-for-byte |
 | codex | `SKILL.md` with reduced `FrontmatterOrdered` (only `name` + `description`, plus `x-codex` extras); optional `agents/openai.yaml` with interface/policy/dependencies; sibling assets propagated |
 | amp | Folder per skill under `.agents/skills/<name>/SKILL.md`, reduced frontmatter (`name` + `description` only); sibling assets propagated |
-| antigravity | Folder per skill under `.agent/skills/<name>/SKILL.md`, minimal frontmatter (`name` + `description`); sibling assets propagated |
+| antigravity | Folder per skill under `.agents/skills/<name>/SKILL.md`, minimal frontmatter (`name` + `description`); sibling assets propagated |
 | cursor | Native `.cursor/skills/<name>/SKILL.md` folder; bundled sibling assets propagate byte-for-byte |
 | gemini | Reference-only by default; optional `.gemini/commands/skill-<name>.toml` when `emit-skills-as-commands: true` |
 
@@ -41,8 +41,9 @@ The same MCP server spec emits a different schema per target.
 | zed | JSON `context_servers` map at `.zed/settings.json` (note: not `mcpServers`); no `type` field |
 | opencode | JSON `mcp` map at `opencode.json`; stdio uses `{type:'local', command:[...], environment}`, remote uses `{type:'remote', url, headers}` |
 | continue | YAML per-server files at `.continue/mcpServers/<name>.yaml`; wrapper `{name, version, schema:v1, mcpServers:[...]}` |
+| antigravity | JSON `mcpServers` map at `.agents/mcp_config.json`; remote uses `serverUrl` (the vendor doc says the legacy `url` / `httpUrl` names "are not supported"), no `type` field |
 
-Gemini uses `httpUrl` for streamable-HTTP; everyone else uses `url`. Amp and Zed omit the `type` field and infer transport from shape. Zed names the map `context_servers`, not `mcpServers`. OpenCode wraps stdio in `{type:'local'}`. Continue wraps each server in a YAML block with `name`/`version`/`schema`. The JSON keys, the file path, and even the file format (JSON vs TOML vs YAML) differ. A shared file fits exactly one of these.
+Gemini uses `httpUrl` for streamable-HTTP; everyone else uses `url`, except antigravity, which uses `serverUrl` and rejects `url`/`httpUrl` outright. Amp and Zed omit the `type` field and infer transport from shape. Zed names the map `context_servers`, not `mcpServers`. OpenCode wraps stdio in `{type:'local'}`. Continue wraps each server in a YAML block with `name`/`version`/`schema`. The JSON keys, the file path, and even the file format (JSON vs TOML vs YAML) differ. A shared file fits exactly one of these.
 
 ### Entry-point files share a pointer body but diverge on path and append blocks
 

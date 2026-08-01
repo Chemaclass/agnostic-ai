@@ -32,8 +32,9 @@ targets:
   - continue
   - zed
   - opencode
-  # antigravity: Google Antigravity IDE (.agent/rules/*.md + .agent/AGENTS.md).
-  # Preview product; MCP and skills support to follow once the upstream spec stabilises.
+  # antigravity: Google Antigravity IDE (.agents/rules/*.md, .agents/skills/,
+  # .agents/mcp_config.json + .agent/AGENTS.md entry-point). Preview product;
+  # hooks and commands support to follow once the upstream spec stabilises.
   - antigravity
   - junie
   - kiro

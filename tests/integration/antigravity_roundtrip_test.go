@@ -12,15 +12,17 @@ import (
 // TestAntigravityRoundTrip_SyncImportSyncIsByteEqual is the
 // antigravity audit's byte-stability gate from #343:
 //
-//	sync antigravity -> snapshot .agent/* + AGENTS.md
+//	sync antigravity -> snapshot .agents/* (rules, agents) + .agent/AGENTS.md
 //	                 -> wipe source specs
 //	                 -> import antigravity
 //	                 -> wipe emit
 //	                 -> sync antigravity
 //	                 -> assert byte-for-byte identical
 //
-// Fixture: 3 rules + 3 agents. Skills are excluded because the
-// antigravity adapter does not declare KindSkill support.
+// Fixture: 3 rules + 3 agents. Skills and MCP servers are covered at the
+// adapter-test level (internal/adapters/antigravity), not duplicated
+// here: `import antigravity` does not read either back yet, so adding
+// them to this fixture would only fail the path-set comparison below.
 func TestAntigravityRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -41,8 +43,13 @@ func TestAntigravityRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "antigravity")
 
-	if err := os.RemoveAll(filepath.Join(dir, ".agent")); err != nil {
-		t.Fatal(err)
+	// Wipe both the current default tree and the legacy singular one so
+	// the second sync writes from scratch and the comparison reflects
+	// emit output, not stale bytes left by the first sync.
+	for _, sub := range []string{".agent", ".agents"} {
+		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	runCmd(t, "sync", "-t", "antigravity")
@@ -88,40 +95,48 @@ gitignore:
 	}
 }
 
+// snapshotAntigravityEmit reads every file under .agent/ (the
+// entry-point pointer `sync` owns) and .agents/ (the adapter's own
+// rules/agents/skills/MCP output) and returns a relative-path -> bytes
+// map. Both roots are required: walking .agent/ alone would silently
+// miss the entire rules/agents payload, which defaults to the plural
+// .agents/ tree.
 func snapshotAntigravityEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	full := filepath.Join(root, ".agent")
-	info, err := os.Stat(full)
-	if os.IsNotExist(err) {
-		return out
-	}
-	if err != nil {
-		t.Fatalf("stat %s: %v", full, err)
-	}
-	if !info.IsDir() {
-		return out
-	}
-	err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	for _, sub := range []string{".agent", ".agents"} {
+		full := filepath.Join(root, sub)
+		info, err := os.Stat(full)
+		if os.IsNotExist(err) {
+			continue
 		}
-		if d.IsDir() {
+		if err != nil {
+			t.Fatalf("stat %s: %v", full, err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+		err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			out[filepath.ToSlash(rel)] = string(data)
 			return nil
-		}
-		rel, err := filepath.Rel(root, path)
+		})
 		if err != nil {
-			return err
+			t.Fatalf("walk %s: %v", full, err)
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = string(data)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk %s: %v", full, err)
 	}
 	return out
 }

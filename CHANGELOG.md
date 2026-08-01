@@ -32,6 +32,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Cline and Windsurf skills emit as a folder per skill (`.cline/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`, the latter shared with Codex, Amp, Zed, Crush, and OpenHands) instead of a flat `skill-<name>.md` file that neither tool ever loaded as a skill. `import cline` and `import windsurf` reconstruct skills from the new folder tree, and still read the old flat form for projects synced before this fix.
 
+### Added
+
+- Antigravity MCP servers land in `.agents/mcp_config.json` under `mcpServers`. Remote entries use `serverUrl`: Antigravity's doc says the legacy `url` / `httpUrl` names are not supported, so the shared `mcpServers`-with-`url` builder does not apply here. stdio entries carry `command`, `args`, and `env`.
+
+### Fixed
+
+- Antigravity rules and skills now default to `.agents/rules` / `.agents/skills`, the plural paths Antigravity itself now prefers. The old `.agent/rules` / `.agent/skills` singular form still reads for backward compatibility, but a stale managed copy there is swept on sync, and `.agents/skills` is also the tree Codex, Amp, Zed, Crush, and OpenHands already write, so skills dedupe there too. `import antigravity` reads whichever path exists, preferring the plural form.
+
 ## v0.44.0 - 2026-07-24
 
 ### Added
