@@ -658,6 +658,60 @@ func TestEmit_RulePathsMapToGlobs(t *testing.T) {
 	}
 }
 
+// alwaysApply:false with a description and no globs is Cursor's "Apply
+// Intelligently" type per cursor.com/docs/rules: the agent reads the
+// description and pulls the rule in when relevant. Synthesizing
+// `globs: "**/*"` turned that into an unconditional auto-attach,
+// functionally alwaysApply:true (#536).
+func TestEmit_MdcRuleDescriptionOnlyOmitsGlobs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "relevance", Meta: map[string]any{
+			"description": "RPC service conventions and patterns",
+			"alwaysApply": false,
+		}, Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFileT(t, filepath.Join(dir, ".cursor/rules/relevance.mdc"))
+	if strings.Contains(got, "globs:") {
+		t.Errorf("description-only rule should omit globs, not synthesize **/*:\n%s", got)
+	}
+	if !strings.Contains(got, "description: RPC service conventions and patterns\n") {
+		t.Errorf("description should still emit:\n%s", got)
+	}
+}
+
+// alwaysApply:false with neither description nor globs is Cursor's
+// "Apply Manually" type: included only via an `@`-mention in chat.
+// Synthesizing `globs: "**/*"` turned that into an unconditional
+// auto-attach too (#536).
+func TestEmit_MdcRuleManualOnlyOmitsGlobs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "manual", Meta: map[string]any{
+			"alwaysApply": false,
+		}, Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFileT(t, filepath.Join(dir, ".cursor/rules/manual.mdc"))
+	if strings.Contains(got, "globs:") {
+		t.Errorf("manual-only rule should omit globs, not synthesize **/*:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: false\n") {
+		t.Errorf("alwaysApply:false should still emit:\n%s", got)
+	}
+}
+
 func readFileT(t *testing.T, path string) string {
 	t.Helper()
 	got, err := os.ReadFile(path)

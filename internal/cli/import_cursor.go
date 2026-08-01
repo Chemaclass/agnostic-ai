@@ -166,12 +166,13 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// normalizeCursorRuleMeta strips emit-time defaults the cursor adapter
-// always writes so a generated rule round-trips to the same source a
-// hand-authored rule would produce (#429). The adapter fills an empty
-// `globs` with the catch-all `**/*` and emits an empty `description`;
+// normalizeCursorRuleMeta strips values that carry no scoping intent so
+// a generated rule round-trips to the same source a hand-authored rule
+// would produce (#429). A catch-all `globs` (hand-authored, or left over
+// from a sync predating #536, when the adapter itself used to fill an
+// empty globs with `**/*`) is dropped, as is an empty `description`;
 // carrying either back makes import->sync non-idempotent on the source.
-// Catch-all globs and nil-valued keys are dropped.
+// Nil-valued keys are dropped too.
 func normalizeCursorRuleMeta(meta map[string]any) {
 	if g, ok := meta["globs"].(string); ok && isCatchAllGlobs(g) {
 		delete(meta, "globs")
@@ -185,7 +186,8 @@ func normalizeCursorRuleMeta(meta map[string]any) {
 
 // isCatchAllGlobs reports whether g targets every file, matching the
 // scope-routing convention (empty, `**/*`, or `*`). Such a glob carries
-// no scoping intent and is the cursor adapter's default fill.
+// no scoping intent regardless of whether a human wrote it directly or
+// it is a leftover from a pre-#536 sync.
 func isCatchAllGlobs(g string) bool {
 	switch strings.TrimSpace(g) {
 	case "", "**/*", "*":

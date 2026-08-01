@@ -127,11 +127,12 @@ body
 	}
 }
 
-// TestImportFromCursor_DropsCatchAllGlobs guards round-trip stability:
-// the cursor adapter fills an empty globs with the catch-all "**/*", so
-// carrying it back into the source would flip an always-apply rule's
-// representation each cycle (#429). Catch-all globs must not appear in
-// the imported spec.
+// TestImportFromCursor_DropsCatchAllGlobs guards round-trip stability: a
+// catch-all globs value (hand-authored, or left over from a sync
+// predating #536, when the adapter itself used to fill an empty globs
+// with "**/*") must not carry back into the source, or it would flip an
+// always-apply rule's representation each cycle (#429). Catch-all globs
+// must not appear in the imported spec.
 func TestImportFromCursor_DropsCatchAllGlobs(t *testing.T) {
 	dir := t.TempDir()
 	// Mirrors what the cursor adapter emits for an always-apply rule:
