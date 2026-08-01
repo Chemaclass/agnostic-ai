@@ -188,7 +188,7 @@ outputs:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
   kilo:
     agents-dir: .kilo/agents            # default. One .md per agent.
-    mcp-file: kilo.jsonc                # default. mcpServers map merged; user keys preserved.
+    mcp-file: kilo.jsonc                # default. mcp map merged; user keys preserved.
   goose:
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
@@ -316,7 +316,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent. |
-| `kilo` | `mcp-file` | `kilo.jsonc` | `mcpServers` map merged; user keys preserved. Stdio `command`/`args`/`env`, remote `url`/`headers`. |
+| `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged; user keys preserved. Stdio combines `command`+`args` into one array and tags `"type": "local"`, with `environment` for env vars; remote uses `"type": "remote"` plus `url`/`headers`. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |
