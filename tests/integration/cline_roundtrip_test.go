@@ -11,9 +11,10 @@ import (
 )
 
 // TestClineRoundTrip_SyncImportSyncIsByteEqual is the cline audit's
-// byte-stability gate from #328 acceptance criterion C:
+// byte-stability gate from #328 acceptance criterion C, updated for
+// the #534 path migration:
 //
-//	sync cline -> snapshot .clinerules/* and .cline/skills/*
+//	sync cline -> snapshot .cline/* (rules, agents, skills)
 //	           -> wipe source specs
 //	           -> import cline
 //	           -> wipe emit
@@ -21,16 +22,21 @@ import (
 //	           -> assert byte-for-byte identical
 //
 // The fixture covers every cline-supported kind (agents, skills,
-// rules) with three specimens each. Skills live under .cline/skills/
-// (folder-per-skill), not .clinerules/, since a flat file there never
-// loads as a skill (docs.cline.bot/customization/skills); the snapshot
-// and wipe steps below cover both trees. The workflows-dir branch is
-// intentionally left off: the importer reclassifies every .md it
-// finds under .clinerules/ by filename prefix, so a workflow at
-// .clinerules/workflows/<agent>.md would re-import as a rule named
-// after the agent, doubling the spec set. Workflow round-trip needs
-// a separate harness (importer would need to learn the workflows-
-// dir layout).
+// rules) with three specimens each. Rules, agents, and skills all now
+// default under `.cline/` (`.cline/rules/`, `.cline/agents/`,
+// `.cline/skills/`), the layout Cline's current config reference
+// documents; snapshotClineEmit's `.cline` walk already covered skills
+// before this migration and picks up the other two for free since they
+// moved into the same already-watched top-level directory rather than
+// a new one. `.clinerules` stays in the wipe/snapshot list too since it
+// remains a legacy opt-in via outputs.cline.rules-dir (see
+// TestClineRoundTrip_LegacyTreeSyncImportSyncIsByteEqual for that
+// path). The workflows-dir branch is intentionally left off: the
+// importer reclassifies every .md it finds under the rules dir by
+// filename prefix, so a workflow at `<rules-dir>/workflows/<agent>.md`
+// would re-import as a rule named after the agent, doubling the spec
+// set. Workflow round-trip needs a separate harness (importer would
+// need to learn the workflows-dir layout).
 func TestClineRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -44,6 +50,9 @@ func TestClineRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	}
 	if !anyPathUnder(first, ".cline/skills/") {
 		t.Fatalf("first sync produced no cline skill folders: %v", sortedKeys(first))
+	}
+	if !anyPathUnder(first, ".cline/rules/") || !anyPathUnder(first, ".cline/agents/") {
+		t.Fatalf("first sync did not default to .cline/rules/ and .cline/agents/: %v", sortedKeys(first))
 	}
 
 	for _, sub := range []string{"agents", "skills", "rules"} {
@@ -111,8 +120,93 @@ gitignore:
 	}
 }
 
-// snapshotClineEmit reads every file under .clinerules/ (rules, agents)
-// and .cline/ (skill folders) and returns a relative-path -> bytes map.
+// TestClineRoundTrip_LegacyTreeSyncImportSyncIsByteEqual covers a
+// project that opted into the pre-migration layout via
+// outputs.cline.rules-dir: .clinerules (target-audit 2026-08-01,
+// #534). Agents still emit natively at .cline/agents/ regardless of
+// the rules-dir override (only the rules destination is configurable),
+// so this fixture skips agents and exercises rules + skills, the two
+// kinds outputs.cline.rules-dir actually affects.
+func TestClineRoundTrip_LegacyTreeSyncImportSyncIsByteEqual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	seedClineLegacyRoundTripFixture(t, dir)
+
+	runCmd(t, "sync", "-t", "cline")
+	first := snapshotClineEmit(t, dir)
+	if !anyPathUnder(first, ".clinerules/") {
+		t.Fatalf("first sync did not honor outputs.cline.rules-dir: %v", sortedKeys(first))
+	}
+	if anyPathUnder(first, ".cline/rules/") {
+		t.Fatalf("first sync must not also write the new default rules dir: %v", sortedKeys(first))
+	}
+
+	for _, sub := range []string{"skills", "rules"} {
+		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runCmd(t, "import", "cline")
+
+	for _, sub := range []string{".clinerules", ".cline"} {
+		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runCmd(t, "sync", "-t", "cline")
+	second := snapshotClineEmit(t, dir)
+
+	firstPaths := sortedKeys(first)
+	secondPaths := sortedKeys(second)
+	if !equalStringSlice(firstPaths, secondPaths) {
+		t.Fatalf("emit path set changed across round-trip\nfirst:  %v\nsecond: %v",
+			firstPaths, secondPaths)
+	}
+	for _, p := range firstPaths {
+		if first[p] != second[p] {
+			t.Errorf("byte mismatch at %s (first=%d bytes, second=%d bytes)\n%s",
+				p, len(first[p]), len(second[p]), unifiedDiffLines(first[p], second[p]))
+		}
+	}
+}
+
+func seedClineLegacyRoundTripFixture(t *testing.T, dir string) {
+	t.Helper()
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte(`version: 1
+sources:
+  skills: .agnostic-ai/skills
+  rules: .agnostic-ai/rules
+targets:
+  - cline
+outputs:
+  cline:
+    rules-dir: .clinerules
+gitignore:
+  enabled: false
+`), 0o644))
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills"), 0o755))
+	for _, n := range []string{"uno", "dos", "tres"} {
+		must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills", n), 0o755))
+		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/skills", n, "SKILL.md"),
+			[]byte("---\nname: "+n+"\n---\n\n"+n+" skill body\n"), 0o644))
+	}
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/rules"), 0o755))
+	for _, n := range []string{"r1", "r2", "r3"} {
+		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules", n+".md"),
+			[]byte("---\nname: "+n+"\n---\n\n"+n+" body\n"), 0o644))
+	}
+}
+
+// snapshotClineEmit reads every file under .clinerules/ (the
+// pre-migration combined rules-and-agents directory, still reachable
+// via outputs.cline.rules-dir) and .cline/ (the current default for
+// rules, agents, and skills) and returns a relative-path -> bytes map.
 func snapshotClineEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}

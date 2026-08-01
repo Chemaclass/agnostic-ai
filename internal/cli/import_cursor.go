@@ -27,7 +27,7 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importCursorMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents))
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	commands, err := importCursorMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands))
+	commands, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands))
 	if err != nil {
 		return err
 	}
@@ -50,11 +50,13 @@ func importCursorSkills(root, dstDir string) (int, error) {
 	return importSkillFolders(filepath.Join(root, ".cursor", "skills"), dstDir)
 }
 
-// importCursorMarkdownFiles copies every top-level `*.md` in src
+// importFlatMarkdownFiles copies every top-level `*.md` in src
 // byte-for-byte into dstDir, stripping the agnostic-ai provenance
-// header when present. Covers Cursor's flat per-file surfaces:
-// `.cursor/agents/*.md` (subagents) and `.cursor/commands/*.md`.
-func importCursorMarkdownFiles(src, dstDir string) (int, error) {
+// header when present. Covers a flat per-file surface with no scope
+// nesting: Cursor's `.cursor/agents/*.md` (subagents) and
+// `.cursor/commands/*.md`, and Cline's `.cline/agents/*.md`
+// (target-audit 2026-08-01, #534).
+func importFlatMarkdownFiles(src, dstDir string) (int, error) {
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil

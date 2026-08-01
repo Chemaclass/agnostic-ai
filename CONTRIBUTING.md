@@ -21,7 +21,7 @@ Open a PR with a [Conventional Commits](https://www.conventionalcommits.org/) su
 
 This repo drives its own AI config with agnostic-ai. The source of truth is `.agnostic-ai/`. Every target output is **gitignored** and regenerated, never committed:
 
-- Per-target folders: `.claude/`, `.cursor/`, `.gemini/`, `.codex/`, `.windsurf/`, `.continue/`, `.clinerules/`, `.opencode/`, `.agent/`.
+- Per-target folders: `.claude/`, `.cursor/`, `.gemini/`, `.codex/`, `.windsurf/`, `.continue/`, `.cline/`, `.opencode/`, `.agent/`, `.kilo/`.
 - Root entry-points: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.rules`, `.github/copilot-instructions.md`.
 
 After editing any spec under `.agnostic-ai/`, regenerate locally:

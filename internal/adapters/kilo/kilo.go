@@ -1,12 +1,29 @@
 // Package kilo emits configs for Kilo Code.
 //
-// The project-root AGENTS.md is written centrally by `sync` as a slim
+// Rules emit as one Markdown file per rule spec under `.kilo/rules/`
+// (override via outputs.kilo.rules-dir), each one also listed as its
+// own entry in `kilo.jsonc`'s `instructions` array (raw doc
+// packages/kilo-docs/pages/customize/custom-rules.md: "Each entry
+// points to a file path or glob pattern"). This adapter lists explicit
+// per-file paths rather than a `.kilo/rules/*.md` directory glob: a
+// rule's scope nests its file under `.kilo/rules/<scope>/`, and the
+// vendor doc's own glob example is a single, non-recursive `*.md`, so
+// a lone glob entry would silently miss anything scoped. Kilo Code's
+// own precedence order is agent prompt > project `instructions` >
+// AGENTS.md > global (agents-md.md), so `instructions` outranks the
+// project-root AGENTS.md that `sync` writes centrally as a slim
 // pointer to the source specs (one body shared with every other
-// target's entry-point file). Kilo Code reads AGENTS.md as its
-// recommended rules file for new projects, so this adapter never
-// writes a rules file of its own. The legacy `.kilocode/rules/` tree
-// is Kilo's own auto-migration target for pre-AGENTS.md projects; this
-// adapter intentionally never emits it.
+// target's entry-point file). AGENTS.md "cannot be individually
+// disabled: it is always loaded if present" (agents-md.md), so this
+// adapter keeps inlining full rule bodies there too (see
+// inlineRulesTargets in internal/adapters/internal/emit/
+// rules_appendix.go): `instructions` is how a rule wins a conflict
+// with a user's own entry, not a reason to drop the AGENTS.md fallback.
+// `.kilocode/rules/` (the pre-rename Kilo Code branding) is a separate,
+// genuinely legacy tree Kilo Code still reads automatically for
+// backward compatibility; this adapter intentionally never emits it,
+// and it is distinct from the current `.kilo/rules/` mechanism above
+// (target-audit 2026-08-01, #535).
 //
 // Agents emit as one Markdown file per agent spec at
 // `.kilo/agents/<name>.md` (override via outputs.kilo.agents-dir).
@@ -45,10 +62,11 @@
 // documented MCP example carries; `disabled` itself is never written,
 // and an enabled server (the common case) gets no explicit key at all.
 // kilo.jsonc also holds user-managed keys (models, providers, ...);
-// the merge only touches `mcp` so those survive a sync. This adapter
-// writes plain JSON: JSONC is a superset of JSON, so every JSONC
-// parser accepts the output, and agnostic-ai never needs to emit (or
-// preserve) comments of its own.
+// the merge only touches `mcp` and `instructions` and skips whichever
+// of the two has nothing to contribute, so those survive a sync. This
+// adapter writes plain JSON: JSONC is a superset of JSON, so every
+// JSONC parser accepts the output, and agnostic-ai never needs to emit
+// (or preserve) comments of its own.
 package kilo
 
 import (
@@ -62,6 +80,7 @@ import (
 
 const (
 	target           = "kilo"
+	defaultRulesDir  = ".kilo/rules"
 	defaultAgentsDir = ".kilo/agents"
 	defaultMCPFile   = "kilo.jsonc"
 	// defaultSkillsDir is the shared cross-tool skills tree Kilo Code
@@ -72,10 +91,7 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target: target,
-	// KindRule is declared even though this adapter never writes a
-	// rules file itself: Kilo Code reads project rules exclusively
-	// from the shared AGENTS.md entry-point sync writes centrally.
+	Target:   target,
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill},
 }
 
@@ -88,13 +104,23 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one agent Markdown file per agent spec under
-// `.kilo/agents/`, one shared `.agents/skills/<name>/SKILL.md` folder
-// per skill, plus a merged `kilo.jsonc` for MCP servers. The
-// project-root AGENTS.md (rules' single source of truth for Kilo
-// Code) is written by `sync`, not here.
+// Emit writes one Markdown file per rule under `.kilo/rules/`, one
+// agent Markdown file per agent spec under `.kilo/agents/`, one shared
+// `.agents/skills/<name>/SKILL.md` folder per skill, plus a merged
+// `kilo.jsonc` carrying the `instructions` array (one entry per rule
+// file) and the `mcp` map. The project-root AGENTS.md (still read, but
+// lower priority than `instructions`; see the package doc) is written
+// by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
+		Dir:        rulesDir,
+		SkipAgents: true,
+		SkipSkills: true,
+	}, dryRun); err != nil {
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
@@ -105,7 +131,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitKiloJSONC(sess, b.Rules, rulesDir, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
@@ -164,17 +190,43 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 	return front + "\n" + trimmed + "\n", hadTools
 }
 
-// emitMCPConfig merges the `mcp` map into kilo.jsonc. Routes through
+// emitKiloJSONC merges the `instructions` and `mcp` keys into
+// kilo.jsonc in a single read-modify-write. Routes through
 // emit.MergeJSONFile so any pre-existing user-managed keys (models,
-// providers, ...) survive the sync; only `mcp` is overwritten. No file
-// is written when there are no MCP entries (or every entry renders
-// empty).
-func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	servers := buildMCPMap(mcps)
-	if len(servers) == 0 {
+// providers, ...) survive the sync. Each key is set only when its
+// source list is non-empty, and no file is written at all when both
+// are empty (or every MCP entry renders empty).
+func emitKiloJSONC(sess *emit.Session, rules []spec.Entry, rulesDir string, mcps []spec.Entry, path string, dryRun bool) error {
+	keys := map[string]any{}
+	if instructions := ruleInstructions(rules, rulesDir); len(instructions) > 0 {
+		keys["instructions"] = instructions
+	}
+	if servers := buildMCPMap(mcps); len(servers) > 0 {
+		keys["mcp"] = servers
+	}
+	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{"mcp": servers}, dryRun)
+	return sess.MergeJSONFile(path, keys, dryRun)
+}
+
+// ruleInstructions returns one `instructions` entry per rule spec: the
+// project-relative path RulesDirectory writes it to, scope subdirectory
+// included (see the package doc for why this lists explicit paths
+// rather than a `.kilo/rules/*.md` glob).
+func ruleInstructions(rules []spec.Entry, rulesDir string) []string {
+	out := make([]string, 0, len(rules))
+	for _, r := range rules {
+		if r.Name == "" {
+			continue
+		}
+		dir := rulesDir
+		if s := r.EffectiveScope(); s != "" {
+			dir = filepath.Join(rulesDir, s)
+		}
+		out = append(out, filepath.ToSlash(filepath.Join(dir, r.Name+".md")))
+	}
+	return out
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {

@@ -16,7 +16,7 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the kilo adapter's
 // header-coverage contract: a sync that exercises every kind this
-// adapter emits directly (agents, skills, MCP) must land an
+// adapter emits directly (rules, agents, skills, MCP) must land an
 // agnostic-ai provenance header on each resulting non-JSONC file. `kilo.jsonc`
 // legitimately skips the header (JSON has no comment syntax agnostic-ai
 // emits into) but the test still asserts the file is non-empty so a
@@ -28,6 +28,12 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	}
 
 	jsoncExempt := func(p string) bool { return strings.HasSuffix(p, ".jsonc") }
+	// Rule files render as a plain "# <name>\n\n<body>" heading, the same
+	// shape RulesDirectory's default formatter gives every other
+	// plain-rules adapter (cline, windsurf, ...); Kilo Code's own rules
+	// doc shows no required frontmatter for an individual rule file,
+	// unlike SKILL.md or the agent profiles below.
+	frontmatterExempt := func(p string) bool { return strings.HasPrefix(p, filepath.Join(defaultRulesDir, "")) }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -62,7 +68,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if !header.Has(content) {
 			t.Errorf("missing provenance header in %s:\n%s", rel, headFor(t, data))
 		}
-		if !strings.HasPrefix(content, "---\n") {
+		if !frontmatterExempt(rel) && !strings.HasPrefix(content, "---\n") {
 			t.Errorf("%s must start with frontmatter, got:\n%s", rel, headFor(t, data))
 		}
 		checked++
@@ -78,8 +84,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
 // adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
-// three specimens per kind. Rules are included even though this
-// adapter never writes them itself (see kilo.go). "disabled-server"
+// three specimens per kind. "disabled-server"
 // actually sets `disabled: true` (B9, target-audit 2026-08-01
 // follow-up: the fixture was named for a server that never carried the
 // flag, so the kit sink emitted with no disable state at all before

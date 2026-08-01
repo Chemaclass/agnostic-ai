@@ -35,7 +35,7 @@ Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, 
 
 Junie is the one target with a second, preferred entry-point file: JetBrains' own lookup order checks `.junie/AGENTS.md` before falling back to the root `AGENTS.md` above, so the junie adapter writes the identical canonical pointer body to `.junie/AGENTS.md` too (target-audit 2026-08-01). Both files always carry the same body; there is nothing to reconcile by hand.
 
-Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, kilo) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless. Augment now also has a native `.augment/rules/<name>.md` directory (see below) but keeps inlining into AGENTS.md too: the vendor does not cleanly establish the two surfaces' relative precedence, so this adapter does not assume the native directory makes the inline copy redundant.
+Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory) inline every rule body into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds. `import` strips the block, keeping the AGNOSTIC_AI.md round-trip lossless. Augment now also has a native `.augment/rules/<name>.md` directory (see below) but keeps inlining into AGENTS.md too: the vendor does not cleanly establish the two surfaces' relative precedence, so this adapter does not assume the native directory makes the inline copy redundant. Kilo Code now also has a native `.kilo/rules/<name>.md` directory (see below), referenced from `kilo.jsonc`'s `instructions` array, which outranks AGENTS.md in Kilo Code's own documented precedence order (agent prompt > project `instructions` > AGENTS.md > global); this adapter keeps inlining into AGENTS.md too since AGENTS.md is always loaded when present regardless, so the inline copy is a fallback layer, not dead weight.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 
@@ -51,7 +51,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **cursor**      | `.cursor/agents/<name>.md` | `.cursor/skills/<name>/SKILL.md` | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` | - | `.cursor/BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
 | **copilot**     | `.github/agents/<name>.agent.md` | `.github/skills/<name>/SKILL.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | - | `.vscode/mcp.json` | - | - | - | - | - |
 | **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
-| **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | `.cline/skills/<name>/SKILL.md` | `.clinerules/*.md`       | -     | - | - | - | - | - | - |
+| **cline**       | `.cline/agents/<name>.md` (+ `.cline/workflows/<name>.md` w/ opt-in) | `.cline/skills/<name>/SKILL.md` | `.cline/rules/*.md` (opt-in legacy path via `outputs.cline.rules-dir: .clinerules`) | -     | - | - | - | - | - | - |
 | **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | `.agents/skills/<name>/SKILL.md` | `.devin/rules/*.md`      | -     | - | - | - | - | - | `.devinignore` |
 | **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` | - | - | - | - | - |
 | **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | `.agents/commands/<name>.md` | - | - | - | - |
@@ -66,7 +66,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **qoder**       | `.qoder/agents/<name>.md` | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
-| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
+| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.kilo/rules/<name>.md` (+ `kilo.jsonc` `instructions` array; also inlined into `AGENTS.md`) | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
 | **augment**     | `.augment/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.augment/rules/<name>.md` (+ inlined into `AGENTS.md`; opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
@@ -250,24 +250,25 @@ Verify with the real CLI:
 
 ```
 AGENTS.md                            # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
-.clinerules/<name>.md
-.clinerules/workflows/<name>.md      # one per agent, only when workflows-dir is set
+.cline/rules/<name>.md
+.cline/agents/<name>.md
+.cline/workflows/<name>.md           # one per agent, only when workflows-dir is set
 .cline/skills/<name>/SKILL.md        # one folder per skill (Cline's recommended skills path)
 ```
 
-Cline reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared pointer body there (deduplicated with the other AGENTS.md consumers). Rules still emit per file into `.clinerules/`, Cline's native workspace-rules directory.
+Cline reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared pointer body there (deduplicated with the other AGENTS.md consumers). Rules and agents each emit per file into their own directory under `.cline/`, the layout Cline's [current config reference](https://docs.cline.bot/getting-started/config) documents (`.cline/{rules,skills,hooks,agents,plugins,cron}/`). The older [cline-rules page](https://docs.cline.bot/customization/cline-rules) still calls the pre-migration `.clinerules/` the "Primary rule format", so this is a live migration rather than a completed removal (target-audit 2026-08-01): set `outputs.cline.rules-dir: .clinerules` to keep rules at that path; a stale managed tree there is swept on sync otherwise. Agents always emit at `.cline/agents/`, independent of that override: Cline's own file format for that directory has no dedicated doc page, so this adapter writes the spec body verbatim, no synthesized heading and no invented frontmatter.
 
-- **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend. A flat file directly under `.clinerules/` never loads as a skill, so this is a folder, not a rule-form file like agents. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
+- **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend. A flat file directly under the rules directory never loads as a skill, so this is a folder, not a rule-form file. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
 
-When `outputs.cline.workflows-dir` is set, each agent also emits as a [Cline Workflow](https://docs.cline.bot/features/workflows): Markdown invokable from chat as `/<name>.md`. The italic description prefixes the body when present. The rule-form emission (`.clinerules/agent-<name>.md`) still happens.
+When `outputs.cline.workflows-dir` is set, each agent also emits as a [Cline Workflow](https://docs.cline.bot/features/workflows): Markdown invokable from chat as `/<name>.md`. The italic description prefixes the body when present. The native `.cline/agents/<name>.md` emission still happens either way.
 
-Config keys: `outputs.cline.rules-dir` (default `.clinerules`), `outputs.cline.skills-dir` (default `.cline/skills`), `outputs.cline.workflows-dir` (default empty, opt-in).
+Config keys: `outputs.cline.rules-dir` (default `.cline/rules`; set to `.clinerules` for the pre-migration layout), `outputs.cline.agents-dir` (default `.cline/agents`), `outputs.cline.skills-dir` (default `.cline/skills`), `outputs.cline.workflows-dir` (default empty, opt-in).
 
 Verify with the real extension:
 
 1. Install the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) in VS Code.
-2. Check the tree: `ls .clinerules/ .cline/skills/`, `grep "Generated by agnostic-ai" .clinerules/*.md` for the provenance header, `test -f .cline/skills/*/SKILL.md`.
-3. Open the project, open the Cline panel. Cline loads every `.clinerules/*.md`; each appears in the rules list with no "failed to parse" warnings. Each `.cline/skills/<name>/` loads as a skill.
+2. Check the tree: `ls .cline/rules/ .cline/agents/ .cline/skills/`, `grep "Generated by agnostic-ai" .cline/rules/*.md` for the provenance header, `test -f .cline/skills/*/SKILL.md`.
+3. Open the project, open the Cline panel. Cline loads every `.cline/rules/*.md`; each appears in the rules list with no "failed to parse" warnings. Each `.cline/agents/<name>.md` appears wherever Cline surfaces project agent definitions, and each `.cline/skills/<name>/` loads as a skill.
 4. If `outputs.cline.workflows-dir` is set, each `<workflows-dir>/<name>.md` is invokable as `/<name>.md`; the italic description previews the workflow.
 
 ### Windsurf / Devin Desktop (`windsurf`)
@@ -596,20 +597,25 @@ Verify with the real CLI:
 
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
+.kilo/rules/<name>.md              # one per rule
 .kilo/agents/<name>.md             # one per agent
 .agents/skills/<name>/SKILL.md     # one folder per skill, plus any bundled assets (shared cross-tool tree)
-kilo.jsonc                         # when MCP entries exist (merged with existing user config)
+kilo.jsonc                         # instructions array (one entry per rule) and/or mcp map (merged with existing user config)
 ```
 
-Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree (target-audit 2026-08-01): Kilo Code documents its own `.kilo/skills/` path, but also lists `.agents/skills/` as a compatibility directory "loaded by default", and that is the same tree codex, amp, zed, crush, openhands, windsurf, and augment already write byte-identically, so pointing here dedupes instead of adding a second on-disk copy. MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Hooks have no Kilo surface yet and skip with a warning.
+Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree (target-audit 2026-08-01): Kilo Code documents its own `.kilo/skills/` path, but also lists `.agents/skills/` as a compatibility directory "loaded by default", and that is the same tree codex, amp, zed, crush, openhands, windsurf, and augment already write byte-identically, so pointing here dedupes instead of adding a second on-disk copy.
 
-Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.skills-dir` (default `.agents/skills`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
+Rules emit as one file per rule under `.kilo/rules/`, each one also listed by its own path in `kilo.jsonc`'s [`instructions`](https://kilo.ai/docs/customize/custom-rules) array (target-audit 2026-08-01): "Each entry points to a file path or glob pattern", and this adapter lists explicit paths rather than a `.kilo/rules/*.md` glob so a scoped rule nested under a subdirectory is never silently missed. Kilo Code's own [precedence order](https://kilo.ai/docs/customize/agents-md) is agent prompt > project `instructions` > AGENTS.md > global, so the `instructions` entry outranks the shared `AGENTS.md` block below it; AGENTS.md is always loaded when present regardless, so this adapter keeps inlining full rule bodies there too as a fallback, rather than treating `instructions` as a replacement. The legacy `.kilocode/rules/` tree (the pre-rename Kilo Code branding) is separate and still auto-included for backward compatibility, but this adapter never emits it.
+
+MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. `instructions` and `mcp` merge into `kilo.jsonc` together; user-managed keys there survive every sync. Hooks have no Kilo surface yet and skip with a warning.
+
+Config keys: `outputs.kilo.rules-dir` (default `.kilo/rules`), `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.skills-dir` (default `.agents/skills`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
 
 Verify with the real IDE:
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
-2. Check the tree: `ls AGENTS.md .kilo/agents/ .agents/skills/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
-3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker, each `.agents/skills/<name>/` folder loads as a skill, and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
+2. Check the tree: `ls AGENTS.md .kilo/rules/ .kilo/agents/ .agents/skills/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/rules/*.md .kilo/agents/*.md` for the provenance header.
+3. Open the project; each `.kilo/rules/<name>.md` listed in `kilo.jsonc`'s `instructions` array appears in the loaded-rules list, each `.kilo/agents/<name>.md` appears in the agent picker, each `.agents/skills/<name>/` folder loads as a skill, and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
 
 ### Jules (`jules`)
 

@@ -64,7 +64,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://docs.cline.bot/customization/cline-rules · /customization/skills · /getting-started/config
 - changelog: https://github.com/cline/cline/releases
-- watch: `.clinerules/workflows/` path, whether root `AGENTS.md` is read, MCP config location.
+- watch: whether `.clinerules/` is fully dropped from `/getting-started/config` (still absent there as of 2026-08-01; this adapter treats it as a live fallback via `outputs.cline.rules-dir`, not a removal); `.cline/hooks/`, `.cline/plugins/`, `.cline/cron/` (listed in the config reference, unemitted, no confirmed schema); the `.cline/workflows/` path; MCP config location.
 
 ## windsurf
 
@@ -170,6 +170,6 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## kilo
 
-- docs: https://kilo.ai/docs (client-rendered; use WebFetch)
+- docs: https://kilo.ai/docs (client-rendered; use WebFetch, or append `.md` to a page path to fetch the raw source directly, e.g. https://kilo.ai/docs/customize/custom-rules.md) · /docs/customize/custom-rules · /docs/customize/agents-md
 - changelog: https://github.com/Kilo-Org/kilocode/releases
-- watch: `kilo.jsonc` `mcpServers` shape, `.kilo/agents/` vs custom modes, rules-dir surface.
+- watch: `kilo.jsonc` `mcp` shape (already confirmed distinct from the deprecated `mcpServers`), `.kilo/agents/` vs custom modes, whether `.kilocode/rules/` backward compatibility is dropped. `instructions` array entries: this adapter lists one explicit `.kilo/rules/<name>.md` path per rule rather than a `.kilo/rules/*.md` glob (unconfirmed whether a `**` recursive glob would also cover a scoped rule); revisit if the vendor doc ever confirms glob recursion.

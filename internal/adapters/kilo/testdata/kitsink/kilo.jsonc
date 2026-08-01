@@ -1,4 +1,9 @@
 {
+  "instructions": [
+    ".kilo/rules/r1.md",
+    ".kilo/rules/r2.md",
+    ".kilo/rules/r3.md"
+  ],
   "mcp": {
     "disabled-server": {
       "command": [

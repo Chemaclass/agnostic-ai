@@ -30,7 +30,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		"CONVENTIONS.md",
 		".github/copilot-instructions.md",
 		".cursor/rules/sample-rule.mdc",
-		".clinerules/sample-rule.md",
+		".cline/rules/sample-rule.md",
 		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
 		".junie/rules/sample-rule.md",

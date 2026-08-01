@@ -280,7 +280,7 @@ func writeAgnosticFile(t *testing.T, content string) {
 // Zed and Cline join the shared AGENTS.md group: one deduplicated write
 // carries the pointer body, and the rules block the inline consumers
 // (zed among them) need is present. Cline alone does not force the
-// inline block since .clinerules/ delivers its rules natively.
+// inline block since .cline/rules/ delivers its rules natively.
 func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
@@ -320,6 +320,6 @@ func TestWriteAgnosticEntryPoints_ClineAloneNoInlineRules(t *testing.T) {
 		t.Fatalf("AGENTS.md not written: %v", err)
 	}
 	if strings.Contains(string(data), "rule body") {
-		t.Errorf("cline delivers rules via .clinerules/; AGENTS.md must stay a slim pointer:\n%s", data)
+		t.Errorf("cline delivers rules via .cline/rules/; AGENTS.md must stay a slim pointer:\n%s", data)
 	}
 }

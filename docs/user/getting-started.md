@@ -69,7 +69,7 @@ agnostic-ai init                  # scaffold
 agnostic-ai import claude         # CLAUDE.md + .claude/{agents,skills,settings.json}
 agnostic-ai import codex          # AGENTS.md (root + nested)
 agnostic-ai import cursor         # .cursor/rules/*.mdc
-agnostic-ai import cline          # .clinerules/
+agnostic-ai import cline          # .cline/rules/, .cline/agents/ (or legacy .clinerules/)
 agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
 agnostic-ai import continue       # .continue/rules/
 agnostic-ai sync                  # fan out to every target in the config
@@ -165,11 +165,12 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules
 ├── .github/agents/<name>.agent.md               # for Copilot custom agents
 ├── .cursor/rules/conventional-commits.mdc       # for Cursor
-├── .clinerules/conventional-commits.md          # for Cline
+├── .cline/rules/conventional-commits.md         # for Cline
 ├── .devin/rules/conventional-commits.md         # for Windsurf / Devin Desktop
 ├── .junie/rules/conventional-commits.md         # for Junie
 ├── .kiro/steering/conventional-commits.md       # for Kiro
 ├── .trae/rules/conventional-commits.md          # for Trae
+├── .kilo/rules/conventional-commits.md          # for Kilo Code (+ kilo.jsonc instructions array)
 └── .continue/rules/conventional-commits.md      # for Continue
 ```
 
