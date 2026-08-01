@@ -36,7 +36,7 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 ## Entry-point files
 
-Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, augment, openhands, factory, kilo) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. That file is written by sync's entry-point distribution, not by an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and attributes the file to the first consuming target.
+Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. Augment has a native `.augment/rules/` directory but inlines into `AGENTS.md` too. That file is written by sync's entry-point distribution, not by an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and attributes the file to the first consuming target.
 
 ## Errors
 

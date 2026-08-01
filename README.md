@@ -74,7 +74,7 @@ Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continu
 
 All **25** targets are first-class. The matrix shows the emission shape per kind (every tool is supported): scan a row for your tool, the ✅ column for what works out of the box.
 
-`sync` enables 20 by default. Amp, Warp, Jules, Goose, and Augment each only contribute to the shared root `AGENTS.md` and add no unique default output, so they stay opt-in: add them to `targets:` or pass `-t amp,warp,jules,goose,augment`.
+`sync` enables 20 by default. Amp, Warp, Jules, Goose, and Augment are opt-in: add them to `targets:` or pass `-t amp,warp,jules,goose,augment`.
 
 | Target                  | Agents | Skills | Rules | Hooks | MCPs |
 |-------------------------|:------:|:------:|:-----:|:-----:|:----:|
@@ -102,12 +102,12 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 | Kilo Code               |   ✅    |   -    |   ◐   |   -   |  ✅   |
 | Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
 | Goose (Block)           |   -    |   -    |   ◐   |   -   |  -   |
-| Augment Code            |   -    |   -    |   ◐   |   -   |  -   |
+| Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  -   |
 
 Legend, in descending order of native support:
 
 - **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
-- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush, Jules, Goose, Augment, OpenHands, Factory, Kilo) inline rule bodies into their entry-point file.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush, Jules, Goose, OpenHands, Factory, Kilo) inline rule bodies into their entry-point file.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 

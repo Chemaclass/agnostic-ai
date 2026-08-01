@@ -36,6 +36,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Antigravity MCP servers land in `.agents/mcp_config.json` under `mcpServers`. Remote entries use `serverUrl`: Antigravity's doc says the legacy `url` / `httpUrl` names are not supported, so the shared `mcpServers`-with-`url` builder does not apply here. stdio entries carry `command`, `args`, and `env`.
 
+- Augment gets three native surfaces it was missing entirely: one file per rule at `.augment/rules/<name>.md` (`type: agent_requested` with `alwaysApply: false`, otherwise the vendor default `always_apply` stays implicit), one file per agent at `.augment/agents/<name>.md`, and skills into the shared `.agents/skills/<name>/SKILL.md` tree. An agent's generic `tools` list is never Augment's own vocabulary, so it now surfaces a coverage note instead of silently restricting nothing; `x-augment.tools` / `x-augment.disabled_tools` reach Augment's real per-tool access control directly.
 ### Fixed
 
 - Antigravity rules and skills now default to `.agents/rules` / `.agents/skills`, the plural paths Antigravity itself now prefers. The old `.agent/rules` / `.agent/skills` singular form still reads for backward compatibility, but a stale managed copy there is swept on sync, and `.agents/skills` is also the tree Codex, Amp, Zed, Crush, and OpenHands already write, so skills dedupe there too. `import antigravity` reads whichever path exists, preferring the plural form.

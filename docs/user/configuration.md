@@ -48,12 +48,12 @@ sources:
 
 # AI CLIs to emit configs for. These 20 are the default set (used when
 # `targets` is omitted). Five more adapters exist: `amp`, `warp`, `jules`,
-# `goose`, and `augment`. Each only contributes to the shared root
-# `AGENTS.md` pointer body (written once via auto-dedup, since the body is
-# byte-identical), so they add no unique default output and are left out of
-# the default set. Enable them explicitly if you use those tools. A real
-# collision only happens when two targets set a conflicting
-# `outputs.<target>.rules-file: AGENTS.md`.
+# `goose`, and `augment`, left out of the default set so enabling them is
+# a deliberate choice. They still share the root `AGENTS.md` pointer body
+# (written once via auto-dedup, since the body is byte-identical) when
+# enabled alongside a target that also writes it. Enable them explicitly
+# if you use those tools. A real collision only happens when two targets
+# set a conflicting `outputs.<target>.rules-file: AGENTS.md`.
 targets:
   - claude
   - codex
@@ -188,10 +188,13 @@ outputs:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
   kilo:
     agents-dir: .kilo/agents            # default. One .md per agent.
-    mcp-file: kilo.jsonc                # default. mcpServers map merged; user keys preserved.
+    mcp-file: kilo.jsonc                # default. mcp map merged; user keys preserved.
   goose:
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
+    rules-dir: .augment/rules           # default. One .md per rule (type: agent_requested when alwaysApply: false).
+    agents-dir: .augment/agents         # default. One .md per agent.
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf.
     # rules-file: .augment-guidelines   # opt-in: also write a concatenated .augment-guidelines doc.
 
 # What to do when a spec kind is unsupported by a target
@@ -313,13 +316,16 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent. |
-| `kilo` | `mcp-file` | `kilo.jsonc` | `mcpServers` map merged; user keys preserved. Stdio `command`/`args`/`env`, remote `url`/`headers`. |
+| `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged; user keys preserved. Stdio combines `command`+`args` into one array and tags `"type": "local"`, with `environment` for env vars; remote uses `"type": "remote"` plus `url`/`headers`. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
-| `augment` | `rules-file` | _empty_ | When set (e.g. `.augment-guidelines`), writes a concatenated guidelines document Augment reads. Opt-in. |
+| `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
+| `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |
+| `augment` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf, identical bytes dedupe. Augment also reads `.claude/skills/` and `.augment/skills/` directly. |
+| `augment` | `rules-file` | _empty_ | When set (e.g. `.augment-guidelines`), writes a concatenated guidelines document Augment reads. Opt-in; the vendor's own precedence order truncates it first under budget pressure. |
 
 ## `targets`
 
-When omitted: the 20 default adapters above (every adapter except `amp`, `warp`, `jules`, `goose`, and `augment`, which only contribute to the shared root `AGENTS.md` pointer body and so add no unique default output). Enabling any of them alongside `codex` is safe: the identical body is written once via auto-dedup. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
+When omitted: the 20 default adapters above (every adapter except `amp`, `warp`, `jules`, `goose`, and `augment`, left out of the default set so enabling them is a deliberate choice). Enabling any of them alongside `codex` is safe: the identical shared-path body is written once via auto-dedup. Comment out entries to disable targets. CLI flag `-t/--target` overrides for a single run.
 
 ### Interactive target selection
 
