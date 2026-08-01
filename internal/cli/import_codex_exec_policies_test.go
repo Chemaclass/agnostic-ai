@@ -201,9 +201,12 @@ prefix_rule(
 	}
 }
 
-// parseCodexExecPolicies handles single-line prefix_rule too.
+// parseCodexExecPolicies handles single-line prefix_rule too. Uses
+// "prompt" (the real Codex CLI literal) rather than the retired "ask"
+// spelling; parsing itself is enum-agnostic, but the example should not
+// read as confirmation that "ask" is still valid.
 func TestParseCodexExecPolicies_SingleLineCall(t *testing.T) {
-	body := `prefix_rule(pattern = ["sudo"], decision = "ask")` + "\n"
+	body := `prefix_rule(pattern = ["sudo"], decision = "prompt")` + "\n"
 	got, err := parseCodexExecPolicies(body)
 	if err != nil {
 		t.Fatal(err)
@@ -214,7 +217,7 @@ func TestParseCodexExecPolicies_SingleLineCall(t *testing.T) {
 	if !equalStrings(got[0].Pattern, []string{"sudo"}) {
 		t.Errorf("pattern = %v", got[0].Pattern)
 	}
-	if got[0].Decision != "ask" {
+	if got[0].Decision != "prompt" {
 		t.Errorf("decision = %q", got[0].Decision)
 	}
 }

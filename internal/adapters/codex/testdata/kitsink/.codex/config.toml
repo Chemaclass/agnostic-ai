@@ -2,7 +2,7 @@
 
 [mcp_servers.disabled-server]
 command = "x"
-disabled = true
+enabled = false
 
 [mcp_servers.http-server]
 url = "https://example.test/mcp"

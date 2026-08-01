@@ -132,3 +132,92 @@ func TestFlushCoverageNotes_ClearsBuffer(t *testing.T) {
 		t.Errorf("second flush should be a no-op, got extra output: %s", buf)
 	}
 }
+
+// NoteFieldNoOp covers a different failure shape than NoteCoverageGap: the
+// entry itself reaches the target in full, only one attribute inside it
+// is inert once it lands. The rendered sentence must never borrow
+// NoteCoverageGap's "reaches ... only in the source dir" phrasing, which
+// would falsely imply the whole entry never reached the target.
+
+func TestNoteFieldNoOp_FlushRendersOneLinePerGroup(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "no file-based way to pre-disable a project-scoped MCP server")
+	if buf.Len() != 0 {
+		t.Fatalf("field notes must buffer until flush, got early output: %s", buf)
+	}
+	FlushCoverageNotes()
+	got := buf.String()
+	want := "  note: `disabled` on 1 mcp has no effect on claude (no file-based way to pre-disable a project-scoped MCP server)\n"
+	if got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+func TestNoteFieldNoOp_NeverClaimsEntryMissedTheTarget(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "no file-based way to pre-disable a project-scoped MCP server")
+	FlushCoverageNotes()
+	got := buf.String()
+	for _, forbidden := range []string{"reaches claude only", "in the source dir"} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("field no-op must not read as a missing entry, found %q in: %s", forbidden, got)
+		}
+	}
+}
+
+func TestNoteFieldNoOp_ZeroCountBuffersNothing(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 0, "reason")
+	if got := PendingCoverageNotesCount(); got != 0 {
+		t.Fatalf("zero-count field note must not buffer, count=%d", got)
+	}
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for zero-count field note, got: %s", buf)
+	}
+}
+
+func TestNoteFieldNoOp_GroupsSameFieldAcrossTargets(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "no file-based way to pre-disable a project-scoped MCP server")
+	NoteFieldNoOp("cursor", spec.KindMCP, "disabled", 1, "no file-based way to pre-disable a project-scoped MCP server")
+	FlushCoverageNotes()
+	want := "  note: `disabled` on 1 mcp has no effect on claude, cursor (no file-based way to pre-disable a project-scoped MCP server)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected grouped targets on one line, got %q", got)
+	}
+}
+
+// A whole-entry gap and a field no-op for the same target/kind must not
+// merge into one line; they describe different failure shapes.
+func TestNoteFieldNoOp_DoesNotMergeWithCoverageGap(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteCoverageGap("claude", spec.KindMCP, 1, "no native surface")
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "no file-based way to pre-disable a project-scoped MCP server")
+	FlushCoverageNotes()
+	got := buf.String()
+	if strings.Count(got, "\n") != 2 {
+		t.Errorf("expected two distinct note lines, got:\n%s", got)
+	}
+}
+
+func TestNoteFieldNoOp_ResetClearsBuffer(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "reason")
+	ResetCoverageNotes()
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected reset to drop buffered field notes, got: %s", buf)
+	}
+}
+
+func TestCoverageNotesDigest_ChangesWhenFieldNoOpAdded(t *testing.T) {
+	swapWarnerForNotes(t)
+	NoteCoverageGap("gemini", spec.KindSkill, 1, "outputs.gemini.emit-skills-as-commands")
+	withoutField := CoverageNotesDigest()
+	NoteFieldNoOp("claude", spec.KindMCP, "disabled", 1, "reason")
+	withField := CoverageNotesDigest()
+	if withoutField == withField {
+		t.Errorf("digest must change when a field no-op is added, got identical %q", withoutField)
+	}
+}

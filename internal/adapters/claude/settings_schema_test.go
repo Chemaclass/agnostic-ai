@@ -28,7 +28,7 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 					APIKeyHelper:        "./bin/keyhelper.sh",
 					CleanupPeriodDays:   intPtr(30),
 					IncludeCoAuthoredBy: boolPtr(false),
-					EnabledPlugins:      []string{"plugin-a", "plugin-b"},
+					EnabledPlugins:      map[string]bool{"plugin-a@marketplace": true, "plugin-b@marketplace": true},
 					Env:                 map[string]string{"FOO": "bar", "BAZ": "qux"},
 					StatusLine: &config.ClaudeStatusLine{
 						Type:    "command",
@@ -70,8 +70,8 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	if got := parsed["includeCoAuthoredBy"]; got != false {
 		t.Errorf("includeCoAuthoredBy: got %v", got)
 	}
-	plugins, ok := parsed["enabledPlugins"].([]any)
-	if !ok || len(plugins) != 2 || plugins[0] != "plugin-a" {
+	plugins, ok := parsed["enabledPlugins"].(map[string]any)
+	if !ok || len(plugins) != 2 || plugins["plugin-a@marketplace"] != true || plugins["plugin-b@marketplace"] != true {
 		t.Errorf("enabledPlugins wrong: %v", parsed["enabledPlugins"])
 	}
 	env, ok := parsed["env"].(map[string]any)

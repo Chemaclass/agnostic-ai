@@ -10,6 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `target-audit` skill plus a `target-auditor` agent: a repeatable, parallel audit of every registered adapter against its vendor's current docs, reporting evidence-backed drift (moved paths, new native surfaces, schema changes, deprecations) and optionally filing one issue per finding. Backed by `scripts/target-facts.sh`, which derives batches from the adapter registry and dumps a target's declared capabilities, default output paths, adapter package doc, and `docs/user/targets.md` rows in one call, and by a per-target list of vendor doc and changelog URLs that `tests/integration/target_audit_sources_test.go` keeps in sync with the registry.
 - `target-audit --fix` closes what it finds: after filing issues it spawns one `adapter-fixer` agent per fix bucket, each in its own git worktree, each opening a PR with the finding's evidence and `Closes #N`. Buckets by severity, not by tool: one PR per breaking finding, one batched PR for additive native surfaces, one docs PR for the rest. It never merges, so audit, fix, and merge stay three separate actors.
+- MCP servers accept `type: ws`. A WebSocket entry previously matched no transport branch and was written with no `command`, no `url`, and no `type`: a malformed server object emitted with no warning on both `.mcp.json` (Claude Code) and `.cursor/mcp.json`. It now shares the remote shape (`url`, `headers`, explicit `type`), which is what Claude Code and Qoder both document.
 - Seven new targets (#479): `qoder` (Alibaba Qoder: native `.qoder/rules/<name>.md`, one file per rule), `openhands` (All Hands OpenHands: the shared `.agents/skills/<name>/SKILL.md` tree), `factory` (Factory Droid: `.factory/droids/<name>.md` with `x-factory` passthrough), `kilo` (Kilo Code: `.kilo/agents/<name>.md` + `kilo.jsonc` `mcp`), `jules` (Google Jules, cloud: shared `AGENTS.md` only), `goose` (Block Goose: opt-in `.goosehints`), and `augment` (Augment Code: opt-in `.augment-guidelines`). All seven read the shared root `AGENTS.md` pointer. `qoder`, `openhands`, `factory`, and `kilo` join the default set (now 20 of 25); `jules`, `goose`, and `augment` stay opt-in; `kilo` brings MCP to 14 of 25 targets; `import qoder` captures its rules dir.
 
 ### Fixed
@@ -20,6 +21,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `docs/user/targets.md` drops Warp from the MCP `type`-field list (Warp's schema has no such key), adds the `SessionEnd` Codex hook event the emitter already sends, marks Gemini's hook list as a non-exhaustive example instead of all 11 events, and confirms the Amp `.agents/commands/` path is no longer read now that command removal has held since 2026-01-29.
 - Refreshed ten stale vendor doc URLs in the target-audit skill's `references/sources.md`: Codex's six doc pages moved to `learn.chatgpt.com` (one, `/rules`, pointed at the wrong topic), Kilo moved to `kilo.ai`, and Claude, Gemini, Antigravity, Junie, Cline, Continue, and Cursor each get a corrected or added entry. Trae joins the client-rendered-docs warning list.
+
+### Fixed
+
+- Codex exec-policy `decision` now accepts `allow`, `forbidden`, `prompt`; `ask` was never a valid Codex CLI literal and rendered a rule Codex silently ignored, and the vendor-correct `prompt` used to fail validation.
+- `outputs.claude.settings.enabledPlugins` is now a map of `plugin-id@marketplace-id` to boolean, matching Claude Code's own settings schema; the previous list-of-strings shape could not express the required marketplace qualifier and never actually enabled a plugin.
+- MCP `disabled: true` now maps to Codex's real `enabled = false` key instead of a `disabled` key Codex never reads. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server at all, so agnostic-ai stops writing the field for them and reports a coverage note instead of silently doing nothing.
 
 ## v0.44.0 - 2026-07-24
 

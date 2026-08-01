@@ -550,6 +550,44 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 	}
 }
 
+// Regression for the target-audit fix: the codex emitter now writes
+// Codex's own `enabled = false` key instead of the never-recognized
+// `disabled = true`. The importer must translate that key back to the
+// spec's `disabled: true` so sync -> import -> sync stays byte-stable;
+// otherwise a project that never touches agnostic-ai.yaml directly would
+// silently lose the disabled flag on its first re-import after the fix.
+func TestImportFromCodex_MCPEnabledFalseRoundTripsToDisabled(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.disabled-server]
+command = "x"
+enabled = false
+
+[mcp_servers.active]
+command = "y"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	disabled, err := os.ReadFile(filepath.Join(dir, "mcps", "disabled-server.yaml"))
+	if err != nil {
+		t.Fatalf("read disabled-server.yaml: %v", err)
+	}
+	for _, want := range []string{"name: disabled-server", "disabled: true"} {
+		if !strings.Contains(string(disabled), want) {
+			t.Errorf("disabled-server.yaml missing %q:\n%s", want, disabled)
+		}
+	}
+
+	active, err := os.ReadFile(filepath.Join(dir, "mcps", "active.yaml"))
+	if err != nil {
+		t.Fatalf("read active.yaml: %v", err)
+	}
+	if strings.Contains(string(active), "disabled") {
+		t.Errorf("a server with no enabled/disabled key must not gain a disabled field:\n%s", active)
+	}
+}
+
 // Some Codex installs keep hooks in a standalone .codex/hooks.json
 // alongside config.toml. The schema matches Claude's settings.json hook
 // block: hooks[<event>][n].{matcher, hooks[m].{type, command, timeout,

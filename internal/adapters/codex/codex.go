@@ -26,6 +26,11 @@
 // emit to `.codex/hooks.json`, which preserves matcher metadata the
 // inline `[[hooks.<event>]]` TOML form cannot. Override the hooks path
 // via `outputs.codex.hooks-file`.
+//
+// An MCP spec's `disabled: true` maps to Codex's own `enabled = false`
+// key (`learn.chatgpt.com/docs/config-file/config-reference` documents
+// `mcp_servers.<id>.enabled: boolean`, not `disabled`), the one target
+// where this field genuinely works.
 package codex
 
 import (

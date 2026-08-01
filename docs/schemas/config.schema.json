@@ -45,10 +45,10 @@
           "type": "boolean"
         },
         "enabledPlugins": {
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "type": "boolean"
           },
-          "type": "array"
+          "type": "object"
         },
         "env": {
           "additionalProperties": {

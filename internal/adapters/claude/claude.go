@@ -9,6 +9,13 @@
 //   - commands -> <dir>/commands/<name>.md (slash commands)
 //   - settings -> <dir>/settings.json (permissions, model)
 //
+// An MCP spec's `disabled: true` has no file-based equivalent here:
+// code.claude.com/docs/en/mcp documents only the `/mcp` panel toggle and
+// the `disabledMcpServers` / `enabledMcpServers` settings keys, neither
+// of which is a per-server key inside `.mcp.json`. The emitter drops the
+// field rather than write one Claude Code ignores, and buffers a
+// coverage note so the drop is loud, not silent.
+//
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
 // CLAUDE.md is never clobbered. Claude Code auto-loads every `.md` file
 // under that directory (recursively) at session start, and scopes a rule
@@ -137,8 +144,15 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
+
+// mcpDisabledNoOpReason explains, in the flushed coverage note, why
+// `disabled: true` on an MCP spec never reaches `.mcp.json`: Claude Code
+// has no per-server disable key there. See the package doc comment for
+// the vendor source.
+const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; use the /mcp panel or disabledMcpServers in settings instead"
 
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.<target>/hooks/`. The lookup keys off

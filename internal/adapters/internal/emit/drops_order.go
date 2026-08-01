@@ -30,6 +30,9 @@ func OrderBufferedDropsByTarget(order []string) {
 	sort.SliceStable(coverageNoteState.pending, func(i, j int) bool {
 		return rank(coverageNoteState.pending[i].target) < rank(coverageNoteState.pending[j].target)
 	})
+	sort.SliceStable(coverageNoteState.pendingField, func(i, j int) bool {
+		return rank(coverageNoteState.pendingField[i].target) < rank(coverageNoteState.pendingField[j].target)
+	})
 	coverageNoteState.mu.Unlock()
 }
 

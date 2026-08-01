@@ -354,13 +354,13 @@ env:
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier. Becomes the key in the generated config. |
 | `description` | no | empty | Free-form documentation. |
-| `type` | no | `stdio` | Transport: `stdio`, `http`, or `sse`. |
+| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports (`http`, `sse`, `ws`) emit an explicit `type`; `stdio` stays type-less since it is the inferred default. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
-| `disabled` | no | `false` | When `true`, passes `disabled: true` to targets that support it (Claude Code, Cursor, Copilot). |
+| `disabled` | no | `false` | Codex maps this to `enabled = false` in `.codex/config.toml`. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server, so the field has no effect there and agnostic-ai does not emit it; disable the server from the target's own UI instead. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
 Targets with native MCP propagation:

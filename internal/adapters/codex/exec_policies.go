@@ -142,9 +142,9 @@ func validateExecPolicy(p config.CodexExecPolicy, index int) error {
 		return fmt.Errorf("exec-policies[%d]: pattern must not be empty", index)
 	}
 	switch p.Decision {
-	case "allow", "forbidden", "ask":
+	case "allow", "forbidden", "prompt":
 	default:
-		return fmt.Errorf("exec-policies[%d]: decision must be allow|forbidden|ask, got %q", index, p.Decision)
+		return fmt.Errorf("exec-policies[%d]: decision must be allow|forbidden|prompt, got %q", index, p.Decision)
 	}
 	return nil
 }
