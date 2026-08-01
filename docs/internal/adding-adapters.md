@@ -147,6 +147,26 @@ Non-trivial shapes emit custom: Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServer
 
 Emit alongside MCPs in the target's project-tier file (Codex: `.codex/config.toml`; Gemini: `.gemini/settings.json`). Group by `Meta["event"]`; skip entries without one. Pass-through event names verbatim.
 
+## 10. Keeping the adapter true
+
+An adapter encodes a snapshot of a vendor's config format. Vendors move
+paths and rename keys without notice, and a moved directory still syncs
+cleanly. It stops reaching the tool silently. Two things keep that
+honest:
+
+- Add the target's doc and changelog URLs to
+  `.agnostic-ai/skills/target-audit/references/sources.md`, with a
+  `watch:` line naming the parts most likely to churn. This is not
+  optional: `tests/integration/target_audit_sources_test.go` fails until
+  the new target has a section, so an adapter cannot merge un-audited.
+- `scripts/target-facts.sh <target>` prints what the repo currently
+  claims (capabilities, default paths, package doc, the
+  `docs/user/targets.md` rows). Diff that against the vendor doc.
+
+The `target-audit` skill runs that comparison across every registered
+target in parallel and files an issue per confirmed drift. Run it after
+adding an adapter to confirm the new rows read correctly.
+
 ## Conventions
 
 - Adapter packages never import other adapters. Share via `internal/adapters/internal/emit`.

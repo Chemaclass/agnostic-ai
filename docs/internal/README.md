@@ -9,6 +9,7 @@
 7. [Decision log](decisions.md): historical design choices.
 8. [Roadmap](roadmap.md): planned directions.
 9. [Benchmarks](benchmarks.md): permanent sync-hot-path bench suite and how to extend it.
+10. [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md): recurring check that every adapter still matches its vendor's current docs.
 
 ## House rules
 
