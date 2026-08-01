@@ -13,13 +13,12 @@ import (
 
 // TestEmit_CapabilityMatrixCoversEveryDeclaredKind enforces the
 // invariant that the kilo adapter actually emits something for every
-// spec kind it declares in caps.Supports, with one deliberate
-// exception: KindRule has no per-adapter output at all. Rules reach
-// Kilo Code exclusively through the shared AGENTS.md entry-point that
-// `sync` writes centrally (see kilo.go), a write this per-package test
-// never observes because it calls Adapter.Emit directly. Declaring
-// KindRule keeps the "unsupported" warning honest (rules do reach
-// Kilo Code) without this adapter ever touching a rules file itself.
+// spec kind it declares in caps.Supports. Rules now land at
+// `.kilo/rules/<name>.md`, referenced from `kilo.jsonc`'s `instructions`
+// array (target-audit 2026-08-01, #535): that array outranks the
+// shared AGENTS.md entry-point in Kilo Code's own precedence order
+// (agent prompt > instructions > AGENTS.md > global), so this adapter
+// no longer leaves KindRule as sync's job alone.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -32,14 +31,12 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindRule, []string{".kilo/rules/r1.md", ".kilo/rules/r2.md", ".kilo/rules/r3.md"}},
 		{spec.KindAgent, []string{".kilo/agents/alpha.md", ".kilo/agents/beta.md", ".kilo/agents/gamma.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"kilo.jsonc"}},
 	}
 	for _, k := range caps.Supports {
-		if k == spec.KindRule {
-			continue // delivered by sync's shared entry-point, not this adapter
-		}
 		found := false
 		for _, c := range cases {
 			if c.kind != k {

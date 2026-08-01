@@ -75,12 +75,25 @@ func StripGeneratedAppendices(body string) string {
 // no native rules directory: their only always-on context surface is the
 // single entry-point file, so sync inlines rule bodies there. Targets
 // that emit a real per-rule destination (claude .claude/rules/, cursor
-// .cursor/rules/, cline .clinerules/, qoder .qoder/rules/,
+// .cursor/rules/, cline .cline/rules/, qoder .qoder/rules/,
 // continue/windsurf/antigravity rules dirs) are absent: they deliver
 // rules without polluting the pointer. Zed inlines since 1.4.2 retired
-// the merged .rules surface in favor of AGENTS.md; Crush and the batch-2
-// AGENTS.md tools (jules, goose, augment, openhands, factory, kilo) have
-// no rules directory either.
+// the merged .rules surface in favor of AGENTS.md; Crush and the
+// batch-2 AGENTS.md tools jules, goose, openhands, and factory have no
+// rules directory either.
+//
+// augment and kilo are the two deliberate exceptions: both gained a
+// native per-rule directory (`.augment/rules/`, `.kilo/rules/`) but
+// stay on this list anyway, for two different reasons. Augment's
+// vendor docs do not cleanly establish precedence between the native
+// directory and AGENTS.md, so this adapter does not assume the native
+// copy makes the inline one redundant. Kilo Code's precedence order is
+// explicit (agent prompt > `instructions` > AGENTS.md > global) and
+// its `.kilo/rules/` paths already reach the higher-ranked
+// `instructions` array (see internal/adapters/kilo); AGENTS.md still
+// stays loaded whenever present regardless of that ranking, so the
+// inline copy there is a documented fallback layer, not a hole to
+// close.
 var inlineRulesTargets = map[string]bool{
 	"codex":     true,
 	"amp":       true,

@@ -22,7 +22,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"cline": {WorkflowsDir: ".clinerules/workflows"},
+			"cline": {WorkflowsDir: ".cline/workflows"},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {

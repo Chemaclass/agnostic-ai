@@ -190,7 +190,7 @@ var targetMarkers = map[string][]string{
 	"cursor":      {".cursor"},
 	"copilot":     {".github/copilot-instructions.md", ".github/instructions"},
 	"aider":       {".aider.conf.yml", ".aider.conf.yaml"},
-	"cline":       {".clinerules"},
+	"cline":       {".cline", ".clinerules"},
 	"windsurf":    {".devin", ".windsurf"},
 	"continue":    {".continue"},
 	"amp":         {".amp"},

@@ -71,7 +71,8 @@ outputs:
     file: CONVENTIONS.md      # default. Pair with `aider --read CONVENTIONS.md`.
 
   cline:
-    rules-dir: .clinerules    # default. Root AGENTS.md pointer written by sync (shared path).
+    rules-dir: .cline/rules   # default. One .md per rule; set to .clinerules for the pre-migration layout.
+    agents-dir: .cline/agents # default. One .md per agent, independent of rules-dir.
     skills-dir: .cline/skills # default. One folder per skill (Cline's recommended skills path).
 
   windsurf:

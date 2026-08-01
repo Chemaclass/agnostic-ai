@@ -49,7 +49,7 @@ agnostic-ai import claude         # CLAUDE.md, .claude/{agents,skills,commands,s
 agnostic-ai import codex          # AGENTS.md (root + nested), .codex/{prompts,config.toml}
 agnostic-ai import claude codex   # multiple sources; AGNOSTIC_AI.md reflects the last (last-wins)
 agnostic-ai import cursor         # .cursor/rules/, .cursor/agents/, .cursor/skills/, .cursor/commands/
-agnostic-ai import cline          # .clinerules/
+agnostic-ai import cline          # .cline/rules/, .cline/agents/ (or legacy .clinerules/)
 agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
 agnostic-ai import continue       # .continue/rules/
 ```
@@ -115,7 +115,7 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The wa
 
 Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
 
-`import cline`, `import windsurf`, `import junie`, `import trae`, `import qoder`, and `import continue` read the matching rules directory (`.clinerules/`, `.devin/rules/` with `.windsurf/rules/` fallback, `.junie/rules/`, `.trae/rules/`, `.qoder/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
+`import cline`, `import windsurf`, `import junie`, `import trae`, `import qoder`, and `import continue` read the matching rules directory (`.cline/rules/` with `.clinerules/` fallback, `.devin/rules/` with `.windsurf/rules/` fallback, `.junie/rules/`, `.trae/rules/`, `.qoder/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
 | Source filename | Becomes |
 |-----------------|---------|
@@ -125,6 +125,8 @@ Reads `.cursor/rules/**` recursively, so nested rule directories are imported to
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
 The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected.
+
+`import cline` additionally reconstructs agents from `.cline/agents/<name>.md`, Cline's native per-agent directory (target-audit 2026-08-01, #534): each file copies byte-for-byte minus the provenance header (no `agent-` prefix to strip, and no synthesized heading, since sync no longer writes one there). The `agent-<name>.md` prefix in the table above only fires when a project still carries the pre-migration `.clinerules/` layout, where rules and agents shared one directory.
 
 `import junie` additionally reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
 

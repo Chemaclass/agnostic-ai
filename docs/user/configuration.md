@@ -136,9 +136,10 @@ outputs:
     # model: gpt-4o
     # weak-model: gpt-4o-mini
   cline:
-    rules-dir: .clinerules       # default. One .md per rule and per agent.
+    rules-dir: .cline/rules      # default. One .md per rule. Set to .clinerules for the pre-migration layout.
+    agents-dir: .cline/agents    # default. One .md per agent, independent of rules-dir.
     skills-dir: .cline/skills    # default. One folder per skill (<name>/SKILL.md), Cline's recommended path.
-    # workflows-dir: .clinerules/workflows  # opt-in: also emit each agent as a Cline Workflow (/<name>.md).
+    # workflows-dir: .cline/workflows  # opt-in: also emit each agent as a Cline Workflow (/<name>.md).
   windsurf:
     rules-dir: .devin/rules      # default. One .md per rule and per agent (Devin Desktop, the renamed Windsurf).
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
@@ -197,9 +198,10 @@ outputs:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
+    rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
     agents-dir: .kilo/agents            # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
-    mcp-file: kilo.jsonc                # default. mcp map merged (not mcpServers); user keys preserved.
+    mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
@@ -286,9 +288,10 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
-| `cline` | `rules-dir` | `.clinerules` | One `.md` per rule and per agent. |
+| `cline` | `rules-dir` | `.cline/rules` | One `.md` per rule. Set to `.clinerules` to keep the pre-migration layout; a stale managed tree there is swept otherwise. |
+| `cline` | `agents-dir` | `.cline/agents` | One `.md` per agent, verbatim body, no synthesized heading. Independent of `rules-dir`. |
 | `cline` | `skills-dir` | `.cline/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Cline's recommended skills path. |
-| `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The rule-form emission still happens. Opt-in. |
+| `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The native agent-file emission still happens. Opt-in. |
 | `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. |
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
@@ -335,9 +338,10 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL-string arrays). No `type` field; transport is implied by the array. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
+| `kilo` | `rules-dir` | `.kilo/rules` | One `.md` per rule; each resolved path also lands as its own entry in `kilo.jsonc`'s `instructions` array (not a directory glob, so a scoped rule is never missed). |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent. |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
-| `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
+| `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |

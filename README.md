@@ -68,7 +68,7 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-Same shape lands at `.claude/rules/`, `.devin/rules/`, `.clinerules/`, `.continue/rules/`, `.github/instructions/`, `.agents/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`, `.qoder/rules/`.
+Same shape lands at `.claude/rules/`, `.devin/rules/`, `.cline/rules/`, `.continue/rules/`, `.github/instructions/`, `.agents/rules/`, `.junie/rules/`, `.kiro/steering/`, `.trae/rules/`, `.qoder/rules/`, `.kilo/rules/`.
 
 ## Supported targets
 
@@ -99,7 +99,7 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 | Qoder (Alibaba)         |   ✅    |   -    |   ✅   |   -   |  ✅   |
 | OpenHands (All Hands)   |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Factory (Droid)         |   ✅    |   -    |   ◐   |   -   |  ✅   |
-| Kilo Code               |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
+| Kilo Code               |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
 | Goose (Block)           |   -    |   -    |   ◐   |   -   |  -   |
 | Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  -   |
@@ -107,7 +107,7 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 Legend, in descending order of native support:
 
 - **✅ native** — written in the tool's own format at the path it auto-loads: one file per spec for agents/skills/rules, the tool's native settings/MCP file for hooks and MCPs.
-- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush, Jules, Goose, OpenHands, Factory, Kilo) inline rule bodies into their entry-point file.
+- **◐ bundled** — folded into the target's single entry-point or merged doc (no per-spec file). Targets with no native rules directory (Codex, Gemini, Aider, Amp, Warp, Zed, OpenCode, Crush, Jules, Goose, OpenHands, Factory) inline rule bodies into their entry-point file.
 - **○ opt-in / source-dir** — not emitted as a dedicated file by default; the spec stays in the source dir, referenced from the entry-point. Set the matching `outputs.<target>.*` key (e.g. `rules-file`, `workflows-dir`, `emit-skills-as-commands`) to materialize a file.
 - **- not supported** — the kind is skipped with a warning. Suppress with `on-unsupported: silent`.
 

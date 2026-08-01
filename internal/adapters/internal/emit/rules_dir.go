@@ -45,7 +45,7 @@ type RulesDirOpts struct {
 //
 // Entries with a non-empty Scope nest under the rules directory:
 // `<Dir>/<scope>/<name><Ext>` (e.g. `.cursor/rules/backend/auth.mdc`).
-// Tools that load rules recursively from `.cursor/rules/`, `.clinerules/`,
+// Tools that load rules recursively from `.cursor/rules/`, `.cline/rules/`,
 // etc. pick up the scoped output automatically, and the output stays inside
 // the tool directory instead of leaking a `<scope>/` tree at the repo root.
 func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
