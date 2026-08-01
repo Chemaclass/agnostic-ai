@@ -31,7 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".clinerules/r1.md", ".clinerules/r2.md", ".clinerules/r3.md"}},
 		{spec.KindAgent, []string{".clinerules/agent-alpha.md", ".clinerules/agent-beta.md", ".clinerules/agent-gamma.md"}},
-		{spec.KindSkill, []string{".clinerules/skill-uno.md", ".clinerules/skill-dos.md", ".clinerules/skill-tres.md"}},
+		{spec.KindSkill, []string{".cline/skills/uno/SKILL.md", ".cline/skills/dos/SKILL.md", ".cline/skills/tres/SKILL.md"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

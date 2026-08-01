@@ -12,7 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEmit_WritesRulesAndAgents(t *testing.T) {
+func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -28,9 +28,105 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".devin/rules/r1.md", ".devin/rules/agent-ag1.md", ".devin/rules/skill-sk1.md"} {
+	for _, p := range []string{".devin/rules/r1.md", ".devin/rules/agent-ag1.md", ".agents/skills/sk1/SKILL.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
+		}
+	}
+	// The pre-fix flat form must not be written; Devin Desktop only
+	// discovers skills under .agents/skills/<name>/SKILL.md.
+	if _, err := os.Stat(filepath.Join(dir, ".devin/rules/skill-sk1.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no flat .devin/rules/skill-sk1.md, err=%v", err)
+	}
+}
+
+// TestEmit_SkillsDirOverride_WritesToCustomDir confirms
+// outputs.windsurf.skills-dir redirects the folder-per-skill output,
+// consistent with every other emit.OutputSkillsDir consumer.
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"windsurf": {SkillsDir: "custom/skills"},
+		},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/sk1/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/sk1/SKILL.md: %v", err)
+	}
+}
+
+// TestSkillMarkdown_MatchesSharedTreeTargets asserts that the shared
+// SKILL.md renderer (emit.SkillMarkdown), which every adapter writing
+// into the `.agents/skills/` tree calls, produces byte-identical output
+// for windsurf, codex, amp, zed, crush, and openhands given the same
+// entry. The `target` argument only changes output when the entry
+// carries a `x-<target>` override; a plain entry (no such keys) must
+// render the same regardless of which of those targets asks, or the
+// shared-tree dedupe in `sync.shared-skills` would silently stop
+// working the moment two targets' bytes drift.
+//
+// This test deliberately calls emit.SkillMarkdown directly rather than
+// importing another adapter package: no-cross-adapter-imports forbids
+// one adapter package importing another, even in tests.
+func TestSkillMarkdown_MatchesSharedTreeTargets(t *testing.T) {
+	entry := spec.Entry{
+		Kind: spec.KindSkill,
+		Name: "uno",
+		Meta: map[string]any{"description": "Uno skill description."},
+		Body: "uno skill body",
+	}
+
+	want := emit.SkillMarkdown(entry, "windsurf")
+	for _, other := range []string{"codex", "amp", "zed", "crush", "openhands"} {
+		if got := emit.SkillMarkdown(entry, other); got != want {
+			t.Errorf("SkillMarkdown(entry, %q) diverged from windsurf:\n--- windsurf ---\n%s\n--- %s ---\n%s",
+				other, want, other, got)
+		}
+	}
+}
+
+// TestKitSink_SkillOutputMatchesAmpGolden confirms the windsurf SKILL.md
+// render is byte-identical to the checked-in amp golden fixture for the
+// same kit-sink skill entries, so the on-disk shared-tree dedupe
+// (sync.shared-skills) actually finds the two trees identical rather
+// than relying solely on the in-memory renderer check above. Reads
+// amp's testdata directly off disk (a fixture read, not a Go import)
+// so this stays within no-cross-adapter-imports.
+func TestKitSink_SkillOutputMatchesAmpGolden(t *testing.T) {
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	ampSkillsDir := filepath.Join(origCwd, "..", "amp", "testdata", "kitsink", ".agents", "skills")
+	if _, err := os.Stat(ampSkillsDir); err != nil {
+		t.Skipf("amp golden fixtures not found at %s: %v", ampSkillsDir, err)
+	}
+
+	dir := testutil.TempCwd(t)
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+
+	for _, name := range []string{"uno", "dos", "tres"} {
+		gotPath := filepath.Join(dir, ".agents", "skills", name, "SKILL.md")
+		got, err := os.ReadFile(gotPath)
+		if err != nil {
+			t.Fatalf("read windsurf output %s: %v", gotPath, err)
+		}
+		wantPath := filepath.Join(ampSkillsDir, name, "SKILL.md")
+		want, err := os.ReadFile(wantPath)
+		if err != nil {
+			t.Fatalf("read amp golden %s: %v", wantPath, err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("windsurf SKILL.md for %q diverged from amp golden:\n--- amp (%s) ---\n%s\n--- windsurf ---\n%s",
+				name, wantPath, want, got)
 		}
 	}
 }
