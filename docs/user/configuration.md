@@ -490,6 +490,7 @@ The instrumented gaps:
 | `warp` | skills | no key; Warp has no native skill surface (stays source-dir only) |
 | `aider` | agents, skills | `outputs.aider.rules-file` |
 | `zed` | hooks | `outputs.zed.tasks-file` |
+| `kilo` | agents (only those with `tools` set) | no key; Kilo Code has no `tools` frontmatter key (use `x-kilo: {permission: {...}}` for native per-tool access control) |
 
 ## `gitignore`
 
