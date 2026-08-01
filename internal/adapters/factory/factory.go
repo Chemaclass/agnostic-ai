@@ -14,6 +14,17 @@
 // `description`, optional `model`, and optional `tools`; arbitrary
 // `x-factory` keys pass through verbatim so the rest of the documented
 // schema is reachable without waiting on this adapter's allowlist.
+//
+// MCP servers merge into `.factory/mcp.json` (override via
+// outputs.factory.mcp-file) under a root `mcpServers` map, the same
+// shape emit.MCPSchemaServersMap already produces for Claude Code and
+// Cursor: stdio carries `command`/`args`/`env` with no `type`; HTTP/
+// SSE/WS carry an explicit `type` plus `url`/`headers`. Unlike Claude
+// Code, Cursor, and Copilot, Factory's own schema documents a working
+// per-server `disabled` boolean (default false), so this adapter does
+// not strip it the way those three do. Factory's schema also documents
+// `disabledTools`, `timeout`, and `connectTimeout`, none of which the
+// cross-tool spec carries yet; they are not emitted.
 package factory
 
 import (
@@ -28,6 +39,7 @@ import (
 const (
 	target           = "factory"
 	defaultDroidsDir = ".factory/droids"
+	defaultMCPFile   = ".factory/mcp.json"
 )
 
 // droidFrontmatterKeys names the keys Droid CLI reads from a custom
@@ -39,7 +51,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -52,14 +64,21 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one droid Markdown file per agent spec under
-// `.factory/droids/`. The project-root AGENTS.md (rules' single
-// source of truth for Droid CLI) is written by `sync`, not here.
+// `.factory/droids/`, plus a merged `.factory/mcp.json` for MCP
+// servers. The project-root AGENTS.md (rules' single source of truth
+// for Droid CLI) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
-	return emitDroids(sess, b.Agents, dir, dryRun)
+	if err := emitDroids(sess, b.Agents, dir, dryRun); err != nil {
+		return err
+	}
+	// Factory's schema documents a working `disabled` key (unlike
+	// Claude Code, Cursor, and Copilot), so the shared builder's
+	// existing `disabled` output is correct here as-is; no strip.
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitDroids writes one `<dir>/<name>.md` per agent spec.

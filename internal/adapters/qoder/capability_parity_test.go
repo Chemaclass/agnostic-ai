@@ -30,6 +30,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindRule, []string{".qoder/rules/r1.md", ".qoder/rules/r2.md", ".qoder/rules/r3.md"}},
+		{spec.KindMCP, []string{".mcp.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -67,10 +68,10 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
 // every kind qoder does not declare in caps.Supports (Agent, Skill,
-// Hook, Command, MCP): Qoder has no documented agent, skill, hook,
-// command, or MCP surface, so those kinds fall through to the
-// unsupported-kind warning channel and must never be silently
-// flattened into the rules directory.
+// Hook, Command): Qoder has no documented agent, skill, hook, or
+// command surface, so those kinds fall through to the unsupported-kind
+// warning channel and must never be silently flattened into the rules
+// directory.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
@@ -81,13 +82,12 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1/SKILL.md", Body: "skill body"},
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
-		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 5 {
-		t.Errorf("expected 5 capability warnings (agent/skill/hook/command/mcp), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 4 {
+		t.Errorf("expected 4 capability warnings (agent/skill/hook/command), got %d", got)
 	}
 }
 

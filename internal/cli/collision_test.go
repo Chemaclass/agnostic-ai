@@ -135,6 +135,38 @@ outputs:
 	}
 }
 
+// claude and qoder both default to the project-root .mcp.json with the
+// identical mcpServers schema (target-audit 2026-08-01: qoder MCP is a
+// dedup of the literal path claude.go already writes, not a new file).
+// Enabling both must write .mcp.json once, not raise an output
+// collision.
+func TestSync_ClaudeAndQoder_SharedMCPFile_Deduped(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "mcps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+		[]byte("name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude,qoder"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("claude+qoder should dedupe the shared .mcp.json, not collide: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("expected .mcp.json written once: %v", err)
+	}
+	if !strings.Contains(string(got), `"fs"`) || !strings.Contains(string(got), `"command": "npx"`) {
+		t.Errorf("expected the fs server in .mcp.json, got:\n%s", got)
+	}
+}
+
 func TestSync_CollisionPolicyFail_HardError(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

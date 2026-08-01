@@ -361,7 +361,7 @@ env:
 | `env` | no | empty | Environment variables passed to the server. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
-| `disabled` | no | `false` | Codex maps this to `enabled = false` in `.codex/config.toml`. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server, so the field has no effect there and agnostic-ai does not emit it; disable the server from the target's own UI instead. |
+| `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
 Targets with native MCP propagation:
@@ -379,8 +379,23 @@ Targets with native MCP propagation:
 | Warp | `.warp/.mcp.json` | standard `mcpServers` |
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
 | Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
+| Factory | `.factory/mcp.json` | standard `mcpServers` |
+| Qoder | `.mcp.json` | standard `mcpServers` (same file Claude Code writes; the two dedupe when both are enabled) |
+| OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field |
 
 Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
+
+### `disabled` support by target
+
+Confirmed per target, never generalized: a target not listed here has not been checked.
+
+| Target | Behavior |
+|--------|----------|
+| Codex | Maps to `enabled = false` in `.codex/config.toml`. |
+| Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
+| Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |
+| Claude Code, Cursor, Copilot | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
+| Qoder | Not vendor-confirmed either way. `.mcp.json` is the same file Claude Code reads, so agnostic-ai drops the field there too rather than risk the two targets disagreeing on one shared file. |
 
 ## Commands
 

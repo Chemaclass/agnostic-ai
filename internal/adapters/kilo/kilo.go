@@ -32,7 +32,10 @@
 // Stdio entries combine `command` + `args` into one `command` array
 // and set `"type": "local"`; HTTP / SSE / remote entries render as
 // `{"type": "remote", "url": ..., "headers": {...}}`. `environment`
-// (not `env`) carries a stdio server's environment variables.
+// (not `env`) carries a stdio server's environment variables. A spec's
+// `disabled: true` writes `"enabled": false`, the key Kilo Code's own
+// documented MCP example carries; `disabled` itself is never written,
+// and an enabled server (the common case) gets no explicit key at all.
 // kilo.jsonc also holds user-managed keys (models, providers, ...);
 // the merge only touches `mcp` so those survive a sync. This adapter
 // writes plain JSON: JSONC is a superset of JSON, so every JSONC
@@ -178,6 +181,13 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // stdio server's environment variables. An entry missing its
 // transport's required field (command for stdio, url for remote) is
 // dropped: there is nothing for Kilo Code to run or connect to.
+//
+// A spec's `disabled: true` maps to Kilo Code's own `enabled: false`
+// key (B9, target-audit 2026-08-01 follow-up): the documented MCP
+// example carries `"enabled": true` alongside type/command/environment/
+// timeout, so the vendor concept exists under that name. Kilo Code's
+// own default (enabled) needs no explicit key, matching the codex
+// adapter's identical convention for its `enabled` field.
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -208,6 +218,10 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		}
 	default:
 		return nil
+	}
+
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		out["enabled"] = false
 	}
 
 	return out

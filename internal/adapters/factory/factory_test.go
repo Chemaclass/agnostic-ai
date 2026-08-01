@@ -120,6 +120,109 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 	}
 }
 
+// Stdio MCP merges into .factory/mcp.json under the standard
+// mcpServers map (target-audit 2026-08-01, MISSING: factory MCP).
+func TestEmit_MCP_StdioWritesFactoryMCPJSON(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/mcp.json"))
+	for _, want := range []string{`"mcpServers"`, `"fs"`, `"command": "npx"`, `"ALLOWED_PATHS"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"type"`) {
+		t.Errorf("stdio is the inferred default; type must stay unset, got:\n%s", got)
+	}
+}
+
+func TestEmit_MCP_HTTPWritesTypeAndURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://api.githubcopilot.com/mcp/",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/mcp.json"))
+	for _, want := range []string{`"type": "http"`, `"url": "https://api.githubcopilot.com/mcp/"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// Factory's own schema documents a working `disabled` boolean (unlike
+// Claude Code, Cursor, and Copilot), so this adapter must not strip it
+// the way those three do.
+func TestEmit_MCP_DisabledPassesThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/mcp.json"))
+	if !strings.Contains(got, `"disabled": true`) {
+		t.Errorf("Factory documents a real disabled key; must pass it through, got:\n%s", got)
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"factory": {MCPFile: "vendor/factory-mcp.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/factory-mcp.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_NoMCPJSONWhenNoMCPs(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "x"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory/mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no .factory/mcp.json when no MCP entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {

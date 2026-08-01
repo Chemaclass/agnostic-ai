@@ -16,13 +16,17 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the qoder adapter's
 // header-coverage contract: every Markdown file the adapter writes
-// must carry the agnostic-ai provenance marker. Qoder emits no JSON so
-// there are no header exemptions.
+// must carry the agnostic-ai provenance marker. `.mcp.json` legitimately
+// skips the header (JSON has no comment syntax agnostic-ai emits into)
+// but the test still asserts the file is non-empty so a regression that
+// produces an empty file trips here.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -37,6 +41,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty JSON output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -59,12 +73,28 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the qoder
-// adapter declares in caps.Supports (Rule only) with three specimens.
+// adapter declares in caps.Supports (Rule, MCP) with three rule
+// specimens. The MCP specimens are byte-identical to claude's kit-sink
+// MCP entries (same names, same Meta) so the two adapters' `.mcp.json`
+// output can be diffed directly; see
+// TestEmit_MCP_MatchesClaudeSharedFile in qoder_test.go.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
+		{
+			Kind: spec.KindMCP, Name: "disabled-server",
+			Meta: map[string]any{"command": "x"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

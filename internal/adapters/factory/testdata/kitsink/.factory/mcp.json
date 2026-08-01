@@ -1,23 +1,19 @@
 {
-  "mcp": {
+  "mcpServers": {
     "disabled-server": {
-      "command": [
-        "x"
-      ],
-      "enabled": false,
-      "type": "local"
+      "command": "x",
+      "disabled": true
     },
     "http-server": {
-      "type": "remote",
+      "type": "http",
       "url": "https://example.test/mcp"
     },
     "stdio-server": {
-      "command": [
-        "npx",
+      "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "type": "local"
+      "command": "npx"
     }
   }
 }

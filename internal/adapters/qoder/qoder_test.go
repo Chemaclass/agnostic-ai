@@ -18,6 +18,22 @@ func TestName(t *testing.T) {
 	}
 }
 
+// swapNoteWarner redirects emit.Warner to a buffer for the duration of
+// the test and clears any buffered coverage notes before and after.
+// Mirrors the identical helper in the claude package; adapter test
+// packages cannot share helpers across a no-cross-adapter-imports
+// boundary.
+func swapNoteWarner(t *testing.T) *strings.Builder {
+	t.Helper()
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	return buf
+}
+
 func TestEmit_WritesRules(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -112,5 +128,169 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".qoder")); !os.IsNotExist(err) {
 		t.Errorf("expected no .qoder dir for an empty bundle, err=%v", err)
+	}
+}
+
+// Stdio MCP merges into the project-root .mcp.json under the standard
+// mcpServers map, the exact schema and path Claude Code already writes
+// (target-audit 2026-08-01, MISSING: qoder MCP; WAVE 2 SCHEMAS).
+func TestEmit_MCP_StdioWritesQoderMCPJSON(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("missing .mcp.json: %v", err)
+	}
+	body := string(got)
+	for _, want := range []string{`"mcpServers"`, `"fs"`, `"command": "npx"`, `"ALLOWED_PATHS"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in %s", want, body)
+		}
+	}
+	if strings.Contains(body, `"type"`) {
+		t.Errorf("stdio is the inferred default; type must stay unset, got:\n%s", body)
+	}
+}
+
+func TestEmit_MCP_HTTPWritesTypeAndURL(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://mcp.linear.app",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(got)
+	for _, want := range []string{`"type": "http"`, `"url": "https://mcp.linear.app"`, `"Authorization"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in %s", want, body)
+		}
+	}
+}
+
+// Qoder's own support for a per-server `disabled` key is not
+// vendor-confirmed, and `.mcp.json` is the same file Claude Code reads
+// (which ignores the key entirely there), so this adapter strips it
+// the same way claude does rather than write a key that could mislead
+// on a shared file. Mirrors claude's
+// TestEmit_MCP_DisabledHasNoFileBasedEffect.
+func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(got), "disabled") {
+		t.Errorf("disabled must not reach the shared .mcp.json: %s", got)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`disabled` on 1 mcp has no effect on qoder") {
+		t.Errorf("expected a field no-op note, got: %s", buf.String())
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"qoder": {MCPFile: "vendor/qoder-mcp.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/qoder-mcp.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_NoMCPJSONWhenNoMCPs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "x"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no .mcp.json when no MCP entries, err=%v", err)
+	}
+}
+
+// TestEmit_MCP_MatchesClaudeSharedFile confirms qoder's `.mcp.json`
+// output is byte-identical to claude's checked-in golden fixture for
+// the same kit-sink MCP entries, so the on-disk collision/dedup check
+// (internal/cli/collision.go) treats a project with both targets
+// enabled as one shared write, not a conflict. `.mcp.json` is the
+// literal path claude.go already writes; this is a dedup, not a new
+// file. Reads claude's testdata directly off disk (a fixture read, not
+// a Go import) so this stays within no-cross-adapter-imports.
+func TestEmit_MCP_MatchesClaudeSharedFile(t *testing.T) {
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	claudeGolden := filepath.Join(origCwd, "..", "claude", "testdata", "kitsink", ".mcp.json")
+	want, err := os.ReadFile(claudeGolden)
+	if err != nil {
+		t.Skipf("claude golden fixture not found at %s: %v", claudeGolden, err)
+	}
+
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("read qoder output: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf(".mcp.json diverged from claude's golden fixture (%s):\n--- claude ---\n%s\n--- qoder ---\n%s",
+			claudeGolden, want, got)
 	}
 }

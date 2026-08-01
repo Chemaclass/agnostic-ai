@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -407,6 +408,23 @@ func TestPlanWatchResync_ClaudeScopedAgentHitsOnlyClaude(t *testing.T) {
 	}
 	if !slices.Equal(plan.targets, []string{"claude"}) {
 		t.Errorf("claude-scoped agent targets = %v, want [claude]", plan.targets)
+	}
+}
+
+// affectedTargetsForKind reads the same targetsSupportingKind map the
+// orphan-kind validator uses (see native_capabilities.go). factory,
+// qoder, and openhands gained native MCP support (target-audit
+// 2026-08-01); an MCP spec edit must re-sync a project configured with
+// only one of them, not silently affect zero targets.
+func TestAffectedTargetsForKind_MCPHitsNewlySupportedTargets(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindMCP, Name: "fs"}
+	for _, target := range []string{"qoder", "factory", "openhands"} {
+		t.Run(target, func(t *testing.T) {
+			got := affectedTargetsForKind(spec.KindMCP, []string{target}, entry)
+			if !slices.Equal(got, []string{target}) {
+				t.Errorf("affectedTargetsForKind(mcp, [%s], entry) = %v, want [%s]", target, got, target)
+			}
+		})
 	}
 }
 

@@ -182,13 +182,16 @@ outputs:
     rules-dir: .trae/rules              # default. One .md per rule, agent, and skill.
   qoder:
     rules-dir: .qoder/rules             # default. One .md per rule (native, precedence over AGENTS.md).
+    mcp-file: .mcp.json                 # default. Standard mcpServers schema; same file Claude Code writes.
   openhands:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
+    mcp-file: config.toml               # default. [mcp] table: stdio_servers / sse_servers / shttp_servers.
   factory:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
+    mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
     agents-dir: .kilo/agents            # default. One .md per agent.
-    mcp-file: kilo.jsonc                # default. mcp map merged; user keys preserved.
+    mcp-file: kilo.jsonc                # default. mcp map merged (not mcpServers); user keys preserved.
   goose:
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
@@ -313,10 +316,13 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http`). User keys (`models`, `providers`, `lsp`) preserved. |
 | `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule, agent, and skill. |
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
+| `qoder` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema; the identical file and path Claude Code writes, deduplicated when both targets are enabled. `disabled` is dropped (not vendor-confirmed; the file is shared with Claude Code, which ignores the key). |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
+| `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL-string arrays). No `type` field; transport is implied by the array. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
+| `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent. |
-| `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged; user keys preserved. Stdio combines `command`+`args` into one array and tags `"type": "local"`, with `environment` for env vars; remote uses `"type": "remote"` plus `url`/`headers`. |
+| `kilo` | `mcp-file` | `kilo.jsonc` | `mcp` map merged (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |

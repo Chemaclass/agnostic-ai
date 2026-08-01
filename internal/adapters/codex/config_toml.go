@@ -200,17 +200,9 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	}
 	switch transport {
 	case "stdio":
-		if cmd, _ := m.Meta["command"].(string); cmd != "" {
-			emit.WriteTOMLString(sb, "command", cmd)
-		}
-		if args := emit.StringSlice(m.Meta["args"]); len(args) > 0 {
-			emit.WriteTOMLStringArray(sb, "args", args)
-		}
-		emit.WriteTOMLInlineStringTable(sb, "env", emit.StringMap(m.Meta["env"]))
+		emit.WriteTOMLMCPStdioFields(sb, m.Meta)
 	case "http", "sse":
-		if url, _ := m.Meta["url"].(string); url != "" {
-			emit.WriteTOMLString(sb, "url", url)
-		}
+		emit.WriteTOMLMCPURLField(sb, m.Meta)
 		if t, _ := m.Meta["bearer_token_env_var"].(string); t != "" {
 			emit.WriteTOMLString(sb, "bearer_token_env_var", t)
 		}

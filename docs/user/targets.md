@@ -61,9 +61,9 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **kiro**        | `.kiro/steering/agent-<name>.md` (`inclusion: manual`) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | - | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
 | **trae**        | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.trae/rules/*.md` | - | - | - | - | - | - | - |
-| **qoder**       | - | - | `.qoder/rules/<name>.md` | - | - | - | - | - | - | - |
-| **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
-| **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
+| **qoder**       | - | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
+| **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
+| **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
 | **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
@@ -75,7 +75,7 @@ Cross-cutting kind notes:
 
 - **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, and Augment execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, and Augment share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline reads its own `.cline/skills/`, and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Warp has no skill surface; on Aider, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (15 of 25, see matrix). Aider, Cline, Windsurf, Trae, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`).
+- **MCP servers**: propagate to every target with a project-scoped MCP file (18 of 25, see matrix). Aider, Cline, Windsurf, Trae, Jules, Goose, and Augment have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo, factory, qoder), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`). OpenHands has no `type` field either, but unlike that group it has no shared key shape to infer from: transport is implied entirely by which `[mcp]` array (`stdio_servers`, `sse_servers`, `shttp_servers`) a server lands in. Qoder's `.mcp.json` is the identical file and schema Claude Code writes there; enabling both dedupes into one write instead of colliding. See [`disabled` support by target](spec-format.md#disabled-support-by-target) for which of these targets honor a spec's `disabled: true` (Codex, Factory, and Kilo Code do; Claude Code, Cursor, Copilot, and Qoder do not).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
@@ -519,51 +519,60 @@ Verify with the real IDE:
 ```
 AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
 .qoder/rules/<name>.md        # one per rule (native, one file per rule)
+.mcp.json                     # when MCP entries exist (shared with Claude Code)
 ```
 
-Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules from `.qoder/rules/` natively, one Markdown file per rule, and also reads the root `AGENTS.md`. The per-rule files take precedence over `AGENTS.md`, so rules emit there rather than inlining into the shared pointer. Agents, skills, hooks, and MCP have no Qoder surface yet and skip with a warning. `import qoder` reads `.qoder/rules/*.md` back into rule specs.
+Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules from `.qoder/rules/` natively, one Markdown file per rule, and also reads the root `AGENTS.md`. The per-rule files take precedence over `AGENTS.md`, so rules emit there rather than inlining into the shared pointer. Agents, skills, and hooks have no Qoder surface yet and skip with a warning. `import qoder` reads `.qoder/rules/*.md` back into rule specs.
 
-Config keys: `outputs.qoder.rules-dir` (default `.qoder/rules`).
+- **MCP**: merges into `.mcp.json` under the standard `mcpServers` map (stdio: `command`/`args`/`env`, no `type`; remote: `type` + `url`/`headers`), byte-for-byte the same schema and the same literal path Claude Code already writes. Enabling both `qoder` and `claude` writes the file once; the sync collision check treats identical bytes at a shared path as a dedup, not a conflict. Qoder's own support for a per-server `disabled` key is not vendor-confirmed, and since the file is shared with Claude Code (which ignores the key there), agnostic-ai drops it for qoder too rather than risk the two targets disagreeing on one file. See [`disabled` support by target](spec-format.md#disabled-support-by-target).
+
+Config keys: `outputs.qoder.rules-dir` (default `.qoder/rules`), `outputs.qoder.mcp-file` (default `.mcp.json`).
 
 Verify with the real IDE:
 
 1. Install Qoder from [qoder.com](https://qoder.com).
-2. Check the tree: `ls AGENTS.md .qoder/rules/`, `grep "Generated by agnostic-ai" .qoder/rules/*.md` for the provenance header.
-3. Open the project; the rules panel lists every `.qoder/rules/*.md` with no parse warnings.
+2. Check the tree: `ls AGENTS.md .qoder/rules/ .mcp.json`, `grep "Generated by agnostic-ai" .qoder/rules/*.md` for the provenance header, `python -m json.tool .mcp.json > /dev/null`.
+3. Open the project; the rules panel lists every `.qoder/rules/*.md` with no parse warnings, and the MCP picker shows each `mcpServers.<name>` from `.mcp.json` connected.
 
 ### OpenHands (`openhands`)
 
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed/crush)
+config.toml                        # when MCP entries exist
 ```
 
-All Hands [OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` natively and loads skills from `.agents/skills/`, the same cross-tool tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree dedupes into one write. OpenHands has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Agents, hooks, and MCP have no OpenHands surface yet and skip with a warning.
+All Hands [OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` natively and loads skills from `.agents/skills/`, the same cross-tool tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree dedupes into one write. OpenHands has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Agents and hooks have no OpenHands surface yet and skip with a warning.
 
-Config keys: `outputs.openhands.skills-dir` (default `.agents/skills`).
+- **MCP**: merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`/`command`/`args`/`env`) and `sse_servers` / `shttp_servers` (plain URL-string arrays; `shttp_servers` is OpenHands' streamable-HTTP transport, the cross-tool spec's `type: http`). A transport OpenHands documents no array for (e.g. `type: ws`) reaches neither array and surfaces a coverage note instead of guessing one. The project-tier `config.toml` is managed (its `[mcp]` table is overwritten each sync); keep unmanaged OpenHands config elsewhere.
+
+Config keys: `outputs.openhands.skills-dir` (default `.agents/skills`), `outputs.openhands.mcp-file` (default `config.toml`).
 
 Verify with the real CLI:
 
 1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
-2. Check the tree: `ls AGENTS.md .agents/skills/`, `test -f .agents/skills/*/SKILL.md`.
-3. Launch OpenHands; the context loads `AGENTS.md` and each `.agents/skills/<name>/` appears as a skill.
+2. Check the tree: `ls AGENTS.md .agents/skills/ config.toml`, `test -f .agents/skills/*/SKILL.md`, `head -1 config.toml` for the provenance comment.
+3. Launch OpenHands; the context loads `AGENTS.md`, each `.agents/skills/<name>/` appears as a skill, and each `[mcp]` server from `config.toml` connects.
 
 ### Factory (`factory`)
 
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .factory/droids/<name>.md          # one custom-droid profile per agent
+.factory/mcp.json                  # when MCP entries exist
 ```
 
-Factory [Droid](https://docs.factory.ai/cli/configuration/custom-droids) reads the root `AGENTS.md` natively and loads custom droids from `.factory/droids/`. Each agent emits as one `<name>.md` profile with `name`, `description`, and optional `model` / `tools` frontmatter; arbitrary `x-factory` keys pass through. Factory has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Skills, hooks, and MCP have no Factory surface yet and skip with a warning.
+Factory [Droid](https://docs.factory.ai/cli/configuration/custom-droids) reads the root `AGENTS.md` natively and loads custom droids from `.factory/droids/`. Each agent emits as one `<name>.md` profile with `name`, `description`, and optional `model` / `tools` frontmatter; arbitrary `x-factory` keys pass through. Factory has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Skills and hooks have no Factory surface yet and skip with a warning.
 
-Config keys: `outputs.factory.agents-dir` (default `.factory/droids`).
+- **MCP**: merges into `.factory/mcp.json` under the standard `mcpServers` map, the same shape Claude Code and Cursor use (stdio: `command`/`args`/`env`, no `type`; remote: `type` + `url`/`headers`). Factory's schema documents a working per-server `disabled` boolean (default `false`), unlike Claude Code, Cursor, and Copilot, so agnostic-ai passes a spec's `disabled: true` straight through instead of stripping it. Factory also documents `disabledTools`, `timeout`, and `connectTimeout`, none of which the cross-tool MCP spec carries yet; they are not emitted. See [`disabled` support by target](spec-format.md#disabled-support-by-target).
+
+Config keys: `outputs.factory.agents-dir` (default `.factory/droids`), `outputs.factory.mcp-file` (default `.factory/mcp.json`).
 
 Verify with the real CLI:
 
 1. Install the Factory CLI ([custom-droids docs](https://docs.factory.ai/cli/configuration/custom-droids)).
-2. Check the tree: `ls AGENTS.md .factory/droids/`, `grep "Generated by agnostic-ai" .factory/droids/*.md` for the provenance header (it sits after the frontmatter).
-3. Launch `droid`; each `.factory/droids/<name>.md` appears in the droid picker.
+2. Check the tree: `ls AGENTS.md .factory/droids/ .factory/mcp.json`, `grep "Generated by agnostic-ai" .factory/droids/*.md` for the provenance header (it sits after the frontmatter), `python -m json.tool .factory/mcp.json > /dev/null`.
+3. Launch `droid`; each `.factory/droids/<name>.md` appears in the droid picker and each `mcpServers.<name>` from `.factory/mcp.json` connects.
 
 ### Kilo (`kilo`)
 
@@ -573,7 +582,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 kilo.jsonc                         # when MCP entries exist (merged with existing user config)
 ```
 
-Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
+Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
 
 Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
 
@@ -581,7 +590,7 @@ Verify with the real IDE:
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
 2. Check the tree: `ls AGENTS.md .kilo/agents/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
-3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcp.<name>` from `kilo.jsonc` connects.
+3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
 
 ### Jules (`jules`)
 
