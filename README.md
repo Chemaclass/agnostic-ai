@@ -96,7 +96,7 @@ All **25** targets are first-class. The matrix shows the emission shape per kind
 | Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
 | Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Trae (ByteDance)        |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Qoder (Alibaba)         |   -    |   -    |   ✅   |   -   |  ✅   |
+| Qoder (Alibaba)         |   ✅    |   -    |   ✅   |   -   |  ✅   |
 | OpenHands (All Hands)   |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Factory (Droid)         |   ✅    |   -    |   ◐   |   -   |  ✅   |
 | Kilo Code               |   ✅    |   ✅    |   ◐   |   -   |  ✅   |

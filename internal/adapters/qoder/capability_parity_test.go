@@ -13,10 +13,9 @@ import (
 
 // TestEmit_CapabilityMatrixCoversEveryDeclaredKind enforces the
 // invariant that the qoder adapter actually emits something for every
-// spec kind it declares in caps.Supports. Qoder declares only
-// KindRule: a future caps.Supports expansion (e.g. KindAgent once
-// Qoder documents an agent surface) needs to demonstrate the emit path
-// that backs the new claim here.
+// spec kind it declares in caps.Supports. A future caps.Supports
+// expansion (e.g. KindSkill once Qoder documents a skill surface) needs
+// to demonstrate the emit path that backs the new claim here.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -30,6 +29,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindRule, []string{".qoder/rules/r1.md", ".qoder/rules/r2.md", ".qoder/rules/r3.md"}},
+		{spec.KindAgent, []string{".qoder/agents/alpha.md", ".qoder/agents/beta.md", ".qoder/agents/gamma.md"}},
 		{spec.KindMCP, []string{".mcp.json"}},
 	}
 	for _, k := range caps.Supports {
@@ -67,18 +67,16 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind qoder does not declare in caps.Supports (Agent, Skill,
-// Hook, Command): Qoder has no documented agent, skill, hook, or
-// command surface, so those kinds fall through to the unsupported-kind
-// warning channel and must never be silently flattened into the rules
-// directory.
+// every kind qoder does not declare in caps.Supports (Skill, Hook,
+// Command): Qoder has no documented skill, hook, or command surface, so
+// those kinds fall through to the unsupported-kind warning channel and
+// must never be silently flattened into the rules directory.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "helper body"},
 		{Kind: spec.KindSkill, Name: "sk1", Path: "skills/sk1/SKILL.md", Body: "skill body"},
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
@@ -86,8 +84,8 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 4 {
-		t.Errorf("expected 4 capability warnings (agent/skill/hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
+		t.Errorf("expected 3 capability warnings (skill/hook/command), got %d", got)
 	}
 }
 

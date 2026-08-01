@@ -16,6 +16,15 @@
 // When `outputs.windsurf.workflows-dir` is set, each agent additionally
 // emits as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
 // as `/<name>` (upstream still documents `.windsurf/workflows/` only).
+//
+// Ignore specs merge into `.devinignore` (override via
+// outputs.windsurf.ignore-file), gitignore syntax under a `#`
+// provenance header: "you can add a `.devinignore` file to your repo
+// root, with the same syntax as .gitignore" (docs.devin.ai/desktop/
+// context-awareness/windsurf-ignore). Devin Desktop also still respects
+// the legacy `.codeiumignore` filename and `.windsurfignore`, but
+// `.devinignore` is the vendor-documented current path, so it is the
+// one this adapter writes.
 package windsurf
 
 import (
@@ -38,11 +47,16 @@ const (
 	// Desktop scans; codex, amp, zed, crush, and openhands already
 	// write here, so identical skill folders dedupe.
 	defaultSkillsDir = ".agents/skills"
+	// defaultIgnoreFile is the vendor-documented current ignore-file
+	// path. Devin Desktop also still reads the legacy `.codeiumignore`
+	// and `.windsurfignore` filenames, but this adapter only writes the
+	// current one.
+	defaultIgnoreFile = ".devinignore"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore},
 }
 
 // Adapter emits Windsurf configs.
@@ -61,7 +75,9 @@ func (Adapter) Name() string { return target }
 // there never loads as a skill). When `outputs.windsurf.workflows-dir`
 // is set, each agent additionally emits as a Workflow at
 // `<dir>/<name>.md`; the rule-form `agent-<name>.md` emission stays in
-// place so users that depend on it keep working.
+// place so users that depend on it keep working. Ignore specs merge
+// into `.devinignore` (default; override via
+// outputs.windsurf.ignore-file).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -84,6 +100,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return emitWorkflows(sess, b, cfg, dryRun)

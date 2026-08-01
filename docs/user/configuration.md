@@ -142,6 +142,7 @@ outputs:
   windsurf:
     rules-dir: .devin/rules      # default. One .md per rule and per agent (Devin Desktop, the renamed Windsurf).
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
+    ignore-file: .devinignore    # default. Agent ignore patterns (gitignore syntax); legacy .codeiumignore / .windsurfignore still read.
     # workflows-dir: .windsurf/workflows    # opt-in: also emit each agent as a Workflow (/<name>).
   continue:
     rules-dir: .continue/rules        # default
@@ -187,6 +188,7 @@ outputs:
     commands-dir: .trae/commands        # default. One .md per command. Frontmatter filtered to name, description.
   qoder:
     rules-dir: .qoder/rules             # default. One .md per rule (native, precedence over AGENTS.md).
+    agents-dir: .qoder/agents           # default. One .md per agent (name/description required; model/tools/skills/mcpServers optional).
     mcp-file: .mcp.json                 # default. Standard mcpServers schema; same file Claude Code writes.
   openhands:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
@@ -327,6 +329,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `trae` | `skills-dir` | `.trae/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Trae's native skills path. |
 | `trae` | `commands-dir` | `.trae/commands` | One `.md` per command. Frontmatter filtered to `name`, `description` (the only keys confirmed native; Trae's own docs do not cover the format). |
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
+| `qoder` | `agents-dir` | `.qoder/agents` | One `.md` per agent (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as a comma-separated string (`Read, Grep, Bash`), Qoder's only documented form; safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style. |
 | `qoder` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema; the identical file and path Claude Code writes, deduplicated when both targets are enabled. `disabled` is dropped (not vendor-confirmed; the file is shared with Claude Code, which ignores the key). |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL-string arrays). No `type` field; transport is implied by the array. |

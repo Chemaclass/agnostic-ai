@@ -73,16 +73,19 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the qoder
-// adapter declares in caps.Supports (Rule, MCP) with three rule
-// specimens. The MCP specimens are byte-identical to claude's kit-sink
-// MCP entries (same names, same Meta) so the two adapters' `.mcp.json`
-// output can be diffed directly; see
+// adapter declares in caps.Supports (Rule, Agent, MCP) with three rule
+// and three agent specimens. The MCP specimens are byte-identical to
+// claude's kit-sink MCP entries (same names, same Meta) so the two
+// adapters' `.mcp.json` output can be diffed directly; see
 // TestEmit_MCP_MatchesClaudeSharedFile in qoder_test.go.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
+		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

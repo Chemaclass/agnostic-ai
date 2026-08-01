@@ -19,6 +19,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Kiro agents now emit natively at `.kiro/agents/<name>.md` (`description`, optional `model`), the surface Kiro's own agent picker reads, instead of a flattened `.kiro/steering/agent-<name>.md` file the picker never saw; a stale copy from an older sync is now swept. Kiro's tool-identifier vocabulary is not documented anywhere, so an agent's generic `tools` list surfaces a coverage note instead of silently restricting nothing; `x-kiro.tools` reaches Kiro's own vocabulary directly once you know it.
 - Kiro hooks land in `.kiro/hooks/<name>.json`, one file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled}]}`), Kiro's fifth adapter with native hooks alongside Claude Code, Codex, Gemini, and Cursor. `disabled: true` writes `"enabled": false`.
 - Kilo Code skills emit into the shared `.agents/skills/<name>/SKILL.md` tree, the compatibility path Kilo Code itself documents as loaded by default, deduping with Codex, Amp, Zed, Crush, OpenHands, Windsurf, and Augment instead of adding a second on-disk copy under `.kilo/skills/`.
+- Qoder agents now emit natively at `.qoder/agents/<name>.md` (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as Qoder's documented comma-separated string, safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style; `import qoder` reconstructs it as a list so every other target keeps working too (#529).
+- Windsurf ignore specs merge into `.devinignore`, gitignore syntax under a provenance header, matching the shape Aider, Cursor, and Gemini already use (#530).
 
 ### Fixed
 

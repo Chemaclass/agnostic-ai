@@ -52,7 +52,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **copilot**     | `.github/agents/<name>.agent.md` | `.github/skills/<name>/SKILL.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | - | `.vscode/mcp.json` | - | - | - | - | - |
 | **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
 | **cline**       | as `.md` rule (+ `.clinerules/workflows/<name>.md` w/ opt-in) | `.cline/skills/<name>/SKILL.md` | `.clinerules/*.md`       | -     | - | - | - | - | - | - |
-| **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | `.agents/skills/<name>/SKILL.md` | `.devin/rules/*.md`      | -     | - | - | - | - | - | - |
+| **windsurf**    | as `.md` rule (+ `.windsurf/workflows/<name>.md` w/ opt-in) | `.agents/skills/<name>/SKILL.md` | `.devin/rules/*.md`      | -     | - | - | - | - | - | `.devinignore` |
 | **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` | - | - | - | - | - |
 | **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | `.agents/commands/<name>.md` | - | - | - | - |
 | **zed**         | merged doc w/ opt-in (`outputs.zed.rules-file`) | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy merge via `outputs.zed.rules-file`) | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - | - | - | - | - |
@@ -63,7 +63,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **kiro**        | `.kiro/agents/<name>.md` (native agent profile) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | `.kiro/hooks/<name>.json` | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
 | **trae**        | as `.md` rule (`agent-<name>.md`) | `.trae/skills/<name>/SKILL.md` | `.trae/rules/*.md` | - | - | `.trae/commands/<name>.md` | - | - | - | - |
-| **qoder**       | - | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
+| **qoder**       | `.qoder/agents/<name>.md` | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
 | **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
@@ -276,15 +276,17 @@ Verify with the real extension:
 .devin/rules/<name>.md
 .windsurf/workflows/<name>.md        # one per agent, only when workflows-dir is set
 .agents/skills/<name>/SKILL.md       # one folder per skill (shared tree with codex/amp/zed/crush/openhands)
+.devinignore                         # when ignore entries exist
 ```
 
 Windsurf became Devin Desktop (2026-06). Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/` as a backward-compat fallback (`.windsurfrules` is legacy), so rules now emit at the preferred path. The target keeps its `windsurf` name: existing `outputs.windsurf.*` keys and `x-windsurf` meta continue to work. Set `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old layout; otherwise sync sweeps managed leftovers at the pre-rename path (hand-authored files survive).
 
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`, the tree [Devin Desktop discovers skills from](https://docs.devin.ai/desktop/cascade/skills). This is the same cross-tool tree codex, amp, zed, crush, and openhands already emit into byte-identically, so identical skills dedupe under `sync.shared-skills`. A flat file directly under `.devin/rules/` never loads as a skill. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
+- **Ignore**: merges into `.devinignore`, gitignore syntax under a `#` provenance header: "you can add a `.devinignore` file to your repo root, with the same syntax as .gitignore" ([docs.devin.ai/desktop/context-awareness/windsurf-ignore](https://docs.devin.ai/desktop/context-awareness/windsurf-ignore)). Devin Desktop also still respects the legacy `.codeiumignore` filename and `.windsurfignore`, but this adapter only writes the current `.devinignore` path; override via `outputs.windsurf.ignore-file` to write one of the legacy names instead.
 
 When `outputs.windsurf.workflows-dir` is set, each agent also emits as a [Workflow](https://docs.devin.ai/desktop/cascade/workflows): Markdown with `description` frontmatter, invokable in Cascade as `/<name>`. Upstream still documents `.windsurf/workflows/` for workflows. The rule-form emission (`.devin/rules/agent-<name>.md`) still happens.
 
-Config keys: `outputs.windsurf.rules-dir` (default `.devin/rules`), `outputs.windsurf.skills-dir` (default `.agents/skills`), `outputs.windsurf.workflows-dir` (default empty, opt-in).
+Config keys: `outputs.windsurf.rules-dir` (default `.devin/rules`), `outputs.windsurf.skills-dir` (default `.agents/skills`), `outputs.windsurf.workflows-dir` (default empty, opt-in), `outputs.windsurf.ignore-file` (default `.devinignore`).
 
 Verify with the real IDE:
 
@@ -292,6 +294,7 @@ Verify with the real IDE:
 2. Check the tree: `ls .devin/rules/ .agents/skills/`, `grep "Generated by agnostic-ai" .devin/rules/*.md` for the provenance header, `test -f .agents/skills/*/SKILL.md`.
 3. Open the project. Cascade loads every `.devin/rules/*.md`; each appears in the Rules panel with no "failed to parse" warnings. Each `.agents/skills/<name>/` loads as a skill.
 4. When `outputs.windsurf.workflows-dir` is set, each `<workflows-dir>/<name>.md` is invokable in Cascade as `/<name>` with the rendered description.
+5. When ignore specs exist, `cat .devinignore` shows the concatenated patterns and indexing skips them.
 
 ### Continue (`continue`)
 
@@ -532,20 +535,22 @@ Verify with the real IDE:
 ```
 AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
 .qoder/rules/<name>.md        # one per rule (native, one file per rule)
+.qoder/agents/<name>.md       # one per agent (native, one file per agent)
 .mcp.json                     # when MCP entries exist (shared with Claude Code)
 ```
 
-Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules from `.qoder/rules/` natively, one Markdown file per rule, and also reads the root `AGENTS.md`. The per-rule files take precedence over `AGENTS.md`, so rules emit there rather than inlining into the shared pointer. Agents, skills, and hooks have no Qoder surface yet and skip with a warning. `import qoder` reads `.qoder/rules/*.md` back into rule specs.
+Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules from `.qoder/rules/` natively, one Markdown file per rule, and also reads the root `AGENTS.md`. The per-rule files take precedence over `AGENTS.md`, so rules emit there rather than inlining into the shared pointer. Skills and hooks have no Qoder surface yet and skip with a warning. `import qoder` reads `.qoder/rules/*.md` back into rule specs and `.qoder/agents/*.md` back into agent specs.
 
+- **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`, one file per agent. `name` and `description` are required frontmatter; `model`, `tools`, `skills`, and `mcpServers` are optional. `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), the only form the vendor doc shows, not a YAML list; `import qoder` splits it back into agnostic-ai's generic list form so the spec stays usable by every other target. Qoder's built-in tool vocabulary is Claude-style (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), which is what makes passing agnostic-ai's generic `tools` list straight through safe here, unlike Kilo Code and Augment, whose own vocabularies differ and which drop the field with a coverage note instead. `skills` and `mcpServers` have no agnostic-ai-native shape and pass through whatever the spec declares.
 - **MCP**: merges into `.mcp.json` under the standard `mcpServers` map (stdio: `command`/`args`/`env`, no `type`; remote: `type` + `url`/`headers`), byte-for-byte the same schema and the same literal path Claude Code already writes. Enabling both `qoder` and `claude` writes the file once; the sync collision check treats identical bytes at a shared path as a dedup, not a conflict. Qoder's own support for a per-server `disabled` key is not vendor-confirmed, and since the file is shared with Claude Code (which ignores the key there), agnostic-ai drops it for qoder too rather than risk the two targets disagreeing on one file. See [`disabled` support by target](spec-format.md#disabled-support-by-target).
 
-Config keys: `outputs.qoder.rules-dir` (default `.qoder/rules`), `outputs.qoder.mcp-file` (default `.mcp.json`).
+Config keys: `outputs.qoder.rules-dir` (default `.qoder/rules`), `outputs.qoder.agents-dir` (default `.qoder/agents`), `outputs.qoder.mcp-file` (default `.mcp.json`).
 
 Verify with the real IDE:
 
 1. Install Qoder from [qoder.com](https://qoder.com).
-2. Check the tree: `ls AGENTS.md .qoder/rules/ .mcp.json`, `grep "Generated by agnostic-ai" .qoder/rules/*.md` for the provenance header, `python -m json.tool .mcp.json > /dev/null`.
-3. Open the project; the rules panel lists every `.qoder/rules/*.md` with no parse warnings, and the MCP picker shows each `mcpServers.<name>` from `.mcp.json` connected.
+2. Check the tree: `ls AGENTS.md .qoder/rules/ .qoder/agents/ .mcp.json`, `grep "Generated by agnostic-ai" .qoder/rules/*.md .qoder/agents/*.md` for the provenance header, `python -m json.tool .mcp.json > /dev/null`.
+3. Open the project; the rules panel lists every `.qoder/rules/*.md` with no parse warnings, the agent picker lists every `.qoder/agents/*.md`, and the MCP picker shows each `mcpServers.<name>` from `.mcp.json` connected.
 
 ### OpenHands (`openhands`)
 
