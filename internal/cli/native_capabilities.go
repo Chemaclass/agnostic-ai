@@ -49,6 +49,13 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"beforeTabFileRead", "afterTabFileEdit",
 		"workspaceOpen",
 	),
+	"kiro": setOf(
+		"SessionStart", "Stop",
+		"PreToolUse", "PostToolUse",
+		"PreTaskExec", "PostTaskExec",
+		"UserPromptSubmit",
+		"PostFileCreate", "PostFileSave", "PostFileDelete",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -78,7 +85,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "amp", "cursor", "trae"),
 	spec.KindSettings:    setOf("claude"),

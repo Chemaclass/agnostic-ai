@@ -66,6 +66,17 @@ func OutputHooksFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputHooksDir returns cfg.Outputs[target].HooksDir when set, otherwise
+// fallback. Used by adapters that emit one hook definition file per hook
+// into a directory (Kiro: `.kiro/hooks/<name>.json`) rather than a single
+// combined hooks file.
+func OutputHooksDir(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.HooksDir != "" {
+		return o.HooksDir
+	}
+	return fallback
+}
+
 // OutputMCPFile returns cfg.Outputs[target].MCPFile when set, otherwise fallback.
 func OutputMCPFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.MCPFile != "" {

@@ -200,6 +200,7 @@ type Output struct {
 	ExecPolicies         []CodexExecPolicy `yaml:"exec-policies,omitempty"            json:"exec-policies,omitempty"`
 	ExecPoliciesFile     string            `yaml:"exec-policies-file,omitempty"       json:"exec-policies-file,omitempty"`
 	HooksFile            string            `yaml:"hooks-file,omitempty"               json:"hooks-file,omitempty"`
+	HooksDir             string            `yaml:"hooks-dir,omitempty"                json:"hooks-dir,omitempty"`
 	ProvenanceHeader     *bool             `yaml:"provenance-header,omitempty"        json:"provenance-header,omitempty"`
 	CollisionPolicy      string            `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
 }
