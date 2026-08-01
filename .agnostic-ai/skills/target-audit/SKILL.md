@@ -152,6 +152,12 @@ per bucket, all in a single message, each with `isolation: "worktree"`.
 The isolation is not optional: `agnostic-ai sync` rewrites the whole
 emitted tree, so two fixers sharing a checkout overwrite each other.
 
+Settle every bucket before spawning. A fixer cannot be handed new work
+mid-flight: it is told a peer cannot widen its scope, and it cannot tell
+an orchestrator message from any other message on the same channel. That
+refusal is correct and should stay. If a finding lands after the fixers
+are running, close it yourself or spawn a fixer for it.
+
 Bucket by severity, not by target:
 
 | Bucket | Shape | Why |
@@ -170,6 +176,35 @@ has to carry.
 
 When a fixer reports the finding was wrong, reopen nothing. Add a comment
 to the issue with what the evidence missed, and label it `invalid`.
+
+## Phase 7: Land the PRs
+
+Only the first PR merges cleanly. Every adapter fix touches
+`docs/user/targets.md` and `CHANGELOG.md`, so each later PR needs a
+rebase. Budget for it.
+
+**On a conflict in a shared doc, merge both sides. Never pick one.** In
+every conflict of the 2026-08-01 run, both sides were correct about
+different things, because each branch was cut before the other landed.
+Taking one wholesale silently reverts a merged fix. Real examples: a
+capability-matrix paragraph that was right about kilo and stale about
+warp; a capability map where one side had `antigravity` and the other had
+`factory, qoder, openhands`; a count of MCP-capable targets that was
+wrong on both sides.
+
+Read the diff before merging, and check it against the evidence that
+justified it. Two fixes that run cleanly on their own branch can still be
+jointly wrong.
+
+A red CI run is a signal, not an obstacle. Read the failing log before
+concluding it is a flake, and check whether the same job fails on `main`.
+Re-run rather than merging on a theory. Note that `sync --check` drifts
+locally after any merge that changed a spec, because gitignored emitted
+copies are stale; that one is expected and `sync` fixes it.
+
+When querying check status, exclude pending jobs explicitly:
+`select(.conclusion != null and .conclusion != "SUCCESS")`. A pending job
+has a null conclusion and will otherwise read as a failure.
 
 ## What this skill does not do
 

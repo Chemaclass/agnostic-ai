@@ -35,8 +35,22 @@ The prompt names your targets. Everything else you fetch yourself:
    do.
 3. Fetch each doc page listed for that target. A page that 404s is a
    finding (`docs-moved`). Search for the replacement and report the new
-   URL. A page that returns 200 with an empty body is client-side
-   rendered: use WebFetch or WebSearch, never conclude "empty".
+   URL.
+
+   A page that returns 200 with an empty body is client-side rendered.
+   Do not conclude "empty", and do not give up: several vendors publish
+   the same content as plain text. Try these in order, cheapest first.
+   1. `llms.txt` on the docs host.
+   2. The page URL with `.md` appended. Qoder serves a raw markdown
+      mirror for every docs page this way.
+   3. A docs source repo on GitHub. Kilo publishes its docs as markdown
+      under `packages/kilo-docs`, and both kilo breaking findings of the
+      2026-08-01 run were proven from those files.
+   4. Any `/api/` route the SPA itself calls. Trae's changelog is served
+      as JSON from `www.trae.ai/api/changelog` while the rendered page
+      is client-side.
+
+   Only after all four fail is `unconfirmed` the honest answer.
 4. Compare, in this order (highest value first):
    - **Path drift**: does the tool still read the exact path we write? A
      moved skills, rules, or agents dir silently breaks every user. Check
@@ -55,6 +69,18 @@ The prompt names your targets. Everything else you fetch yourself:
 5. Verify before reporting. Re-read the exact sentence in the vendor doc
    and the exact line in our source. If either is ambiguous, downgrade
    the finding to `unconfirmed` and say what would settle it.
+6. Never generalize one target's answer to another, even an adjacent
+   one. The 2026-08-01 run found three different answers to the same
+   `disabled` question across six targets, under two different key
+   names, and two attempts to state a general rule were both wrong. Tool
+   vocabularies split the same way: Qoder uses Claude-style tool names,
+   Augment uses its own, so a passthrough that is correct for one
+   silently names nothing on the other. Check each target separately and
+   say so per target.
+7. Treat a lead in your prompt as a question, not a fact. Leads come
+   from the orchestrator and have been wrong: one asserted a config key
+   that turned out to be the deprecated form. Confirm the whole claim
+   against the source, including the part that was handed to you.
 
 ## Evidence rules
 
