@@ -21,6 +21,8 @@ skill finds that drift on a schedule instead of via a user bug report.
 - `claude zed kilo`: audit only those
 - `--file-issues`: also open one GitHub issue per confirmed finding.
   Without it, the run stops at the report.
+- `--fix`: implies `--file-issues`, then opens a PR per fix bucket.
+  Never merges.
 
 ## Phase 1: Scope
 
@@ -141,12 +143,42 @@ must touch:
 Never open an issue for an `unconfirmed` finding. Those go in the report
 under `Needs a human` with the question that would settle it.
 
+## Phase 6: Fix (only with `--fix`)
+
+`--fix` implies `--file-issues`, so every fix has an issue to close.
+
+Group the confirmed findings into buckets, then spawn one `adapter-fixer`
+per bucket, all in a single message, each with `isolation: "worktree"`.
+The isolation is not optional: `agnostic-ai sync` rewrites the whole
+emitted tree, so two fixers sharing a checkout overwrite each other.
+
+Bucket by severity, not by target:
+
+| Bucket | Shape | Why |
+|---|---|---|
+| each `breaking` finding | one PR per target | changes bytes users already depend on, needs its own review and its own revert |
+| all `missing-feature` and `degraded` | one batched PR | additive only, and adapter packages never import each other, so they cannot conflict |
+| all `cosmetic` plus `sources.md` URL fixes | one docs PR | no code, no risk |
+
+Every adapter fix touches `docs/user/targets.md` and `CHANGELOG.md`. One
+PR per target would put every open PR in conflict on those two files for
+no review benefit. Bucketing keeps the conflicts to the count of buckets.
+
+Hand each fixer the finding text verbatim, including the evidence. Do not
+re-summarize it: the vendor quote and the `file:line` are what the PR body
+has to carry.
+
+When a fixer reports the finding was wrong, reopen nothing. Add a comment
+to the issue with what the evidence missed, and label it `invalid`.
+
 ## What this skill does not do
 
-It does not change adapters. A confirmed finding becomes an issue, then
-the normal `gh-issue` flow implements it with tests. Keeping audit and fix
-separate is deliberate: an audit that also edits code cannot be run
-unattended.
+It never merges. Audit, fix, and merge are three separate steps with three
+different actors: the `target-auditor` has no write tools at all, the
+`adapter-fixer` writes only inside its own worktree and stops at
+`gh pr create`, and a human merges. That separation is what makes the
+whole thing safe to run unattended. A run that merged its own work would
+be one bad doc read away from breaking every user of a target.
 
 ## Invariants worth knowing
 
@@ -163,9 +195,11 @@ The skill is the unit of work. Scheduling wraps it.
 - Ad hoc: `/target-audit`
 - Recurring in-session: `/loop 7d /target-audit`
 - Unattended: a cloud routine (`/schedule`) or a GitHub Actions cron
-  running `claude -p "/target-audit --file-issues"`. Unattended runs
-  should always pass `--file-issues`. A report nobody reads is not an
-  audit.
+  running `claude -p "/target-audit --fix"`. Unattended runs need at
+  least `--file-issues`: the report lands in gitignored `local/`, so
+  without it the run leaves nothing behind. `--fix` is the better default
+  once the first audit's backlog is cleared, because a review queue of
+  green PRs beats a queue of issues nobody has started.
 
 Weekly is the right cadence. Batch 1 drifts within a release cycle. The
 long tail rarely moves in under a month.
