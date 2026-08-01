@@ -116,6 +116,44 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 	return out
 }
 
+// StripMCPDisabled returns mcps with any `disabled: true` meta flag
+// removed, and buffers one NoteFieldNoOp report counting how many
+// entries carried it. Neither the input slice nor its Meta maps are
+// mutated; entries without the flag pass through unchanged (and
+// unaliased-but-identical) so callers can share one bundle across
+// targets.
+//
+// Call this before WriteMCPFile for a target whose project-scoped MCP
+// file has no working per-server disable key. Writing a dead `disabled:
+// true` would let a user believe the server stopped connecting when the
+// target ignores the key entirely and keeps using it — worse than
+// omitting the field, since the spec now silently lies about the
+// server's state. reason is the short, user-facing phrase used in the
+// flushed note, e.g. "no file-based way to pre-disable a project-scoped
+// MCP server".
+func StripMCPDisabled(target string, mcps []spec.Entry, reason string) []spec.Entry {
+	out := make([]spec.Entry, len(mcps))
+	count := 0
+	for i, e := range mcps {
+		disabled, _ := e.Meta["disabled"].(bool)
+		if !disabled {
+			out[i] = e
+			continue
+		}
+		count++
+		meta := make(map[string]any, len(e.Meta))
+		for k, v := range e.Meta {
+			if k != "disabled" {
+				meta[k] = v
+			}
+		}
+		e.Meta = meta
+		out[i] = e
+	}
+	NoteFieldNoOp(target, spec.KindMCP, "disabled", count, reason)
+	return out
+}
+
 // buildRoots constructs the `roots` array from spec meta. Each element is
 // a map with at least a `uri` key; `name` is optional.
 func buildRoots(meta map[string]any) []map[string]any {

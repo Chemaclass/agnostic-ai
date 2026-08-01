@@ -188,8 +188,9 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 }
 
 // writeMCPServerTable emits one `[mcp_servers.<name>]` table with the
-// transport-appropriate keys plus the shared description/disabled/roots
-// fields that mirror the `.mcp.json` schema.
+// transport-appropriate keys plus the shared description/enabled/roots
+// fields that mirror the `.mcp.json` schema (the spec's `disabled` field
+// maps to Codex's own `enabled` key; see writeMCPSharedFields).
 func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	sb.WriteString("[mcp_servers." + m.Name + "]\n")
 
@@ -219,15 +220,22 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	sb.WriteString("\n")
 }
 
-// writeMCPSharedFields emits description, disabled, and roots — the keys
-// .mcp.json supports across every transport — into the current
-// `[mcp_servers.<name>]` table. Roots renders as an array of inline tables.
+// writeMCPSharedFields emits description, enabled, and roots into the
+// current `[mcp_servers.<name>]` table. Roots renders as an array of
+// inline tables.
+//
+// The spec's `disabled` field inverts to Codex's own `enabled` key:
+// `learn.chatgpt.com/docs/config-file/config-reference` documents
+// `mcp_servers.<id>.enabled: boolean`, not `disabled`. Codex parses no
+// `disabled` key at all, so writing one here would silently fail to stop
+// the server. `enabled` only emits when the spec asks for `disabled:
+// true`; Codex's own default (enabled) needs no explicit key.
 func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if desc, _ := meta["description"].(string); desc != "" {
 		emit.WriteTOMLString(sb, "description", desc)
 	}
 	if disabled, _ := meta["disabled"].(bool); disabled {
-		sb.WriteString("disabled = true\n")
+		sb.WriteString("enabled = false\n")
 	}
 	raw, _ := meta["roots"].([]any)
 	if len(raw) == 0 {

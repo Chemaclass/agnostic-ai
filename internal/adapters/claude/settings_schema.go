@@ -36,7 +36,11 @@ func buildConfigSettings(cfg *config.Config) map[string]any {
 		out["includeCoAuthoredBy"] = *s.IncludeCoAuthoredBy
 	}
 	if len(s.EnabledPlugins) > 0 {
-		out["enabledPlugins"] = stringSliceToAny(s.EnabledPlugins)
+		plugins := map[string]any{}
+		for k, v := range s.EnabledPlugins {
+			plugins[k] = v
+		}
+		out["enabledPlugins"] = plugins
 	}
 	if len(s.Env) > 0 {
 		env := map[string]any{}

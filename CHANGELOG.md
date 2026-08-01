@@ -21,6 +21,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `docs/user/targets.md` drops Warp from the MCP `type`-field list (Warp's schema has no such key), adds the `SessionEnd` Codex hook event the emitter already sends, marks Gemini's hook list as a non-exhaustive example instead of all 11 events, and confirms the Amp `.agents/commands/` path is no longer read now that command removal has held since 2026-01-29.
 - Refreshed ten stale vendor doc URLs in the target-audit skill's `references/sources.md`: Codex's six doc pages moved to `learn.chatgpt.com` (one, `/rules`, pointed at the wrong topic), Kilo moved to `kilo.ai`, and Claude, Gemini, Antigravity, Junie, Cline, Continue, and Cursor each get a corrected or added entry. Trae joins the client-rendered-docs warning list.
 
+### Fixed
+
+- Codex exec-policy `decision` now accepts `allow`, `forbidden`, `prompt`; `ask` was never a valid Codex CLI literal and rendered a rule Codex silently ignored, and the vendor-correct `prompt` used to fail validation.
+- `outputs.claude.settings.enabledPlugins` is now a map of `plugin-id@marketplace-id` to boolean, matching Claude Code's own settings schema; the previous list-of-strings shape could not express the required marketplace qualifier and never actually enabled a plugin.
+- MCP `disabled: true` now maps to Codex's real `enabled = false` key instead of a `disabled` key Codex never reads. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server at all, so agnostic-ai stops writing the field for them and reports a coverage note instead of silently doing nothing.
+
 ## v0.44.0 - 2026-07-24
 
 ### Added

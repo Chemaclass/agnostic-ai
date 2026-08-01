@@ -634,10 +634,21 @@ type codexMCPEntry struct {
 	HTTPHeaders       map[string]string `toml:"http_headers"`
 	// Shared fields the codex emitter writes via writeMCPSharedFields.
 	// Round-tripping requires capturing them here so a re-sync does
-	// not silently drop description / disabled / roots metadata.
-	Description string         `toml:"description"`
-	Disabled    bool           `toml:"disabled"`
-	Roots       []codexMCPRoot `toml:"roots"`
+	// not silently drop description / enabled / roots metadata.
+	Description string `toml:"description"`
+	// Enabled mirrors Codex's own `enabled` key (the key
+	// `learn.chatgpt.com/docs/config-file/config-reference` documents;
+	// the emitter only writes it when false, so nil here means the key
+	// was absent, i.e. Codex's own default of enabled). Translated to
+	// the spec's `disabled: true` in writeCodexMCPs.
+	Enabled *bool `toml:"enabled"`
+	// Disabled captures the legacy `disabled = true` key agnostic-ai
+	// wrote before this fix. Codex CLI itself never reads that key, so
+	// it only appears in files this tool emitted pre-fix; kept so a
+	// project upgrading mid-cycle does not silently lose an
+	// already-declared disabled flag on its first `import codex`.
+	Disabled bool           `toml:"disabled"`
+	Roots    []codexMCPRoot `toml:"roots"`
 }
 
 type codexMCPRoot struct {
@@ -867,7 +878,7 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		if s.Description != "" {
 			doc["description"] = s.Description
 		}
-		if s.Disabled {
+		if s.Disabled || (s.Enabled != nil && !*s.Enabled) {
 			doc["disabled"] = true
 		}
 		if len(s.Roots) > 0 {

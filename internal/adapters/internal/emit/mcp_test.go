@@ -224,3 +224,64 @@ func TestMCPDocument_EmptySkips(t *testing.T) {
 		t.Errorf("expected empty string, got %q", got)
 	}
 }
+
+// StripMCPDisabled backs the claude/cursor/copilot fix for the
+// target-audit finding that `disabled: true` is a no-op on those
+// targets: none reads a per-server disable key from its project MCP
+// file, so writing a dead key would let a user believe the server
+// stopped connecting when it did not.
+func TestStripMCPDisabled_RemovesKeyAndNotes(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+		{Kind: spec.KindMCP, Name: "db", Meta: map[string]any{"command": "pg", "description": "postgres"}},
+	}
+	out := StripMCPDisabled("claude", mcps, "no file-based way to pre-disable a project-scoped MCP server")
+
+	got, err := MCPDocument(out, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, "disabled") {
+		t.Errorf("disabled key must not reach the emitted document: %s", got)
+	}
+	if !strings.Contains(got, "postgres") {
+		t.Errorf("untouched entries must survive unchanged: %s", got)
+	}
+
+	FlushCoverageNotes()
+	want := "  note: `disabled` on 1 mcp has no effect on claude (no file-based way to pre-disable a project-scoped MCP server)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected field no-op note, got %q", got)
+	}
+}
+
+// No entry sets `disabled`: no key to strip, no note to buffer, and the
+// original entries pass through untouched.
+func TestStripMCPDisabled_NoOpWhenNoneDisabled(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	out := StripMCPDisabled("cursor", mcps, "reason")
+	if len(out) != 1 || out[0].Name != "fs" {
+		t.Errorf("expected the single entry to pass through unchanged, got %+v", out)
+	}
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no note when nothing was disabled, got: %s", buf)
+	}
+}
+
+// The caller's slice and its Meta maps must not be mutated in place —
+// other adapters (or a second call for a different target) may still
+// hold a reference to the original bundle.
+func TestStripMCPDisabled_DoesNotMutateInput(t *testing.T) {
+	swapWarnerForNotes(t)
+	original := map[string]any{"command": "npx", "disabled": true}
+	mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "fs", Meta: original}}
+	StripMCPDisabled("claude", mcps, "reason")
+	if _, ok := original["disabled"]; !ok {
+		t.Errorf("caller's Meta map must not be mutated, disabled key was removed from it")
+	}
+}

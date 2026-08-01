@@ -88,8 +88,45 @@ func TestEmit_ExecPolicies_BadDecisionErrors(t *testing.T) {
 		}},
 	}}
 	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
-	if err == nil || !strings.Contains(err.Error(), "decision must be allow|forbidden|ask") {
+	if err == nil || !strings.Contains(err.Error(), "decision must be allow|forbidden|prompt") {
 		t.Errorf("expected bad-decision error, got: %v", err)
+	}
+}
+
+// Regression for the target-audit finding: Codex CLI's exec-policy enum
+// is allow|prompt|forbidden (learn.chatgpt.com/docs/agent-configuration/rules).
+// "prompt" must validate and render; the legacy "ask" spelling never
+// matched a Codex CLI literal and must now be rejected instead of
+// silently rendering a rule Codex ignores.
+func TestEmit_ExecPolicies_PromptDecision(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {ExecPolicies: []config.CodexExecPolicy{
+			{Pattern: []string{"git", "push"}, Decision: "prompt"},
+		}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/rules/default.rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `decision = "prompt"`) {
+		t.Errorf("expected decision = %q in:\n%s", "prompt", got)
+	}
+}
+
+func TestEmit_ExecPolicies_AskDecisionNowErrors(t *testing.T) {
+	testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {ExecPolicies: []config.CodexExecPolicy{
+			{Pattern: []string{"x"}, Decision: "ask"},
+		}},
+	}}
+	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
+	if err == nil || !strings.Contains(err.Error(), "decision must be allow|forbidden|prompt") {
+		t.Errorf("expected ask to be rejected (vendor literal is prompt, not ask), got: %v", err)
 	}
 }
 

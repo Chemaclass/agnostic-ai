@@ -386,6 +386,10 @@ func TestEmit_SweepSkippedWhenUserOptsIntoLegacyDir(t *testing.T) {
 	}
 }
 
+// Codex CLI's config-reference documents `mcp_servers.<id>.enabled:
+// boolean`, not `disabled`. The spec's `disabled: true` must map to the
+// key Codex actually reads: `enabled = false`. A literal `disabled = true`
+// key is not one Codex parses, so it silently fails to stop the server.
 func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -406,11 +410,14 @@ func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
 	for _, want := range []string{
 		`description = "Filesystem MCP"`,
-		"disabled = true",
+		"enabled = false",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+	if strings.Contains(got, "disabled") {
+		t.Errorf("codex does not read a `disabled` key; must not emit it: %s", got)
 	}
 }
 

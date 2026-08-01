@@ -162,7 +162,7 @@ type Sources struct {
 type CodexExecPolicy struct {
 	// Pattern is the shell command prefix tokens, e.g. ["composer", "test"].
 	Pattern []string `yaml:"pattern"                 json:"pattern"`
-	// Decision is one of "allow", "forbidden", "ask".
+	// Decision is one of "allow", "forbidden", "prompt".
 	Decision string `yaml:"decision"                json:"decision"`
 	// Justification is a free-form comment emitted alongside the rule.
 	Justification string `yaml:"justification,omitempty" json:"justification,omitempty"`
@@ -215,15 +215,20 @@ type Output struct {
 // `agnostic-ai.yaml` or leave it inside `.claude/settings.json` and let the
 // overlay carry it.
 type ClaudeSettings struct {
-	Model               string             `yaml:"model,omitempty"               json:"model,omitempty"`
-	OutputStyle         string             `yaml:"outputStyle,omitempty"         json:"outputStyle,omitempty"`
-	APIKeyHelper        string             `yaml:"apiKeyHelper,omitempty"        json:"apiKeyHelper,omitempty"`
-	CleanupPeriodDays   *int               `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
-	IncludeCoAuthoredBy *bool              `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
-	EnabledPlugins      []string           `yaml:"enabledPlugins,omitempty"      json:"enabledPlugins,omitempty"`
-	Env                 map[string]string  `yaml:"env,omitempty"                 json:"env,omitempty"`
-	StatusLine          *ClaudeStatusLine  `yaml:"statusLine,omitempty"          json:"statusLine,omitempty"`
-	Permissions         *ClaudePermissions `yaml:"permissions,omitempty"         json:"permissions,omitempty"`
+	Model               string `yaml:"model,omitempty"               json:"model,omitempty"`
+	OutputStyle         string `yaml:"outputStyle,omitempty"         json:"outputStyle,omitempty"`
+	APIKeyHelper        string `yaml:"apiKeyHelper,omitempty"        json:"apiKeyHelper,omitempty"`
+	CleanupPeriodDays   *int   `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
+	IncludeCoAuthoredBy *bool  `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
+	// EnabledPlugins maps `plugin-id@marketplace-id` to whether Claude
+	// Code should load it. Matches the authoritative schema at
+	// json.schemastore.org/claude-code-settings.json, which types
+	// `enabledPlugins` as an object, not a list: a marketplace-qualified
+	// plugin id cannot be expressed as a bare string.
+	EnabledPlugins map[string]bool    `yaml:"enabledPlugins,omitempty"      json:"enabledPlugins,omitempty"`
+	Env            map[string]string  `yaml:"env,omitempty"                 json:"env,omitempty"`
+	StatusLine     *ClaudeStatusLine  `yaml:"statusLine,omitempty"          json:"statusLine,omitempty"`
+	Permissions    *ClaudePermissions `yaml:"permissions,omitempty"         json:"permissions,omitempty"`
 }
 
 // ClaudeStatusLine mirrors the `statusLine` block of `.claude/settings.json`.

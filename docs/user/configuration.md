@@ -103,7 +103,7 @@ outputs:
     mcp-file: .codex/config.toml # default. Holds both [[hooks.<event>]] and [mcp_servers.<name>].
     # exec-policies:              # opt-in. Renders .codex/rules/default.rules.
     #   - pattern: ["composer", "test"]
-    #     decision: allow          # allow | forbidden | ask
+    #     decision: allow          # allow | forbidden | prompt
     #     justification: Run tests
     #     match: ["composer test"]
     # exec-policies-file: ./agnostic-ai/codex.exec-policies.yaml  # alt: external YAML list
@@ -530,8 +530,8 @@ outputs:
       cleanupPeriodDays: 30
       includeCoAuthoredBy: false
       enabledPlugins:
-        - plugin-a
-        - plugin-b
+        plugin-a@marketplace-a: true
+        plugin-b@marketplace-b: true
       env:
         FOO: bar
       statusLine:
@@ -554,7 +554,7 @@ outputs:
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
 | `includeCoAuthoredBy` | boolean | Append `Co-Authored-By: Claude` to git commits Claude creates. |
-| `enabledPlugins` | list of strings | Plugin identifiers Claude Code should load. |
+| `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them. Matches the `enabledPlugins` object in Claude Code's settings schema; a plain list cannot express the required `@marketplace-id` qualifier. |
 | `env` | map of strings | Environment variables exported into Claude sessions. |
 | `statusLine` | object | `type`, `command`, and optional `padding`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
@@ -607,7 +607,7 @@ outputs:
   codex:
     exec-policies:
       - pattern: ["composer", "test"]
-        decision: allow           # allow | forbidden | ask
+        decision: allow           # allow | forbidden | prompt
         justification: Composer scripts are project entrypoints.
         match: ["composer test", "composer test -- --filter Foo"]
       - pattern: ["rm", "-rf", "/"]
@@ -618,7 +618,7 @@ outputs:
 | Field | Required | Notes |
 |-------|----------|-------|
 | `pattern` | yes | Shell command prefix tokens (`["composer", "test"]`). Becomes the `prefix_rule(pattern = [...])` argument. |
-| `decision` | yes | One of `allow`, `forbidden`, `ask`. |
+| `decision` | yes | One of `allow`, `forbidden`, `prompt`. |
 | `justification` | no | Free-form comment emitted above the rule as a `#` line. |
 | `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
 

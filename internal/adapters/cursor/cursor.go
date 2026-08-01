@@ -10,6 +10,12 @@
 // servers in .cursor/mcp.json, Bugbot review guidance in
 // .cursor/BUGBOT.md (root and per scope), background agent bootstrap in
 // .cursor/environment.json, and ignore lists in .cursorignore.
+//
+// An MCP spec's `disabled: true` has no file-based equivalent here:
+// cursor.com/docs/mcp documents no `disabled` (or `enabled`) key
+// anywhere in its server schema, only a sidebar UI toggle. The emitter
+// drops the field rather than write one Cursor ignores, and buffers a
+// coverage note so the drop is loud, not silent.
 package cursor
 
 import (
@@ -115,8 +121,15 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
 	}
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
+
+// mcpDisabledNoOpReason explains, in the flushed coverage note, why
+// `disabled: true` on an MCP spec never reaches `.cursor/mcp.json`:
+// Cursor has no per-server disable key there. See the package doc
+// comment for the vendor source.
+const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; use Cursor's own sidebar toggle instead"
 
 // hooksDoc is the `.cursor/hooks.json` shape per the Cursor hooks docs:
 // a numeric `version` plus a `hooks` map keyed by lifecycle event name,

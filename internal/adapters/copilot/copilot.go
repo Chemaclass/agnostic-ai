@@ -16,6 +16,13 @@
 // `.github/agents/<name>.agent.md` and skills as one folder per skill
 // at `.github/skills/<name>/SKILL.md` with bundled assets, the two
 // surfaces Copilot discovers directly.
+//
+// An MCP spec's `disabled: true` has no file-based equivalent here:
+// VS Code's own docs state the enable/disable state "is stored
+// separately from the server configuration in mcp.json, so it does not
+// affect shared configuration files" (code.visualstudio.com/docs/agent-customization/mcp-servers).
+// The emitter drops the field rather than write one Copilot ignores, and
+// buffers a coverage note so the drop is loud, not silent.
 package copilot
 
 import (
@@ -82,9 +89,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitLegacyRulesFile(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaVSCodeServers,
+	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
+
+// mcpDisabledNoOpReason explains, in the flushed coverage note, why
+// `disabled: true` on an MCP spec never reaches `.vscode/mcp.json`:
+// Copilot's enable/disable state lives outside the file entirely. See
+// the package doc comment for the vendor source.
+const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; the enable/disable state is stored outside mcp.json"
 
 // emitChatmodes writes one `.chatmode.md` per agent under the
 // configured chat-modes directory. No-op when the dir is unset, so

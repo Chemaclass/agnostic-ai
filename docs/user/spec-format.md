@@ -360,7 +360,7 @@ env:
 | `env` | no | empty | Environment variables passed to the server. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
-| `disabled` | no | `false` | When `true`, passes `disabled: true` to targets that support it (Claude Code, Cursor, Copilot). |
+| `disabled` | no | `false` | Codex maps this to `enabled = false` in `.codex/config.toml`. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server, so the field has no effect there and agnostic-ai does not emit it; disable the server from the target's own UI instead. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
 Targets with native MCP propagation:
