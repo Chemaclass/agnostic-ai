@@ -30,7 +30,15 @@
 // An MCP spec's `disabled: true` maps to Codex's own `enabled = false`
 // key (`learn.chatgpt.com/docs/config-file/config-reference` documents
 // `mcp_servers.<id>.enabled: boolean`, not `disabled`), the one target
-// where this field genuinely works.
+// where this field genuinely works. Stdio servers also accept `cwd`
+// (working directory, part of the cross-tool MCP spec); http servers
+// accept `auth` (`oauth` | `chatgpt`), read verbatim from the spec's
+// top-level `cwd` / `auth` fields the same way `bearer_token_env_var`
+// already is.
+//
+// Hook entries accept an optional `additionalContextLimit` (token
+// threshold for how much hook output reaches the model), propagated
+// into `.codex/hooks.json` the same way `commandWindows` already is.
 package codex
 
 import (

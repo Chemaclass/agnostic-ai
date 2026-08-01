@@ -5,7 +5,9 @@
       "gofmt -w"
     ],
     "command": "sh",
-    "label": "fmt-go"
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "label": "fmt-go",
+    "shell": "bash"
   },
   {
     "args": [

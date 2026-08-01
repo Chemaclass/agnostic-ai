@@ -330,6 +330,75 @@ func TestEmit_TasksSkipsHooksWithoutCommand(t *testing.T) {
 	}
 }
 
+// zed.dev/docs/tasks documents optional cwd/env/shell/reveal/hide/save/
+// allow_concurrent_runs/use_new_terminal/tags/reevaluate_context
+// alongside label/command/args. None of them are cross-tool hook
+// fields, so they pass through under `x-zed`. See #539.
+func TestEmit_TasksEmitsXZedFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "fmt",
+			Meta: map[string]any{
+				"event":   "PostToolUse",
+				"command": "gofmt -w .",
+				"x-zed": map[string]any{
+					"cwd":                   "$ZED_WORKTREE_ROOT",
+					"shell":                 "bash",
+					"reveal":                "always",
+					"allow_concurrent_runs": true,
+					"tags":                  []any{"formatting"},
+				},
+			},
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"zed": {TasksFile: ".zed/tasks.json"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".zed/tasks.json"))
+	for _, want := range []string{
+		`"cwd": "$ZED_WORKTREE_ROOT"`,
+		`"shell": "bash"`,
+		`"reveal": "always"`,
+		`"allow_concurrent_runs": true`,
+		`"formatting"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// A hook with no x-zed block must not gain any extra task fields.
+func TestEmit_TasksNoXZedFieldsWhenUnset(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{"event": "Stop", "command": "gofmt -w ."}},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"zed": {TasksFile: ".zed/tasks.json"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".zed/tasks.json"))
+	for _, unwanted := range []string{"cwd", "shell", "reveal"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("unexpected %q with no x-zed block set:\n%s", unwanted, got)
+		}
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

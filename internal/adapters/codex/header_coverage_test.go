@@ -108,7 +108,10 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{
 			Kind: spec.KindHook, Name: "fmt-go",
-			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w"},
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w",
+				"additionalContextLimit": 2000,
+			},
 		},
 		{
 			Kind: spec.KindHook, Name: "lint-pre",
@@ -123,11 +126,14 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"cwd": "/workspace",
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "auth": "oauth"},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

@@ -302,6 +302,30 @@ func TestEmit_MCP_StdioWritesMcpServersKey(t *testing.T) {
 	}
 }
 
+// geminicli.com documents `cwd` on stdio MCP servers (also documented
+// for codex; shared cross-tool gap). See #532.
+func TestEmit_MCP_StdioWritesCwd(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"cwd":     "/workspace/project",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	if !strings.Contains(got, `"cwd": "/workspace/project"`) {
+		t.Errorf("missing cwd in %s", got)
+	}
+}
+
 // HTTP MCP uses Gemini's `httpUrl` key, not the standard `url`.
 func TestEmit_MCP_HTTPUsesHttpUrlKey(t *testing.T) {
 	dir := testutil.TempCwd(t)

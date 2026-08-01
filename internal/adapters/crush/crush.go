@@ -10,14 +10,21 @@
 // Skills emit as one folder per skill under `.agents/skills/<name>/SKILL.md`,
 // the first location Crush scans (ahead of `.crush/skills`,
 // `.claude/skills`, and `.cursor/skills`). The renderer matches the
-// codex/amp/zed output byte-for-byte so the shared tree dedupes.
+// codex/amp/zed output byte-for-byte so the shared tree dedupes. Setting
+// `x-crush.user-invocable: true` on a skill adds that flag to its
+// frontmatter so the skill also shows up in Crush's command palette
+// (ctrl+p); the shared renderer passes any `x-crush` key through
+// unchanged, so no crush-specific code path is needed.
 //
 // MCP servers are configured in the project `crush.json` under the
 // `mcp` map: stdio entries render as `{"type": "stdio", "command":
 // ..., "args": [...], "env": {...}}`; HTTP / SSE / remote entries
-// render as `{"type": "http", "url": ..., "headers": {...}}`. crush.json
-// also holds user-managed keys (models, providers, lsp, options); the
-// merge only touches the `mcp` key so those survive a sync.
+// render as `{"type": "http", "url": ..., "headers": {...}, "oauth":
+// ..., "oauth_client_id": ..., "oauth_client_secret": ...,
+// "oauth_callback_port": ...}` (oauth fields optional, shipped in
+// Crush v0.87.0). crush.json also holds user-managed keys (models,
+// providers, lsp, options); the merge only touches the `mcp` key so
+// those survive a sync.
 package crush
 
 import (
@@ -124,6 +131,22 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		out["url"] = url
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			out["headers"] = h
+		}
+		// OAuth fields, shipped in Crush v0.87.0 ("MCP OAuth
+		// implementation"). Passed through verbatim; oauth is a plain
+		// bool toggle, callback port keeps whatever numeric type the
+		// spec loader decoded (JSON marshaling renders either the same).
+		if v, ok := e.Meta["oauth"].(bool); ok {
+			out["oauth"] = v
+		}
+		if v, _ := e.Meta["oauth_client_id"].(string); v != "" {
+			out["oauth_client_id"] = v
+		}
+		if v, _ := e.Meta["oauth_client_secret"].(string); v != "" {
+			out["oauth_client_secret"] = v
+		}
+		if v, ok := e.Meta["oauth_callback_port"]; ok && v != nil {
+			out["oauth_callback_port"] = v
 		}
 	default:
 		return nil

@@ -5,6 +5,9 @@
       "type": "stdio"
     },
     "http-server": {
+      "oauth": true,
+      "oauth_callback_port": 8090,
+      "oauth_client_id": "client-abc",
       "type": "http",
       "url": "https://example.test/mcp"
     },

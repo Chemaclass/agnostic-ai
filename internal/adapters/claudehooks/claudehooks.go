@@ -18,16 +18,22 @@ package claudehooks
 // `asyncRewake`, `shell`, and `if` are command-hook schema fields;
 // dropping them on emit would strip behavior a user authored in
 // settings.json (import captures them for the round-trip).
+//
+// AdditionalContextLimit is Codex-only (learn.chatgpt.com/docs/hooks);
+// it lives here anyway per this package's own round-trip rule, and
+// stays absent from claude's own emit because
+// internal/adapters/claude never sets it on the struct it builds.
 type CommandEntry struct {
-	Type          string `json:"type"`
-	Command       string `json:"command"`
-	Timeout       int    `json:"timeout,omitempty"`
-	StatusMessage string `json:"statusMessage,omitempty"`
-	Async         bool   `json:"async,omitempty"`
-	AsyncRewake   bool   `json:"asyncRewake,omitempty"`
-	Shell         string `json:"shell,omitempty"`
-	If            string `json:"if,omitempty"`
-	Once          bool   `json:"once,omitempty"`
+	Type                   string `json:"type"`
+	Command                string `json:"command"`
+	Timeout                int    `json:"timeout,omitempty"`
+	StatusMessage          string `json:"statusMessage,omitempty"`
+	Async                  bool   `json:"async,omitempty"`
+	AsyncRewake            bool   `json:"asyncRewake,omitempty"`
+	Shell                  string `json:"shell,omitempty"`
+	If                     string `json:"if,omitempty"`
+	Once                   bool   `json:"once,omitempty"`
+	AdditionalContextLimit int    `json:"additionalContextLimit,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

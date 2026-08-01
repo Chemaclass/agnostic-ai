@@ -43,6 +43,31 @@ func TestEmit_MCP_StdioWritesConfigToml(t *testing.T) {
 	}
 }
 
+// learn.chatgpt.com/docs/config-file/config-reference documents `cwd`
+// ("Working directory for the MCP stdio server process") on stdio
+// entries. See #532.
+func TestEmit_MCP_StdioWritesCwd(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"cwd":     "/workspace/project",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `cwd = "/workspace/project"`) {
+		t.Errorf("missing cwd in %s", got)
+	}
+}
+
 func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -71,6 +96,31 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+}
+
+// learn.chatgpt.com/docs/config-file/config-reference documents `auth`
+// (`oauth | chatgpt`) on http entries. See #532.
+func TestEmit_MCP_HTTPWritesAuth(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://api.githubcopilot.com/mcp/",
+				"auth": "oauth",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `auth = "oauth"`) {
+		t.Errorf("missing auth in %s", got)
 	}
 }
 

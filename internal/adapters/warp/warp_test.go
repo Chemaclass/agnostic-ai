@@ -247,6 +247,86 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 	}
 }
 
+// docs.warp.dev/terminal/entry/yaml-workflows documents optional
+// `shells`, `arguments`, `source_url`, `author`, `author_url`. None of
+// them are cross-tool spec fields, so they pass through under `x-warp`,
+// the pattern opencode.go:195 already uses. See #538.
+func TestEmit_WorkflowsDirEmitsXWarpFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "deploy",
+			Path: "agents/deploy.md",
+			Meta: map[string]any{
+				"description": "Run the deploy script.",
+				"x-warp": map[string]any{
+					"shells":     []any{"zsh", "bash"},
+					"source_url": "https://example.com/deploy",
+					"author":     "chema",
+					"author_url": "https://github.com/chema",
+					"arguments": []any{
+						map[string]any{"name": "branch", "description": "target branch", "default_value": "main"},
+					},
+				},
+			},
+			Body: "./scripts/deploy.sh {{branch}}",
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"warp": {WorkflowsDir: ".warp/workflows"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+
+	wf := readFile(t, filepath.Join(dir, ".warp/workflows/deploy.yaml"))
+	for _, want := range []string{
+		"shells:",
+		"- zsh",
+		"- bash",
+		"source_url: https://example.com/deploy",
+		"author: chema",
+		"author_url: https://github.com/chema",
+		"arguments:",
+		"name: branch",
+		"default_value: main",
+	} {
+		if !strings.Contains(wf, want) {
+			t.Errorf("missing %q in %s", want, wf)
+		}
+	}
+}
+
+// A plain workflow with no x-warp block must not gain the block.
+func TestEmit_WorkflowsDirNoXWarpBlockWhenUnset(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "deploy",
+			Path: "agents/deploy.md",
+			Body: "./scripts/deploy.sh",
+		},
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"warp": {WorkflowsDir: ".warp/workflows"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	wf := readFile(t, filepath.Join(dir, ".warp/workflows/deploy.yaml"))
+	if strings.Contains(wf, "shells") || strings.Contains(wf, "author") {
+		t.Errorf("unexpected x-warp fields with no x-warp block set:\n%s", wf)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
