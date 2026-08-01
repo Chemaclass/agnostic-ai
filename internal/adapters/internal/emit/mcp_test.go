@@ -285,3 +285,52 @@ func TestStripMCPDisabled_DoesNotMutateInput(t *testing.T) {
 		t.Errorf("caller's Meta map must not be mutated, disabled key was removed from it")
 	}
 }
+
+// TestMCPDocument_WSTransport guards audit finding B8. Before `ws`
+// shared the remote branch, a WebSocket entry matched neither the
+// "stdio" nor the "http", "sse" case, so it was written with no
+// command, no url, and no type: a malformed server object emitted with
+// no warning, on both claude's .mcp.json and cursor's .cursor/mcp.json.
+// Claude documents `type: "ws"` as taking the same url/headers fields
+// as http, and Qoder documents the same transport.
+func TestMCPDocument_WSTransport(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "socket",
+			Meta: map[string]any{
+				"type": "ws",
+				"url":  "wss://example.com/ws",
+				"headers": map[string]any{
+					"Authorization": "Bearer xyz",
+				},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	servers, ok := parsed["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing mcpServers: %s", got)
+	}
+	entry, ok := servers["socket"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing socket server: %s", got)
+	}
+	if entry["url"] != "wss://example.com/ws" {
+		t.Errorf("url = %v, want the ws url (dropped entirely before B8)", entry["url"])
+	}
+	if entry["type"] != "ws" {
+		t.Errorf("type = %v, want %q so the transport is not ambiguous", entry["type"], "ws")
+	}
+	if _, ok := entry["headers"]; !ok {
+		t.Errorf("headers dropped: %s", got)
+	}
+}

@@ -85,7 +85,7 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 		if args := stringSlice(e.Meta, "args"); len(args) > 0 {
 			out["args"] = args
 		}
-	case "http", "sse":
+	case "http", "sse", "ws":
 		if url := stringField(e.Meta, "url"); url != "" {
 			out["url"] = url
 		}
@@ -93,8 +93,14 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 			out["headers"] = h
 		}
 		// Remote servers carry an explicit `type` in every schema. A
-		// `.mcp.json` entry with only `url` is ambiguous (http vs sse);
-		// stdio stays type-less since it is the inferred default.
+		// `.mcp.json` entry with only `url` is ambiguous (http vs sse
+		// vs ws); stdio stays type-less since it is the inferred
+		// default. `ws` takes the same url/headers shape as http per
+		// https://code.claude.com/docs/en/mcp, and Qoder documents the
+		// same transport. Before it shared this branch, a `ws` entry
+		// matched no case at all and was written with no command, no
+		// url, and no type: a malformed server object, emitted with no
+		// warning.
 		out["type"] = transport
 	}
 

@@ -354,7 +354,7 @@ env:
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier. Becomes the key in the generated config. |
 | `description` | no | empty | Free-form documentation. |
-| `type` | no | `stdio` | Transport: `stdio`, `http`, or `sse`. |
+| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports (`http`, `sse`, `ws`) emit an explicit `type`; `stdio` stays type-less since it is the inferred default. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
