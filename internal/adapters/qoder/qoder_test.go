@@ -79,9 +79,9 @@ func TestEmit_RulesDirOverride(t *testing.T) {
 	}
 }
 
-// Agents and skills have no native Qoder surface, so they must never
-// leak into the rules directory even though RulesDirectory could
-// flatten them there for other adapters.
+// Agents have their own native `.qoder/agents/` surface and skills have
+// none at all, so neither must ever leak into the rules directory even
+// though RulesDirectory could flatten them there for other adapters.
 func TestEmit_AgentsAndSkillsNotFlattenedIntoRules(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -97,11 +97,225 @@ func TestEmit_AgentsAndSkillsNotFlattenedIntoRules(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".qoder/rules/r1.md")); err != nil {
 		t.Errorf("expected rule file written: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".qoder/agents/ag1.md")); err != nil {
+		t.Errorf("expected native agent file written: %v", err)
+	}
 	for _, p := range []string{".qoder/rules/agent-ag1.md", ".qoder/rules/skill-sk1.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
 			t.Errorf("expected %s not to be written, err=%v", p, err)
 		}
 	}
+}
+
+// name and tools are confirmed safe on real Qoder (target-audit
+// 2026-08-01, #529): docs.qoder.com/extensions/subagent documents both
+// as agent frontmatter, and Qoder's built-in tool vocabulary is
+// Claude-style, so agnostic-ai's generic tools list passes straight
+// through (unlike kilo and augment, whose vendor vocabularies differ).
+func TestEmit_Agent_WritesAgentFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "reviewer",
+			Meta: map[string]any{
+				"description": "Reviews diffs.",
+				"model":       "sonnet",
+				"tools":       []any{"Read", "Grep", "Bash"},
+			},
+			Body: "Review the diff for correctness.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/reviewer.md"))
+	if !strings.HasPrefix(got, "---\n") {
+		t.Fatalf("frontmatter must be first, got:\n%s", got)
+	}
+	for _, want := range []string{
+		"name: reviewer",
+		"description: Reviews diffs.",
+		"model: sonnet",
+		"tools: Read, Grep, Bash",
+		"Review the diff for correctness.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "tools: [") || strings.Contains(got, "- Read") {
+		t.Errorf("qoder tools must be a comma-separated string, not a list, got:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_DescriptionFallsBackToName(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "no-desc", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/no-desc.md"))
+	if !strings.Contains(got, "description: no-desc") {
+		t.Errorf("expected description fallback to agent name, got:\n%s", got)
+	}
+	if strings.Contains(got, "model:") || strings.Contains(got, "tools:") {
+		t.Errorf("expected no model/tools keys when absent from meta, got:\n%s", got)
+	}
+}
+
+// A spec author who already writes Qoder's own comma-separated string
+// (typically via x-qoder.tools) must see it pass through unchanged, not
+// re-joined or otherwise mangled.
+func TestEmit_Agent_ToolsAlreadyStringPassesThroughUnchanged(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{"description": "d", "tools": "Read, Grep, Glob, Bash"},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "tools: Read, Grep, Glob, Bash") {
+		t.Errorf("expected the pre-joined string to pass through unchanged, got:\n%s", got)
+	}
+}
+
+// skills and mcpServers are documented optional Qoder agent frontmatter
+// fields with no agnostic-ai-native shape of their own, so whatever the
+// spec declares passes straight through.
+func TestEmit_Agent_SkillsAndMCPServersPassThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"skills":      []any{"yaml-validator"},
+				"mcpServers":  []any{"filesystem"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	for _, want := range []string{"skills:", "yaml-validator", "mcpServers:", "filesystem"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+// x-qoder cannot reintroduce name: the file identity always comes from
+// the spec name, matching every other AGENTS.md-family target's
+// per-file surface.
+func TestEmit_Agent_XQoderCannotReintroduceName(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"x-qoder":     map[string]any{"name": "override"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if strings.Contains(got, "override") {
+		t.Errorf("x-qoder must not override the spec-derived name, got:\n%s", got)
+	}
+	if !strings.Contains(got, "name: alpha") {
+		t.Errorf("expected name: alpha, got:\n%s", got)
+	}
+}
+
+// x-qoder.tools overrides a plain top-level tools list: ResolveMeta
+// flattens the target-scoped block on top of the generic field before
+// agentMarkdown ever sees it, so the escape hatch wins.
+func TestEmit_Agent_XQoderToolsOverridesGenericList(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"tools":       []any{"Read"},
+				"x-qoder":     map[string]any{"tools": "Bash, WebFetch"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "tools: Bash, WebFetch") {
+		t.Errorf("expected x-qoder.tools to win, got:\n%s", got)
+	}
+	if strings.Count(got, "tools:") != 1 {
+		t.Errorf("expected exactly one tools: line, got:\n%s", got)
+	}
+}
+
+// Arbitrary x-qoder keys pass through so the full agent schema is
+// reachable without waiting on this adapter's allowlist.
+func TestEmit_Agent_XQoderPassthrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{"description": "d", "x-qoder": map[string]any{"temperature": "0.2"}},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "temperature:") {
+		t.Errorf("expected x-qoder key to pass through, got:\n%s", got)
+	}
+}
+
+func TestEmit_AgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"qoder": {AgentsDir: "custom/agents"}}}
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a1", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/agents/a1.md")); err != nil {
+		t.Errorf("expected override dir to hold the agent file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".qoder/agents/a1.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default agents dir, err=%v", err)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
 }
 
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {

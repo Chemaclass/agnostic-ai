@@ -495,7 +495,7 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`, Windsurf `.devinignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ## Frontmatter rules
 
@@ -555,5 +555,6 @@ Per surface:
 | `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` |
 | `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
 | `kiro` | agent `.md` frontmatter | every `x-kiro` key beyond `description`/`model` (`name` is excluded: Kiro's agent schema has none, identity comes from the filename) |
+| `qoder` | agent `.md` frontmatter | every `x-qoder` key beyond `name`/`description`/`model`/`tools`/`skills`/`mcpServers` |
 
 Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule and skill steering files carry no passthrough; kiro agents do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.

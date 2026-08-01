@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -15,13 +14,13 @@ import (
 
 // rulesDirImporters maps a source name to the rules directory the
 // importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly; cline, windsurf, junie, and trae also have dedicated
-// importers (import_cline.go, import_windsurf.go, import_junie.go,
-// import_trae.go) because each additionally reconstructs skills from its
-// native `SKILL.md` folder tree (trae also reconstructs commands).
-var rulesDirImporters = map[string]string{
-	"qoder": filepath.Join(".qoder", "rules"),
-}
+// route directly; cline, windsurf, junie, trae, and qoder also have
+// dedicated importers (import_cline.go, import_windsurf.go,
+// import_junie.go, import_trae.go, import_qoder.go) because each
+// additionally reconstructs something beyond flat rule files: skills
+// from a native `SKILL.md` folder tree (trae also reconstructs
+// commands), or, for qoder, native agents from `.qoder/agents/`.
+var rulesDirImporters = map[string]string{}
 
 // importSources lists every source the import command accepts, used in
 // help text and error messages.
@@ -29,7 +28,7 @@ func importSources() string {
 	names := []string{
 		"aider", "amp", "antigravity", "claude", "cline", "codex", "continue",
 		"copilot", "crush", "cursor", "gemini", "junie", "kiro", "opencode",
-		"trae", "warp", "windsurf", "zed",
+		"qoder", "trae", "warp", "windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
@@ -129,6 +128,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromTrae(root, src)
 	case "junie":
 		return importFromJunie(root, src)
+	case "qoder":
+		return importFromQoder(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
@@ -171,7 +172,7 @@ func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
 		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush",
-		"trae", "junie":
+		"trae", "junie", "qoder":
 		return true
 	}
 	_, ok := rulesDirImporters[source]

@@ -232,6 +232,50 @@ func TestEmit_RulesDirOverride_KeepsLegacyWindsurfTree(t *testing.T) {
 	}
 }
 
+// .devinignore is the vendor-documented current ignore-file path
+// (docs.devin.ai/desktop/context-awareness/windsurf-ignore); the legacy
+// `.codeiumignore` and `.windsurfignore` filenames stay reader-side
+// only, so this adapter never writes either.
+func TestEmit_IgnoreFile_WritesDevinignore(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env\nsecrets/"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".devinignore"))
+	if err != nil {
+		t.Fatalf("missing .devinignore: %v", err)
+	}
+	body := string(got)
+	if !strings.Contains(body, "*.env") || !strings.Contains(body, "secrets/") {
+		t.Errorf("missing ignore patterns, got:\n%s", body)
+	}
+	if !strings.HasPrefix(body, "#") {
+		t.Errorf("expected shell-style (#) provenance header, got:\n%s", body)
+	}
+}
+
+func TestEmit_IgnoreFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {IgnoreFile: ".codeiumignore"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codeiumignore")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".devinignore")); !os.IsNotExist(err) {
+		t.Errorf("override must not also write the default, err=%v", err)
+	}
+}
+
 // Managed leftovers at the pre-rename .windsurf/rules path are swept on
 // sync (they predate the ledger on old projects); hand-authored files
 // there survive.

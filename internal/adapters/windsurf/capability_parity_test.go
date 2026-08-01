@@ -26,6 +26,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".devin/rules/r1.md", ".devin/rules/r2.md", ".devin/rules/r3.md"}},
 		{spec.KindAgent, []string{".devin/rules/agent-alpha.md", ".devin/rules/agent-beta.md", ".devin/rules/agent-gamma.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
+		{spec.KindIgnore, []string{".devinignore"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

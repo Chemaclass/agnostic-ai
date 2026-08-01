@@ -68,9 +68,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## windsurf
 
-- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/workflows
+- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore
 - changelog: https://windsurf.com/changelog
-- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped.
+- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change.
 
 ## continue
 
@@ -152,9 +152,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## qoder
 
-- docs: https://docs.qoder.com/user-guide/rules
+- docs: https://docs.qoder.com/user-guide/rules · https://docs.qoder.com/extensions/subagent
 - changelog: https://qoder.com/changelog
-- watch: `.qoder/rules/` only today; skills/agents/MCP surfaces would each be new.
+- watch: `.qoder/rules/` and `.qoder/agents/` today, plus `.mcp.json`; a skills surface would be new. Also watch whether `tools:` gains a documented list form alongside the current comma-separated string.
 
 ## openhands
 
