@@ -33,7 +33,7 @@ instead and do not conclude "page is empty" from a curl body.
 ## codex
 
 - docs: https://learn.chatgpt.com/docs/build-skills · /docs/agent-configuration/subagents · /docs/custom-prompts · /docs/hooks · /docs/config-file/config-reference · /docs/agent-configuration/rules (exec-policy precedence, not AGENTS.md discovery) · /docs/agent-configuration/agents-md (AGENTS.md discovery)
-- changelog: https://developers.openai.com/codex/changelog
+- changelog: https://learn.chatgpt.com/docs/changelog
 - watch: skills dir has moved twice (`.codex/skills` -> `.agents/skills`); prompts are deprecated in favour of skills; hooks JSON event names.
 
 ## gemini
@@ -50,9 +50,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## copilot
 
-- docs: https://docs.github.com/en/copilot/reference/custom-agents-configuration · https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills
+- docs: https://docs.github.com/en/copilot/reference/custom-agents-configuration · https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills · https://code.visualstudio.com/docs/agent-customization/mcp-servers (MCP; VS Code's docs are authoritative for `.vscode/mcp.json`, docs.github.com does not cover it)
 - changelog: https://github.blog/changelog/label/copilot/
-- watch: `.github/instructions/*.instructions.md` `applyTo` semantics, `.vscode/mcp.json` vs a repo-level MCP file, agent frontmatter keys.
+- watch: `.github/instructions/*.instructions.md` `applyTo` semantics, `.vscode/mcp.json` vs a repo-level MCP file, agent frontmatter keys. Enable/disable state is stored outside `mcp.json`, so there is no per-server `disabled` key.
 
 ## aider
 
