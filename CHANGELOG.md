@@ -12,6 +12,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `target-audit --fix` closes what it finds: after filing issues it spawns one `adapter-fixer` agent per fix bucket, each in its own git worktree, each opening a PR with the finding's evidence and `Closes #N`. Buckets by severity, not by tool: one PR per breaking finding, one batched PR for additive native surfaces, one docs PR for the rest. It never merges, so audit, fix, and merge stay three separate actors.
 - Seven new targets (#479): `qoder` (Alibaba Qoder: native `.qoder/rules/<name>.md`, one file per rule), `openhands` (All Hands OpenHands: the shared `.agents/skills/<name>/SKILL.md` tree), `factory` (Factory Droid: `.factory/droids/<name>.md` with `x-factory` passthrough), `kilo` (Kilo Code: `.kilo/agents/<name>.md` + `kilo.jsonc` `mcpServers`), `jules` (Google Jules, cloud: shared `AGENTS.md` only), `goose` (Block Goose: opt-in `.goosehints`), and `augment` (Augment Code: opt-in `.augment-guidelines`). All seven read the shared root `AGENTS.md` pointer. `qoder`, `openhands`, `factory`, and `kilo` join the default set (now 20 of 25); `jules`, `goose`, and `augment` stay opt-in; `kilo` brings MCP to 14 of 25 targets; `import qoder` captures its rules dir.
 
+### Fixed
+
+- `docs/user/targets.md` drops Warp from the MCP `type`-field list (Warp's schema has no such key), adds the `SessionEnd` Codex hook event the emitter already sends, marks Gemini's hook list as a non-exhaustive example instead of all 11 events, and confirms the Amp `.agents/commands/` path is no longer read now that command removal has held since 2026-01-29.
+- Refreshed ten stale vendor doc URLs in the target-audit skill's `references/sources.md`: Codex's six doc pages moved to `learn.chatgpt.com` (one, `/rules`, pointed at the wrong topic), Kilo moved to `kilo.ai`, and Claude, Gemini, Antigravity, Junie, Cline, Continue, and Cursor each get a corrected or added entry. Trae joins the client-rendered-docs warning list.
+
 ## v0.44.0 - 2026-07-24
 
 ### Added

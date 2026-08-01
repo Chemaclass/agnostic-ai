@@ -18,33 +18,33 @@ in the report so this file gets patched.
 `changelog` = where new features land first; read it before the docs
 when hunting for "what changed since last audit".
 
-Some vendor sites render client-side (goose, kilo, antigravity). `curl`
-returns 200 with an empty body there; use WebFetch or WebSearch instead
-and do not conclude "page is empty" from a curl body.
+Some vendor sites render client-side (goose, kilo, antigravity, trae).
+`curl` returns 200 with an empty body there; use WebFetch or WebSearch
+instead and do not conclude "page is empty" from a curl body.
 
 ---
 
 ## claude
 
-- docs: https://code.claude.com/docs/en/memory (rules) · /hooks · /sub-agents · /skills · /mcp · /settings · /slash-commands
+- docs: https://code.claude.com/docs/en/memory (rules) · /hooks · /sub-agents · /skills (slash-commands merged in; `.claude/commands/` still works) · /mcp · /settings
 - changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 - watch: `.claude/rules/` native loading, settings.json key surface, plugin/marketplace keys.
 
 ## codex
 
-- docs: https://developers.openai.com/codex/skills · /subagents · /custom-prompts · /hooks · /config-reference · /rules
+- docs: https://learn.chatgpt.com/docs/build-skills · /docs/agent-configuration/subagents · /docs/custom-prompts · /docs/hooks · /docs/config-file/config-reference · /docs/agent-configuration/rules (exec-policy precedence, not AGENTS.md discovery) · /docs/agent-configuration/agents-md (AGENTS.md discovery)
 - changelog: https://developers.openai.com/codex/changelog
 - watch: skills dir has moved twice (`.codex/skills` -> `.agents/skills`); prompts are deprecated in favour of skills; hooks JSON event names.
 
 ## gemini
 
-- docs: https://geminicli.com/docs/cli/skills/ · /docs/cli/custom-commands/ · https://geminicli.com/docs/get-started/configuration/
+- docs: https://geminicli.com/docs/cli/skills/ · /docs/cli/custom-commands/ · /docs/reference/configuration
 - changelog: https://github.com/google-gemini/gemini-cli/releases
 - watch: `.gemini/skills/` vs the `.agents/skills` alias precedence, `settings.json` hooks + mcpServers schema.
 
 ## cursor
 
-- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/bugbot · /docs/agent/chat/commands
+- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · /docs/agent/chat/commands
 - changelog: https://cursor.com/changelog
 - watch: `.mdc` frontmatter fields, hooks event names (camelCase, e.g. `beforeShellExecution`), environment.json schema.
 
@@ -62,7 +62,7 @@ and do not conclude "page is empty" from a curl body.
 
 ## cline
 
-- docs: https://docs.cline.bot/customization/cline-rules
+- docs: https://docs.cline.bot/customization/cline-rules · /customization/skills · /getting-started/config
 - changelog: https://github.com/cline/cline/releases
 - watch: `.clinerules/workflows/` path, whether root `AGENTS.md` is read, MCP config location.
 
@@ -74,7 +74,7 @@ and do not conclude "page is empty" from a curl body.
 
 ## continue
 
-- docs: https://docs.continue.dev/customize/deep-dives/rules · /customize/deep-dives/mcp · https://docs.continue.dev/hub/assistants/intro
+- docs: https://docs.continue.dev/customize/deep-dives/rules · /customize/deep-dives/mcp
 - changelog: https://github.com/continuedev/continue/releases
 - watch: `.continue/rules/` vs hub-hosted rules, `.continue/mcpServers/*.yaml` schema.
 
@@ -104,14 +104,14 @@ and do not conclude "page is empty" from a curl body.
 
 ## antigravity
 
-- docs: https://antigravity.google/docs · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
+- docs: https://antigravity.google/docs/rules-workflows · /docs/skills · /docs/mcp · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
 - changelog: (none published; use the docs page diff)
 - watch: unresolved `.agent/` vs `.agents/` rules-dir question. The adapter uses `.agent/`. Official confirmation either way is a high-value finding.
 
 ## junie
 
-- docs: https://junie.jetbrains.com/docs/
-- changelog: JetBrains plugin release notes
+- docs: https://junie.jetbrains.com/docs/ · /docs/agent-skills.html
+- changelog: https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions · https://junie.jetbrains.com/blog/
 - watch: `.junie/rules/` vs `.junie/guidelines.md`, `.junie/mcp/mcp.json` schema.
 
 ## kiro
@@ -170,6 +170,6 @@ and do not conclude "page is empty" from a curl body.
 
 ## kilo
 
-- docs: https://kilocode.ai/docs (client-rendered; use WebFetch)
+- docs: https://kilo.ai/docs (client-rendered; use WebFetch)
 - changelog: https://github.com/Kilo-Org/kilocode/releases
 - watch: `kilo.jsonc` `mcpServers` shape, `.kilo/agents/` vs custom modes, rules-dir surface.
