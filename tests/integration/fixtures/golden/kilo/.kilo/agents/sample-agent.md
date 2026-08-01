@@ -1,5 +1,4 @@
 ---
-name: sample-agent
 description: A sample agent for golden snapshot tests.
 ---
 

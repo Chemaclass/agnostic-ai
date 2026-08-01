@@ -64,7 +64,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **qoder**       | - | - | `.qoder/rules/<name>.md` | - | - | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
-| **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcpServers`) | - | - | - | - | - |
+| **kilo**        | `.kilo/agents/<name>.md` | - | inlined into `AGENTS.md` | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | - | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
 | **augment**     | - | - | inlined into `AGENTS.md` (opt-in `.augment-guidelines`) | - | - | - | - | - | - | - |
@@ -75,7 +75,7 @@ Cross-cutting kind notes:
 
 - **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, and OpenHands share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (14 of 25, see matrix). Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush tags stdio explicitly; the others infer it as the default). amp, gemini, zed, junie, kiro, and kilo have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; the rest via `url` vs `command`).
+- **MCP servers**: propagate to every target with a project-scoped MCP file (14 of 25, see matrix). Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, and kiro have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; the rest via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
@@ -565,7 +565,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 kilo.jsonc                         # when MCP entries exist (merged with existing user config)
 ```
 
-Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent. MCP servers merge into the `mcpServers` map of `kilo.jsonc`: stdio uses `command`/`args`/`env`, remote uses `url`/`headers`. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
+Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads agents from `.kilo/agents/`, one `<name>.md` per agent; Kilo Code takes the agent's name from the filename, so frontmatter carries only `description` and optional `model` (no `name:`, and no `tools:` — Kilo Code's full agent option table has no such key, so a spec's `tools` allowlist would silently do nothing; an agent with `tools` set surfaces a coverage note instead, and per-tool restriction goes through Kilo Code's native `permission` map via `x-kilo: {permission: {...}}`). MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. User-managed keys in `kilo.jsonc` survive every sync. Kilo has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. The legacy `.kilocode/rules` path is Kilo's own auto-migration target and is not emitted. Skills and hooks have no Kilo surface yet and skip with a warning.
 
 Config keys: `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
 
@@ -573,7 +573,7 @@ Verify with the real IDE:
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
 2. Check the tree: `ls AGENTS.md .kilo/agents/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/agents/*.md` for the provenance header.
-3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcpServers.<name>` from `kilo.jsonc` connects.
+3. Open the project; each `.kilo/agents/<name>.md` appears in the agent picker and each `mcp.<name>` from `kilo.jsonc` connects.
 
 ### Jules (`jules`)
 

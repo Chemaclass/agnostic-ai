@@ -10,18 +10,34 @@
 //
 // Agents emit as one Markdown file per agent spec at
 // `.kilo/agents/<name>.md` (override via outputs.kilo.agents-dir).
-// Frontmatter carries `name`, `description`, optional `model`, and
-// optional `tools`; arbitrary `x-kilo` keys pass through verbatim.
+// Kilo Code takes the agent's name from the filename, not from
+// frontmatter, so `name:` is never written. Frontmatter otherwise
+// carries `description` (falls back to the spec name) and optional
+// `model`; arbitrary `x-kilo` keys pass through verbatim. `tools` is
+// never written under any key, including `x-kilo`: Kilo Code's full
+// agent option table has no `tools` field, so a spec's `tools`
+// allowlist would be a silent no-op there, and the agent would keep
+// its default (typically full) permissions while looking restricted.
+// Kilo Code's real access control is a per-tool `permission` map
+// (`allow` / `ask` / `deny`), but this adapter has no vendor-confirmed
+// mapping from agnostic-ai's generic tool names onto Kilo's own tool
+// identifiers, so it does not guess one. An author who needs per-tool
+// restriction writes `x-kilo: {permission: {...}}` directly; an agent
+// spec that sets `tools` instead surfaces a coverage note rather than
+// silently dropping the restriction.
 //
 // MCP servers merge into the project `kilo.jsonc` (override via
-// outputs.kilo.mcp-file) under an `mcpServers` map: stdio entries
-// render as `{"command": ..., "args": [...], "env": {...}}`; HTTP /
-// SSE / remote entries render as `{"url": ..., "headers": {...}}`.
+// outputs.kilo.mcp-file) under an `mcp` map, the key current Kilo Code
+// reads (`mcpServers` is the deprecated MCP-spec 2025-03-26 form).
+// Stdio entries combine `command` + `args` into one `command` array
+// and set `"type": "local"`; HTTP / SSE / remote entries render as
+// `{"type": "remote", "url": ..., "headers": {...}}`. `environment`
+// (not `env`) carries a stdio server's environment variables.
 // kilo.jsonc also holds user-managed keys (models, providers, ...);
-// the merge only touches `mcpServers` so those survive a sync. This
-// adapter writes plain JSON: JSONC is a superset of JSON, so every
-// JSONC parser accepts the output, and agnostic-ai never needs to
-// emit (or preserve) comments of its own.
+// the merge only touches `mcp` so those survive a sync. This adapter
+// writes plain JSON: JSONC is a superset of JSON, so every JSONC
+// parser accepts the output, and agnostic-ai never needs to emit (or
+// preserve) comments of its own.
 package kilo
 
 import (
@@ -38,10 +54,6 @@ const (
 	defaultAgentsDir = ".kilo/agents"
 	defaultMCPFile   = "kilo.jsonc"
 )
-
-// agentFrontmatterKeys names the keys Kilo Code reads from an agent's
-// frontmatter.
-var agentFrontmatterKeys = []string{"name", "description", "model", "tools"}
 
 var caps = emit.Capabilities{
 	Target: target,
@@ -75,61 +87,73 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitAgents writes one `<dir>/<name>.md` per agent spec.
+// emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
+// spec declares `tools` get no restriction on Kilo Code (see
+// agentMarkdown), so the whole batch surfaces one coverage note
+// instead of a silent drop.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	withTools := 0
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)
+		md, hadTools := agentMarkdown(a)
+		if hadTools {
+			withTools++
+		}
+		body := emit.WithHeader(md, emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
+	emit.NoteCoverageGap(target, spec.KindAgent, withTools,
+		"tools has no Kilo Code key; use x-kilo.permission for native per-tool access control")
 	return nil
 }
 
-// agentMarkdown renders a single agent definition: `name`,
-// `description` (falls back to the spec name), optional `model`,
-// optional `tools`, plus arbitrary x-kilo passthrough, followed by the
-// spec body as the agent's system prompt.
-func agentMarkdown(e spec.Entry) string {
+// agentMarkdown renders a single agent definition: `description`
+// (falls back to the spec name) and optional `model`, plus arbitrary
+// x-kilo passthrough, followed by the spec body as the agent's system
+// prompt. Kilo Code takes the agent name from the filename, so `name`
+// is never written; `tools` is never written either (see the package
+// doc). Both stay excluded from the x-kilo passthrough too, so an
+// escape-hatch attempt cannot reintroduce a confirmed no-op key.
+// hadTools reports whether the spec declared a tools list, so the
+// caller can fold it into one coverage note per sync instead of a
+// silent drop.
+func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
 		desc = e.Name
 	}
 	meta := map[string]any{
-		"name":        e.Name,
 		"description": desc,
 	}
-	keys := []string{"name", "description"}
+	keys := []string{"description"}
 	if model, _ := resolved["model"].(string); model != "" {
 		meta["model"] = model
 		keys = append(keys, "model")
 	}
-	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 {
-		meta["tools"] = tools
-		keys = append(keys, "tools")
-	}
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, agentFrontmatterKeys...)
+	hadTools = len(emit.StringSlice(resolved["tools"])) > 0
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "model", "name", "tools")
 	front := emit.FrontmatterOrdered(meta, keys)
-	body := strings.TrimSpace(e.Body)
-	if body == "" {
-		return front + "\n"
+	trimmed := strings.TrimSpace(e.Body)
+	if trimmed == "" {
+		return front + "\n", hadTools
 	}
-	return front + "\n" + body + "\n"
+	return front + "\n" + trimmed + "\n", hadTools
 }
 
-// emitMCPConfig merges the `mcpServers` map into kilo.jsonc. Routes
-// through emit.MergeJSONFile so any pre-existing user-managed keys
-// (models, providers, ...) survive the sync; only `mcpServers` is
-// overwritten. No file is written when there are no MCP entries (or
-// every entry renders empty).
+// emitMCPConfig merges the `mcp` map into kilo.jsonc. Routes through
+// emit.MergeJSONFile so any pre-existing user-managed keys (models,
+// providers, ...) survive the sync; only `mcp` is overwritten. No file
+// is written when there are no MCP entries (or every entry renders
+// empty).
 func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
 	servers := buildMCPMap(mcps)
 	if len(servers) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{"mcpServers": servers}, dryRun)
+	return sess.MergeJSONFile(path, map[string]any{"mcp": servers}, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {
@@ -147,11 +171,13 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 	return out
 }
 
-// buildMCPEntry renders one kilo.jsonc mcpServers entry. Stdio specs
-// produce a command/args/env block; HTTP / SSE / remote specs produce
-// a url/headers block. An entry missing its transport's required
-// field (command for stdio, url for remote) is dropped: there is
-// nothing for Kilo Code to run or connect to.
+// buildMCPEntry renders one kilo.jsonc `mcp` entry. Stdio specs
+// combine `command` + `args` into a single `command` array and set
+// `"type": "local"`; HTTP / SSE / remote specs set `"type": "remote"`
+// with a `url`/`headers` block. `environment` (not `env`) carries a
+// stdio server's environment variables. An entry missing its
+// transport's required field (command for stdio, url for remote) is
+// dropped: there is nothing for Kilo Code to run or connect to.
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -165,18 +191,17 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		if cmd == "" {
 			return nil
 		}
-		out["command"] = cmd
-		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
-			out["args"] = args
-		}
+		out["type"] = "local"
+		out["command"] = combineCommand(cmd, e.Meta)
 		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-			out["env"] = env
+			out["environment"] = env
 		}
 	case "http", "sse", "remote":
 		url, _ := e.Meta["url"].(string)
 		if url == "" {
 			return nil
 		}
+		out["type"] = "remote"
 		out["url"] = url
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			out["headers"] = h
@@ -186,4 +211,12 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	}
 
 	return out
+}
+
+// combineCommand folds Kilo Code's expected `command: [cmd, arg1,
+// ...]` array out of agnostic-ai's separate `command` + `args` fields.
+func combineCommand(cmd string, meta map[string]any) []string {
+	parts := []string{cmd}
+	parts = append(parts, emit.StringSlice(meta["args"])...)
+	return parts
 }

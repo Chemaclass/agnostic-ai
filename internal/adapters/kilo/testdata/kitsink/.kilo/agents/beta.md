@@ -1,5 +1,4 @@
 ---
-name: beta
 description: handles beta
 model: opus
 ---
