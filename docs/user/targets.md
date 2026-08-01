@@ -56,7 +56,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **zed**         | merged doc w/ opt-in (`outputs.zed.rules-file`) | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy merge via `outputs.zed.rules-file`) | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - | - | - | - | - |
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | source-dir only | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
 | **opencode**    | `.opencode/agents/<name>.md` | `.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
-| **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agent/skills/<name>/SKILL.md` | `.agent/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | - | - | - | - | - | - |
+| **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agents/skills/<name>/SKILL.md` | `.agents/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | `.agents/mcp_config.json` | - | - | - | - | - |
 | **junie**       | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.junie/rules/*.md` | - | `.junie/mcp/mcp.json` | - | - | - | - | - |
 | **kiro**        | `.kiro/steering/agent-<name>.md` (`inclusion: manual`) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | - | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
@@ -73,9 +73,9 @@ Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, and Antigravity execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, and OpenHands share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`). Warp has no skill surface; on Aider, Cline, Windsurf, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, and Windsurf execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, and Windsurf share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline reads its own `.cline/skills/`. Warp has no skill surface; on Aider, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
-- **MCP servers**: propagate to every target with a project-scoped MCP file (14 of 25, see matrix). Aider, Cline, Windsurf, Trae, Antigravity, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, and kiro have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; the rest via `url` vs `command`).
+- **MCP servers**: propagate to every target with a project-scoped MCP file (15 of 25, see matrix). Aider, Cline, Windsurf, Trae, and the six new AGENTS.md-reading tools with no MCP surface (Jules, Goose, Augment, Qoder, OpenHands, Factory) skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`).
 - **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
@@ -413,27 +413,29 @@ Verify with the real CLI:
 ### Google Antigravity (`antigravity`)
 
 ```
-.agent/AGENTS.md              # canonical entry-point pointer body (written by sync)
-.agent/rules/<name>.md        # one per rule
-.agent/rules/agent-<name>.md  # one per agent
-.agent/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
+.agent/AGENTS.md               # canonical entry-point pointer body (written by sync)
+.agents/rules/<name>.md        # one per rule
+.agents/rules/agent-<name>.md  # one per agent
+.agents/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
+.agents/mcp_config.json        # when MCP entries exist
 ```
 
-Antigravity reads project instructions from a top-level AGENTS.md-style file and per-rule files under `.agent/rules/`. The adapter emits per-rule files; `sync` writes the pointer body to `.agent/AGENTS.md`. The path stays under `.agent/` to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`.
+Antigravity reads project instructions from a top-level AGENTS.md-style file and per-rule files under `.agents/rules/`. The adapter emits per-rule files; `sync` writes the pointer body to `.agent/AGENTS.md`. The entry-point path stays under `.agent/` (singular) to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`; rules, skills, and MCP default to the plural `.agents/` form Antigravity itself now prefers ([rules](https://antigravity.google/docs/rules-workflows), [skills](https://antigravity.google/docs/skills)), which still "maintains backward support" for the singular paths. A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults is swept on sync unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path explicitly. `import antigravity` reads whichever of `.agents/rules` / `.agent/rules` exists, preferring the plural form.
 
-- **Skills**: one folder per skill under `.agent/skills/<name>/SKILL.md` (Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), one folder per skill). The SKILL.md frontmatter is reduced to `name` + `description`; the body follows. Sibling files next to the source SKILL.md (helper scripts, fixtures) are copied byte-for-byte into the emitted folder.
+- **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md` (Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), one folder per skill; the same tree Codex, Amp, Zed, Crush, and OpenHands share, so identical skill folders dedupe). The SKILL.md frontmatter is reduced to `name` + `description`; the body follows. Sibling files next to the source SKILL.md (helper scripts, fixtures) are copied byte-for-byte into the emitted folder.
+- **MCP**: servers land in `.agents/mcp_config.json` under a single `mcpServers` object ([antigravity.google/docs/mcp](https://antigravity.google/docs/mcp)). Remote servers carry `serverUrl`; the vendor doc states the legacy `url` / `httpUrl` field names "are not supported," so this is a dedicated schema, not the shared `mcpServers`-with-`url` shape claude and cursor use. stdio servers carry `command`, `args`, and `env`. `description`, `headers`, `roots`, `disabled`, and a `type` discriminant are not confirmed for Antigravity and are not emitted.
 
-Hooks, MCPs, and commands are not yet confirmed in the Antigravity public-preview spec and skip with a warning. Add `on-unsupported: silent` to suppress it, or wait for a future release once the upstream spec stabilises.
+Hooks and commands are not yet confirmed in the Antigravity public-preview spec and skip with a warning. Add `on-unsupported: silent` to suppress it, or wait for a future release once the upstream spec stabilises.
 
-Config keys: `outputs.antigravity.rules-dir` (default `.agent/rules`), `outputs.antigravity.skills-dir` (default `.agent/skills`), `outputs.antigravity.rules-file` (unset; writes a legacy merged document and skips the pointer-body write).
+Config keys: `outputs.antigravity.rules-dir` (default `.agents/rules`), `outputs.antigravity.skills-dir` (default `.agents/skills`), `outputs.antigravity.mcp-file` (default `.agents/mcp_config.json`), `outputs.antigravity.rules-file` (unset; writes a legacy merged document and skips the pointer-body write).
 
 Verify with the real IDE:
 
 1. Install Antigravity from the Google Antigravity public-preview download page.
-2. Check the tree: `ls .agent/AGENTS.md .agent/rules/ .agent/skills/`, `grep "Generated by agnostic-ai" .agent/rules/*.md` for the provenance header (it sits after the frontmatter), `test -f .agent/skills/*/SKILL.md`.
+2. Check the tree: `ls .agent/AGENTS.md .agents/rules/ .agents/skills/`, `grep "Generated by agnostic-ai" .agents/rules/*.md` for the provenance header (it sits after the frontmatter), `test -f .agents/skills/*/SKILL.md`, and `python -m json.tool .agents/mcp_config.json > /dev/null` when MCP specs exist.
 3. Open the project; it surfaces `.agent/AGENTS.md` in the project-instructions panel with no "unrecognized file" warnings.
-4. Open one of `.agent/rules/<name>.md` and verify the per-rule file is picked up; confirm each `.agent/skills/<name>/SKILL.md` loads as a skill.
-5. Trigger an agent action (e.g. ask for a refactor); the rules apply, with no schema-validation log entries referencing `.agent/`.
+4. Open one of `.agents/rules/<name>.md` and verify the per-rule file is picked up; confirm each `.agents/skills/<name>/SKILL.md` loads as a skill, and any `.agents/mcp_config.json` server appears in the MCP panel.
+5. Trigger an agent action (e.g. ask for a refactor); the rules apply, with no schema-validation log entries referencing `.agents/`.
 
 ### Junie (`junie`)
 

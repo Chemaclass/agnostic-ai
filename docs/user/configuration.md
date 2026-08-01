@@ -165,8 +165,9 @@ outputs:
     emit-skills-as-commands: false       # default. When true, skills also emit a skill-<name>.md command.
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:
-    rules-dir: .agent/rules             # default. One .md per rule and per agent.
-    skills-dir: .agent/skills           # default. One folder per skill (<name>/SKILL.md).
+    rules-dir: .agents/rules            # default. One .md per rule and per agent. Legacy .agent/rules still reads.
+    skills-dir: .agents/skills          # default. One folder per skill (<name>/SKILL.md). Shared tree with codex/amp/zed.
+    mcp-file: .agents/mcp_config.json   # default. mcpServers map; remote entries use serverUrl, not url.
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
   junie:
     rules-dir: .junie/rules             # default. One .md per rule, agent, and skill.
@@ -297,8 +298,9 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `opencode` | `emit-skills-as-commands` | `false` | When true, skills additionally emit as `.opencode/commands/skill-<name>.md`. |
 | `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
 | `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
-| `antigravity` | `rules-dir` | `.agent/rules` | One `.md` per rule and per agent. |
-| `antigravity` | `skills-dir` | `.agent/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout). |
+| `antigravity` | `rules-dir` | `.agents/rules` | One `.md` per rule and per agent. The legacy `.agent/rules` singular form still reads for backward compatibility; a stale managed copy there is swept on sync. |
+| `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
+| `antigravity` | `mcp-file` | `.agents/mcp_config.json` | `mcpServers` map. Remote entries use `serverUrl`; Antigravity's doc says the legacy `url` / `httpUrl` names are not supported. |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
 | `junie` | `rules-dir` | `.junie/rules` | One `.md` per rule, agent, and skill (Junie concatenates every file in the dir). |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |

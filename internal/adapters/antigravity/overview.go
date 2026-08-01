@@ -14,5 +14,6 @@ func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 		{Label: "Rules", Location: rulesDir + "/", Note: "one file per rule"},
 		{Label: "Agents", Location: rulesDir + "/", Note: "agent-* files"},
 		{Label: "Skills", Location: emit.OutputSkillsDir(cfg, target, defaultSkillsDir) + "/"},
+		{Label: "MCP servers", Location: emit.OutputMCPFile(cfg, target, defaultMCPFile)},
 	}
 }

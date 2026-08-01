@@ -6,18 +6,37 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-const (
-	antigravityRulesDir = ".agent/rules"
-	antigravityMainFile = ".agent/AGENTS.md"
-)
+// antigravityRulesDirs lists the rules directories Antigravity reads,
+// preferred first: "Antigravity now defaults to `.agents/rules`, but
+// still maintains backward support for `.agent/rules`"
+// (antigravity.google/docs/rules-workflows). Import walks the first one
+// that exists so both pre- and post-plural-default projects round-trip.
+var antigravityRulesDirs = []string{
+	filepath.Join(".agents", "rules"),
+	filepath.Join(".agent", "rules"),
+}
+
+const antigravityMainFile = ".agent/AGENTS.md"
+
+// antigravityImportDir returns the first existing candidate rules dir
+// under root, defaulting to the preferred `.agents/rules` when neither
+// exists yet.
+func antigravityImportDir(root string) string {
+	for _, d := range antigravityRulesDirs {
+		if dirExists(filepath.Join(root, d)) {
+			return d
+		}
+	}
+	return antigravityRulesDirs[0]
+}
 
 // importFromAntigravity reads an existing Antigravity project under
 // root and writes specs into the configured source directories.
 //
-//   - `.agent/rules/*.md` walks via the shared rules-directory importer
-//     (agent-<name>.md routes to agents, the rest to rules; the
-//     provenance header and the leading `# <heading>\n` block are
-//     stripped from each body).
+//   - `.agents/rules/*.md` (or the legacy `.agent/rules/*.md`) walks via
+//     the shared rules-directory importer (agent-<name>.md routes to
+//     agents, the rest to rules; the provenance header and the leading
+//     `# <heading>\n` block are stripped from each body).
 //   - When `outputs.antigravity.rules-file` is set in agnostic-ai.yaml,
 //     the legacy concatenated file is sliced by H2 sections.
 //   - `.agent/AGENTS.md` mirrors into `.agnostic-ai/AGNOSTIC_AI.md`
@@ -26,7 +45,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, antigravityRulesDir, src)
+	c, err := importRulesDirectory(root, antigravityImportDir(root), src)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ type RulesDirOpts struct {
 	SkillPrefix string
 	// SkipSkills suppresses the per-skill rule-form output. Set by
 	// adapters that emit skills through a native surface (e.g.
-	// antigravity's `.agent/skills/<name>/SKILL.md`) and must not also
+	// antigravity's `.agents/skills/<name>/SKILL.md`) and must not also
 	// leak a `skill-<name>` rule file.
 	SkipSkills bool
 	// SkipAgents suppresses the per-agent rule-form output. Set by

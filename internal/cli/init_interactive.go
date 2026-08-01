@@ -197,7 +197,7 @@ var targetMarkers = map[string][]string{
 	"zed":         {".zed"},
 	"warp":        {".warp"},
 	"opencode":    {".opencode"},
-	"antigravity": {".agent"},
+	"antigravity": {".agent", ".agents/rules"},
 	"junie":       {".junie"},
 	"kiro":        {".kiro"},
 	"crush":       {"crush.json", ".crush"},

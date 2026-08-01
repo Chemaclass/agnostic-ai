@@ -28,7 +28,7 @@ func TestEmit_WritesRulesDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readFile(t, filepath.Join(dir, ".agent/rules/commits.md"))
+	got := readFile(t, filepath.Join(dir, ".agents/rules/commits.md"))
 	if !strings.Contains(got, "Use conventional commits.") {
 		t.Errorf("missing rule body in %s", got)
 	}
@@ -81,7 +81,7 @@ func TestEmit_AgentRuleFile_StillWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ruleFile := filepath.Join(dir, ".agent/rules/agent-deployer.md")
+	ruleFile := filepath.Join(dir, ".agents/rules/agent-deployer.md")
 	if _, err := os.Stat(ruleFile); err != nil {
 		t.Errorf("expected agent rule file at %s: %v", ruleFile, err)
 	}
@@ -93,8 +93,11 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents")); !os.IsNotExist(err) {
+		t.Errorf("expected no .agents/ dir for empty bundle, err=%v", err)
+	}
 	if _, err := os.Stat(filepath.Join(dir, ".agent")); !os.IsNotExist(err) {
-		t.Errorf("expected no .agent/ dir for empty bundle, err=%v", err)
+		t.Errorf("expected no legacy .agent/ dir for empty bundle, err=%v", err)
 	}
 }
 
@@ -132,14 +135,14 @@ func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readFile(t, filepath.Join(dir, ".agent/skills/deploy/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".agents/skills/deploy/SKILL.md"))
 	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("SKILL.md missing %q:\n%s", want, got)
 		}
 	}
 	// The skill must NOT also leak a rule-form file.
-	if _, err := os.Stat(filepath.Join(dir, ".agent/rules/skill-deploy.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".agents/rules/skill-deploy.md")); !os.IsNotExist(err) {
 		t.Errorf("skill should not emit a rule-form file, err=%v", err)
 	}
 }
