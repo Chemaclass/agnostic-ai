@@ -30,7 +30,8 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".trae/rules/r1.md", ".trae/rules/r2.md", ".trae/rules/r3.md"}},
 		{spec.KindAgent, []string{".trae/rules/agent-alpha.md", ".trae/rules/agent-beta.md", ".trae/rules/agent-gamma.md"}},
-		{spec.KindSkill, []string{".trae/rules/skill-uno.md", ".trae/rules/skill-dos.md", ".trae/rules/skill-tres.md"}},
+		{spec.KindSkill, []string{".trae/skills/uno/SKILL.md", ".trae/skills/dos/SKILL.md", ".trae/skills/tres/SKILL.md"}},
+		{spec.KindCommand, []string{".trae/commands/cmd-one.md", ".trae/commands/cmd-two.md", ".trae/commands/cmd-three.md"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -67,8 +68,7 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind trae does not declare in caps.Supports (Hook, Command,
-// MCP).
+// every kind trae does not declare in caps.Supports (Hook, MCP).
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
@@ -76,14 +76,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
-		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (hook/command/mcp), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (hook/mcp), got %d", got)
 	}
 }
 

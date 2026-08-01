@@ -12,7 +12,7 @@ import (
 
 // TestKitSink_GoldenSnapshot pins the byte-exact emit footprint for a
 // trae sync over the canonical kit-sink bundle (3 rules + 3 agents +
-// 3 skills).
+// 3 skills + 3 commands).
 //
 //	UPDATE_GOLDEN=1 go test ./internal/adapters/trae/ -run TestKitSink_GoldenSnapshot
 func TestKitSink_GoldenSnapshot(t *testing.T) {
