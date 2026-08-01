@@ -118,7 +118,9 @@ outputs:
     mcp-file: crush.json               # default. mcp map merged; user keys preserved.
 
   trae:
-    rules-dir: .trae/rules             # default. One .md per rule, agent, and skill.
+    rules-dir: .trae/rules             # default. One .md per rule and per agent.
+    skills-dir: .trae/skills           # default. One folder per skill (<name>/SKILL.md + bundled assets).
+    commands-dir: .trae/commands       # default. One .md per command. Frontmatter filtered to name, description.
 
 # How to react when a spec kind is not supported by a target
 # (e.g. hooks for any target other than claude).

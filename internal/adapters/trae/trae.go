@@ -1,30 +1,60 @@
-// Package trae emits .trae/rules/*.md for Trae, ByteDance's AI IDE.
+// Package trae emits .trae/rules/*.md, .trae/skills/<name>/SKILL.md, and
+// .trae/commands/<name>.md for Trae, ByteDance's AI IDE.
 //
 // Trae reads project rules from `.trae/rules/*.md` as persistent
 // behavioral constraints; it also applies `.trae/rules/` folders found
 // in subdirectories, but this adapter targets the project root only.
 // `project_rules.md` is the older single-file location and is not
-// emitted here. Trae's custom-agent and skill surfaces have no
-// documented file format yet, so agents and skills flatten to rule-form
-// files alongside plain rules (the same approach cline uses). Trae also
-// reads the cross-tool root `AGENTS.md`, which is written centrally by
-// `sync`, not by this adapter.
+// emitted here. Trae's custom-agent surface has no documented file
+// format yet, so agents flatten to rule-form files alongside plain
+// rules (the same approach cline uses).
+//
+// Skills emit as one folder per skill under `.trae/skills/<name>/SKILL.md`
+// (docs.trae.ai/ide/skills), frontmatter `name` + `description`; sibling
+// assets (`examples/`, `templates/`, `resources/`) copy byte-for-byte
+// alongside SKILL.md so a skill with bundled files keeps them instead of
+// losing them to the flat rule-form Trae never loaded as a skill.
+//
+// Commands emit as one file per command under `.trae/commands/<name>.md`,
+// `name` + `description` frontmatter and the body as the prompt. Trae's
+// own docs do not cover the command format; this shape is confirmed from
+// real `.trae/commands/*.md` files created through Trae's own chat flow,
+// filtered from cross-tool-generated files sharing the same folder
+// (identified by Claude Code's `argument-hint` / `$ARGUMENTS`
+// convention, which never appears in a native Trae file). Only `name`
+// and `description` are confirmed native, so nothing else emits.
+// Nesting under `.trae/commands/` up to 3 levels is documented as
+// organizational only, with no confirmed functional effect, so this
+// adapter writes every command flat.
+//
+// Trae also reads the cross-tool root `AGENTS.md`, which is written
+// centrally by `sync`, not by this adapter.
 package trae
 
 import (
+	"path/filepath"
+	"strings"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
-	target     = "trae"
-	defaultDir = ".trae/rules"
+	target             = "trae"
+	defaultDir         = ".trae/rules"
+	defaultSkillsDir   = ".trae/skills"
+	defaultCommandsDir = ".trae/commands"
 )
+
+// commandFrontmatterKeys names the only frontmatter keys confirmed
+// native to Trae's command loader. See the package doc for how these
+// were confirmed.
+var commandFrontmatterKeys = []string{"name", "description"}
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand},
 }
 
 // Adapter emits Trae configs.
@@ -36,14 +66,62 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .md per rule, agent, and skill into the rules
-// directory (default `.trae/rules`).
+// Emit writes one .md per rule and agent into the rules directory
+// (default `.trae/rules`), one folder per skill into the skills
+// directory (default `.trae/skills`), and one file per command into the
+// commands directory (default `.trae/commands`).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	return sess.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
-	}, dryRun)
+		SkipSkills:  true,
+	}, dryRun); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	return emitCommands(sess, b.Commands, commandsDir, dryRun)
+}
+
+// emitCommands writes one `<dir>/<name>.md` per command spec: `name` +
+// `description` frontmatter, then the body as the prompt.
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
+	for _, c := range commands {
+		path := filepath.Join(dir, c.Name+".md")
+		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
+		if err := sess.WriteFile(path, body, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// commandFile renders a single command markdown file: `name` +
+// `description` (description falls back to the command's name when the
+// spec has none), plus any x-trae custom keys the author explicitly
+// declares on their own spec (an opt-in escape hatch, not an inferred
+// vendor key), then the body.
+func commandFile(e spec.Entry) string {
+	resolved := emit.ResolveMeta(e.Meta, target)
+	desc, _ := resolved["description"].(string)
+	if desc == "" {
+		desc = e.Name
+	}
+	front := map[string]any{
+		"name":        e.Name,
+		"description": desc,
+	}
+	keys := append([]string{}, commandFrontmatterKeys...)
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, commandFrontmatterKeys...)
+	var sb strings.Builder
+	sb.WriteString(emit.FrontmatterOrdered(front, keys))
+	sb.WriteString("\n")
+	sb.WriteString(e.Body)
+	return sb.String()
 }

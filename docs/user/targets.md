@@ -60,7 +60,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **junie**       | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.junie/rules/*.md` | - | `.junie/mcp/mcp.json` | - | - | - | - | - |
 | **kiro**        | `.kiro/steering/agent-<name>.md` (`inclusion: manual`) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | - | `.kiro/settings/mcp.json` | - | - | - | - | - |
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
-| **trae**        | as `.md` rule (`agent-<name>.md`) | as `.md` (`skill-<name>.md`) | `.trae/rules/*.md` | - | - | - | - | - | - | - |
+| **trae**        | as `.md` rule (`agent-<name>.md`) | `.trae/skills/<name>/SKILL.md` | `.trae/rules/*.md` | - | - | `.trae/commands/<name>.md` | - | - | - | - |
 | **qoder**       | - | - | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
@@ -73,10 +73,10 @@ Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs
 
 Cross-cutting kind notes:
 
-- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, and Augment execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, and Augment share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline reads its own `.cline/skills/`, and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Warp has no skill surface; on Aider, Continue, Junie, and Trae skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
+- **Skills**: Claude Code, Codex, Cursor, Amp, Zed, Crush, Gemini, OpenCode, Copilot, OpenHands, Antigravity, Cline, Windsurf, Trae, and Augment execute skill folders natively (SKILL.md + bundled assets). Codex, Amp, Zed, Crush, OpenHands, Antigravity, Windsurf, and Augment share one tree at `.agents/skills/`, which Cursor, Gemini, OpenCode, and Copilot also scan alongside their own dirs (`.gemini/skills/`, `.opencode/skills/`, `.github/skills/`); Cline and Trae each read their own tree (`.cline/skills/`, `.trae/skills/`), and Augment additionally scans `.claude/skills/` and `.augment/skills/` directly, so the shared tree covers it without a third on-disk copy, though a hand-authored `.augment/skills/<name>` wins a same-name collision over the synced one (lowest of Augment's six precedence slots). Warp has no skill surface; on Aider, Continue, and Junie skills flatten to rule-form files, and on Kiro they become `inclusion: auto` steering files. With `sync.shared-skills: true`, byte-identical skill folders across these targets collapse into one canonical copy (`.agents/skills/<name>` preferred) plus per-skill symlinks; see [`sync.shared-skills`](configuration.md#syncshared-skills).
 - **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.). Native on Claude Code, Codex, Gemini, and Cursor (`.cursor/hooks.json`; Cursor uses camelCase event names like `beforeShellExecution`). Zed runs them via opt-in `outputs.zed.tasks-file` as on-demand tasks. Other targets skip with a warning.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (18 of 25, see matrix). Aider, Cline, Windsurf, Trae, Jules, Goose, and Augment have no MCP surface and skip with a warning. On targets whose native schema uses a `type` field (claude, cursor, copilot, continue, opencode, crush, kilo, factory, qoder), remote (HTTP / SSE) entries carry an explicit `type` and stdio entries omit it (crush and kilo tag stdio explicitly, with kilo also combining `command`+`args` into one array; the others infer it as the default). amp, gemini, zed, junie, kiro, and antigravity have no `type` field and infer the transport from the emitted keys (gemini via `httpUrl` vs `url`; antigravity via `serverUrl` vs `command`, and its doc is explicit that the legacy `url` / `httpUrl` names "are not supported"; the rest via `url` vs `command`). OpenHands has no `type` field either, but unlike that group it has no shared key shape to infer from: transport is implied entirely by which `[mcp]` array (`stdio_servers`, `sse_servers`, `shttp_servers`) a server lands in. Qoder's `.mcp.json` is the identical file and schema Claude Code writes there; enabling both dedupes into one write instead of colliding. See [`disabled` support by target](spec-format.md#disabled-support-by-target) for which of these targets honor a spec's `disabled: true` (Codex, Factory, and Kilo Code do; Claude Code, Cursor, Copilot, and Qoder do not).
-- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
+- **Commands**: slash-prompt files authored under `commands/`. Native on Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), Amp (`.agents/commands/<name>.md`), and Trae (`.trae/commands/<name>.md`, `name` + `description` frontmatter only). Codex deprecated project prompts (its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout). Other targets skip with a warning.
 
 ## Per-target output
 
@@ -501,18 +501,22 @@ Verify with the real CLI:
 AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
 .trae/rules/<name>.md         # one per rule
 .trae/rules/agent-<name>.md   # one per agent
-.trae/rules/skill-<name>.md   # one per skill
+.trae/skills/<name>/SKILL.md  # one folder per skill
+.trae/commands/<name>.md      # one per command
 ```
 
-ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.trae/rules/` and the root `AGENTS.md` natively. Agents and skills flatten to rule-form files for now; Trae's dedicated skill and custom-agent formats move here once their file layouts are documented.
+ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.trae/rules/` and the root `AGENTS.md` natively. Agents flatten to rule-form files for now; Trae's dedicated custom-agent format moves here once its file layout is documented.
 
-Config keys: `outputs.trae.rules-dir` (default `.trae/rules`).
+- **Skills**: one folder per skill under `.trae/skills/<name>/SKILL.md`, [Trae's native skills layout](https://docs.trae.ai/ide/skills). The SKILL.md frontmatter carries `name` + `description`; sibling assets (`examples/`, `templates/`, `resources/`) copy byte-for-byte alongside it. A flat file directly under `.trae/rules/` never loads as a skill, so this is a folder, not a rule-form file like agents.
+- **Commands**: one `.md` per command under `.trae/commands/<name>.md`, `name` + `description` frontmatter and the body as the prompt. Trae's own docs do not cover the command format; this shape is confirmed from real `.trae/commands/*.md` files rather than a doc page, so only `name` and `description` are known-native and nothing else emits. Nesting under `.trae/commands/` is supported up to 3 levels and is organizational only.
+
+Config keys: `outputs.trae.rules-dir` (default `.trae/rules`), `outputs.trae.skills-dir` (default `.trae/skills`), `outputs.trae.commands-dir` (default `.trae/commands`).
 
 Verify with the real IDE:
 
 1. Install Trae from [trae.ai](https://www.trae.ai).
-2. Check the tree: `ls AGENTS.md .trae/rules/`, `grep "Generated by agnostic-ai" .trae/rules/*.md`.
-3. Open the project; the Rules panel lists every `.trae/rules/*.md` with no parse warnings.
+2. Check the tree: `ls AGENTS.md .trae/rules/ .trae/skills/ .trae/commands/`, `grep "Generated by agnostic-ai" .trae/rules/*.md`.
+3. Open the project; the Rules panel lists every `.trae/rules/*.md` with no parse warnings. Each `.trae/skills/<name>/` loads as a skill, and each `.trae/commands/<name>.md` is invokable from chat.
 
 ### Qoder (`qoder`)
 

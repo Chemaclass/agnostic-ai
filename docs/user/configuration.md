@@ -179,7 +179,9 @@ outputs:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
     mcp-file: crush.json                # default. mcp map merged; user keys preserved.
   trae:
-    rules-dir: .trae/rules              # default. One .md per rule, agent, and skill.
+    rules-dir: .trae/rules              # default. One .md per rule and per agent.
+    skills-dir: .trae/skills            # default. One folder per skill (<name>/SKILL.md + bundled assets).
+    commands-dir: .trae/commands        # default. One .md per command. Frontmatter filtered to name, description.
   qoder:
     rules-dir: .qoder/rules             # default. One .md per rule (native, precedence over AGENTS.md).
     mcp-file: .mcp.json                 # default. Standard mcpServers schema; same file Claude Code writes.
@@ -314,7 +316,9 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
 | `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http`). User keys (`models`, `providers`, `lsp`) preserved. |
-| `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule, agent, and skill. |
+| `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule and per agent. |
+| `trae` | `skills-dir` | `.trae/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Trae's native skills path. |
+| `trae` | `commands-dir` | `.trae/commands` | One `.md` per command. Frontmatter filtered to `name`, `description` (the only keys confirmed native; Trae's own docs do not cover the format). |
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
 | `qoder` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema; the identical file and path Claude Code writes, deduplicated when both targets are enabled. `disabled` is dropped (not vendor-confirmed; the file is shared with Claude Code, which ignores the key). |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |

@@ -15,12 +15,12 @@ import (
 
 // rulesDirImporters maps a source name to the rules directory the
 // importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly; cline and windsurf also have dedicated importers
-// (import_cline.go, import_windsurf.go) because each additionally
-// reconstructs skills from its native `SKILL.md` folder tree.
+// route directly; cline, windsurf, and trae also have dedicated
+// importers (import_cline.go, import_windsurf.go, import_trae.go)
+// because each additionally reconstructs skills from its native
+// `SKILL.md` folder tree (trae also reconstructs commands).
 var rulesDirImporters = map[string]string{
 	"junie": filepath.Join(".junie", "rules"),
-	"trae":  filepath.Join(".trae", "rules"),
 	"qoder": filepath.Join(".qoder", "rules"),
 }
 
@@ -29,7 +29,7 @@ var rulesDirImporters = map[string]string{
 func importSources() string {
 	names := []string{
 		"aider", "amp", "antigravity", "claude", "cline", "codex", "continue",
-		"copilot", "crush", "cursor", "gemini", "kiro", "opencode", "warp",
+		"copilot", "crush", "cursor", "gemini", "kiro", "opencode", "trae", "warp",
 		"windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
@@ -126,6 +126,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromCrush(root, src)
 	case "windsurf":
 		return importFromWindsurf(root, src)
+	case "trae":
+		return importFromTrae(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
@@ -167,7 +169,7 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
-		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush":
+		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush", "trae":
 		return true
 	}
 	_, ok := rulesDirImporters[source]
