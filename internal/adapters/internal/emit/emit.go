@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -286,6 +287,52 @@ func lockPath(path string) func() {
 	return mu.Unlock
 }
 
+// mkdirAll creates dir and its parents, absorbing the transient failures
+// that concurrent creation of a shared parent produces.
+//
+// `sync --jobs` emits targets in parallel and pathLocks keys on a file
+// path, so two targets writing different files under one not-yet-existing
+// parent reach os.MkdirAll at the same time. When both try to create that
+// parent, one can come back with EINVAL or ENOENT instead of the EEXIST
+// that MkdirAll knows how to absorb: MkdirAll only swallows a failed
+// Mkdir when its follow-up Lstat finds a directory, and that Lstat can
+// also fail while the winning thread is still mid-create.
+//
+// This is not inference. Instrumenting the failure showed the parent
+// absent, the working directory valid, no removal of any kind anywhere in
+// the emit layer, and an immediate os.Mkdir of that same parent
+// succeeding every single time (#526). Nothing is deleting the directory;
+// the create is just transiently rejected.
+//
+// The window opened when antigravity moved to `.agents/rules`, putting a
+// second child under the `.agents/` parent that codex, amp, zed, crush,
+// openhands, windsurf, augment, and kilo already write skills into. It is
+// not antigravity-specific: any target adding a second child of a shared
+// root reaches the same edge.
+//
+// A bounded retry is the right shape here rather than a mutex. The
+// contention is between the OS and two threads, not over shared program
+// state, and serializing every directory creation would cost parallelism
+// on every sync to paper over a failure that resolves in microseconds.
+func mkdirAll(dir string, perm os.FileMode) error {
+	var err error
+	delay := time.Millisecond
+	for attempt := 0; attempt < 5; attempt++ {
+		if err = os.MkdirAll(dir, perm); err == nil {
+			return nil
+		}
+		// A racing thread may have finished between the failure and now.
+		if fi, statErr := os.Stat(dir); statErr == nil && fi.IsDir() {
+			return nil
+		}
+		if attempt < 4 {
+			time.Sleep(delay)
+			delay *= 2
+		}
+	}
+	return err
+}
+
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
 	s.mu.Lock()
 	capturing := s.capturing
@@ -321,7 +368,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 	// early s.mu section above has already been released, so no goroutine
 	// holds s.mu while acquiring a path lock and the two never deadlock.
 	defer lockPath(path)()
-	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
 
