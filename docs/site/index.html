@@ -195,6 +195,27 @@ h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-we
 .fcard p{margin:0; font-size:.88rem; color:var(--ink-soft)}
 .fcard code{font-family:var(--mono); font-size:.8rem; color:var(--ink); background:var(--surface-2); padding:.03rem .3rem; border-radius:4px}
 
+/* install: tabbed methods */
+.installer{margin-top:2.4rem; border:1px solid var(--line); border-radius:14px; background:var(--surface); overflow:hidden}
+.itabs{display:flex; gap:.25rem; padding:.4rem; background:var(--surface-2); border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none}
+.itabs::-webkit-scrollbar{display:none}
+.itab{flex:0 0 auto; display:inline-flex; align-items:center; gap:.45rem; border:1px solid transparent; background:none; color:var(--muted);
+  font-family:var(--mono); font-size:.82rem; padding:.45rem .8rem; border-radius:9px; cursor:pointer; white-space:nowrap;
+  transition:background .15s ease, color .15s ease, border-color .15s ease}
+.itab:hover{color:var(--ink-soft)}
+.itab[aria-selected="true"]{background:var(--surface); border-color:var(--line); color:var(--ink)}
+.itab svg{width:14px; height:14px; flex:0 0 auto}
+.itab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.ipanel{padding:1.1rem}
+.ipanel[hidden]{display:none}
+.icmd{display:flex; align-items:center; gap:.75rem; font-family:var(--mono); font-size:.88rem; background:var(--paper);
+  border:1px solid var(--line); border-radius:11px; padding:.65rem .9rem; color:var(--ink)}
+.icmd code{flex:1 1 auto; overflow-x:auto; white-space:pre; background:none; padding:0; font-size:inherit; color:inherit}
+.icmd .p{color:var(--accent); user-select:none}
+.inote{margin-top:.7rem; color:var(--muted); font-size:.86rem; line-height:1.55}
+.inote code{font-family:var(--mono); font-size:.8rem; background:var(--surface-2); padding:.03rem .3rem; border-radius:4px; color:var(--ink-soft)}
+@media (max-width:520px){.icmd{font-size:.78rem} .ipanel{padding:.85rem}}
+
 /* cta */
 .cta-band{background:linear-gradient(160deg,var(--surface),var(--surface-2)); border-block:1px solid var(--line-soft)}
 .cta-inner{text-align:center; display:grid; place-items:center; gap:1.4rem}
@@ -368,6 +389,40 @@ Use Conventional Commits.</pre>
       </div>
     </div>
 
+    <div class="installer">
+      <div class="itabs" role="tablist" aria-label="Installation method">
+        <button class="itab" role="tab" id="itab-brew" aria-controls="ipanel-brew" aria-selected="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v6a6 6 0 0 0 12 0V2"/><path d="M18 5h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/><path d="M4 22h16"/></svg>
+          Homebrew
+        </button>
+        <button class="itab" role="tab" id="itab-go" aria-controls="ipanel-go" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l-6 6 6 6"/><path d="M16 6l6 6-6 6"/></svg>
+          Go
+        </button>
+        <button class="itab" role="tab" id="itab-bin" aria-controls="ipanel-bin" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+          Binary
+        </button>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-brew" aria-labelledby="itab-brew">
+        <div class="icmd"><span class="p">$</span><code>brew install --cask Chemaclass/tap/agnostic-ai</code><button class="copy" type="button" aria-label="Copy Homebrew install command">copy</button></div>
+        <p class="inote">macOS. Upgrades with <code>brew update &amp;&amp; brew upgrade --cask Chemaclass/tap/agnostic-ai</code>.</p>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-go" aria-labelledby="itab-go" hidden>
+        <div class="icmd"><span class="p">$</span><code>go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest</code><button class="copy" type="button" aria-label="Copy Go install command">copy</button></div>
+        <p class="inote">Any platform with Go 1.23+. Installs into <code>$(go env GOPATH)/bin</code>, so make sure that is on your <code>PATH</code>.</p>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-bin" aria-labelledby="itab-bin" hidden>
+        <div class="icmd"><span class="p">$</span><code>curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz</code><button class="copy" type="button" aria-label="Copy binary download command">copy</button></div>
+        <p class="inote">Swap <code>darwin_arm64</code> for <code>darwin_amd64</code>, <code>linux_amd64</code>, or <code>linux_arm64</code>. Windows builds ship as <code>.zip</code> on the <a href="https://github.com/Chemaclass/agnostic-ai/releases/latest">releases page</a>, alongside <code>checksums.txt</code>.</p>
+      </div>
+    </div>
+
+    <p class="inote" style="margin-top:.9rem"><code>agnostic-ai upgrade</code> detects which of these you used and prints the matching command; <code>--check</code> also flags another <code>agnostic-ai</code> shadowing it on <code>PATH</code>.</p>
+
     <div class="example">
       <div class="codeblock">
         <div class="fname"><span class="dot" style="background:var(--accent)"></span>.agnostic-ai/rules/conventional-commits.md</div>
@@ -479,6 +534,46 @@ Use Conventional Commits. Subject…</pre>
   copy&&copy.addEventListener("click",function(){
     navigator.clipboard&&navigator.clipboard.writeText("go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest").then(function(){
       copy.textContent="copied"; setTimeout(function(){copy.textContent="copy";},1400);
+    });
+  });
+
+  // Install tabs. Panels ship visible so the commands are still readable
+  // (and indexable) without JS; the first switch hides the inactive ones.
+  var tabs=[].slice.call(document.querySelectorAll(".itab"));
+  if(tabs.length){
+    var panels=tabs.map(function(t){return document.getElementById(t.getAttribute("aria-controls"));});
+    var select=function(i,focus){
+      tabs.forEach(function(t,n){
+        var on=n===i;
+        t.setAttribute("aria-selected",on?"true":"false");
+        t.tabIndex=on?0:-1;
+        if(panels[n]) panels[n].hidden=!on;
+      });
+      if(focus) tabs[i].focus();
+    };
+    tabs.forEach(function(t,i){
+      t.addEventListener("click",function(){select(i,false);});
+      t.addEventListener("keydown",function(e){
+        var k=e.key,last=tabs.length-1,next=null;
+        if(k==="ArrowRight"||k==="ArrowDown") next=i===last?0:i+1;
+        else if(k==="ArrowLeft"||k==="ArrowUp") next=i===0?last:i-1;
+        else if(k==="Home") next=0;
+        else if(k==="End") next=last;
+        if(next!==null){e.preventDefault(); select(next,true);}
+      });
+    });
+    select(0,false);
+  }
+
+  // Copy buttons inside the install panels read their own command, so the
+  // clipboard always matches the tab the reader is looking at.
+  [].forEach.call(document.querySelectorAll(".icmd .copy"),function(btn){
+    btn.addEventListener("click",function(){
+      var code=btn.parentNode.querySelector("code");
+      if(!code||!navigator.clipboard) return;
+      navigator.clipboard.writeText(code.textContent).then(function(){
+        btn.textContent="copied"; setTimeout(function(){btn.textContent="copy";},1400);
+      });
     });
   });
 
