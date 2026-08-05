@@ -6,7 +6,11 @@ cd agnostic-ai
 make build && make test
 ```
 
-Open a PR with a [Conventional Commits](https://www.conventionalcommits.org/) subject.
+## PR rules
+
+- [Conventional Commits](https://www.conventionalcommits.org/) subject: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
+- One concern per PR. Tests for behavior changes.
+- User-visible change: add an entry under `[Unreleased]` in `CHANGELOG.md`.
 
 ## Where to start
 
@@ -15,35 +19,26 @@ Open a PR with a [Conventional Commits](https://www.conventionalcommits.org/) su
 | Report a bug | [Bug issue](.github/ISSUE_TEMPLATE/bug_report.yml) |
 | Request a feature | [Feature issue](.github/ISSUE_TEMPLATE/feature_request.yml) |
 | Add a new AI CLI target | [Adapter issue](.github/ISSUE_TEMPLATE/new_adapter.yml) · [adding-adapters.md](docs/internal/adding-adapters.md) |
-| Deep dive | [docs/internal/](docs/internal/) (architecture, contributing, decisions) |
+| Deep dive | [docs/internal/](docs/internal/): architecture, decisions, release process |
 
-## AI config is generated (dogfooding)
+## AI config is generated
 
-This repo drives its own AI config with agnostic-ai. The source of truth is `.agnostic-ai/`. Every target output is **gitignored** and regenerated, never committed:
+This repo drives its own AI config with agnostic-ai. `.agnostic-ai/` is the source of truth. Every target output is gitignored and regenerated: per-target folders (`.claude/`, `.cursor/`, `.codex/`, ...) and root entry-points (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...). The `.gitignore` block lists them all.
 
-- Per-target folders: `.claude/`, `.cursor/`, `.gemini/`, `.codex/`, `.windsurf/`, `.continue/`, `.cline/`, `.opencode/`, `.agent/`, `.kilo/`.
-- Root entry-points: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.rules`, `.github/copilot-instructions.md`.
-
-After editing any spec under `.agnostic-ai/`, regenerate locally:
+After editing a spec, regenerate:
 
 ```bash
 agnostic-ai sync   # or: go run ./cmd/agnostic-ai sync
 ```
 
-Do not edit the generated files directly and do not commit them; they are overwritten on each sync. CI runs `agnostic-ai sync --check` to fail drift.
+Never edit or commit a generated file. `sync` overwrites it, and CI runs `sync --check` to fail on drift.
 
-The `.gitignore` block for these paths is hand-maintained here, not driven by `gitignore.enabled`, because the block also carries hierarchical globs (`**/AGENTS.md`, `**/GEMINI.md`) and the `!internal/adapters/*/testdata/**` re-allow that keeps the golden fixtures tracked. When you add a new adapter, add its output paths to the `.gitignore` block by hand.
+That `.gitignore` block is hand-maintained, not driven by `gitignore.enabled`: it carries hierarchical globs (`**/AGENTS.md`) plus the `!internal/adapters/*/testdata/**` re-allow that keeps golden fixtures tracked. A new adapter needs its output paths added by hand.
 
-## PR rules
+## Questions and reports
 
-- Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
-- One concern per PR. Tests for behavior changes.
-- Update `CHANGELOG.md` under `[Unreleased]` for user-visible changes.
-
-## Other
-
-- [Code of Conduct](CODE_OF_CONDUCT.md) · [MIT license](LICENSE), no CLA.
 - General questions: [Discussions](https://github.com/Chemaclass/agnostic-ai/discussions).
-- Security: [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new). Do not file public issues.
+- Security: [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new), never a public issue.
+- [Code of Conduct](CODE_OF_CONDUCT.md) · [MIT license](LICENSE), no CLA.
 
 Triage target: 7 days. Ping after two weeks of silence.

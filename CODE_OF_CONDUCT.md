@@ -8,4 +8,4 @@ This project follows the [Contributor Covenant 2.1](https://www.contributor-cove
 
 **Scope:** all project spaces and any public representation of the project.
 
-**Reporting:** email **agnostic-ai@chemaclass.es**. Reports are confidential; maintainers respond appropriate to the circumstances.
+**Reporting:** email **agnostic-ai@chemaclass.com**. Reports are confidential; maintainers respond appropriate to the circumstances.
