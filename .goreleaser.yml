@@ -61,6 +61,65 @@ changelog:
     - title: Others
       order: 999
 
+scoops:
+  - name: agnostic-ai
+    # Without a token (local run, fork, secret not configured yet) the manifest
+    # is still built but never pushed, so the release itself keeps working.
+    skip_upload: '{{ if isEnvSet "SCOOP_BUCKET_TOKEN" }}false{{ else }}true{{ end }}'
+    repository:
+      owner: Chemaclass
+      name: scoop-bucket
+      branch: main
+      token: '{{ envOrDefault "SCOOP_BUCKET_TOKEN" "" }}'
+    homepage: https://github.com/Chemaclass/agnostic-ai
+    description: Sync agent prompts, skills, rules, and hooks across AI coding tools
+    license: MIT
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "feat: bump {{ .ProjectName }} to {{ .Tag }}"
+
+winget:
+  - name: agnostic-ai
+    package_identifier: Chemaclass.agnostic-ai
+    publisher: Chemaclass
+    publisher_url: https://github.com/Chemaclass
+    publisher_support_url: https://github.com/Chemaclass/agnostic-ai/issues
+    homepage: https://github.com/Chemaclass/agnostic-ai
+    license: MIT
+    license_url: https://github.com/Chemaclass/agnostic-ai/blob/main/LICENSE
+    short_description: Sync agent prompts, skills, rules, and hooks across AI coding tools
+    description: |
+      Write your agents, skills, rules, and hooks once and emit them to every
+      AI coding CLI in its native format: Claude Code, Codex, Gemini, Cursor,
+      Copilot, and 20 more.
+    release_notes_url: "https://github.com/Chemaclass/agnostic-ai/releases/tag/{{ .Tag }}"
+    tags:
+      - ai
+      - cli
+      - developer-tools
+      - agents
+    skip_upload: '{{ if isEnvSet "WINGET_TOKEN" }}false{{ else }}true{{ end }}'
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "New version: {{ .ProjectName }} {{ .Tag }}"
+    # Manifests land on a branch in our own fork, then open a PR against the
+    # upstream catalog. Microsoft reviews and merges it, so a new version shows
+    # up in `winget search` a while after the GitHub release.
+    repository:
+      owner: Chemaclass
+      name: winget-pkgs
+      branch: "agnostic-ai-{{ .Version }}"
+      token: '{{ envOrDefault "WINGET_TOKEN" "" }}'
+      pull_request:
+        enabled: true
+        draft: false
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+
 homebrew_casks:
   - name: agnostic-ai
     binaries:

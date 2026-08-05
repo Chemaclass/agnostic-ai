@@ -55,6 +55,22 @@ func TestDetectInstallMethod_GoInstall(t *testing.T) {
 	}
 }
 
+func TestDetectInstallMethod_WindowsPackageManagers(t *testing.T) {
+	cases := map[string]installMethod{
+		`C:\Users\me\scoop\shims\agnostic-ai.exe`:                                          installScoop,
+		`C:\Users\me\scoop\apps\agnostic-ai\0.45.0\agnostic-ai.exe`:                        installScoop,
+		`C:\Users\me\Scoop\Shims\agnostic-ai.exe`:                                          installScoop,
+		`C:\Users\me\AppData\Local\Microsoft\WinGet\Links\agnostic-ai.exe`:                 installWinget,
+		`C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\Chemaclass.agnostic-ai\x.exe`: installWinget,
+		`/usr/local/lib/node_modules/agnostic-ai/bin/agnostic-ai`:                          installNPM,
+	}
+	for p, want := range cases {
+		if got := detectInstallMethod(p); got != want {
+			t.Errorf("detectInstallMethod(%q) = %v, want %v", p, got, want)
+		}
+	}
+}
+
 func TestDetectInstallMethod_Binary(t *testing.T) {
 	t.Setenv("GOBIN", "")
 	t.Setenv("GOPATH", "/nowhere")
@@ -69,6 +85,9 @@ func TestUpgradeCommandFor(t *testing.T) {
 	cases := map[installMethod]string{
 		installHomebrew:  "brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai",
 		installGoInstall: "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest",
+		installScoop:     "scoop update agnostic-ai",
+		installWinget:    "winget upgrade Chemaclass.agnostic-ai",
+		installNPM:       "npm install -g agnostic-ai@latest",
 		installBinary:    "",
 		installUnknown:   "",
 	}
@@ -83,6 +102,9 @@ func TestInstallMethodString(t *testing.T) {
 	cases := map[installMethod]string{
 		installHomebrew:  "homebrew",
 		installGoInstall: "go install",
+		installScoop:     "scoop",
+		installWinget:    "winget",
+		installNPM:       "npm",
 		installBinary:    "binary",
 		installUnknown:   "unknown",
 	}

@@ -26,8 +26,20 @@ The script:
 | Channel | Notes |
 |---|---|
 | GitHub Releases | raw binaries, primary |
-| Homebrew tap | `chemaclass/tap/agnostic-ai`, formula auto-updated by CI |
+| Homebrew tap | `chemaclass/tap/agnostic-ai`, cask auto-updated by CI (`HOMEBREW_TAP_TOKEN`) |
 | `go install` | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
+| Install scripts | `scripts/install.sh`, `scripts/install.ps1`, served raw from `main`. No release step: they resolve the latest tag at runtime |
+| Scoop | manifest pushed to `Chemaclass/scoop-bucket` (`SCOOP_BUCKET_TOKEN`) |
+| winget | manifest branch in `Chemaclass/winget-pkgs`, PR opened against `microsoft/winget-pkgs` (`WINGET_TOKEN`) |
+| npm | `agnostic-ai` package publishing the platform binaries (`NPM_TOKEN`) |
+
+### One-time setup per channel
+
+Both Windows publishers are gated on their token: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup.
+
+- **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
+- **winget**: fork `microsoft/winget-pkgs` to `Chemaclass/winget-pkgs`, then add `WINGET_TOKEN` (PAT with `contents: write` on the fork and `pull_requests: write` upstream). Microsoft reviews each PR, so a new version lands in `winget search` hours to days after the GitHub release.
+- **npm**: `npm/` holds the wrapper package. Add `NPM_TOKEN` (automation token on the `agnostic-ai` package).
 
 ## Backporting
 

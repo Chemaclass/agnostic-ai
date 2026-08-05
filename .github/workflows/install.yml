@@ -1,0 +1,60 @@
+name: Install scripts
+
+# The installers download a published release, so they can break without any
+# code change here (asset rename, checksum layout, PATH behavior). Run them on
+# every edit and weekly against whatever the latest release is.
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/install.sh', 'scripts/install.ps1', '.github/workflows/install.yml']
+  pull_request:
+    branches: [main]
+    paths: ['scripts/install.sh', 'scripts/install.ps1', '.github/workflows/install.yml']
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unix:
+    name: install.sh (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install to a temp dir
+        run: AGNOSTIC_AI_INSTALL_DIR="$RUNNER_TEMP/bin" bash scripts/install.sh
+
+      - name: Binary runs
+        run: "$RUNNER_TEMP/bin/agnostic-ai" --version
+
+      - name: Piped install works (curl ... | bash)
+        run: cat scripts/install.sh | AGNOSTIC_AI_INSTALL_DIR="$RUNNER_TEMP/piped" bash
+
+  windows:
+    name: install.ps1 (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # powershell, not pwsh: 5.1 is what ships with Windows and what most
+      # users will pipe this script into.
+      - name: Install to a temp dir
+        shell: powershell
+        run: .\scripts\install.ps1 -InstallDir "$env:RUNNER_TEMP\agnostic-ai"
+
+      - name: Binary runs
+        shell: powershell
+        run: & "$env:RUNNER_TEMP\agnostic-ai\agnostic-ai.exe" --version
+
+      - name: Second run is idempotent
+        shell: powershell
+        run: .\scripts\install.ps1 -InstallDir "$env:RUNNER_TEMP\agnostic-ai"

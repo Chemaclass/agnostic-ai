@@ -22,6 +22,7 @@ const (
 	repoName        = "agnostic-ai"
 	binaryName      = "agnostic-ai"
 	tapPackage      = repoOwner + "/tap/" + repoName
+	wingetPackage   = repoOwner + "." + repoName
 	releasesAPIURL  = "https://api.github.com/repos/" + repoOwner + "/" + repoName + "/releases/latest"
 	releasesHTMLURL = "https://github.com/" + repoOwner + "/" + repoName + "/releases"
 	userAgent       = repoName + "-upgrade"
@@ -36,6 +37,9 @@ const (
 	installUnknown installMethod = iota
 	installHomebrew
 	installGoInstall
+	installScoop
+	installWinget
+	installNPM
 	installBinary
 )
 
@@ -50,6 +54,9 @@ type methodSpec struct {
 var methodSpecs = map[installMethod]methodSpec{
 	installHomebrew:  {"homebrew", "brew update && brew upgrade --cask " + tapPackage},
 	installGoInstall: {"go install", "go install github.com/chemaclass/" + repoName + "/cmd/" + binaryName + "@latest"},
+	installScoop:     {"scoop", "scoop update " + repoName},
+	installWinget:    {"winget", "winget upgrade " + wingetPackage},
+	installNPM:       {"npm", "npm install -g " + repoName + "@latest"},
 	installBinary:    {"binary", ""},
 	installUnknown:   {"unknown", ""},
 }
@@ -99,9 +106,10 @@ func newUpgradeCmd() *cobra.Command {
 		Use:   "upgrade",
 		Short: "Report (or run) the right command to upgrade agnostic-ai.",
 		Long: `upgrade detects how the running agnostic-ai binary was installed
-(Homebrew, ` + "`go install`" + `, or a raw prebuilt binary) and prints the
-matching upgrade command. It does not replace its own binary; package
-managers are still the source of truth for installed versions.
+(Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
+binary) and prints the matching upgrade command. It does not replace its
+own binary; package managers are still the source of truth for installed
+versions.
 
 Pass --run to exec the detected command. Pass --check to print the
 detection result and exit without running anything. Both flags are
@@ -241,6 +249,16 @@ func detectInstallMethod(exe string) installMethod {
 			return installHomebrew
 		}
 	}
+	// Backslashes are replaced explicitly, not via ToSlash, which is a no-op
+	// off Windows: a Windows path reaching this code from a test or a WSL
+	// mount must classify the same way. Casing is folded too, since these
+	// path segments carry whatever the user typed (C:\Users\Me\Scoop\shims).
+	lower := strings.ToLower(strings.ReplaceAll(p, `\`, "/"))
+	for _, m := range pathMarkers {
+		if strings.Contains(lower, m.marker) {
+			return m.method
+		}
+	}
 	if gobin := os.Getenv("GOBIN"); gobin != "" {
 		if sameDir(filepath.Dir(exe), gobin) {
 			return installGoInstall
@@ -270,6 +288,20 @@ var homebrewMarkers = []string{
 	"/opt/homebrew/",
 	"/linuxbrew/",
 	"/homebrew/",
+}
+
+// pathMarkers map a lowercased path fragment to the channel that owns it.
+// Scoop keeps apps under <root>/apps and shims under <root>/shims; winget
+// portable packages land under Microsoft/WinGet with a shim in its Links
+// dir; an npm global install always sits inside node_modules.
+var pathMarkers = []struct {
+	marker string
+	method installMethod
+}{
+	{"/scoop/apps/", installScoop},
+	{"/scoop/shims/", installScoop},
+	{"/microsoft/winget/", installWinget},
+	{"/node_modules/", installNPM},
 }
 
 // otherInstancesOnPATH returns absolute paths of every agnostic-ai
