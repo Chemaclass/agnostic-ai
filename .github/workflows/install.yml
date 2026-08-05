@@ -32,8 +32,10 @@ jobs:
       - name: Install to a temp dir
         run: AGNOSTIC_AI_INSTALL_DIR="$RUNNER_TEMP/bin" bash scripts/install.sh
 
+      # Block scalar: a plain YAML value cannot start with a quote.
       - name: Binary runs
-        run: "$RUNNER_TEMP/bin/agnostic-ai" --version
+        run: |
+          "$RUNNER_TEMP/bin/agnostic-ai" --version
 
       - name: Piped install works (curl ... | bash)
         run: cat scripts/install.sh | AGNOSTIC_AI_INSTALL_DIR="$RUNNER_TEMP/piped" bash
@@ -51,9 +53,11 @@ jobs:
         shell: powershell
         run: .\scripts\install.ps1 -InstallDir "$env:RUNNER_TEMP\agnostic-ai"
 
+      # Block scalar: `&` starts a YAML anchor, so the call operator needs one.
       - name: Binary runs
         shell: powershell
-        run: & "$env:RUNNER_TEMP\agnostic-ai\agnostic-ai.exe" --version
+        run: |
+          & "$env:RUNNER_TEMP\agnostic-ai\agnostic-ai.exe" --version
 
       - name: Second run is idempotent
         shell: powershell
