@@ -2,7 +2,7 @@
 
 # agnostic-ai
 
-### **One spec. Every AI CLI. Zero drift.**
+### **One spec. Every AI CLI.**
 
 Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and **20** more in their native format.
 

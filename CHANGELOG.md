@@ -6,10 +6,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
-### Changed
-
-- Code of Conduct reporting address: `agnostic-ai@chemaclass.es` → `agnostic-ai@chemaclass.com`.
-
 ## v0.45.0 - 2026-08-02
 
 ### Added
