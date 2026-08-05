@@ -5,13 +5,15 @@
 | Method | Platform | Command |
 |--------|----------|---------|
 | Homebrew | macOS, Linux | `brew install --cask Chemaclass/tap/agnostic-ai` |
-| winget | Windows | `winget install Chemaclass.agnostic-ai` |
-| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` |
 | Install script | macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
 | Install script | Windows | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
-| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` |
 | From source | any with Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 | Prebuilt archive | any | [releases page](https://github.com/Chemaclass/agnostic-ai/releases) |
+| winget | Windows | `winget install Chemaclass.agnostic-ai` (from the next release) |
+| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` (from the next release) |
+| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` (from the next release) |
+
+The last three publish at release time and land once their first release ships; every other row works today.
 
 The install scripts pick the archive for your OS and architecture, verify it against the release `checksums.txt`, and put the binary on PATH: `/usr/local/bin` when writable (else `~/.local/bin`) on macOS and Linux, `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows. Override with `AGNOSTIC_AI_INSTALL_DIR` (`-InstallDir` on PowerShell) and pin a version with `AGNOSTIC_AI_VERSION` (`-Version`).
 

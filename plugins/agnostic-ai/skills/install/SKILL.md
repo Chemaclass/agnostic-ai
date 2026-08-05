@@ -15,15 +15,15 @@ Puts the `agnostic-ai` binary on PATH without asking the user to hunt for a rele
    | Platform | Route | Command |
    |---|---|---|
    | macOS / Linux with Homebrew | Homebrew | `brew install --cask Chemaclass/tap/agnostic-ai` |
+   | macOS / Linux, no Homebrew | install script | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
+   | Windows | install script | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
    | Windows with winget | winget | `winget install Chemaclass.agnostic-ai` |
    | Windows with Scoop | Scoop | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket && scoop install agnostic-ai` |
-   | Windows, neither | install script | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
-   | macOS / Linux, no Homebrew | install script | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
    | Any platform with Go | Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
    | Any platform with Node | npx, no install | `npx agnostic-ai <command>` |
 
    Check for a tool with `command -v brew` / `command -v go`, or `Get-Command winget` / `Get-Command scoop` on Windows.
-3. Run the chosen command. Do not run more than one route.
+3. Run the chosen command. Do not run more than one route. If a package manager reports that no package matches (winget, Scoop, and npm publish per release, so a given version may not be there yet), fall back to the install script for that platform, which reads straight from the repo.
 4. Verify with `agnostic-ai --version`.
 5. If the shell reports "command not found" right after a successful install, PATH has not been reloaded yet. Tell the user to open a new terminal. The install scripts print the directory they used.
 

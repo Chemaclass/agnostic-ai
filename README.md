@@ -25,19 +25,14 @@ agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned
 ## Install
 
 ```bash
-brew install --cask Chemaclass/tap/agnostic-ai                       # macOS / Linux
-winget install Chemaclass.agnostic-ai                                # Windows
-npx agnostic-ai --version                                            # anywhere Node runs
+brew install --cask Chemaclass/tap/agnostic-ai                                                      # macOS / Linux
+irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex         # Windows
+curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash  # no package manager
 ```
 
-No package manager? One line, no Go toolchain:
+The scripts need no Go toolchain: they fetch the archive for your OS and CPU, check it against `checksums.txt`, and put the binary on PATH.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash   # macOS / Linux
-irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex          # Windows
-```
-
-Also on [Scoop](docs/user/getting-started.md#install), `go install`, and the [releases page](https://github.com/Chemaclass/agnostic-ai/releases). `agnostic-ai upgrade` detects which route you used and prints or runs the matching command ([details](docs/user/cli-reference.md#upgrade)).
+Also `go install`, the [releases page](https://github.com/Chemaclass/agnostic-ai/releases), and `npx agnostic-ai` ([npm](docs/user/getting-started.md#install), publishing with the next release, alongside `winget install Chemaclass.agnostic-ai` and Scoop). `agnostic-ai upgrade` detects which route you used and prints or runs the matching command ([details](docs/user/cli-reference.md#upgrade)).
 
 ### Inside Claude Code
 

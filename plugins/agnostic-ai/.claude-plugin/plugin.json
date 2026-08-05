@@ -1,6 +1,6 @@
 {
   "name": "agnostic-ai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One spec, every AI CLI. Install the CLI, scaffold specs, import an existing config, and keep every tool's generated files in sync.",
   "author": {
     "name": "Chemaclass",
