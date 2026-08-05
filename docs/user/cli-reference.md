@@ -486,7 +486,12 @@ Detection:
 
 - `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` → `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`
 - `$GOBIN` or `$GOPATH/bin` (defaults to `$HOME/go/bin`) → `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`
-- Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases).
+- `*\scoop\apps\*`, `*\scoop\shims\*` → `scoop update agnostic-ai`
+- `*\Microsoft\WinGet\*` → `winget upgrade Chemaclass.agnostic-ai`
+- `*/node_modules/*` → `npm install -g agnostic-ai@latest`
+- Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases), or re-run the [install script](getting-started.md#install), which overwrites in place.
+
+The three Windows-and-Node markers match case-insensitively, since those path segments carry whatever casing the user's profile uses.
 
 If another `agnostic-ai` on `PATH` shadows the resolved executable, `upgrade` lists each shadow so you can remove the stale copy. Common cause: a Homebrew install behind an older `~/go/bin/agnostic-ai` or `/usr/local/bin/agnostic-ai`, where `brew upgrade` reports the brew copy is current but `agnostic-ai --version` keeps resolving to the older binary.
 

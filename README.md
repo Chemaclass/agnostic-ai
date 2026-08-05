@@ -25,11 +25,28 @@ agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned
 ## Install
 
 ```bash
-brew install --cask Chemaclass/tap/agnostic-ai                       # Homebrew
-go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
+brew install --cask Chemaclass/tap/agnostic-ai                       # macOS / Linux
+winget install Chemaclass.agnostic-ai                                # Windows
+npx agnostic-ai --version                                            # anywhere Node runs
 ```
 
-Or a prebuilt binary from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases). Later, `agnostic-ai upgrade` detects how you installed it and prints or runs the right command ([details](docs/user/cli-reference.md#upgrade)).
+No package manager? One line, no Go toolchain:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash   # macOS / Linux
+irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex          # Windows
+```
+
+Also on [Scoop](docs/user/getting-started.md#install), `go install`, and the [releases page](https://github.com/Chemaclass/agnostic-ai/releases). `agnostic-ai upgrade` detects which route you used and prints or runs the matching command ([details](docs/user/cli-reference.md#upgrade)).
+
+### Inside Claude Code
+
+```
+/plugin marketplace add Chemaclass/agnostic-ai
+/plugin install agnostic-ai@chemaclass
+```
+
+Adds skills that install the CLI, scaffold specs, import an existing config, and sync.
 
 ## Quickstart
 
@@ -133,6 +150,7 @@ Five kinds here. `command`, `settings`, `review`, `environment`, and `ignore` ar
 - [Packs](docs/user/packs.md): share spec bundles across repos
 
 **Tools**
+- [Claude Code plugin](plugins/agnostic-ai/): install, init, sync, and import as skills
 - [Landing page](https://chemaclass.github.io/agnostic-ai/): the visual why / what / how
 - [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, see what every adapter emits (WASM, runs offline)
 - [Editor extensions](editors/): VS Code (shipped), JetBrains (planned)

@@ -6,6 +6,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Install scripts for machines with no package manager: `curl -fsSL .../scripts/install.sh | bash` on macOS and Linux, `irm .../scripts/install.ps1 | iex` on Windows. Each resolves the latest release, verifies the archive against `checksums.txt`, installs to a PATH directory (`/usr/local/bin` or `~/.local/bin`; `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows, added to the user PATH), and takes `AGNOSTIC_AI_VERSION` / `AGNOSTIC_AI_INSTALL_DIR` (`-Version` / `-InstallDir`) overrides. A weekly workflow runs both against a real release on Linux, macOS, and Windows runners.
+- Windows package managers: `winget install Chemaclass.agnostic-ai` and `scoop install agnostic-ai` from the `Chemaclass/scoop-bucket` bucket. Both manifests are generated at release time.
+- npm wrapper: `npx agnostic-ai <command>` with no install, or `npm install -g agnostic-ai`. The package downloads the prebuilt binary for the platform and verifies its checksum. It fetches on first run when npm blocks install scripts, which npm 11 does by default.
+- Claude Code plugin marketplace in this repo: `/plugin marketplace add Chemaclass/agnostic-ai` then `/plugin install agnostic-ai@chemaclass`. Ships `install`, `init`, `sync`, and `import` skills.
+- `upgrade` recognizes Scoop, winget, and npm installs and prints their update command instead of falling back to a manual download.
+
 ## v0.45.0 - 2026-08-02
 
 ### Added

@@ -395,6 +395,18 @@ Use Conventional Commits.</pre>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v6a6 6 0 0 0 12 0V2"/><path d="M18 5h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/><path d="M4 22h16"/></svg>
           Homebrew
         </button>
+        <button class="itab" role="tab" id="itab-win" aria-controls="ipanel-win" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Windows
+        </button>
+        <button class="itab" role="tab" id="itab-npx" aria-controls="ipanel-npx" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.3 12 12l8.7-4.7"/><path d="M12 22V12"/></svg>
+          npx
+        </button>
+        <button class="itab" role="tab" id="itab-script" aria-controls="ipanel-script" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+          Script
+        </button>
         <button class="itab" role="tab" id="itab-go" aria-controls="ipanel-go" aria-selected="false" tabindex="-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l-6 6 6 6"/><path d="M16 6l6 6-6 6"/></svg>
           Go
@@ -408,6 +420,22 @@ Use Conventional Commits.</pre>
       <div class="ipanel" role="tabpanel" id="ipanel-brew" aria-labelledby="itab-brew">
         <div class="icmd"><span class="p">$</span><code>brew install --cask Chemaclass/tap/agnostic-ai</code><button class="copy" type="button" aria-label="Copy Homebrew install command">copy</button></div>
         <p class="inote">macOS. Upgrades with <code>brew update &amp;&amp; brew upgrade --cask Chemaclass/tap/agnostic-ai</code>.</p>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-win" aria-labelledby="itab-win" hidden>
+        <div class="icmd"><span class="p">&gt;</span><code>winget install Chemaclass.agnostic-ai</code><button class="copy" type="button" aria-label="Copy winget install command">copy</button></div>
+        <p class="inote">Windows 10 and 11. Scoop users: <code>scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket</code>, then <code>scoop install agnostic-ai</code>. Neither installed? Use the Script tab.</p>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-npx" aria-labelledby="itab-npx" hidden>
+        <div class="icmd"><span class="p">$</span><code>npx agnostic-ai sync</code><button class="copy" type="button" aria-label="Copy npx command">copy</button></div>
+        <p class="inote">No install step: any machine with Node 18+. The package fetches the same prebuilt binary. Add it for good with <code>npm install -g agnostic-ai</code>.</p>
+      </div>
+
+      <div class="ipanel" role="tabpanel" id="ipanel-script" aria-labelledby="itab-script" hidden>
+        <div class="icmd"><span class="p">$</span><code>curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash</code><button class="copy" type="button" aria-label="Copy shell install script command">copy</button></div>
+        <div class="icmd"><span class="p">&gt;</span><code>irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex</code><button class="copy" type="button" aria-label="Copy PowerShell install script command">copy</button></div>
+        <p class="inote">No package manager, no Go. Each script picks the archive for your OS and CPU, checks it against <code>checksums.txt</code>, and puts the binary on <code>PATH</code>.</p>
       </div>
 
       <div class="ipanel" role="tabpanel" id="ipanel-go" aria-labelledby="itab-go" hidden>

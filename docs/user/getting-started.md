@@ -2,11 +2,33 @@
 
 ## Install
 
-| Method | Command |
-|--------|---------|
-| Homebrew | `brew install --cask Chemaclass/tap/agnostic-ai` |
-| Direct binary | `curl -fsSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-$(uname -s)-$(uname -m) -o /usr/local/bin/agnostic-ai && chmod +x /usr/local/bin/agnostic-ai` |
-| From source | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
+| Method | Platform | Command |
+|--------|----------|---------|
+| Homebrew | macOS, Linux | `brew install --cask Chemaclass/tap/agnostic-ai` |
+| winget | Windows | `winget install Chemaclass.agnostic-ai` |
+| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` |
+| Install script | macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
+| Install script | Windows | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
+| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` |
+| From source | any with Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
+| Prebuilt archive | any | [releases page](https://github.com/Chemaclass/agnostic-ai/releases) |
+
+The install scripts pick the archive for your OS and architecture, verify it against the release `checksums.txt`, and put the binary on PATH: `/usr/local/bin` when writable (else `~/.local/bin`) on macOS and Linux, `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows. Override with `AGNOSTIC_AI_INSTALL_DIR` (`-InstallDir` on PowerShell) and pin a version with `AGNOSTIC_AI_VERSION` (`-Version`).
+
+`npx agnostic-ai` needs no install at all, which makes it the quickest way to try one command. The npm package downloads the same prebuilt binary on first use.
+
+### Upgrade
+
+`agnostic-ai upgrade` detects the install route (Homebrew, `go install`, Scoop, winget, npm, or a raw binary) and prints the matching command; `--run` executes it, `--check` diagnoses PATH shadowing. See [CLI reference](cli-reference.md#upgrade).
+
+### Inside Claude Code
+
+Skills that install the CLI, scaffold specs, import an existing config, and sync:
+
+```
+/plugin marketplace add Chemaclass/agnostic-ai
+/plugin install agnostic-ai@chemaclass
+```
 
 ## Shell completion
 
