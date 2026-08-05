@@ -1,0 +1,13 @@
+{
+  "name": "agnostic-ai",
+  "version": "0.1.0",
+  "description": "One spec, every AI CLI. Install the CLI, scaffold specs, import an existing config, and keep every tool's generated files in sync.",
+  "author": {
+    "name": "Chemaclass",
+    "url": "https://github.com/Chemaclass"
+  },
+  "homepage": "https://github.com/Chemaclass/agnostic-ai",
+  "repository": "https://github.com/Chemaclass/agnostic-ai",
+  "license": "MIT",
+  "keywords": ["agents", "skills", "rules", "mcp", "sync"]
+}

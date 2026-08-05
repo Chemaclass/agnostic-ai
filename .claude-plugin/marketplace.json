@@ -1,0 +1,25 @@
+{
+  "name": "chemaclass",
+  "owner": {
+    "name": "Chemaclass",
+    "url": "https://github.com/Chemaclass"
+  },
+  "description": "Plugins by Chemaclass. Install with /plugin marketplace add Chemaclass/agnostic-ai",
+  "plugins": [
+    {
+      "name": "agnostic-ai",
+      "source": "./plugins/agnostic-ai",
+      "description": "Write agents, skills, rules, hooks, and MCP servers once, then emit them to every AI CLI in its native format. Installs the CLI, scaffolds specs, imports an existing config, and keeps generated files in sync.",
+      "author": {
+        "name": "Chemaclass",
+        "url": "https://github.com/Chemaclass"
+      },
+      "homepage": "https://github.com/Chemaclass/agnostic-ai",
+      "repository": "https://github.com/Chemaclass/agnostic-ai",
+      "license": "MIT",
+      "category": "workflow",
+      "keywords": ["agents", "skills", "rules", "mcp", "codegen", "sync"],
+      "tags": ["multi-tool", "config", "portability"]
+    }
+  ]
+}

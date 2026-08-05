@@ -97,6 +97,42 @@ jobs:
       - name: Fail on drift
         run: git diff --exit-code docs/schemas/config.schema.json
 
+  plugin:
+    name: Plugin version bump
+    # The marketplace pins the plugin to plugin.json's version, so an edit that
+    # ships without a bump never reaches anyone who already installed it.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Version bumped when the plugin changed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          manifest=plugins/agnostic-ai/.claude-plugin/plugin.json
+          # Compare against the merge base, not the base tip: another PR's
+          # plugin change landing on main must not read as this PR's work.
+          BASE=$(git merge-base "$BASE" "$HEAD")
+          changed=$(git diff --name-only "$BASE" "$HEAD" -- plugins/ .claude-plugin/)
+          if [ -z "$changed" ]; then
+            echo "plugin untouched, nothing to check"
+            exit 0
+          fi
+          echo "changed:"; echo "$changed"
+          before=$(git show "$BASE:$manifest" 2>/dev/null | grep '"version"' || true)
+          after=$(grep '"version"' "$manifest")
+          if [ "$before" = "$after" ]; then
+            echo "error: plugin files changed but $manifest version is still $after" >&2
+            echo "Bump it, or installed users keep the old copy." >&2
+            exit 1
+          fi
+          echo "version moved: ${before:-<none>} -> $after"
+
   shell:
     name: Shell tests
     runs-on: ubuntu-latest
