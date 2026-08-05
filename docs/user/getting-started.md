@@ -205,7 +205,11 @@ Watches the source directories and `agnostic-ai.yaml` via OS file events (fsnoti
 - Ctrl+C exits cleanly.
 - Incompatible with `--check`.
 
-## Auto-manage .gitignore
+## Commit or ignore generated outputs
+
+`init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the source of truth and each contributor runs `sync`. To commit them instead (e.g. teammates lack the CLI), scaffold with `init --gitignore=false`. The `check` gate below guards drift either way.
+
+### Auto-manage .gitignore
 
 Add to `agnostic-ai.yaml` to keep generated paths out of git:
 
@@ -214,6 +218,17 @@ gitignore:
   enabled: true
 ```
 
-`sync` rewrites a managed block in `.gitignore` listing every emitted path. Lines outside the block are preserved.
+`sync` rewrites a managed block in `.gitignore` listing every emitted path. Lines outside the block are preserved. Full field reference: [configuration](configuration.md#gitignore).
 
 Gitignored outputs are not in git, so a fresh clone or a new `git worktree` starts without them until `agnostic-ai sync` runs. A contributor cloning the repo runs `sync` by hand; automated worktree creation does not. Wire `sync` into your worktree bootstrap, or add a `post-checkout` hook (see [Git hooks](git-hooks.md)), so an AI session opened in a new worktree always finds its config.
+
+## CI gate
+
+Fail PRs whose generated files drift from the source specs:
+
+```yaml
+- uses: chemaclass/agnostic-ai-action@v1
+  with: { command: check }
+```
+
+Version pinning, caching, and the plain `agnostic-ai sync --check` step: [CI](ci.md).

@@ -17,14 +17,11 @@ Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, 
 
 ## Why
 
-You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools and you rewrite everything.
+You use more than one AI CLI. Two at once (Claude Code in the terminal, Cursor in the editor), or a different one every few months as the models leapfrog each other: Claude this month, Codex the next. Each tool wants the same conventions in its own format: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, `GEMINI.md`. Switch and you rewrite everything. Add one and you hand-maintain another copy.
 
-agnostic-ai keeps one source of truth in plain Markdown plus YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. Run `sync` and every tool gets the config it expects, in its native location, byte-stable across runs.
+agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. `sync` gives every tool the config it expects, in its native location, byte-stable across runs. Switching tools is one command. Running four in parallel is the same command.
 
-- **Stateless adapters.** Same input, same output. Diffable, reviewable, safe to emit in parallel (`sync --jobs`).
-- **Uniform entry-point.** One pointer body shared across every target's root file.
-- **Round-trip safe.** Provenance marker plus style preservation keeps `import` then `sync` byte-stable.
-- **Scoped rules.** `rules/backend/auth.md` routes to `.cursor/rules/backend/auth.mdc` and `.github/instructions/auth.instructions.md` with `applyTo: backend/**`.
+Adapters are stateless, so the same specs always emit the same bytes: outputs stay diffable in review, `import` then `sync` round-trips unchanged, and nested rules keep their scope (`rules/backend/auth.md` lands as `.cursor/rules/backend/auth.mdc` and `.github/instructions/auth.instructions.md` with `applyTo: backend/**`).
 
 ## How it works
 
@@ -144,26 +141,13 @@ go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest  # Go
 ## Quickstart
 
 ```bash
-agnostic-ai init --demo   # scaffold specs with one example per folder
+agnostic-ai init --demo   # scaffold specs, one example per kind
 agnostic-ai sync          # emit native config for every target
 ```
 
-Edit specs under `.agnostic-ai/` and run `sync` again, or `sync --watch` to re-emit on every save (only the affected targets). Already have `.cursor/rules` or `AGENTS.md`?
+Edit anything under `.agnostic-ai/`, run `sync` again. Already have `CLAUDE.md` or `.cursor/rules`? `agnostic-ai import claude` (also `cursor`, `codex`, `gemini`, `cline`, ...) turns them into specs first.
 
-```bash
-agnostic-ai import cursor   # also: claude, codex, gemini, cline, windsurf, junie, trae, ...
-```
-
-Enable shell tab-completion (optional): `agnostic-ai completion <shell>` for bash, zsh, fish, or powershell.
-
-CI gate to fail PRs that drift from source specs:
-
-```yaml
-- uses: chemaclass/agnostic-ai-action@v1
-  with: { command: check }
-```
-
-**Commit or ignore generated outputs?** `init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the source of truth, contributors run `sync`, and each `sync` maintains a managed `.gitignore` block ([configuration](docs/user/configuration.md#gitignore)). To commit them instead (e.g. teammates lack the CLI), use `init --gitignore=false`. The `check` gate guards drift either way.
+Watch mode, shell completion, import strategy, CI drift gate, commit-vs-ignore: [Getting started](docs/user/getting-started.md).
 
 ## Documentation
 
