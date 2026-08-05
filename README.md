@@ -17,11 +17,9 @@ Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, 
 
 ## Why
 
-You use more than one AI CLI. Two at once (Claude Code in the terminal, Cursor in the editor), or a different one every few months as the models leapfrog each other: Claude this month, Codex the next. Each tool wants the same conventions in its own format: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, `GEMINI.md`. Switch and you rewrite everything. Add one and you hand-maintain another copy.
+You run more than one AI CLI: Claude Code in the terminal, Cursor in the editor, whichever model leads next month. Each wants the same conventions in its own format: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, `GEMINI.md`.
 
-agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned with the [AGENTS.md](https://agents.md) open standard. `sync` gives every tool the config it expects, in its native location, byte-stable across runs. Switching tools is one command. Running four in parallel is the same command.
-
-Adapters are stateless, so the same specs always emit the same bytes: outputs stay diffable in review, `import` then `sync` round-trips unchanged, and nested rules keep their scope (`rules/backend/auth.md` lands as `.cursor/rules/backend/auth.mdc` and `.github/instructions/auth.instructions.md` with `applyTo: backend/**`).
+agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned with [AGENTS.md](https://agents.md). `sync` writes what each tool expects, where it expects it. Switching tools is one command. Running four is the same command.
 
 ## How it works
 
