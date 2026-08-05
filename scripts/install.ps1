@@ -23,6 +23,9 @@ param(
 $ErrorActionPreference = 'Stop'
 # PowerShell 5.1 still negotiates TLS 1.0 by default, which GitHub refuses.
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+# Invoke-WebRequest on 5.1 repaints a progress bar per chunk, which dominates
+# runtime on a multi-megabyte download.
+$ProgressPreference = 'SilentlyContinue'
 
 $repo = 'Chemaclass/agnostic-ai'
 $binary = 'agnostic-ai.exe'
