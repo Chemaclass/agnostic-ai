@@ -30,18 +30,16 @@ irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/instal
 curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash  # no package manager
 ```
 
-The scripts need no Go toolchain: they fetch the archive for your OS and CPU, check it against `checksums.txt`, and put the binary on PATH.
+The scripts need no Go toolchain: each fetches the archive for your OS and CPU, verifies it against `checksums.txt`, and puts the binary on PATH.
 
-Also `go install`, the [releases page](https://github.com/Chemaclass/agnostic-ai/releases), and `npx agnostic-ai` ([npm](docs/user/getting-started.md#install), publishing with the next release, alongside `winget install Chemaclass.agnostic-ai` and Scoop). `agnostic-ai upgrade` detects which route you used and prints or runs the matching command ([details](docs/user/cli-reference.md#upgrade)).
-
-### Inside Claude Code
+Inside Claude Code, skills that install and drive the CLI for you:
 
 ```
 /plugin marketplace add Chemaclass/agnostic-ai
 /plugin install agnostic-ai@chemaclass
 ```
 
-Adds skills that install the CLI, scaffold specs, import an existing config, and sync.
+Other routes (`go install`, `npx`, winget, Scoop, prebuilt archives) and `agnostic-ai upgrade`, which detects the route you used: [install reference](docs/user/getting-started.md#install).
 
 ## Quickstart
 
@@ -148,7 +146,7 @@ Five kinds here. `command`, `settings`, `review`, `environment`, and `ignore` ar
 - [Claude Code plugin](plugins/agnostic-ai/): install, init, sync, and import as skills
 - [Landing page](https://chemaclass.github.io/agnostic-ai/): the visual why / what / how
 - [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, see what every adapter emits (WASM, runs offline)
-- [Editor extensions](editors/): VS Code (shipped), JetBrains (planned)
+- [Editor extensions](editors/): VS Code and JetBrains, both shipped
 
 **Contributing**
 - [Architecture & roadmap](docs/internal/): adapter pattern, adding targets, release process
