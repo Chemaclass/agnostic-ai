@@ -6,10 +6,10 @@ name: Install scripts
 on:
   push:
     branches: [main]
-    paths: ['scripts/install.sh', 'scripts/install.ps1', '.github/workflows/install.yml']
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', '.github/workflows/install.yml']
   pull_request:
     branches: [main]
-    paths: ['scripts/install.sh', 'scripts/install.ps1', '.github/workflows/install.yml']
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', '.github/workflows/install.yml']
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
@@ -58,3 +58,46 @@ jobs:
       - name: Second run is idempotent
         shell: powershell
         run: .\scripts\install.ps1 -InstallDir "$env:RUNNER_TEMP\agnostic-ai"
+
+  npm:
+    name: npm wrapper (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Unit tests
+        working-directory: npm
+        run: node lib/download_test.js
+
+      - name: Pack
+        working-directory: npm
+        run: npm pack --pack-destination .
+
+      # npm 11 blocks unapproved install scripts by default, so the lazy path
+      # is the one most users hit: install with scripts off, then prove the bin
+      # shim fetches the binary on first run.
+      - name: Install with scripts blocked
+        working-directory: npm
+        run: npm install -g --ignore-scripts ./agnostic-ai-0.0.0-dev.tgz
+
+      - name: Binary runs anyway (shim fetches it)
+        run: agnostic-ai --version
+
+      - name: Reinstall with the postinstall hook allowed
+        working-directory: npm
+        run: |
+          npm uninstall -g agnostic-ai
+          npm install -g ./agnostic-ai-0.0.0-dev.tgz
+
+      - name: Binary runs from the postinstall download
+        run: agnostic-ai --version

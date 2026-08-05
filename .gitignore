@@ -117,6 +117,17 @@ WARP.md
 # other name the patterns above match needs its full tree committed too.
 !tests/integration/fixtures/golden/**
 # =============================================================================
+# npm wrapper artifacts
+#
+# npm/bin/ ships only the JS shim; the Go binary next to it is downloaded at
+# install time. `npm pack` drops a tarball in the package dir.
+# =============================================================================
+/npm/bin/agnostic-ai
+/npm/node_modules/
+/npm/*.tgz
+/npm/package-lock.json
+
+# =============================================================================
 # Release scaffolding
 # =============================================================================
 # NOTES.md is built by .github/workflows/release.yml from CHANGELOG.md and

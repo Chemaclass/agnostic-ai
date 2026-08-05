@@ -1,0 +1,52 @@
+{
+  "name": "agnostic-ai",
+  "version": "0.0.0-dev",
+  "description": "One spec, every AI CLI. Sync agents, skills, rules, hooks, and MCP servers to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more.",
+  "keywords": [
+    "ai",
+    "cli",
+    "claude",
+    "codex",
+    "cursor",
+    "copilot",
+    "agents",
+    "skills",
+    "mcp"
+  ],
+  "homepage": "https://github.com/Chemaclass/agnostic-ai#readme",
+  "bugs": {
+    "url": "https://github.com/Chemaclass/agnostic-ai/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chemaclass/agnostic-ai.git",
+    "directory": "npm"
+  },
+  "license": "MIT",
+  "author": "Chemaclass",
+  "bin": {
+    "agnostic-ai": "bin/agnostic-ai.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "scripts/",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "test": "node lib/download_test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

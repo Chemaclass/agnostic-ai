@@ -42,3 +42,31 @@ jobs:
           # the push when its secret is absent, so the release still succeeds.
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+  npm:
+    name: npm
+    # The wrapper downloads release assets on install, so it can only publish
+    # once GoReleaser has uploaded them.
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Version the package from the tag
+        working-directory: npm
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+
+      - name: Publish
+        # Skipped until NPM_TOKEN exists, so a release never fails over it.
+        if: env.NODE_AUTH_TOKEN != ''
+        working-directory: npm
+        run: npm publish --access public
