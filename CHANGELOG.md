@@ -14,6 +14,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Claude Code plugin marketplace in this repo: `/plugin marketplace add Chemaclass/agnostic-ai` then `/plugin install agnostic-ai@chemaclass`. Ships `install`, `init`, `sync`, and `import` skills.
 - `upgrade` recognizes Scoop, winget, and npm installs and prints their update command instead of falling back to a manual download.
 
+### Fixed
+
+- `import codex` reads `commandWindows` back from `.codex/hooks.json`. The codex emitter writes the field but the importer never captured it, so a sync then import cycle silently dropped a hook's Windows command override (#547).
+
 ## v0.45.0 - 2026-08-02
 
 ### Added

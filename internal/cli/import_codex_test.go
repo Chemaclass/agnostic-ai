@@ -1194,3 +1194,32 @@ func names(entries []os.DirEntry) []string {
 	}
 	return out
 }
+
+// Round-trip for #547: commandWindows must survive an import so a
+// sync -> import -> sync cycle does not silently drop the field the
+// previous sync just wrote to .codex/hooks.json. Same shape as the
+// additionalContextLimit round-trip above; the codex emitter writes
+// both, and only this one was never read back.
+func TestImportFromCodex_HookCommandWindowsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "lint.sh", "commandWindows": "lint.ps1"}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, _ := os.ReadFile(post)
+	if !strings.Contains(string(data), "commandWindows: lint.ps1") {
+		t.Errorf("expected commandWindows in spec:\n%s", data)
+	}
+}

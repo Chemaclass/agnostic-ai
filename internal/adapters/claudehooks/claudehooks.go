@@ -34,6 +34,10 @@ type CommandEntry struct {
 	If                     string `json:"if,omitempty"`
 	Once                   bool   `json:"once,omitempty"`
 	AdditionalContextLimit int    `json:"additionalContextLimit,omitempty"`
+	// CommandWindows is Codex-only, like AdditionalContextLimit above: a
+	// Windows-specific command override. Captured here for the same
+	// round-trip reason, and likewise never set by claude's own emit.
+	CommandWindows string `json:"commandWindows,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

@@ -627,6 +627,9 @@ type codexHookEntry struct {
 	// name (see codexHookSlot / mergeCodexHooksJSON); captured here too
 	// so a hand-authored `[[hooks.<event>]]` TOML block round-trips it.
 	AdditionalContextLimit int `toml:"additionalContextLimit"`
+	// CommandWindows mirrors the hooks.json field of the same name, for
+	// the same reason as AdditionalContextLimit above.
+	CommandWindows string `toml:"commandWindows"`
 }
 
 type codexMCPEntry struct {
@@ -775,6 +778,7 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 					Timeout:                h.Timeout,
 					StatusMessage:          h.StatusMessage,
 					AdditionalContextLimit: h.AdditionalContextLimit,
+					CommandWindows:         h.CommandWindows,
 				}
 				if !exists {
 					hooks[k] = &codexHookSlot{
@@ -829,6 +833,9 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 		}
 		if h.AdditionalContextLimit != 0 {
 			doc["additionalContextLimit"] = h.AdditionalContextLimit
+		}
+		if h.CommandWindows != "" {
+			doc["commandWindows"] = h.CommandWindows
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {
