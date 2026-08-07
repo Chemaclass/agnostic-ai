@@ -487,3 +487,13 @@ function test_parse_args_rejects_unknown_arg() {
   parse_args banana 2>/dev/null
   assert_equals 1 $?
 }
+
+# ---- release workflow -------------------------------------------------------
+
+function test_release_workflow_checks_secret_before_setup_node_placeholder() {
+  local workflow
+  workflow="$(cat "$SCRIPT_DIR/../.github/workflows/release.yml")"
+  assert_contains "NPM_TOKEN_CONFIGURED: \${{ secrets.NPM_TOKEN != '' }}" "$workflow"
+  assert_contains "if: env.NPM_TOKEN_CONFIGURED == 'true'" "$workflow"
+  assert_not_contains "if: env.NODE_AUTH_TOKEN != ''" "$workflow"
+}

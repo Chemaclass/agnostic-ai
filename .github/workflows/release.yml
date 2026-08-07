@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -67,6 +68,12 @@ jobs:
 
       - name: Publish
         # Skipped until NPM_TOKEN exists, so a release never fails over it.
-        if: env.NODE_AUTH_TOKEN != ''
+        # setup-node replaces an empty NODE_AUTH_TOKEN with a placeholder, so
+        # test the secret-presence flag captured before setup instead.
+        if: env.NPM_TOKEN_CONFIGURED == 'true'
         working-directory: npm
         run: npm publish --access public
+
+      - name: Report skipped publish
+        if: env.NPM_TOKEN_CONFIGURED != 'true'
+        run: echo "::notice::NPM_TOKEN is not configured; skipping npm publish"
