@@ -2,7 +2,8 @@
 name: changelog-curator
 description: Keep CHANGELOG.md in sync with merged work.
 tools: [Read, Edit, Bash, Grep]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You keep `CHANGELOG.md` accurate for the next release.

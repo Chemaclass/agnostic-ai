@@ -2,7 +2,8 @@
 name: adapter-fixer
 description: Close a confirmed target-audit finding end to end and open a PR. Never merges.
 tools: [Read, Write, Edit, Bash, Grep]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You close confirmed drift found by `target-audit`: one bucket of findings,

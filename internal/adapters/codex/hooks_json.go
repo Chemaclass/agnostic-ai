@@ -93,7 +93,7 @@ type hookCommandEntry struct {
 	// AdditionalContextLimit caps how many tokens of this hook's output
 	// reach the model, propagated from the spec's `additionalContextLimit`
 	// Meta key. See learn.chatgpt.com/docs/hooks.
-	AdditionalContextLimit int `json:"additionalContextLimit,omitempty"`
+	AdditionalContextLimit *int `json:"additionalContextLimit,omitempty"`
 }
 
 // buildHooksJSON returns the rendered document or nil when no hooks
@@ -108,7 +108,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		timeout                int
 		statusMessage          string
 		commandWindows         string
-		additionalContextLimit int
+		additionalContextLimit *int
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
@@ -122,7 +122,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		timeout := hookIntMeta(h.Meta, "timeout")
 		statusMessage, _ := h.Meta["statusMessage"].(string)
 		commandWindows, _ := h.Meta["commandWindows"].(string)
-		additionalContextLimit := hookIntMeta(h.Meta, "additionalContextLimit")
+		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
 			k := key{event: event, command: cmd}
@@ -147,7 +147,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			if a.commandWindows == "" && commandWindows != "" {
 				a.commandWindows = commandWindows
 			}
-			if a.additionalContextLimit == 0 && additionalContextLimit != 0 {
+			if a.additionalContextLimit == nil && additionalContextLimit != nil {
 				a.additionalContextLimit = additionalContextLimit
 			}
 		}
@@ -244,6 +244,23 @@ func hookIntMeta(meta map[string]any, key string) int {
 		return int(v)
 	}
 	return 0
+}
+
+// hookIntMetaPtr distinguishes an explicit zero from an absent field. Codex
+// assigns special meaning to additionalContextLimit = 0.
+func hookIntMetaPtr(meta map[string]any, key string) *int {
+	var value int
+	switch raw := meta[key].(type) {
+	case int:
+		value = raw
+	case int64:
+		value = int(raw)
+	case float64:
+		value = int(raw)
+	default:
+		return nil
+	}
+	return &value
 }
 
 // orderedHookEvents reorders event names by the canonical Codex/Claude

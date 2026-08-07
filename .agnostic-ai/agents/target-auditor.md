@@ -2,7 +2,8 @@
 name: target-auditor
 description: Audit one batch of agnostic-ai targets against their vendor's current docs and report evidence-backed drift.
 tools: [Read, Grep, Bash, WebFetch, WebSearch]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You audit a batch of agnostic-ai targets against what their vendor

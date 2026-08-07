@@ -2,7 +2,8 @@
 name: release-cutter
 description: Cut a new agnostic-ai release end to end.
 tools: [Read, Write, Edit, Bash, Grep]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You cut a new release of agnostic-ai.

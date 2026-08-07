@@ -12,8 +12,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func intPtr(v int) *int    { return &v }
-func boolPtr(v bool) *bool { return &v }
+func intPtr(v int) *int          { return &v }
+func boolPtr(v bool) *bool       { return &v }
+func stringPtr(v string) *string { return &v }
 
 func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	dir := t.TempDir()
@@ -28,12 +29,19 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 					APIKeyHelper:        "./bin/keyhelper.sh",
 					CleanupPeriodDays:   intPtr(30),
 					IncludeCoAuthoredBy: boolPtr(false),
-					EnabledPlugins:      map[string]bool{"plugin-a@marketplace": true, "plugin-b@marketplace": true},
-					Env:                 map[string]string{"FOO": "bar", "BAZ": "qux"},
+					Attribution: &config.ClaudeAttribution{
+						Commit:     stringPtr("Co-Authored-By: Team Bot <bot@example.com>"),
+						PR:         stringPtr(""),
+						SessionURL: boolPtr(false),
+					},
+					EnabledPlugins: map[string]bool{"plugin-a@marketplace": true, "plugin-b@marketplace": true},
+					Env:            map[string]string{"FOO": "bar", "BAZ": "qux"},
 					StatusLine: &config.ClaudeStatusLine{
-						Type:    "command",
-						Command: "echo status",
-						Padding: intPtr(2),
+						Type:                 "command",
+						Command:              "echo status",
+						Padding:              intPtr(2),
+						RefreshInterval:      intPtr(5),
+						HideVimModeIndicator: boolPtr(true),
 					},
 					Permissions: &config.ClaudePermissions{
 						Allow: []string{"Read(*)"},
@@ -70,6 +78,10 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	if got := parsed["includeCoAuthoredBy"]; got != false {
 		t.Errorf("includeCoAuthoredBy: got %v", got)
 	}
+	attribution, ok := parsed["attribution"].(map[string]any)
+	if !ok || attribution["commit"] != "Co-Authored-By: Team Bot <bot@example.com>" || attribution["pr"] != "" || attribution["sessionUrl"] != false {
+		t.Errorf("attribution wrong: %v", parsed["attribution"])
+	}
 	plugins, ok := parsed["enabledPlugins"].(map[string]any)
 	if !ok || len(plugins) != 2 || plugins["plugin-a@marketplace"] != true || plugins["plugin-b@marketplace"] != true {
 		t.Errorf("enabledPlugins wrong: %v", parsed["enabledPlugins"])
@@ -79,7 +91,7 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 		t.Errorf("env wrong: %v", parsed["env"])
 	}
 	sl, ok := parsed["statusLine"].(map[string]any)
-	if !ok || sl["command"] != "echo status" || sl["padding"] != float64(2) {
+	if !ok || sl["command"] != "echo status" || sl["padding"] != float64(2) || sl["refreshInterval"] != float64(5) || sl["hideVimModeIndicator"] != true {
 		t.Errorf("statusLine wrong: %v", parsed["statusLine"])
 	}
 	perms, ok := parsed["permissions"].(map[string]any)

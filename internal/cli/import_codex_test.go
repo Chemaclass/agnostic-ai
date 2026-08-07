@@ -263,7 +263,7 @@ body
 
 func TestImportFromCodex_AgentsFromTOML(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer.toml"), `name = "reviewer"
+	writeFile(t, filepath.Join(dir, ".codex/agents/reviewer.toml"), `name = "reviewer"
 description = "code reviewer"
 model = "gpt-5"
 sandbox_mode = "read-only"
@@ -298,7 +298,7 @@ review code carefully.
 // byte-equivalently on the next sync.
 func TestImportFromCodex_AgentsRoundTripsEmbeddedMCPServers(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, ".agents/agents/scoped.toml"), `name = "scoped"
+	writeFile(t, filepath.Join(dir, ".codex/agents/scoped.toml"), `name = "scoped"
 description = "scoped agent"
 developer_instructions = "do things"
 
@@ -333,7 +333,7 @@ PATH = "/usr/bin"
 
 func TestImportFromCodex_LegacyAgentsDirAlsoScanned(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, ".codex/agents/legacy.toml"),
+	writeFile(t, filepath.Join(dir, ".agents/agents/legacy.toml"),
 		`name = "legacy"
 description = "from old layout"
 developer_instructions = "body"
@@ -342,7 +342,29 @@ developer_instructions = "body"
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agents", "legacy.md")); err != nil {
-		t.Errorf("expected agents/legacy.md from .codex/agents fallback: %v", err)
+		t.Errorf("expected agents/legacy.md from .agents/agents fallback: %v", err)
+	}
+}
+
+func TestImportFromCodex_NativeAgentWinsOverLegacyCopy(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/agents/reviewer.toml"), `name = "reviewer"
+description = "native"
+developer_instructions = "current body"
+`)
+	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer.toml"), `name = "reviewer"
+description = "legacy"
+developer_instructions = "old body"
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "agents", "reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "description: native") || strings.Contains(string(got), "old body") {
+		t.Errorf("native .codex/agents copy should win:\n%s", got)
 	}
 }
 
@@ -705,6 +727,84 @@ func TestImportFromCodex_HookAdditionalContextLimitRoundTrip(t *testing.T) {
 	}
 }
 
+func TestImportFromCodex_HookAdditionalContextLimitZeroRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [{"hooks": [
+      {"type": "command", "command": "lint.sh", "additionalContextLimit": 0}
+    ]}]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, _ := os.ReadFile(post)
+	if !strings.Contains(string(data), "additionalContextLimit: 0") {
+		t.Errorf("expected explicit zero additionalContextLimit in spec:\n%s", data)
+	}
+}
+
+// Round-trip for #547: commandWindows must survive import so Windows hook
+// behavior is not lost on the next sync.
+func TestImportFromCodex_HookCommandWindowsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "lint.sh", "commandWindows": "lint.ps1"}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, _ := os.ReadFile(post)
+	if !strings.Contains(string(data), "commandWindows: lint.ps1") {
+		t.Errorf("expected commandWindows in spec:\n%s", data)
+	}
+}
+
+func TestImportFromCodex_MCPEnvironmentFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.worker]
+command = "mcp-server"
+env_vars = ["LOCAL_TOKEN", { name = "REMOTE_TOKEN", source = "remote" }]
+
+[mcp_servers.api]
+url = "https://example.com/mcp"
+env_http_headers = { Authorization = "MCP_TOKEN" }
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	worker, err := os.ReadFile(filepath.Join(dir, "mcps", "worker.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"env_vars:", "- LOCAL_TOKEN", "name: REMOTE_TOKEN", "source: remote"} {
+		if !strings.Contains(string(worker), want) {
+			t.Errorf("expected %q in worker spec:\n%s", want, worker)
+		}
+	}
+	api, err := os.ReadFile(filepath.Join(dir, "mcps", "api.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"env_http_headers:", "Authorization: MCP_TOKEN"} {
+		if !strings.Contains(string(api), want) {
+			t.Errorf("expected %q in api spec:\n%s", want, api)
+		}
+	}
+}
+
 // When both hooks.json and config.toml carry the same event/matcher/command,
 // keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
 func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {
@@ -754,7 +854,7 @@ func TestImportFromCodex_AgentNameDashUnderscoreCollisionDedupes(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "agents", "changelog-keeper.md"), claudeBody)
 
 	// Now run codex import with a TOML file using the underscore variant.
-	writeFile(t, filepath.Join(dir, ".agents/agents/changelog-keeper.toml"), `name = "changelog_keeper"
+	writeFile(t, filepath.Join(dir, ".codex/agents/changelog-keeper.toml"), `name = "changelog_keeper"
 description = "Codex version"
 model_reasoning_effort = "medium"
 developer_instructions = """
@@ -791,7 +891,7 @@ Codex hint.
 // the duplicate.
 func TestImportFromCodex_AgentFilenameCanonicalisedToDashes(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, ".agents/agents/foo.toml"), `name = "foo_bar"
+	writeFile(t, filepath.Join(dir, ".codex/agents/foo.toml"), `name = "foo_bar"
 description = "x"
 developer_instructions = """body"""
 `)
@@ -870,7 +970,7 @@ func TestImportFromCodex_SkipsAgentsAndSkillsWrappers(t *testing.T) {
 
 _code reviewer_
 
-Source: `+"`.agents/agents/reviewer.toml`"+`
+Source: `+"`.codex/agents/reviewer.toml`"+`
 
 ## Skills
 

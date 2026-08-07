@@ -3,6 +3,21 @@
   "$id": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json",
   "$ref": "#/$defs/Config",
   "$defs": {
+    "ClaudeAttribution": {
+      "properties": {
+        "commit": {
+          "type": "string"
+        },
+        "pr": {
+          "type": "string"
+        },
+        "sessionUrl": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ClaudePermissions": {
       "properties": {
         "allow": {
@@ -44,6 +59,9 @@
         "includeCoAuthoredBy": {
           "type": "boolean"
         },
+        "attribution": {
+          "$ref": "#/$defs/ClaudeAttribution"
+        },
         "enabledPlugins": {
           "additionalProperties": {
             "type": "boolean"
@@ -76,6 +94,12 @@
         },
         "padding": {
           "type": "integer"
+        },
+        "refreshInterval": {
+          "type": "integer"
+        },
+        "hideVimModeIndicator": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

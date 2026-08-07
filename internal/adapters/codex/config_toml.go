@@ -201,6 +201,7 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	switch transport {
 	case "stdio":
 		emit.WriteTOMLMCPStdioFields(sb, m.Meta)
+		writeCodexMCPEnvVars(sb, m.Meta["env_vars"])
 		// cwd is documented for codex (and gemini) stdio servers but is
 		// not part of the shared WriteTOMLMCPStdioFields helper: that
 		// helper is also used by OpenHands, which has no cwd support
@@ -214,6 +215,7 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 			emit.WriteTOMLString(sb, "bearer_token_env_var", t)
 		}
 		emit.WriteTOMLInlineStringTable(sb, "http_headers", emit.StringMap(m.Meta["headers"]))
+		emit.WriteTOMLInlineStringTable(sb, "env_http_headers", emit.StringMap(m.Meta["env_http_headers"]))
 		// auth (`oauth` | `chatgpt`) is documented for codex http
 		// servers. Passed through verbatim; codex validates the enum
 		// itself. See #532.
@@ -223,6 +225,40 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 	}
 	writeMCPSharedFields(sb, m.Meta)
 	sb.WriteString("\n")
+}
+
+// writeCodexMCPEnvVars emits Codex's mixed array form. String entries use
+// local environment variables. Inline tables can select local or remote
+// executor sourcing with { name, source }.
+func writeCodexMCPEnvVars(sb *strings.Builder, raw any) {
+	values, ok := raw.([]any)
+	if !ok {
+		if stringsOnly, ok := raw.([]string); ok {
+			values = make([]any, len(stringsOnly))
+			for i, value := range stringsOnly {
+				values[i] = value
+			}
+		}
+	}
+	var rendered []string
+	for _, value := range values {
+		switch entry := value.(type) {
+		case string:
+			if entry != "" {
+				rendered = append(rendered, `"`+emit.EscapeTOMLBasic(entry)+`"`)
+			}
+		case map[string]any:
+			name, _ := entry["name"].(string)
+			source, _ := entry["source"].(string)
+			if name == "" || (source != "local" && source != "remote") {
+				continue
+			}
+			rendered = append(rendered, `{ name = "`+emit.EscapeTOMLBasic(name)+`", source = "`+emit.EscapeTOMLBasic(source)+`" }`)
+		}
+	}
+	if len(rendered) > 0 {
+		sb.WriteString("env_vars = [" + strings.Join(rendered, ", ") + "]\n")
+	}
 }
 
 // writeMCPSharedFields emits description, enabled, and roots into the

@@ -16,10 +16,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 )
 
-// Codex stores subagents and skills under `.agents/`. Older layouts used
-// `.codex/agents/` for TOMLs; both are scanned so an upgrade picks up
-// either location.
-var codexAgentDirs = []string{".agents/agents", ".codex/agents"}
+// Codex stores custom agents under `.codex/agents/`. agnostic-ai used
+// `.agents/agents/` before v0.26; both are scanned so an upgrade picks up
+// either location, with the native file winning when both exist.
+var codexAgentDirs = []string{".codex/agents", ".agents/agents"}
 
 const (
 	codexDir        = ".codex"
@@ -34,7 +34,7 @@ const (
 var codexSkillsDirs = []string{".agents/skills", ".codex/skills"}
 
 // importCodexAgents reads every `<root>/<dir>/*.toml` agent file (where
-// <dir> is one of `.agents/agents/` or `.codex/agents/`) and writes one
+// <dir> is one of `.codex/agents/` or `.agents/agents/`) and writes one
 // `.md` per agent to dstDir. Frontmatter captures `name`, `description`,
 // `model`, and codex-specific `x-codex.*` keys; the body comes from
 // `developer_instructions`.
@@ -619,26 +619,30 @@ type codexConfigDoc struct {
 }
 
 type codexHookEntry struct {
-	Matcher       string `toml:"matcher"`
-	Command       string `toml:"command"`
-	Timeout       int    `toml:"timeout"`
-	StatusMessage string `toml:"statusMessage"`
+	Matcher             string `toml:"matcher"`
+	Command             string `toml:"command"`
+	Timeout             int    `toml:"timeout"`
+	StatusMessage       string `toml:"statusMessage"`
+	CommandWindows      string `toml:"commandWindows"`
+	CommandWindowsSnake string `toml:"command_windows"`
 	// AdditionalContextLimit mirrors the hooks.json field of the same
 	// name (see codexHookSlot / mergeCodexHooksJSON); captured here too
 	// so a hand-authored `[[hooks.<event>]]` TOML block round-trips it.
-	AdditionalContextLimit int `toml:"additionalContextLimit"`
+	AdditionalContextLimit *int `toml:"additionalContextLimit"`
 }
 
 type codexMCPEntry struct {
 	Command string            `toml:"command"`
 	Args    []string          `toml:"args"`
 	Env     map[string]string `toml:"env"`
+	EnvVars []any             `toml:"env_vars"`
 	// Cwd is the stdio server's working directory
 	// (learn.chatgpt.com/docs/config-file/config-reference). See #532.
 	Cwd               string            `toml:"cwd"`
 	URL               string            `toml:"url"`
 	BearerTokenEnvVar string            `toml:"bearer_token_env_var"`
 	HTTPHeaders       map[string]string `toml:"http_headers"`
+	EnvHTTPHeaders    map[string]string `toml:"env_http_headers"`
 	// Auth is the http server's auth mode (`oauth` | `chatgpt`). See #532.
 	Auth string `toml:"auth"`
 	// Shared fields the codex emitter writes via writeMCPSharedFields.
@@ -729,6 +733,9 @@ func readCodexConfigTOML(root string) (map[codexHookKey]*codexHookSlot, map[stri
 	}
 	for _, event := range sortedMapKeys(doc.Hooks) {
 		for _, h := range doc.Hooks[event] {
+			if h.CommandWindows == "" {
+				h.CommandWindows = h.CommandWindowsSnake
+			}
 			if h.Command == "" {
 				continue
 			}
@@ -774,6 +781,7 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 					Command:                h.Command,
 					Timeout:                h.Timeout,
 					StatusMessage:          h.StatusMessage,
+					CommandWindows:         h.CommandWindows,
 					AdditionalContextLimit: h.AdditionalContextLimit,
 				}
 				if !exists {
@@ -827,8 +835,11 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 		if h.StatusMessage != "" {
 			doc["statusMessage"] = h.StatusMessage
 		}
-		if h.AdditionalContextLimit != 0 {
-			doc["additionalContextLimit"] = h.AdditionalContextLimit
+		if h.CommandWindows != "" {
+			doc["commandWindows"] = h.CommandWindows
+		}
+		if h.AdditionalContextLimit != nil {
+			doc["additionalContextLimit"] = *h.AdditionalContextLimit
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {
@@ -876,6 +887,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			if len(s.HTTPHeaders) > 0 {
 				doc["headers"] = s.HTTPHeaders
 			}
+			if len(s.EnvHTTPHeaders) > 0 {
+				doc["env_http_headers"] = s.EnvHTTPHeaders
+			}
 			if s.Auth != "" {
 				doc["auth"] = s.Auth
 			}
@@ -889,6 +903,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			}
 			if s.Cwd != "" {
 				doc["cwd"] = s.Cwd
+			}
+			if len(s.EnvVars) > 0 {
+				doc["env_vars"] = s.EnvVars
 			}
 		}
 		if len(s.Env) > 0 {

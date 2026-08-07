@@ -187,7 +187,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `shell` | no | empty | `bash` or `powershell`. Claude. |
 | `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude. |
 | `commandWindows` | no | empty | Windows-specific command override. Codex. |
-| `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. |
+| `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. Set `0` to pass the complete additional context. |
 | `target` | no | empty | Single target name. Emits only there. |
 | `targets` | no | empty | List of target names. Emits only to those. |
 | `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
@@ -362,8 +362,11 @@ env:
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
 | `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini. |
+| `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
+| `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
+| `auth` | no | empty | Codex HTTP authentication fallback: `oauth` or `chatgpt`. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 

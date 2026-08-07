@@ -252,3 +252,23 @@ func TestEmit_HookAdditionalContextLimitPropagates(t *testing.T) {
 		t.Errorf("additionalContextLimit missing in hooks.json:\n%s", got)
 	}
 }
+
+func TestEmit_HookAdditionalContextLimitZeroPropagates(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+		"event":                  "PostToolUse",
+		"command":                "lint.sh",
+		"additionalContextLimit": 0,
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"additionalContextLimit": 0`) {
+		t.Errorf("explicit zero additionalContextLimit missing in hooks.json:\n%s", got)
+	}
+}

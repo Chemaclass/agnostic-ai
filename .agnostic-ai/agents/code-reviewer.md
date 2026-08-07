@@ -2,7 +2,8 @@
 name: code-reviewer
 description: Reviews Go diffs in agnostic-ai for bugs, style, and cross-adapter issues.
 tools: [Read, Grep, Bash]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You review Go code changes in the agnostic-ai project.

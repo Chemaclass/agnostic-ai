@@ -34,11 +34,13 @@
 // (working directory, part of the cross-tool MCP spec); http servers
 // accept `auth` (`oauth` | `chatgpt`), read verbatim from the spec's
 // top-level `cwd` / `auth` fields the same way `bearer_token_env_var`
-// already is.
+// already is. Codex-specific `env_vars` and `env_http_headers` retain
+// the vendor's mixed-array and environment-backed header shapes.
 //
 // Hook entries accept an optional `additionalContextLimit` (token
 // threshold for how much hook output reaches the model), propagated
 // into `.codex/hooks.json` the same way `commandWindows` already is.
+// An explicit zero is preserved because Codex gives it distinct behavior.
 package codex
 
 import (
@@ -115,12 +117,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 
+	droppedAgentTools := 0
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".toml")
 		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
 			return err
 		}
+		if len(emit.StringSlice(a.Meta["tools"])) > 0 {
+			droppedAgentTools++
+		}
 	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedAgentTools,
+		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 
 	if codexEmitsSkills(cfg) {
 		for _, s := range b.Skills {
@@ -179,12 +187,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // sweep is skipped when the active path matches the legacy one, since
 // that means the user explicitly opted into that layout.
 func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir string, dryRun bool) error {
-	sweptAgents := false
 	if agentsDir != legacyAgentsDir {
 		if err := sess.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
 			return err
 		}
-		sweptAgents = true
 	}
 	if skillsDir != legacySkillsDir {
 		if err := sess.RemoveGeneratedTree(legacySkillsDir, dryRun); err != nil {
@@ -196,13 +202,11 @@ func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir stri
 			return err
 		}
 	}
-	if sweptAgents && !dryRun {
-		// `.agents/` may now be empty; remove it so the legacy layout
-		// disappears completely. os.Remove fails silently when the
-		// directory still contains other files (for example the skills
-		// emitted to `.agents/skills/` or amp's `.agents/commands/`).
-		_ = os.Remove(".agents")
-	}
+	// Keep the shared `.agents/` parent even when the legacy agents tree
+	// was its last child. Other adapters write `.agents/rules`, skills,
+	// and commands concurrently, so removing the parent races with their
+	// directory creation. RemoveGeneratedTree already removes the
+	// target-owned `.agents/agents` subtree completely.
 	return nil
 }
 

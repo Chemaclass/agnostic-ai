@@ -140,6 +140,8 @@ WARP.md
 # =============================================================================
 /.golangci-cache/
 /tmp/
+# Local target-audit reports are working notes, not release artifacts.
+/local/
 
 # =============================================================================
 # Playground build artifacts (rebuilt by `make playground-build` or CI)

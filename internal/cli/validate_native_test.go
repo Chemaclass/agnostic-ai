@@ -124,6 +124,27 @@ func TestValidate_AcceptsAllDocumentedGeminiHookEvents(t *testing.T) {
 	}
 }
 
+func TestValidate_AcceptsClaudeDirectoryAddedHookEvent(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - claude\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+		"name: h\nevent: DirectoryAdded\ncommand: \"true\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if strings.Contains(out.String(), "unknown hook event") {
+		t.Errorf("DirectoryAdded is a documented Claude event: %s", out.String())
+	}
+}
+
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	// copilot + cline configured; neither emits hooks. The hook spec
 	// is dead weight and validate should say so.

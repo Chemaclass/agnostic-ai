@@ -109,6 +109,47 @@ func TestEmit_AgentTOML_NoExtras(t *testing.T) {
 	}
 }
 
+func TestEmit_AgentGenericToolsSurfacesCoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read"}}, Body: "body"},
+		{Kind: spec.KindAgent, Name: "a2", Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note for a1's generic tools, got %d", n)
+	}
+}
+
+func TestEmit_AgentXCodexToolsDoesNotHideGenericToolsGap(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent,
+		Name: "a1",
+		Meta: map[string]any{
+			"tools": []any{"Read"},
+			"x-codex": map[string]any{
+				"tools": map[string]any{"web_search": false},
+			},
+		},
+		Body: "body",
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("Codex tool settings do not replace the generic allowlist; expected one coverage note, got %d", n)
+	}
+}
+
 func TestEmit_AgentTOML_RespectsAgentsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

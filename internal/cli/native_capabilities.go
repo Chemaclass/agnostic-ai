@@ -20,7 +20,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"SubagentStart", "SubagentStop",
 		"TaskCreated", "TaskCompleted", "TeammateIdle",
 		"PreCompact", "PostCompact",
-		"ConfigChange", "CwdChanged", "FileChanged",
+		"ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged",
 		"WorktreeCreate", "WorktreeRemove",
 		"Notification",
 	),

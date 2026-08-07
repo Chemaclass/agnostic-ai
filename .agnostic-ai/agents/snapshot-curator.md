@@ -2,7 +2,8 @@
 name: snapshot-curator
 description: Triage drift between source specs and emitted per-CLI configs.
 tools: [Read, Bash, Grep]
-model: sonnet
+model:
+  claude: sonnet
 ---
 
 You diagnose drift between `.agnostic-ai/` source specs and the per-CLI files they generate.

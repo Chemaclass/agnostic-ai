@@ -28,7 +28,7 @@ const (
 	execPoliciesHeaderOverlayPath = ".agnostic-ai/overlays/codex.exec-policies-header.txt"
 )
 
-// emitExecPolicies writes the Skylark-flavored `prefix_rule(...)` file at
+// emitExecPolicies writes the Starlark `prefix_rule(...)` file at
 // `.codex/rules/default.rules` from the declarative list in
 // `outputs.codex.exec-policies` (inline) or `outputs.codex.exec-policies-file`
 // (path to a YAML list). The file is the exec-policy DSL Codex CLI reads to
@@ -54,7 +54,7 @@ func emitExecPolicies(sess *emit.Session, cfg *config.Config, dryRun bool) error
 		return err
 	}
 	body := renderExecPoliciesSkylark(policies, header)
-	// Skylark uses `#` line comments — same as YAML — so reuse the YAML
+	// Starlark uses `#` line comments, the same as YAML, so reuse the YAML
 	// header so the provenance banner sits inside a comment block.
 	return sess.WriteFile(defaultExecPoliciesFile, emit.WithHeader(body, emit.FormatYAML), dryRun)
 }
@@ -163,7 +163,7 @@ func validateExecPolicy(p config.CodexExecPolicy, index int) error {
 // justification.
 //
 // Multi-line justification strings collapse to a single line in the
-// emit because the inline kwarg form takes one double-quoted Skylark
+// emit because the inline kwarg form takes one double-quoted Starlark
 // string; embedded newlines are not preserved (use the YAML overlay if
 // you need a multi-paragraph justification).
 func renderExecPoliciesSkylark(policies []config.CodexExecPolicy, header string) string {
@@ -203,7 +203,7 @@ func renderExecPoliciesSkylark(policies []config.CodexExecPolicy, header string)
 	return b.String()
 }
 
-// writeStringList writes a Python/Skylark string list literal:
+// writeStringList writes a Starlark string list literal:
 // `["a", "b", "c"]`. Empty list is `[]`.
 func writeStringList(b *strings.Builder, xs []string) {
 	if len(xs) == 0 {

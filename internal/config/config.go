@@ -154,7 +154,7 @@ type Sources struct {
 	Ignore       string `yaml:"ignore,omitempty"       json:"ignore,omitempty"`
 }
 
-// CodexExecPolicy describes one Skylark-flavored `prefix_rule(...)` entry
+// CodexExecPolicy describes one Starlark `prefix_rule(...)` entry
 // emitted into `.codex/rules/default.rules`. Codex CLI consumes that file
 // as an exec-policy DSL that allow- or forbid-lists shell command
 // prefixes; agnostic-ai users declare the data declaratively in
@@ -216,11 +216,12 @@ type Output struct {
 // `agnostic-ai.yaml` or leave it inside `.claude/settings.json` and let the
 // overlay carry it.
 type ClaudeSettings struct {
-	Model               string `yaml:"model,omitempty"               json:"model,omitempty"`
-	OutputStyle         string `yaml:"outputStyle,omitempty"         json:"outputStyle,omitempty"`
-	APIKeyHelper        string `yaml:"apiKeyHelper,omitempty"        json:"apiKeyHelper,omitempty"`
-	CleanupPeriodDays   *int   `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
-	IncludeCoAuthoredBy *bool  `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
+	Model               string             `yaml:"model,omitempty"               json:"model,omitempty"`
+	OutputStyle         string             `yaml:"outputStyle,omitempty"         json:"outputStyle,omitempty"`
+	APIKeyHelper        string             `yaml:"apiKeyHelper,omitempty"        json:"apiKeyHelper,omitempty"`
+	CleanupPeriodDays   *int               `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
+	IncludeCoAuthoredBy *bool              `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
+	Attribution         *ClaudeAttribution `yaml:"attribution,omitempty"         json:"attribution,omitempty"`
 	// EnabledPlugins maps `plugin-id@marketplace-id` to whether Claude
 	// Code should load it. Matches the authoritative schema at
 	// json.schemastore.org/claude-code-settings.json, which types
@@ -232,13 +233,22 @@ type ClaudeSettings struct {
 	Permissions    *ClaudePermissions `yaml:"permissions,omitempty"         json:"permissions,omitempty"`
 }
 
+// ClaudeAttribution mirrors the `attribution` block. Pointer fields preserve
+// explicit empty strings, which disable the matching attribution text.
+type ClaudeAttribution struct {
+	Commit     *string `yaml:"commit,omitempty"     json:"commit,omitempty"`
+	PR         *string `yaml:"pr,omitempty"         json:"pr,omitempty"`
+	SessionURL *bool   `yaml:"sessionUrl,omitempty" json:"sessionUrl,omitempty"`
+}
+
 // ClaudeStatusLine mirrors the `statusLine` block of `.claude/settings.json`.
-// Claude Code accepts a `type` (today only "command") and a `command`
-// string; the optional `padding` field controls leading whitespace.
+// Claude Code accepts a `type` (today only "command") and a `command` string.
 type ClaudeStatusLine struct {
-	Type    string `yaml:"type,omitempty"    json:"type,omitempty"`
-	Command string `yaml:"command,omitempty" json:"command,omitempty"`
-	Padding *int   `yaml:"padding,omitempty" json:"padding,omitempty"`
+	Type                 string `yaml:"type,omitempty"                 json:"type,omitempty"`
+	Command              string `yaml:"command,omitempty"              json:"command,omitempty"`
+	Padding              *int   `yaml:"padding,omitempty"              json:"padding,omitempty"`
+	RefreshInterval      *int   `yaml:"refreshInterval,omitempty"      json:"refreshInterval,omitempty"`
+	HideVimModeIndicator *bool  `yaml:"hideVimModeIndicator,omitempty" json:"hideVimModeIndicator,omitempty"`
 }
 
 // ClaudePermissions mirrors the `permissions` block. Each list contains

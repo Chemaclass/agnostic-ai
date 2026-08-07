@@ -35,6 +35,11 @@ func buildConfigSettings(cfg *config.Config) map[string]any {
 	if s.IncludeCoAuthoredBy != nil {
 		out["includeCoAuthoredBy"] = *s.IncludeCoAuthoredBy
 	}
+	if s.Attribution != nil {
+		if attribution := attributionMap(s.Attribution); len(attribution) > 0 {
+			out["attribution"] = attribution
+		}
+	}
 	if len(s.EnabledPlugins) > 0 {
 		plugins := map[string]any{}
 		for k, v := range s.EnabledPlugins {
@@ -62,6 +67,20 @@ func buildConfigSettings(cfg *config.Config) map[string]any {
 	return out
 }
 
+func attributionMap(a *config.ClaudeAttribution) map[string]any {
+	m := map[string]any{}
+	if a.Commit != nil {
+		m["commit"] = *a.Commit
+	}
+	if a.PR != nil {
+		m["pr"] = *a.PR
+	}
+	if a.SessionURL != nil {
+		m["sessionUrl"] = *a.SessionURL
+	}
+	return m
+}
+
 func statusLineMap(s *config.ClaudeStatusLine) map[string]any {
 	m := map[string]any{}
 	if s.Type != "" {
@@ -72,6 +91,12 @@ func statusLineMap(s *config.ClaudeStatusLine) map[string]any {
 	}
 	if s.Padding != nil {
 		m["padding"] = *s.Padding
+	}
+	if s.RefreshInterval != nil {
+		m["refreshInterval"] = *s.RefreshInterval
+	}
+	if s.HideVimModeIndicator != nil {
+		m["hideVimModeIndicator"] = *s.HideVimModeIndicator
 	}
 	return m
 }

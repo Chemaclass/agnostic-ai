@@ -565,7 +565,10 @@ outputs:
       outputStyle: verbose
       apiKeyHelper: ./bin/keyhelper.sh
       cleanupPeriodDays: 30
-      includeCoAuthoredBy: false
+      attribution:
+        commit: ""
+        pr: ""
+        sessionUrl: false
       enabledPlugins:
         plugin-a@marketplace-a: true
         plugin-b@marketplace-b: true
@@ -575,6 +578,8 @@ outputs:
         type: command
         command: echo status
         padding: 2
+        refreshInterval: 5
+        hideVimModeIndicator: true
       permissions:
         allow:
           - "Read(*)"
@@ -590,10 +595,11 @@ outputs:
 | `outputStyle` | string | One of the Claude Code output styles. |
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
-| `includeCoAuthoredBy` | boolean | Append `Co-Authored-By: Claude` to git commits Claude creates. |
+| `attribution` | object | Current attribution controls. `commit` and `pr` set the text for commits and pull requests; an explicit empty string disables that attribution. `sessionUrl` controls whether the Claude session URL is included. |
+| `includeCoAuthoredBy` | boolean | Deprecated Claude Code setting. Use `attribution`; when both are present, `attribution` takes precedence. |
 | `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them. Matches the `enabledPlugins` object in Claude Code's settings schema; a plain list cannot express the required `@marketplace-id` qualifier. |
 | `env` | map of strings | Environment variables exported into Claude sessions. |
-| `statusLine` | object | `type`, `command`, and optional `padding`. |
+| `statusLine` | object | `type`, `command`, and optional `padding`, `refreshInterval` (seconds, minimum 1), and `hideVimModeIndicator`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
 Any setting not declared here round-trips through the overlay captured during `agnostic-ai import claude` (written to `.agnostic-ai/overlays/claude.settings.json`). When both the overlay and `outputs.claude.settings.*` declare the same scalar key, the first-class config block wins. The `permissions` lists are the exception: their `allow`/`deny`/`ask` entries are unioned across the overlay, any `settings` spec, and this config, so no layer silently drops another's rules.
@@ -637,7 +643,7 @@ outputs:
 
 ### Codex exec-policies
 
-`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex CLI's Skylark-flavored exec-policy DSL, rendered into `.codex/rules/default.rules` on sync. Each entry allow- or forbid-lists a shell command prefix.
+`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex CLI's Starlark exec-policy DSL, rendered into `.codex/rules/default.rules` on sync. Each entry allow- or forbid-lists a shell command prefix.
 
 ```yaml
 outputs:

@@ -103,7 +103,7 @@ func TestAgentTOML_XCodexOverridesTopLevel(t *testing.T) {
 	}
 }
 
-func TestAgentTOML_ToolsFirstClass(t *testing.T) {
+func TestAgentTOML_GenericToolsNotEmitted(t *testing.T) {
 	a := spec.Entry{
 		Kind: spec.KindAgent,
 		Name: "scoped",
@@ -113,12 +113,12 @@ func TestAgentTOML_ToolsFirstClass(t *testing.T) {
 		},
 	}
 	got := agentTOML(a)
-	if !strings.Contains(got, `tools = ["bash", "edit", "read"]`) {
-		t.Errorf("missing tools array:\n%s", got)
+	if strings.Contains(got, "tools") {
+		t.Errorf("generic Claude-style tools must not reach Codex TOML:\n%s", got)
 	}
 }
 
-func TestAgentTOML_XCodexToolsOverridesTopLevel(t *testing.T) {
+func TestAgentTOML_XCodexToolsEmitsConfigTable(t *testing.T) {
 	a := spec.Entry{
 		Kind: spec.KindAgent,
 		Name: "scoped",
@@ -126,17 +126,35 @@ func TestAgentTOML_XCodexToolsOverridesTopLevel(t *testing.T) {
 		Meta: map[string]any{
 			"tools": []any{"bash"},
 			"x-codex": map[string]any{
-				"tools": []any{"edit", "read"},
+				"custom_scalar": "root value",
+				"tools": map[string]any{
+					"view_image": true,
+					"web_search": map[string]any{
+						"context_size":    "low",
+						"allowed_domains": []any{"go.dev"},
+					},
+				},
 			},
 		},
 	}
 	got := agentTOML(a)
-	// Only one tools line, with x-codex content winning.
-	if !strings.Contains(got, `tools = ["edit", "read"]`) {
-		t.Errorf("x-codex.tools should win:\n%s", got)
+	for _, want := range []string{
+		"[tools]",
+		"view_image = true",
+		"[tools.web_search]",
+		`context_size = "low"`,
+		`allowed_domains = ["go.dev"]`,
+		`custom_scalar = "root value"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("x-codex.tools missing %q:\n%s", want, got)
+		}
 	}
-	if strings.Count(got, "tools = ") != 1 {
-		t.Errorf("tools should emit exactly once:\n%s", got)
+	if strings.Contains(got, `tools = ["bash"]`) {
+		t.Errorf("generic tools leaked into Codex TOML:\n%s", got)
+	}
+	if strings.Index(got, `custom_scalar = "root value"`) > strings.Index(got, "[tools]") {
+		t.Errorf("root scalars must emit before the tools table:\n%s", got)
 	}
 }
 

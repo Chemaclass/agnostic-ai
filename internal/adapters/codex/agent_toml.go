@@ -21,6 +21,7 @@ import (
 //	model_reasoning_effort (optional, from x-codex)
 //	sandbox_mode           (optional, from x-codex)
 //	nickname_candidates    (optional, []string from x-codex)
+//	tools                  (optional config table from x-codex)
 //
 // Agent-scoped `mcp_servers` and other nested-table fields pass through
 // `x-codex` verbatim: the importer captures them under `x-codex.<key>`,
@@ -62,9 +63,6 @@ func agentTOML(a spec.Entry) string {
 	if v := stringOr(meta, "sandbox_mode", ""); v != "" {
 		emit.WriteTOMLString(&sb, "sandbox_mode", v)
 	}
-	if tools := stringSlice(meta["tools"]); len(tools) > 0 {
-		emit.WriteTOMLStringArray(&sb, "tools", tools)
-	}
 	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
 	if names := stringSlice(meta["nickname_candidates"]); len(names) > 0 {
 		emit.WriteTOMLStringArray(&sb, "nickname_candidates", names)
@@ -87,6 +85,29 @@ var codexAgentEmittedKeys = map[string]bool{
 	"nickname_candidates":    true,
 }
 
+// writeTOMLTable renders a map as a TOML table. Scalar values lead,
+// followed by nested maps as child tables, so each emitted document is
+// valid and deterministic.
+func writeTOMLTable(sb *strings.Builder, path string, values map[string]any) {
+	sb.WriteString("\n[" + path + "]\n")
+	var scalarKeys, tableKeys []string
+	for key, value := range values {
+		if _, ok := value.(map[string]any); ok {
+			tableKeys = append(tableKeys, key)
+		} else {
+			scalarKeys = append(scalarKeys, key)
+		}
+	}
+	slices.Sort(scalarKeys)
+	slices.Sort(tableKeys)
+	for _, key := range scalarKeys {
+		writeTOMLAny(sb, key, values[key])
+	}
+	for _, key := range tableKeys {
+		writeTOMLTable(sb, path+"."+key, values[key].(map[string]any))
+	}
+}
+
 // writeXCodexExtras walks `meta["x-codex"]` (when present) and emits
 // every key not already in codexAgentEmittedKeys. Supports the common
 // TOML value shapes: strings, bools, numbers, string arrays, inline
@@ -102,6 +123,12 @@ func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 	}
 	var inlineKeys, tableKeys []string
 	for k, v := range x {
+		if k == "tools" {
+			if tools, ok := v.(map[string]any); ok && len(tools) > 0 {
+				tableKeys = append(tableKeys, k)
+			}
+			continue
+		}
 		if codexAgentEmittedKeys[k] {
 			continue
 		}
@@ -117,6 +144,10 @@ func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 		writeTOMLAny(sb, k, x[k])
 	}
 	for _, k := range tableKeys {
+		if k == "tools" {
+			writeTOMLTable(sb, k, x[k].(map[string]any))
+			continue
+		}
 		writeNestedTableMap(sb, k, x[k].(map[string]any))
 	}
 }
