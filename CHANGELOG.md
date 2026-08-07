@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.46.0 - 2026-08-07
+
 ### Added
 
 - Install scripts for machines with no package manager: `curl -fsSL .../scripts/install.sh | bash` on macOS and Linux, `irm .../scripts/install.ps1 | iex` on Windows. Each resolves the latest release, verifies the archive against `checksums.txt`, installs to a PATH directory (`/usr/local/bin` or `~/.local/bin`; `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows, added to the user PATH), and takes `AGNOSTIC_AI_VERSION` / `AGNOSTIC_AI_INSTALL_DIR` (`-Version` / `-InstallDir`) overrides. A weekly workflow runs both against a real release on Linux, macOS, and Windows runners.
