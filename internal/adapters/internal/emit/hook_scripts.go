@@ -58,7 +58,7 @@ func MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
 	if dryRun {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := os.WriteFile(dst, body, mode); err != nil {
