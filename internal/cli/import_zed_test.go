@@ -117,3 +117,57 @@ func TestImportFromZed_ImportsContextServers(t *testing.T) {
 		}
 	}
 }
+
+// TestImportFromZed_ImportsFlatStdioContextServer covers the shape Zed
+// documents and the shape this repo's own zed adapter emits: `command`
+// as a plain string with `args` and `env` as siblings.
+//
+// The importer previously accepted only a nested `command: {path, args,
+// env}` object, so importing a `.zed/settings.json` that agnostic-ai had
+// just written silently dropped every stdio server (#546).
+func TestImportFromZed_ImportsFlatStdioContextServer(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "context_servers": {
+    "fs": {"command": "fs-server", "args": ["--root", "."], "env": {"TOKEN": "x"}}
+  }
+}`
+	writeFile(t, filepath.Join(dir, zedSettings), settings)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/fs.yaml: %v", err)
+	}
+	for _, want := range []string{"command: fs-server", "args:", "--root", "TOKEN"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("expected %q in mcp file: %s", want, got)
+		}
+	}
+}
+
+// TestImportFromZed_ImportsRemoteContextServer covers Zed's remote shape
+// (`url` plus optional `headers`). The importer required a `command` key
+// and skipped anything without one, so remote servers were dropped too.
+func TestImportFromZed_ImportsRemoteContextServer(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "context_servers": {
+    "remote": {"url": "https://example.test/mcp", "headers": {"Authorization": "Bearer t"}}
+  }
+}`
+	writeFile(t, filepath.Join(dir, zedSettings), settings)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "mcps", "remote.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/remote.yaml: %v", err)
+	}
+	for _, want := range []string{"https://example.test/mcp", "Authorization"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("expected %q in mcp file: %s", want, got)
+		}
+	}
+}

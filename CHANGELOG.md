@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
+- `import zed` no longer drops MCP servers from a `.zed/settings.json` that agnostic-ai itself emitted. The reader accepted only a nested `command: {path, args, env}` object, while Zed documents (and the zed adapter writes) `command` as a plain string with `args` and `env` beside it; remote `url` servers were skipped outright for having no `command` key. All three shapes now import (#546).
 
 ## v0.46.0 - 2026-08-07
 
@@ -19,6 +20,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - npm wrapper: `npx agnostic-ai <command>` with no install, or `npm install -g agnostic-ai`. The package downloads the prebuilt binary for the platform and verifies its checksum. It fetches on first run when npm blocks install scripts, which npm 11 does by default.
 - Claude Code plugin marketplace in this repo: `/plugin marketplace add Chemaclass/agnostic-ai` then `/plugin install agnostic-ai@chemaclass`. Ships `install`, `init`, `sync`, and `import` skills.
 - `upgrade` recognizes Scoop, winget, and npm installs and prints their update command instead of falling back to a manual download.
+
 ### Fixed
 
 - `sync` no longer fails intermittently with `mkdir <dir>: invalid argument` (or `no such file or directory`) when parallel emitters create the first two children of a shared directory. `os.MkdirAll` transiently rejects a concurrent create of the same parent with an error it does not absorb; directory creation now retries briefly. Affects any target pair sharing an output root, and surfaced as `.agents/` gained a second child (#526).

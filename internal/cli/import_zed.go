@@ -149,8 +149,18 @@ func toStringSlice(v any) []string {
 }
 
 // importZedContextServers reads `.zed/settings.json` and writes one
-// yaml per `context_servers` entry. Each server has a nested `command:
-// {path, args, env}` block which we flatten to `command`/`args`/`env`.
+// yaml per `context_servers` entry.
+//
+// Zed documents two server shapes (zed.dev/docs/ai/mcp). A stdio server
+// is `command` as a plain string with `args` and `env` as siblings; a
+// remote server is `url` with optional `headers`. Both map straight onto
+// the cross-tool MCP spec fields.
+//
+// A nested `command: {path, args, env}` object is also accepted. That is
+// the only shape this importer used to read, which meant importing a
+// `.zed/settings.json` that agnostic-ai itself emitted dropped every
+// stdio server, and remote servers were skipped outright for having no
+// `command` key at all (#546).
 func importZedContextServers(root, dstDir string) (int, error) {
 	src := filepath.Join(root, zedSettings)
 	data, err := os.ReadFile(src)
@@ -175,7 +185,20 @@ func importZedContextServers(root, dstDir string) (int, error) {
 			continue
 		}
 		out := map[string]any{}
-		if cmd, ok := entry["command"].(map[string]any); ok {
+		switch cmd := entry["command"].(type) {
+		case string:
+			// Documented stdio shape: args and env sit beside command.
+			if cmd != "" {
+				out["command"] = cmd
+			}
+			if args := toStringSlice(entry["args"]); len(args) > 0 {
+				out["args"] = args
+			}
+			if env, ok := entry["env"].(map[string]any); ok && len(env) > 0 {
+				out["env"] = env
+			}
+		case map[string]any:
+			// Legacy nested shape: args and env live inside command.
 			if p, ok := cmd["path"].(string); ok && p != "" {
 				out["command"] = p
 			}
@@ -187,7 +210,15 @@ func importZedContextServers(root, dstDir string) (int, error) {
 			}
 		}
 		if _, hasCmd := out["command"]; !hasCmd {
-			continue
+			// Remote shape: url plus optional headers, no command at all.
+			if u, ok := entry["url"].(string); ok && u != "" {
+				out["url"] = u
+				if h, ok := entry["headers"].(map[string]any); ok && len(h) > 0 {
+					out["headers"] = h
+				}
+			} else {
+				continue
+			}
 		}
 		flat[name] = out
 	}
