@@ -8,9 +8,10 @@ import (
 // NativeArtifacts describes where Warp reads each generated artifact,
 // honoring the same outputs.warp.* overrides Emit resolves. Workflows
 // appear only when the user opted in via outputs.warp.workflows-dir;
-// rules and skills reach Warp through the entry-point pointer.
+// rules reach Warp through the entry-point pointer.
 func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	arts := []emit.NativeArtifact{
+		{Label: "Skills", Location: emit.OutputSkillsDir(cfg, target, defaultSkillsDir) + "/"},
 		{Label: "MCP servers", Location: emit.OutputMCPFile(cfg, target, defaultMCPFile)},
 	}
 	if dir := emit.OutputWorkflowsDir(cfg, target, ""); dir != "" {

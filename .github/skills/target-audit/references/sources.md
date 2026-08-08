@@ -92,9 +92,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## warp
 
-- docs: https://docs.warp.dev/features/warp-drive/workflows · https://docs.warp.dev/knowledge-and-collaboration/mcp
+- docs: https://docs.warp.dev/features/warp-drive/workflows · https://docs.warp.dev/agents/capabilities/skills · https://docs.warp.dev/knowledge-and-collaboration/mcp
 - changelog: https://docs.warp.dev/getting-started/changelog
-- watch: whether Warp gained a skills or rules-dir surface (today: AGENTS.md + workflows + `.warp/.mcp.json`).
+- watch: whether Warp gained a native rules-dir surface (today: AGENTS.md + `.agents/skills/` + workflows + `.warp/.mcp.json`; skills confirmed #557). The 2026-08-07 changelog added a `SKILLS_DIRS` env var for indexing extra skill directories beyond the four documented defaults (`.agents/skills/`, `.warp/skills/`, `.claude/skills/`, `.codex/skills/`); re-check whether that changes which one this adapter should prefer.
 
 ## opencode
 

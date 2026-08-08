@@ -101,7 +101,7 @@ The same file lands in every target's own rules directory: `.claude/rules/`, `.k
 | Continue                |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Amp                     |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
 | Zed                     |   ○    |   ✅    |   ◐   |   ○   |  ✅   |
-| Warp                    |   ○    |   ○    |   ◐   |   -   |  ✅   |
+| Warp                    |   ○    |   ✅    |   ◐   |   -   |  ✅   |
 | OpenCode                |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
 | Google Antigravity      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Junie (JetBrains)       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
