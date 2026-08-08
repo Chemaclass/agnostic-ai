@@ -128,9 +128,13 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## trae
 
-- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/mcp
+- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/add-mcp-servers
 - changelog: (none published; use the docs page diff)
-- watch: MCP is documented but the adapter emits none. Confirm the project-scoped file path.
+- watch: `docs.trae.ai/ide/mcp`, the old URL for the MCP page, now 302s
+  to a marketing page; add-mcp-servers is the live one. Confirm it stays
+  live and watch whether Trae ever adds a `type` discriminant or a
+  `disabled` key: the current adapter (`.trae/mcp.json`) deliberately
+  omits both because neither appears in the doc's two worked examples.
 
 ## jules
 
