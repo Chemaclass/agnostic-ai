@@ -50,6 +50,27 @@ The prompt names your targets. Everything else you fetch yourself:
       is client-side.
 
    Only after all four fail is `unconfirmed` the honest answer.
+
+   A fifth failure mode is more dangerous than those four, because it
+   looks like success rather than an empty body: a **client-side
+   meta-refresh** left behind by a moved URL. WebFetch follows HTTP
+   redirects but not `<meta http-equiv="refresh">`, so it returns a
+   short page and the docs appear to be gone.
+
+   Kiro cost a full week to this. Its configuration reference moved and
+   left a 595-byte stub at the old URL; two audits read that stub and
+   shipped a coverage note claiming the tool vocabulary was
+   "unconfirmed" when it had been fully documented the whole time.
+
+   Detection: a suspiciously short body containing `http-equiv="refresh"`.
+   Remedy: read the `url=` target out of the tag and fetch that instead.
+   `curl -s <url> | head -c 400` shows it immediately.
+
+   A moved URL can also land on something unrelated. Trae's MCP page now
+   302s to a marketing page, which is why two consecutive runs concluded
+   the path was undocumented. If a fetch succeeds but the content does
+   not match the topic, treat that as a `docs-moved` finding rather than
+   as an absent surface.
 4. Compare, in this order (highest value first):
    - **Path drift**: does the tool still read the exact path we write? A
      moved skills, rules, or agents dir silently breaks every user. Check

@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- The `target-audit` skill and its auditor agent record what two weeks of running them taught: a client-side meta-refresh stub defeats WebFetch and reads as an absent doc rather than a moved one, `gh pr checks` beats `statusCheckRollup` because the rollup serves stale conclusions, a wait loop must not read "no data" as "finished", platform status is worth checking before diagnosing a broken branch, and a merged PR does not reliably close its issue.
+
 ### Fixed
 
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
