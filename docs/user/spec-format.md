@@ -399,6 +399,7 @@ Confirmed per target, never generalized: a target not listed here has not been c
 | Codex | Maps to `enabled = false` in `.codex/config.toml`. |
 | Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
 | Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |
+| OpenCode | Maps to `"enabled": false` in `opencode.json`; an enabled server gets no key at all. `import opencode` reads it back into `disabled: true`. |
 | Claude Code, Cursor, Copilot | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
 | Qoder | Not vendor-confirmed either way. `.mcp.json` is the same file Claude Code reads, so agnostic-ai drops the field there too rather than risk the two targets disagreeing on one shared file. |
 

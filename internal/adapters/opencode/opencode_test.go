@@ -343,6 +343,46 @@ func TestEmit_MCP_HTTPWritesRemoteURL(t *testing.T) {
 	}
 }
 
+// A spec's `disabled: true` writes OpenCode's own `enabled: false` key
+// (#555), the vocabulary opencode.ai/docs/mcp-servers documents:
+// "You can also disable a server by setting `enabled` to `false`."
+func TestEmit_MCP_DisabledWritesEnabledFalse(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "x", "disabled": true},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	if !strings.Contains(got, `"enabled": false`) {
+		t.Errorf(`expected "enabled": false in %s`, got)
+	}
+}
+
+// The vendor's own default for an absent `enabled` key is already
+// enabled, so an entry with no `disabled` field gets no `enabled` key
+// at all rather than a redundant `"enabled": true` in every file.
+func TestEmit_MCP_EnabledOmitsKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "x"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	if strings.Contains(got, `"enabled"`) {
+		t.Errorf("expected no enabled key for an enabled server, got %s", got)
+	}
+}
+
 // User-managed keys in an existing opencode.json survive the sync.
 func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	dir := testutil.TempCwd(t)

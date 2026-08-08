@@ -5,6 +5,7 @@
       "command": [
         "x"
       ],
+      "enabled": false,
       "type": "local"
     },
     "http-server": {
