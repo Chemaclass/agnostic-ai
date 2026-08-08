@@ -100,11 +100,17 @@ func kitSinkBundle() spec.Bundle {
 				"command": "npx",
 				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
 				"env":     map[string]any{"ROOT": "/tmp"},
+				"cwd":     "/workspace",
 			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type":     "http",
+				"url":      "https://example.test/mcp",
+				"headers":  map[string]any{"Authorization": "Bearer token"},
+				"disabled": true,
+			},
 		},
 	}
 	return spec.NewBundle(entries)

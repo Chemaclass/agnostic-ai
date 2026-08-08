@@ -106,7 +106,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://antigravity.google/docs/rules-workflows · /docs/skills · /docs/mcp · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
 - changelog: (none published; use the docs page diff)
-- watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`, remote's `serverUrl`). `description`, `headers`, `roots`, a `type` discriminant, and `disabled` are unconfirmed and currently omitted from the adapter. Hooks and commands support is also still unconfirmed in the public-preview docs.
+- watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. Hooks and commands support is also still unconfirmed in the public-preview docs.
 
 ## junie
 

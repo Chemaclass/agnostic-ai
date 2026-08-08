@@ -396,6 +396,7 @@ Confirmed per target, never generalized: a target not listed here has not been c
 
 | Target | Behavior |
 |--------|----------|
+| Antigravity | Native `disabled` boolean in `.agents/mcp_config.json` (default `false`); passes through unchanged under that literal name, unlike Codex and Kilo Code which map it to `enabled: false`. |
 | Codex | Maps to `enabled = false` in `.codex/config.toml`. |
 | Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
 | Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |

@@ -13,6 +13,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `sync -t junie` now writes rule and agent bodies to the file Junie reads: inlined into `.junie/AGENTS.md`, the only file its guidelines lookup opens once a project has synced. The prior `.junie/rules/` output sat outside that lookup order entirely, so every Rule and Agent spec was invisible to Junie; a stale copy from an older sync is now swept. `import junie` reads the new location, with the old directory still honored as a fallback for projects synced before this fix (#552).
 - OpenCode MCP servers now write `"enabled": false` when a spec sets `disabled: true`, the key OpenCode's own docs carry; a disabled spec previously rendered with no disable state at all, so OpenCode ran the server anyway. `import opencode` reads `enabled: false` back into `disabled: true` (#555).
 - `sync -t amp` no longer writes Command specs to `.agents/commands/`. Amp's manual documents no file-based command surface; commands register programmatically, and the vendor's own migration guidance is to delete the old command file rather than move it. A Command spec targeting amp now skips with a warning instead of landing in a file Amp never reads (#553).
+- Antigravity MCP servers now emit `headers` on remote entries, `cwd` on stdio entries, and `disabled` on both. All three were vendor-confirmed but previously omitted from `.agents/mcp_config.json`; `disabled` uses Antigravity's own key, unlike codex and kilo which map it to `enabled: false` (#556).
 
 ## v0.46.0 - 2026-08-07
 

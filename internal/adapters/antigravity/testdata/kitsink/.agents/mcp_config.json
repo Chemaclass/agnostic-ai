@@ -1,6 +1,10 @@
 {
   "mcpServers": {
     "http-server": {
+      "disabled": true,
+      "headers": {
+        "Authorization": "Bearer token"
+      },
       "serverUrl": "https://example.test/mcp"
     },
     "stdio-server": {
@@ -9,6 +13,7 @@
         "@modelcontextprotocol/server-filesystem"
       ],
       "command": "npx",
+      "cwd": "/workspace",
       "env": {
         "ROOT": "/tmp"
       }
