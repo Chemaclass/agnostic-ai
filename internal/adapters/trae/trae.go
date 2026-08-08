@@ -1,5 +1,6 @@
-// Package trae emits .trae/rules/*.md, .trae/skills/<name>/SKILL.md, and
-// .trae/commands/<name>.md for Trae, ByteDance's AI IDE.
+// Package trae emits .trae/rules/*.md, .trae/skills/<name>/SKILL.md,
+// .trae/commands/<name>.md, and .trae/mcp.json for Trae, ByteDance's AI
+// IDE.
 //
 // Trae reads project rules from `.trae/rules/*.md` as persistent
 // behavioral constraints; it also applies `.trae/rules/` folders found
@@ -27,6 +28,25 @@
 // organizational only, with no confirmed functional effect, so this
 // adapter writes every command flat.
 //
+// MCP servers merge into `.trae/mcp.json` (override via
+// outputs.trae.mcp-file) under a root `mcpServers` map, keyed by server
+// name: docs.trae.ai/ide/add-mcp-servers documents "You can create an
+// mcp.json file in the .trae/ directory under the project root and
+// declare one or more MCP servers' configurations in it." Stdio carries
+// `command` (required) plus optional `args` / `env`; HTTP carries `url`
+// (required) plus optional `headers`. Neither transport carries a
+// `type` discriminant: the vendor's own examples never key one in, and
+// the doc tells stdio and HTTP apart purely by whether `command` or
+// `url` is present, unlike claude, cursor, kilo, and qoder, whose
+// schemas key an explicit `type` on every remote entry. `disabled` and
+// `autoApprove` are equally undocumented (the vendor page covers only a
+// project-level MCP toggle under Settings > MCP), so a spec's
+// `disabled: true` is stripped with a coverage note rather than written
+// dead; see mcp.go for the two vendor quirks (command must not contain
+// spaces, and the timeout keys) this adapter deliberately leaves
+// unhandled. `docs.trae.ai/ide/mcp`, the URL this repo pointed at
+// before, 302s to a marketing page; add-mcp-servers is the live one.
+//
 // Trae also reads the cross-tool root `AGENTS.md`, which is written
 // centrally by `sync`, not by this adapter.
 package trae
@@ -45,6 +65,7 @@ const (
 	defaultDir         = ".trae/rules"
 	defaultSkillsDir   = ".trae/skills"
 	defaultCommandsDir = ".trae/commands"
+	defaultMCPFile     = ".trae/mcp.json"
 )
 
 // commandFrontmatterKeys names the only frontmatter keys confirmed
@@ -54,7 +75,7 @@ var commandFrontmatterKeys = []string{"name", "description"}
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand, spec.KindMCP},
 }
 
 // Adapter emits Trae configs.
@@ -68,8 +89,9 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule and agent into the rules directory
 // (default `.trae/rules`), one folder per skill into the skills
-// directory (default `.trae/skills`), and one file per command into the
-// commands directory (default `.trae/commands`).
+// directory (default `.trae/skills`), one file per command into the
+// commands directory (default `.trae/commands`), and the MCP server
+// registry (default `.trae/mcp.json`).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -86,7 +108,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
-	return emitCommands(sess, b.Commands, commandsDir, dryRun)
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	return emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitCommands writes one `<dir>/<name>.md` per command spec: `name` +

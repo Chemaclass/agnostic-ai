@@ -32,6 +32,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Antigravity MCP servers now emit `headers` on remote entries, `cwd` on stdio entries, and `disabled` on both. All three were vendor-confirmed but previously omitted from `.agents/mcp_config.json`; `disabled` uses Antigravity's own key, unlike codex and kilo which map it to `enabled: false` (#556).
 - `sync -t openhands` now emits OpenHands' documented `{ url, api_key }` object for an sse/shttp MCP entry that sets `api_key`, instead of always writing a bare URL string with no way to carry a credential. An entry whose only auth is the cross-tool spec's `headers` field (OpenHands has no header-map equivalent) now surfaces a coverage note instead of reaching OpenHands with the credential silently missing (#554).
 - `sync -t factory` no longer writes a frontmatter-only file for an agent spec with an empty body. Droid CLI's own schema calls that body invalid; the agent now skips with a coverage note instead (#561).
+- `sync -t trae` now emits `.trae/mcp.json`, the project-scoped MCP registry Trae's own docs describe: `command`/`args`/`env` for stdio, `url`/`headers` for HTTP, no `type` field either way. This adapter declared no MCP support at all before, so every MCP spec targeting trae skipped with a warning instead of reaching the IDE (#560).
 
 ## v0.46.0 - 2026-08-07
 

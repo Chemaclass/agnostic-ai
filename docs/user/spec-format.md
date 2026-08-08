@@ -388,6 +388,7 @@ Targets with native MCP propagation:
 | Factory | `.factory/mcp.json` | standard `mcpServers` |
 | Qoder | `.mcp.json` | standard `mcpServers` (same file Claude Code writes; the two dedupe when both are enabled) |
 | OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field; a remote entry is a bare URL string, or `{ url, api_key }` when `api_key` is set |
+| Trae | `.trae/mcp.json` | standard `mcpServers`, no `type` field (stdio: `command`/`args`/`env`; HTTP: `url`/`headers`) |
 
 Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
 
@@ -402,7 +403,7 @@ Confirmed per target, never generalized: a target not listed here has not been c
 | Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
 | Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |
 | OpenCode | Maps to `"enabled": false` in `opencode.json`; an enabled server gets no key at all. `import opencode` reads it back into `disabled: true`. |
-| Claude Code, Cursor, Copilot | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
+| Claude Code, Cursor, Copilot, Trae | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
 | Qoder | Not vendor-confirmed either way. `.mcp.json` is the same file Claude Code reads, so agnostic-ai drops the field there too rather than risk the two targets disagreeing on one shared file. |
 
 ## Commands

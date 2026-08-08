@@ -16,13 +16,15 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the trae adapter's
 // header-coverage contract: every Markdown file the adapter writes
-// must carry the agnostic-ai provenance marker. Trae emits no JSON so
-// there are no header exemptions.
+// must carry the agnostic-ai provenance marker. `.trae/mcp.json`
+// legitimately skips the header (JSON has no comment syntax).
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -37,6 +39,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty exempt output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -59,8 +71,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the trae
-// adapter declares in caps.Supports (Agent, Skill, Rule, Command) with
-// three specimens per kind.
+// adapter declares in caps.Supports (Agent, Skill, Rule, Command, MCP)
+// with three specimens per kind (two for MCP, covering stdio and
+// http).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -75,6 +88,22 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"env":     map[string]any{"ROOT": "/tmp"},
+			},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://example.test/mcp",
+				"headers": map[string]any{"Authorization": "Bearer token"},
+			},
+		},
 	}
 	return spec.NewBundle(entries)
 }

@@ -13,8 +13,10 @@ import (
 // source specs, imports the emitted tree back, then re-emits. The
 // second emit must byte-match the first: import reconstructs rules and
 // agents (from `.trae/rules/`, reclassified by filename prefix), skills
-// (from `.trae/skills/`, Trae's native SKILL.md folder tree), and
-// commands (from `.trae/commands/`).
+// (from `.trae/skills/`, Trae's native SKILL.md folder tree), commands
+// (from `.trae/commands/`), and MCP servers (from `.trae/mcp.json`'s
+// `mcpServers` map, one stdio and one url-only entry so the url-implies-
+// http inference round-trips too).
 func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -29,6 +31,10 @@ func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "deploy.md"),
 		"---\nname: deploy\ndescription: Ship it\n---\n\nRun the deploy steps.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+		"name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"),
+		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer x\n")
 
 	execCLI(t, "sync", "-t", "trae")
 	first := snapshotEmitted(t, dir)
@@ -40,6 +46,9 @@ func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 	}
 	if _, ok := first[".trae/rules/r1.md"]; !ok {
 		t.Fatalf("first emit produced no rule file: %v", keys(first))
+	}
+	if _, ok := first[".trae/mcp.json"]; !ok {
+		t.Fatalf("first emit produced no mcp file: %v", keys(first))
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -62,6 +71,14 @@ func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 	command := readFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "deploy.md"))
 	if !strings.Contains(command, "description: Ship it") || !strings.Contains(command, "Run the deploy steps.") {
 		t.Errorf("command not reconstructed:\n%s", command)
+	}
+	fs := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"))
+	if !strings.Contains(fs, "command: npx") {
+		t.Errorf("stdio mcp not reconstructed:\n%s", fs)
+	}
+	linear := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"))
+	if !strings.Contains(linear, "url: https://mcp.linear.app") || !strings.Contains(linear, "type: http") {
+		t.Errorf("http mcp not reconstructed with inferred type:\n%s", linear)
 	}
 
 	execCLI(t, "sync", "-t", "trae")

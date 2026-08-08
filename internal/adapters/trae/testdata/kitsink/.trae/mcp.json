@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "http-server": {
+      "headers": {
+        "Authorization": "Bearer token"
+      },
+      "url": "https://example.test/mcp"
+    },
+    "stdio-server": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ],
+      "command": "npx",
+      "env": {
+        "ROOT": "/tmp"
+      }
+    }
+  }
+}
