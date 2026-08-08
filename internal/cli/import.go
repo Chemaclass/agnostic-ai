@@ -19,7 +19,8 @@ import (
 // import_junie.go, import_trae.go, import_qoder.go) because each
 // additionally reconstructs something beyond flat rule files: skills
 // from a native `SKILL.md` folder tree (trae also reconstructs
-// commands), or, for qoder, native agents from `.qoder/agents/`.
+// commands; qoder also reconstructs native agents from
+// `.qoder/agents/`).
 var rulesDirImporters = map[string]string{}
 
 // importSources lists every source the import command accepts, used in

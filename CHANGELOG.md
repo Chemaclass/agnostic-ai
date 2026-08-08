@@ -12,6 +12,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Kilo Code agents now emit `color` and `mode` when a spec sets them, matching Kilo's own agent Configuration Options table; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
+### Added
+
+- Qoder skills emit into their own native folder tree, `.qoder/skills/<name>/SKILL.md`, instead of skipping with an unsupported-kind warning. Qoder's doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one. `import qoder` reconstructs skills from the new folder tree (#558).
 
 ### Fixed
 

@@ -190,6 +190,7 @@ outputs:
   qoder:
     rules-dir: .qoder/rules             # default. One .md per rule (native, precedence over AGENTS.md).
     agents-dir: .qoder/agents           # default. One .md per agent (name/description required; model/tools/skills/mcpServers optional).
+    skills-dir: .qoder/skills           # default. One folder per skill (<name>/SKILL.md), Qoder's own tree (not the shared .agents/skills/).
     mcp-file: .mcp.json                 # default. Standard mcpServers schema; same file Claude Code writes.
   openhands:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
@@ -333,6 +334,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `trae` | `commands-dir` | `.trae/commands` | One `.md` per command. Frontmatter filtered to `name`, `description` (the only keys confirmed native; Trae's own docs do not cover the format). |
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
 | `qoder` | `agents-dir` | `.qoder/agents` | One `.md` per agent (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as a comma-separated string (`Read, Grep, Bash`), Qoder's only documented form; safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style. |
+| `qoder` | `skills-dir` | `.qoder/skills` | One folder per skill (`<name>/SKILL.md`, Qoder's native Agent Skills layout). Qoder's own tree, not the `.agents/skills/` compatibility path Kilo Code, Augment, and OpenHands share: the vendor doc does not list it as a compatible location. |
 | `qoder` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema; the identical file and path Claude Code writes, deduplicated when both targets are enabled. `disabled` is dropped (not vendor-confirmed; the file is shared with Claude Code, which ignores the key). |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL strings, or `{ url, api_key }` objects when the entry sets `api_key`). No `type` field; transport is implied by the array. `headers` has no equivalent and surfaces a coverage note instead of reaching OpenHands silently. |

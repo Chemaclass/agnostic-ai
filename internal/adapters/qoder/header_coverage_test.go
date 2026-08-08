@@ -73,11 +73,11 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the qoder
-// adapter declares in caps.Supports (Rule, Agent, MCP) with three rule
-// and three agent specimens. The MCP specimens are byte-identical to
-// claude's kit-sink MCP entries (same names, same Meta) so the two
-// adapters' `.mcp.json` output can be diffed directly; see
-// TestEmit_MCP_MatchesClaudeSharedFile in qoder_test.go.
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
+// three rule, three agent, and three skill specimens. The MCP specimens
+// are byte-identical to claude's kit-sink MCP entries (same names, same
+// Meta) so the two adapters' `.mcp.json` output can be diffed directly;
+// see TestEmit_MCP_MatchesClaudeSharedFile in qoder_test.go.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -86,6 +86,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
+		{Kind: spec.KindSkill, Name: "uno", Meta: map[string]any{"description": "Uno skill description."}, Body: "uno skill body"},
+		{Kind: spec.KindSkill, Name: "dos", Meta: map[string]any{"description": "Dos skill description."}, Body: "dos skill body"},
+		{Kind: spec.KindSkill, Name: "tres", Meta: map[string]any{"description": "Tres skill description."}, Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

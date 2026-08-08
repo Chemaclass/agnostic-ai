@@ -108,7 +108,7 @@ The same file lands in every target's own rules directory: `.claude/rules/`, `.k
 | Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
 | Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Trae (ByteDance)        |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Qoder (Alibaba)         |   ✅    |   -    |   ✅   |   -   |  ✅   |
+| Qoder (Alibaba)         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | OpenHands (All Hands)   |   -    |   ✅    |   ◐   |   -   |  ✅   |
 | Factory (Droid)         |   ✅    |   -    |   ◐   |   -   |  ✅   |
 | Kilo Code               |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
