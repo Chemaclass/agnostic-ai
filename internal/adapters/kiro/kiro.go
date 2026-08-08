@@ -31,24 +31,47 @@
 // (falls back to the agent's name) and `model` pass through; the full
 // documented field set also includes `tools`, `mcpServers`,
 // `permissions`, `hooks`, `keyboardShortcut`, and `welcomeMessage`
-// (kiro.dev/docs/cli/custom-agents/configuration-reference/), of which
-// only `tools` has an agnostic-ai spec equivalent. This adapter does not
-// emit `tools`: the vendor doc names the field but never enumerates
-// Kiro's own tool-identifier vocabulary, so there is no confirmed
-// mapping from agnostic-ai's Claude-style tool names onto it, the same
-// unconfirmed-vocabulary failure class already documented for Kilo Code
-// and Augment. An agent that sets `tools` surfaces a coverage note
-// instead of a silent no-op. `name` is never written: it is absent from
-// Kiro's own field list, so identity comes from the filename, the same
-// convention every per-agent surface with no documented `name` key
-// uses. Arbitrary `x-kiro` keys pass through verbatim, so an author who
-// already knows Kiro's own vocabulary can set `tools`, `mcpServers`,
-// `permissions`, `hooks`, `keyboardShortcut`, or `welcomeMessage`
-// directly. A prior version of this adapter flattened agents into
-// `.kiro/steering/agent-<name>.md` with `inclusion: manual`; that path
-// never reached Kiro's agent picker and dropped every field steering
-// has no key for, so this adapter now sweeps any such file a prior sync
-// left behind for a current agent name.
+// (kiro.dev/docs/custom-agents/configuration-reference/), of which only
+// `tools` has an agnostic-ai spec equivalent.
+//
+// That page documents Kiro's own `tools` vocabulary in full: category
+// tags (`read`, `write`, `shell`, `web`, `subagent`, `knowledge`,
+// `todo_list`), `@server_name` / `@server_name/tool_name` for one or
+// all tools from a specific MCP server, `@mcp` for every MCP tool
+// across servers, `@builtin` for every built-in tool, and `*` for
+// everything. This adapter translates agnostic-ai's Claude-style names
+// onto that vocabulary (kiroToolCategory): `Read`, `Grep`, and `Glob`
+// collapse onto `read`; `Write` and `Edit` onto `write`; `Bash` onto
+// `shell`; `WebFetch` and `WebSearch` onto `web`, deduplicated so
+// several Claude-style names sharing a category emit that tag once.
+// Kiro's built-in-tools catalog (kiro.dev/docs/tools/) documents each
+// category as a bundle, not a single tool: `write` covers `fs_write`,
+// `fs_append`, `str_replace`, and `delete_file`, so an agent declaring
+// only `Edit` also gains delete capability on Kiro; `web` covers both
+// `web_fetch` and `web_search`, so `WebFetch` alone also grants search.
+// No finer Kiro category avoids this short of emitting Kiro's internal
+// per-tool identifiers instead of its documented category vocabulary,
+// which would also give up the vendor's stated guarantee that a
+// category picks up new tools shipped under it automatically. A name
+// with no table entry (anything outside agnostic-ai's
+// Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch set) is never
+// guessed at or written verbatim; it drops from the emitted list and
+// folds into one coverage note per sync, while any name in the same
+// list that does translate still emits.
+//
+// `name` is never written: it is absent from Kiro's own field list, so
+// identity comes from the filename, the same convention every
+// per-agent surface with no documented `name` key uses. Arbitrary
+// `x-kiro` keys pass through verbatim, and `x-kiro.tools` always wins
+// outright over the translated form (never merged alongside it), so an
+// author who already knows Kiro's own vocabulary can bypass the table
+// entirely or set `mcpServers`, `permissions`, `hooks`,
+// `keyboardShortcut`, or `welcomeMessage` directly. A prior version of
+// this adapter flattened agents into `.kiro/steering/agent-<name>.md`
+// with `inclusion: manual`; that path never reached Kiro's agent picker
+// and dropped every field steering has no key for, so this adapter now
+// sweeps any such file a prior sync left behind for a current agent
+// name.
 //
 // Hooks are also native: one JSON file per hook spec at
 // `.kiro/hooks/<name>.json` (kiro.dev/docs/hooks/: "Hooks are JSON
@@ -160,16 +183,17 @@ func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) 
 // emitAgents writes one native `<agentsDir>/<name>.md` per agent (see
 // agentMarkdown) and sweeps the legacy flattened steering file at
 // `<steeringDir>/agent-<name>.md` a prior sync may have left behind for
-// the same name. Agents whose spec declares a generic `tools` list get
-// no restriction on Kiro, so the whole batch surfaces one coverage note
-// instead of a silent drop.
+// the same name. A generic `tools` value translates onto Kiro's own
+// category vocabulary (see the package doc and translateTools); any
+// name with no table entry is dropped from the emitted list and folded
+// into one coverage note per sync instead of vanishing silently.
 func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir string, dryRun bool) error {
-	droppedTools := 0
+	unmappedTools := 0
 	for _, a := range agents {
 		path := filepath.Join(agentsDir, a.Name+".md")
-		md, dropped := agentMarkdown(a)
-		if dropped {
-			droppedTools++
+		md, hasUnmapped := agentMarkdown(a)
+		if hasUnmapped {
+			unmappedTools++
 		}
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
@@ -179,8 +203,8 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir 
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
-		"Kiro's own tool-identifier vocabulary is unconfirmed against agnostic-ai's Claude-style names; set x-kiro.tools directly once you know Kiro's own names")
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
+		"value(s) outside agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch set have no confirmed Kiro category; set x-kiro.tools directly for those")
 	return nil
 }
 
@@ -241,25 +265,73 @@ func fileMatchPatternFor(e spec.Entry) string {
 	return ""
 }
 
+// kiroToolCategory maps agnostic-ai's Claude-style tool identifiers onto
+// Kiro's own `tools` category tags (kiro.dev/docs/custom-agents/configuration-reference/,
+// kiro.dev/docs/tools/). Several Claude-style names collapse onto the
+// same Kiro category because Kiro's category granularity is coarser
+// than agnostic-ai's; see the package doc for what each category
+// bundles and which of these mappings widen access beyond what a single
+// Claude-style name implies on its own.
+var kiroToolCategory = map[string]string{
+	"Read":      "read",
+	"Grep":      "read",
+	"Glob":      "read",
+	"Write":     "write",
+	"Edit":      "write",
+	"Bash":      "shell",
+	"WebFetch":  "web",
+	"WebSearch": "web",
+}
+
+// translateTools maps a spec's generic Claude-style tools list onto
+// Kiro's own category vocabulary (kiroToolCategory), deduplicated in
+// first-seen order since several Claude-style names collapse onto the
+// same category. A name with no table entry is left out of mapped and
+// reported via hasUnmapped instead of being written verbatim or dropped
+// with no trace, so the caller can surface it.
+func translateTools(names []string) (mapped []string, hasUnmapped bool) {
+	seen := make(map[string]bool, len(names))
+	for _, n := range names {
+		cat, ok := kiroToolCategory[n]
+		if !ok {
+			hasUnmapped = true
+			continue
+		}
+		if seen[cat] {
+			continue
+		}
+		seen[cat] = true
+		mapped = append(mapped, cat)
+	}
+	return mapped, hasUnmapped
+}
+
 // agentMarkdown renders a single `.kiro/agents/<name>.md` file:
-// `description` (falls back to the spec name) and optional `model`,
-// plus arbitrary x-kiro passthrough (mcpServers, permissions, hooks,
-// keyboardShortcut, welcomeMessage, or an explicit tools override
-// already in Kiro's own vocabulary), followed by the spec body as the
-// agent's system prompt. Kiro's agent schema has no `name` key, so
-// identity comes from the filename; `name` and `model` are excluded
-// from the x-kiro passthrough merge below only because they are already
-// handled by hand above (excluding them here just prevents emitting the
-// same key twice, not a ban on x-kiro overriding model: ResolveMeta
-// already flattens x-kiro.model onto the value this function reads).
-// `tools` is deliberately not read from the resolved meta: agnostic-ai's
-// generic `tools` field is Claude-style and Kiro's own vocabulary is
-// unconfirmed (see the package doc), so only an explicit `x-kiro.tools`
-// override reaches the frontmatter, via the same passthrough merge.
-// droppedTools reports whether the spec declared the generic `tools`
-// field with no x-kiro override to rescue it, so the caller can fold
-// every such agent into one coverage note per sync.
-func agentMarkdown(a spec.Entry) (body string, droppedTools bool) {
+// `description` (falls back to the spec name), optional `model`, and
+// `tools` translated onto Kiro's own category vocabulary (see
+// translateTools and the package doc), plus arbitrary x-kiro passthrough
+// (mcpServers, permissions, hooks, keyboardShortcut, welcomeMessage, or
+// an explicit tools override already in Kiro's own vocabulary), followed
+// by the spec body as the agent's system prompt. Kiro's agent schema has
+// no `name` key, so identity comes from the filename; `name` and `model`
+// are excluded from the x-kiro passthrough merge below only because they
+// are already handled by hand above (excluding them here just prevents
+// emitting the same key twice, not a ban on x-kiro overriding model:
+// ResolveMeta already flattens x-kiro.model onto the value this function
+// reads). `tools` is deliberately read from the raw, unresolved meta
+// rather than the resolved map: ResolveMeta would already have flattened
+// an x-kiro.tools override onto it, and running that value back through
+// the Claude-style translation table would misread Kiro's own vocabulary
+// as unmapped. xKiroSetsTools guards the same case explicitly: when it
+// is set, the generic `tools` field is left untranslated entirely and
+// x-kiro.tools reaches the frontmatter only through the passthrough
+// merge below, so the override always wins outright instead of merging
+// alongside a translated value. hasUnmappedTools reports whether
+// translateTools left at least one declared name unmapped, so the
+// caller can fold every such agent into one coverage note per sync;
+// names that do translate still emit even when others in the same list
+// do not.
+func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools bool) {
 	resolved := emit.ResolveMeta(a.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -271,14 +343,23 @@ func agentMarkdown(a spec.Entry) (body string, droppedTools bool) {
 		meta["model"] = model
 		keys = append(keys, "model")
 	}
+	if !xKiroSetsTools(a.Meta) {
+		if raw := emit.StringSlice(a.Meta["tools"]); len(raw) > 0 {
+			mapped, unmapped := translateTools(raw)
+			if len(mapped) > 0 {
+				meta["tools"] = mapped
+				keys = append(keys, "tools")
+			}
+			hasUnmappedTools = unmapped
+		}
+	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description", "model")
 	front := emit.FrontmatterOrdered(meta, keys)
-	droppedTools = len(emit.StringSlice(a.Meta["tools"])) > 0 && !xKiroSetsTools(a.Meta)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {
-		return front + "\n", droppedTools
+		return front + "\n", hasUnmappedTools
 	}
-	return front + "\n" + trimmed + "\n", droppedTools
+	return front + "\n" + trimmed + "\n", hasUnmappedTools
 }
 
 // xKiroSetsTools reports whether the spec already carries an explicit
