@@ -12,7 +12,7 @@ import (
 
 // agentTOML renders a Codex CLI custom-agent TOML document for a single
 // agent spec. The schema follows
-// https://developers.openai.com/codex/subagents:
+// https://learn.chatgpt.com/docs/agent-configuration/subagents:
 //
 //	name                   (required, from spec.Name)
 //	description            (required, from frontmatter; falls back to name)

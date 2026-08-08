@@ -4,8 +4,8 @@
 // `.agents/rules/*.md` and skills from a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. This adapter emits both. Antigravity
 // "now defaults to `.agents/rules`, but still maintains backward support
-// for `.agent/rules`" (antigravity.google/docs/rules-workflows), and the
-// same wording covers skills (/docs/skills). This adapter defaults to
+// for `.agent/rules`" (antigravity.google/docs/ide/rules), and the
+// same wording covers skills (/docs/ide/skills). This adapter defaults to
 // the plural form and sweeps a stale managed tree at the pre-plural
 // `.agent/rules` / `.agent/skills` paths on sync, the same pattern codex
 // uses for its own pre-v0.43 `.codex/skills/` default. `.agents/skills`
@@ -20,15 +20,20 @@
 // path so users on older workflows keep their behavior.
 //
 // MCP servers land in `.agents/mcp_config.json`, a single `mcpServers`
-// object (antigravity.google/docs/mcp). Remote servers require the
+// object (antigravity.google/docs/ide/mcp). Remote servers require the
 // `serverUrl` field: "Legacy fields like `url` or `httpUrl` are not
 // supported," so this adapter cannot reuse the shared
 // `emit.MCPSchemaServersMap` builder, which emits `url` (see mcp.go).
 // stdio servers carry `command`, `args`, `env`, and `cwd`; remote
 // servers add `headers`; both accept `disabled` under that literal
 // name, unlike codex and kilo which map it onto their own
-// `enabled: false`. Hooks and commands stay unconfirmed in the
-// public-preview docs and skip with a warning.
+// `enabled: false`. Hooks now have a documented schema
+// (antigravity.google/docs/ide/hooks: `.agents/hooks.json`, five
+// events, PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop),
+// but whether the IDE itself executes them stays unconfirmed
+// (target-audit 2026-08-08, #563), so this adapter still skips hooks
+// with a warning; commands remain fully unconfirmed in the
+// public-preview docs and skip the same way.
 package antigravity
 
 import (

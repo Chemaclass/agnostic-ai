@@ -17,11 +17,14 @@
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
 // as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
 // configured tasks JSON, runnable on demand from the command palette
-// (Zed has no lifecycle-hook surface). Other documented Task fields
-// (`cwd`, `env`, `shell`, `reveal`, `hide`, `save`,
-// `allow_concurrent_runs`, `use_new_terminal`, `tags`,
-// `reevaluate_context`) pass through when declared under `x-zed`;
-// `import zed` captures them back the same way.
+// (Zed has no lifecycle-hook surface). Any other documented Zed Task
+// field passes through verbatim when declared under `x-zed`, since
+// MergeCustomTargetMeta copies whatever key is present rather than
+// checking it against a fixed list; `import zed` captures it back the
+// same way. Zed keeps adding fields (`hooks` with `create_worktree`,
+// `show_summary`, and `show_command` since this adapter's last audit,
+// target-audit 2026-08-08, #563), so an enumerated list here would
+// only go stale again.
 package zed
 
 import (
@@ -88,10 +91,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // tasks JSON file. No-op when the tasks-file is unset, so existing
 // setups are unaffected. Each hook becomes a `sh -c "<command>"` task
 // whose label is the hook's name; the description (when present)
-// prefixes the label so it shows up in the command palette. Other
-// documented Zed Task fields (`cwd`, `env`, `shell`, `reveal`, `hide`,
-// `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`,
-// `reevaluate_context`) pass through when declared under `x-zed`.
+// prefixes the label so it shows up in the command palette. Any other
+// documented Zed Task field passes through verbatim when declared
+// under `x-zed` (see the package doc for why this is a generic merge,
+// not an enumerated field list).
 func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool) error {
 	if path == "" {
 		emit.NoteCoverageGap(target, spec.KindHook, len(hooks), "outputs.zed.tasks-file")

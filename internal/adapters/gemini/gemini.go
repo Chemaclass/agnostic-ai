@@ -9,8 +9,14 @@
 // Agents emit as one TOML per agent under `.gemini/commands/`. Skills
 // emit natively as one folder per skill under `.gemini/skills/<name>/`
 // (SKILL.md + bundled assets), the workspace tier Gemini CLI scans.
-// Setting `outputs.gemini.emit-skills-as-commands: true` additionally
-// writes a TOML per skill with a `skill-` filename prefix.
+// Gemini CLI also scans the cross-tool `.agents/skills/` alias at the
+// same tier, and within a tier that alias takes precedence over
+// `.gemini/skills/` for a same-named skill
+// (geminicli.com/docs/cli/skills/, target-audit 2026-08-08, #563).
+// Gemini CLI resolves that itself at discovery time, so this adapter
+// adds no conflict detection of its own. Setting
+// `outputs.gemini.emit-skills-as-commands: true` additionally writes a
+// TOML per skill with a `skill-` filename prefix.
 //
 // MCP stdio servers accept an optional `cwd` (working directory for the
 // server process), the same field Codex documents; it is part of the

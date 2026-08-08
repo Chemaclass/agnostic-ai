@@ -64,19 +64,19 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://docs.cline.bot/customization/cline-rules · /customization/skills · /getting-started/config
 - changelog: https://github.com/cline/cline/releases
-- watch: whether `.clinerules/` is fully dropped from `/getting-started/config` (still absent there as of 2026-08-01; this adapter treats it as a live fallback via `outputs.cline.rules-dir`, not a removal); `.cline/hooks/`, `.cline/plugins/`, `.cline/cron/` (listed in the config reference, unemitted, no confirmed schema); the `.cline/workflows/` path; MCP config location.
+- watch: whether `.clinerules/` is fully dropped from `/getting-started/config` (still absent there as of 2026-08-01; this adapter treats it as a live fallback via `outputs.cline.rules-dir`, not a removal); `.cline/hooks/`, `.cline/plugins/`, `.cline/cron/` (listed in the config reference, unemitted, no confirmed schema); MCP config location. `docs.cline.bot/features/workflows` 404s and `llms.txt` lists no project-scoped replacement (target-audit 2026-08-08, #563): the current `customization/` tree covers Rules, `.clineignore`, Hooks, Plugins, and Skills only, no Workflows entry, so `outputs.cline.workflows-dir` is an unconfirmed export until a current doc backs it (see targets.md).
 
 ## windsurf
 
-- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore
+- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/skills · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore
 - changelog: https://windsurf.com/changelog
-- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change.
+- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. `.agents/skills/` is a documented cross-agent-compatibility path behind Devin Desktop's own `.windsurf/skills/` (target-audit 2026-08-08, #563); re-check if that framing ever flips. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change.
 
 ## continue
 
-- docs: https://docs.continue.dev/customize/deep-dives/rules · /customize/deep-dives/mcp
+- docs: https://docs.continue.dev/customize/deep-dives/rules · /customize/deep-dives/mcp · /reference
 - changelog: https://github.com/continuedev/continue/releases
-- watch: `.continue/rules/` vs hub-hosted rules, `.continue/mcpServers/*.yaml` schema.
+- watch: the `/hub/` namespace is gone from the doc source entirely (target-audit 2026-08-08, #563; confirmed by listing `continuedev/continue`'s `docs/` tree), so `.continue/rules/` vs any hub-successor surface if one reappears, `.continue/mcpServers/*.yaml` schema, and whether `outputs.continue.assistants-dir` ever gains a vendor-confirmed native discovery path (today: an opt-in export whose file shape matches `promptSchema`/`configYamlSchema` in `continuedev/continue`'s `packages/config-yaml/src/schemas/index.ts` and `/reference`'s `name`/`version`/`schema: v1`, but no doc says Continue scans a project directory for it; see targets.md).
 
 ## amp
 
@@ -88,7 +88,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://zed.dev/docs/ai/skills · /docs/ai/mcp · /docs/tasks
 - changelog: https://zed.dev/releases
-- watch: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared.
+- watch: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared. The `x-zed` Task passthrough is a generic merge (`MergeCustomTargetMeta` copies any key), not an enumerated field list: `/docs/tasks` has grown fields since this adapter's own doc comment last enumerated one (`hooks` with `create_worktree`, `show_summary`, `show_command`, confirmed 2026-08-08, #563), which is exactly why an enumerated list here goes stale.
 
 ## warp
 
@@ -104,9 +104,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## antigravity
 
-- docs: https://antigravity.google/docs/rules-workflows · /docs/skills · /docs/mcp · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
+- docs: https://antigravity.google/docs/ide/rules · /docs/ide/workflows · /docs/ide/skills · /docs/ide/mcp · /docs/ide/hooks · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
 - changelog: (none published; use the docs page diff)
-- watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. Hooks and commands support is also still unconfirmed in the public-preview docs.
+- watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. The doc site now splits into `/docs/*` (general) and `/docs/ide/*`/`/docs/cli/*` (per-product); this adapter targets the IDE, and the `/docs/ide/*` pages above render the same content as their bare `/docs/*` predecessors (verified 2026-08-08, #563), so prefer the `/docs/ide/*` citations going forward. Hooks now have a documented schema (`/docs/ide/hooks`: `.agents/hooks.json`, five events, `PreToolUse`/`PostToolUse`/`PreInvocation`/`PostInvocation`/`Stop`), but whether the IDE itself executes them stays unconfirmed, so the adapter still skips hooks with a warning; commands support remains fully unconfirmed in the public-preview docs.
 
 ## junie
 
@@ -128,13 +128,15 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## trae
 
-- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/add-mcp-servers
+- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers
 - changelog: (none published; use the docs page diff)
 - watch: `docs.trae.ai/ide/mcp`, the old URL for the MCP page, now 302s
-  to a marketing page; add-mcp-servers is the live one. Confirm it stays
-  live and watch whether Trae ever adds a `type` discriminant or a
-  `disabled` key: the current adapter (`.trae/mcp.json`) deliberately
-  omits both because neither appears in the doc's two worked examples.
+  to a marketing page; model-context-protocol (the MCP overview) and
+  add-mcp-servers (the config how-to) are the two live ones. Confirm
+  both stay live and watch whether Trae ever adds a `type` discriminant
+  or a `disabled` key: the current adapter (`.trae/mcp.json`)
+  deliberately omits both because neither appears in the doc's two
+  worked examples.
 
 ## jules
 
@@ -144,21 +146,21 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## goose
 
-- docs: https://goose-docs.ai (client-rendered; use WebFetch) · https://github.com/block/goose
-- changelog: https://github.com/block/goose/releases
-- watch: `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files.
+- docs: https://goose-docs.ai (client-rendered; use WebFetch) · https://github.com/aaif-goose/goose
+- changelog: https://github.com/aaif-goose/goose/releases
+- watch: `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files. `github.com/block/goose` 301s here (moved to the Agentic AI Foundation, 2026-04-07); the redirect still works, so this was a low-priority citation refresh, not a docs-moved finding (target-audit 2026-08-08, #563).
 
 ## augment
 
-- docs: https://docs.augmentcode.com/setup-augment/guidelines
+- docs: https://docs.augmentcode.com/setup-augment/guidelines · https://docs.augmentcode.com/cli/subagents
 - changelog: https://www.augmentcode.com/changelog
 - watch: `.augment-guidelines` vs AGENTS.md, whether `.augment/rules/` exists.
 
 ## qoder
 
-- docs: https://docs.qoder.com/user-guide/rules · https://docs.qoder.com/extensions/subagent · https://docs.qoder.com/extensions/skills
+- docs: https://docs.qoder.com/user-guide/rules · https://docs.qoder.com/extensions/subagent · https://docs.qoder.com/extensions/skills · https://docs.qoder.com/cli/subagent · https://docs.qoder.com/cli/mcp-servers · https://docs.qoder.com/cli/Skills · https://docs.qoder.com/user-guide/chat/model-context-protocol
 - changelog: https://qoder.com/changelog
-- watch: `.qoder/rules/`, `.qoder/agents/`, and `.qoder/skills/<name>/SKILL.md` (project scope; user scope is `~/.qoder/skills/{skill-name}/SKILL.md`, out of this adapter's reach) today, plus `.mcp.json`. Re-check on every audit whether `.agents/skills/` gains listing as a compatible path (#558 confirmed it does not yet, unlike kilo/augment/openhands). Also watch whether `tools:` gains a documented list form alongside the current comma-separated string.
+- watch: `.qoder/rules/`, `.qoder/agents/`, and `.qoder/skills/<name>/SKILL.md` (project scope; user scope is `~/.qoder/skills/{skill-name}/SKILL.md`, out of this adapter's reach) today, plus `.mcp.json`. Re-check on every audit whether `.agents/skills/` gains listing as a compatible path (#558 confirmed it does not yet, unlike kilo/augment/openhands). `docs.qoder.com/cli/subagent` confirms `tools` and `disallowedTools` both accept a comma-separated string or a string array (inline `[Read, Grep]` or YAML block-list), so the adapter's comma-separated emission is a choice, not a vendor limitation (target-audit 2026-08-08, #563); the CLI (`/cli/*`) and IDE (`/extensions/*`, `/user-guide/*`) doc trees cover the same features from two products, so both stay listed here.
 
 ## openhands
 
@@ -168,9 +170,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## factory
 
-- docs: https://docs.factory.ai/cli/configuration/custom-droids · https://docs.factory.ai/
+- docs: https://docs.factory.ai/harness/subagents · https://docs.factory.ai/
 - changelog: https://docs.factory.ai/ (release notes section)
-- watch: `.factory/droids/` frontmatter keys, whether MCP config became project-scoped.
+- watch: `.factory/droids/` frontmatter keys, whether MCP config became project-scoped. `docs.factory.ai/cli/configuration/custom-droids`, the prior URL here, 308s to the page above (Harness rebrand, target-audit 2026-08-08, #563).
 
 ## kilo
 

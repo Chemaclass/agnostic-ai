@@ -34,8 +34,14 @@
 // `description` and sibling assets copy byte-for-byte.
 //
 // When `outputs.cline.workflows-dir` is set, each agent additionally
-// emits as a Cline Workflow at `<dir>/<name>.md`, invokable in chat as
-// `/<name>.md` (Cline's slash-command surface for workflows).
+// emits as a Markdown file at `<dir>/<name>.md`, in the shape this
+// adapter calls a Workflow: invokable in chat as `/<name>.md`. Cline's
+// own doc for this feature, docs.cline.bot/features/workflows, 404s,
+// and `llms.txt` lists no project-scoped replacement: the current
+// `customization/` tree covers Rules, `.clineignore`, Hooks, Plugins,
+// and Skills only, no Workflows entry (target-audit 2026-08-08, #563).
+// Treat this output as an unconfirmed export rather than a documented
+// Cline surface until a current doc says otherwise.
 package cline
 
 import (
@@ -84,8 +90,10 @@ func (Adapter) Name() string { return target }
 // `.clinerules` default is swept unless the user explicitly opted into
 // that legacy path via outputs.cline.rules-dir. When
 // `outputs.cline.workflows-dir` is set, each agent additionally emits
-// as a Cline Workflow at `<dir>/<name>.md`; the native agent file
-// emission stays in place either way.
+// as a Markdown file at `<dir>/<name>.md` in the shape this adapter
+// calls a Workflow (see the package doc: the vendor doc for that
+// surface is currently dead with no confirmed replacement); the native
+// agent file emission stays in place either way.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
