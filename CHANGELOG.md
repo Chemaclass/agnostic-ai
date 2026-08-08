@@ -18,6 +18,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Kiro agents translate a spec's generic `tools` list onto Kiro's own documented category tags (`Read`/`Grep`/`Glob` to `read`, `Write`/`Edit` to `write`, `Bash` to `shell`, `WebFetch`/`WebSearch` to `web`) instead of a permanent no-op. A name outside that set surfaces a coverage note rather than writing an unconfirmed value; `x-kiro.tools` still wins outright over the translation (#559).
+### Added
+
+- `sync -t warp` now writes native skill folders at `.agents/skills/<name>/SKILL.md`, the shared tree codex, amp, and zed already emit into. Warp's docs recommend this path over the other three it also scans (`.warp/skills/`, `.claude/skills/`, `.codex/skills/`); skills previously stayed source-dir only with a permanent coverage note (#557).
 
 ### Fixed
 

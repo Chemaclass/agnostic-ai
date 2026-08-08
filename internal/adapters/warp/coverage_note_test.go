@@ -32,8 +32,10 @@ func TestEmit_NotesAgentGapWhenWorkflowsDirUnset(t *testing.T) {
 	if !strings.Contains(out, "agents reach warp only via outputs.warp.workflows-dir") {
 		t.Errorf("expected agent coverage note, got: %s", out)
 	}
-	if !strings.Contains(out, "skills reach warp only in the source dir (no native skill surface)") {
-		t.Errorf("expected skill source-dir-only note, got: %s", out)
+	// Skills now reach warp natively at .agents/skills/, unconditionally
+	// (#557), so no coverage gap is noted for them.
+	if strings.Contains(out, "skills reach warp") {
+		t.Errorf("skills emit natively; expected no skill coverage note, got: %s", out)
 	}
 }
 
@@ -51,9 +53,8 @@ func TestEmit_NoAgentNoteWhenWorkflowsDirSet(t *testing.T) {
 	if strings.Contains(out, "agents reach warp") {
 		t.Errorf("workflows-dir set must suppress the agent note, got: %s", out)
 	}
-	// Skills still never reach warp; the source-dir-only note stays.
-	if !strings.Contains(out, "skills reach warp only in the source dir (no native skill surface)") {
-		t.Errorf("expected skill source-dir-only note even with workflows-dir set, got: %s", out)
+	if strings.Contains(out, "skills reach warp") {
+		t.Errorf("skills emit natively; expected no skill coverage note, got: %s", out)
 	}
 }
 

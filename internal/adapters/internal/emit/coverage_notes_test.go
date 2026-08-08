@@ -61,9 +61,9 @@ func TestNoteCoverageGap_GroupsSharedKindCountViaAcrossTargets(t *testing.T) {
 // instead of "via <reason>".
 func TestNoteCoverageGap_FreeTextReasonRendersAsSourceDir(t *testing.T) {
 	buf := swapWarnerForNotes(t)
-	NoteCoverageGap("warp", spec.KindSkill, 1, "no native skill surface")
+	NoteCoverageGap("kiro", spec.KindSkill, 1, "bundled assets stay in the source dir")
 	FlushCoverageNotes()
-	want := "  note: 1 skill reaches warp only in the source dir (no native skill surface)\n"
+	want := "  note: 1 skill reaches kiro only in the source dir (bundled assets stay in the source dir)\n"
 	if got := buf.String(); got != want {
 		t.Errorf("expected source-dir clause, got %q", got)
 	}

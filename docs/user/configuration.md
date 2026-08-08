@@ -158,6 +158,7 @@ outputs:
     # tasks-file: .zed/tasks.json # opt-in: emit each hook as an on-demand Zed Task.
     # rules-file: .rules          # opt-in: legacy merged doc (rules + agents); skips the AGENTS.md pointer write.
   warp:
+    skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex, amp, and zed.
     # workflows-dir: .warp/workflows  # opt-in: emit Warp Workflow YAMLs per agent.
     mcp-file: .warp/.mcp.json     # default. Standard mcpServers schema.
   opencode:
@@ -307,6 +308,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `zed` | `rules-file` | _empty_ | When set (e.g. `.rules`), writes the legacy merged document (rules + agents) at that path. `sync` skips the AGENTS.md pointer-body write for `zed`. |
 | `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio uses `command`/`args`/`env`; HTTP/SSE use a native `url`/`headers` shape. |
 | `zed` | `tasks-file` | _empty_ | When set, each hook emits as an on-demand Zed Task (`sh -c "<command>"`). Zed has no lifecycle-hook surface, so tasks run from the command palette. Opt-in. |
+| `warp` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`); the cross-tool tree shared with codex, amp, and zed, identical bytes dedupe. |
 | `warp` | `workflows-dir` | _empty_ | When set, each agent emits as a Warp Workflow YAML at `<dir>/<name>.yaml`. |
 | `warp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `warp`. |
 | `warp` | `mcp-file` | `.warp/.mcp.json` | Standard `mcpServers` schema. |
@@ -514,7 +516,6 @@ A target may declare support for a kind yet emit it only behind an opt-in key, o
 ```
   note: 2 skills reach gemini, opencode only via outputs.<target>.emit-skills-as-commands
   note: 1 agent reaches warp only via outputs.warp.workflows-dir
-  note: 3 skills reach warp only in the source dir (no native skill surface)
 ```
 
 A note fires only when specs of that kind are present and the opt-in is inactive. Setting the named key clears the note and emits the content. Notes that match the previous sync are suppressed; delete `.agnostic-ai/.sync-state` to re-show them.
@@ -526,7 +527,6 @@ The instrumented gaps:
 | `gemini` | skills | `outputs.gemini.emit-skills-as-commands` |
 | `opencode` | skills | `outputs.opencode.emit-skills-as-commands` |
 | `warp` | agents | `outputs.warp.workflows-dir` |
-| `warp` | skills | no key; Warp has no native skill surface (stays source-dir only) |
 | `aider` | agents, skills | `outputs.aider.rules-file` |
 | `zed` | hooks | `outputs.zed.tasks-file` |
 | `kilo` | agents (only those with `tools` set) | no key; Kilo Code has no `tools` frontmatter key (use `x-kilo: {permission: {...}}` for native per-tool access control) |

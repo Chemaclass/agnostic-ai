@@ -13,6 +13,16 @@
 // under `x-warp`; `import warp` captures them back the same way.
 // Previous releases of this adapter wrote `WARP.md` (the legacy name),
 // which newer Warp versions no longer read.
+//
+// Skills emit natively as one folder per skill at
+// `.agents/skills/<name>/SKILL.md`. Warp's docs
+// (docs.warp.dev/agents/capabilities/skills) list four directories it
+// scans — `.agents/skills/` (recommended), `.warp/skills/`,
+// `.claude/skills/`, `.codex/skills/` — plus a `SKILLS_DIRS` env var
+// (added in the 2026-08-07 changelog) for indexing further ones. This
+// adapter defaults to `.agents/skills/`, the vendor's own recommended
+// path and the tree codex, amp, zed, crush, and others already emit
+// into, so identical skill folders dedupe there (#557).
 package warp
 
 import (
@@ -27,10 +37,11 @@ import (
 )
 
 const (
-	target         = "warp"
-	defaultOutFile = "AGENTS.md"
-	defaultMCPFile = ".warp/.mcp.json"
-	legacyOutFile  = "WARP.md"
+	target           = "warp"
+	defaultOutFile   = "AGENTS.md"
+	defaultSkillsDir = ".agents/skills"
+	defaultMCPFile   = ".warp/.mcp.json"
+	legacyOutFile    = "WARP.md"
 )
 
 var caps = emit.Capabilities{
@@ -47,11 +58,12 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes any Warp Workflow YAMLs (when `outputs.warp.workflows-dir`
-// is set), `.warp/.mcp.json`, and—when opted in via
-// outputs.warp.rules-file—a legacy concatenated rules document. The
-// project-root AGENTS.md is written by `sync`, not here. Legacy
-// agnostic-generated WARP.md is migrated to WARP.md.bak on first sync.
+// Emit writes one native skill folder per skill under .agents/skills/,
+// any Warp Workflow YAMLs (when `outputs.warp.workflows-dir` is set),
+// `.warp/.mcp.json`, and—when opted in via outputs.warp.rules-file—a
+// legacy concatenated rules document. The project-root AGENTS.md is
+// written by `sync`, not here. Legacy agnostic-generated WARP.md is
+// migrated to WARP.md.bak on first sync.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -59,6 +71,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	sess.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
 
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
 	if err := emitWorkflows(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
@@ -76,9 +92,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // agent body becomes the workflow `command:`; description and tags are
 // pulled from frontmatter when present.
 func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	// Warp has no native skill surface: skills never reach it regardless of
-	// workflows-dir, so note the gap unconditionally.
-	emit.NoteCoverageGap(target, spec.KindSkill, len(b.Skills), "no native skill surface")
 	dir := emit.OutputWorkflowsDir(cfg, target, "")
 	if dir == "" {
 		emit.NoteCoverageGap(target, spec.KindAgent, len(b.Agents),

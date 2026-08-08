@@ -34,7 +34,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{spec.KindAgent, []string{".warp/workflows/alpha.yaml", ".warp/workflows/beta.yaml", ".warp/workflows/gamma.yaml"}, nil},
-		{spec.KindSkill, nil, []string{"### uno", "### dos", "### tres"}},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md"}, nil},
 		{spec.KindRule, []string{"AGENTS-rules.md"}, nil},
 		{spec.KindMCP, []string{".warp/.mcp.json"}, nil},
 	}

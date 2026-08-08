@@ -301,6 +301,47 @@ func TestEmit_WorkflowsDirEmitsXWarpFields(t *testing.T) {
 	}
 }
 
+// Skills emit natively as one folder per skill under .agents/skills/,
+// the project-local path Warp's own docs recommend
+// (docs.warp.dev/agents/capabilities/skills). The renderer matches the
+// codex/amp/zed output byte-for-byte so the shared tree dedupes. See #557.
+func TestEmit_Skill_WritesNativeSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{"description": "Run deployments."},
+			Body: "Deploy to production.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/deploy/SKILL.md"))
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Deploy to production."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"warp": {SkillsDir: "custom/skills"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/deploy/SKILL.md: %v", err)
+	}
+}
+
 // A plain workflow with no x-warp block must not gain the block.
 func TestEmit_WorkflowsDirNoXWarpBlockWhenUnset(t *testing.T) {
 	dir := testutil.TempCwd(t)
