@@ -11,6 +11,15 @@
 // (Amp's native skills layout); Amp removed custom commands in favor of
 // skills (https://ampcode.com/news/slashing-custom-commands).
 //
+// The Command spec kind is not declared in caps.Supports: Amp's owner's
+// manual (https://ampcode.com/manual) documents `.agents/skills/` and
+// `.agents/checks/` but no file-based command surface. Commands register
+// programmatically via `amp.registerCommand(...)` in plugin TypeScript,
+// and the migration post above tells users to delete the old command
+// file rather than pointing at a replacement path, so there is no path
+// left to redirect a Command spec to. A Command spec targeting amp is
+// skipped with a warning (see #553).
+//
 // Previous releases of this adapter wrote `AGENT.md` (singular) which
 // Amp no longer reads. The first sync after upgrading detects an old
 // agnostic-generated `AGENT.md` and renames it to `AGENT.md.bak` so
@@ -38,7 +47,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
 }
 
 // Adapter emits Amp configs.
@@ -66,9 +75,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitAgentCommands(sess, b.Agents, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
-		return err
-	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -83,19 +89,6 @@ func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, dryR
 	for _, a := range agents {
 		body := emit.WithHeader(commandFile(a), emit.FormatMarkdown)
 		if err := sess.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// emitCommands writes one slash-command markdown file per command spec
-// under `.agents/commands/`, the same surface Amp reads agent commands
-// from.
-func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
-	for _, c := range commands {
-		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
-		if err := sess.WriteFile(filepath.Join(dir, c.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
 	}

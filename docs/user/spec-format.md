@@ -429,7 +429,7 @@ Deploy the app to {{env}}.
 
 Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
 
-Native emission: Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), and Amp (`.agents/commands/<name>.md`). Codex deprecated project prompts, so its commands emit only when `outputs.codex.commands-dir` is set; otherwise `sync` prints a coverage note. Other targets log a warning and skip.
+Native emission: Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), and OpenCode (`.opencode/commands/<name>.md`). Codex deprecated project prompts, so its commands emit only when `outputs.codex.commands-dir` is set; otherwise `sync` prints a coverage note. Amp has no file-based command surface at all (commands register programmatically via `amp.registerCommand(...)`), so, like other targets outside this list, it logs a warning and skips.
 
 ## Settings
 
