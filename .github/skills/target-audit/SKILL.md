@@ -202,9 +202,35 @@ Re-run rather than merging on a theory. Note that `sync --check` drifts
 locally after any merge that changed a spec, because gitignored emitted
 copies are stale; that one is expected and `sync` fixes it.
 
-When querying check status, exclude pending jobs explicitly:
-`select(.conclusion != null and .conclusion != "SUCCESS")`. A pending job
-has a null conclusion and will otherwise read as a failure.
+When querying check status, prefer `gh pr checks <n>` over
+`statusCheckRollup`. The rollup serves stale conclusions: it reported
+five failures on a docs-only change whose jobs had all passed, and it
+reports closed issues as open for minutes after a merge. If you do use
+the rollup, exclude pending jobs explicitly with
+`select(.conclusion != null and .conclusion != "SUCCESS")`, since a
+pending job has a null conclusion and otherwise reads as a failure.
+
+**Never let a wait loop treat "no data" as "done".** A loop written as
+`until [ "$(gh pr checks N | grep -c pending)" = "0" ]` exits instantly
+when GitHub reports no checks at all, which is indistinguishable from
+every check having finished. Pin the wait to the current head SHA
+instead. That bug nearly merged a stale pre-rebase green run.
+
+**Check platform status before diagnosing.** A GitHub Actions outage
+produces exactly the symptoms of a broken branch: no check-runs, stale
+rollups, lagging issue lists. Six trigger attempts across two branches
+were spent before checking githubstatus.com, which reported a major
+outage. One curl would have saved all of it.
+
+**Rebuild the binary before trusting `sync --check`** after rebasing
+onto a main that changed adapters. A stale `./agnostic-ai` reports drift
+that does not exist.
+
+**A merged PR does not always close its issue.** A PR whose title lists
+issue numbers without a `Closes` keyword leaves them open, and a partial
+fix that carries `Closes` shuts an issue that is not finished. Verify
+issue state after every merge, and reopen with a scoped comment rather
+than letting a real gap sit behind a green checkmark.
 
 ## What this skill does not do
 

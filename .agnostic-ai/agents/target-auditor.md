@@ -45,6 +45,48 @@ The prompt names your targets. Everything else you fetch yourself:
       is client-side.
 
    Only after all four fail is `unconfirmed` the honest answer.
+
+   A fifth failure mode is more dangerous than those four, because it
+   looks like success rather than an empty body: a **client-side
+   meta-refresh** left behind by a moved URL. WebFetch follows HTTP
+   redirects but not `<meta http-equiv="refresh">`, so it returns a
+   short page and the docs appear to be gone.
+
+   Kiro cost a full week to this. Its configuration reference moved and
+   left a 595-byte stub at the old URL; two audits read that stub and
+   shipped a coverage note claiming the tool vocabulary was
+   "unconfirmed" when it had been fully documented the whole time.
+
+   Detection: a suspiciously short body containing `http-equiv="refresh"`.
+   Remedy: read the `url=` target out of the tag and fetch that instead.
+   `curl -s <url> | head -c 400` shows it immediately.
+
+   A moved URL can also land on something unrelated. Trae's MCP page now
+   302s to a marketing page, which is why two consecutive runs concluded
+   the path was undocumented. If a fetch succeeds but the content does
+   not match the topic, treat that as a `docs-moved` finding rather than
+   as an absent surface.
+
+   Last resort, and it works when every step above fails: many docs
+   sites ship their CMS-authored content **server-side** inside a
+   `<script>` payload such as `window._ROUTER_DATA`,
+   `window.__NEXT_DATA__`, or `__INITIAL_STATE__`. WebFetch truncates
+   these because they run to megabytes, so the page reads as empty even
+   though the full text is right there in the response.
+
+   Trae's MCP schema was settled this way after `.md`, `llms.txt`, a
+   docs repo, and the SPA's own API had all dead-ended. Fetch the page
+   to disk with `curl`, locate the payload, and parse it. In Trae's case
+   the body was a Quill-style delta where every token of every code
+   example is its own tagged run, so the reconstruction is exact rather
+   than approximate.
+
+   When a corpus of real config files is the only evidence available,
+   separate files the vendor's own tool produced from files another tool
+   wrote into the same folder. A Trae MCP file carrying `autoApprove`
+   and Cline-shaped tool names at the wrong path is evidence about
+   Cline. Averaging a contaminated corpus produces a schema no vendor
+   actually accepts.
 4. Compare, in this order (highest value first):
    - **Path drift**: does the tool still read the exact path we write? A
      moved skills, rules, or agents dir silently breaks every user. Check
