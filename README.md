@@ -82,7 +82,7 @@ alwaysApply: true
 Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
 ```
 
-The same file lands in every target's own rules directory: `.claude/rules/`, `.junie/rules/`, `.kiro/steering/`, and the rest. Tools without one (Codex, Gemini, Aider) get the body inlined in their entry-point instead. Every root file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carries the same short pointer back to the specs, so no tool reads a stale copy.
+The same file lands in every target's own rules directory: `.claude/rules/`, `.kiro/steering/`, `.trae/rules/`, and the rest. Tools without one (Codex, Gemini, Aider, Junie) get the body inlined in their entry-point instead. Every root file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carries the same short pointer back to the specs, so no tool reads a stale copy.
 
 ## Supported targets
 

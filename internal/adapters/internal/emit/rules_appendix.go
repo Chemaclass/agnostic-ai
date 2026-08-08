@@ -63,12 +63,14 @@ func StripRulesAppendix(body string) string {
 
 // StripGeneratedAppendices reverses every sentinel-marked edit sync may
 // make to an entry-point file, leaving the canonical pointer body. It
-// removes the rules and target-overview appendices and restores resolved
-// `@`-imports (inline mode) to their lone `@path` lines. Import uses it
-// so the AGNOSTIC_AI.md round-trip stays lossless regardless of which
-// transforms a target carried.
+// removes the rules, agents, and target-overview appendices and restores
+// resolved `@`-imports (inline mode) to their lone `@path` lines. Import
+// uses it so the AGNOSTIC_AI.md round-trip stays lossless regardless of
+// which transforms a target carried. The agents appendix (see
+// agents_appendix.go) is junie-only today, but stripping it
+// unconditionally costs nothing on bodies that never had one.
 func StripGeneratedAppendices(body string) string {
-	return restoreImportInlines(StripRulesAppendix(StripTargetOverview(body)))
+	return restoreImportInlines(StripAgentsAppendix(StripRulesAppendix(StripTargetOverview(body))))
 }
 
 // inlineRulesTargets are the entry-point targets whose underlying CLI has
@@ -82,7 +84,7 @@ func StripGeneratedAppendices(body string) string {
 // batch-2 AGENTS.md tools jules, goose, openhands, and factory have no
 // rules directory either.
 //
-// augment and kilo are the two deliberate exceptions: both gained a
+// augment and kilo are two deliberate exceptions: both gained a
 // native per-rule directory (`.augment/rules/`, `.kilo/rules/`) but
 // stay on this list anyway, for two different reasons. Augment's
 // vendor docs do not cleanly establish precedence between the native
@@ -94,6 +96,17 @@ func StripGeneratedAppendices(body string) string {
 // stays loaded whenever present regardless of that ranking, so the
 // inline copy there is a documented fallback layer, not a hole to
 // close.
+//
+// junie fits the main rule (no native rules directory: `.junie/rules/`
+// never was one, Junie's guidelines lookup never reads it, see
+// internal/adapters/junie's package doc, #552) but is the one entry
+// consulted from two places instead of one. Every other member here
+// only matters to the central multi-consumer dispatch in
+// internal/cli/entrypoint.go, which renders the shared root AGENTS.md.
+// junie.go's own Emit also reads this map directly to decide whether
+// its adapter-owned `.junie/AGENTS.md` (Junie's actual read path)
+// gets the rules appendix, independent of what entrypoint.go does with
+// the root AGENTS.md junie also happens to share with codex et al.
 var inlineRulesTargets = map[string]bool{
 	"codex":     true,
 	"amp":       true,
@@ -109,6 +122,7 @@ var inlineRulesTargets = map[string]bool{
 	"openhands": true,
 	"factory":   true,
 	"kilo":      true,
+	"junie":     true,
 }
 
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies

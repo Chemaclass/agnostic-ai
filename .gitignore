@@ -113,8 +113,8 @@ WARP.md
 !internal/adapters/*/testdata/**
 # Same re-allow for the integration-level golden fixtures: a target
 # whose own emitted tree includes a nested AGENTS.md (Junie's preferred
-# .junie/AGENTS.md entry-point mirror, target-audit 2026-08-01) or any
-# other name the patterns above match needs its full tree committed too.
+# .junie/AGENTS.md entry-point, which inlines rules and agents; #552) or
+# any other name the patterns above match needs its full tree committed too.
 !tests/integration/fixtures/golden/**
 # =============================================================================
 # npm wrapper artifacts

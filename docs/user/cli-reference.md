@@ -115,7 +115,7 @@ Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The wa
 
 Reads `.cursor/rules/**` recursively, so nested rule directories are imported too. Round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
 
-`import cline`, `import windsurf`, `import junie`, `import trae`, `import qoder`, and `import continue` read the matching rules directory (`.cline/rules/` with `.clinerules/` fallback, `.devin/rules/` with `.windsurf/rules/` fallback, `.junie/rules/`, `.trae/rules/`, `.qoder/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
+`import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` read the matching rules directory (`.cline/rules/` with `.clinerules/` fallback, `.devin/rules/` with `.windsurf/rules/` fallback, `.trae/rules/`, `.qoder/rules/`, `.continue/rules/`) and reclassify each file by filename prefix:
 
 | Source filename | Becomes |
 |-----------------|---------|
@@ -128,7 +128,7 @@ The leading `# <heading>` block (which the adapter prepends on emit) is stripped
 
 `import cline` additionally reconstructs agents from `.cline/agents/<name>.md`, Cline's native per-agent directory (target-audit 2026-08-01, #534): each file copies byte-for-byte minus the provenance header (no `agent-` prefix to strip, and no synthesized heading, since sync no longer writes one there). The `agent-<name>.md` prefix in the table above only fires when a project still carries the pre-migration `.clinerules/` layout, where rules and agents shared one directory.
 
-`import junie` additionally reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
+`import junie` reads rules and agents from `.junie/AGENTS.md`'s sentinel-marked Rules and Agents blocks: the file Junie's guidelines lookup opens, since that lookup is strict precedence and `sync` always writes it first (target-audit 2026-08-08, #552). It also reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A project synced by an agnostic-ai version before that fix still has real content flattened under `.junie/rules/` (reclassified by filename prefix, the same scheme as the group above); that directory takes precedence over `.junie/AGENTS.md` when it still exists. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
 
 `import kiro` reverses the Kiro steering layout. Steering files are flat under `.kiro/steering/` and carry a frontmatter-first `inclusion:` block; the filename prefix picks the kind:
 

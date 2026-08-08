@@ -110,9 +110,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## junie
 
-- docs: https://junie.jetbrains.com/docs/ · /docs/agent-skills.html
+- docs: https://junie.jetbrains.com/docs/ · /docs/agent-skills.html · /docs/junie-ide-plugin.html (guidelines lookup order) · /docs/guidelines-and-memory.html (CLI guidelines lookup order, confirms the same order)
 - changelog: https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions · https://junie.jetbrains.com/blog/
-- watch: `.junie/rules/` vs `.junie/guidelines.md`, `.junie/mcp/mcp.json` schema.
+- watch: the guidelines lookup order is strict precedence, first match wins, not a merge (#552): `.junie/AGENTS.md`, then root `AGENTS.md`, then legacy `.junie/guidelines.md` / `.junie/guidelines/`. `sync` always writes `.junie/AGENTS.md`, so re-check whether that still holds on every audit: a vendor change to step 1 would make everything below it live again. Also watch `.junie/mcp/mcp.json` schema.
 
 ## kiro
 

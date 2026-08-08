@@ -30,6 +30,24 @@ func reduceToGeneratedRules(body string) string {
 	return inner
 }
 
+// extractMarkedBlock returns the inner content between start and end
+// sentinel markers in body, "" when start is absent. Unlike
+// reduceToGeneratedRules (which falls back to the whole body so a
+// hand-authored file still slices in full), callers here need to tell
+// "block present but empty" apart from "no block at all", so an absent
+// start marker reports as no content instead.
+func extractMarkedBlock(body, start, end string) string {
+	i := strings.Index(body, start)
+	if i < 0 {
+		return ""
+	}
+	inner := body[i+len(start):]
+	if j := strings.Index(inner, end); j >= 0 {
+		inner = inner[:j]
+	}
+	return inner
+}
+
 // extractLeadingItalic returns the inner text of a `_..._` paragraph
 // at the start of body (no surrounding whitespace) and the body with
 // that paragraph plus its trailing blank line stripped. ok is false

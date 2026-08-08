@@ -16,3 +16,45 @@ Per-target configuration that does not fit the agnostic spec kinds above lives u
 - Author specs under the directories above.
 - Run `agnostic-ai sync` to regenerate per-target output files.
 - Edit only the source specs; the per-target files (including this one) are overwritten on each sync.
+
+<!-- agnostic-ai:rules:start -->
+
+## Rules
+
+### r1
+
+<!-- source: rules/r1.md -->
+rule 1 body
+
+### r2
+
+<!-- source: rules/r2.md -->
+rule 2 body
+
+### r3
+
+<!-- source: rules/r3.md -->
+rule 3 body
+
+<!-- agnostic-ai:rules:end -->
+
+<!-- agnostic-ai:agents:start -->
+
+## Agents
+
+### alpha
+
+<!-- source: agents/alpha.md -->
+alpha body
+
+### beta
+
+<!-- source: agents/beta.md -->
+beta body
+
+### gamma
+
+<!-- source: agents/gamma.md -->
+gamma body
+
+<!-- agnostic-ai:agents:end -->

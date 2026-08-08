@@ -10,6 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
 - `import zed` no longer drops MCP servers from a `.zed/settings.json` that agnostic-ai itself emitted. The reader accepted only a nested `command: {path, args, env}` object, while Zed documents (and the zed adapter writes) `command` as a plain string with `args` and `env` beside it; remote `url` servers were skipped outright for having no `command` key. All three shapes now import (#546).
+- `sync -t junie` now writes rule and agent bodies to the file Junie reads: inlined into `.junie/AGENTS.md`, the only file its guidelines lookup opens once a project has synced. The prior `.junie/rules/` output sat outside that lookup order entirely, so every Rule and Agent spec was invisible to Junie; a stale copy from an older sync is now swept. `import junie` reads the new location, with the old directory still honored as a fallback for projects synced before this fix (#552).
 
 ## v0.46.0 - 2026-08-07
 

@@ -33,7 +33,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		".cline/rules/sample-rule.md",
 		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
-		".junie/rules/sample-rule.md",
+		".junie/AGENTS.md",
 		".kiro/steering/sample-rule.md",
 		".trae/rules/sample-rule.md",
 		".claude/agents/sample-agent.md",
@@ -70,6 +70,19 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	}
 	if !strings.Contains(string(agents), "Be terse. Avoid filler.") {
 		t.Errorf("AGENTS.md should inline the always-on rule body, got:\n%s", agents)
+	}
+	// .junie/AGENTS.md is the only file Junie's guidelines lookup ever
+	// opens in a synced project (#552), so both the rule and the agent
+	// body must inline there, not the rule alone.
+	junieEntry, err := os.ReadFile(filepath.Join(dir, ".junie/AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read .junie/AGENTS.md: %v", err)
+	}
+	if !strings.Contains(string(junieEntry), "Be terse. Avoid filler.") {
+		t.Errorf(".junie/AGENTS.md should inline the rule body, got:\n%s", junieEntry)
+	}
+	if !strings.Contains(string(junieEntry), "Sample agent body.") {
+		t.Errorf(".junie/AGENTS.md should inline the agent body, got:\n%s", junieEntry)
 	}
 }
 
