@@ -49,17 +49,20 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 
 // buildMCPServer renders one `mcpServers` entry with only the fields
 // Antigravity's own doc confirms (antigravity.google/docs/mcp): stdio
-// carries `command` plus optional `args` / `env`; remote transports
-// carry `serverUrl`. The vendor is explicit that the shared cross-tool
-// `url` / `httpUrl` field names "are not supported," so this builder is
-// deliberately its own schema rather than a case added to the shared
-// emit.MCPSchemaServersMap, which still emits `url` for every other
-// `mcpServers`-rooted target.
+// carries `command` plus optional `args` / `env` / `cwd`; remote
+// transports carry `serverUrl` plus optional `headers`. Both transports
+// accept `disabled` as its own boolean, the vendor's documented name for
+// the field (unlike codex and kilo, which map the spec's `disabled` onto
+// their own `enabled: false`). The vendor is explicit that the shared
+// cross-tool `url` / `httpUrl` field names "are not supported," so this
+// builder is deliberately its own schema rather than a case added to the
+// shared emit.MCPSchemaServersMap, which still emits `url` for every
+// other `mcpServers`-rooted target.
 //
-// `description`, `headers`, `roots`, `disabled`, and a `type`
-// discriminant are not confirmed for Antigravity and are intentionally
-// omitted, the same standard the kilo adapter holds its own tool-name
-// mapping to: no vendor-confirmed shape, no guess.
+// `description`, `roots`, and a `type` discriminant remain unconfirmed
+// for Antigravity and are intentionally omitted, the same standard the
+// kilo adapter holds its own tool-name mapping to: no vendor-confirmed
+// shape, no guess.
 func buildMCPServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -79,14 +82,23 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 			out["env"] = env
 		}
+		if cwd, _ := e.Meta["cwd"].(string); cwd != "" {
+			out["cwd"] = cwd
+		}
 	case "http", "sse", "ws":
 		url, _ := e.Meta["url"].(string)
 		if url == "" {
 			return nil
 		}
 		out["serverUrl"] = url
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			out["headers"] = h
+		}
 	default:
 		return nil
+	}
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		out["disabled"] = true
 	}
 	return out
 }

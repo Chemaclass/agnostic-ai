@@ -24,8 +24,11 @@
 // `serverUrl` field: "Legacy fields like `url` or `httpUrl` are not
 // supported," so this adapter cannot reuse the shared
 // `emit.MCPSchemaServersMap` builder, which emits `url` (see mcp.go).
-// stdio servers carry `command`, `args`, and `env`. Hooks and commands
-// stay unconfirmed in the public-preview docs and skip with a warning.
+// stdio servers carry `command`, `args`, `env`, and `cwd`; remote
+// servers add `headers`; both accept `disabled` under that literal
+// name, unlike codex and kilo which map it onto their own
+// `enabled: false`. Hooks and commands stay unconfirmed in the
+// public-preview docs and skip with a warning.
 package antigravity
 
 import (
