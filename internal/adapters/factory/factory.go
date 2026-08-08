@@ -14,16 +14,27 @@
 // `description`, optional `model`, and optional `tools`; arbitrary
 // `x-factory` keys pass through verbatim so the rest of the documented
 // schema is reachable without waiting on this adapter's allowlist.
+// Droid CLI's own schema requires a non-empty system prompt after the
+// frontmatter ("The body after the frontmatter is the system prompt
+// and cannot be empty", docs.factory.ai/harness/subagents), so an
+// agent spec with an empty body is skipped rather than written as a
+// file Droid CLI itself would call invalid; the skip surfaces through
+// a coverage note instead of failing silently.
 //
 // MCP servers merge into `.factory/mcp.json` (override via
 // outputs.factory.mcp-file) under a root `mcpServers` map, the same
 // shape emit.MCPSchemaServersMap already produces for Claude Code and
-// Cursor: stdio carries `command`/`args`/`env` with no `type`; HTTP/
-// SSE/WS carry an explicit `type` plus `url`/`headers`. Unlike Claude
-// Code, Cursor, and Copilot, Factory's own schema documents a working
-// per-server `disabled` boolean (default false), so this adapter does
-// not strip it the way those three do. Factory's schema also documents
-// `disabledTools`, `timeout`, and `connectTimeout`, none of which the
+// Cursor: stdio carries `command`/`args`/`env` with no `type`; HTTP
+// and SSE carry an explicit `type` plus `url`/`headers`, both
+// documented by Factory. This adapter also emits `type: ws` when a
+// server's own transport is `ws`; Factory's docs list only `stdio`,
+// `http`, and `sse`, so that support is inherited from the shared MCP
+// schema (vendor-confirmed for Claude Code, not for Factory) rather
+// than confirmed here. Unlike Claude Code, Cursor, and Copilot,
+// Factory's own schema documents a working per-server `disabled`
+// boolean (default false), so this adapter does not strip it the way
+// those three do. Factory's schema also documents `disabledTools`,
+// `timeout`, `connectTimeout`, and `oauth`, none of which the
 // cross-tool spec carries yet; they are not emitted.
 package factory
 
@@ -81,22 +92,36 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitDroids writes one `<dir>/<name>.md` per agent spec.
+// emitDroids writes one `<dir>/<name>.md` per agent spec whose body is
+// non-empty. Droid CLI's own schema calls a frontmatter-only body
+// invalid, so an agent spec with an empty (or whitespace-only) body is
+// skipped instead of written as a file the tool itself would reject;
+// the skip count surfaces through a coverage note so a spec left empty
+// by accident does not disappear without a trace.
 func emitDroids(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	var emptyBody int
 	for _, a := range agents {
+		if strings.TrimSpace(a.Body) == "" {
+			emptyBody++
+			continue
+		}
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(droidMarkdown(a), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
+	emit.NoteCoverageGap(target, spec.KindAgent, emptyBody,
+		"empty spec body; Droid CLI requires a non-empty system prompt")
 	return nil
 }
 
 // droidMarkdown renders a single droid definition: `name`,
 // `description` (falls back to the spec name), optional `model`,
 // optional `tools`, plus arbitrary x-factory passthrough, followed by
-// the spec body as the droid's system prompt.
+// the spec body as the droid's system prompt. Callers only reach this
+// with a non-empty (trimmed) body; emitDroids skips the empty case
+// before this ever runs.
 func droidMarkdown(e spec.Entry) string {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
@@ -118,9 +143,5 @@ func droidMarkdown(e spec.Entry) string {
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, droidFrontmatterKeys...)
 	front := emit.FrontmatterOrdered(meta, keys)
-	body := strings.TrimSpace(e.Body)
-	if body == "" {
-		return front + "\n"
-	}
-	return front + "\n" + body + "\n"
+	return front + "\n" + strings.TrimSpace(e.Body) + "\n"
 }

@@ -104,6 +104,67 @@ func TestEmit_Agent_XFactoryPassthrough(t *testing.T) {
 	}
 }
 
+// Droid CLI's own schema says the body after the frontmatter "is the
+// system prompt and cannot be empty" (docs.factory.ai/harness/subagents).
+// A spec with an empty body must not become a frontmatter-only file
+// Droid CLI itself calls invalid; it skips instead, and the skip
+// surfaces through a coverage note rather than staying silent.
+func TestEmit_Agent_EmptyBodySkipsFileAndNotesGap(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prevWarner := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prevWarner })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "empty", Meta: map[string]any{"description": "d"}, Body: ""},
+		{Kind: spec.KindAgent, Name: "hasbody", Body: "Run the checklist."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory/droids/empty.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no file for an empty-body agent, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory/droids/hasbody.md")); err != nil {
+		t.Errorf("expected the non-empty-body agent to still write, err=%v", err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note for the empty-body agent, got %d", n)
+	}
+	emit.FlushCoverageNotes()
+	out := buf.String()
+	if !strings.Contains(out, "1 agent reaches factory only in the source dir") {
+		t.Errorf("expected a coverage note naming the skipped agent, got: %s", out)
+	}
+	if !strings.Contains(out, "non-empty system prompt") {
+		t.Errorf("expected the note to explain Droid CLI's non-empty-body requirement, got: %s", out)
+	}
+}
+
+// TrimSpace already governs the body written into the frontmatter
+// block; a whitespace-only body must trip the same empty-body skip as
+// a literal empty string rather than writing a body of pure
+// whitespace, which Droid CLI's parser would also reject.
+func TestEmit_Agent_WhitespaceOnlyBodyTreatedAsEmpty(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "blank", Body: "   \n\t  "}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory/droids/blank.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no file for a whitespace-only body, err=%v", err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note for the whitespace-only body, got %d", n)
+	}
+}
+
 func TestEmit_AgentsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
