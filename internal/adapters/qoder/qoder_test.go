@@ -79,9 +79,10 @@ func TestEmit_RulesDirOverride(t *testing.T) {
 	}
 }
 
-// Agents have their own native `.qoder/agents/` surface and skills have
-// none at all, so neither must ever leak into the rules directory even
-// though RulesDirectory could flatten them there for other adapters.
+// Agents and skills both have their own native surface (`.qoder/agents/`
+// and `.qoder/skills/`), so neither must ever leak into the rules
+// directory even though RulesDirectory could flatten them there for
+// other adapters.
 func TestEmit_AgentsAndSkillsNotFlattenedIntoRules(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -100,10 +101,60 @@ func TestEmit_AgentsAndSkillsNotFlattenedIntoRules(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".qoder/agents/ag1.md")); err != nil {
 		t.Errorf("expected native agent file written: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".qoder/skills/sk1/SKILL.md")); err != nil {
+		t.Errorf("expected native skill folder written: %v", err)
+	}
 	for _, p := range []string{".qoder/rules/agent-ag1.md", ".qoder/rules/skill-sk1.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
 			t.Errorf("expected %s not to be written, err=%v", p, err)
 		}
+	}
+}
+
+// Native Agent Skills is documented at `.qoder/skills/<name>/SKILL.md`
+// (docs.qoder.com/extensions/skills, target-audit 2026-08-08, #558): "Each
+// Skill contains a `SKILL.md` file. A folder without it never registers as
+// a skill, so this must land as a folder, not a flattened
+// `skill-<name>.md` file, and must carry any bundled sibling asset with
+// it.
+func TestEmit_Skill_WritesSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "reviewer-kit", Meta: map[string]any{"description": "Review helpers."}, Body: "Use these helpers."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/skills/reviewer-kit/SKILL.md"))
+	for _, want := range []string{"name: reviewer-kit", "description: Review helpers.", "Use these helpers."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".qoder/rules/skill-reviewer-kit.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no flat .qoder/rules/skill-reviewer-kit.md, err=%v", err)
+	}
+}
+
+// TestEmit_SkillsDirOverride_WritesToCustomDir confirms
+// outputs.qoder.skills-dir redirects the folder-per-skill output,
+// consistent with every other emit.OutputSkillsDir consumer.
+func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"qoder": {SkillsDir: "custom/skills"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "sk1", Body: "skill body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/sk1/SKILL.md")); err != nil {
+		t.Errorf("expected custom/skills/sk1/SKILL.md: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".qoder/skills/sk1/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default skills dir once overridden, err=%v", err)
 	}
 }
 

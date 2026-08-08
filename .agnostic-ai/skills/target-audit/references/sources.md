@@ -152,9 +152,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## qoder
 
-- docs: https://docs.qoder.com/user-guide/rules · https://docs.qoder.com/extensions/subagent
+- docs: https://docs.qoder.com/user-guide/rules · https://docs.qoder.com/extensions/subagent · https://docs.qoder.com/extensions/skills
 - changelog: https://qoder.com/changelog
-- watch: `.qoder/rules/` and `.qoder/agents/` today, plus `.mcp.json`; a skills surface would be new. Also watch whether `tools:` gains a documented list form alongside the current comma-separated string.
+- watch: `.qoder/rules/`, `.qoder/agents/`, and `.qoder/skills/<name>/SKILL.md` (project scope; user scope is `~/.qoder/skills/{skill-name}/SKILL.md`, out of this adapter's reach) today, plus `.mcp.json`. Re-check on every audit whether `.agents/skills/` gains listing as a compatible path (#558 confirmed it does not yet, unlike kilo/augment/openhands). Also watch whether `tools:` gains a documented list form alongside the current comma-separated string.
 
 ## openhands
 

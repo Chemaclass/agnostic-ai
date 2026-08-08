@@ -12,7 +12,8 @@ import (
 // TestImportQoder_RoundTripFixedPoint emits a bundle to qoder, wipes the
 // source specs, imports the emitted tree back, then re-emits. The
 // second emit must byte-match the first: import reconstructs rules
-// (from `.qoder/rules/`) and agents (from `.qoder/agents/`).
+// (from `.qoder/rules/`), agents (from `.qoder/agents/`), and skills
+// (from `.qoder/skills/<name>/SKILL.md`, target-audit 2026-08-08, #558).
 //
 // The agent carries a `tools` list deliberately: qoder is the one
 // target that renders `tools` as a comma-separated string
@@ -33,6 +34,8 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: r1\n---\n\nrule one body\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviews diffs.\nmodel: sonnet\ntools: [Read, Grep, Bash]\n---\n\nagent body\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"),
+		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
 
 	execCLI(t, "sync", "-t", "qoder")
 	first := snapshotEmitted(t, dir)
@@ -45,6 +48,9 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 	}
 	if !strings.Contains(agentOut, "tools: Read, Grep, Bash") {
 		t.Fatalf("expected qoder's comma-separated tools form, got:\n%s", agentOut)
+	}
+	if _, ok := first[".qoder/skills/my-skill/SKILL.md"]; !ok {
+		t.Fatalf("first emit produced no skill folder: %v", keys(first))
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -71,6 +77,10 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 	}
 	if strings.Contains(agent, "tools: Read, Grep, Bash\n") {
 		t.Errorf("tools must not stay a bare comma string in the source spec, got:\n%s", agent)
+	}
+	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
+	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
+		t.Errorf("skill not reconstructed:\n%s", skill)
 	}
 
 	execCLI(t, "sync", "-t", "qoder")

@@ -22,9 +22,18 @@
 // kilo and augment, whose vendor tool vocabularies differ from
 // agnostic-ai's and which drop a generic `tools` list with a coverage
 // note instead of guessing a translation; qoder is the one target where
-// passthrough is confirmed safe. Qoder's skill surface still has no
-// documented file format, so skills continue to the unsupported-kind
-// warning channel.
+// passthrough is confirmed safe.
+//
+// Skills emit into their own native folder tree at
+// `.qoder/skills/<name>/SKILL.md` (override via
+// outputs.qoder.skills-dir): docs.qoder.com/extensions/skills documents
+// exactly this path for project scope, plus a user-level
+// `~/.qoder/skills/{skill-name}/SKILL.md` this adapter has no reach
+// into, states "Each Skill contains a `SKILL.md` file", and gives plain
+// `name` + `description` frontmatter (target-audit 2026-08-08, #558).
+// That doc does not list `.agents/skills/` as a compatible path, unlike
+// kilo, augment, and openhands, so this is Qoder's own tree, not a
+// dedupe target for the shared one.
 //
 // MCP servers merge into `.mcp.json` (override via
 // outputs.qoder.mcp-file) under a root `mcpServers` map: stdio carries
@@ -52,12 +61,13 @@ const (
 	target           = "qoder"
 	defaultDir       = ".qoder/rules"
 	defaultAgentsDir = ".qoder/agents"
+	defaultSkillsDir = ".qoder/skills"
 	defaultMCPFile   = ".mcp.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
 }
 
 // Adapter emits Qoder configs.
@@ -71,9 +81,10 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule into the rules directory (default
 // `.qoder/rules`), one .md per agent into the agents directory (default
-// `.qoder/agents`), plus a merged `.mcp.json` for MCP servers. Skills
-// have no native Qoder surface, so they are left to ReportUnsupported
-// rather than flattened into the rules directory.
+// `.qoder/agents`), one folder per skill into the skills directory
+// (default `.qoder/skills`, Qoder's native Agent Skills layout; a flat
+// file there never loads as a skill), plus a merged `.mcp.json` for MCP
+// servers.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -87,6 +98,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)

@@ -20,13 +20,19 @@ const (
 	// qoderAgentsDir is the native per-agent directory the qoder adapter
 	// writes (docs.qoder.com/extensions/subagent).
 	qoderAgentsDir = ".qoder/agents"
+	// qoderSkillsDir is Qoder's native Agent Skills folder tree
+	// (docs.qoder.com/extensions/skills, target-audit 2026-08-08, #558):
+	// a folder per skill holding a SKILL.md, the layout the qoder
+	// adapter writes today. Project scope only; this importer has no
+	// reach into the doc's user-level `~/.qoder/skills/` tier.
+	qoderSkillsDir = ".qoder/skills"
 )
 
-// importFromQoder reads an existing Qoder project (`.qoder/rules/*.md`
-// and `.qoder/agents/*.md`) under root and writes specs into the
-// configured source directories.
+// importFromQoder reads an existing Qoder project (`.qoder/rules/*.md`,
+// `.qoder/agents/*.md`, and `.qoder/skills/<name>/SKILL.md`) under root
+// and writes specs into the configured source directories.
 func importFromQoder(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
 		return err
 	}
 	c, err := importRulesDirectory(root, qoderRulesDir, src)
@@ -37,7 +43,11 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents (from qoder)\n", c.rules, agents)
+	skills, err := importSkillFolders(filepath.Join(root, qoderSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills (from qoder)\n", c.rules, agents, skills)
 	printImportNextSteps(root, "qoder")
 	return nil
 }
