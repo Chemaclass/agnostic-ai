@@ -193,6 +193,104 @@ func TestEmit_Agent_DescriptionFallsBackToName(t *testing.T) {
 	}
 }
 
+// color and mode are two of the seven fields Kilo Code's own agent
+// Configuration Options table documents that this adapter dropped
+// entirely (target-audit 2026-08-08, #562). color is already a
+// cross-adapter convention (augment reads the same generic
+// Meta["color"], augment.go:224), and mode shares OpenCode's own
+// primary|subagent|all vocabulary under the identical key, so both now
+// read from the plain top-level spec field the same way description
+// and model already do.
+func TestEmit_Agent_ColorAndModePromotedToTopLevel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "reviewer",
+			Meta: map[string]any{"description": "Reviews diffs.", "color": "blue", "mode": "subagent"},
+			Body: "Review the diff for correctness.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/agents/reviewer.md"))
+	for _, want := range []string{"color: blue", "mode: subagent"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+// The other five documented fields (disable, hidden, steps, temperature,
+// top_p) stay reachable only through x-kilo: temperature/top_p are
+// model-tuning knobs whose scale is provider-specific, and
+// disable/hidden/steps are Kilo-only execution/UI controls with no
+// confirmed counterpart on any other registered target, so none is
+// promoted to a plain top-level key (target-audit 2026-08-08, #562).
+func TestEmit_Agent_PlainTopLevelDoesNotPromoteRemainingFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"disable":     true,
+				"hidden":      true,
+				"steps":       15,
+				"temperature": 0.1,
+				"top_p":       0.9,
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/agents/alpha.md"))
+	for _, unwanted := range []string{"disable:", "hidden:", "steps:", "temperature:", "top_p:"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("plain top-level %q must not be promoted; use x-kilo instead, got:\n%s", unwanted, got)
+		}
+	}
+}
+
+// x-kilo remains the documented escape hatch for disable, hidden,
+// steps, temperature, and top_p (target-audit 2026-08-08, #562): all
+// five already pass through verbatim via the existing arbitrary-key
+// mechanism, so this locks that decision in with an explicit test
+// rather than leaving it implicit in TestEmit_Agent_XKiloPassthrough.
+func TestEmit_Agent_XKiloCarriesRemainingDocumentedFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"x-kilo": map[string]any{
+					"disable":     true,
+					"hidden":      true,
+					"steps":       15,
+					"temperature": 0.1,
+					"top_p":       0.9,
+				},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/agents/alpha.md"))
+	for _, want := range []string{"disable: true", "hidden: true", "steps: 15", "temperature: 0.1", "top_p: 0.9"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 // x-kilo cannot resurrect name or tools: both are confirmed no-ops on
 // Kilo Code (see the package doc), so the escape hatch that lets
 // arbitrary custom keys through must not reintroduce either. permission
