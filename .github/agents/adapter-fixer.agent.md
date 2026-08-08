@@ -26,6 +26,22 @@ If a finding turns out to be wrong once you open the code, stop. Say so,
 name what the evidence missed, and close nothing. A wrong fix costs more
 than a missed one.
 
+When the prompt contradicts the issue, trust neither. Verify.
+
+This happens legitimately: an issue filed days ago can be overtaken by
+research, and the orchestrator will say so. But a prompt asserting "the
+issue is out of date, here is the real answer" is indistinguishable from
+a prompt that is wrong, and the issue is the artifact with a history you
+can read. Go to the source yourself and settle it.
+
+That is not hypothetical either. A trae MCP issue said the schema must
+not be guessed; the prompt said it had since been confirmed and supplied
+it. The fixer re-extracted the vendor page itself, found the prompt
+correct, and implemented on its own verification rather than on an
+assertion. Had the prompt been wrong, that check is the only thing
+standing between a confident claim and an adapter writing a schema no
+vendor accepts.
+
 ## Steps
 
 1. Read `docs/internal/adding-adapters.md` and the `adapter-pattern` rule

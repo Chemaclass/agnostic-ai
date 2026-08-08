@@ -99,3 +99,36 @@ func TestNativeCapabilities_NameOnlyRegisteredTargets(t *testing.T) {
 		}
 	}
 }
+
+// TestNativeCapabilities_ListNoKindAnAdapterDropped closes the other half
+// of the parity invariant.
+//
+// TestNativeCapabilities_MatchDeclaredAdapterSupport catches a target that
+// gains a capability without being added here. It cannot catch the
+// reverse: a target that stops supporting a kind and is left in the map.
+//
+// That gap is not hypothetical. When amp's `Command` support was removed
+// (Amp has no file-based command surface; commands register through its
+// plugin API), `targetsSupportingKind[spec.KindCommand]` still listed amp.
+// Nothing failed. The orphan-kind validator would have kept telling users
+// their command specs were fine for amp, and `sync --watch` would have
+// kept re-syncing amp on a command edit that produces nothing. A human
+// caught it while reading the diff.
+//
+// Together the two tests pin the map to exactly what the adapters declare,
+// in both directions, so neither adding nor removing a capability can
+// leave it stale.
+func TestNativeCapabilities_ListNoKindAnAdapterDropped(t *testing.T) {
+	for kind, targets := range targetsSupportingKind {
+		for target := range targets {
+			if _, ok := adapters.Get(target); !ok {
+				continue // unregistered targets are the other test's job
+			}
+			if !declaresSupport(t, target, kind) {
+				t.Errorf("targetsSupportingKind[%q] lists %q, but that adapter no longer declares the kind; "+
+					"remove it or the orphan-kind validator will call those specs supported "+
+					"and sync --watch will re-sync a target that emits nothing for them", kind, target)
+			}
+		}
+	}
+}
