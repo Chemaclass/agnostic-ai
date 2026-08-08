@@ -324,7 +324,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `junie` | `skills-dir` | `.junie/skills` | One folder per skill (`<name>/SKILL.md`, Junie's native Agent Skills layout, shipped 2026-07-31); a flat file there never loads as a skill. |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
 | `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`) and skill (`auto` + name + description). |
-| `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `x-kiro` passthrough for `tools`/`mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
+| `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `tools` translated onto Kiro's own category tags `read`/`write`/`shell`/`web`; `x-kiro` passthrough for `mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`, or `tools` directly to bypass the translation). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
 | `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled}]}`). `disabled: true` writes `"enabled": false`. |
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |

@@ -15,6 +15,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Qoder skills emit into their own native folder tree, `.qoder/skills/<name>/SKILL.md`, instead of skipping with an unsupported-kind warning. Qoder's doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one. `import qoder` reconstructs skills from the new folder tree (#558).
+### Added
+
+- Kiro agents translate a spec's generic `tools` list onto Kiro's own documented category tags (`Read`/`Grep`/`Glob` to `read`, `Write`/`Edit` to `write`, `Bash` to `shell`, `WebFetch`/`WebSearch` to `web`) instead of a permanent no-op. A name outside that set surfaces a coverage note rather than writing an unconfirmed value; `x-kiro.tools` still wins outright over the translation (#559).
 
 ### Fixed
 

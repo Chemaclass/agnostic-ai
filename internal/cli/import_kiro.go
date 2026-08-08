@@ -47,7 +47,12 @@ const (
 // into an equivalent `globs:`; a legacy steering agent keeps only its body
 // (the flattened form held no description or model); a steering skill
 // keeps only its SKILL.md content (bundled sibling assets flatten away on
-// emit). Hooks have no import support yet (matches Cursor, which also
+// emit); an agent's generic `tools` list re-imports as whatever Kiro
+// category name is actually on disk (e.g. `read`), not the Claude-style
+// names it collapsed from (`Read`, `Grep`, and `Glob` all emit as `read`
+// and are indistinguishable once written), since that many-to-one
+// translation (see the kiro adapter's package doc) has no confident
+// reverse. Hooks have no import support yet (matches Cursor, which also
 // emits hooks natively with no read-back path).
 func importFromKiro(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {

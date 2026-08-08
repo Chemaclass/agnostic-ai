@@ -147,24 +147,131 @@ func TestEmit_Agent_DescriptionFallsBackToName(t *testing.T) {
 	}
 }
 
-// A generic `tools` list is agnostic-ai's Claude-style vocabulary,
-// which Kiro's own tool identifiers are not confirmed to match (see the
-// package doc), so it never reaches the frontmatter and surfaces one
-// coverage note per sync instead of a silent no-op.
-func TestEmit_Agent_ToolsSurfacesCoverageNote(t *testing.T) {
-	testutil.TempCwd(t)
+// translateTools maps agnostic-ai's Claude-style tool identifiers onto
+// Kiro's own category vocabulary (kiroToolCategory), deduplicating names
+// that collapse onto the same category.
+func TestTranslateTools_MapsClaudeStyleNamesToKiroCategories(t *testing.T) {
+	mapped, hasUnmapped := translateTools([]string{
+		"Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebFetch", "WebSearch",
+	})
+	want := []string{"read", "write", "shell", "web"}
+	if len(mapped) != len(want) {
+		t.Fatalf("expected %v, got %v", want, mapped)
+	}
+	for i, w := range want {
+		if mapped[i] != w {
+			t.Errorf("expected %v at position %d, got %v", w, i, mapped)
+		}
+	}
+	if hasUnmapped {
+		t.Errorf("expected every name to map, got hasUnmapped=true for %v", mapped)
+	}
+}
+
+// A name with no table entry is reported separately rather than passed
+// through verbatim or silently dropped with no trace; names that do map
+// still translate even when others in the same list do not.
+func TestTranslateTools_UnmappedNameReportedSeparately(t *testing.T) {
+	mapped, hasUnmapped := translateTools([]string{"Read", "NotebookEdit"})
+	if len(mapped) != 1 || mapped[0] != "read" {
+		t.Errorf("expected the mappable name to still translate, got %v", mapped)
+	}
+	if !hasUnmapped {
+		t.Error("expected hasUnmapped=true for a name with no Kiro equivalent")
+	}
+}
+
+// A tools list built entirely from agnostic-ai's Claude-style vocabulary
+// now reaches Kiro's own `tools` field, translated onto its category
+// tags (kiro.dev/docs/custom-agents/configuration-reference/), instead
+// of a permanent no-op: Read/Grep/Glob collapse onto `read`, Write/Edit
+// onto `write`, Bash onto `shell`, WebFetch/WebSearch onto `web`, so 8
+// Claude-style names dedupe to 4 Kiro categories with no coverage note.
+func TestEmit_Agent_ToolsTranslateToKiroCategories(t *testing.T) {
+	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read"}}, Body: "body"},
+		{
+			Kind: spec.KindAgent, Name: "reviewer",
+			Meta: map[string]any{
+				"description": "Reviews diffs.",
+				"tools":       []any{"Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebFetch", "WebSearch"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kiro/agents/reviewer.md"))
+	for _, want := range []string{"tools:", "- read", "- write", "- shell", "- web"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{"- Read", "- Grep", "- Glob", "- Write", "- Edit", "- Bash", "- WebFetch", "- WebSearch"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("expected Claude-style names to translate, not pass through, got:\n%s", got)
+		}
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note when every tool name maps, got %d", n)
+	}
+}
+
+// A tools value outside agnostic-ai's confirmed Claude-style vocabulary
+// has no confirmed Kiro equivalent (see the package doc), so it never
+// reaches the frontmatter and surfaces one coverage note per sync
+// instead of vanishing with no trace or getting written unconfirmed.
+func TestEmit_Agent_UnmappedToolsSurfaceCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"NotebookEdit"}}, Body: "body"},
 		{Kind: spec.KindAgent, Name: "a2", Body: "body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if n := emit.PendingCoverageNotesCount(); n != 1 {
-		t.Errorf("expected one coverage note (only a1 declares tools), got %d", n)
+		t.Errorf("expected one coverage note (only a1 declares an unmapped tool), got %d", n)
+	}
+	got := readFile(t, filepath.Join(dir, ".kiro/agents/a1.md"))
+	if strings.Contains(got, "tools:") {
+		t.Errorf("expected no tools key when every declared name is unmapped, got:\n%s", got)
+	}
+	if strings.Contains(got, "NotebookEdit") {
+		t.Errorf("expected the unmapped name to never be written verbatim, got:\n%s", got)
+	}
+}
+
+// An agent whose tools list mixes a mappable and an unmapped name still
+// emits the mappable subset instead of dropping the whole field: one
+// unmapped name must not suppress translation of the rest.
+func TestEmit_Agent_PartiallyUnmappedToolsStillEmitsMappedSubset(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read", "NotebookEdit"}}, Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kiro/agents/a1.md"))
+	if !strings.Contains(got, "- read") {
+		t.Errorf("expected the mappable name to still emit, got:\n%s", got)
+	}
+	if strings.Contains(got, "NotebookEdit") {
+		t.Errorf("expected the unmapped name to never be written verbatim, got:\n%s", got)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note for the unmapped name, got %d", n)
 	}
 }
 
@@ -185,8 +292,10 @@ func TestEmit_Agent_NoToolsNoCoverageGap(t *testing.T) {
 
 // x-kiro.tools is trusted to already be Kiro's own vocabulary (an
 // author who writes directly under the kiro namespace is presumed to
-// know it), so it passes through and does not count toward the
-// coverage note the generic `tools` field triggers.
+// know it), so it wins outright over the generic `tools` translation:
+// the generic value is not also translated and merged alongside it, and
+// it does not count toward the coverage note an unmapped generic value
+// would otherwise trigger.
 func TestEmit_Agent_XKiroToolsOverridePassesThrough(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
@@ -209,6 +318,12 @@ func TestEmit_Agent_XKiroToolsOverridePassesThrough(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".kiro/agents/alpha.md"))
 	if !strings.Contains(got, "fsRead") {
 		t.Errorf("expected x-kiro.tools to pass through, got:\n%s", got)
+	}
+	if strings.Contains(got, "- read") {
+		t.Errorf("expected x-kiro.tools to win outright, not merge with the translated generic value, got:\n%s", got)
+	}
+	if strings.Count(got, "tools:") != 1 {
+		t.Errorf("expected exactly one tools key, got:\n%s", got)
 	}
 	if n := emit.PendingCoverageNotesCount(); n != 0 {
 		t.Errorf("expected no coverage note once x-kiro.tools rescues the field, got %d", n)

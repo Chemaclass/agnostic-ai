@@ -116,9 +116,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## kiro
 
-- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/ · /docs/custom-agents/ · /docs/cli/custom-agents/configuration-reference/
+- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/ · /docs/custom-agents/ · /docs/custom-agents/configuration-reference/ · /docs/tools/
 - changelog: https://kiro.dev/changelog
-- watch: steering `inclusion:` values (`always` / `fileMatch`), the agent `tools` field's identifier vocabulary (unconfirmed as of 2026-08-01, so this adapter drops it rather than guess), and whether Kiro documents further hook `trigger` values beyond the 10 confirmed.
+- watch: steering `inclusion:` values (`always` / `fileMatch`); the agent `tools` field's category vocabulary, confirmed 2026-08-08 (`read`/`write`/`shell`/`web`/`subagent`/`knowledge`/`todo_list`, plus `@server_name`/`@mcp`/`@builtin`/`*`). Re-check whenever Kiro adds, renames, or splits a category, since `kiroToolCategory` in kiro.go maps agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch onto it. Also watch whether Kiro documents further hook `trigger` values beyond the 10 confirmed. The old `/docs/cli/custom-agents/configuration-reference/` path now serves a client-side meta-refresh and JS redirect (HTTP 200, not a real 3xx) to the URL above; curl with `-D -` to inspect headers and body before concluding a vendor page is gone or undocumented, since WebFetch does not follow a meta-refresh and an earlier audit misread this exact stub as an unconfirmed vocabulary.
 
 ## crush
 
