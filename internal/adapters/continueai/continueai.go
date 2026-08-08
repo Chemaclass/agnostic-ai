@@ -37,7 +37,9 @@ func (Adapter) Name() string { return target }
 // Emit writes one .md per rule and per agent into the rules directory,
 // plus one .yaml per MCP entry under `.continue/mcpServers/`. When
 // `outputs.continue.assistants-dir` is set, each agent additionally
-// emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`.
+// emits as a standalone `config.yaml`-shaped YAML at `<dir>/<name>.yaml`
+// (see assistantYAML); whether Continue itself scans that directory is
+// unconfirmed, so treat it as an export, not a native discovery path.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -74,10 +76,20 @@ func emitAssistants(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return nil
 }
 
-// assistantYAML renders one agent as a Continue local Assistant per the
-// hub assistants schema (v1). The agent body becomes a single named
-// prompt; fields like models or `rules:` are intentionally omitted so
-// Continue inherits the user's configured defaults.
+// assistantYAML renders one agent as a Continue config.yaml: `name`,
+// `version`, and `schema: v1` at the top level, with the agent body
+// wrapped as a single `prompts: [{name, description, prompt}]` entry.
+// That shape matches promptSchema and configYamlSchema in
+// continuedev/continue's packages/config-yaml/src/schemas/index.ts, and
+// docs.continue.dev/reference documents the same name/version/schema
+// top level (target-audit 2026-08-08, #563; the prior citation here,
+// docs.continue.dev/hub/assistants/intro, 404s and the whole /hub/
+// namespace is gone). No doc confirms Continue scans
+// outputs.continue.assistants-dir as a directory, so this is an export
+// in Continue's own file shape, loadable explicitly (`cn --config
+// <path>`), not a vendor-confirmed native discovery surface. Fields
+// like models or `rules:` are intentionally omitted so Continue
+// inherits the user's configured defaults.
 func assistantYAML(e spec.Entry) (string, error) {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)

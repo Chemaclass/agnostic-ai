@@ -13,16 +13,20 @@
 // docs.qoder.com/extensions/subagent documents `name` and
 // `description` as required frontmatter, plus optional `model`,
 // `tools`, `skills`, and `mcpServers`. `tools` renders as a
-// comma-separated string (`tools: Read, Grep, Bash`), the only form the
-// vendor doc shows; no list syntax is documented. Qoder's built-in tool
-// vocabulary is Claude-style (`Bash`, `Edit`, `Write`, `Glob`, `Grep`,
-// `Read`, `WebFetch`, `WebSearch`), so agnostic-ai's generic `tools`
-// list passes through safely here: joined into the comma form on emit
-// and split back into a list on `import qoder`. That is the opposite of
-// kilo and augment, whose vendor tool vocabularies differ from
-// agnostic-ai's and which drop a generic `tools` list with a coverage
-// note instead of guessing a translation; qoder is the one target where
-// passthrough is confirmed safe.
+// comma-separated string (`tools: Read, Grep, Bash`). docs.qoder.com/
+// cli/subagent documents two other forms too, a YAML inline array
+// (`tools: [Read, Grep, Bash]`) and a YAML block list, so the
+// comma-separated form is this adapter's choice among three valid
+// options, not the only one the vendor documents (target-audit
+// 2026-08-08, #563). Qoder's built-in tool vocabulary is Claude-style
+// (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`,
+// `WebSearch`), so agnostic-ai's generic `tools` list passes through
+// safely here: joined into the comma form on emit and split back into a
+// list on `import qoder`. That is the opposite of kilo and augment,
+// whose vendor tool vocabularies differ from agnostic-ai's and which
+// drop a generic `tools` list with a coverage note instead of guessing
+// a translation; qoder is the one target where passthrough is confirmed
+// safe.
 //
 // Skills emit into their own native folder tree at
 // `.qoder/skills/<name>/SKILL.md` (override via
