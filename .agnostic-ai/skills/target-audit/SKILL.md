@@ -174,6 +174,15 @@ Hand each fixer the finding text verbatim, including the evidence. Do not
 re-summarize it: the vendor quote and the `file:line` are what the PR body
 has to carry.
 
+**Hand over the reproduction, not the conclusion.** When research after
+the issue was filed changes the answer, say how it was established and
+how to re-check it, not only what it turned out to be. A fixer cannot
+tell your verified claim from an unverified one, and the correct response
+to an unverifiable assertion is to distrust it. Give it the URL, the
+extraction method, and the command, so re-checking costs a minute instead
+of an afternoon. One fixer re-derived a whole vendor schema because the
+prompt asserted the answer without showing its work, and it was right to.
+
 When a fixer reports the finding was wrong, reopen nothing. Add a comment
 to the issue with what the evidence missed, and label it `invalid`.
 
