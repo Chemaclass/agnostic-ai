@@ -29,19 +29,30 @@
 // `.kilo/agents/<name>.md` (override via outputs.kilo.agents-dir).
 // Kilo Code takes the agent's name from the filename, not from
 // frontmatter, so `name:` is never written. Frontmatter otherwise
-// carries `description` (falls back to the spec name) and optional
-// `model`; arbitrary `x-kilo` keys pass through verbatim. `tools` is
-// never written under any key, including `x-kilo`: Kilo Code's full
-// agent option table has no `tools` field, so a spec's `tools`
-// allowlist would be a silent no-op there, and the agent would keep
-// its default (typically full) permissions while looking restricted.
-// Kilo Code's real access control is a per-tool `permission` map
-// (`allow` / `ask` / `deny`), but this adapter has no vendor-confirmed
-// mapping from agnostic-ai's generic tool names onto Kilo's own tool
-// identifiers, so it does not guess one. An author who needs per-tool
-// restriction writes `x-kilo: {permission: {...}}` directly; an agent
-// spec that sets `tools` instead surfaces a coverage note rather than
-// silently dropping the restriction.
+// carries `description` (falls back to the spec name) plus `color`,
+// `mode`, and `model` when the spec sets them. All three read from the
+// plain top-level field: `color` already follows augment's own
+// convention for the same generic key (augment.go:224), and `mode`
+// shares OpenCode's `primary`/`subagent`/`all` vocabulary under the
+// identical name. Kilo Code's full agent Configuration Options table
+// also documents `disable`, `hidden`, `steps`, `temperature`, and
+// `top_p` (target-audit 2026-08-08, #562); none has a confirmed
+// counterpart on another registered target, and `temperature`/`top_p`
+// are provider-scaled tuning knobs besides, so all five stay reachable
+// only through `x-kilo` (e.g. `x-kilo: {temperature: 0.1, steps: 15}`)
+// rather than a generic top-level key. Every other arbitrary `x-kilo`
+// key passes through the same way. `tools` is never written under any
+// key, including `x-kilo`: Kilo Code's full agent option table has no
+// `tools` field, so a spec's `tools` allowlist would be a silent no-op
+// there, and the agent would keep its default (typically full)
+// permissions while looking restricted. Kilo Code's real access control
+// is a per-tool `permission` map (`allow` / `ask` / `deny`), but this
+// adapter has no vendor-confirmed mapping from agnostic-ai's generic
+// tool names onto Kilo's own tool identifiers, so it does not guess
+// one. An author who needs per-tool restriction writes
+// `x-kilo: {permission: {...}}` directly; an agent spec that sets
+// `tools` instead surfaces a coverage note rather than silently
+// dropping the restriction.
 //
 // Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree
 // (override via outputs.kilo.skills-dir): Kilo Code documents its own
@@ -157,12 +168,18 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 }
 
 // agentMarkdown renders a single agent definition: `description`
-// (falls back to the spec name) and optional `model`, plus arbitrary
-// x-kilo passthrough, followed by the spec body as the agent's system
-// prompt. Kilo Code takes the agent name from the filename, so `name`
-// is never written; `tools` is never written either (see the package
-// doc). Both stay excluded from the x-kilo passthrough too, so an
-// escape-hatch attempt cannot reintroduce a confirmed no-op key.
+// (falls back to the spec name) plus `color`, `mode`, and `model` when
+// set, followed by arbitrary x-kilo passthrough and the spec body as
+// the agent's system prompt. Kilo Code takes the agent name from the
+// filename, so `name` is never written; `tools` is never written
+// either (see the package doc). Both stay excluded from the x-kilo
+// passthrough too, so an escape-hatch attempt cannot reintroduce a
+// confirmed no-op key. `color` and `mode` are also excluded from the
+// x-kilo passthrough below: ResolveMeta already flattens any
+// `x-kilo.color` / `x-kilo.mode` onto `resolved` before this function
+// runs, so the top-level loop above already carries an override
+// through, and re-merging the same key from raw `e.Meta` would only be
+// redundant, not additive.
 // hadTools reports whether the spec declared a tools list, so the
 // caller can fold it into one coverage note per sync instead of a
 // silent drop.
@@ -176,12 +193,14 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 		"description": desc,
 	}
 	keys := []string{"description"}
-	if model, _ := resolved["model"].(string); model != "" {
-		meta["model"] = model
-		keys = append(keys, "model")
+	for _, k := range []string{"color", "mode", "model"} {
+		if v, _ := resolved[k].(string); v != "" {
+			meta[k] = v
+			keys = append(keys, k)
+		}
 	}
 	hadTools = len(emit.StringSlice(resolved["tools"])) > 0
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "model", "name", "tools")
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(e.Body)
 	if trimmed == "" {

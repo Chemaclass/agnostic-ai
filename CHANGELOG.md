@@ -9,6 +9,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Changed
 
 - The `target-audit` skill and its auditor agent record what two weeks of running them taught: a client-side meta-refresh stub defeats WebFetch and reads as an absent doc rather than a moved one, `gh pr checks` beats `statusCheckRollup` because the rollup serves stale conclusions, a wait loop must not read "no data" as "finished", platform status is worth checking before diagnosing a broken branch, and a merged PR does not reliably close its issue.
+### Added
+
+- Kilo Code agents now emit `color` and `mode` when a spec sets them, matching Kilo's own agent Configuration Options table; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
 
 ### Fixed
 
