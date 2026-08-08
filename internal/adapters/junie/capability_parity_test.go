@@ -1,6 +1,7 @@
 package junie
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,6 +18,13 @@ import (
 // that drops support for, say, KindSkill would either need to
 // remove the kind from Supports (forcing the warning channel) or
 // fix the emit path.
+//
+// Rules and agents are only observable in .junie/AGENTS.md content
+// (#552): both inline there, not as a distinct per-kind path, so this
+// checks inBody rather than a matcher path for those two kinds. A path
+// check alone would pass even if the content were never inlined, since
+// .junie/AGENTS.md always exists: exactly the failure mode #552 shipped
+// with a green suite.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -24,15 +32,19 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 
 	paths := testutil.WalkRel(t, dir)
+	entryBody, _ := os.ReadFile(filepath.Join(dir, ".junie/AGENTS.md"))
+	body := string(entryBody)
+
 	type expect struct {
 		kind     spec.Kind
 		matchers []string
+		inBody   []string
 	}
 	cases := []expect{
-		{spec.KindRule, []string{".junie/rules/r1.md", ".junie/rules/r2.md", ".junie/rules/r3.md"}},
-		{spec.KindAgent, []string{".junie/rules/agent-alpha.md", ".junie/rules/agent-beta.md", ".junie/rules/agent-gamma.md"}},
-		{spec.KindSkill, []string{".junie/skills/uno/SKILL.md", ".junie/skills/dos/SKILL.md", ".junie/skills/tres/SKILL.md"}},
-		{spec.KindMCP, []string{".junie/mcp/mcp.json"}},
+		{kind: spec.KindRule, inBody: []string{"### r1", "### r2", "### r3"}},
+		{kind: spec.KindAgent, inBody: []string{"### alpha", "### beta", "### gamma"}},
+		{kind: spec.KindSkill, matchers: []string{".junie/skills/uno/SKILL.md", ".junie/skills/dos/SKILL.md", ".junie/skills/tres/SKILL.md"}},
+		{kind: spec.KindMCP, matchers: []string{".junie/mcp/mcp.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -46,9 +58,15 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 					break
 				}
 			}
+			for _, s := range c.inBody {
+				if strings.Contains(body, s) {
+					found = true
+					break
+				}
+			}
 		}
 		if !found {
-			t.Errorf("declared kind %q in caps.Supports has no observable output (paths: %v)", k, paths)
+			t.Errorf("declared kind %q in caps.Supports has no observable output (paths: %v, .junie/AGENTS.md: %s)", k, paths, body)
 		}
 	}
 }

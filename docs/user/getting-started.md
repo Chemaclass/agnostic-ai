@@ -191,7 +191,7 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── .cursor/rules/conventional-commits.mdc       # for Cursor
 ├── .cline/rules/conventional-commits.md         # for Cline
 ├── .devin/rules/conventional-commits.md         # for Windsurf / Devin Desktop
-├── .junie/rules/conventional-commits.md         # for Junie
+├── .junie/AGENTS.md                             # for Junie (preferred entry-point; rules + agents inlined)
 ├── .kiro/steering/conventional-commits.md       # for Kiro
 ├── .trae/rules/conventional-commits.md          # for Trae
 ├── .kilo/rules/conventional-commits.md          # for Kilo Code (+ kilo.jsonc instructions array)

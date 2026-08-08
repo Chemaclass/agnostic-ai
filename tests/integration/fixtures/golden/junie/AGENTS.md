@@ -26,3 +26,17 @@ Per-target configuration that does not fit the agnostic spec kinds above lives u
 - Author specs under the directories above.
 - Run `agnostic-ai sync` to regenerate per-target output files.
 - Edit only the source specs; the per-target files (including this one) are overwritten on each sync.
+
+<!-- agnostic-ai:rules:start -->
+
+## Rules
+
+### sample-rule
+
+<!-- source: .agnostic-ai/rules/sample-rule.md -->
+_A sample rule for golden snapshot tests._
+
+Be terse. Lead with the action.
+
+
+<!-- agnostic-ai:rules:end -->

@@ -147,14 +147,18 @@ func TestRenderRulesImportAppendix_RoundTrips(t *testing.T) {
 
 func TestInlinesRulesIntoEntryPoint(t *testing.T) {
 	t.Parallel()
-	inline := []string{"codex", "amp", "warp", "zed", "gemini", "aider", "opencode", "crush"}
+	// junie has no native rules destination at all (#552: `.junie/rules/`
+	// sits outside Junie's guidelines lookup order, so nothing ever read
+	// it) and inlines into its own `.junie/AGENTS.md`, not the shared
+	// root AGENTS.md this function otherwise drives.
+	inline := []string{"codex", "amp", "warp", "zed", "gemini", "aider", "opencode", "crush", "junie"}
 	for _, tgt := range inline {
 		if !InlinesRulesIntoEntryPoint(tgt) {
 			t.Errorf("%s should inline rules into its entry-point", tgt)
 		}
 	}
 	// Targets with a native rules destination must not inline.
-	for _, tgt := range []string{"claude", "cursor", "cline", "continue", "windsurf", "antigravity", "copilot", "junie", "kiro", "trae"} {
+	for _, tgt := range []string{"claude", "cursor", "cline", "continue", "windsurf", "antigravity", "copilot", "kiro", "trae"} {
 		if InlinesRulesIntoEntryPoint(tgt) {
 			t.Errorf("%s has a native rules destination and must not inline", tgt)
 		}

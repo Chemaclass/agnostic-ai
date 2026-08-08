@@ -172,7 +172,7 @@ outputs:
     mcp-file: .agents/mcp_config.json   # default. mcpServers map; remote entries use serverUrl, not url.
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
   junie:
-    rules-dir: .junie/rules             # default. One .md per rule and per agent.
+    # rules-dir: .junie/rules           # legacy-sweep target only; rules and agents inline into .junie/AGENTS.md instead.
     skills-dir: .junie/skills           # default. One folder per skill (<name>/SKILL.md), Junie's native Agent Skills layout.
     mcp-file: .junie/mcp/mcp.json       # default. Standard mcpServers schema.
   kiro:
@@ -319,7 +319,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
 | `antigravity` | `mcp-file` | `.agents/mcp_config.json` | `mcpServers` map. Remote entries use `serverUrl`; Antigravity's doc says the legacy `url` / `httpUrl` names are not supported. |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
-| `junie` | `rules-dir` | `.junie/rules` | One `.md` per rule and per agent (Junie concatenates every file in the dir). |
+| `junie` | `rules-dir` | `.junie/rules` | No longer a live output: rules and agents inline into `.junie/AGENTS.md` (see the entry-point section above). Only redirects the sweep of a pre-fix project's stale generated tree at that path. |
 | `junie` | `skills-dir` | `.junie/skills` | One folder per skill (`<name>/SKILL.md`, Junie's native Agent Skills layout, shipped 2026-07-31); a flat file there never loads as a skill. |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
 | `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`) and skill (`auto` + name + description). |

@@ -107,7 +107,7 @@ outputs:
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
 
   junie:
-    rules-dir: .junie/rules            # default. One .md per rule, agent, and skill (Junie concatenates all).
+    # rules-dir: .junie/rules          # legacy-sweep target only; rules and agents inline into .junie/AGENTS.md instead.
     mcp-file: .junie/mcp/mcp.json      # default. Standard mcpServers schema.
 
   kiro:

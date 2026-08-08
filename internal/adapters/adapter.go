@@ -256,6 +256,15 @@ const (
 	RulesEndMarker   = emit.RulesEndMarker
 )
 
+// AgentsStartMarker and AgentsEndMarker mirror the emit-layer sentinels
+// so callers outside the internal emit tree (the junie importer today)
+// can detect and extract the agents appendix block junie.go writes into
+// `.junie/AGENTS.md`.
+const (
+	AgentsStartMarker = emit.AgentsStartMarker
+	AgentsEndMarker   = emit.AgentsEndMarker
+)
+
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
 // by inlining them into its entry-point file (re-exported from the emit
 // layer).
