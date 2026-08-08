@@ -84,6 +84,11 @@ gitignore:
 		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-server.yaml"),
 		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\n"), 0o644))
+	// disabled-server exercises #555: OpenCode's `enabled: false` must
+	// come back as `disabled: true` on import, or a second sync drops
+	// the disable state and the server reads as enabled again.
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/disabled-server.yaml"),
+		[]byte("name: disabled-server\ncommand: x\ndisabled: true\n"), 0o644))
 }
 
 func snapshotOpencodeEmit(t *testing.T, root string) map[string]string {

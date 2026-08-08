@@ -104,6 +104,14 @@ func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bo
 //
 //	stdio:  {type: "local",  command: ["cmd", "arg1", ...], environment: {...}}
 //	http:   {type: "remote", url: "...", headers: {...}}
+//
+// A spec's `disabled: true` maps to OpenCode's own `enabled: false` key
+// (#555): opencode.ai/docs/mcp-servers documents "You can also disable
+// a server by setting `enabled` to `false`" for both local and remote
+// servers. OpenCode's own default (enabled) needs no explicit key, so
+// an enabled server gets no `enabled` key at all, matching the codex
+// and kilo adapters' identical convention for their own `enabled`
+// fields.
 func buildMCPMap(mcps []spec.Entry) map[string]any {
 	out := map[string]any{}
 	for _, e := range mcps {
@@ -140,6 +148,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	}
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		entry["environment"] = env
+	}
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		entry["enabled"] = false
 	}
 	return entry
 }

@@ -98,7 +98,8 @@ func importOpencodeMCP(root, dstDir string) (int, error) {
 
 // normalizeOpencodeMCPEntry maps OpenCode's MCP entry shape to the
 // agnostic spec shape: drop `type`, split `command: [cmd, args...]`
-// into `command` + `args`, and rename `environment` → `env`. Other
+// into `command` + `args`, rename `environment` → `env`, and invert
+// `enabled: false` to the spec's own `disabled: true` (#555). Other
 // keys (url, headers, ...) pass through unchanged so HTTP/remote
 // entries survive a round-trip.
 func normalizeOpencodeMCPEntry(entry map[string]any) map[string]any {
@@ -116,6 +117,10 @@ func normalizeOpencodeMCPEntry(entry map[string]any) map[string]any {
 			}
 			if len(args) > 0 {
 				out["args"] = args
+			}
+		case "enabled":
+			if enabled, ok := v.(bool); ok && !enabled {
+				out["disabled"] = true
 			}
 		default:
 			out[k] = v

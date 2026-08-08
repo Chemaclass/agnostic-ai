@@ -142,3 +142,54 @@ func TestImportFromOpencode_RemoteMCP(t *testing.T) {
 		t.Errorf("opencode-specific type: remote should be dropped:\n%s", out)
 	}
 }
+
+// OpenCode's `enabled: false` round-trips to the spec's own `disabled:
+// true` field, the inverse of what the opencode adapter emits (#555).
+// Without this, re-syncing an imported project would drop the disabled
+// state and OpenCode would start running the server.
+func TestImportFromOpencode_DisabledMCP(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "mcp": {
+    "fs": {"type": "local", "command": ["fs-server"], "enabled": false}
+  }
+}`
+	writeFile(t, filepath.Join(dir, opencodeMCPFile), settings)
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	if !strings.Contains(out, "disabled: true") {
+		t.Errorf("expected disabled: true in mcp file:\n%s", out)
+	}
+	if strings.Contains(out, "enabled") {
+		t.Errorf("opencode-specific enabled key should not leak into the spec:\n%s", out)
+	}
+}
+
+// An entry with no `enabled` key (the common case) gets no `disabled`
+// key in the recovered spec either.
+func TestImportFromOpencode_EnabledMCPHasNoDisabledKey(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "mcp": {
+    "fs": {"type": "local", "command": ["fs-server"]}
+  }
+}`
+	writeFile(t, filepath.Join(dir, opencodeMCPFile), settings)
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	if strings.Contains(out, "disabled") {
+		t.Errorf("expected no disabled key for an enabled server, got:\n%s", out)
+	}
+}

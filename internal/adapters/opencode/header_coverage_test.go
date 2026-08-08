@@ -74,6 +74,12 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	}
 }
 
+// kitSinkBundle returns a Bundle exercising every kind the opencode
+// adapter declares in caps.Supports. "disabled-server" actually sets
+// `disabled: true` (#555: the fixture was named for a server that
+// never carried the flag, so the kit sink emitted with no disable
+// state at all; this fixture now exercises the path its name
+// promises).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -96,7 +102,7 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x"},
+			Meta: map[string]any{"command": "x", "disabled": true},
 		},
 	}
 	return spec.NewBundle(entries)
