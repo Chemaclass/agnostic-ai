@@ -14,6 +14,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - OpenCode MCP servers now write `"enabled": false` when a spec sets `disabled: true`, the key OpenCode's own docs carry; a disabled spec previously rendered with no disable state at all, so OpenCode ran the server anyway. `import opencode` reads `enabled: false` back into `disabled: true` (#555).
 - `sync -t amp` no longer writes Command specs to `.agents/commands/`. Amp's manual documents no file-based command surface; commands register programmatically, and the vendor's own migration guidance is to delete the old command file rather than move it. A Command spec targeting amp now skips with a warning instead of landing in a file Amp never reads (#553).
 - Antigravity MCP servers now emit `headers` on remote entries, `cwd` on stdio entries, and `disabled` on both. All three were vendor-confirmed but previously omitted from `.agents/mcp_config.json`; `disabled` uses Antigravity's own key, unlike codex and kilo which map it to `enabled: false` (#556).
+- `sync -t openhands` now emits OpenHands' documented `{ url, api_key }` object for an sse/shttp MCP entry that sets `api_key`, instead of always writing a bare URL string with no way to carry a credential. An entry whose only auth is the cross-tool spec's `headers` field (OpenHands has no header-map equivalent) now surfaces a coverage note instead of reaching OpenHands with the credential silently missing (#554).
 
 ## v0.46.0 - 2026-08-07
 

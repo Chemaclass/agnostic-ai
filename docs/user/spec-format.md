@@ -366,6 +366,7 @@ env:
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
 | `auth` | no | empty | Codex HTTP authentication fallback: `oauth` or `chatgpt`. |
+| `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
@@ -386,7 +387,7 @@ Targets with native MCP propagation:
 | Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
 | Factory | `.factory/mcp.json` | standard `mcpServers` |
 | Qoder | `.mcp.json` | standard `mcpServers` (same file Claude Code writes; the two dedupe when both are enabled) |
-| OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field |
+| OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field; a remote entry is a bare URL string, or `{ url, api_key }` when `api_key` is set |
 
 Aider, Cline, and Windsurf have no project-scoped MCP file and skip with a warning.
 
