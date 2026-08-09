@@ -37,14 +37,12 @@ function tear_down() {
 
 # tree_digest hashes emitted output so two runs can be compared.
 #
-# .agnostic-ai/.sync-state is excluded: it records which warnings have already
-# been shown, so it is expected to differ between runs. .gitignore is excluded
-# because the first sync in a fresh project lists a path the second one drops
-# (see the emit-then-ignore bug filed alongside this suite); tighten this back
-# to the whole tree once that is fixed.
+# .agnostic-ai/.sync-state is the one exclusion: it records which warnings have
+# already been shown, so it is expected to differ between runs. Everything else
+# including .gitignore is covered, which is what guards #580.
 function tree_digest() {
   find . -path ./.git -prune -o -type f -print \
-    | grep -vE '(^\./\.gitignore$|/\.sync-state$)' \
+    | grep -vE '/\.sync-state$' \
     | sort | xargs shasum 2>/dev/null | shasum | cut -d' ' -f1
 }
 
@@ -89,6 +87,15 @@ function test_dry_run_leaves_the_tree_untouched() {
   "$BIN" sync --dry-run >/dev/null 2>&1
   after="$(tree_digest)"
   assert_same "$before" "$after"
+}
+
+function test_first_sync_leaves_the_source_entry_point_committable() {
+  # sync writes AGNOSTIC_AI.md on the first run only, which used to get it
+  # recorded as generated output and ignored. It is a source file: the shared
+  # instruction body every target renders from (#580).
+  "$BIN" sync >/dev/null 2>&1
+  git add -A >/dev/null 2>&1
+  assert_contains "AGNOSTIC_AI.md" "$(git status --porcelain)"
 }
 
 # ---- import round-trip -------------------------------------------------------

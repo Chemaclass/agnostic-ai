@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -123,6 +124,19 @@ func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("managed block missing fixed entry %q, got %v", want, block)
+		}
+	}
+}
+
+func TestBuildManagedBlock_NeverIgnoresTheAgnosticEntryPoint(t *testing.T) {
+	// The first sync in a fresh project writes AGNOSTIC_AI.md and so records
+	// it as an emitted path; later syncs read it from disk and skip the
+	// write. Left alone that makes the first .gitignore differ from every
+	// later one, and worse, ignores a source file (#580).
+	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath})
+	for _, e := range block {
+		if strings.Contains(e, "AGNOSTIC_AI.md") {
+			t.Errorf("managed block ignores the source entry point %q, got %v", e, block)
 		}
 	}
 }

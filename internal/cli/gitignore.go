@@ -202,9 +202,33 @@ func gitignoreTopSegment(p string) string {
 // ignore above them, letting a project keep a tracked fixture (e.g.
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
 func buildManagedBlock(cfg *config.Config, entries []string) []string {
-	entries = append(fixedManagedEntries(), entries...)
+	entries = append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)
 	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg))
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
+}
+
+// dropSourceEntryPoint removes AGNOSTIC_AI.md from the recorded emissions.
+//
+// The first sync in a fresh project writes it and records it like any other
+// emission; later syncs read it from disk and skip the write, so it is absent
+// from the second run's entries. That alone made the first .gitignore differ
+// from every later one. The real damage is that it is a source file, the
+// shared instruction body every target's entry point renders from, so
+// `init && sync && git add -A && git commit` silently left it out of the
+// repository (#580).
+//
+// It cannot be handled by protectedSourceTopDirs: that guards against
+// collapsing entries into a directory-wide ignore, and `.agnostic-ai` legitimately
+// holds two managed entries (`.sync-state`, `packs/`) that must stay listed.
+func dropSourceEntryPoint(entries []string) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if normalizeGitignorePath(e) == normalizeGitignorePath(adapters.AgnosticEntryPointPath) {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 // normalizeAllowEntries turns the configured allow patterns into `!`-prefixed
