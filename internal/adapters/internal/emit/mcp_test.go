@@ -100,6 +100,59 @@ func TestMCPDocument_HTTPTransport(t *testing.T) {
 	}
 }
 
+func TestMCPDocument_ServersMapNoTypeOmitsTransportDiscriminant(t *testing.T) {
+	t.Parallel()
+	// Warp's remote-server table documents only `url` and `headers`, and a
+	// single tab covers "Streamable HTTP or SSE Server (URL)", so there is
+	// no transport discriminant to emit (#592).
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "remote",
+			Meta: map[string]any{
+				"type":    "sse",
+				"url":     "https://example.com/mcp",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "local",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y", "srv"}},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMapNoType)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, `"type"`) {
+		t.Errorf("no-type schema must not emit a transport discriminant:\n%s", got)
+	}
+	for _, want := range []string{"https://example.com/mcp", "Bearer x", `"command"`, "npx"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestMCPDocument_ServersMapKeepsTypeForOtherTargets(t *testing.T) {
+	t.Parallel()
+	// Guard the default: removing the discriminant for warp must not
+	// change what claude, cursor, and the rest emit.
+	mcps := []spec.Entry{{
+		Kind: spec.KindMCP,
+		Name: "remote",
+		Meta: map[string]any{"type": "sse", "url": "https://example.com/mcp"},
+	}}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `"type": "sse"`) {
+		t.Errorf("default schema must keep the sse discriminant:\n%s", got)
+	}
+}
+
 func TestMCPDocument_DescriptionAndDisabled(t *testing.T) {
 	t.Parallel()
 	mcps := []spec.Entry{

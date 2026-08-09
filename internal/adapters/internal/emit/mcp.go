@@ -16,6 +16,17 @@ const (
 	// MCPSchemaVSCodeServers wraps entries under {"servers": {...}} and
 	// requires a `type` field per server. Used by VS Code / GitHub Copilot.
 	MCPSchemaVSCodeServers
+	// MCPSchemaServersMapNoType is MCPSchemaServersMap without the remote
+	// transport discriminant, for a vendor whose schema has no `type`
+	// field at all. Warp is the case: its remote-server table documents
+	// only `url` and `headers`, and one tab covers "Streamable HTTP or SSE
+	// Server (URL)", so the transport is never named in config (#592).
+	//
+	// Targets whose vendor omits `type` but whose entry shape also
+	// diverges (antigravity's `serverUrl`, trae's field set, windsurf's
+	// `transport` key) keep their own builder instead. This variant is for
+	// the case where only the discriminant differs.
+	MCPSchemaServersMapNoType
 )
 
 // WriteMCPFile renders mcps with the target schema and writes to path.
@@ -101,7 +112,11 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 		// matched no case at all and was written with no command, no
 		// url, and no type: a malformed server object, emitted with no
 		// warning.
-		out["type"] = transport
+		//
+		// MCPSchemaServersMapNoType opts out: see its doc comment.
+		if schema != MCPSchemaServersMapNoType {
+			out["type"] = transport
+		}
 	}
 
 	if env := mapField(e.Meta, "env"); len(env) > 0 {

@@ -88,7 +88,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+	// No transport discriminant: Warp's remote-server table documents only
+	// `url` and `headers`, and a single tab covers "Streamable HTTP or SSE
+	// Server (URL)", so the transport is never named in config
+	// (docs.warp.dev/knowledge-and-collaboration/mcp, #592).
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMapNoType,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
