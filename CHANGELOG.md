@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.48.0 - 2026-08-09
+
 ### Added
 
 - `lint` now fails on a spec whose frontmatter opens with `---` and never closes (LINT006). Such a file parses as body-only, so the raw YAML survives as body text and every adapter writes it through: a single forgotten delimiter emitted ten structurally broken files across ten targets while `validate`, `lint`, and `sync` all exited 0, and the agent silently never loaded in any tool.
