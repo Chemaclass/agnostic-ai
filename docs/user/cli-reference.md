@@ -149,7 +149,7 @@ Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec d
 |--------|---------|
 | `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
-| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http`) | `<mcps>/<name>.yaml` |
+| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 Lossy on round-trip: rules reach Crush only through the inlined block, which carries no `globs`/scope, so rule scoping does not round-trip (Crush's output is unaffected either way).

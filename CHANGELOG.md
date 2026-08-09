@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- crush now emits a `type: sse` MCP entry as `"type": "sse"` instead of collapsing it into `"type": "http"` (#586). Crush routes the two to different SDK transports (`SSEClientTransport` vs `StreamableClientTransport`), so an SSE-only server failed to connect once mislabelled as http. `type: remote` still defaults to `http`, since Crush has no `remote` transport of its own.
+
 ## v0.48.1 - 2026-08-09
 
 ### Changed

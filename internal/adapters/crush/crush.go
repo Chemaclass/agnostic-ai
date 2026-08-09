@@ -18,13 +18,19 @@
 //
 // MCP servers are configured in the project `crush.json` under the
 // `mcp` map: stdio entries render as `{"type": "stdio", "command":
-// ..., "args": [...], "env": {...}}`; HTTP / SSE / remote entries
-// render as `{"type": "http", "url": ..., "headers": {...}, "oauth":
-// ..., "oauth_client_id": ..., "oauth_client_secret": ...,
-// "oauth_callback_port": ...}` (oauth fields optional, shipped in
-// Crush v0.87.0). crush.json also holds user-managed keys (models,
-// providers, lsp, options); the merge only touches the `mcp` key so
-// those survive a sync.
+// ..., "args": [...], "env": {...}}`; HTTP and remote entries render
+// as `{"type": "http", "url": ..., ...}`; SSE entries keep their own
+// `{"type": "sse", "url": ..., ...}` rather than collapsing into http.
+// Crush's own config.go declares MCPSSE and MCPHttp as distinct enum
+// values, and createTransport (internal/agent/tools/mcp/init.go) routes
+// them to two different SDK transports (SSEClientTransport vs
+// StreamableClientTransport), so an sse entry emitted as http fails to
+// connect rather than merely being mislabelled. Both shapes also accept
+// "headers": {...}, "oauth": ..., "oauth_client_id": ...,
+// "oauth_client_secret": ..., and "oauth_callback_port": ... (oauth
+// fields optional, shipped in Crush v0.87.0). crush.json also holds
+// user-managed keys (models, providers, lsp, options); the merge only
+// touches the `mcp` key so those survive a sync.
 package crush
 
 import (
@@ -99,8 +105,11 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 }
 
 // buildMCPEntry renders one Crush mcp entry. Stdio specs produce a
-// command/args/env block tagged `type: "stdio"`; HTTP / SSE / remote
-// specs produce a url/headers block tagged `type: "http"`.
+// command/args/env block tagged `type: "stdio"`. HTTP / SSE / remote
+// specs produce a url/headers block; sse keeps its own `type: "sse"`
+// tag since Crush routes it to a different transport, while http and
+// remote (Crush has no "remote" MCPType of its own) both default to
+// `type: "http"`.
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -127,7 +136,15 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		if url == "" {
 			return nil
 		}
+		// sse keeps its own type: Crush's config.go declares MCPSSE and
+		// MCPHttp as distinct enum values, and createTransport routes
+		// them to two different SDK transports (SSEClientTransport vs
+		// StreamableClientTransport). remote has no native Crush
+		// MCPType, so it defaults to http like the untyped case does.
 		out["type"] = "http"
+		if transport == "sse" {
+			out["type"] = "sse"
+		}
 		out["url"] = url
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			out["headers"] = h
