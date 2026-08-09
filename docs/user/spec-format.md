@@ -392,7 +392,7 @@ Targets with native MCP propagation:
 | Trae | `.trae/mcp.json` | standard `mcpServers`, no `type` field (stdio: `command`/`args`/`env`; HTTP: `url`/`headers`) |
 | Windsurf | `.devin/mcp_config.json` | `mcpServers` (Devin Local's file, not Cascade's; remote uses `transport`, not `type`) |
 
-Aider and Cline have no project-scoped MCP file and skip with a warning.
+Aider, Cline, Jules, Goose, and Augment have no project-scoped MCP file and skip with a warning.
 
 ### `disabled` support by target
 
