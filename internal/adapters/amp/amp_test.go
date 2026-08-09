@@ -181,6 +181,48 @@ func TestEmit_Skill_CustomXAmpKeyReachesFrontmatter(t *testing.T) {
 	}
 }
 
+// A skill scopes its own MCP servers through x-amp.mcpServers, which is
+// the surface Amp's manual recommends over user settings "for most use
+// cases": "a skill can define MCP servers in a sibling `mcp.json` file or
+// in the `mcpServers` field of its `SKILL.md` frontmatter", and Amp
+// prefers `mcpServers` when both are present.
+//
+// This needs no cross-kind spec relationship; the existing passthrough
+// already lands the key verbatim. Pinned here because the docs now point
+// users at it, so silently dropping it would break a documented path
+// (#591).
+func TestEmit_Skill_XAmpMCPServersReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindSkill,
+			Name: "deploy",
+			Meta: map[string]any{
+				"description": "Deploy the service.",
+				"x-amp": map[string]any{
+					"mcpServers": map[string]any{
+						"deployer": map[string]any{
+							"command": "npx",
+							"args":    []any{"-y", "@acme/deploy-mcp"},
+						},
+					},
+				},
+			},
+			Body: "Run the deploy.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/deploy/SKILL.md"))
+	for _, want := range []string{"mcpServers:", "deployer:", "command: npx", "@acme/deploy-mcp"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in skill frontmatter:\n%s", want, got)
+		}
+	}
+}
+
 // A pre-existing AGENT.md with our provenance marker is renamed to
 // AGENT.md.bak and the user is warned.
 func TestEmit_MigratesLegacyAGENTMd_WhenAgnosticGenerated(t *testing.T) {
