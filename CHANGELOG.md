@@ -18,6 +18,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - crush now emits a `type: sse` MCP entry as `"type": "sse"` instead of collapsing it into `"type": "http"` (#586). Crush routes the two to different SDK transports (`SSEClientTransport` vs `StreamableClientTransport`), so an SSE-only server failed to connect once mislabelled as http. `type: remote` still defaults to `http`, since Crush has no `remote` transport of its own.
+- Warp's workflow doc link now points at the file-based YAML docs instead of the GUI Warp Drive feature, and its skill-scan directory count is corrected from four to ten. Junie's lookup-order note now mentions the IDE plugin's extra Custom Path step. Several target-audit `sources.md` citations (kilo, junie, antigravity, windsurf, openhands) replaced dead or incomplete URLs (#590).
+- `docs/user/targets.md` merges two contradictory Skills bullets left behind by the same-day Warp (#557) and Qoder (#558) skills work: one said Warp has no skill surface, stale once #557 landed; the other omitted Qoder entirely (#590).
 
 ## v0.48.1 - 2026-08-09
 

@@ -9,7 +9,11 @@
 // guidelines-and-memory.html, target-audit 2026-08-08, #552). `sync`
 // always writes `.junie/AGENTS.md` (see emitEntryPoint below), so step 1
 // always matches and every location after it is unreachable in a synced
-// project.
+// project. The IDE plugin's own doc separately lists a Custom Path step
+// ahead of `.junie/AGENTS.md`, an IDE Settings preference; the
+// CLI-facing doc has none, and since that per-workspace setting is not
+// usually committed, it rarely changes which file wins here
+// (target-audit 2026-08-09, #590).
 //
 // Rule and Agent bodies therefore inline directly into
 // `.junie/AGENTS.md`, the only file Junie ever opens here: rules under a
