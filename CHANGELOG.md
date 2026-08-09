@@ -6,6 +6,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- `lint` now fails on a spec whose frontmatter opens with `---` and never closes (LINT006). Such a file parses as body-only, so the raw YAML survives as body text and every adapter writes it through: a single forgotten delimiter emitted ten structurally broken files across ten targets while `validate`, `lint`, and `sync` all exited 0, and the agent silently never loaded in any tool.
+- `scripts/e2e_test.sh` drives the built binary against a throwaway project and runs in CI via `make test-shell`: scaffold, sync, re-sync determinism, dry-run isolation, import round-trip, malformed specs, and backup/revert. It covers whole-pipeline properties no unit test can observe, and it is what surfaced LINT006.
+
 ### Fixed
 
 - The install docs no longer advertise channels that are not published. `npx agnostic-ai`, `winget install Chemaclass.agnostic-ai`, and `scoop install agnostic-ai` all 404 today, because each is gated on a release secret that is not configured yet, so every copy button for them handed users a failing command. The landing page drops the npx tab and points its Windows tab at the PowerShell install script, which works. `docs/user/getting-started.md` and the plugin install skill mark the three as unpublished instead of "from the next release", which stopped being true once releases shipped without them.

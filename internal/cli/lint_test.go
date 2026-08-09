@@ -28,6 +28,38 @@ func TestLintEmptySpecs_FlagsEmptyBodyAndNoDescription(t *testing.T) {
 	}
 }
 
+func TestLintUnterminatedFrontmatter_FlagsMissingClosingDelimiter(t *testing.T) {
+	entries := []spec.Entry{
+		// Closing `---` omitted, so splitFrontmatter yields empty meta and
+		// hands the raw YAML back as the body.
+		{Kind: spec.KindAgent, Name: "broken", Path: "agents/broken.md",
+			Body: "---\nname: broken\ndescription: Reviews code.\n", Meta: map[string]any{}},
+		// Parsed frontmatter: meta is populated and the delimiters are gone.
+		{Kind: spec.KindAgent, Name: "ok", Path: "agents/ok.md",
+			Body: "Do something.", Meta: map[string]any{"description": "fine"}},
+		// Body-only spec with no frontmatter at all stays clean.
+		{Kind: spec.KindRule, Name: "prose", Path: "rules/prose.md",
+			Body: "Prefer short functions.", Meta: map[string]any{}},
+		// A horizontal rule after parsed frontmatter is not a broken block.
+		{Kind: spec.KindRule, Name: "hr", Path: "rules/hr.md",
+			Body: "---\nstill fine", Meta: map[string]any{"description": "fine"}},
+	}
+	findings := lintUnterminatedFrontmatter(entries)
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 unterminated-frontmatter finding, got %d", len(findings))
+	}
+	f := findings[0]
+	if f.Code != "LINT006" {
+		t.Errorf("expected code LINT006, got %s", f.Code)
+	}
+	if f.Severity != lintError {
+		t.Errorf("expected error severity, got %s", f.Severity)
+	}
+	if f.Path != "agents/broken.md" {
+		t.Errorf("expected path agents/broken.md, got %s", f.Path)
+	}
+}
+
 func TestLintHookCollisions_FlagsDuplicateEventMatcher(t *testing.T) {
 	hooks := []spec.Entry{
 		{
