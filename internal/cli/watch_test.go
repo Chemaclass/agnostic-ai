@@ -100,10 +100,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(15 * time.Millisecond) // ensure mtime advances
-	if err := os.WriteFile(specPath, append(content, '\n'), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeAndBumpMtime(t, specPath, append(content, '\n'))
 
 	// Wait for watch loop to pick up the change.
 	deadline := time.Now().Add(2 * time.Second)
@@ -179,10 +176,7 @@ func TestWatchSync_PollFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(15 * time.Millisecond)
-	if err := os.WriteFile(specPath, append(content, '\n'), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeAndBumpMtime(t, specPath, append(content, '\n'))
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -299,10 +293,7 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 	}
 
 	// Edit the overlay → polling backend should detect the mtime change.
-	time.Sleep(30 * time.Millisecond)
-	if err := os.WriteFile(overlayFile, []byte("model = \"o4-2025\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeAndBumpMtime(t, overlayFile, []byte("model = \"o4-2025\"\n"))
 
 	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -595,10 +586,7 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(30 * time.Millisecond)
-	if err := os.WriteFile(specPath, append(content, '\n'), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeAndBumpMtime(t, specPath, append(content, '\n'))
 
 	want := "re-syncing 1 target: claude"
 	deadline := time.Now().Add(15 * time.Second)
@@ -624,6 +612,36 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 }
 
 // waitForFile blocks until path exists or the timeout elapses.
+// writeAndBumpMtime writes data to path and forces the modification time
+// strictly forward, so an mtime-polling watcher is guaranteed to see a
+// change.
+//
+// Sleeping first and relying on the write to advance the clock is not
+// enough. Windows updates a file's last-write-time lazily, so a rewrite
+// microseconds later can land on the identical timestamp; the poller then
+// sees no change, the re-sync never fires, and the test fails only once
+// its own wait deadline expires. That is what made
+// TestWatchSync_IncrementalReSyncsOnlyAffectedTarget flake on
+// windows-latest at almost exactly its 15s ceiling (#585).
+//
+// Setting the timestamp explicitly removes the race instead of widening
+// the window, and drops the sleep, so the test is faster on every
+// platform.
+func writeAndBumpMtime(t *testing.T, path string, data []byte) {
+	t.Helper()
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	next := before.ModTime().Add(time.Second)
+	if err := os.Chtimes(path, next, next); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func waitForFile(t *testing.T, path string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
