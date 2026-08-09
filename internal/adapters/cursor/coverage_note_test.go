@@ -101,3 +101,43 @@ func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
 		t.Errorf("expected a field no-op note, got: %s", buf.String())
 	}
 }
+
+// Cursor's subagent frontmatter documents name, description, model,
+// readonly, and is_background. There is no tools field, so a spec's
+// tools list cannot restrict a Cursor subagent.
+//
+// Dropping it silently is the failure this note exists to prevent: kilo,
+// augment, and codex are in the identical position and all three warn,
+// while cursor said nothing. An author would reasonably believe the
+// restriction applied.
+func TestEmit_Agent_ToolsNotesFieldNoOp(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read", "Bash"}}, Body: "body"},
+		{Kind: spec.KindAgent, Name: "a2", Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note (only a1 declares tools), got %d", n)
+	}
+}
+
+// No agent setting tools means no note.
+func TestEmit_Agent_NoToolsNoNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a1", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note when no agent sets tools, got %d", n)
+	}
+}

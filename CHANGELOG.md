@@ -26,6 +26,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- A `tools` list on a Cursor agent now surfaces a coverage note instead of vanishing. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`, so an allowlist cannot restrict them; kilo, augment, and codex already warned in the identical situation while cursor stayed silent. `docs/user/spec-format.md` gains a per-target `tools` table, since one `tools: [Read, Bash]` spec produces five different outcomes across targets and Kiro's translation grants more than the name it came from.
 - The capability-map parity test now runs in both directions. It already caught a target gaining a capability without being registered; it now also catches one that stops supporting a kind and is left in the map, which happened when amp's `Command` support was removed and only a human reading the diff noticed.
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
 - `import zed` no longer drops MCP servers from a `.zed/settings.json` that agnostic-ai itself emitted. The reader accepted only a nested `command: {path, args, env}` object, while Zed documents (and the zed adapter writes) `command` as a plain string with `args` and `env` beside it; remote `url` servers were skipped outright for having no `command` key. All three shapes now import (#546).
