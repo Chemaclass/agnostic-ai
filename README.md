@@ -97,7 +97,7 @@ The same file lands in every target's own rules directory: `.claude/rules/`, `.k
 | GitHub Copilot          |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Aider                   |   ○    |   ○    |   ◐   |   -   |  -   |
 | Cline                   |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Windsurf / Devin        |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Windsurf / Devin        |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Continue                |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Amp                     |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
 | Zed                     |   ○    |   ✅    |   ◐   |   ○   |  ✅   |

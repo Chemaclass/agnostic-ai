@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -17,7 +18,10 @@ import (
 // below cover both trees. Workflows excluded: the shared rules-dir
 // importer reclassifies by filename prefix, so a workflow at
 // .windsurf/workflows/<agent>.md would re-import as a rule and double
-// the spec set (same carve-out as the cline audit).
+// the spec set (same carve-out as the cline audit). MCP servers land
+// in .devin/mcp_config.json (#587): the fixture seeds one stdio and
+// one remote server so the transport-vs-type rename `import windsurf`
+// applies on the way in (see importWindsurfMCP) round-trips too.
 func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -32,8 +36,15 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	if !anyPathUnder(first, ".agents/skills/") {
 		t.Fatalf("first sync produced no windsurf skill folders: %v", sortedKeys(first))
 	}
+	mcpBody, ok := first[".devin/mcp_config.json"]
+	if !ok {
+		t.Fatalf("first sync produced no .devin/mcp_config.json: %v", sortedKeys(first))
+	}
+	if !strings.Contains(mcpBody, `"transport": "http"`) {
+		t.Fatalf("first sync's mcp file missing transport: http:\n%s", mcpBody)
+	}
 
-	for _, sub := range []string{"agents", "skills", "rules"} {
+	for _, sub := range []string{"agents", "skills", "rules", "mcps"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -96,6 +107,12 @@ gitignore:
 		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules", n+".md"),
 			[]byte("---\nname: "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/fs.yaml"),
+		[]byte("name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/remote.yaml"),
+		[]byte("name: remote\ntype: http\nurl: https://mcp.example.test/mcp\n"), 0o644))
 }
 
 // snapshotWindsurfEmit reads every file under .devin/ (rules, agents)

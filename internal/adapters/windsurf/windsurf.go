@@ -1,5 +1,5 @@
-// Package windsurf emits .devin/rules/*.md for Devin Desktop, the
-// renamed Windsurf editor (2026-06).
+// Package windsurf emits .devin/rules/*.md and .devin/mcp_config.json
+// for Devin Desktop, the renamed Windsurf editor (2026-06).
 //
 // Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/`
 // as a backward-compat fallback (`.windsurfrules` is legacy). Rules and
@@ -21,6 +21,39 @@
 // When `outputs.windsurf.workflows-dir` is set, each agent additionally
 // emits as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
 // as `/<name>` (upstream still documents `.windsurf/workflows/` only).
+//
+// MCP servers merge into `.devin/mcp_config.json` (override via
+// outputs.windsurf.mcp-file) under a root `mcpServers` map, the same
+// shape Claude Code's `.mcp.json` uses. This is the file Devin Local,
+// the default agent for new Devin Desktop tabs, reads for project
+// scope, not Cascade: "The MCP configuration on this page applies to
+// the legacy Cascade agent only. The Devin Local agent ... configures
+// MCP servers in the Devin CLI config files instead"
+// (docs.devin.ai/desktop/cascade/mcp); "New tabs start with Devin
+// Local when you haven't chosen a preferred agent"
+// (docs.devin.ai/desktop/devin-local) confirms it is the default.
+// Cascade's own MCP file, `~/.codeium/windsurf/mcp_config.json`, is
+// user-tier and stays out of reach: agnostic-ai only emits
+// project-tier files, so this is a new surface, not a restored one
+// (target-audit 2026-08-09, #587).
+//
+// Local (stdio) servers carry `command` (required) plus optional
+// `args` / `env`. Remote servers carry `url` (required) plus optional
+// `transport` (`http`, the default for URL-based servers, or legacy
+// `sse`), `headers`, `oauthClientId`, `oauthClientSecret`, and
+// `oauthResource` (docs.devin.ai/cli/extensibility/mcp/configuration).
+// Both transports accept `disabled`, which `devin mcp enable|disable`
+// also toggles on this file. The shared `emit.MCPSchemaServersMap`
+// builder always writes the transport discriminant under the key
+// `type`; Devin's own field is spelled `transport`, so this adapter
+// holds its own schema in mcp.go rather than reuse it, the same reason
+// trae and antigravity do.
+//
+// The vendor documents that the file moved here in v3000.3 (Local
+// 3.6): older versions keyed `mcpServers` inside `.devin/config.json`,
+// and any entries found there migrate automatically to the dedicated
+// file on startup, so writing `.devin/mcp_config.json` is correct
+// whichever version reads it.
 //
 // Ignore specs merge into `.devinignore` (override via
 // outputs.windsurf.ignore-file), gitignore syntax under a `#`
@@ -57,11 +90,15 @@ const (
 	// and `.windsurfignore` filenames, but this adapter only writes the
 	// current one.
 	defaultIgnoreFile = ".devinignore"
+	// defaultMCPFile is the project-scoped MCP config Devin Local
+	// reads. The legacy Cascade agent has no project-tier MCP file of
+	// its own to preserve compatibility with.
+	defaultMCPFile = ".devin/mcp_config.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP},
 }
 
 // Adapter emits Windsurf configs.
@@ -83,7 +120,9 @@ func (Adapter) Name() string { return target }
 // `<dir>/<name>.md`; the rule-form `agent-<name>.md` emission stays in
 // place so users that depend on it keep working. Ignore specs merge
 // into `.devinignore` (default; override via
-// outputs.windsurf.ignore-file).
+// outputs.windsurf.ignore-file). MCP servers merge into
+// `.devin/mcp_config.json` (default; override via
+// outputs.windsurf.mcp-file), the file Devin Local reads.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -109,6 +148,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+		return err
+	}
+	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
 		return err
 	}
 	return emitWorkflows(sess, b, cfg, dryRun)
