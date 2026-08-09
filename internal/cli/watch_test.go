@@ -76,13 +76,17 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	buf := captureWatchOutput(t)
+
 	done := make(chan error, 1)
 	go func() {
 		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off", false, 1)
 	}()
 
-	// Wait for initial sync.
-	time.Sleep(80 * time.Millisecond)
+	// Wait for the watcher to arm, not merely for the initial sync: the
+	// baseline snapshot is taken before the banner prints, so editing a
+	// watched file earlier is invisible to the poller (#585).
+	waitForOutput(t, buf, "watching", 10*time.Second)
 
 	claudeMD := filepath.Join(dir, ".claude/rules/r1.md")
 	if _, err := os.Stat(claudeMD); err != nil {
@@ -155,13 +159,15 @@ func TestWatchSync_PollFallback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	buf := captureWatchOutput(t)
+
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll = true exercises the polling backend explicitly.
 		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true, 1)
 	}()
 
-	time.Sleep(80 * time.Millisecond)
+	waitForOutput(t, buf, "watching", 10*time.Second)
 
 	claudeMD := filepath.Join(dir, ".claude/rules/r1.md")
 	if _, err := os.Stat(claudeMD); err != nil {
@@ -252,6 +258,8 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	buf := captureWatchOutput(t)
+
 	overlay := filepath.Join(dir, agnosticOverlayDir)
 	if err := os.MkdirAll(overlay, 0o755); err != nil {
 		t.Fatal(err)
@@ -269,6 +277,8 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 		// forcePoll=true: deterministic across platforms.
 		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, false, false, "off", true, 1)
 	}()
+
+	waitForOutput(t, buf, "watching", 10*time.Second)
 
 	codexConfig := filepath.Join(dir, ".codex", "config.toml")
 	deadline := time.Now().Add(2 * time.Second)
@@ -652,6 +662,22 @@ func writeAndBumpMtime(t *testing.T, path string, data []byte) {
 	if err := os.Chtimes(path, next, next); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// captureWatchOutput pins the summary sink to a buffer and restores it
+// afterwards, so a test can wait on what the watch loop printed.
+//
+// Every watch test needs this, not only the ones that assert on output:
+// waiting for the watcher's banner is the only reliable way to know the
+// baseline mtime snapshot exists before editing a watched file (#585).
+func captureWatchOutput(t *testing.T) *safeBuffer {
+	t.Helper()
+	buf := &safeBuffer{}
+	prevOut, prevVerbosity := logOut, verbosity
+	logOut = buf
+	verbosity = levelDefault
+	t.Cleanup(func() { logOut, verbosity = prevOut, prevVerbosity })
+	return buf
 }
 
 // waitForOutput blocks until buf contains want, or fails after timeout.
