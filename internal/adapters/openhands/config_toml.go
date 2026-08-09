@@ -1,6 +1,7 @@
 package openhands
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -35,11 +36,11 @@ func renderConfigTOML(stdio, sse, shttp []spec.Entry) string {
 
 	wroteDirectKey := false
 	if len(sse) > 0 {
-		writeServerArray(&sb, "sse_servers", sse)
+		writeServerArray(&sb, "sse_servers", sse, false)
 		wroteDirectKey = true
 	}
 	if len(shttp) > 0 {
-		writeServerArray(&sb, "shttp_servers", shttp)
+		writeServerArray(&sb, "shttp_servers", shttp, true)
 		wroteDirectKey = true
 	}
 	if wroteDirectKey && len(stdio) > 0 {
@@ -55,14 +56,16 @@ func renderConfigTOML(stdio, sse, shttp []spec.Entry) string {
 }
 
 // writeServerArray writes `key = [...]`, one element per entry in the
-// order given (mcpTransportBuckets already sorted it by name).
-func writeServerArray(sb *strings.Builder, key string, entries []spec.Entry) {
+// order given (mcpTransportBuckets already sorted it by name). shttp
+// selects whether serverValue also reads `timeout`, since the vendor
+// documents that field for shttp_servers only.
+func writeServerArray(sb *strings.Builder, key string, entries []spec.Entry, shttp bool) {
 	sb.WriteString(key + " = [")
 	for i, m := range entries {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(serverValue(m))
+		sb.WriteString(serverValue(m, shttp))
 	}
 	sb.WriteString("]\n")
 }
@@ -81,13 +84,47 @@ func writeServerArray(sb *strings.Builder, key string, entries []spec.Entry) {
 // never ties `api_key` to a specific header or scheme), so it is never
 // read for this; emitMCPConfig surfaces that gap as a coverage note
 // instead of guessing a translation.
-func serverValue(m spec.Entry) string {
+//
+// `timeout` (int, 1-3600s, default 60, worked example `timeout = 1800`)
+// is documented under the SHTTP tab only, not for sse_servers, so shttp
+// is the only caller that passes shttp=true and lets it upgrade the
+// entry the same way api_key does; an sse entry that sets it is a
+// no-op the caller (mcpTransportBuckets' timeoutNoOp) turns into a
+// coverage note instead (#588).
+func serverValue(m spec.Entry, shttp bool) string {
 	url, _ := m.Meta["url"].(string)
 	apiKey, _ := m.Meta["api_key"].(string)
-	if apiKey == "" {
+	timeout := 0
+	if shttp {
+		timeout = intMeta(m.Meta, "timeout")
+	}
+	if apiKey == "" && timeout == 0 {
 		return `"` + emit.EscapeTOMLBasic(url) + `"`
 	}
-	return `{ url = "` + emit.EscapeTOMLBasic(url) + `", api_key = "` + emit.EscapeTOMLBasic(apiKey) + `" }`
+	out := `{ url = "` + emit.EscapeTOMLBasic(url) + `"`
+	if apiKey != "" {
+		out += `, api_key = "` + emit.EscapeTOMLBasic(apiKey) + `"`
+	}
+	if timeout != 0 {
+		out += fmt.Sprintf(", timeout = %d", timeout)
+	}
+	return out + " }"
+}
+
+// intMeta reads an int-typed meta key, accepting int / int64 / float64
+// (yaml.v3 decodes numerics as one of these depending on the source).
+// Returns 0 when missing or the wrong type, which doubles as "unset"
+// here since OpenHands' own documented range starts at 1.
+func intMeta(meta map[string]any, key string) int {
+	switch v := meta[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return 0
 }
 
 // mcpTransportBuckets sorts mcps into OpenHands' three `[mcp]` arrays,
@@ -115,8 +152,14 @@ func serverValue(m spec.Entry) string {
 // unmarked. An entry that is itself dropped for missing url is not
 // counted here: NoteFieldNoOp is for a field going inert on an entry
 // that otherwise reaches the target in full, not one that never does.
-func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unmapped, headersNoOp int) {
+//
+// timeoutNoOp is the same idea for `timeout`, but scoped to the sse
+// bucket only: the vendor documents that field under the SHTTP tab,
+// never for sse_servers, so an sse entry that sets it never reaches
+// serverValue's object form (see serverValue's shttp parameter).
+func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unmapped, headersNoOp, timeoutNoOp int) {
 	hasHeaders := func(m spec.Entry) bool { return len(emit.StringMap(m.Meta["headers"])) > 0 }
+	hasTimeout := func(m spec.Entry) bool { return intMeta(m.Meta, "timeout") != 0 }
 	for _, m := range mcps {
 		if m.Name == "" {
 			continue
@@ -136,6 +179,9 @@ func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unm
 				if hasHeaders(m) {
 					headersNoOp++
 				}
+				if hasTimeout(m) {
+					timeoutNoOp++
+				}
 			}
 		case "http":
 			if url, _ := m.Meta["url"].(string); url != "" {
@@ -152,5 +198,5 @@ func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unm
 	slices.SortFunc(stdio, byName)
 	slices.SortFunc(sse, byName)
 	slices.SortFunc(shttp, byName)
-	return stdio, sse, shttp, unmapped, headersNoOp
+	return stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp
 }

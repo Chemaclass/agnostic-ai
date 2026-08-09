@@ -127,6 +127,14 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 	return out
 }
 
+// buildMCPEntry renders one `mcp.<name>` entry from this fixed field
+// set: type, command (stdio) or url/headers (remote), environment, and
+// enabled. Any other documented field beyond that set (`oauth` on a
+// "Pre-registered" remote entry, opencode.ai/docs/mcp-servers/) or any
+// field OpenCode adds next reaches the entry through `x-opencode`
+// (emit.MergeCustomTargetMeta) instead of staying unreachable: commands
+// and agents already get that passthrough (commandFile, agent.go), so
+// the MCP builder matches rather than being the one exception (#588).
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -152,6 +160,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		entry["enabled"] = false
 	}
+	var keys []string
+	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
+		"type", "command", "url", "headers", "environment", "enabled")
 	return entry
 }
 

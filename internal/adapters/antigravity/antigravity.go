@@ -27,7 +27,12 @@
 // stdio servers carry `command`, `args`, `env`, and `cwd`; remote
 // servers add `headers`; both accept `disabled` under that literal
 // name, unlike codex and kilo which map it onto their own
-// `enabled: false`. Hooks now have a documented schema
+// `enabled: false`. Any other documented field (`authProviderType`,
+// `oauth`, `disabledTools`, same page) or any field the vendor adds
+// next reaches the file through an entry's `x-antigravity` block
+// (emit.MergeCustomTargetMeta), the same escape hatch zed and warp give
+// their own unmapped fields (#588); `import antigravity` captures it
+// back the same way. Hooks now have a documented schema
 // (antigravity.google/docs/ide/hooks: `.agents/hooks.json`, five
 // events, PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop),
 // but whether the IDE itself executes them stays unconfirmed

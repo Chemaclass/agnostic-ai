@@ -12,17 +12,20 @@ import (
 // TestAntigravityRoundTrip_SyncImportSyncIsByteEqual is the
 // antigravity audit's byte-stability gate from #343:
 //
-//	sync antigravity -> snapshot .agents/* (rules, agents) + .agent/AGENTS.md
+//	sync antigravity -> snapshot .agents/* (rules, agents, mcp) + .agent/AGENTS.md
 //	                 -> wipe source specs
 //	                 -> import antigravity
 //	                 -> wipe emit
 //	                 -> sync antigravity
 //	                 -> assert byte-for-byte identical
 //
-// Fixture: 3 rules + 3 agents. Skills and MCP servers are covered at the
-// adapter-test level (internal/adapters/antigravity), not duplicated
-// here: `import antigravity` does not read either back yet, so adding
-// them to this fixture would only fail the path-set comparison below.
+// Fixture: 3 rules + 3 agents + 2 MCP servers (one stdio, one remote,
+// covering the `serverUrl` <-> `url` rename import must reverse so a
+// re-emit lands on the same bytes). Skills stay covered at the
+// adapter-test level (internal/adapters/antigravity) only: `import
+// antigravity` does not read them back yet, so adding them to this
+// fixture would only fail the path-set comparison below. MCP servers
+// carried the same carve-out until #589 added importAntigravityMCP.
 func TestAntigravityRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -35,7 +38,7 @@ func TestAntigravityRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 		t.Fatalf("first sync produced no antigravity output")
 	}
 
-	for _, sub := range []string{"agents", "rules"} {
+	for _, sub := range []string{"agents", "rules", "mcps"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -76,6 +79,7 @@ func seedAntigravityRoundTripFixture(t *testing.T, dir string) {
 sources:
   agents: .agnostic-ai/agents
   rules: .agnostic-ai/rules
+  mcps: .agnostic-ai/mcps
 targets:
   - antigravity
 gitignore:
@@ -93,6 +97,12 @@ gitignore:
 		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules", n+".md"),
 			[]byte("---\nname: "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/fs.yaml"),
+		[]byte("name: fs\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\ncwd: /workspace\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/github.yaml"),
+		[]byte("name: github\ntype: http\nurl: https://api.githubcopilot.com/mcp/\nheaders:\n  Authorization: Bearer x\n"), 0o644))
 }
 
 // snapshotAntigravityEmit reads every file under .agent/ (the
