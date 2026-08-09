@@ -278,6 +278,51 @@ func TestEmit_MCP_NotDisabledNoDisabledKey(t *testing.T) {
 	}
 }
 
+// Three more MCP fields are documented (antigravity.google/docs/ide/mcp:
+// `authProviderType`, `oauth`, `disabledTools`) but buildMCPServer has no
+// dedicated case for any of them. Before this fix the antigravity
+// package had zero MergeCustomTargetMeta calls, so none of the three
+// (or any future field the vendor adds) could reach the file at all;
+// `x-antigravity` now passes through verbatim, the same escape hatch
+// zed and warp already give their own unmapped fields (#588).
+func TestEmit_MCP_XAntigravityPassthroughReachesJSON(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "corp-tools",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://mcp.corp.example/tools",
+				"x-antigravity": map[string]any{
+					"authProviderType": "google_credentials",
+					"oauth": map[string]any{
+						"clientId":     "abc",
+						"clientSecret": "def",
+					},
+					"disabledTools": []any{"dangerous_tool"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/mcp_config.json"))
+	for _, want := range []string{
+		`"authProviderType": "google_credentials"`,
+		`"clientId": "abc"`,
+		`"clientSecret": "def"`,
+		`"disabledTools"`,
+		"dangerous_tool",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

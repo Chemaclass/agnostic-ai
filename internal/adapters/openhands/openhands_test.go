@@ -341,6 +341,85 @@ func TestEmit_MCP_HeadersOnRemoteEntrySurfacesCoverageNote(t *testing.T) {
 	}
 }
 
+// SHTTP (`type: http`) is the only tab
+// https://docs.openhands.dev/openhands/usage/settings/mcp-settings
+// documents `timeout` (int, 1-3600s, default 60) on, worked example
+// `timeout = 1800`. It upgrades the entry to the object form the same
+// way api_key does, and the two combine in one object when both are set.
+func TestEmit_MCP_SHTTPTimeoutEmitsObjectForm(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "search", Meta: map[string]any{
+			"type": "http", "url": "https://example.test/mcp", "timeout": 1800,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `{ url = "https://example.test/mcp", timeout = 1800 }`) {
+		t.Errorf("missing timeout object form in %s", got)
+	}
+}
+
+// timeout combines with api_key in the vendor's own documented order
+// (url, api_key, timeout) when both are set on the same shttp entry.
+func TestEmit_MCP_SHTTPTimeoutAndAPIKeyCombine(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "search", Meta: map[string]any{
+			"type": "http", "url": "https://example.test/mcp",
+			"api_key": "secret", "timeout": 1800,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `{ url = "https://example.test/mcp", api_key = "secret", timeout = 1800 }`) {
+		t.Errorf("missing combined api_key+timeout object form in %s", got)
+	}
+}
+
+// timeout is documented for shttp_servers only, not sse_servers, so an
+// sse entry that sets it gets a coverage note instead of a silently
+// inert field: the vendor never confirms it does anything there.
+func TestEmit_MCP_SSETimeoutSurfacesCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "events", Meta: map[string]any{
+			"type": "sse", "url": "https://example.test/sse", "timeout": 1800,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	note := buf.String()
+	for _, want := range []string{"`timeout`", "1 mcp", "openhands", "shttp"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `sse_servers = ["https://example.test/sse"]`) {
+		t.Errorf("entry itself should still reach openhands via url, got: %s", got)
+	}
+	if strings.Contains(got, "timeout") {
+		t.Errorf("timeout must not reach the sse_servers form, got: %s", got)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

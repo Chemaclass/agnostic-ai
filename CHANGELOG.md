@@ -6,6 +6,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Antigravity MCP servers now pass through any `x-antigravity` field beyond the documented set (`authProviderType`, `oauth`, `disabledTools`), matching the escape hatch Zed and Warp already give their own unmapped fields. `import antigravity` reads it back the same way (#588).
+- `import antigravity` now reads `.agents/mcp_config.json` back into MCP specs. It previously returned 0 MCP specs for every project, so a synced Antigravity setup could not round-trip its own MCP config (#589).
+- OpenCode MCP servers now pass through any `x-opencode` field beyond the documented set, including the `oauth` client-credentials object for a pre-registered remote server, matching the passthrough commands and agents already had (#588).
+- OpenHands streamable-HTTP MCP servers now emit the optional `timeout` field (1-3600 seconds). An `sse_servers` entry that sets it, which OpenHands does not document, gets a coverage note instead of a silent no-op (#588).
+- Qoder agents now emit `color` when a spec sets it, matching the field Augment and Kilo Code already promote (#588).
+
 ### Fixed
 
 - crush now emits a `type: sse` MCP entry as `"type": "sse"` instead of collapsing it into `"type": "http"` (#586). Crush routes the two to different SDK transports (`SSEClientTransport` vs `StreamableClientTransport`), so an SSE-only server failed to connect once mislabelled as http. `type: remote` still defaults to `http`, since Crush has no `remote` transport of its own.

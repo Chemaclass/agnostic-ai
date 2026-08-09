@@ -343,6 +343,48 @@ func TestEmit_MCP_HTTPWritesRemoteURL(t *testing.T) {
 	}
 }
 
+// oauth (client credentials for a pre-registered remote server,
+// opencode.ai/docs/mcp-servers/ "Pre-registered": `"oauth":
+// {"clientId": ..., "clientSecret": ..., "scope": ...}`) reaches the
+// file through x-opencode, the same passthrough commandFile already
+// gives commands and agents. buildMCPEntry enumerated its fields with
+// no such escape hatch before this fix (#588).
+func TestEmit_MCP_XOpencodePassthroughReachesOAuth(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type": "remote",
+				"url":  "https://mcp.linear.app",
+				"x-opencode": map[string]any{
+					"oauth": map[string]any{
+						"clientId":     "{env:MY_MCP_CLIENT_ID}",
+						"clientSecret": "{env:MY_MCP_CLIENT_SECRET}",
+						"scope":        "tools:read tools:execute",
+					},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{
+		`"oauth"`,
+		`"clientId": "{env:MY_MCP_CLIENT_ID}"`,
+		`"clientSecret": "{env:MY_MCP_CLIENT_SECRET}"`,
+		`"scope": "tools:read tools:execute"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // A spec's `disabled: true` writes OpenCode's own `enabled: false` key
 // (#555), the vocabulary opencode.ai/docs/mcp-servers documents:
 // "You can also disable a server by setting `enabled` to `false`."

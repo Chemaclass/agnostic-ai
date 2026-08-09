@@ -47,8 +47,8 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 	return string(raw) + "\n", nil
 }
 
-// buildMCPServer renders one `mcpServers` entry with only the fields
-// Antigravity's own doc confirms (antigravity.google/docs/mcp): stdio
+// buildMCPServer renders one `mcpServers` entry with the fields
+// Antigravity's own doc confirms (antigravity.google/docs/ide/mcp): stdio
 // carries `command` plus optional `args` / `env` / `cwd`; remote
 // transports carry `serverUrl` plus optional `headers`. Both transports
 // accept `disabled` as its own boolean, the vendor's documented name for
@@ -59,10 +59,15 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 // shared emit.MCPSchemaServersMap, which still emits `url` for every
 // other `mcpServers`-rooted target.
 //
-// `description`, `roots`, and a `type` discriminant remain unconfirmed
-// for Antigravity and are intentionally omitted, the same standard the
-// kilo adapter holds its own tool-name mapping to: no vendor-confirmed
-// shape, no guess.
+// Three more documented fields (`authProviderType`, `oauth`,
+// `disabledTools`, same page) have no dedicated case here: rather than
+// enumerate every field the vendor might add next, this builder ends
+// with emit.MergeCustomTargetMeta, so an entry's `x-antigravity` block
+// reaches the rendered object verbatim, the same escape hatch zed and
+// warp already give their own unmapped fields. `description`, `roots`,
+// and a `type` discriminant remain unconfirmed for Antigravity and stay
+// reachable only that way too: no vendor-confirmed shape, no guess, but
+// no dead end either (#588).
 func buildMCPServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -100,5 +105,8 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		out["disabled"] = true
 	}
+	var keys []string
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
+		"command", "args", "env", "cwd", "serverUrl", "headers", "disabled")
 	return out
 }

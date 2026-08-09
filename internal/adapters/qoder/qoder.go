@@ -12,7 +12,14 @@
 // `.qoder/agents/<name>.md` (override via outputs.qoder.agents-dir):
 // docs.qoder.com/extensions/subagent documents `name` and
 // `description` as required frontmatter, plus optional `model`,
-// `tools`, `skills`, and `mcpServers`. `tools` renders as a
+// `tools`, `skills`, and `mcpServers`. docs.qoder.com/cli/subagent's
+// field reference additionally documents `color` (one of eight named
+// values, e.g. `red`, `cyan`, shown while the Subagent runs in the
+// TUI); the smaller `/extensions/subagent` page omits it but defers to
+// the CLI page as "the complete guide" for the identical
+// `.qoder/agents/<name>.md` path, so this adapter emits `color` too
+// when a spec sets it, the same shared portable field augment and kilo
+// already promote (#588). `tools` renders as a
 // comma-separated string (`tools: Read, Grep, Bash`). docs.qoder.com/
 // cli/subagent documents two other forms too, a YAML inline array
 // (`tools: [Read, Grep, Bash]`) and a YAML block list, so the
@@ -132,13 +139,15 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 
 // agentMarkdown renders one `.qoder/agents/<name>.md` file. `name`
 // (from the spec name) and `description` (falls back to the spec name)
-// are Qoder's required frontmatter keys; `model`, `tools`, `skills`,
-// and `mcpServers` are its documented optional ones (see the package
-// doc). `tools` joins agnostic-ai's generic list into Qoder's
+// are Qoder's required frontmatter keys; `model`, `tools`, `color`,
+// `skills`, and `mcpServers` are its documented optional ones (see the
+// package doc). `tools` joins agnostic-ai's generic list into Qoder's
 // comma-separated string form; a spec that already wrote a plain
-// string (e.g. via x-qoder) passes through unchanged. `skills` and
-// `mcpServers` pass through whatever shape the spec declares, since
-// Qoder defines no agnostic-ai-native format for either.
+// string (e.g. via x-qoder) passes through unchanged. `color` is a
+// shared portable concept augment.go and kilo.go already promote the
+// same way (#588). `skills` and `mcpServers` pass through whatever
+// shape the spec declares, since Qoder defines no agnostic-ai-native
+// format for either.
 func agentMarkdown(a spec.Entry) string {
 	resolved := emit.ResolveMeta(a.Meta, target)
 	desc, _ := resolved["description"].(string)
@@ -158,14 +167,14 @@ func agentMarkdown(a spec.Entry) string {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
-	for _, k := range []string{"skills", "mcpServers"} {
+	for _, k := range []string{"color", "skills", "mcpServers"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)
 		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target,
-		"name", "description", "model", "tools", "skills", "mcpServers")
+		"name", "description", "model", "tools", "color", "skills", "mcpServers")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {

@@ -107,6 +107,85 @@ func TestImportFromAntigravity_PrefersPluralOverLegacyRulesDir(t *testing.T) {
 	}
 }
 
+// import antigravity had no MCP reader at all (#589): a hand-authored
+// or agnostic-ai-emitted .agents/mcp_config.json produced 0 MCP specs
+// back, silently.
+func TestImportFromAntigravity_ImportsMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	config := `{
+  "mcpServers": {
+    "fs": {"command": "fs-server", "args": ["--root", "."], "cwd": "/workspace"}
+  }
+}`
+	writeFile(t, filepath.Join(dir, antigravityMCPFile), config)
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/fs.yaml: %v", err)
+	}
+	for _, want := range []string{"name: fs", "command: fs-server", "--root", "cwd: /workspace"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q in mcp file: %s", want, data)
+		}
+	}
+}
+
+// Antigravity's own field name for a remote server is `serverUrl`, not
+// the generic spec's `url`: the vendor doc states the legacy `url` /
+// `httpUrl` names "are not supported." Import must rename it back to
+// `url` so a re-emit through buildMCPServer (which reads e.Meta["url"])
+// reaches the same JSON again.
+func TestImportFromAntigravity_MCPRemoteRenamesServerURLToURL(t *testing.T) {
+	dir := t.TempDir()
+	config := `{
+  "mcpServers": {
+    "github": {"serverUrl": "https://api.githubcopilot.com/mcp/", "headers": {"Authorization": "Bearer x"}}
+  }
+}`
+	writeFile(t, filepath.Join(dir, antigravityMCPFile), config)
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "mcps", "github.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/github.yaml: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, "url: https://api.githubcopilot.com/mcp/") {
+		t.Errorf("expected serverUrl renamed to url, got: %s", got)
+	}
+	if strings.Contains(got, "serverUrl") {
+		t.Errorf("serverUrl must not survive the import, got: %s", got)
+	}
+}
+
+// A field beyond the ones this adapter maps explicitly (authProviderType,
+// oauth, disabledTools: antigravity.google/docs/ide/mcp) round-trips
+// through x-antigravity, the same escape hatch mcp.go's buildMCPServer
+// emits it through on the way out (#588, #589).
+func TestImportFromAntigravity_MCPUnknownFieldRoundTripsUnderXAntigravity(t *testing.T) {
+	dir := t.TempDir()
+	config := `{
+  "mcpServers": {
+    "corp-tools": {"serverUrl": "https://mcp.corp.example/tools", "authProviderType": "google_credentials"}
+  }
+}`
+	writeFile(t, filepath.Join(dir, antigravityMCPFile), config)
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "mcps", "corp-tools.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/corp-tools.yaml: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, "x-antigravity") || !strings.Contains(got, "authProviderType: google_credentials") {
+		t.Errorf("expected authProviderType preserved under x-antigravity, got: %s", got)
+	}
+}
+
 func TestImportFromAntigravity_MirrorsAgentsMD(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {

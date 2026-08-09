@@ -266,6 +266,60 @@ func TestEmit_Agent_SkillsAndMCPServersPassThrough(t *testing.T) {
 	}
 }
 
+// color (docs.qoder.com/cli/subagent field reference: one of eight
+// named values, e.g. `cyan`, shown while the Subagent runs in the TUI)
+// is a shared portable concept augment.go and kilo.go already promote;
+// qoder must too (#588).
+func TestEmit_Agent_ColorField(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "reviewer",
+			Meta: map[string]any{"description": "d", "color": "cyan"},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/reviewer.md"))
+	if !strings.Contains(got, "color: cyan") {
+		t.Errorf("missing color: cyan in:\n%s", got)
+	}
+}
+
+// x-qoder.color overrides a plain top-level color, and must not also
+// duplicate the key via the generic x-qoder passthrough below it:
+// ResolveMeta already flattens x-qoder.color onto the top-level field
+// agentMarkdown's loop reads, the same double-emission risk color, tools
+// (see TestEmit_Agent_XQoderToolsOverridesGenericList).
+func TestEmit_Agent_XQoderColorOverridesGenericColor(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"color":       "red",
+				"x-qoder":     map[string]any{"color": "purple"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "color: purple") {
+		t.Errorf("expected x-qoder.color to win, got:\n%s", got)
+	}
+	if strings.Count(got, "color:") != 1 {
+		t.Errorf("expected exactly one color: line, got:\n%s", got)
+	}
+}
+
 // x-qoder cannot reintroduce name: the file identity always comes from
 // the spec name, matching every other AGENTS.md-family target's
 // per-file surface.
