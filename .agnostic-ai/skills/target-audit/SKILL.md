@@ -56,6 +56,18 @@ Spawn one `target-auditor` per printed batch, **all in a single message**
 so they run in parallel. Name them after Lord of the Rings characters in
 batch order: Frodo, Sam, Gandalf, Aragorn, Legolas.
 
+**Address agents by the ID from their spawn result, never by bare name.**
+A long session accumulates agents across runs, and a bare name resolves
+to the most recent holder of it. On 2026-08-09 a message meant for that
+run's batch-3 auditor reached the Gandalf from the 2026-08-01 run
+instead. That agent then received "your report never reached me" about a
+report it had filed eight days earlier, correctly refused to accept the
+contradiction, and spent a full cycle re-verifying findings that were
+already fixed. It also surfaced phantom task assignments attributed to
+its own name. Nothing was damaged, because it verified before acting,
+but the whole exchange was avoidable. Either scope the names to the run
+(`Frodo-0809`) or use the spawn ID.
+
 Registry order is roughly chronological, so batch 1 holds the fast-moving
 vendors (claude, codex, gemini, cursor, copilot) and the last batch holds
 the newest, thinnest-documented entrants. Both ends need the most
@@ -143,6 +155,16 @@ must touch:
 Never open an issue for an `unconfirmed` finding. Those go in the report
 under `Needs a human` with the question that would settle it.
 
+**Before filing anything as a design or schema question, try it.** The
+2026-08-09 run filed "amp: skill-bundled MCP needs a spec-level
+relationship between an MCP entry and a skill, which `spec.Bundle` models
+for no target" and deliberately withheld it from the fixers. It was
+wrong. Amp accepts MCP servers in a skill's `SKILL.md` frontmatter, and
+the existing `x-amp` passthrough already emitted them there verbatim. One
+`sync` would have shown that. Two of us reasoned from the schema instead
+of running it, and nearly booked a schema change for a documentation gap.
+Check whether an existing escape hatch already covers the case first.
+
 ## Phase 6: Fix (only with `--fix`)
 
 `--fix` implies `--file-issues`, so every fix has an issue to close.
@@ -201,9 +223,37 @@ warp; a capability map where one side had `antigravity` and the other had
 `factory, qoder, openhands`; a count of MCP-capable targets that was
 wrong on both sides.
 
+**The worse case is when both sides land intact.** Git only conflicts on
+overlapping lines. Two PRs that each *append* their own version of a
+shared paragraph or table row merge cleanly and leave both copies in the
+file, contradicting each other, with no conflict marker to catch it. The
+2026-08-08 run shipped three of these: two `- **Skills**:` bullets eight
+minutes apart, one saying "Warp has no skill surface" and the other
+listing Warp's scanned directories; duplicated `trae` and `qoder` rows in
+the capability matrices of both `targets.md` and `README.md`.
+
+In every case one copy was current and one stale, **and not consistently
+in the same position**: trae wanted the second row, qoder the first. So
+resolve per cell against adapter source, never by position or recency.
+`tests/integration/docs_capability_tables_test.go` now fails the build on
+a duplicated table row; the prose bullets are still unguarded, so read
+them after any run that touched shared docs.
+
 Read the diff before merging, and check it against the evidence that
 justified it. Two fixes that run cleanly on their own branch can still be
 jointly wrong.
+
+**Expect fixers to correct the prompt, and treat it as the system
+working.** Three of four fixers in the 2026-08-09 run rejected something
+handed to them, and all three were right: one refused to apply the crush
+`sse` fix to kilo and opencode by analogy (their vendors take only
+`local`/`remote`, so it would have emitted a `type` neither accepts); one
+found the windsurf doc URLs 404 on the domain implied and used the right
+one; one rejected "reuse the shared MCP helper, it passes the transport
+through" after checking that the helper writes the key `type` while Devin
+documents `transport`, which would have shipped a silently unread file.
+Hand over the reproduction so they can check, and never treat pushback as
+noise.
 
 A red CI run is a signal, not an obstacle. Read the failing log before
 concluding it is a flake, and check whether the same job fails on `main`.
