@@ -580,6 +580,18 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	claudeAgent := filepath.Join(dir, ".claude", "agents", "a1.md")
 	waitForFile(t, claudeAgent, 10*time.Second)
 
+	// Then wait for the watcher to arm before touching anything.
+	//
+	// The emitted file appearing only proves the initial sync ran.
+	// watchSyncPoll takes its baseline mtime snapshot after that sync and
+	// prints the banner immediately afterwards, so the banner is the first
+	// observable point at which the snapshot exists. Editing the spec
+	// before it means the baseline already contains the edit, no change is
+	// ever detected, and the test fails when its own deadline expires
+	// rather than for any real reason. That is what flaked on the slower
+	// windows-latest runner (#585).
+	waitForOutput(t, buf, "watching", 10*time.Second)
+
 	// Touch the claude-scoped agent spec; ensure the mtime advances first.
 	specPath := filepath.Join(dir, ".agnostic-ai", "agents", "a1.md")
 	content, err := os.ReadFile(specPath)
@@ -640,6 +652,19 @@ func writeAndBumpMtime(t *testing.T, path string, data []byte) {
 	if err := os.Chtimes(path, next, next); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// waitForOutput blocks until buf contains want, or fails after timeout.
+func waitForOutput(t *testing.T, buf *safeBuffer, want string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(buf.String(), want) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %q in watch output; got:\n%s", want, buf.String())
 }
 
 func waitForFile(t *testing.T, path string, timeout time.Duration) {
