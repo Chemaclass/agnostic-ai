@@ -6,6 +6,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- `golang.org/x/sync` moves from 0.15.0 to 0.19.0. Dependabot proposed 0.22.0 (#514), but every release from 0.20.0 onward declares `go 1.25.0`, which would have raised the minimum toolchain for anyone installing with `go install`. 0.19.0 is the newest release still declaring `go 1.24.0`, matching this project's own `go.mod`, and `errgroup` is the only package used from it.
+
+### Fixed
+
+- The install docs stated Go 1.23+ while `go.mod` has required 1.24.0 for some time. The landing page and the contributing guide now both say 1.24+.
+
 ## v0.48.0 - 2026-08-09
 
 ### Added

@@ -4,7 +4,7 @@ Short version: [/CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Setup
 
-Go 1.23+.
+Go 1.24+.
 
 ```bash
 git clone https://github.com/Chemaclass/agnostic-ai
