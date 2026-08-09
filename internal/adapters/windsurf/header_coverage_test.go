@@ -14,6 +14,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// TestEmit_ProvenanceHeaderOnEveryEmittedFile is the windsurf adapter's
+// header-coverage contract: every Markdown file the adapter writes
+// must carry the agnostic-ai provenance marker. `.devin/mcp_config.json`
+// legitimately skips the header (JSON has no comment syntax).
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -24,6 +28,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -38,6 +44,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty exempt output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -71,6 +87,22 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"env":     map[string]any{"ROOT": "/tmp"},
+			},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://example.test/mcp",
+				"headers": map[string]any{"Authorization": "Bearer token"},
+			},
+		},
 	}
 	return spec.NewBundle(entries)
 }

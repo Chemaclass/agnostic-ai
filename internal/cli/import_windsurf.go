@@ -20,6 +20,13 @@ var windsurfRulesDirs = []string{
 // openhands emit into.
 const windsurfSkillsDir = ".agents/skills"
 
+// windsurfMCPFile is the project-scoped MCP server registry Devin
+// Local reads (docs.devin.ai/cli/extensibility/mcp/configuration).
+const windsurfMCPFile = ".devin/mcp_config.json"
+
+// windsurfMCPKey is the top-level JSON object holding the server map.
+const windsurfMCPKey = "mcpServers"
+
 // windsurfImportDir returns the first existing candidate rules dir
 // under root, defaulting to the preferred `.devin/rules` when neither
 // exists yet.
@@ -43,8 +50,11 @@ func windsurfImportDir(root string) string {
 //     native folder.
 //   - `.agents/skills/<name>/SKILL.md` folders reconstruct skills
 //     natively, with bundled sibling assets copied byte-for-byte.
+//   - `.devin/mcp_config.json`'s `mcpServers` map writes one yaml per
+//     server. See importWindsurfMCP for the `transport` -> `type`
+//     rename this importer applies on the way in.
 func importFromWindsurf(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importRulesDirectory(root, windsurfImportDir(root), src)
@@ -56,7 +66,37 @@ func importFromWindsurf(root string, src config.Sources) error {
 		return err
 	}
 	c.skills += folderSkills
-	summaryf("imported %d rules, %d agents, %d skills (from windsurf)\n", c.rules, c.agents, c.skills)
+	mcps, err := importWindsurfMCP(root, filepath.Join(root, src.MCPs))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps (from windsurf)\n", c.rules, c.agents, c.skills, mcps)
 	printImportNextSteps(root, "windsurf")
 	return nil
+}
+
+// importWindsurfMCP reads `.devin/mcp_config.json` and writes one yaml
+// per `mcpServers.<name>` entry into dstDir. Devin's own file spells
+// the transport discriminant `transport`, not the `type` key
+// agnostic-ai's spec meta uses everywhere else (see the windsurf
+// adapter's mcp.go), so this renames it on the way in. A url-only
+// entry with no explicit `transport` (Devin's own default) still
+// infers `type: http` via writeMCPYAMLs, the same way every other
+// JSON-map importer does. No-op when the file is absent.
+func importWindsurfMCP(root, dstDir string) (int, error) {
+	servers, err := readJSONMapAt(filepath.Join(root, windsurfMCPFile), windsurfMCPKey)
+	if err != nil || len(servers) == 0 {
+		return 0, err
+	}
+	for _, raw := range servers {
+		entry, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if transport, ok := entry["transport"]; ok {
+			entry["type"] = transport
+			delete(entry, "transport")
+		}
+	}
+	return writeMCPYAMLs(servers, dstDir)
 }

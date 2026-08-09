@@ -144,6 +144,7 @@ outputs:
     rules-dir: .devin/rules      # default. One .md per rule and per agent (Devin Desktop, the renamed Windsurf).
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
     ignore-file: .devinignore    # default. Agent ignore patterns (gitignore syntax); legacy .codeiumignore / .windsurfignore still read.
+    mcp-file: .devin/mcp_config.json  # default. Devin Local's file; remote entries use transport, not type.
     # workflows-dir: .windsurf/workflows    # opt-in: also emit each agent as a Workflow (/<name>).
   continue:
     rules-dir: .continue/rules        # default
@@ -297,6 +298,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. |
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
+| `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
