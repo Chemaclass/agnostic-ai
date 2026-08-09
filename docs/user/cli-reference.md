@@ -535,7 +535,9 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## lint
 
-Semantic checks beyond schema: empty specs, hook collisions, duplicate names, and dead specs (kinds no enabled target supports). Exit 1 on error findings, or on warnings when `--strict` is set.
+Semantic checks beyond schema: empty specs, hook collisions, duplicate names, dead specs (kinds no enabled target supports), hooks setting a matcher on an event that ignores it, and unterminated frontmatter. Exit 1 on error findings, or on warnings when `--strict` is set.
+
+Unterminated frontmatter (LINT006) is the one worth knowing about: a spec that opens `---` and never closes it parses as body-only, so the raw YAML is emitted verbatim into every target and the spec silently never loads. `validate` and `sync` both pass in that state, which is why it is a lint error rather than a warning.
 
 ```bash
 agnostic-ai lint

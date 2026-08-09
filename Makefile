@@ -16,8 +16,9 @@ test:
 test-race:
 	go test -race ./...
 
-test-shell:
-	bashunit scripts/release_test.sh scripts/target-facts_test.sh scripts/install_test.sh
+# e2e_test.sh drives the built binary, so build first.
+test-shell: build
+	bashunit scripts/release_test.sh scripts/target-facts_test.sh scripts/install_test.sh scripts/e2e_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.

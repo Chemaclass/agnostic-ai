@@ -67,6 +67,7 @@ func newLintCmd() *cobra.Command {
 			findings = append(findings, lintDuplicateNames(entries)...)
 			findings = append(findings, lintDeadSpecs(entries, cfg.Targets)...)
 			findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
+			findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -224,6 +225,36 @@ func lintHookMatcherMisuse(hooks []spec.Entry) []lintFinding {
 				"matcher %q set but event %q does not consume a matcher; drop the matcher or use a tool-call event (e.g. PreToolUse, PostToolUse)",
 				matcher, event,
 			),
+		})
+	}
+	return out
+}
+
+// lintUnterminatedFrontmatter flags specs that open a `---` block and never
+// close it (LINT006, error).
+//
+// splitFrontmatter treats such a file as body-only, so the raw YAML survives
+// as body text and every adapter writes it through verbatim. Nothing else
+// catches this: the spec loads, validate passes, and sync exits 0 while
+// emitting files whose frontmatter is structurally broken. Targets that write
+// no frontmatter of their own end up with a single unterminated delimiter;
+// targets that write their own block end up with a stray third one that opens
+// a second block. Either way the agent silently never loads.
+//
+// A parsed block leaves Meta populated and strips the delimiters, so a body
+// that still starts with `---` alongside empty Meta is the signature of the
+// unterminated case.
+func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, e := range entries {
+		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT006",
+			Severity: lintError,
+			Path:     e.Path,
+			Message:  "frontmatter opens with `---` but is never closed; add the closing `---` or the block is emitted as body text",
 		})
 	}
 	return out
