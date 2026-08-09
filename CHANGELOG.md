@@ -6,27 +6,25 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- A `tools` list on a Cursor agent now surfaces a coverage note instead of vanishing. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`, so an allowlist cannot restrict them; kilo, augment, and codex already warned in the identical situation while cursor stayed silent. `docs/user/spec-format.md` gains a per-target `tools` table, since one `tools: [Read, Bash]` spec produces five different outcomes across targets and Kiro's translation grants more than the name it came from.
+
 ## v0.47.0 - 2026-08-08
+
+### Added
+
+- Kilo Code agents now emit `color` and `mode` when a spec sets them, matching Kilo's own agent Configuration Options table; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
+- Qoder skills emit into their own native folder tree, `.qoder/skills/<name>/SKILL.md`, instead of skipping with an unsupported-kind warning. Qoder's doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one. `import qoder` reconstructs skills from the new folder tree (#558).
+- Kiro agents translate a spec's generic `tools` list onto Kiro's own documented category tags (`Read`/`Grep`/`Glob` to `read`, `Write`/`Edit` to `write`, `Bash` to `shell`, `WebFetch`/`WebSearch` to `web`) instead of a permanent no-op. A name outside that set surfaces a coverage note rather than writing an unconfirmed value; `x-kiro.tools` still wins outright over the translation (#559).
+- `sync -t warp` now writes native skill folders at `.agents/skills/<name>/SKILL.md`, the shared tree codex, amp, and zed already emit into. Warp's docs recommend this path over the other three it also scans (`.warp/skills/`, `.claude/skills/`, `.codex/skills/`); skills previously stayed source-dir only with a permanent coverage note (#557).
 
 ### Changed
 
 - The `target-audit` skill and its auditor agent record what two weeks of running them taught: a client-side meta-refresh stub defeats WebFetch and reads as an absent doc rather than a moved one, `gh pr checks` beats `statusCheckRollup` because the rollup serves stale conclusions, a wait loop must not read "no data" as "finished", platform status is worth checking before diagnosing a broken branch, and a merged PR does not reliably close its issue.
-### Added
-
-- Kilo Code agents now emit `color` and `mode` when a spec sets them, matching Kilo's own agent Configuration Options table; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
-### Added
-
-- Qoder skills emit into their own native folder tree, `.qoder/skills/<name>/SKILL.md`, instead of skipping with an unsupported-kind warning. Qoder's doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one. `import qoder` reconstructs skills from the new folder tree (#558).
-### Added
-
-- Kiro agents translate a spec's generic `tools` list onto Kiro's own documented category tags (`Read`/`Grep`/`Glob` to `read`, `Write`/`Edit` to `write`, `Bash` to `shell`, `WebFetch`/`WebSearch` to `web`) instead of a permanent no-op. A name outside that set surfaces a coverage note rather than writing an unconfirmed value; `x-kiro.tools` still wins outright over the translation (#559).
-### Added
-
-- `sync -t warp` now writes native skill folders at `.agents/skills/<name>/SKILL.md`, the shared tree codex, amp, and zed already emit into. Warp's docs recommend this path over the other three it also scans (`.warp/skills/`, `.claude/skills/`, `.codex/skills/`); skills previously stayed source-dir only with a permanent coverage note (#557).
 
 ### Fixed
 
-- A `tools` list on a Cursor agent now surfaces a coverage note instead of vanishing. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`, so an allowlist cannot restrict them; kilo, augment, and codex already warned in the identical situation while cursor stayed silent. `docs/user/spec-format.md` gains a per-target `tools` table, since one `tools: [Read, Bash]` spec produces five different outcomes across targets and Kiro's translation grants more than the name it came from.
 - The capability-map parity test now runs in both directions. It already caught a target gaining a capability without being registered; it now also catches one that stops supporting a kind and is left in the map, which happened when amp's `Command` support was removed and only a human reading the diff noticed.
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
 - `import zed` no longer drops MCP servers from a `.zed/settings.json` that agnostic-ai itself emitted. The reader accepted only a nested `command: {path, args, env}` object, while Zed documents (and the zed adapter writes) `command` as a plain string with `args` and `env` beside it; remote `url` servers were skipped outright for having no `command` key. All three shapes now import (#546).
