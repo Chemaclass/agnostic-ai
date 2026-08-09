@@ -313,6 +313,10 @@ type Bundle struct {
 	Reviews      []Entry
 	Environments []Entry
 	Ignores      []Entry
+	// Shadowed holds entries dropped because a peer in the same layer
+	// declared the same name. They reach no target; `lint` reports them
+	// (#582). Cross-layer overrides are intentional and never listed here.
+	Shadowed []Entry
 }
 
 // NewBundle groups a flat slice of entries by kind. Useful in tests and
@@ -469,16 +473,19 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 		if err != nil {
 			return Bundle{}, err
 		}
-		b.Agents = mergeEntries(b.Agents, lb.Agents)
-		b.Skills = mergeEntries(b.Skills, lb.Skills)
-		b.Rules = mergeEntries(b.Rules, lb.Rules)
-		b.Hooks = mergeEntries(b.Hooks, lb.Hooks)
-		b.MCPs = mergeEntries(b.MCPs, lb.MCPs)
-		b.Commands = mergeEntries(b.Commands, lb.Commands)
-		b.Settings = mergeEntries(b.Settings, lb.Settings)
-		b.Reviews = mergeEntries(b.Reviews, lb.Reviews)
-		b.Environments = mergeEntries(b.Environments, lb.Environments)
-		b.Ignores = mergeEntries(b.Ignores, lb.Ignores)
+		for _, m := range []struct {
+			into *[]Entry
+			from []Entry
+		}{
+			{&b.Agents, lb.Agents}, {&b.Skills, lb.Skills}, {&b.Rules, lb.Rules},
+			{&b.Hooks, lb.Hooks}, {&b.MCPs, lb.MCPs}, {&b.Commands, lb.Commands},
+			{&b.Settings, lb.Settings}, {&b.Reviews, lb.Reviews},
+			{&b.Environments, lb.Environments}, {&b.Ignores, lb.Ignores},
+		} {
+			merged, shadowed := mergeEntries(*m.into, m.from)
+			*m.into = merged
+			b.Shadowed = append(b.Shadowed, shadowed...)
+		}
 	}
 	return b, nil
 }
@@ -524,23 +531,33 @@ func loadLayer(layer Layer) (Bundle, error) {
 // mergeEntries appends src onto base, replacing any entry in base with
 // the same Name. Order preserved: existing names keep their slot, new
 // names append.
-func mergeEntries(base, src []Entry) []Entry {
+//
+// The second return holds entries that were replaced by a peer from the
+// same layer. Replacing across layers is the documented way to override a
+// spec, so those are not reported. Two files in one layer declaring the
+// same name is an authoring mistake instead: one silently wins and the
+// other's body never reaches any target (#582).
+func mergeEntries(base, src []Entry) ([]Entry, []Entry) {
 	if len(src) == 0 {
-		return base
+		return base, nil
 	}
+	var shadowed []Entry
 	idx := make(map[string]int, len(base))
 	for i, e := range base {
 		idx[e.Name] = i
 	}
 	for _, e := range src {
 		if i, ok := idx[e.Name]; ok {
+			if base[i].Layer == e.Layer {
+				shadowed = append(shadowed, base[i])
+			}
 			base[i] = e
 			continue
 		}
 		idx[e.Name] = len(base)
 		base = append(base, e)
 	}
-	return base
+	return base, shadowed
 }
 
 // assignScopes derives Entry.Scope from the source layout. For markdown

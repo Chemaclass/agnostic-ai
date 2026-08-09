@@ -52,14 +52,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	if err != nil {
 		return nil
 	}
-	entries := b.All()
-
-	var findings []lintFinding
-	findings = append(findings, lintEmptySpecs(entries)...)
-	findings = append(findings, lintHookCollisions(b.Hooks)...)
-	findings = append(findings, lintDuplicateNames(entries)...)
-	findings = append(findings, lintDeadSpecs(entries, cfg.Targets)...)
-	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
+	findings := collectLintFindings(cfg.Targets, b)
 
 	out := map[string][]lsp.Diagnostic{}
 	for _, f := range findings {

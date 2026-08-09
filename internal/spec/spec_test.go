@@ -385,6 +385,60 @@ func TestLoadLayered_HigherLayerOverridesByName(t *testing.T) {
 	}
 }
 
+func TestLoadLayered_RecordsSameLayerDuplicatesAsShadowed(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	// Two files in one layer declaring the same name. One silently wins and
+	// the other's body is lost, with nothing surfacing the loss (#582).
+	mustWrite(t, filepath.Join(root, "rules", "a.md"),
+		"---\nname: dupe\n---\nbody one")
+	mustWrite(t, filepath.Join(root, "rules", "b.md"),
+		"---\nname: dupe\n---\nbody two")
+
+	bundle, err := LoadLayered([]Layer{
+		{Name: "project", Root: root, Sources: defaultsForTest().Sources},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Rules) != 1 {
+		t.Fatalf("expected 1 surviving rule, got %d", len(bundle.Rules))
+	}
+	if len(bundle.Shadowed) != 1 {
+		t.Fatalf("expected 1 shadowed entry, got %d", len(bundle.Shadowed))
+	}
+	if got := bundle.Shadowed[0].Name; got != "dupe" {
+		t.Errorf("shadowed name = %q, want dupe", got)
+	}
+	if got := bundle.Shadowed[0].Body; got != "body one" {
+		t.Errorf("shadowed body = %q, want the replaced one (body one)", got)
+	}
+}
+
+func TestLoadLayered_CrossLayerOverrideIsNotShadowing(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	over := t.TempDir()
+	mustWrite(t, filepath.Join(base, "rules", "shared.md"),
+		"---\nname: shared\n---\nbase body")
+	mustWrite(t, filepath.Join(over, "rules", "shared.md"),
+		"---\nname: shared\n---\nover body")
+
+	src := defaultsForTest().Sources
+	bundle, err := LoadLayered([]Layer{
+		{Name: "base", Root: base, Sources: src},
+		{Name: "over", Root: over, Sources: src},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Layering is the documented way to override a spec, so it must not be
+	// reported as an accidental collision.
+	if len(bundle.Shadowed) != 0 {
+		t.Errorf("expected no shadowed entries across layers, got %v", bundle.Shadowed)
+	}
+}
+
 func TestLoadLayered_PreservesOrderForExistingNames(t *testing.T) {
 	t.Parallel()
 	base := t.TempDir()

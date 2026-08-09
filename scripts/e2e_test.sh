@@ -133,6 +133,23 @@ function test_invalid_yaml_frontmatter_fails_validate() {
   assert_general_error
 }
 
+function test_two_specs_sharing_a_name_are_reported() {
+    # The loader collapses them by name, so one body silently never reaches a
+    # target. Lint only sees the clash because the loader records the loser
+    # as shadowed (#582).
+  printf -- '---\nname: dupe\ndescription: First.\n---\nBody one.\n' > .agnostic-ai/rules/x.md
+  printf -- '---\nname: dupe\ndescription: Second.\n---\nBody two.\n' > .agnostic-ai/rules/y.md
+  assert_contains "LINT003" "$("$BIN" lint 2>&1)"
+}
+
+function test_several_hooks_on_one_trigger_are_allowed() {
+  # All of them run; this is a supported pattern and must not be flagged.
+  printf 'name: fmt-on-save\nevent: PostToolUse\nmatcher: Edit\ncommand: echo fmt\n' > .agnostic-ai/hooks/f.yaml
+  printf 'name: vet-on-save\nevent: PostToolUse\nmatcher: Edit\ncommand: echo vet\n' > .agnostic-ai/hooks/v.yaml
+  "$BIN" lint >/dev/null 2>&1
+  assert_successful_code
+}
+
 function test_unknown_target_is_rejected() {
   "$BIN" sync --only not-a-real-target >/dev/null 2>&1
   assert_general_error

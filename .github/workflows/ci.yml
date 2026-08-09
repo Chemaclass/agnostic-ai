@@ -97,6 +97,29 @@ jobs:
       - name: Fail on drift
         run: git diff --exit-code docs/schemas/config.schema.json
 
+  speclint:
+    name: Spec lint
+    # Runs against this repo's own specs under .agnostic-ai/. Note there is no
+    # `sync --check` counterpart: the managed .gitignore block deliberately
+    # leaves emitted output uncommitted, so a fresh checkout has nothing to
+    # compare against. Source specs are committed, so lint works here.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build
+        run: make build
+
+      - name: Lint specs
+        run: ./agnostic-ai lint
+
   plugin:
     name: Plugin version bump
     # The marketplace pins the plugin to plugin.json's version, so an edit that
