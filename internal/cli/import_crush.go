@@ -22,9 +22,10 @@ const (
 //     `.agnostic-ai/AGNOSTIC_AI.md`.
 //   - `.agents/skills/<name>/SKILL.md` folders reconstruct skills, with
 //     bundled sibling assets copied byte-for-byte.
-//   - `crush.json` (`mcp` map) reconstructs MCP specs, both `type: stdio`
-//     and `type: http` entries; user-managed keys (models, providers,
-//     lsp, options) are ignored.
+//   - `crush.json` (`mcp` map) reconstructs MCP specs: `type: stdio`,
+//     `type: http`, and `type: sse` entries all pass through verbatim
+//     via the shared JSON-map importer; user-managed keys (models,
+//     providers, lsp, options) are ignored.
 //
 // Lossy field: rules reach Crush only through the inlined block, which
 // carries no `globs`/scope, so rule scoping does not round-trip (Crush's

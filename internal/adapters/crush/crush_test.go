@@ -162,6 +162,68 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	}
 }
 
+// crush's own config.go declares MCPSSE and MCPHttp as distinct enum
+// values, and createTransport in internal/agent/tools/mcp/init.go routes
+// them to two different SDK transports (SSEClientTransport vs
+// StreamableClientTransport). A `type: sse` spec entry must therefore
+// emit `"type": "sse"`, not collapse into "http": an SSE-only server
+// does not speak Streamable HTTP. See #586.
+func TestEmit_MCP_SSEWritesTypeSSE(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "events",
+			Meta: map[string]any{
+				"type": "sse",
+				"url":  "https://mcp.example.com/sse",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	for _, want := range []string{
+		`"events"`,
+		`"type": "sse"`,
+		`"url": "https://mcp.example.com/sse"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"type": "http"`) {
+		t.Errorf("sse entry must not emit type http: %s", got)
+	}
+}
+
+// Crush's own MCPType enum has no "remote" value; a spec's `type: remote`
+// has no native Crush transport to map to, so it keeps defaulting to
+// http rather than being dropped.
+func TestEmit_MCP_RemoteDefaultsToHTTPType(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "remote-thing",
+			Meta: map[string]any{
+				"type": "remote",
+				"url":  "https://mcp.example.com",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	if !strings.Contains(got, `"type": "http"`) {
+		t.Errorf("remote entry should default to type http: %s", got)
+	}
+}
+
 // crush README documents oauth/oauth_client_id/oauth_client_secret/
 // oauth_callback_port on http/sse entries (v0.87.0, "MCP OAuth
 // implementation"). See #531.

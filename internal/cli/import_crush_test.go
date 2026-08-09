@@ -30,6 +30,8 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 		"name: stdio-server\ncommand: npx\nargs:\n  - -y\n  - \"@modelcontextprotocol/server-filesystem\"\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "http-server.yaml"),
 		"name: http-server\ntype: http\nurl: https://example.test/mcp\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "sse-server.yaml"),
+		"name: sse-server\ntype: sse\nurl: https://example.test/sse\n")
 
 	execCLI(t, "sync", "-t", "crush")
 	first := snapshotEmitted(t, dir)
@@ -59,7 +61,7 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
 		t.Errorf("skill not reconstructed:\n%s", skill)
 	}
-	// MCP: crush.json carries an explicit `type` on both transports.
+	// MCP: crush.json carries an explicit `type` on all three transports.
 	stdio := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"))
 	if !strings.Contains(stdio, "type: stdio") || !strings.Contains(stdio, "command: npx") {
 		t.Errorf("stdio mcp not reconstructed:\n%s", stdio)
@@ -67,6 +69,12 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	httpMCP := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "http-server.yaml"))
 	if !strings.Contains(httpMCP, "type: http") || !strings.Contains(httpMCP, "url: https://example.test/mcp") {
 		t.Errorf("http mcp not reconstructed:\n%s", httpMCP)
+	}
+	// sse must round-trip as its own type, not collapse into http: crush
+	// routes the two to different transports (see #586).
+	sseMCP := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "sse-server.yaml"))
+	if !strings.Contains(sseMCP, "type: sse") || !strings.Contains(sseMCP, "url: https://example.test/sse") {
+		t.Errorf("sse mcp not reconstructed:\n%s", sseMCP)
 	}
 
 	execCLI(t, "sync", "-t", "crush")
