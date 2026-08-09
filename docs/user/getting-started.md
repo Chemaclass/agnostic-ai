@@ -9,15 +9,15 @@
 | Install script | Windows | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
 | From source | any with Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 | Prebuilt archive | any | [releases page](https://github.com/Chemaclass/agnostic-ai/releases) |
-| winget | Windows | `winget install Chemaclass.agnostic-ai` (from the next release) |
-| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` (from the next release) |
-| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` (from the next release) |
+| winget | Windows | `winget install Chemaclass.agnostic-ai` (not published yet) |
+| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` (not published yet) |
+| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` (not published yet) |
 
-The last three publish at release time and land once their first release ships; every other row works today.
+Every row works today except the last three. Those are wired into the release pipeline but stay unpublished until their credentials are configured, so the commands 404 for now. Use the install script or Homebrew instead.
 
 The install scripts pick the archive for your OS and architecture, verify it against the release `checksums.txt`, and put the binary on PATH: `/usr/local/bin` when writable (else `~/.local/bin`) on macOS and Linux, `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows. Override with `AGNOSTIC_AI_INSTALL_DIR` (`-InstallDir` on PowerShell) and pin a version with `AGNOSTIC_AI_VERSION` (`-Version`).
 
-`npx agnostic-ai` needs no install at all, which makes it the quickest way to try one command. The npm package downloads the same prebuilt binary on first use.
+Once the npm package is published, `npx agnostic-ai` will need no install at all, which makes it the quickest way to try one command. The package downloads the same prebuilt binary on first use.
 
 ### Upgrade
 

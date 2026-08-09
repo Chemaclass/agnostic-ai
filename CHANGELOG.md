@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- The install docs no longer advertise channels that are not published. `npx agnostic-ai`, `winget install Chemaclass.agnostic-ai`, and `scoop install agnostic-ai` all 404 today, because each is gated on a release secret that is not configured yet, so every copy button for them handed users a failing command. The landing page drops the npx tab and points its Windows tab at the PowerShell install script, which works. `docs/user/getting-started.md` and the plugin install skill mark the three as unpublished instead of "from the next release", which stopped being true once releases shipped without them.
+
 ## v0.47.1 - 2026-08-09
 
 ### Fixed
