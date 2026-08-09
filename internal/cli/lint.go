@@ -41,8 +41,9 @@ func newLintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
-		Long: "Checks for empty specs, hook collisions, duplicate names, and dead " +
-			"specs (kinds not supported by any enabled target). Exit code 1 on " +
+		Long: "Checks for empty specs, duplicate names, dead specs (kinds not " +
+			"supported by any enabled target), hooks whose event ignores their " +
+			"matcher, and unterminated frontmatter. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -61,13 +62,7 @@ func newLintCmd() *cobra.Command {
 				return nil
 			}
 
-			var findings []lintFinding
-			findings = append(findings, lintEmptySpecs(entries)...)
-			findings = append(findings, lintHookCollisions(b.Hooks)...)
-			findings = append(findings, lintDuplicateNames(entries)...)
-			findings = append(findings, lintDeadSpecs(entries, cfg.Targets)...)
-			findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
-			findings = append(findings, lintUnterminatedFrontmatter(entries)...)
+			findings := collectLintFindings(cfg.Targets, b)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -98,6 +93,28 @@ func newLintCmd() *cobra.Command {
 	return cmd
 }
 
+// collectLintFindings runs every rule against a loaded bundle. Both `lint`
+// and the LSP call it so the two cannot report different sets: before this
+// existed the LSP silently lacked the newest rule.
+func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
+	entries := b.All()
+
+	// Shadowed entries lost a same-layer name clash and reach no target.
+	// They are absent from All(), so LINT003 only sees the clash when they
+	// are folded back in (#582).
+	withShadowed := make([]spec.Entry, 0, len(entries)+len(b.Shadowed))
+	withShadowed = append(withShadowed, entries...)
+	withShadowed = append(withShadowed, b.Shadowed...)
+
+	var findings []lintFinding
+	findings = append(findings, lintEmptySpecs(entries)...)
+	findings = append(findings, lintDuplicateNames(withShadowed)...)
+	findings = append(findings, lintDeadSpecs(entries, targets)...)
+	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
+	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
+	return findings
+}
+
 // lintEmptySpecs flags specs with no body and no description (LINT001, warn).
 func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
@@ -111,34 +128,6 @@ func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 				Path:     e.Path,
 				Message:  "empty spec — no body and no description",
 			})
-		}
-	}
-	return out
-}
-
-// lintHookCollisions flags pairs of hook specs that share the same event and
-// matcher, which would result in two hooks running for the same trigger
-// (LINT002, error).
-func lintHookCollisions(hooks []spec.Entry) []lintFinding {
-	type key struct{ event, matcher string }
-	seen := map[key]string{} // key → first path
-	var out []lintFinding
-	for _, h := range hooks {
-		event, _ := h.Meta["event"].(string)
-		matcher, _ := h.Meta["matcher"].(string)
-		k := key{event, matcher}
-		if prior, ok := seen[k]; ok {
-			out = append(out, lintFinding{
-				Code:     "LINT002",
-				Severity: lintError,
-				Path:     h.Path,
-				Message: fmt.Sprintf(
-					"hook collision — event %q matcher %q also defined in %s",
-					event, matcher, prior,
-				),
-			})
-		} else {
-			seen[k] = h.Path
 		}
 	}
 	return out
