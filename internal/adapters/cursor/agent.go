@@ -13,13 +13,25 @@ import (
 // documented fields (`name`, `description`, `model`, `readonly`,
 // `is_background`) when the spec declares them; arbitrary `x-cursor`
 // keys pass through. The body is the agent's system prompt.
-func emitAgent(sess *emit.Session, a spec.Entry, agentsDir string, dryRun bool) error {
+//
+// Returns whether the spec declared a `tools` list, which Cursor has no
+// frontmatter field for. The caller folds that into one coverage note per
+// sync so the dropped restriction is never silent.
+func emitAgent(sess *emit.Session, a spec.Entry, agentsDir string, dryRun bool) (bool, error) {
 	path := filepath.Join(agentsDir, a.Name+".md")
-	return sess.WriteFile(path, emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown), dryRun)
+	md, hadTools := agentMarkdown(a)
+	return hadTools, sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun)
 }
 
-func agentMarkdown(a spec.Entry) string {
+// agentMarkdown renders one subagent file and reports whether the spec
+// declared `tools`. Cursor's documented subagent frontmatter is `name`,
+// `description`, `model`, `readonly`, and `is_background`; there is no
+// tools field, so an allowlist cannot restrict a Cursor subagent and is
+// deliberately not written. `readonly: true` is the coarse equivalent
+// Cursor does document.
+func agentMarkdown(a spec.Entry) (string, bool) {
 	resolved := emit.ResolveMeta(a.Meta, target)
+	hadTools := len(emit.StringSlice(resolved["tools"])) > 0
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
 		desc = a.Name
@@ -35,12 +47,14 @@ func agentMarkdown(a spec.Entry) string {
 			keys = append(keys, k)
 		}
 	}
-	exclude := append([]string(nil), keys...)
+	// `tools` joins the exclude list so an x-cursor escape-hatch attempt
+	// cannot reintroduce a key Cursor does not read.
+	exclude := append(append([]string(nil), keys...), "tools")
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, exclude...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(a.Body)
 	if body == "" {
-		return front + "\n"
+		return front + "\n", hadTools
 	}
-	return front + "\n" + body + "\n"
+	return front + "\n" + body + "\n", hadTools
 }

@@ -70,7 +70,7 @@ Report concise findings with `file:line` references.
 |-------|----------|---------|-------------|
 | `name` | no | filename without `.md` | Agent identifier. Used for the output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
-| `tools` | no | unset | Tools the agent may invoke. Format depends on target CLI. |
+| `tools` | no | unset | Tools the agent may invoke. Behavior varies by target; see [`tools` support by target](#tools-support-by-target) below. |
 | `model` | no | unset | Preferred model. String applies everywhere; a map selects per target (see below). |
 
 Any other frontmatter field passes through to the target CLI unchanged.
@@ -405,6 +405,27 @@ Confirmed per target, never generalized: a target not listed here has not been c
 | OpenCode | Maps to `"enabled": false` in `opencode.json`; an enabled server gets no key at all. `import opencode` reads it back into `disabled: true`. |
 | Claude Code, Cursor, Copilot, Trae | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
 | Qoder | Not vendor-confirmed either way. `.mcp.json` is the same file Claude Code reads, so agnostic-ai drops the field there too rather than risk the two targets disagreeing on one shared file. |
+
+### `tools` support by target
+
+Confirmed per target, never generalized: a target not listed here has not
+been checked. One `tools: [Read, Bash]` spec produces five different
+outcomes, so read this before assuming an allowlist restricts anything.
+
+| Target | Behavior |
+|--------|----------|
+| Claude Code, Copilot, Factory | Passes through verbatim as a YAML list. The vendor vocabulary matches agnostic-ai's Claude-style names. |
+| Qoder | Passes through as a comma-separated string (`tools: Read, Bash`), the only form Qoder documents. Its built-in vocabulary is Claude-style, so the names carry over unchanged. |
+| Kiro | **Translated**, not passed through. Kiro's vocabulary is lowercase categories, so `Read`/`Grep`/`Glob` become `read`, `Write`/`Edit` become `write`, `Bash` becomes `shell`, and `WebFetch`/`WebSearch` become `web`. A category grants more than the single name it came from: `Edit` alone also permits `delete_file`. Names outside the table surface a coverage note rather than being dropped. `x-kiro.tools` bypasses translation entirely. |
+| Codex | No effect. Codex uses `tools` as a configuration table rather than a Claude-style allowlist, so the field is not written and a coverage note fires. Set `x-codex.tools` for Codex-native settings. |
+| Cursor | No effect. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`. `readonly: true` is the coarse equivalent. A coverage note fires. |
+| Augment | No effect. Augment's names (`view`, `codebase-retrieval`, `str-replace-editor`, ...) are its own vocabulary, and no vendor-published mapping exists. Set `x-augment.tools` / `x-augment.disabled_tools`. A coverage note fires. |
+| Kilo Code | No effect. Kilo Code's agent schema has no `tools` key at all; access is controlled by a `permission` object. Set `x-kilo.permission`. A coverage note fires. |
+
+Every target that cannot honor the field says so at sync time. A silently
+dropped restriction is the failure this table and those notes exist to
+prevent: an author who writes `tools: [Read]` and gets an unrestricted
+agent has no way to notice.
 
 ## Commands
 
