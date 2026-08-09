@@ -16,13 +16,17 @@
 //
 // Skills emit natively as one folder per skill at
 // `.agents/skills/<name>/SKILL.md`. Warp's docs
-// (docs.warp.dev/agents/capabilities/skills) list four directories it
+// (docs.warp.dev/agents/capabilities/skills) list ten directories it
 // scans — `.agents/skills/` (recommended), `.warp/skills/`,
-// `.claude/skills/`, `.codex/skills/` — plus a `SKILLS_DIRS` env var
-// (added in the 2026-08-07 changelog) for indexing further ones. This
-// adapter defaults to `.agents/skills/`, the vendor's own recommended
-// path and the tree codex, amp, zed, crush, and others already emit
-// into, so identical skill folders dedupe there (#557).
+// `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`,
+// `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`,
+// `.github/skills/`, and `.opencode/skills/` — plus a `SKILLS_DIRS` env
+// var (added in the 2026-08-07 changelog) for indexing further ones
+// (target-audit 2026-08-09, #590). `.opencode/skills/` is OpenCode's
+// own default, so a project running both tools gets Warp's scan for
+// free. This adapter defaults to `.agents/skills/`, the vendor's own
+// recommended path and the tree codex, amp, zed, crush, and others
+// already emit into, so identical skill folders dedupe there (#557).
 package warp
 
 import (

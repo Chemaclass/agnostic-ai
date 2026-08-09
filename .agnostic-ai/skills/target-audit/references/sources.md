@@ -68,9 +68,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## windsurf
 
-- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/skills · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore
+- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/skills · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore · https://docs.devin.ai/desktop/devin-local · https://docs.devin.ai/cli/extensibility/rules · https://docs.devin.ai/cli/extensibility/skills/overview · https://docs.devin.ai/cli/extensibility/mcp/configuration
 - changelog: https://windsurf.com/changelog
-- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. `.agents/skills/` is a documented cross-agent-compatibility path behind Devin Desktop's own `.windsurf/skills/` (target-audit 2026-08-08, #563); re-check if that framing ever flips. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change.
+- watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. `.agents/skills/` is a documented cross-agent-compatibility path behind Devin Desktop's own `.windsurf/skills/` (target-audit 2026-08-08, #563); re-check if that framing ever flips. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change. The doc site also covers a separate Devin CLI / Devin Local Agent product tree (`/desktop/devin-local`, `/cli/extensibility/rules`, `/cli/extensibility/skills/overview`, `/cli/extensibility/mcp/configuration`), uncited here until now (confirmed 2026-08-09, #590); it documents a project-scoped `.devin/mcp_config.json` this adapter does not emit yet (#587).
 
 ## continue
 
@@ -92,9 +92,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## warp
 
-- docs: https://docs.warp.dev/features/warp-drive/workflows · https://docs.warp.dev/agents/capabilities/skills · https://docs.warp.dev/knowledge-and-collaboration/mcp
+- docs: https://docs.warp.dev/terminal/entry/yaml-workflows · https://docs.warp.dev/agents/capabilities/skills · https://docs.warp.dev/knowledge-and-collaboration/mcp
 - changelog: https://docs.warp.dev/getting-started/changelog
-- watch: whether Warp gained a native rules-dir surface (today: AGENTS.md + `.agents/skills/` + workflows + `.warp/.mcp.json`; skills confirmed #557). The 2026-08-07 changelog added a `SKILLS_DIRS` env var for indexing extra skill directories beyond the four documented defaults (`.agents/skills/`, `.warp/skills/`, `.claude/skills/`, `.codex/skills/`); re-check whether that changes which one this adapter should prefer.
+- watch: whether Warp gained a native rules-dir surface (today: AGENTS.md + `.agents/skills/` + workflows + `.warp/.mcp.json`; skills confirmed #557). The 2026-08-07 changelog added a `SKILLS_DIRS` env var for indexing extra skill directories beyond the ten documented defaults (`.agents/skills/` recommended, `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, `.opencode/skills/`, confirmed 2026-08-09, #590); re-check whether that changes which one this adapter should prefer. `.opencode/skills/` is OpenCode's own default, so Warp picks it up with no extra write.
 
 ## opencode
 
@@ -105,12 +105,12 @@ instead and do not conclude "page is empty" from a curl body.
 ## antigravity
 
 - docs: https://antigravity.google/docs/ide/rules · /docs/ide/workflows · /docs/ide/skills · /docs/ide/mcp · /docs/ide/hooks · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
-- changelog: (none published; use the docs page diff)
+- changelog: https://antigravity.google/changelog (live, updates frequently; splits into four product tabs, Hub/2.0, IDE, CLI, and SDK, each on its own version track, confirmed 2026-08-09, #590; filter to the IDE tab, since that is what this adapter targets)
 - watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. The doc site now splits into `/docs/*` (general) and `/docs/ide/*`/`/docs/cli/*` (per-product); this adapter targets the IDE, and the `/docs/ide/*` pages above render the same content as their bare `/docs/*` predecessors (verified 2026-08-08, #563), so prefer the `/docs/ide/*` citations going forward. Hooks now have a documented schema (`/docs/ide/hooks`: `.agents/hooks.json`, five events, `PreToolUse`/`PostToolUse`/`PreInvocation`/`PostInvocation`/`Stop`), but whether the IDE itself executes them stays unconfirmed, so the adapter still skips hooks with a warning; commands support remains fully unconfirmed in the public-preview docs.
 
 ## junie
 
-- docs: https://junie.jetbrains.com/docs/ · /docs/agent-skills.html · /docs/junie-ide-plugin.html (guidelines lookup order) · /docs/guidelines-and-memory.html (CLI guidelines lookup order, confirms the same order)
+- docs: https://junie.jetbrains.com/docs/get-started-with-junie.html · /docs/agent-skills.html · /docs/junie-ide-plugin.html (guidelines lookup order) · /docs/guidelines-and-memory.html (CLI guidelines lookup order, confirms the same order)
 - changelog: https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions · https://junie.jetbrains.com/blog/
 - watch: the guidelines lookup order is strict precedence, first match wins, not a merge (#552): `.junie/AGENTS.md`, then root `AGENTS.md`, then legacy `.junie/guidelines.md` / `.junie/guidelines/`. `sync` always writes `.junie/AGENTS.md`, so re-check whether that still holds on every audit: a vendor change to step 1 would make everything below it live again. Also watch `.junie/mcp/mcp.json` schema.
 
@@ -164,7 +164,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## openhands
 
-- docs: https://docs.openhands.dev/overview/skills
+- docs: https://docs.openhands.dev/overview/skills · https://docs.openhands.dev/openhands/usage/settings/mcp-settings
 - changelog: https://github.com/All-Hands-AI/OpenHands/releases
 - watch: `.agents/skills/` shared tree, microagents (`.openhands/microagents/`), a surface the adapter does not emit to.
 
@@ -176,6 +176,6 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## kilo
 
-- docs: https://kilo.ai/docs (client-rendered; use WebFetch, or append `.md` to a page path to fetch the raw source directly, e.g. https://kilo.ai/docs/customize/custom-rules.md) · /docs/customize/custom-rules · /docs/customize/agents-md · /docs/customize/custom-subagents (raw source also mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/custom-subagents.md`, useful when the rendered site defeats fetching)
+- docs: https://kilo.ai/docs (client-rendered; use WebFetch) · /docs/customize/custom-rules · /docs/customize/agents-md · /docs/customize/custom-subagents (raw source also mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/custom-subagents.md`, useful when the rendered site defeats fetching; appending `.md` to a kilo.ai docs path used to serve that raw source directly but now 404s there, confirmed 2026-08-09, #590, so use the GitHub mirror instead)
 - changelog: https://github.com/Kilo-Org/kilocode/releases
 - watch: `kilo.jsonc` `mcp` shape (already confirmed distinct from the deprecated `mcpServers`), `.kilo/agents/` vs custom modes, whether `.kilocode/rules/` backward compatibility is dropped. `instructions` array entries: this adapter lists one explicit `.kilo/rules/<name>.md` path per rule rather than a `.kilo/rules/*.md` glob (unconfirmed whether a `**` recursive glob would also cover a scoped rule); revisit if the vendor doc ever confirms glob recursion. Agent Configuration Options table (target-audit 2026-08-08, #562): `color`/`mode` now read from the generic top-level field; `disable`/`hidden`/`steps`/`temperature`/`top_p` are a deliberate `x-kilo`-only decision, not a gap, unless a future revisit finds a cross-tool counterpart worth promoting one of them to.
