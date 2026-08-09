@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.47.1 - 2026-08-09
+
 ### Fixed
 
 - A `tools` list on a Cursor agent now surfaces a coverage note instead of vanishing. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`, so an allowlist cannot restrict them; kilo, augment, and codex already warned in the identical situation while cursor stayed silent. `docs/user/spec-format.md` gains a per-target `tools` table, since one `tools: [Read, Bash]` spec produces five different outcomes across targets and Kiro's translation grants more than the name it came from.
