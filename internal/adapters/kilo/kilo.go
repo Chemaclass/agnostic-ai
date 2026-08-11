@@ -31,16 +31,18 @@
 // frontmatter, so `name:` is never written. Frontmatter otherwise
 // carries `description` (falls back to the spec name) plus `color`,
 // `mode`, and `model` when the spec sets them. All three read from the
-// plain top-level field: `color` already follows augment's own
-// convention for the same generic key (augment.go:224), and `mode`
-// shares OpenCode's `primary`/`subagent`/`all` vocabulary under the
-// identical name. Kilo Code's full agent Configuration Options table
-// also documents `disable`, `hidden`, `steps`, `temperature`, and
-// `top_p` (target-audit 2026-08-08, #562); none has a confirmed
-// counterpart on another registered target, and `temperature`/`top_p`
-// are provider-scaled tuning knobs besides, so all five stay reachable
-// only through `x-kilo` (e.g. `x-kilo: {temperature: 0.1, steps: 15}`)
-// rather than a generic top-level key. Every other arbitrary `x-kilo`
+// plain top-level field: `color` is the same generic top-level key
+// augment (augment.go:224) and qoder also promote, written through
+// without per-target validation; the three targets document different
+// value spaces (`color` support by target, docs/user/spec-format.md), and
+// `mode` shares OpenCode's `primary`/`subagent`/`all` vocabulary under
+// the identical name. Kilo Code's full agent Configuration Options table
+// also documents `disable`, `hidden`, `steps`, `temperature`, and `top_p`
+// (target-audit 2026-08-08, #562); none has a confirmed counterpart on
+// another registered target, and `temperature`/`top_p` are
+// provider-scaled tuning knobs besides, so all five stay reachable only
+// through `x-kilo` (e.g. `x-kilo: {temperature: 0.1, steps: 15}`) rather
+// than a generic top-level key. Every other arbitrary `x-kilo`
 // key passes through the same way. `tools` is never written under any
 // key, including `x-kilo`: Kilo Code's full agent option table has no
 // `tools` field, so a spec's `tools` allowlist would be a silent no-op

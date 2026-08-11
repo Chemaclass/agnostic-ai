@@ -430,6 +430,28 @@ dropped restriction is the failure this table and those notes exist to
 prevent: an author who writes `tools: [Read]` and gets an unrestricted
 agent has no way to notice.
 
+### `color` support by target
+
+Confirmed per target, never generalized: a target not listed here has not
+been checked. `color` is a shared top-level key on three targets, and each
+documents its own value space, so a value valid on one may go unrecognized
+on another.
+
+| Target | Documented values |
+|--------|--------------------|
+| Augment | Free text: "should be a valid ANSI color name" ([docs.augmentcode.com/cli/subagents](https://docs.augmentcode.com/cli/subagents)). |
+| Kilo Code | Hex (`#FF5733`) or a theme token (`primary`, `accent`, `error`, and others the doc leaves open-ended with "etc.") ([Kilo-Org/kilocode `custom-subagents.md`](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md)). |
+| Qoder | One of eight named values: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([docs.qoder.com/cli/subagent](https://docs.qoder.com/cli/subagent)). |
+
+agnostic-ai writes `color` verbatim to whichever of these three targets an
+agent spec reaches; it does not validate the value against any target's
+vocabulary. `color: blue` is a valid ANSI name for Augment and one of
+Qoder's eight named values, but is neither hex nor a listed Kilo Code
+theme token, so it may not render there as intended (Kilo Code's "etc."
+leaves other tokens possible, not confirmed). An unrecognized value is
+cosmetic: the agent still runs, only the badge may not show the intended
+color.
+
 ## Commands
 
 Markdown with optional YAML frontmatter. Each spec becomes one native slash command on supported targets.
