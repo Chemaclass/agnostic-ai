@@ -23,8 +23,16 @@ type rulesDirCounts struct {
 //	skill-<name>.md → <skillsDst>/<name>.md
 //	<name>.md       → <rulesDst>/<name>.md
 //
-// Subdirectories under srcDir are preserved as scope. The leading
-// `# <heading>\n\n` block (re-emitted on sync) is stripped from the body.
+// Subdirectories under srcDir are preserved as scope. A leading YAML
+// frontmatter block, when present (Trae's rule and agent files carry
+// `description` / `globs` / `alwaysApply`; Cline, Windsurf, and
+// Continue's plain files carry none), is parsed with splitMdcFrontmatter
+// and its recognized fields captured back into the imported spec via
+// rulesDirFileContent rather than left stuck in the body (#607: without
+// this, importing a Trae file whose body now starts with its own
+// frontmatter block doubled that block on the next sync). The leading
+// `# <heading>\n\n` line the RulesDirectory family writes after any
+// frontmatter (re-emitted on sync) is stripped from the body either way.
 func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCounts, error) {
 	var c rulesDirCounts
 	full := filepath.Join(root, srcDir)
@@ -50,15 +58,13 @@ func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCoun
 
 		kind, baseName := classifyRulesDirFile(rel)
 		dstDir := pickKindDir(kind, src)
-		body := stripLeadingHeading(header.Strip(string(data)))
+		meta, rest := splitMdcFrontmatter([]byte(header.Strip(string(data))))
+		body := stripLeadingHeading(rest)
 		out := filepath.Join(root, dstDir, scopeDir(rel), baseName+".md")
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
-		content := fmt.Sprintf("---\nname: %s\n---\n\n%s", baseName, body)
-		if !strings.HasSuffix(content, "\n") {
-			content += "\n"
-		}
+		content := rulesDirFileContent(baseName, meta, body)
 		if err := importWriteFile(out, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
@@ -76,6 +82,37 @@ func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCoun
 		return c, err
 	}
 	return c, nil
+}
+
+// rulesDirFileContent renders one imported rule/agent/skill spec:
+// `name` from the filename, plus `description` / `globs` /
+// `alwaysApply` when the source file carried its own activation
+// frontmatter. A catch-all globs (empty, `**/*`, `*`) and an empty
+// description carry no scoping intent, so they drop rather than
+// round-trip into the source spec as noise, the same choice
+// normalizeCursorRuleMeta makes for Cursor's .mdc import. meta is empty
+// for a source file with no frontmatter (Cline, Windsurf, Continue,
+// and Kilo's plain `# <heading>` rule files), so the output there is
+// unchanged from before this function existed.
+func rulesDirFileContent(name string, meta map[string]any, body string) string {
+	var sb strings.Builder
+	sb.WriteString("---\nname: " + name + "\n")
+	if desc, ok := meta["description"].(string); ok && desc != "" {
+		sb.WriteString(yamlFrontmatterLine("description", desc))
+	}
+	if globs, ok := meta["globs"].(string); ok && !isCatchAllGlobs(globs) {
+		sb.WriteString(yamlFrontmatterLine("globs", globs))
+	}
+	if always, ok := meta["alwaysApply"].(bool); ok {
+		fmt.Fprintf(&sb, "alwaysApply: %t\n", always)
+	}
+	sb.WriteString("---\n\n")
+	sb.WriteString(body)
+	content := sb.String()
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return content
 }
 
 // scopeDir returns the directory portion of rel, normalized so root-level

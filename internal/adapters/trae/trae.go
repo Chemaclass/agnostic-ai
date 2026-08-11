@@ -6,9 +6,20 @@
 // behavioral constraints; it also applies `.trae/rules/` folders found
 // in subdirectories, but this adapter targets the project root only.
 // `project_rules.md` is the older single-file location and is not
-// emitted here. Trae's custom-agent surface has no documented file
-// format yet, so agents flatten to rule-form files alongside plain
-// rules (the same approach cline uses).
+// emitted here. Every rule and agent file carries `description` /
+// `globs` / `alwaysApply` YAML frontmatter: docs.trae.ai/ide/rules
+// documents all three but never states what an activation mode a file
+// with none of them gets (#607), so this adapter always emits them
+// rather than leave the mode to guesswork. alwaysApply defaults to
+// true; a true rule omits globs entirely; alwaysApply:false without an
+// explicit globs falls back to the Claude spelling (`paths`,
+// comma-joined). This is the same three-field matrix Cursor's `.mdc`
+// files use off the same spec metadata (internal/adapters/cursor),
+// ported here rather than shared, since the two targets emit different
+// file shapes around it. Trae's custom-agent surface has no documented
+// file format yet, so agents flatten to rule-form files carrying the
+// same frontmatter, alongside plain rules (the same approach cline
+// uses).
 //
 // Skills emit as one folder per skill under `.trae/skills/<name>/SKILL.md`
 // (docs.trae.ai/ide/skills), frontmatter `name` + `description`; sibling
@@ -52,8 +63,11 @@
 package trae
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -100,6 +114,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
 		SkipSkills:  true,
+		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(ruleForm(e, ""), emit.FormatMarkdown) },
+		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(ruleForm(e, "Agent: "), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}
@@ -149,4 +165,92 @@ func commandFile(e spec.Entry) string {
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String()
+}
+
+// ruleForm renders one rule or agent as a `.md` file: the
+// description/globs/alwaysApply activation frontmatter (see the
+// package doc), then a `# <headingPrefix><name>` heading and the body.
+// headingPrefix is "" for a rule and "Agent: " for an agent flattened
+// to rule-form, matching the headings this adapter wrote before
+// frontmatter existed.
+func ruleForm(e spec.Entry, headingPrefix string) string {
+	var b strings.Builder
+	b.WriteString(activationFrontmatter(emit.ResolveMeta(e.Meta, target)))
+	b.WriteString("# " + headingPrefix + e.Name + "\n\n")
+	b.WriteString(e.Body)
+	return b.String()
+}
+
+// activationFrontmatter renders the description/globs/alwaysApply block
+// docs.trae.ai/ide/rules documents, ported from Cursor's identical
+// three-field matrix (internal/adapters/cursor's mdc, off the same spec
+// metadata): alwaysApply defaults to true; an alwaysApply:true rule
+// ignores globs entirely, so none is synthesized; alwaysApply:false
+// without an explicit globs falls back to the Claude spelling (`paths`,
+// a scalar or list, comma-joined). An empty description still emits a
+// bare `description:` key so every file carries all three keys
+// regardless of what the spec sets, per the package doc.
+func activationFrontmatter(m map[string]any) string {
+	desc, _ := m["description"].(string)
+	globs, _ := m["globs"].(string)
+	always := true
+	if v, ok := m["alwaysApply"].(bool); ok {
+		always = v
+	}
+	if globs == "" && !always {
+		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
+	}
+	var b strings.Builder
+	b.WriteString("---\n")
+	if desc != "" {
+		b.WriteString("description: " + desc + "\n")
+	} else {
+		b.WriteString("description:\n")
+	}
+	if globs != "" {
+		b.WriteString("globs: " + yamlScalar(globs) + "\n")
+	}
+	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
+	b.WriteString("---\n\n")
+	return b.String()
+}
+
+// pathsToGlobs normalizes a `paths` value (the Claude spelling: a
+// scalar string or a list) into a slice of glob strings. Returns nil
+// when the key is absent or carries no usable value. Mirrors cursor's
+// helper of the same name; kept as its own copy per the
+// no-cross-adapter-imports rule rather than shared, since both are
+// small and target-specific.
+func pathsToGlobs(paths any) []string {
+	switch v := paths.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// yamlScalar renders s as a YAML scalar with minimal quoting: a plain
+// value like `apps/foo/**` stays unquoted, while a value YAML cannot
+// represent plainly (a leading `*`, a colon, ...) is quoted just enough
+// to stay valid.
+func yamlScalar(s string) string {
+	out, err := yaml.Marshal(s)
+	if err != nil {
+		return fmt.Sprintf("%q", s)
+	}
+	return strings.TrimRight(string(out), "\n")
 }

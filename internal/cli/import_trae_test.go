@@ -86,6 +86,48 @@ func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 	assertEmittedEqual(t, first, second)
 }
 
+// TestImportTrae_PreservesActivationFrontmatter proves the round trip
+// keeps a non-default activation setting, not just that it does not
+// corrupt a default one (TestImportTrae_RoundTripFixedPoint only
+// exercises defaults). Without splitMdcFrontmatter in
+// importRulesDirectory, `globs` and `alwaysApply: false` had nowhere to
+// go and a resync would have silently reverted to alwaysApply: true.
+func TestImportTrae_PreservesActivationFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "scoped.md"),
+		"---\nname: scoped\ndescription: TypeScript conventions\nglobs: src/**\nalwaysApply: false\n---\n\nscoped rule body\n")
+
+	execCLI(t, "sync", "-t", "trae")
+	emitted := readFile(t, filepath.Join(dir, ".trae", "rules", "scoped.md"))
+	for _, want := range []string{"description: TypeScript conventions", "globs: src/**", "alwaysApply: false"} {
+		if !strings.Contains(emitted, want) {
+			t.Fatalf("first emit missing %q:\n%s", want, emitted)
+		}
+	}
+
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
+		t.Fatalf("wipe source specs: %v", err)
+	}
+	execCLI(t, "import", "trae")
+
+	imported := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "scoped.md"))
+	for _, want := range []string{"description: TypeScript conventions", "globs: src/**", "alwaysApply: false", "scoped rule body"} {
+		if !strings.Contains(imported, want) {
+			t.Errorf("imported spec lost %q:\n%s", want, imported)
+		}
+	}
+
+	execCLI(t, "sync", "-t", "trae")
+	reemitted := readFile(t, filepath.Join(dir, ".trae", "rules", "scoped.md"))
+	if reemitted != emitted {
+		t.Errorf("re-emit diverged from the original:\n--- first ---\n%s\n--- second ---\n%s", emitted, reemitted)
+	}
+}
+
 // TestImportTrae_LegacyFlatSkillStillImports covers a project synced
 // before skills moved to a native folder: a flat
 // `.trae/rules/skill-<name>.md` still round-trips as a skill.

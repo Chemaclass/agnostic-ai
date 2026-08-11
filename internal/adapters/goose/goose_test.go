@@ -121,6 +121,89 @@ func TestEmit_RulesFile_NoRulesWritesNothing(t *testing.T) {
 	}
 }
 
+// A rule carrying a source-layout or frontmatter scope routes into a
+// nested `<scope>/.goosehints` file instead of flattening into the root
+// document: Goose discovers additional hint files by name as it walks
+// into subdirectories (see the package doc, #608).
+func TestEmit_RulesFile_ScopedRuleWritesNestedGoosehints(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"goose": {RulesFile: ".goosehints"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "root-rule", Path: "rules/root-rule.md", Body: "root body"},
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend/api", Body: "scoped body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+
+	root := readFile(t, filepath.Join(dir, ".goosehints"))
+	if !strings.Contains(root, "root body") {
+		t.Errorf("missing root body in root .goosehints:\n%s", root)
+	}
+	if strings.Contains(root, "scoped body") {
+		t.Errorf("scoped rule leaked into root .goosehints:\n%s", root)
+	}
+
+	scoped := readFile(t, filepath.Join(dir, "backend/api/.goosehints"))
+	if !strings.Contains(scoped, "scoped body") {
+		t.Errorf("missing scoped body in backend/api/.goosehints:\n%s", scoped)
+	}
+	if strings.Contains(scoped, "root body") {
+		t.Errorf("root rule leaked into backend/api/.goosehints:\n%s", scoped)
+	}
+}
+
+// Rules sharing the same scope concatenate into that scope's single
+// nested file, the same "one file per scope" shape the root document
+// already used for root-scoped rules.
+func TestEmit_RulesFile_SameScopeRulesConcatenateIntoOneFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"goose": {RulesFile: ".goosehints"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "auth rule"},
+		{Kind: spec.KindRule, Name: "db", Scope: "backend", Body: "db rule"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "backend/.goosehints"))
+	for _, want := range []string{"auth rule", "db rule"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in backend/.goosehints:\n%s", want, got)
+		}
+	}
+}
+
+// A scoped rule still requires the rules-file opt-in: the fix routes
+// scope within the existing opt-in document, it does not turn on a new
+// default write (adapter-pattern: never write a surprise file).
+func TestEmit_ScopedRuleWithoutRulesFileOptInWritesNothing(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "auth", Scope: "backend", Body: "scoped body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/.goosehints")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write backend/.goosehints without the rules-file opt-in, err=%v", err)
+	}
+	entries2, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries2) != 0 {
+		t.Errorf("expected an empty directory, got %v", entries2)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

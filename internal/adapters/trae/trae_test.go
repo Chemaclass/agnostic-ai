@@ -59,6 +59,114 @@ func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	}
 }
 
+// A rule with no meta at all still gets the full three-key activation
+// frontmatter: docs.trae.ai/ide/rules documents `alwaysApply` /
+// `description` / `globs` but never states what a file carrying none
+// of them defaults to (#607), so this adapter always emits them rather
+// than ship a rule Trae might silently treat as inactive.
+func TestEmit_RuleFrontmatter_DefaultsAlwaysApplyTrue(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".trae/rules/r1.md"))
+	if !strings.HasPrefix(got, "---\n") {
+		t.Errorf("expected frontmatter to open the file:\n%s", got)
+	}
+	if !strings.Contains(got, "description:\n") {
+		t.Errorf("expected a bare description key:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: true\n") {
+		t.Errorf("rule should default alwaysApply=true:\n%s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("alwaysApply:true rule should omit globs:\n%s", got)
+	}
+	if !strings.Contains(got, "# r1\n\nrule body") {
+		t.Errorf("expected the pre-existing heading and body to survive:\n%s", got)
+	}
+}
+
+// The same three-field matrix Cursor's .mdc files use (cursor.com/docs/rules,
+// internal/adapters/cursor's mdc): an explicit description and globs both
+// emit, and a glob needing YAML quoting (a leading `*`) gets it.
+func TestEmit_RuleFrontmatter_DescriptionAndGlobs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindRule,
+			Name: "my-rule",
+			Meta: map[string]any{"description": "desc", "globs": "**/*.go"},
+			Body: "rule body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".trae/rules/my-rule.md"))
+	if !strings.Contains(got, "description: desc\n") {
+		t.Errorf("missing description:\n%s", got)
+	}
+	if !strings.Contains(got, "globs: '**/*.go'\n") {
+		t.Errorf("expected quoted globs (leading *):\n%s", got)
+	}
+}
+
+// alwaysApply:false with no explicit globs falls back to the Claude
+// spelling (`paths`, comma-joined), the same translation cursor's mdc
+// already does for the identical spec field.
+func TestEmit_RuleFrontmatter_AlwaysApplyFalseFallsBackToPaths(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "scoped", Meta: map[string]any{
+			"alwaysApply": false,
+			"paths":       []any{"src/**/*.ts", "lib/**"},
+		}, Body: "scoped rule"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".trae/rules/scoped.md"))
+	if !strings.Contains(got, "globs: src/**/*.ts,lib/**\n") {
+		t.Errorf("paths should map to comma-joined globs:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: false\n") {
+		t.Errorf("explicit alwaysApply:false should still emit:\n%s", got)
+	}
+}
+
+// Agents flatten to rule-form files and carry the same activation
+// frontmatter as a plain rule, using the agent's own meta; the "Agent: "
+// heading prefix this adapter already wrote survives underneath it.
+func TestEmit_AgentFrontmatter_SameActivationMatrix(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "ag1", Meta: map[string]any{"description": "reviews code"}, Body: "agent body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".trae/rules/agent-ag1.md"))
+	if !strings.Contains(got, "description: reviews code\n") {
+		t.Errorf("missing description:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: true\n") {
+		t.Errorf("agent should default alwaysApply=true:\n%s", got)
+	}
+	if !strings.Contains(got, "# Agent: ag1\n\nagent body") {
+		t.Errorf("expected the pre-existing agent heading and body to survive:\n%s", got)
+	}
+}
+
 // TestEmit_SkillsDirOverride_WritesToCustomDir confirms
 // outputs.trae.skills-dir redirects the folder-per-skill output,
 // consistent with every other emit.OutputSkillsDir consumer.
