@@ -8,6 +8,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Junie CLI subagents now emit natively at `.junie/agents/<name>.md` (or `.agents/<name>.md` via `outputs.junie.agents-dir`) instead of flattening into `.junie/AGENTS.md` prose. The prior inlining rendered only the body and description; every other frontmatter field (`tools`, `disallowedTools`, `mcpServers`, `model`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) now reaches Junie too. `import junie` reads the native file back, falling back to the retired inlined block for a project synced before this fix (#604).
+- `sync -t junie` now emits slash commands at `.junie/commands/<name>.md`. A Command spec targeting junie previously had no emission path at all and was dropped with an unsupported-kind warning. `import junie` reads the native file back (#605).
 - Antigravity MCP servers now pass through any `x-antigravity` field beyond the documented set (`authProviderType`, `oauth`, `disabledTools`), matching the escape hatch Zed and Warp already give their own unmapped fields. `import antigravity` reads it back the same way (#588).
 - `import antigravity` now reads `.agents/mcp_config.json` back into MCP specs. It previously returned 0 MCP specs for every project, so a synced Antigravity setup could not round-trip its own MCP config (#589).
 - OpenCode MCP servers now pass through any `x-opencode` field beyond the documented set, including the `oauth` client-credentials object for a pre-registered remote server, matching the passthrough commands and agents already had (#588).

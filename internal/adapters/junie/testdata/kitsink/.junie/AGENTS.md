@@ -37,24 +37,3 @@ rule 2 body
 rule 3 body
 
 <!-- agnostic-ai:rules:end -->
-
-<!-- agnostic-ai:agents:start -->
-
-## Agents
-
-### alpha
-
-<!-- source: agents/alpha.md -->
-alpha body
-
-### beta
-
-<!-- source: agents/beta.md -->
-beta body
-
-### gamma
-
-<!-- source: agents/gamma.md -->
-gamma body
-
-<!-- agnostic-ai:agents:end -->

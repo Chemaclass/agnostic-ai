@@ -19,12 +19,15 @@ import (
 // remove the kind from Supports (forcing the warning channel) or
 // fix the emit path.
 //
-// Rules and agents are only observable in .junie/AGENTS.md content
-// (#552): both inline there, not as a distinct per-kind path, so this
-// checks inBody rather than a matcher path for those two kinds. A path
-// check alone would pass even if the content were never inlined, since
+// Rules are only observable in .junie/AGENTS.md content (#552): they
+// inline there, not as a distinct per-kind path, so this checks inBody
+// rather than a matcher path for that one kind. A path check alone
+// would pass even if the content were never inlined, since
 // .junie/AGENTS.md always exists: exactly the failure mode #552 shipped
-// with a green suite.
+// with a green suite. Agents no longer share that risk (#604): they
+// emit to their own native `.junie/agents/<name>.md` file, so a
+// matcher path is the right check and the surer one: .junie/AGENTS.md
+// no longer carries agent content to inspect at all.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -42,9 +45,10 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	cases := []expect{
 		{kind: spec.KindRule, inBody: []string{"### r1", "### r2", "### r3"}},
-		{kind: spec.KindAgent, inBody: []string{"### alpha", "### beta", "### gamma"}},
+		{kind: spec.KindAgent, matchers: []string{".junie/agents/alpha.md", ".junie/agents/beta.md", ".junie/agents/gamma.md"}},
 		{kind: spec.KindSkill, matchers: []string{".junie/skills/uno/SKILL.md", ".junie/skills/dos/SKILL.md", ".junie/skills/tres/SKILL.md"}},
 		{kind: spec.KindMCP, matchers: []string{".junie/mcp/mcp.json"}},
+		{kind: spec.KindCommand, matchers: []string{".junie/commands/cmd-one.md", ".junie/commands/cmd-two.md", ".junie/commands/cmd-three.md"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -88,7 +92,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind junie does not declare in caps.Supports (Hook, Command).
+// every kind junie does not declare in caps.Supports (Hook only, since
+// #605 moved Command into caps.Supports).
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
@@ -96,13 +101,31 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (hook), got %d", got)
+	}
+}
+
+// TestEmit_CommandNoLongerWarns confirms a Command spec targeting
+// junie reaches its native `.junie/commands/<name>.md` file instead of
+// tripping ReportUnsupported (#605).
+func TestEmit_CommandNoLongerWarns(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCapabilityWarnings()
+	t.Cleanup(emit.ResetCapabilityWarnings)
+
+	entries := []spec.Entry{
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 0 {
+		t.Errorf("expected no capability warnings once Command is supported, got %d", got)
 	}
 }
 

@@ -11,13 +11,14 @@ import (
 
 // TestImportJunie_RoundTripFixedPoint emits a bundle to junie, wipes the
 // source specs, imports the emitted tree back, then re-emits. The
-// second emit must byte-match the first: import reconstructs rules and
-// agents from `.junie/AGENTS.md`'s sentinel-marked Rules and Agents
-// blocks. #552 established that file is the only one Junie's
-// guidelines lookup ever opens in a synced project, so it replaced the
-// pre-fix `.junie/rules/` flattening nothing ever read. It also
-// reconstructs skills from `.junie/skills/`, Junie's native SKILL.md
-// folder tree (target-audit 2026-08-01).
+// second emit must byte-match the first: import reconstructs rules
+// from `.junie/AGENTS.md`'s sentinel-marked Rules block (#552
+// established that file is the only one Junie's guidelines lookup ever
+// opens in a synced project, so it replaced the pre-fix `.junie/rules/`
+// flattening nothing ever read), agents from their native
+// `.junie/agents/<name>.md` file (#604), skills from `.junie/skills/`,
+// Junie's native SKILL.md folder tree (target-audit 2026-08-01), and
+// commands from their native `.junie/commands/<name>.md` file (#605).
 func TestImportJunie_RoundTripFixedPoint(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -27,9 +28,11 @@ func TestImportJunie_RoundTripFixedPoint(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"),
 		"---\nname: r1\n---\n\nrule one body\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
-		"---\nname: reviewer\n---\n\nagent body\n")
+		"---\nname: reviewer\ndescription: Reviews a change\ntools:\n  - Read\n  - Grep\n---\n\nagent body\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"),
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "explain.md"),
+		"---\nname: explain\ndescription: Explain the code in $file\n---\n\nExplain the code in $file.\n")
 
 	execCLI(t, "sync", "-t", "junie")
 	first := snapshotEmitted(t, dir)
@@ -40,11 +43,28 @@ func TestImportJunie_RoundTripFixedPoint(t *testing.T) {
 	if !ok {
 		t.Fatalf("first emit produced no .junie/AGENTS.md: %v", keys(first))
 	}
-	if !strings.Contains(entry, "rule one body") || !strings.Contains(entry, "agent body") {
-		t.Fatalf(".junie/AGENTS.md missing inlined rule/agent bodies:\n%s", entry)
+	if !strings.Contains(entry, "rule one body") {
+		t.Fatalf(".junie/AGENTS.md missing the inlined rule body:\n%s", entry)
+	}
+	if strings.Contains(entry, "agent body") {
+		t.Fatalf(".junie/AGENTS.md must not inline the agent body once a native destination exists:\n%s", entry)
 	}
 	if _, ok := first[".junie/rules/r1.md"]; ok {
 		t.Fatalf("first emit must not write the retired .junie/rules/ tree: %v", keys(first))
+	}
+	agentFile, ok := first[".junie/agents/reviewer.md"]
+	if !ok {
+		t.Fatalf("first emit produced no native .junie/agents/reviewer.md: %v", keys(first))
+	}
+	if !strings.Contains(agentFile, "agent body") || !strings.Contains(agentFile, "tools:") {
+		t.Fatalf(".junie/agents/reviewer.md missing frontmatter/body:\n%s", agentFile)
+	}
+	commandFile, ok := first[".junie/commands/explain.md"]
+	if !ok {
+		t.Fatalf("first emit produced no native .junie/commands/explain.md: %v", keys(first))
+	}
+	if !strings.Contains(commandFile, "Explain the code in $file.") {
+		t.Fatalf(".junie/commands/explain.md missing body:\n%s", commandFile)
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -57,17 +77,97 @@ func TestImportJunie_RoundTripFixedPoint(t *testing.T) {
 		t.Errorf("rule not reconstructed:\n%s", rule)
 	}
 	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
-	if !strings.Contains(agent, "agent body") {
+	if !strings.Contains(agent, "agent body") || !strings.Contains(agent, "tools:") {
 		t.Errorf("agent not reconstructed:\n%s", agent)
 	}
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
 	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
 		t.Errorf("skill not reconstructed:\n%s", skill)
 	}
+	command := readFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "explain.md"))
+	if !strings.Contains(command, "Explain the code in $file.") {
+		t.Errorf("command not reconstructed:\n%s", command)
+	}
 
 	execCLI(t, "sync", "-t", "junie")
 	second := snapshotEmitted(t, dir)
 	assertEmittedEqual(t, first, second)
+}
+
+// TestImportJunie_LegacyAgentsAppendixStillImports covers a project
+// synced by the adapter version between #552 and #604: agents had no
+// native destination yet, so `.junie/AGENTS.md` still carries the old
+// sentinel-marked Agents block and `.junie/agents/` does not exist.
+// Import must still recover the agent from that block.
+func TestImportJunie_LegacyAgentsAppendixStillImports(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [junie]\n")
+	writeFile(t, filepath.Join(dir, ".junie", "AGENTS.md"),
+		"<!-- Generated by agnostic-ai. Do not edit this file directly; edit specs under .agnostic-ai/ and run `agnostic-ai sync`. -->\n\n# AI Project Conventions\n\n<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### r1\n\n<!-- source: rules/r1.md -->\nrule one body\n\n<!-- agnostic-ai:rules:end -->\n\n<!-- agnostic-ai:agents:start -->\n\n## Agents\n\n### reviewer\n\n<!-- source: agents/reviewer.md -->\npre-604 agent body\n\n<!-- agnostic-ai:agents:end -->\n")
+
+	execCLI(t, "import", "junie")
+
+	rule := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"))
+	if !strings.Contains(rule, "rule one body") {
+		t.Errorf("rule not imported:\n%s", rule)
+	}
+	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
+	if !strings.Contains(agent, "pre-604 agent body") {
+		t.Errorf("legacy inlined agent not imported:\n%s", agent)
+	}
+}
+
+// TestImportJunie_NativeAgentDirWinsOverStaleAppendix covers the
+// window right after upgrading to #604: a project might still carry a
+// stale `## Agents` block in `.junie/AGENTS.md` from before its first
+// re-sync (see junie.go's TestEmit_StaleAgentsAppendix_DroppedOnNextSync)
+// alongside an already-populated native `.junie/agents/` directory. The
+// native file must win so a mid-upgrade import never regresses to
+// stale content.
+func TestImportJunie_NativeAgentDirWinsOverStaleAppendix(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [junie]\n")
+	writeFile(t, filepath.Join(dir, ".junie", "agents", "reviewer.md"),
+		"<!-- Generated by agnostic-ai. Do not edit this file directly; edit specs under .agnostic-ai/ and run `agnostic-ai sync`. -->\n\n---\nname: reviewer\n---\n\ncurrent agent body\n")
+	writeFile(t, filepath.Join(dir, ".junie", "AGENTS.md"),
+		"<!-- Generated by agnostic-ai. Do not edit this file directly; edit specs under .agnostic-ai/ and run `agnostic-ai sync`. -->\n\n# AI Project Conventions\n\n<!-- agnostic-ai:agents:start -->\n\n## Agents\n\n### reviewer\n\n<!-- source: agents/reviewer.md -->\nstale agent body\n\n<!-- agnostic-ai:agents:end -->\n")
+
+	execCLI(t, "import", "junie")
+
+	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
+	if !strings.Contains(agent, "current agent body") {
+		t.Errorf("expected the native agent file to win, got:\n%s", agent)
+	}
+	if strings.Contains(agent, "stale agent body") {
+		t.Errorf("stale appendix content leaked into the imported agent:\n%s", agent)
+	}
+}
+
+// TestImportJunie_SharedAgentsDirImports covers a project that opted
+// into the vendor's shared `.agents/` alternative
+// (outputs.junie.agents-dir: .agents), the other location
+// junie-cli-subagents.html documents Junie CLI scanning (#604).
+func TestImportJunie_SharedAgentsDirImports(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [junie]\n")
+	writeFile(t, filepath.Join(dir, ".agents", "reviewer.md"),
+		"<!-- Generated by agnostic-ai. Do not edit this file directly; edit specs under .agnostic-ai/ and run `agnostic-ai sync`. -->\n\n---\nname: reviewer\n---\n\nshared-dir agent body\n")
+
+	execCLI(t, "import", "junie")
+
+	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
+	if !strings.Contains(agent, "shared-dir agent body") {
+		t.Errorf("expected the shared .agents/ file to import, got:\n%s", agent)
+	}
 }
 
 // TestImportJunie_LegacyRulesDirStillImports covers a project synced by

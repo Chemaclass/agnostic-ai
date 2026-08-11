@@ -40,17 +40,3 @@ Be terse. Lead with the action.
 
 
 <!-- agnostic-ai:rules:end -->
-
-<!-- agnostic-ai:agents:start -->
-
-## Agents
-
-### sample-agent
-
-<!-- source: .agnostic-ai/agents/sample-agent.md -->
-_A sample agent for golden snapshot tests._
-
-You are a sample agent used in golden tests.
-
-
-<!-- agnostic-ai:agents:end -->
