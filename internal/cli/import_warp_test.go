@@ -114,6 +114,36 @@ func TestImportFromWarp_ImportsMCPServers(t *testing.T) {
 	}
 }
 
+// Warp's own field name for a stdio server's working directory is
+// `working_directory`, not the spec's cross-tool `cwd`
+// (docs.warp.dev/agents/capabilities/mcp). Import must rename it back to
+// `cwd` so a re-emit through buildMCPServer (which reads e.Meta["cwd"])
+// reaches the same JSON again instead of producing a spec with a
+// `working_directory` key no other target's adapter reads. See #606.
+func TestImportFromWarp_MCPStdioRenamesWorkingDirectoryToCwd(t *testing.T) {
+	dir := t.TempDir()
+	settings := `{
+  "mcpServers": {
+    "fs": {"command": "fs-server", "args": ["--root", "."], "working_directory": "./backend"}
+  }
+}`
+	writeFile(t, filepath.Join(dir, warpMCPFile), settings)
+	if err := importFromWarp(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "mcps", "fs.yaml"))
+	if err != nil {
+		t.Fatalf("missing mcps/fs.yaml: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, "cwd: ./backend") {
+		t.Errorf("expected working_directory renamed to cwd, got: %s", got)
+	}
+	if strings.Contains(got, "working_directory") {
+		t.Errorf("working_directory must not survive the import, got: %s", got)
+	}
+}
+
 func TestImportFromWarp_WorkflowTagsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	wf := "name: deploy\ndescription: ship\ntags:\n  - release\n  - ops\ncommand: ./deploy.sh\n"

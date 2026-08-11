@@ -18,14 +18,19 @@ const (
 	MCPSchemaVSCodeServers
 	// MCPSchemaServersMapNoType is MCPSchemaServersMap without the remote
 	// transport discriminant, for a vendor whose schema has no `type`
-	// field at all. Warp is the case: its remote-server table documents
-	// only `url` and `headers`, and one tab covers "Streamable HTTP or SSE
+	// field at all and no other divergence from the standard shape. Warp
+	// was originally the case: its remote-server table documents only
+	// `url` and `headers`, and one tab covers "Streamable HTTP or SSE
 	// Server (URL)", so the transport is never named in config (#592).
 	//
 	// Targets whose vendor omits `type` but whose entry shape also
 	// diverges (antigravity's `serverUrl`, trae's field set, windsurf's
 	// `transport` key) keep their own builder instead. This variant is for
-	// the case where only the discriminant differs.
+	// the case where only the discriminant differs. Warp itself moved
+	// into that group once its stdio table needed a `working_directory`
+	// field mapped from the spec's `cwd` (#606), so no adapter currently
+	// selects this variant; it stays available for the next vendor whose
+	// schema omits `type` and diverges no further.
 	MCPSchemaServersMapNoType
 )
 
@@ -128,7 +133,7 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		out["disabled"] = true
 	}
-	if roots := buildRoots(e.Meta); len(roots) > 0 {
+	if roots := BuildRoots(e.Meta); len(roots) > 0 {
 		out["roots"] = roots
 	}
 	if schema == MCPSchemaVSCodeServers {
@@ -175,9 +180,12 @@ func StripMCPDisabled(target string, mcps []spec.Entry, reason string) []spec.En
 	return out
 }
 
-// buildRoots constructs the `roots` array from spec meta. Each element is
-// a map with at least a `uri` key; `name` is optional.
-func buildRoots(meta map[string]any) []map[string]any {
+// BuildRoots constructs the `roots` array from spec meta. Each element is
+// a map with at least a `uri` key; `name` is optional. Exported so an
+// adapter with its own bespoke MCP builder (warp's mcp.go) can render
+// the same `roots` shape as this shared builder without duplicating the
+// field's parsing.
+func BuildRoots(meta map[string]any) []map[string]any {
 	raw, _ := meta["roots"].([]any)
 	if len(raw) == 0 {
 		return nil

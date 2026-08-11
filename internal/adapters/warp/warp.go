@@ -27,6 +27,12 @@
 // free. This adapter defaults to `.agents/skills/`, the vendor's own
 // recommended path and the tree codex, amp, zed, crush, and others
 // already emit into, so identical skill folders dedupe there (#557).
+//
+// MCP servers write to `.warp/.mcp.json` (mcp.go). A stdio server's
+// `working_directory` reads from the spec's cross-tool `cwd` field
+// (docs.warp.dev/agents/capabilities/mcp, #606); `import warp` renames
+// it back on the way in. Remote servers carry no `type` discriminant,
+// since Warp's own schema has none (#592).
 package warp
 
 import (
@@ -88,12 +94,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	// No transport discriminant: Warp's remote-server table documents only
-	// `url` and `headers`, and a single tab covers "Streamable HTTP or SSE
-	// Server (URL)", so the transport is never named in config
-	// (docs.warp.dev/knowledge-and-collaboration/mcp, #592).
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMapNoType,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitWorkflows writes one .warp/workflows/<name>.yaml per agent. The

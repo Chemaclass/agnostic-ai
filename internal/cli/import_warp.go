@@ -35,7 +35,7 @@ func importFromWarp(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap(filepath.Join(root, warpMCPFile), warpMCPKey, filepath.Join(root, src.MCPs))
+	mcps, err := importWarpMCP(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
 	}
@@ -91,6 +91,46 @@ func importWarpWorkflows(root, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// importWarpMCP reads `.warp/.mcp.json` and writes one yaml per
+// `mcpServers.<name>` entry into dstDir, renaming Warp's own
+// `working_directory` field back to the spec's cross-tool `cwd` (#606).
+// No-op when the file is absent.
+func importWarpMCP(root, dstDir string) (int, error) {
+	servers, err := readJSONMapAt(filepath.Join(root, warpMCPFile), warpMCPKey)
+	if err != nil || len(servers) == 0 {
+		return 0, err
+	}
+	normalized := map[string]any{}
+	for name, raw := range servers {
+		entry, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		normalized[name] = normalizeWarpMCPEntry(entry)
+	}
+	return writeMCPYAMLs(normalized, dstDir)
+}
+
+// normalizeWarpMCPEntry maps `.warp/.mcp.json`'s `working_directory` key
+// (docs.warp.dev/agents/capabilities/mcp) back onto the spec's
+// cross-tool `cwd` field, so a sync -> import -> sync cycle converges
+// instead of producing a spec with a `working_directory` key no other
+// target's adapter reads. Every other field passes through unchanged,
+// same as writeMCPYAMLs applies for every target with no per-field
+// remap: this adapter's buildMCPServer has no `x-warp` passthrough for
+// unmapped fields, so there is nothing else to normalize here yet.
+func normalizeWarpMCPEntry(entry map[string]any) map[string]any {
+	out := make(map[string]any, len(entry))
+	for k, v := range entry {
+		if k == "working_directory" {
+			out["cwd"] = v
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // warpWorkflowTopLevel are the workflow keys captured as first-class
