@@ -14,6 +14,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - OpenHands streamable-HTTP MCP servers now emit the optional `timeout` field (1-3600 seconds). An `sse_servers` entry that sets it, which OpenHands does not document, gets a coverage note instead of a silent no-op (#588).
 - Qoder agents now emit `color` when a spec sets it, matching the field Augment and Kilo Code already promote (#588).
 - `sync -t windsurf` now emits `.devin/mcp_config.json`, the project-scoped MCP file Devin Local (the default agent for new Devin Desktop tabs) reads, not Cascade: `command`/`args`/`env` for stdio, `url`/`transport`/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource` for remote, `disabled` a real per-server toggle. This adapter declared no MCP support at all before, so every MCP spec targeting windsurf skipped with a warning instead of reaching the IDE (#587).
+- Trae rule and agent files now carry `description` / `globs` / `alwaysApply` YAML frontmatter, the same three-field activation matrix Cursor's `.mdc` rules use. Every `.trae/rules/*.md` file emitted with no frontmatter before, so a glob-scoped or manually-triggered rule had no way to express that on Trae. `import trae` reads the new fields back too, so a round trip keeps a non-default setting instead of losing it to the emitted defaults (#607).
+- A Goose rule scoped to a subdirectory now writes a nested `<scope>/.goosehints` file instead of flattening into the root document, matching Goose's own nested hint-file discovery. Rules sharing a scope concatenate into that scope's one file. Still requires the existing `outputs.goose.rules-file` opt-in (#608).
 
 ### Fixed
 

@@ -148,7 +148,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://goose-docs.ai (client-rendered; use WebFetch) · https://github.com/aaif-goose/goose
 - changelog: https://github.com/aaif-goose/goose/releases
-- watch: `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files. `github.com/block/goose` 301s here (moved to the Agentic AI Foundation, 2026-04-07); the redirect still works, so this was a low-priority citation refresh, not a docs-moved finding (target-audit 2026-08-08, #563).
+- watch: `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files. `goose-docs.ai/docs/guides/context-engineering/using-goosehints/` documents nested discovery: goose loads context files from the working directory up to the repo root, then discovers additional hint files in nested subdirectories as it reads or modifies files there, checking each for one of `CONTEXT_FILE_NAMES` (default `AGENTS.md`, `.goosehints`). This adapter now routes a scoped rule into a nested `<scope>/.goosehints` off that mechanism (#608); re-check `CONTEXT_FILE_NAMES` on future audits in case the vendor adds a third name or changes the default pair. `github.com/block/goose` 301s here (moved to the Agentic AI Foundation, 2026-04-07); the redirect still works, so this was a low-priority citation refresh, not a docs-moved finding (target-audit 2026-08-08, #563).
 
 ## augment
 
