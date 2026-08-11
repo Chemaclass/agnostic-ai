@@ -104,7 +104,10 @@ func TestMCPDocument_ServersMapNoTypeOmitsTransportDiscriminant(t *testing.T) {
 	t.Parallel()
 	// Warp's remote-server table documents only `url` and `headers`, and a
 	// single tab covers "Streamable HTTP or SSE Server (URL)", so there is
-	// no transport discriminant to emit (#592).
+	// no transport discriminant to emit (#592). Warp itself moved to its
+	// own builder once its entry shape also diverged (#606); this variant
+	// stays covered here as reusable infrastructure for the next vendor
+	// in the same shape.
 	mcps := []spec.Entry{
 		{
 			Kind: spec.KindMCP,
@@ -150,6 +153,36 @@ func TestMCPDocument_ServersMapKeepsTypeForOtherTargets(t *testing.T) {
 	}
 	if !strings.Contains(got, `"type": "sse"`) {
 		t.Errorf("default schema must keep the sse discriminant:\n%s", got)
+	}
+}
+
+// TestMCPDocument_CwdStaysDroppedForSharedBuilderTargets guards #606:
+// warp's `cwd` -> `working_directory` mapping lives entirely in warp's
+// own bespoke builder (internal/adapters/warp/mcp.go), not here. Only
+// warp's vendor doc was confirmed to name a destination key for `cwd`;
+// claude, cursor, copilot, factory, junie, kiro, and qoder all still
+// share this builder (MCPSchemaServersMap covers the first six of those,
+// MCPSchemaVSCodeServers covers copilot), so a `cwd` in their spec must
+// keep silently dropping exactly as before this fix, not gain a guessed
+// key of its own.
+func TestMCPDocument_CwdStaysDroppedForSharedBuilderTargets(t *testing.T) {
+	t.Parallel()
+	for _, schema := range []MCPSchema{MCPSchemaServersMap, MCPSchemaVSCodeServers} {
+		mcps := []spec.Entry{{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "cwd": "./backend"},
+		}}
+		got, err := MCPDocument(mcps, schema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(got, "working_directory") {
+			t.Errorf("schema %d: shared builder must not invent working_directory:\n%s", schema, got)
+		}
+		if strings.Contains(got, `"cwd"`) {
+			t.Errorf("schema %d: shared builder must not pass cwd through verbatim either:\n%s", schema, got)
+		}
 	}
 }
 

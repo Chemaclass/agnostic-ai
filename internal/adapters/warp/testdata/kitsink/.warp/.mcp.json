@@ -11,7 +11,8 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "working_directory": "/workspace"
     }
   }
 }

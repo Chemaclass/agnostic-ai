@@ -360,7 +360,7 @@ env:
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
-| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini. |
+| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini. Warp maps this to its own `working_directory` field. |
 | `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
@@ -383,7 +383,7 @@ Targets with native MCP propagation:
 | Continue | `.continue/mcpServers/<name>.yaml` | one YAML per server |
 | Amp | `.amp/settings.json` | `amp.mcpServers` (dotted key) |
 | Zed | `.zed/settings.json` | `context_servers` (stdio: `command`/`args`/`env`; HTTP/SSE: native `url`/`headers`) |
-| Warp | `.warp/.mcp.json` | standard `mcpServers` |
+| Warp | `.warp/.mcp.json` | standard `mcpServers` (stdio `cwd` maps to `working_directory`) |
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
 | Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
 | Factory | `.factory/mcp.json` | standard `mcpServers` |
