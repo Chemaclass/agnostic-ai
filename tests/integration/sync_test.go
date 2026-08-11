@@ -34,6 +34,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
 		".junie/AGENTS.md",
+		".junie/agents/sample-agent.md",
 		".kiro/steering/sample-rule.md",
 		".trae/rules/sample-rule.md",
 		".claude/agents/sample-agent.md",
@@ -72,8 +73,10 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		t.Errorf("AGENTS.md should inline the always-on rule body, got:\n%s", agents)
 	}
 	// .junie/AGENTS.md is the only file Junie's guidelines lookup ever
-	// opens in a synced project (#552), so both the rule and the agent
-	// body must inline there, not the rule alone.
+	// opens in a synced project (#552), so the rule body must inline
+	// there. The agent body no longer inlines alongside it (#604): it
+	// has its own native destination now, so it must be absent here and
+	// present at .junie/agents/<name>.md instead.
 	junieEntry, err := os.ReadFile(filepath.Join(dir, ".junie/AGENTS.md"))
 	if err != nil {
 		t.Fatalf("read .junie/AGENTS.md: %v", err)
@@ -81,8 +84,15 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	if !strings.Contains(string(junieEntry), "Be terse. Avoid filler.") {
 		t.Errorf(".junie/AGENTS.md should inline the rule body, got:\n%s", junieEntry)
 	}
-	if !strings.Contains(string(junieEntry), "Sample agent body.") {
-		t.Errorf(".junie/AGENTS.md should inline the agent body, got:\n%s", junieEntry)
+	if strings.Contains(string(junieEntry), "Sample agent body.") {
+		t.Errorf(".junie/AGENTS.md must not inline the agent body once a native destination exists, got:\n%s", junieEntry)
+	}
+	junieAgent, err := os.ReadFile(filepath.Join(dir, ".junie/agents/sample-agent.md"))
+	if err != nil {
+		t.Fatalf("read .junie/agents/sample-agent.md: %v", err)
+	}
+	if !strings.Contains(string(junieAgent), "Sample agent body.") {
+		t.Errorf(".junie/agents/sample-agent.md should carry the agent body, got:\n%s", junieAgent)
 	}
 }
 

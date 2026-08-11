@@ -7,20 +7,16 @@ import (
 )
 
 // Sentinel markers delimiting the generated agents appendix inside an
-// entry-point file. Mirrors the rules appendix (see rules_appendix.go)
-// for the one target that needs it today: junie has no native per-agent
-// surface at all (Rule and Agent specs share the same `.junie/rules/`
-// flattening, and even that directory is unreachable, see junie.go's
-// package doc), so its preferred entry-point file `.junie/AGENTS.md` is
-// the only place an Agent body can land. Every other target that
-// declares spec.KindAgent has a real native destination (`.codex/agents/`,
-// `.cline/agents/`, `.gemini/commands/`, ...), so this stays
-// deliberately unwired from the shared multi-consumer entry-point
-// dispatch in internal/cli/entrypoint.go: inlining agent bodies into the
-// root AGENTS.md that codex/amp/warp/... also consume would duplicate
-// content those targets already deliver natively. junie.go calls
-// RenderAgentsAppendix/AppendAgentsAppendix directly against its own
-// `.junie/AGENTS.md` write instead.
+// entry-point file. No adapter emits this block any more: junie was the
+// last target inlining agent bodies (its `.junie/AGENTS.md` was the
+// only place an Agent body could land, since it had no native per-agent
+// surface), and #604 gave it one (`.junie/agents/<name>.md`), matching
+// every other target that declares spec.KindAgent
+// (`.codex/agents/`, `.cline/agents/`, `.gemini/commands/`, ...).
+// These stay as the read-side counterpart instead: `import junie` still
+// recognizes the block so a project synced by an adapter version
+// between #552 and #604 (agent bodies inlined, no native file yet)
+// still imports its agents correctly. See junie.go and import_junie.go.
 const (
 	AgentsStartMarker = "<!-- agnostic-ai:agents:start -->"
 	AgentsEndMarker   = "<!-- agnostic-ai:agents:end -->"
