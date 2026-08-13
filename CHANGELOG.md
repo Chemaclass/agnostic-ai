@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.49.0 - 2026-08-13
+
 ### Added
 
 - Junie subagents emit natively at `.junie/agents/<name>.md` instead of flattening into `.junie/AGENTS.md` prose, so `tools`, `model`, `mcpServers` and the rest of the frontmatter reach Junie instead of being dropped. Override with `outputs.junie.agents-dir` (#604).
