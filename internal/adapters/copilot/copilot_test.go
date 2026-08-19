@@ -375,7 +375,7 @@ func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
 // .mcp.json natively (code.visualstudio.com/docs/agent-customization/mcp-servers).
 // The root copy is opt-in so a project that does not need it gets no
 // surprise file at its root.
-func TestEmit_MCP_RootFileIsOptIn(t *testing.T) {
+func TestEmit_RootMCPFile_IsOptIn(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -392,7 +392,7 @@ func TestEmit_MCP_RootFileIsOptIn(t *testing.T) {
 	}
 }
 
-func TestEmit_MCP_RootFileWritesVSCodeSchema(t *testing.T) {
+func TestEmit_RootMCPFile_UsesVSCodeSchema(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{
@@ -422,7 +422,7 @@ func TestEmit_MCP_RootFileWritesVSCodeSchema(t *testing.T) {
 	}
 }
 
-func TestEmit_MCP_RootFileSkippedWhenNoServers(t *testing.T) {
+func TestEmit_RootMCPFile_SkippedWhenNoServers(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{
