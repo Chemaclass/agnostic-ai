@@ -89,13 +89,29 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitLegacyRulesFile(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
+	return emitMCP(sess, b, cfg, dryRun)
+}
+
+// emitMCP writes the VS Code MCP file, and the workspace-root copy too
+// when outputs.copilot.root-mcp-file is set. Agent Host does not read
+// .vscode/mcp.json but does read a root .mcp.json natively; both use the
+// same `servers` wrapper, so the two files are byte-identical.
+func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	paths := []string{emit.OutputMCPFile(cfg, target, defaultMCPFile)}
+	if root := emit.OutputRootMCPFile(cfg, target); root != "" {
+		paths = append(paths, root)
+	}
+	for _, path := range paths {
+		if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers, path, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why
-// `disabled: true` on an MCP spec never reaches `.vscode/mcp.json`:
+// `disabled: true` on an MCP spec never reaches the emitted MCP file:
 // Copilot's enable/disable state lives outside the file entirely. See
 // the package doc comment for the vendor source.
 const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; the enable/disable state is stored outside mcp.json"

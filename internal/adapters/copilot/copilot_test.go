@@ -370,3 +370,68 @@ func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
 		t.Error("chatmodes dir not configured; should not emit chatmode file")
 	}
 }
+
+// Agent Host does not read .vscode/mcp.json; it reads a workspace-root
+// .mcp.json natively (code.visualstudio.com/docs/agent-customization/mcp-servers).
+// The root copy is opt-in so a project that does not need it gets no
+// surprise file at its root.
+func TestEmit_RootMCPFile_IsOptIn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "args": []any{"-y", "server"}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("root .mcp.json must not be written unless opted in, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".vscode/mcp.json")); err != nil {
+		t.Errorf(".vscode/mcp.json is still the default: %v", err)
+	}
+}
+
+func TestEmit_RootMCPFile_UsesVSCodeSchema(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"copilot": {RootMCPFile: ".mcp.json"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "args": []any{"-y", "server"}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	root := readFile(t, filepath.Join(dir, ".mcp.json"))
+	// The vendor documents the same "servers" wrapper for the root file
+	// as for .vscode/mcp.json, not Claude's "mcpServers".
+	if !strings.Contains(root, `"servers"`) {
+		t.Errorf("root .mcp.json must use the VS Code servers wrapper:\n%s", root)
+	}
+	if strings.Contains(root, `"mcpServers"`) {
+		t.Errorf("root .mcp.json must not use Claude's mcpServers wrapper:\n%s", root)
+	}
+	if !strings.Contains(root, `"fs"`) {
+		t.Errorf("root .mcp.json missing the server entry:\n%s", root)
+	}
+	// Both files carry the same servers, so the native path keeps working.
+	if vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json")); vscode != root {
+		t.Errorf("root and .vscode copies must match:\nroot:\n%s\nvscode:\n%s", root, vscode)
+	}
+}
+
+func TestEmit_RootMCPFile_SkippedWhenNoServers(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"copilot": {RootMCPFile: ".mcp.json"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("no MCP specs means no root file, err=%v", err)
+	}
+}

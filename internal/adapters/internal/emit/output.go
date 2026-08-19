@@ -85,6 +85,17 @@ func OutputMCPFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputRootMCPFile returns cfg.Outputs[target].RootMCPFile, or "" when
+// unset. It has no fallback on purpose: a project-root MCP file is
+// opt-in, so an unconfigured target writes nothing rather than dropping
+// a surprise file at the repository root.
+func OutputRootMCPFile(cfg *config.Config, target string) string {
+	if o, ok := cfg.Outputs[target]; ok {
+		return o.RootMCPFile
+	}
+	return ""
+}
+
 // OutputAgentsDir returns cfg.Outputs[target].AgentsDir when set, otherwise fallback.
 func OutputAgentsDir(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.AgentsDir != "" {
