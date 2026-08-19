@@ -340,7 +340,7 @@ type Adapter interface {
 // adapter.Emit.
 func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	defer emit.ProvenanceFor(cfg, a.Name())()
-	return a.Emit(sess, b.For(a.Name()), cfg, dryRun)
+	return a.Emit(sess, expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, dryRun)
 }
 
 var registry = map[string]Adapter{
