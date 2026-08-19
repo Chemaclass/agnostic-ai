@@ -140,8 +140,11 @@ func varsFor(cfg *config.Config, target string) map[string]string {
 // target expands the same source spec to its own paths.
 func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bundle {
 	vals := varsFor(cfg, target)
-	unresolved := map[string]bool{}
-	expand := func(entries []spec.Entry) []spec.Entry {
+	// Count entries per unresolved variable so the coverage note says
+	// how much of the project is affected, not just that it happened.
+	unresolved := map[string]int{}
+	kindOf := map[string]spec.Kind{}
+	expand := func(entries []spec.Entry, kind spec.Kind) []spec.Entry {
 		if len(entries) == 0 {
 			return entries
 		}
@@ -151,19 +154,28 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 			body, missing := emit.ExpandVars(out[i].Body, vals)
 			out[i].Body = body
 			for _, name := range missing {
-				unresolved[name] = true
+				unresolved[name]++
+				if _, seen := kindOf[name]; !seen {
+					kindOf[name] = kind
+				}
 			}
 		}
 		return out
 	}
-	b.Agents = expand(b.Agents)
-	b.Skills = expand(b.Skills)
-	b.Rules = expand(b.Rules)
-	b.Commands = expand(b.Commands)
-	b.Hooks = expand(b.Hooks)
-	b.Reviews = expand(b.Reviews)
-	for name := range unresolved {
-		emit.NoteFieldNoOp(target, spec.KindRule, "{{$"+name+"}}", 1,
+	// Every kind that carries a body. Skipping some would make the
+	// feature's reach depend on which kind a user happened to write in.
+	b.Agents = expand(b.Agents, spec.KindAgent)
+	b.Skills = expand(b.Skills, spec.KindSkill)
+	b.Rules = expand(b.Rules, spec.KindRule)
+	b.Commands = expand(b.Commands, spec.KindCommand)
+	b.Hooks = expand(b.Hooks, spec.KindHook)
+	b.Reviews = expand(b.Reviews, spec.KindReview)
+	b.Settings = expand(b.Settings, spec.KindSettings)
+	b.Environments = expand(b.Environments, spec.KindEnvironment)
+	b.Ignores = expand(b.Ignores, spec.KindIgnore)
+	b.MCPs = expand(b.MCPs, spec.KindMCP)
+	for name, count := range unresolved {
+		emit.NoteFieldNoOp(target, kindOf[name], "{{$"+name+"}}", count,
 			"this target has no surface for that path, so the variable is left verbatim rather than blanked")
 	}
 	return b

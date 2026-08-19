@@ -581,7 +581,7 @@ Five variables are available:
 
 Rules:
 
-- **Bodies only.** Frontmatter values are not expanded.
+- **Bodies only.** Every spec kind that carries a body is expanded; frontmatter values are not.
 - **An `outputs.<target>.<field>` override wins.** Set `outputs.claude.skills-dir: custom/skills` and `{{$SKILLS_DIR}}` follows it, so a body never names a directory the emitted tree does not use.
 - **A variable the target has no surface for stays verbatim** and raises a coverage note. It is not blanked, because turning "see {{$COMMANDS_DIR}}" into "see " loses the sentence silently. Targets that carry every kind in one entry-point document (aider, jules, goose) resolve no variables at all.
 - **A variable is declared only where the target has a dedicated surface for that kind.** Several targets flatten agents into their rules directory with a filename prefix (antigravity, continue, trae, windsurf) or render them as commands (gemini); those declare no `{{$AGENTS_DIR}}` rather than point at a directory that is not an agents directory.
