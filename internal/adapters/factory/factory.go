@@ -11,7 +11,8 @@
 // outputs.factory.agents-dir), the top-level directory Droid CLI scans
 // for droid definitions — nested subdirectories are not read, so every
 // droid lands flat in that one folder. Frontmatter carries `name`,
-// `description`, optional `model`, and optional `tools`; arbitrary
+// `description`, optional `model`, and optional `tools` translated onto
+// Factory's own tool IDs (see factoryToolID); arbitrary
 // `x-factory` keys pass through verbatim so the rest of the documented
 // schema is reachable without waiting on this adapter's allowlist.
 // Droid CLI's own schema requires a non-empty system prompt after the
@@ -99,21 +100,68 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // the skip count surfaces through a coverage note so a spec left empty
 // by accident does not disappear without a trace.
 func emitDroids(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	var emptyBody int
+	var emptyBody, unmappedTools int
 	for _, a := range agents {
 		if strings.TrimSpace(a.Body) == "" {
 			emptyBody++
 			continue
 		}
 		path := filepath.Join(dir, a.Name+".md")
-		body := emit.WithHeader(droidMarkdown(a), emit.FormatMarkdown)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		md, droppedTool := droidMarkdown(a)
+		if droppedTool {
+			unmappedTools++
+		}
+		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
 	emit.NoteCoverageGap(target, spec.KindAgent, emptyBody,
 		"empty spec body; Droid CLI requires a non-empty system prompt")
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
+		"Factory's tool IDs (Execute, Create, FetchUrl, ApplyPatch, LS) are a fixed vocabulary and DroidValidator rejects unknown IDs; names outside it are dropped, set x-factory.tools to reach them")
 	return nil
+}
+
+// factoryToolID maps agnostic-ai's Claude-style tool identifiers onto
+// Factory's own tool IDs (docs.factory.ai/harness/subagents). Five names
+// are spelled identically on both sides; three are not, and Factory's
+// validator rejects the Claude spelling outright: "Arrays must use valid
+// IDs from this table or exact registered MCP tool IDs. Unknown IDs
+// cause a validation error." Tool IDs are case-sensitive.
+var factoryToolID = map[string]string{
+	"Read":      "Read",
+	"LS":        "LS",
+	"Grep":      "Grep",
+	"Glob":      "Glob",
+	"Edit":      "Edit",
+	"WebSearch": "WebSearch",
+	"Bash":      "Execute",
+	"Write":     "Create",
+	"WebFetch":  "FetchUrl",
+}
+
+// translateTools maps a spec's generic tools list onto Factory's own
+// vocabulary, preserving order and deduplicating. A name with no table
+// entry is dropped rather than written verbatim, because DroidValidator
+// fails the whole file on one unknown ID: emitting it would cost the
+// user every tool restriction plus the droid itself. hasUnmapped lets
+// the caller surface what was left out. Factory's ApplyPatch has no
+// agnostic-ai counterpart; reach it with x-factory.tools.
+func translateTools(names []string) (mapped []string, hasUnmapped bool) {
+	seen := make(map[string]bool, len(names))
+	for _, n := range names {
+		id, ok := factoryToolID[n]
+		if !ok {
+			hasUnmapped = true
+			continue
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		mapped = append(mapped, id)
+	}
+	return mapped, hasUnmapped
 }
 
 // droidMarkdown renders a single droid definition: `name`,
@@ -122,7 +170,7 @@ func emitDroids(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 // the spec body as the droid's system prompt. Callers only reach this
 // with a non-empty (trimmed) body; emitDroids skips the empty case
 // before this ever runs.
-func droidMarkdown(e spec.Entry) string {
+func droidMarkdown(e spec.Entry) (string, bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -137,11 +185,16 @@ func droidMarkdown(e spec.Entry) string {
 		meta["model"] = model
 		keys = append(keys, "model")
 	}
+	var droppedTool bool
 	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 {
-		meta["tools"] = tools
-		keys = append(keys, "tools")
+		mapped, hasUnmapped := translateTools(tools)
+		droppedTool = hasUnmapped
+		if len(mapped) > 0 {
+			meta["tools"] = mapped
+			keys = append(keys, "tools")
+		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, droidFrontmatterKeys...)
 	front := emit.FrontmatterOrdered(meta, keys)
-	return front + "\n" + strings.TrimSpace(e.Body) + "\n"
+	return front + "\n" + strings.TrimSpace(e.Body) + "\n", droppedTool
 }

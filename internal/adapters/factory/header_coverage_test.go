@@ -91,7 +91,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
-		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read"}}, Body: "gamma body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read", "Bash", "Write", "WebFetch", "Task"}}, Body: "gamma body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

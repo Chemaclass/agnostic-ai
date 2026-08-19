@@ -58,12 +58,39 @@ func TestEmit_Agent_WritesDroidFile(t *testing.T) {
 		"model: opus",
 		"tools:",
 		"- Read",
-		"- Bash",
+		"- Execute",
 		"Run the release checklist.",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
+	}
+	// DroidValidator fails the whole file on one unknown ID, so the
+	// Claude spelling must not survive alongside the translation.
+	if strings.Contains(got, "- Bash") {
+		t.Errorf("Bash must be translated to Execute, not emitted verbatim:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_UnknownToolIsDroppedNotEmitted(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "scout",
+			Meta: map[string]any{"tools": []any{"Read", "Task"}},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+	if !strings.Contains(got, "- Read") {
+		t.Errorf("a translatable name must still emit:\n%s", got)
+	}
+	if strings.Contains(got, "Task") {
+		t.Errorf("Task has no Factory ID and must not reach the file:\n%s", got)
 	}
 }
 
