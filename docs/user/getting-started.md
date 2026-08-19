@@ -183,7 +183,7 @@ Full tree after `sync` with the default targets (only files with content are wri
 ├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands
 ├── CONVENTIONS.md                               # for Aider
 ├── .agents/skills/<name>/SKILL.md               # shared skills tree (Codex / Amp / Zed / Crush / OpenHands)
-
+├── .rules                                       # for Zed
 ├── .opencode/agents/<name>.md                   # for OpenCode subagents
 ├── .github/copilot-instructions.md              # for Copilot (always-on rules)
 ├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules
