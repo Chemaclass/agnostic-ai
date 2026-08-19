@@ -37,7 +37,9 @@ const (
 	defaultCommandsDir  = ".gemini/commands"
 	defaultSkillsDir    = ".gemini/skills"
 	defaultSettingsFile = ".gemini/settings.json"
-	defaultIgnoreFile   = ".aiexclude"
+	// .aiexclude is Gemini Code Assist's file, not Gemini CLI's; the CLI
+	// reads .geminiignore (geminicli.com/docs/cli/gemini-ignore/).
+	defaultIgnoreFile   = ".geminiignore"
 	skillFilenamePrefix = "skill-"
 )
 

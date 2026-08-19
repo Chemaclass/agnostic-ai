@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- Gemini ignore specs emit to `.geminiignore`, the file Gemini CLI reads. They previously went to `.aiexclude`, which belongs to Gemini Code Assist, so every ignore pattern was silently unread and the paths users meant to exclude stayed visible.
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

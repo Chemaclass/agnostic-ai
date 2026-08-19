@@ -112,7 +112,7 @@ outputs:
     skills-dir: .gemini/skills       # default. One folder per skill (<name>/SKILL.md + bundled assets).
     emit-skills-as-commands: false   # default. When true, skills also emit a skill-<name>.toml command.
     mcp-file: .gemini/settings.json  # default. Holds both mcpServers and hooks.
-    ignore-file: .aiexclude          # default. Agent ignore patterns (gitignore syntax).
+    ignore-file: .geminiignore       # default. Agent ignore patterns (gitignore syntax).
   cursor:
     rules-dir: .cursor/rules     # default
     agents-dir: .cursor/agents   # default. One native subagent .md per agent.
