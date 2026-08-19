@@ -22,8 +22,10 @@ func TestValidate_FlagsUnknownHookEvent(t *testing.T) {
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("validate: %v", err)
+	// validate exits non-zero once it reports an issue (#617); these
+	// fixtures all carry one on purpose.
+	if err := root.Execute(); err == nil {
+		t.Error("validate reported an issue and exited 0")
 	}
 	got := out.String()
 	if !strings.Contains(got, "unknown hook event") {
@@ -50,6 +52,7 @@ func TestValidate_AcceptsKnownHookEvent(t *testing.T) {
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(&bytes.Buffer{})
+	// This fixture is clean, so validate must still exit 0.
 	if err := root.Execute(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
@@ -75,6 +78,7 @@ func TestValidate_HookEventGeminiSubsetUnknownToClaude(t *testing.T) {
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(&bytes.Buffer{})
+	// This fixture is clean, so validate must still exit 0.
 	if err := root.Execute(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
@@ -160,8 +164,10 @@ func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("validate: %v", err)
+	// validate exits non-zero once it reports an issue (#617); these
+	// fixtures all carry one on purpose.
+	if err := root.Execute(); err == nil {
+		t.Error("validate reported an issue and exited 0")
 	}
 	got := out.String()
 	if !strings.Contains(got, "no enabled target supports hooks") {
@@ -218,8 +224,10 @@ func TestValidate_MissingHookEventField(t *testing.T) {
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("validate: %v", err)
+	// validate exits non-zero once it reports an issue (#617); these
+	// fixtures all carry one on purpose.
+	if err := root.Execute(); err == nil {
+		t.Error("validate reported an issue and exited 0")
 	}
 	got := out.String()
 	if !strings.Contains(got, "missing required 'event:' field") {

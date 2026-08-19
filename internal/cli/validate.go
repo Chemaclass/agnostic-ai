@@ -18,7 +18,9 @@ func newValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate agnostic specs.",
-		Example: `  # Parse every spec, list any issues
+		Long: "Parses every spec and reports problems. Exit code 1 when any " +
+			"issue is reported, so a CI step can gate on it.",
+		Example: `  # Parse every spec, list any issues (exit 1 if any)
   agnostic-ai validate
 
   # Reconcile autofixable issues in source spec files
@@ -37,7 +39,7 @@ func newValidateCmd() *cobra.Command {
 			if len(entries) == 0 {
 				reportIssues(cmd, sourceIssues)
 				cmd.PrintErrln(emptySpecsHint)
-				return nil
+				return issuesError(sourceIssues)
 			}
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, cfg.Targets)...)
@@ -45,7 +47,7 @@ func newValidateCmd() *cobra.Command {
 			issues = append(issues, sourceIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
-				return nil
+				return issuesError(issues)
 			}
 			fixed, remaining, err := applyFixes(issues)
 			if err != nil {
@@ -58,7 +60,7 @@ func newValidateCmd() *cobra.Command {
 					cmd.Printf("    %s: %s\n", i.Path, i.Message)
 				}
 			}
-			return nil
+			return issuesError(remaining)
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
@@ -72,6 +74,17 @@ func newValidateCmd() *cobra.Command {
 func lintEntries(entries []spec.Entry) []validationIssue {
 	var out []validationIssue
 	return out
+}
+
+// issuesError turns a non-empty issue list into the command's exit
+// status. A reporting command that always exits 0 cannot gate a CI
+// step: a project pinned 24 versions behind printed 23 invalid specs
+// and stayed green for months (#617).
+func issuesError(issues []validationIssue) error {
+	if len(issues) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d spec issue(s) found", len(issues))
 }
 
 // reportIssues prints the issue list to the command's stdout. An empty

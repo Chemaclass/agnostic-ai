@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -43,7 +44,8 @@ func newLintCmd() *cobra.Command {
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
 		Long: "Checks for empty specs, duplicate names, dead specs (kinds not " +
 			"supported by any enabled target), hooks whose event ignores their " +
-			"matcher, and unterminated frontmatter. Exit code 1 on " +
+			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
+			"a key agnostic-ai owns (allowed_tools vs tools). Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -112,6 +114,7 @@ func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
 	findings = append(findings, lintDeadSpecs(entries, targets)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
+	findings = append(findings, lintNearMissKeys(entries)...)
 	return findings
 }
 
@@ -257,4 +260,66 @@ func countSeverity(findings []lintFinding, s lintSeverity) int {
 		}
 	}
 	return n
+}
+
+// nearMiss describes a frontmatter key that looks like one the tool
+// understands but is read by nothing. Use names the replacement: an
+// agnostic-ai key when one exists, otherwise the x-<target> form that
+// actually reaches the tool.
+type nearMiss struct {
+	Use   string
+	Owned bool
+}
+
+// nearMissKeys is the near-miss set. Passthrough is the right default
+// for genuine extensions, but a near miss of a key the tool owns is not
+// an extension: it parses, emits, and does nothing. Nine phel-lang
+// agents ran with full tool access because `allowed_tools:` passed
+// validate, lint --strict, sync --check and doctor for months (#617).
+//
+// Two of these have no agnostic-ai equivalent at all. `maxTurns` and
+// `disallowedTools` are Junie's own keys, reachable only under
+// `x-junie`, so pointing at a bare agnostic-ai key would send users to
+// one that does not exist.
+var nearMissKeys = map[string]nearMiss{
+	"allowed_tools":    {Use: "tools", Owned: true},
+	"allowedTools":     {Use: "tools", Owned: true},
+	"allowed-tools":    {Use: "tools", Owned: true},
+	"model_name":       {Use: "model", Owned: true},
+	"max_turns":        {Use: "x-junie.maxTurns"},
+	"disallowed_tools": {Use: "x-junie.disallowedTools"},
+}
+
+// lintNearMissKeys flags those keys at the top level of a spec's
+// frontmatter (LINT007, warn). Warn rather than error because a
+// target-native spelling can be legitimate: Junie really does document
+// disallowedTools, just not at the top level. Keys already namespaced
+// under x-<target> are deliberate and never flagged.
+func lintNearMissKeys(entries []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, e := range entries {
+		keys := make([]string, 0, len(e.Meta))
+		for k := range e.Meta {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			miss, ok := nearMissKeys[k]
+			if !ok {
+				continue
+			}
+			advice := fmt.Sprintf("Use `%s:` instead.", miss.Use)
+			if miss.Owned {
+				advice = fmt.Sprintf("Did you mean `%s:`? If it is a target-native key, "+
+					"move it under `x-<target>:` to keep it.", miss.Use)
+			}
+			out = append(out, lintFinding{
+				Code:     "LINT007",
+				Severity: lintWarn,
+				Path:     e.Path,
+				Message:  fmt.Sprintf("`%s:` is not a key agnostic-ai reads, so it has no effect. %s", k, advice),
+			})
+		}
+	}
+	return out
 }

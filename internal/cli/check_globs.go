@@ -20,10 +20,10 @@ import (
 // matches anything except `/`. Multiple comma-separated patterns are
 // split and checked independently; a rule passes when ANY pattern
 // matches at least one file in the working tree.
-func reportUnmatchedGlobs(cmd *cobra.Command, root string) error {
+func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 	_, b, err := loadProject(root)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	var unmatched []ruleGlob
 	for _, r := range b.Rules {
@@ -37,7 +37,7 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) error {
 		}
 		matched, err := anyGlobMatches(root, patterns)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if !matched {
 			unmatched = append(unmatched, ruleGlob{name: r.Name, globs: raw})
@@ -45,7 +45,7 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) error {
 	}
 	if len(unmatched) == 0 {
 		cmd.Println("  ✓ every rule's `globs:` pattern matches at least one file")
-		return nil
+		return 0, nil
 	}
 	sort.Slice(unmatched, func(i, j int) bool { return unmatched[i].name < unmatched[j].name })
 	cmd.Printf("  ! %d rule(s) with no matching files in repo (rule will never load):\n", len(unmatched))
@@ -53,7 +53,7 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) error {
 		cmd.Printf("      %s (globs: %s)\n", u.name, u.globs)
 	}
 	cmd.Println("    fix: update the rule's `globs:` or remove the rule")
-	return nil
+	return len(unmatched), nil
 }
 
 type ruleGlob struct {

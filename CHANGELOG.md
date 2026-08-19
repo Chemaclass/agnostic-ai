@@ -8,6 +8,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `lint` flags frontmatter keys that near-miss a key agnostic-ai owns (`allowed_tools`, `allowedTools`, `allowed-tools`, `disallowed_tools`, `max_turns`, `model_name`). Such a key parses, emits, and does nothing, so a tool restriction can look set while the agent runs unrestricted. Warn severity, so `lint --strict` gates it; the message suggests moving a genuinely target-native key under `x-<target>` (#617).
+
+### Changed
+
+- `validate` exits 1 when it reports any issue, and `doctor --check-globs` exits 1 when a rule's globs match no files. Both printed the problem and exited 0 before, so a CI step could not gate on either: one project sat 24 versions behind with 23 invalid specs and a green pipeline for months (#617).
+
+### Added
+
 - Path variables in spec bodies: `{{$SKILLS_DIR}}`, `{{$AGENTS_DIR}}`, `{{$COMMANDS_DIR}}`, `{{$RULES_DIR}}`, and `{{$MCP_FILE}}` expand to each target's own location, so one spec can say where files go without hardcoding one tool's layout. An `outputs.<target>.<field>` override wins, and a variable a target has no surface for is left verbatim with a coverage note rather than blanked (#616).
 
 ### Added
