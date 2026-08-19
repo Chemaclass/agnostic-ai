@@ -44,7 +44,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## cursor
 
-- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · /docs/agent/chat/commands
+- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · https://cursor.com/help/customization/skills.md
 - changelog: https://cursor.com/changelog
 - watch: `.mdc` frontmatter fields, hooks event names (camelCase, e.g. `beforeShellExecution`), environment.json schema.
 
@@ -64,12 +64,12 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://docs.cline.bot/customization/cline-rules · /customization/skills · /getting-started/config
 - changelog: https://github.com/cline/cline/releases
-- watch: whether `.clinerules/` is fully dropped from `/getting-started/config` (still absent there as of 2026-08-01; this adapter treats it as a live fallback via `outputs.cline.rules-dir`, not a removal); `.cline/hooks/`, `.cline/plugins/`, `.cline/cron/` (listed in the config reference, unemitted, no confirmed schema); MCP config location. `docs.cline.bot/features/workflows` 404s and `llms.txt` lists no project-scoped replacement (target-audit 2026-08-08, #563): the current `customization/` tree covers Rules, `.clineignore`, Hooks, Plugins, and Skills only, no Workflows entry, so `outputs.cline.workflows-dir` is an unconfirmed export until a current doc backs it (see targets.md).
+- watch: `.clineignore` is now vendor-flagged deprecated (`llms.txt` titles it "`.clineignore` (deprecate soon)", 2026-08-19); no impact, cline declares no `KindIgnore`. Also whether `.clinerules/` is fully dropped from `/getting-started/config` (still absent there as of 2026-08-01; this adapter treats it as a live fallback via `outputs.cline.rules-dir`, not a removal); `.cline/hooks/`, `.cline/plugins/`, `.cline/cron/` (listed in the config reference, unemitted, no confirmed schema); MCP config location. `docs.cline.bot/features/workflows` 404s and `llms.txt` lists no project-scoped replacement (target-audit 2026-08-08, #563): the current `customization/` tree covers Rules, `.clineignore`, Hooks, Plugins, and Skills only, no Workflows entry, so `outputs.cline.workflows-dir` is an unconfirmed export until a current doc backs it (see targets.md).
 
 ## windsurf
 
-- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/skills · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore · https://docs.devin.ai/desktop/devin-local · https://docs.devin.ai/cli/extensibility/rules · https://docs.devin.ai/cli/extensibility/skills/overview · https://docs.devin.ai/cli/extensibility/mcp/configuration
-- changelog: https://windsurf.com/changelog
+- docs: https://docs.windsurf.com/windsurf/cascade/memories · https://docs.windsurf.com/windsurf/cascade/mcp · https://docs.devin.ai/desktop/cascade/skills · https://docs.devin.ai/desktop/cascade/workflows · https://docs.devin.ai/desktop/context-awareness/windsurf-ignore · https://docs.devin.ai/desktop/devin-local · https://docs.devin.ai/cli/extensibility/rules · https://docs.devin.ai/cli/extensibility/skills/overview · https://docs.devin.ai/cli/extensibility/mcp/configuration · https://docs.devin.ai/cli/subagents · https://docs.devin.ai/cli/extensibility/hooks/overview · https://docs.devin.ai/desktop/cascade/agents-md
+- changelog: https://docs.devin.ai/desktop/changelog.md
 - watch: the adapter writes `.devin/rules/`; confirm that is still the read path after the Devin rebrand, and whether MCP config became project-scoped. `.agents/skills/` is a documented cross-agent-compatibility path behind Devin Desktop's own `.windsurf/skills/` (target-audit 2026-08-08, #563); re-check if that framing ever flips. Also watch `.devinignore` vs the legacy `.codeiumignore`/`.windsurfignore` names for a precedence change. The doc site also covers a separate Devin CLI / Devin Local Agent product tree (`/desktop/devin-local`, `/cli/extensibility/rules`, `/cli/extensibility/skills/overview`, `/cli/extensibility/mcp/configuration`), uncited here until now (confirmed 2026-08-09, #590); it documents a project-scoped `.devin/mcp_config.json` this adapter does not emit yet (#587).
 
 ## continue
@@ -81,42 +81,43 @@ instead and do not conclude "page is empty" from a curl body.
 ## amp
 
 - docs: https://ampcode.com/manual
-- changelog: https://ampcode.com/news
+- changelog: https://ampcode.com/chronicle
 - watch: `.agents/commands/` and `.agents/skills/` (shared tree with codex/zed/crush), `amp.mcpServers` key in `.amp/settings.json`.
 
 ## zed
 
 - docs: https://zed.dev/docs/ai/skills · /docs/ai/mcp · /docs/tasks
 - changelog: https://zed.dev/releases
-- watch: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared. The `x-zed` Task passthrough is a generic merge (`MergeCustomTargetMeta` copies any key), not an enumerated field list: `/docs/tasks` has grown fields since this adapter's own doc comment last enumerated one (`hooks` with `create_worktree`, `show_summary`, `show_command`, confirmed 2026-08-08, #563), which is exactly why an enumerated list here goes stale.
+- watch: `https://zed.dev/docs/ai/mcp` documents a strict subset of the real schema. The authority is `crates/settings_content/src/project.rs` in `zed-industries/zed`, where `ProjectSettingsContent.context_servers` carries `enabled` on all three variants plus `timeout`/`oauth` on `Http` and `remote` on `Stdio`, none of which appear on the public page (confirmed 2026-08-19). Two red herrings to ignore: `configuring-zed.md` claims project settings are limited to editor and language options, and `context_servers` is absent from the all-settings reference; both are wrong about `context_servers`. Also: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared. The `x-zed` Task passthrough is a generic merge (`MergeCustomTargetMeta` copies any key), not an enumerated field list: `/docs/tasks` has grown fields since this adapter's own doc comment last enumerated one (`hooks` with `create_worktree`, `show_summary`, `show_command`, confirmed 2026-08-08, #563), which is exactly why an enumerated list here goes stale.
 
 ## warp
 
 - docs: https://docs.warp.dev/terminal/entry/yaml-workflows · https://docs.warp.dev/agents/capabilities/skills · https://docs.warp.dev/agents/capabilities/mcp
-- changelog: https://docs.warp.dev/getting-started/changelog
+- changelog: https://docs.warp.dev/changelog/
 - watch: whether Warp gained a native rules-dir surface (today: AGENTS.md + `.agents/skills/` + workflows + `.warp/.mcp.json`; skills confirmed #557). The 2026-08-07 changelog added a `SKILLS_DIRS` env var for indexing extra skill directories beyond the ten documented defaults (`.agents/skills/` recommended, `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, `.opencode/skills/`, confirmed 2026-08-09, #590); re-check whether that changes which one this adapter should prefer. `.opencode/skills/` is OpenCode's own default, so Warp picks it up with no extra write. The MCP doc URL used to be `/knowledge-and-collaboration/mcp`; it now 308s to `/agents/capabilities/mcp` (confirmed 2026-08-11), so re-check for another move on the next pass. That page confirmed `working_directory` on the CLI Server (Command) table (the vendor's own name for the cross-tool `cwd` field, #606) alongside `command`/`args`/`env`, and confirmed the Streamable HTTP or SSE Server (URL) table has only `url`/`headers` (no discriminant, #592). It documents no `description`, `disabled`, or `roots` field anywhere; this adapter still emits all three, inherited from the shared builder it used before #606 moved it to its own. Worth a future pass: either Warp's schema grows a home for them, or this adapter should stop sending fields the vendor page never names.
 
 ## opencode
 
 - docs: https://opencode.ai/docs/agents/ · /docs/skills/ · /docs/mcp-servers/ · /docs/commands/
-- changelog: https://github.com/sst/opencode/releases
-- watch: `agents/` (plural) dir, which foreign skill trees it also scans, `opencode.json` `mcp` block shape.
+- changelog: https://github.com/anomalyco/opencode/releases (the `sst/opencode` redirect still works; the docs footer now reads "© Anomaly", default branch `dev`)
+- watch: `agents/` (plural) dir, which foreign skill trees it also scans, `opencode.json` `mcp` block shape. The rule lookup is an upward walk for files literally named `AGENTS.md` plus the global path, never a `.opencode/AGENTS.md` (confirmed 2026-08-19 against `/docs/rules/` and `packages/core/src/instruction-context.ts`); re-check if a project-scoped variant ever appears.
 
 ## antigravity
 
-- docs: https://antigravity.google/docs/ide/rules · /docs/ide/workflows · /docs/ide/skills · /docs/ide/mcp · /docs/ide/hooks · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
+- docs: https://antigravity.google/docs/ide/rules · /docs/ide/workflows · /docs/ide/skills · /docs/ide/mcp · /docs/ide/hooks · https://antigravity.google/docs/subagents (note the bare path: `/docs/ide/subagents` 404s) · https://codelabs.developers.google.com/getting-started-with-antigravity-skills
 - changelog: https://antigravity.google/changelog (live, updates frequently; splits into four product tabs, Hub/2.0, IDE, CLI, and SDK, each on its own version track, confirmed 2026-08-09, #590; filter to the IDE tab, since that is what this adapter targets)
-- watch: MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. The doc site now splits into `/docs/*` (general) and `/docs/ide/*`/`/docs/cli/*` (per-product); this adapter targets the IDE, and the `/docs/ide/*` pages above render the same content as their bare `/docs/*` predecessors (verified 2026-08-08, #563), so prefer the `/docs/ide/*` citations going forward. Hooks now have a documented schema (`/docs/ide/hooks`: `.agents/hooks.json`, five events, `PreToolUse`/`PostToolUse`/`PreInvocation`/`PostInvocation`/`Stop`), but whether the IDE itself executes them stays unconfirmed, so the adapter still skips hooks with a warning; commands support remains fully unconfirmed in the public-preview docs.
+- watch: appending `.md` to any antigravity docs path serves a clean markdown mirror, the cheapest way past the client-side rendering (confirmed 2026-08-19). MCP schema fields beyond the confirmed set (stdio's `command`/`args`/`env`/`cwd`, remote's `serverUrl`/`headers`, both transports' `disabled`, confirmed #556). `description`, `roots`, and a `type` discriminant remain unconfirmed and are omitted from the adapter. The doc site now splits into `/docs/*` (general) and `/docs/ide/*`/`/docs/cli/*` (per-product); this adapter targets the IDE, and the `/docs/ide/*` pages above render the same content as their bare `/docs/*` predecessors (verified 2026-08-08, #563), so prefer the `/docs/ide/*` citations going forward. Hooks now have a documented schema (`/docs/ide/hooks`: `.agents/hooks.json`, five events, `PreToolUse`/`PostToolUse`/`PreInvocation`/`PostInvocation`/`Stop`), but whether the IDE itself executes them stays unconfirmed, so the adapter still skips hooks with a warning; commands support remains fully unconfirmed in the public-preview docs.
 
 ## junie
 
 - docs: https://junie.jetbrains.com/docs/get-started-with-junie.html · /docs/agent-skills.html · /docs/junie-ide-plugin.html (guidelines lookup order) · /docs/guidelines-and-memory.html (CLI guidelines lookup order, confirms the same order) · /docs/junie-cli-subagents.html (CLI-only native subagents, `.junie/agents/` or `.agents/`, live since 2026-03-10) · /docs/custom-slash-commands.html (CLI-only native slash commands, `.junie/commands/`, live since 2026-04-13)
 - changelog: https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions · https://junie.jetbrains.com/blog/
+- also: /docs/junie-cli-hooks.html (EAP, and project-local hooks are ignored by default for safety, so this is a deliberate non-surface, not a gap) · /docs/junie-cli-mcp-configuration.html · /docs/junie-cli-extensions.html. All three were found in one call by reading https://junie.jetbrains.com/docs/HelpTOC.json; do that every audit rather than guessing page names.
 - watch: the guidelines lookup order is strict precedence, first match wins, not a merge (#552): `.junie/AGENTS.md`, then root `AGENTS.md`, then legacy `.junie/guidelines.md` / `.junie/guidelines/`. `sync` always writes `.junie/AGENTS.md`, so re-check whether that still holds on every audit: a vendor change to step 1 would make everything below it live again. Also watch `.junie/mcp/mcp.json` schema. Three consecutive audits (#552, #590, and whatever landed between) missed junie-cli-subagents.html and custom-slash-commands.html even though both pages predate junie's own adapter issue (#474, 2026-07-19), because each audit checked "does what we emit still land" rather than "did the vendor grow a surface we never modelled" (#604, #605). Re-run that second question explicitly for junie every audit: check `get-started-with-junie.html`'s own nav/sidebar for any page not already listed above, since that is how both were found. The subagent frontmatter table (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) and the "Configure subagent usage" auto model-selection toggle (Early Access, `/settings` only, not a file format) are two different things; only the latter is caveated.
 
 ## kiro
 
-- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/ · /docs/custom-agents/ · /docs/custom-agents/configuration-reference/ · /docs/tools/
+- docs: https://kiro.dev/docs/steering/ · /docs/mcp/ · /docs/hooks/ · /docs/custom-agents/ · /docs/custom-agents/configuration-reference/ · /docs/tools/ · /docs/skills/ · /docs/mcp/configuration/
 - changelog: https://kiro.dev/changelog
 - watch: steering `inclusion:` values (`always` / `fileMatch`); the agent `tools` field's category vocabulary, confirmed 2026-08-08 (`read`/`write`/`shell`/`web`/`subagent`/`knowledge`/`todo_list`, plus `@server_name`/`@mcp`/`@builtin`/`*`). Re-check whenever Kiro adds, renames, or splits a category, since `kiroToolCategory` in kiro.go maps agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch onto it. Also watch whether Kiro documents further hook `trigger` values beyond the 10 confirmed. The old `/docs/cli/custom-agents/configuration-reference/` path now serves a client-side meta-refresh and JS redirect (HTTP 200, not a real 3xx) to the URL above; curl with `-D -` to inspect headers and body before concluding a vendor page is gone or undocumented, since WebFetch does not follow a meta-refresh and an earlier audit misread this exact stub as an unconfirmed vocabulary.
 
@@ -128,7 +129,7 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## trae
 
-- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers
+- docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers · https://docs.trae.ai/ide/skills
 - changelog: (none published; use the docs page diff)
 - watch: `docs.trae.ai/ide/mcp`, the old URL for the MCP page, now 302s
   to a marketing page; model-context-protocol (the MCP overview) and
@@ -146,9 +147,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## goose
 
-- docs: https://goose-docs.ai (client-rendered; use WebFetch) · https://github.com/aaif-goose/goose
+- docs: https://github.com/aaif-goose/goose/tree/main/documentation/docs/guides/context-engineering (the working source; the rendered site is not fetchable, see watch) · https://github.com/aaif-goose/goose
 - changelog: https://github.com/aaif-goose/goose/releases
-- watch: `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files. `goose-docs.ai/docs/guides/context-engineering/using-goosehints/` documents nested discovery: goose loads context files from the working directory up to the repo root, then discovers additional hint files in nested subdirectories as it reads or modifies files there, checking each for one of `CONTEXT_FILE_NAMES` (default `AGENTS.md`, `.goosehints`). This adapter now routes a scoped rule into a nested `<scope>/.goosehints` off that mechanism (#608); re-check `CONTEXT_FILE_NAMES` on future audits in case the vendor adds a third name or changes the default pair. `github.com/block/goose` 301s here (moved to the Agentic AI Foundation, 2026-04-07); the redirect still works, so this was a low-priority citation refresh, not a docs-moved finding (target-audit 2026-08-08, #563).
+- watch: the rendered docs site is not fetchable (`goose-docs.ai/llms.txt` lists no skills, agents, or hooks page and `/docs/guides/skills` 404s, confirmed 2026-08-19), so the GitHub `documentation/docs/` tree above is the working source; three surfaces were found only there. `.goosehints` vs AGENTS.md precedence, whether recipes/extensions became project-scoped files. `goose-docs.ai/docs/guides/context-engineering/using-goosehints/` documents nested discovery: goose loads context files from the working directory up to the repo root, then discovers additional hint files in nested subdirectories as it reads or modifies files there, checking each for one of `CONTEXT_FILE_NAMES` (default `AGENTS.md`, `.goosehints`). This adapter now routes a scoped rule into a nested `<scope>/.goosehints` off that mechanism (#608); re-check `CONTEXT_FILE_NAMES` on future audits in case the vendor adds a third name or changes the default pair. `github.com/block/goose` 301s here (moved to the Agentic AI Foundation, 2026-04-07); the redirect still works, so this was a low-priority citation refresh, not a docs-moved finding (target-audit 2026-08-08, #563).
 
 ## augment
 
@@ -164,9 +165,9 @@ instead and do not conclude "page is empty" from a curl body.
 
 ## openhands
 
-- docs: https://docs.openhands.dev/overview/skills · https://docs.openhands.dev/openhands/usage/settings/mcp-settings
+- docs: https://docs.openhands.dev/overview/skills · https://docs.openhands.dev/overview/skills/path · https://docs.openhands.dev/openhands/usage/customization/hooks · https://docs.openhands.dev/openhands/usage/settings/mcp-settings
 - changelog: https://github.com/All-Hands-AI/OpenHands/releases
-- watch: `.agents/skills/` shared tree, microagents (`.openhands/microagents/`), a surface the adapter does not emit to.
+- watch: `.agents/skills/` shared tree. The microagents watch item is resolved (target-audit 2026-08-19): the vendor now heads that section "Skills (formerly Microagents)" and says "use `.agents/skills/` for new skills", which is already our default, though `.openhands/skills/` and `.openhands/microagents/` both remain supported. Two live surfaces replace it: path-triggered rules (`paths:` frontmatter on a skill, the vendor's own Claude-rules equivalent) and `.openhands/hooks.json`, which accepts both snake_case and PascalCase event keys. Watch whether a loose `<name>.md` in `.agents/skills/` is tolerated by the other clients reading that shared tree, since that is what a path-triggered rule emission would write.
 
 ## factory
 
@@ -178,4 +179,4 @@ instead and do not conclude "page is empty" from a curl body.
 
 - docs: https://kilo.ai/docs (client-rendered; use WebFetch) · /docs/customize/custom-rules · /docs/customize/agents-md · /docs/customize/custom-subagents (raw source also mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/custom-subagents.md`, useful when the rendered site defeats fetching; appending `.md` to a kilo.ai docs path used to serve that raw source directly but now 404s there, confirmed 2026-08-09, #590, so use the GitHub mirror instead)
 - changelog: https://github.com/Kilo-Org/kilocode/releases
-- watch: `kilo.jsonc` `mcp` shape (already confirmed distinct from the deprecated `mcpServers`), `.kilo/agents/` vs custom modes, whether `.kilocode/rules/` backward compatibility is dropped. `instructions` array entries: this adapter lists one explicit `.kilo/rules/<name>.md` path per rule rather than a `.kilo/rules/*.md` glob (unconfirmed whether a `**` recursive glob would also cover a scoped rule); revisit if the vendor doc ever confirms glob recursion. Agent Configuration Options table (target-audit 2026-08-08, #562): `color`/`mode` now read from the generic top-level field; `disable`/`hidden`/`steps`/`temperature`/`top_p` are a deliberate `x-kilo`-only decision, not a gap, unless a future revisit finds a cross-tool counterpart worth promoting one of them to.
+- watch: `kilo.jsonc` `mcp` shape (already confirmed distinct from the deprecated `mcpServers`), `.kilo/agents/` vs custom modes, whether `.kilocode/rules/` backward compatibility is dropped. `instructions` array entries: this adapter lists one explicit `.kilo/rules/<name>.md` path per rule rather than a `.kilo/rules/*.md` glob (unconfirmed whether a `**` recursive glob would also cover a scoped rule); revisit if the vendor doc ever confirms glob recursion (still unconfirmed 2026-08-19: the doc's only glob example remains the non-recursive `".kilo/rules/*.md"`). `/automate/mcp/using-in-kilo-code` now documents `.kilo/kilo.json` and `.kilo/kilo.jsonc` as alternate project config paths; root `kilo.jsonc` is still listed first, so our default is right, but watch for the preference flipping. Agent Configuration Options table (target-audit 2026-08-08, #562): `color`/`mode` now read from the generic top-level field; `disable`/`hidden`/`steps`/`temperature`/`top_p` are a deliberate `x-kilo`-only decision, not a gap, unless a future revisit finds a cross-tool counterpart worth promoting one of them to.
