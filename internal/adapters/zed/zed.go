@@ -3,7 +3,7 @@
 // Zed 1.4.2 retired its rules library in favor of Agent Skills: one
 // folder per skill at `.agents/skills/<name>/SKILL.md` (the cross-tool
 // path Codex and Amp share) with bundled assets. Always-on project
-// instructions live in the root `AGENTS.md`, which is written centrally
+// instructions live in the root `.rules`, which is written centrally
 // by `sync` as a slim pointer body with rule bodies inlined. When
 // `outputs.zed.rules-file` is set, this adapter instead writes the
 // legacy merged `.rules`-style document at that path so users on older
@@ -60,7 +60,7 @@ func (Adapter) Name() string { return target }
 // the legacy merged rules document when opted in via
 // outputs.zed.rules-file, Zed Tasks when outputs.zed.tasks-file is set,
 // and `.zed/settings.json` with the `context_servers` map when MCP
-// entries exist. The root AGENTS.md entry-point (with rule bodies
+// entries exist. The root `.rules` entry-point (with rule bodies
 // inlined) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {

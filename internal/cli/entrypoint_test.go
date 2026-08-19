@@ -277,11 +277,11 @@ func writeAgnosticFile(t *testing.T, content string) {
 	}
 }
 
-// Zed and Cline join the shared AGENTS.md group: one deduplicated write
-// carries the pointer body, and the rules block the inline consumers
-// (zed among them) need is present. Cline alone does not force the
-// inline block since .cline/rules/ delivers its rules natively.
-func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
+// Zed writes .rules, not the shared AGENTS.md, because
+// .github/copilot-instructions.md outranks AGENTS.md in Zed's ordered
+// lookup and carries no rules. Cline still gets AGENTS.md for the
+// pointer body; its rules arrive natively through .cline/rules/.
+func TestWriteAgnosticEntryPoints_ZedWritesRulesFileNotAGENTSMd(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
 	b := spec.NewBundle([]spec.Entry{
@@ -292,15 +292,23 @@ func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"zed", "cline"}, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	rules, err := os.ReadFile(filepath.Join(dir, ".rules"))
+	if err != nil {
+		t.Fatalf(".rules not written: %v", err)
+	}
+	if !strings.Contains(string(rules), "My instructions.") {
+		t.Errorf(".rules missing pointer body:\n%s", rules)
+	}
+	if !strings.Contains(string(rules), "rule body") {
+		t.Errorf("zed inlines rules, so .rules must carry them:\n%s", rules)
+	}
+
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	if err != nil {
-		t.Fatalf("AGENTS.md not written: %v", err)
+		t.Fatalf("AGENTS.md not written for cline: %v", err)
 	}
 	if !strings.Contains(string(data), "My instructions.") {
 		t.Errorf("AGENTS.md missing pointer body:\n%s", data)
-	}
-	if !strings.Contains(string(data), "rule body") {
-		t.Errorf("zed inlines rules, so the shared AGENTS.md must carry them:\n%s", data)
 	}
 }
 

@@ -19,11 +19,15 @@ const AgnosticEntryPointPath = ".agnostic-ai/AGNOSTIC_AI.md"
 // (they emit only per-file artifacts under their own directory, e.g.
 // cursor's .cursor/rules/<name>.mdc).
 var entryPointPaths = map[string]string{
-	"claude":    "CLAUDE.md",
-	"codex":     "AGENTS.md",
-	"amp":       "AGENTS.md",
-	"warp":      "AGENTS.md",
-	"zed":       "AGENTS.md",
+	"claude": "CLAUDE.md",
+	"codex":  "AGENTS.md",
+	"amp":    "AGENTS.md",
+	"warp":   "AGENTS.md",
+	// Zed reads the FIRST match of an ordered list, and
+	// .github/copilot-instructions.md outranks AGENTS.md in it
+	// (zed.dev/docs/ai/instructions). .rules is position 1, so Zed's
+	// rules survive whatever else the project syncs.
+	"zed":       ".rules",
 	"cline":     "AGENTS.md",
 	"junie":     "AGENTS.md",
 	"kiro":      "AGENTS.md",
