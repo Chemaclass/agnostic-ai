@@ -39,22 +39,11 @@ func newProject(t *testing.T) string {
 	return dir
 }
 
-func writeSpec(t *testing.T, dir, rel, body string) {
-	t.Helper()
-	path := filepath.Join(dir, rel)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestValidate_ExitsNonZeroWhenIssuesFound(t *testing.T) {
 	dir := newProject(t)
 	// A hook with no event: reported today, and exits 0 today. `name:`
 	// is deliberately optional on markdown specs, so it is not an issue.
-	writeSpec(t, dir, ".agnostic-ai/hooks/broken.yaml", "command: echo hi\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/hooks/broken.yaml"), "command: echo hi\n")
 
 	out, err := runCLI(t, "validate")
 
@@ -68,7 +57,7 @@ func TestValidate_ExitsNonZeroWhenIssuesFound(t *testing.T) {
 
 func TestValidate_ExitsZeroWhenClean(t *testing.T) {
 	dir := newProject(t)
-	writeSpec(t, dir, ".agnostic-ai/rules/ok.md", "---\ndescription: fine\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/ok.md"), "---\ndescription: fine\n---\nbody\n")
 
 	if _, err := runCLI(t, "validate"); err != nil {
 		t.Errorf("a clean project must still exit 0: %v", err)
@@ -79,7 +68,7 @@ func TestValidate_ExitsZeroWhenClean(t *testing.T) {
 // something behind is not.
 func TestValidate_FixExitsNonZeroOnlyWhenIssuesRemain(t *testing.T) {
 	dir := newProject(t)
-	writeSpec(t, dir, ".agnostic-ai/rules/ok.md", "---\ndescription: fine\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/ok.md"), "---\ndescription: fine\n---\nbody\n")
 
 	if _, err := runCLI(t, "validate", "--fix"); err != nil {
 		t.Errorf("nothing to fix must exit 0: %v", err)
@@ -88,7 +77,7 @@ func TestValidate_FixExitsNonZeroOnlyWhenIssuesRemain(t *testing.T) {
 
 func TestDoctorCheckGlobs_ExitsNonZeroOnRuleThatNeverLoads(t *testing.T) {
 	dir := newProject(t)
-	writeSpec(t, dir, ".agnostic-ai/rules/bad.md",
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/bad.md"),
 		"---\ndescription: d\nglobs: does-not-exist/**\n---\nbody\n")
 
 	out, err := runCLI(t, "doctor", "--check-globs")
@@ -109,8 +98,8 @@ func TestDoctorCheckGlobs_ExitsNonZeroOnRuleThatNeverLoads(t *testing.T) {
 // The same run with every glob matching must not fail on globs.
 func TestDoctorCheckGlobs_ExitsZeroWhenEveryGlobMatches(t *testing.T) {
 	dir := newProject(t)
-	writeSpec(t, dir, "README.md", "# readme\n")
-	writeSpec(t, dir, ".agnostic-ai/rules/good.md",
+	writeFile(t, filepath.Join(dir, "README.md"), "# readme\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/good.md"),
 		"---\ndescription: d\nglobs: '*.md'\n---\nbody\n")
 
 	_, err := runCLI(t, "doctor", "--check-globs")
