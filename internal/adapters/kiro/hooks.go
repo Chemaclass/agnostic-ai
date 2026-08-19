@@ -15,9 +15,14 @@ import (
 // carries, so a spec with several `command:` entries shares one file
 // (see buildHookEntries) instead of spawning one file per command.
 type hooksFile struct {
-	Version int         `json:"version"`
+	// Version is the string "v1", not the integer 1: the vendor schema
+	// marks it required and documents no other value.
+	Version string      `json:"version"`
 	Hooks   []hookEntry `json:"hooks"`
 }
+
+// hookSchemaVersion is the only value kiro.dev/docs/hooks/ documents.
+const hookSchemaVersion = "v1"
 
 // hookAction is always the `{"type": "command", "command": ...}` shape:
 // Kiro also documents a `{"type": "agent", "prompt": ...}` action that
@@ -55,7 +60,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 		if len(entries) == 0 {
 			continue
 		}
-		raw, err := emit.MarshalJSONIndent(hooksFile{Version: 1, Hooks: entries})
+		raw, err := emit.MarshalJSONIndent(hooksFile{Version: hookSchemaVersion, Hooks: entries})
 		if err != nil {
 			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
 		}

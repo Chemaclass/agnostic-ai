@@ -35,8 +35,13 @@ func TestEmit_Hook_WritesOneFilePerHook(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &doc); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, got)
 	}
-	if doc.Version != 1 {
-		t.Errorf("expected version 1, got %d", doc.Version)
+	if doc.Version != hookSchemaVersion {
+		t.Errorf("expected version %q, got %q", hookSchemaVersion, doc.Version)
+	}
+	// Assert the wire type too: unmarshalling through hooksFile alone
+	// would accept an int if the struct field ever changed back.
+	if !strings.Contains(got, `"version": "v1"`) {
+		t.Errorf("expected a quoted \"v1\" version on the wire, got:\n%s", got)
 	}
 	if len(doc.Hooks) != 1 {
 		t.Fatalf("expected one hook entry, got %d", len(doc.Hooks))
