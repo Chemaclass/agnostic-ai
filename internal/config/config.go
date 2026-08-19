@@ -181,6 +181,7 @@ type Output struct {
 	IgnoreFile           string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
 	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
+	RootMCPFile          string            `yaml:"root-mcp-file,omitempty"            json:"root-mcp-file,omitempty"`
 	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
 	SkillsDir            string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
 	InstructionsDir      string            `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`

@@ -324,6 +324,9 @@
         "mcp-file": {
           "type": "string"
         },
+        "root-mcp-file": {
+          "type": "string"
+        },
         "agents-dir": {
           "type": "string"
         },

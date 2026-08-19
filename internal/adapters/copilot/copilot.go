@@ -90,8 +90,17 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
+	}
+	// Agent Host reads a workspace-root .mcp.json natively but not
+	// .vscode/mcp.json, so the same servers can be mirrored there. Same
+	// schema, so the two files are byte-identical.
+	if root := emit.OutputRootMCPFile(cfg, target); root != "" {
+		return sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers, root, dryRun)
+	}
+	return nil
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why
