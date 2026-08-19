@@ -231,12 +231,15 @@ func newDoctorCmd() *cobra.Command {
 			hasDrift := printDrift(reports)
 
 			// 4b. Optional: globs that match nothing in the working tree.
+			unloadableRules := 0
 			if checkGlobs {
 				cmd.Println()
 				cmd.Println("Glob coverage:")
-				if err := reportUnmatchedGlobs(cmd, "."); err != nil {
+				n, err := reportUnmatchedGlobs(cmd, ".")
+				if err != nil {
 					return err
 				}
+				unloadableRules = n
 			}
 
 			// 5. MCP resolution
@@ -252,6 +255,12 @@ func newDoctorCmd() *cobra.Command {
 			// 6. Next step
 			doctorNextStep(cmd, hasDrift, true)
 
+			// A rule whose globs match nothing never loads, so it
+			// silently does not exist. Reported before, but exit 0 meant
+			// no CI step could gate on it (#617).
+			if unloadableRules > 0 {
+				return fmt.Errorf("%d rule(s) have a glob matching no files and will never load", unloadableRules)
+			}
 			if hasDrift {
 				if !fix {
 					return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
