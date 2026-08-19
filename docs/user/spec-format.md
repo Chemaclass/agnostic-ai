@@ -561,6 +561,32 @@ Native emission (gitignore syntax, under a `#` provenance header): Cursor `.curs
 - Malformed frontmatter is treated as no metadata; the entire content becomes the body.
 - Any field not listed above passes through on emit. Useful for target-specific extensions.
 
+## Path variables: `{{$NAME}}`
+
+A spec body can name a directory without hardcoding one target's layout. `{{$SKILLS_DIR}}` expands to `.claude/skills` for claude, `.agents/skills` for codex, and `.github/skills` for copilot, from one source file.
+
+```markdown
+Put new skills in {{$SKILLS_DIR}} and agent profiles in {{$AGENTS_DIR}}.
+```
+
+Five variables are available:
+
+| Variable | Resolves to |
+|---|---|
+| `{{$SKILLS_DIR}}` | the target's skills directory |
+| `{{$AGENTS_DIR}}` | the target's agents directory |
+| `{{$COMMANDS_DIR}}` | the target's commands directory |
+| `{{$RULES_DIR}}` | the target's rules directory |
+| `{{$MCP_FILE}}` | the target's MCP config file |
+
+Rules:
+
+- **Bodies only.** Every spec kind that carries a body is expanded; frontmatter values are not.
+- **An `outputs.<target>.<field>` override wins.** Set `outputs.claude.skills-dir: custom/skills` and `{{$SKILLS_DIR}}` follows it, so a body never names a directory the emitted tree does not use.
+- **A variable the target has no surface for stays verbatim** and raises a coverage note. It is not blanked, because turning "see {{$COMMANDS_DIR}}" into "see " loses the sentence silently. Targets that carry every kind in one entry-point document (aider, jules, goose) resolve no variables at all.
+- **A variable is declared only where the target has a dedicated surface for that kind.** Several targets flatten agents into their rules directory with a filename prefix (antigravity, continue, trae, windsurf) or render them as commands (gemini); those declare no `{{$AGENTS_DIR}}` rather than point at a directory that is not an agents directory.
+- **The `$` sigil is required.** Plain `{{placeholder}}` is left alone, so Warp workflow arguments and any Handlebars or Jinja quoted in prose survive untouched. Lowercase names (`{{$skills_dir}}`) do not resolve.
+
 ## Target-specific extensions: `x-<target>` namespace
 
 Use `x-<target>:` blocks to attach fields only one adapter consumes. Other adapters strip the block on emit, so the spec stays portable.
