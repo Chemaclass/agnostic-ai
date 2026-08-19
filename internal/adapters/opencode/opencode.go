@@ -1,6 +1,6 @@
 // Package opencode emits configs for the OpenCode (SST) CLI.
 //
-// The `.opencode/AGENTS.md` entry-point is written centrally by `sync`
+// The root `AGENTS.md` entry-point is written centrally by `sync`
 // as a slim pointer to the source specs (one body shared with every
 // other target's entry-point file). When `outputs.opencode.rules-file`
 // is set, this adapter instead writes the legacy concatenated layout
@@ -57,7 +57,7 @@ func (Adapter) Name() string { return target }
 // folder per skill (plus the command form when opted in), one command
 // file per command spec, `opencode.json` for MCP servers, and—when
 // opted in via outputs.opencode.rules-file—a legacy concatenated rules
-// document. The `.opencode/AGENTS.md` entry-point is written by `sync`,
+// document. The root `AGENTS.md` entry-point is written by `sync`,
 // not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {

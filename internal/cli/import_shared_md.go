@@ -118,7 +118,7 @@ var mergedDocSourceCommentRE = regexp.MustCompile(`(?m)^[ \t]*<!--\s*source:\s*[
 // named after the project directory. No-op when the source file is
 // absent or empty. Reused by every importer whose target keeps rules
 // in a single concatenated markdown file (CONVENTIONS.md, AGENTS.md,
-// GEMINI.md, .opencode/AGENTS.md, .rules, etc.).
+// GEMINI.md, .rules, .agent/AGENTS.md, etc.).
 //
 // Files emitted by the central MergedDocument helper (Rules / Agents /
 // Skills wrapper H2s) get their H3 children unwrapped into one rule

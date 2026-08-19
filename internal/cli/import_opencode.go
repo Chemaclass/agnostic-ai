@@ -7,10 +7,14 @@ import (
 )
 
 var (
-	opencodeMainFile    = filepath.Join(".opencode", "AGENTS.md")
-	opencodeAgentsDir   = filepath.Join(".opencode", "agents")
-	opencodeSkillsDir   = filepath.Join(".opencode", "skills")
-	opencodeCommandsDir = filepath.Join(".opencode", "commands")
+	// opencodeMainFile is where sync wrote the entry point before the
+	// path was corrected to the root AGENTS.md. Import still reads it so
+	// a project synced by an older release round-trips.
+	opencodeLegacyMainFile = filepath.Join(".opencode", "AGENTS.md")
+	opencodeMainFile       = "AGENTS.md"
+	opencodeAgentsDir      = filepath.Join(".opencode", "agents")
+	opencodeSkillsDir      = filepath.Join(".opencode", "skills")
+	opencodeCommandsDir    = filepath.Join(".opencode", "commands")
 )
 
 const (
@@ -19,7 +23,7 @@ const (
 )
 
 // importFromOpencode reads an existing OpenCode (SST) project
-// (`.opencode/AGENTS.md`, `.opencode/agents/`, `.opencode/skills/`,
+// (`AGENTS.md`, `.opencode/agents/`, `.opencode/skills/`,
 // `.opencode/commands/`, `opencode.json`) under root and writes specs
 // into the configured source directories.
 func importFromOpencode(root string, src config.Sources) error {
@@ -46,7 +50,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if _, err := mirrorMainFile(root, opencodeMainFile); err != nil {
+	if _, err := mirrorMainFile(root, opencodeEntryPoint(root)); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps\n", rules, agents, skills, commands, mcps)
@@ -54,11 +58,23 @@ func importFromOpencode(root string, src config.Sources) error {
 	return nil
 }
 
+// opencodeEntryPoint returns the entry-point file to import from: the
+// root AGENTS.md OpenCode actually reads, or the legacy
+// `.opencode/AGENTS.md` when only that one is present, so a project
+// synced before the path was corrected still round-trips.
+func opencodeEntryPoint(root string) string {
+	if !fileExists(filepath.Join(root, opencodeMainFile)) &&
+		fileExists(filepath.Join(root, opencodeLegacyMainFile)) {
+		return opencodeLegacyMainFile
+	}
+	return opencodeMainFile
+}
+
 // importOpencodeRules prefers `.opencode/commands/*.md` is NOT a rules
-// source for OpenCode. Rules come from slicing `.opencode/AGENTS.md`
-// on `## ` headings since OpenCode has no dedicated rules directory.
+// source for OpenCode. Rules come from slicing the entry-point file on
+// `## ` headings since OpenCode has no dedicated rules directory.
 func importOpencodeRules(root, dstDir string) (int, error) {
-	return sliceMainFileByH2(root, opencodeMainFile, dstDir)
+	return sliceMainFileByH2(root, opencodeEntryPoint(root), dstDir)
 }
 
 // importOpencodeMarkdownDir copies every top-level `*.md` in the named

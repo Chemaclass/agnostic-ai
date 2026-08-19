@@ -10,6 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Gemini ignore specs emit to `.geminiignore`, the file Gemini CLI reads. They previously went to `.aiexclude`, which belongs to Gemini Code Assist, so every ignore pattern was silently unread and the paths users meant to exclude stayed visible.
 - Kiro hook files carry `"version": "v1"` instead of `"version": 1`. The vendor schema marks the field required and documents the string form only, so a strict parser could reject the file and drop every hook in it.
+- OpenCode reads its entry point from the root `AGENTS.md`, which it walks up the tree to find, instead of `.opencode/AGENTS.md`, which it never opens. An OpenCode-only project got no rules at all; a project also syncing codex, amp, warp, or zed worked only because those targets happened to write the shared root file. `import` still reads the old path when it is the only one present.
 - Factory droid `tools` translate onto Factory's own IDs (`Bash` to `Execute`, `Write` to `Create`, `WebFetch` to `FetchUrl`). DroidValidator errors on an unknown ID and the droid then never loads, so an agent declaring `Bash` previously produced a file Factory rejected. Names with no Factory equivalent drop with a coverage note instead of being written verbatim.
 
 ## v0.49.0 - 2026-08-13

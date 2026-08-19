@@ -58,10 +58,10 @@ Each tool reads its instruction file at a tool-specific path.
 | gemini | `GEMINI.md` |
 | aider | `CONVENTIONS.md` |
 | copilot | `.github/copilot-instructions.md` |
-| opencode | `.opencode/AGENTS.md` |
+| opencode | `AGENTS.md` |
 | antigravity | `.agent/AGENTS.md` |
 
-The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across its sixteen consumers (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo) for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, `.opencode/AGENTS.md`, and `.agent/AGENTS.md` each have a different path and different inlined rule content. One symlink points at one path, so it cannot serve every tool's location at once.
+The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across its sixteen consumers (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo) for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, `.rules`, and `.agent/AGENTS.md` each have a different path and different inlined rule content. One symlink points at one path, so it cannot serve every tool's location at once.
 
 ### Rules delivery is path-divergent
 
