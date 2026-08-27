@@ -128,7 +128,7 @@ outputs:
     agents-dir: .github/agents              # default. One <name>.agent.md profile per agent.
     skills-dir: .github/skills              # default. One folder per skill (<name>/SKILL.md + bundled assets).
     mcp-file: .vscode/mcp.json              # default
-    # root-mcp-file: .mcp.json             # opt-in: also mirror the servers to a workspace-root .mcp.json, which Agent Host reads natively.
+    # root-mcp-file: .mcp.json             # opt-in: also write the servers to a workspace-root .mcp.json under mcpServers, the key its reader accepts.
     # chatmodes-dir: .github/chatmodes      # opt-in: also emit each agent as a Copilot Custom Chat Mode.
   aider:
     ignore-file: .aiderignore    # default. Agent ignore patterns (gitignore syntax).

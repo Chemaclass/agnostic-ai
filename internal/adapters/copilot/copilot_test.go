@@ -392,7 +392,7 @@ func TestEmit_RootMCPFile_IsOptIn(t *testing.T) {
 	}
 }
 
-func TestEmit_RootMCPFile_UsesVSCodeSchema(t *testing.T) {
+func TestEmit_RootMCPFile_UsesMCPServersWrapper(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	cfg := &config.Config{
@@ -405,20 +405,23 @@ func TestEmit_RootMCPFile_UsesVSCodeSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := readFile(t, filepath.Join(dir, ".mcp.json"))
-	// The vendor documents the same "servers" wrapper for the root file
-	// as for .vscode/mcp.json, not Claude's "mcpServers".
-	if !strings.Contains(root, `"servers"`) {
-		t.Errorf("root .mcp.json must use the VS Code servers wrapper:\n%s", root)
+	// The reader of the root file calls `servers` unsupported, so the two
+	// files cannot share one wrapper. See the emitMCP doc comment.
+	if !strings.Contains(root, `"mcpServers"`) {
+		t.Errorf("root .mcp.json must use the mcpServers wrapper:\n%s", root)
 	}
-	if strings.Contains(root, `"mcpServers"`) {
-		t.Errorf("root .mcp.json must not use Claude's mcpServers wrapper:\n%s", root)
+	if strings.Contains(root, `"servers"`) {
+		t.Errorf("root .mcp.json must not use the unsupported servers wrapper:\n%s", root)
 	}
 	if !strings.Contains(root, `"fs"`) {
 		t.Errorf("root .mcp.json missing the server entry:\n%s", root)
 	}
-	// Both files carry the same servers, so the native path keeps working.
-	if vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json")); vscode != root {
-		t.Errorf("root and .vscode copies must match:\nroot:\n%s\nvscode:\n%s", root, vscode)
+	vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json"))
+	if !strings.Contains(vscode, `"servers"`) {
+		t.Errorf(".vscode/mcp.json must keep the VS Code servers wrapper:\n%s", vscode)
+	}
+	if strings.Contains(vscode, `"mcpServers"`) {
+		t.Errorf(".vscode/mcp.json must not use the mcpServers wrapper:\n%s", vscode)
 	}
 }
 
