@@ -7,8 +7,8 @@ import (
 
 // NativeArtifacts describes where Zed reads each generated artifact,
 // honoring the same outputs.zed.* overrides Emit resolves. Rules reach
-// Zed through the shared AGENTS.md entry-point; tasks appear only when
-// the user opted in via outputs.zed.tasks-file.
+// Zed through the `.rules` entry-point; tasks appear only when the user
+// opted in via outputs.zed.tasks-file.
 func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	arts := []emit.NativeArtifact{
 		{Label: "Skills", Location: emit.OutputSkillsDir(cfg, target, defaultSkillsDir) + "/", Note: "one folder per skill"},

@@ -2,12 +2,26 @@
 //
 // Zed 1.4.2 retired its rules library in favor of Agent Skills: one
 // folder per skill at `.agents/skills/<name>/SKILL.md` (the cross-tool
-// path Codex and Amp share) with bundled assets. Always-on project
-// instructions live in the root `AGENTS.md`, which is written centrally
-// by `sync` as a slim pointer body with rule bodies inlined. When
-// `outputs.zed.rules-file` is set, this adapter instead writes the
-// legacy merged `.rules`-style document at that path so users on older
-// Zed versions keep their behavior.
+// path Codex and Amp share) with bundled assets.
+//
+// Always-on project instructions live in the root `.rules`, written
+// centrally by `sync` as a slim pointer body with rule bodies inlined.
+// `.rules` rather than `AGENTS.md` because Zed reads "the first
+// matching file in this list" (zed.dev/docs/ai/instructions), first
+// match wins with no merge: `.rules`, `.cursorrules`, `.windsurfrules`,
+// `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`,
+// `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Copilot's entry-point at rank
+// 5 carries a pointer body only and outranks AGENTS.md at rank 7, so a
+// project syncing both targets used to hand Zed a file with no rules in
+// it at all (target-audit 2026-08-27, #624). Rank 1 cannot be
+// shadowed. Zed calls `.rules` a compatibility instruction file and
+// AGENTS.md its primary one, so a Zed release dropping `.rules` moves
+// this back; see the target-audit watch list for zed.
+//
+// When `outputs.zed.rules-file` is set, this adapter instead writes the
+// legacy merged rules document at that path (agent bodies included) and
+// the central pointer-body write is skipped, so pointing it at `.rules`
+// replaces the entry-point rather than colliding with it.
 //
 // MCP servers are configured in `.zed/settings.json` under the
 // `context_servers` key (note: not `mcpServers`), with a flat
@@ -60,7 +74,7 @@ func (Adapter) Name() string { return target }
 // the legacy merged rules document when opted in via
 // outputs.zed.rules-file, Zed Tasks when outputs.zed.tasks-file is set,
 // and `.zed/settings.json` with the `context_servers` map when MCP
-// entries exist. The root AGENTS.md entry-point (with rule bodies
+// entries exist. The root `.rules` entry-point (with rule bodies
 // inlined) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {

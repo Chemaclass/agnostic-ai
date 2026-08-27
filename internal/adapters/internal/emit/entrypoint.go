@@ -18,12 +18,24 @@ const AgnosticEntryPointPath = ".agnostic-ai/AGNOSTIC_AI.md"
 // file for that target. Targets absent from the map have no entry-point
 // (they emit only per-file artifacts under their own directory, e.g.
 // cursor's .cursor/rules/<name>.mdc).
+//
+// zed is the one target whose path is not the vendor's preferred file.
+// Zed reads "the first matching file in this list"
+// (zed.dev/docs/ai/instructions), first match wins with no merge:
+// `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
+// `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`,
+// `CLAUDE.md`, `GEMINI.md`. AGENTS.md sits at rank 7, behind copilot's
+// entry-point at rank 5, and that file carries the pointer body only
+// (copilot delivers rules through `.github/instructions/`, so it is
+// absent from inlineRulesTargets). Enabling both targets handed Zed a
+// file with no rule bodies in it and every rule silently stopped
+// applying (#624). `.rules` is rank 1, so nothing agnostic-ai emits
+// can outrank it. See TestVendorLookupOrder_WinningFileCarriesRules.
 var entryPointPaths = map[string]string{
 	"claude":      "CLAUDE.md",
 	"codex":       "AGENTS.md",
 	"amp":         "AGENTS.md",
 	"warp":        "AGENTS.md",
-	"zed":         "AGENTS.md",
 	"cline":       "AGENTS.md",
 	"junie":       "AGENTS.md",
 	"kiro":        "AGENTS.md",
@@ -39,6 +51,7 @@ var entryPointPaths = map[string]string{
 	"opencode":    "AGENTS.md",
 	"gemini":      "GEMINI.md",
 	"aider":       "CONVENTIONS.md",
+	"zed":         ".rules",
 	"copilot":     ".github/copilot-instructions.md",
 	"antigravity": ".agent/AGENTS.md",
 }

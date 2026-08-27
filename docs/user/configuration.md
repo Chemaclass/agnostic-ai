@@ -308,7 +308,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `amp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `amp`. |
 | `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
 | `zed` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`); the cross-tool tree shared with codex and amp, identical bytes dedupe. |
-| `zed` | `rules-file` | _empty_ | When set (e.g. `.rules`), writes the legacy merged document (rules + agents) at that path. `sync` skips the AGENTS.md pointer-body write for `zed`. |
+| `zed` | `rules-file` | _empty_ | When set (e.g. `.rules`), writes the legacy merged document (rules + agents) at that path. `sync` skips the `.rules` pointer-body write for `zed`. |
 | `zed` | `mcp-file` | `.zed/settings.json` | `context_servers` map. Stdio uses `command`/`args`/`env`; HTTP/SSE use a native `url`/`headers` shape. |
 | `zed` | `tasks-file` | _empty_ | When set, each hook emits as an on-demand Zed Task (`sh -c "<command>"`). Zed has no lifecycle-hook surface, so tasks run from the command palette. Opt-in. |
 | `warp` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`); the cross-tool tree shared with codex, amp, and zed, identical bytes dedupe. |
@@ -405,7 +405,7 @@ sync:
   target-overview: true
 ```
 
-The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
+The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
 ### `sync.resolve-imports`
 

@@ -52,7 +52,7 @@ Each tool reads its instruction file at a tool-specific path.
 | Target | Entry-point file |
 |--------|------------------|
 | claude | `CLAUDE.md` |
-| codex | `AGENTS.md` (shared with amp/warp/zed/cline/junie/kiro/crush/trae/jules/goose/augment/qoder/openhands/factory/kilo/opencode) |
+| codex | `AGENTS.md` (shared with amp/warp/cline/junie/kiro/crush/trae/jules/goose/augment/qoder/openhands/factory/kilo/opencode) |
 | amp | `AGENTS.md` (shared) |
 | warp | `AGENTS.md` (shared) |
 | opencode | `AGENTS.md` (shared) |
@@ -61,11 +61,11 @@ Each tool reads its instruction file at a tool-specific path.
 | copilot | `.github/copilot-instructions.md` |
 | antigravity | `.agent/AGENTS.md` |
 
-The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across its seventeen consumers (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, opencode) for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, and `.agent/AGENTS.md` each have a different path and different inlined rule content. One symlink points at one path, so it cannot serve every tool's location at once.
+The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-identical across its sixteen consumers (codex, amp, warp, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, opencode) for the pointer body and the rules inline block. But `CLAUDE.md` lives at its own path with an optional `@`-import rules block. `GEMINI.md`, `CONVENTIONS.md`, and `.agent/AGENTS.md` each have a different path and different inlined rule content, and Zed reads `.rules`, the same body at yet another path. One symlink points at one path, so it cannot serve every tool's location at once.
 
 ### Rules delivery is path-divergent
 
-Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and kilo have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Junie has no native rules directory either, but inlines into its own preferred `.junie/AGENTS.md` instead of that shared file, alongside a sentinel-marked `## Agents` block no other inlining target has (Junie has no native per-agent surface at all, see #552). Cursor, cline, windsurf, continue, kiro, trae, qoder, antigravity, and augment each get one file per rule in their own directory and format; augment inlines into `AGENTS.md` too, on top of its native `.augment/rules/` directory. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
+Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and kilo have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Junie and zed have no native rules directory either, but inline into their own file (`.junie/AGENTS.md` and `.rules`) instead of that shared one, alongside a sentinel-marked `## Agents` block no other inlining target has (Junie has no native per-agent surface at all, see #552). Cursor, cline, windsurf, continue, kiro, trae, qoder, antigravity, and augment each get one file per rule in their own directory and format; augment inlines into `AGENTS.md` too, on top of its native `.augment/rules/` directory. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
 
 ### Hooks are target-specific
 

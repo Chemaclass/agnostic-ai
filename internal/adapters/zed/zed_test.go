@@ -18,9 +18,10 @@ func TestName(t *testing.T) {
 	}
 }
 
-// Zed retired its rules library in favor of AGENTS.md + skills, so the
-// adapter no longer writes a merged .rules by default; sync owns the
-// AGENTS.md entry-point (with rules inlined) instead.
+// Zed retired its rules library in favor of instruction files + skills,
+// so the adapter never writes the merged legacy document by default.
+// Sync owns the `.rules` entry-point (pointer body with rules inlined),
+// so nothing lands here from the adapter side.
 func TestEmit_NoDotRulesByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -34,7 +35,7 @@ func TestEmit_NoDotRulesByDefault(t *testing.T) {
 		t.Errorf(".rules should not be written by default, err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
-		t.Errorf("adapter should not write AGENTS.md; sync owns the entry-point, err=%v", err)
+		t.Errorf("zed's entry-point is .rules and sync owns it; the adapter writes neither, err=%v", err)
 	}
 }
 
