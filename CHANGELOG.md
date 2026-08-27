@@ -34,6 +34,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI actually reads. They went to `.aiexclude` before, which belongs to Gemini Code Assist, so every excluded path stayed visible to `@` file references and file search. A managed `.aiexclude` is removed on the next sync (#625).
 
+### Fixed
+
+- Kiro hook files write `"version": "v1"`, the string value the vendor schema documents, instead of the number `1`. A parser that validates the field would reject the file and none of the project's hooks would fire (#626).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

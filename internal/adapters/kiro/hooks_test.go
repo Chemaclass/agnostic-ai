@@ -35,8 +35,8 @@ func TestEmit_Hook_WritesOneFilePerHook(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &doc); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, got)
 	}
-	if doc.Version != 1 {
-		t.Errorf("expected version 1, got %d", doc.Version)
+	if doc.Version != "v1" {
+		t.Errorf("expected version \"v1\", got %q", doc.Version)
 	}
 	if len(doc.Hooks) != 1 {
 		t.Fatalf("expected one hook entry, got %d", len(doc.Hooks))
