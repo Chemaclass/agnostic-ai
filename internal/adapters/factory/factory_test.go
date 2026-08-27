@@ -58,12 +58,15 @@ func TestEmit_Agent_WritesDroidFile(t *testing.T) {
 		"model: opus",
 		"tools:",
 		"- Read",
-		"- Bash",
+		"- Execute",
 		"Run the release checklist.",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "Bash") {
+		t.Errorf("Bash is not a Factory tool ID; expected it translated to Execute, got:\n%s", got)
 	}
 }
 
