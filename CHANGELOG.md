@@ -22,6 +22,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `outputs.copilot.root-mcp-file` mirrors Copilot's MCP servers to a workspace-root `.mcp.json`, which VS Code's Agent Host reads natively (it does not read `.vscode/mcp.json` directly). Opt-in, so no project gains a root file it did not ask for (#610).
 
+### Fixed
+
+- Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI actually reads. They went to `.aiexclude` before, which belongs to Gemini Code Assist, so every excluded path stayed visible to `@` file references and file search. A managed `.aiexclude` is removed on the next sync (#625).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added
