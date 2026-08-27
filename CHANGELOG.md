@@ -22,6 +22,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `outputs.copilot.root-mcp-file` mirrors Copilot's MCP servers to a workspace-root `.mcp.json`, which VS Code's Agent Host reads natively (it does not read `.vscode/mcp.json` directly). Opt-in, so no project gains a root file it did not ask for (#610).
 
+### Fixed
+
+- Kiro hook files write `"version": "v1"`, the string value the vendor schema documents, instead of the number `1`. A parser that validates the field would reject the file and none of the project's hooks would fire (#626).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

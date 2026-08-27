@@ -76,7 +76,7 @@
 // Hooks are also native: one JSON file per hook spec at
 // `.kiro/hooks/<name>.json` (kiro.dev/docs/hooks/: "Hooks are JSON
 // files stored in `.kiro/hooks/` at the workspace level"), each holding
-// `{"version": 1, "hooks": [...]}`. A hook entry carries `name`,
+// `{"version": "v1", "hooks": [...]}`. A hook entry carries `name`,
 // `trigger` (the spec's `event`, passed through verbatim like every
 // other adapter's hook event), an optional `matcher`, an `action`
 // object, and an optional `timeout`. A spec's `command:` (string or

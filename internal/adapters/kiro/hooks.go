@@ -15,7 +15,9 @@ import (
 // carries, so a spec with several `command:` entries shares one file
 // (see buildHookEntries) instead of spawning one file per command.
 type hooksFile struct {
-	Version int         `json:"version"`
+	// Version is a string, not a number: the vendor field reference
+	// documents `version` as `Schema version - currently "v1"`.
+	Version string      `json:"version"`
 	Hooks   []hookEntry `json:"hooks"`
 }
 
@@ -55,7 +57,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 		if len(entries) == 0 {
 			continue
 		}
-		raw, err := emit.MarshalJSONIndent(hooksFile{Version: 1, Hooks: entries})
+		raw, err := emit.MarshalJSONIndent(hooksFile{Version: "v1", Hooks: entries})
 		if err != nil {
 			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
 		}
