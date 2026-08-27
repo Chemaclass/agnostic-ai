@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.50.0 - 2026-08-28
+
 ### Added
 
 - `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
