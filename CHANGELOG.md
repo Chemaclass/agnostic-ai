@@ -6,41 +6,23 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
-### Fixed
-
-- OpenCode's entry point moved from `.opencode/AGENTS.md` to the root `AGENTS.md`, the only file OpenCode's upward lookup opens, so rule bodies now reach a project that syncs opencode alone. A managed file at the old path is swept on sync, a hand-authored one is kept, and `import opencode` still reads it when the root file is absent (#623).
-- Windsurf scoped rules and agents now land at `<scope>/.devin/rules/<name>.md`, a location Devin discovers, instead of `.devin/rules/<scope>/<name>.md`, which no documented discovery path reached. A windsurf rule that sets `alwaysApply: false` also carries the matching `trigger` frontmatter now, so it stops being silently promoted to always-on (#628).
-
 ### Added
 
+- `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
+- Path variables in spec bodies: `{{$SKILLS_DIR}}`, `{{$AGENTS_DIR}}`, `{{$COMMANDS_DIR}}`, `{{$RULES_DIR}}`, and `{{$MCP_FILE}}` expand to each target's own location, so one spec can say where files go without hardcoding one tool's layout. An `outputs.<target>.<field>` override wins, and a variable a target has no surface for is left verbatim with a coverage note rather than blanked (#616).
 - `lint` flags frontmatter keys that near-miss a key agnostic-ai owns (`allowed_tools`, `allowedTools`, `allowed-tools`, `disallowed_tools`, `max_turns`, `model_name`). Such a key parses, emits, and does nothing, so a tool restriction can look set while the agent runs unrestricted. Warn severity, so `lint --strict` gates it; the message suggests moving a genuinely target-native key under `x-<target>` (#617).
 
 ### Changed
 
 - `validate` exits 1 when it reports any issue, and `doctor --check-globs` exits 1 when a rule's globs match no files. Both printed the problem and exited 0 before, so a CI step could not gate on either: one project sat 24 versions behind with 23 invalid specs and a green pipeline for months (#617).
 
-### Added
-
-- Path variables in spec bodies: `{{$SKILLS_DIR}}`, `{{$AGENTS_DIR}}`, `{{$COMMANDS_DIR}}`, `{{$RULES_DIR}}`, and `{{$MCP_FILE}}` expand to each target's own location, so one spec can say where files go without hardcoding one tool's layout. An `outputs.<target>.<field>` override wins, and a variable a target has no surface for is left verbatim with a coverage note rather than blanked (#616).
-
-### Added
-
-- `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
-
 ### Fixed
 
 - Zed rules reach Zed again. `sync` writes zed's entry-point to `.rules`, which Zed reads before `.github/copilot-instructions.md`; enabling copilot and zed together handed Zed copilot's pointer-only file, and every rule silently stopped applying (#624).
-
-### Fixed
-
+- OpenCode's entry point moved from `.opencode/AGENTS.md` to the root `AGENTS.md`, the only file OpenCode's upward lookup opens, so rule bodies now reach a project that syncs opencode alone. A managed file at the old path is swept on sync, a hand-authored one is kept, and `import opencode` still reads it when the root file is absent (#623).
+- Windsurf scoped rules and agents now land at `<scope>/.devin/rules/<name>.md`, a location Devin discovers, instead of `.devin/rules/<scope>/<name>.md`, which no documented discovery path reached. A windsurf rule that sets `alwaysApply: false` also carries the matching `trigger` frontmatter now, so it stops being silently promoted to always-on (#628).
 - Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI actually reads. They went to `.aiexclude` before, which belongs to Gemini Code Assist, so every excluded path stayed visible to `@` file references and file search. A managed `.aiexclude` is removed on the next sync (#625).
-
-### Fixed
-
 - Kiro hook files write `"version": "v1"`, the string value the vendor schema documents, instead of the number `1`. A parser that validates the field would reject the file and none of the project's hooks would fire (#626).
-
-### Fixed
-
 - Factory droids translate `tools` onto Droid CLI's own IDs (`Bash` to `Execute`, `Write` to `Create`, `WebFetch` to `FetchUrl`) instead of writing Claude-style names Droid CLI rejects as unknown, which failed the whole droid at load time and kept it out of the picker (#627).
 
 ## v0.49.0 - 2026-08-13

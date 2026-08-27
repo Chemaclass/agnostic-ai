@@ -23,8 +23,9 @@ import (
 //   - fail: hard error with no resolution hint.
 //
 // AGENTS.md is the canonical shared path: Codex, Amp, Warp, and OpenCode all
-// default to it. Their entry-point pointer body is byte-identical, so sync
-// deduplicates the write and they do not collide. The same rule applies to
+// default to it (Zed defaults to .rules, which it reads ahead of AGENTS.md,
+// so it does not contend here). Their entry-point pointer body is
+// byte-identical, so sync deduplicates the write and they do not collide. The same rule applies to
 // adapter-emitted files: Codex and Amp both emit skills to
 // `.agents/skills/<name>/SKILL.md`, and for a spec without divergent
 // per-target overrides the bytes match, so the shared write is the dedup the
