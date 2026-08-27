@@ -93,21 +93,27 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 }
 
 // emitMCP writes the VS Code MCP file, and the workspace-root copy too
-// when outputs.copilot.root-mcp-file is set. Agent Host does not read
-// .vscode/mcp.json but does read a root .mcp.json natively; both use the
-// same `servers` wrapper, so the two files are byte-identical.
+// when outputs.copilot.root-mcp-file is set. The two files carry the same
+// servers under different wrappers, because they have different readers.
+// `.vscode/mcp.json` is VS Code's own file and keeps `servers`. The root
+// `.mcp.json` is read by Copilot CLI and Agent Host, and that reader
+// rejects the VS Code wrapper: "The `.vscode/mcp.json` file for VS Code
+// is not read by Copilot CLI. It uses the unsupported top-level key
+// `servers`."
+// (docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers).
+// The same page accepts `mcpServers`, and its own migration recipe is a
+// rename of that one key.
 func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	paths := []string{emit.OutputMCPFile(cfg, target, defaultMCPFile)}
-	if root := emit.OutputRootMCPFile(cfg, target); root != "" {
-		paths = append(paths, root)
+	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
 	}
-	for _, path := range paths {
-		if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers, path, dryRun); err != nil {
-			return err
-		}
+	root := emit.OutputRootMCPFile(cfg, target)
+	if root == "" {
+		return nil
 	}
-	return nil
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, root, dryRun)
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why

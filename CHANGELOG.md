@@ -20,7 +20,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `outputs.copilot.root-mcp-file` mirrors Copilot's MCP servers to a workspace-root `.mcp.json`, which VS Code's Agent Host reads natively (it does not read `.vscode/mcp.json` directly). Opt-in, so no project gains a root file it did not ask for (#610).
+- `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
 
 ## v0.49.0 - 2026-08-13
 
