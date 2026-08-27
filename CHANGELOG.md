@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- OpenCode's entry point moved from `.opencode/AGENTS.md` to the root `AGENTS.md`, the only file OpenCode's upward lookup opens, so rule bodies now reach a project that syncs opencode alone. A managed file at the old path is swept on sync, a hand-authored one is kept, and `import opencode` still reads it when the root file is absent (#623).
+
 ### Added
 
 - `lint` flags frontmatter keys that near-miss a key agnostic-ai owns (`allowed_tools`, `allowedTools`, `allowed-tools`, `disallowed_tools`, `max_turns`, `model_name`). Such a key parses, emits, and does nothing, so a tool restriction can look set while the agent runs unrestricted. Warn severity, so `lint --strict` gates it; the message suggests moving a genuinely target-native key under `x-<target>` (#617).

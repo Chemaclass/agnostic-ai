@@ -405,7 +405,7 @@ sync:
   target-overview: true
 ```
 
-The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
+The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
 ### `sync.resolve-imports`
 

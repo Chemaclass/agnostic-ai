@@ -36,10 +36,10 @@ var entryPointPaths = map[string]string{
 	"openhands":   "AGENTS.md",
 	"factory":     "AGENTS.md",
 	"kilo":        "AGENTS.md",
+	"opencode":    "AGENTS.md",
 	"gemini":      "GEMINI.md",
 	"aider":       "CONVENTIONS.md",
 	"copilot":     ".github/copilot-instructions.md",
-	"opencode":    ".opencode/AGENTS.md",
 	"antigravity": ".agent/AGENTS.md",
 }
 
