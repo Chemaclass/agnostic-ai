@@ -38,16 +38,35 @@ type RulesDirOpts struct {
 	// FormatSkill renders one skill into file content. Defaults to
 	// `# Skill: <name>\n\n<body>\n` when nil.
 	FormatSkill func(spec.Entry) string
+	// ScopeAtRoot routes a scoped entry to `<scope>/<Dir>/<name><Ext>`
+	// instead of nesting it at `<Dir>/<scope>/<name><Ext>`. Set only by
+	// targets whose vendor discovers a copy of the tool directory in
+	// project sub-directories. Devin (windsurf) is the one such target
+	// today: it reads "`.devin/rules` or `.windsurf/rules` in any
+	// sub-directory of your workspace"
+	// (docs.devin.ai/desktop/cascade/memories) and globs each of them
+	// single-level as `.devin/rules/*.md`
+	// (docs.devin.ai/cli/extensibility/rules), so a nested file never
+	// loads (#628).
+	ScopeAtRoot bool
 }
 
 // RulesDirectory writes one file per rule, agent, and skill into a directory.
 // Used by Cursor (with custom formatters), Cline, Windsurf, and Continue.
 //
-// Entries with a non-empty Scope nest under the rules directory:
-// `<Dir>/<scope>/<name><Ext>` (e.g. `.cursor/rules/backend/auth.mdc`).
-// Tools that load rules recursively from `.cursor/rules/`, `.cline/rules/`,
-// etc. pick up the scoped output automatically, and the output stays inside
-// the tool directory instead of leaking a `<scope>/` tree at the repo root.
+// Entries with a non-empty Scope route by the target's own documented
+// discovery, which is a per-target claim and never a shared default:
+//
+//   - Default (`ScopeAtRoot` false): nest under the rules directory,
+//     `<Dir>/<scope>/<name><Ext>` (e.g. `.cursor/rules/backend/auth.mdc`),
+//     which keeps the output inside the tool directory. This only
+//     reaches the tool when that tool reads its rules directory
+//     recursively, so each caller keeping the default owes its own
+//     vendor evidence for that; there is no shared guarantee.
+//   - `ScopeAtRoot` true: place a copy of the tool directory in the
+//     scope, `<scope>/<Dir>/<name><Ext>` (e.g.
+//     `backend/.devin/rules/auth.md`). See the field comment for why
+//     windsurf needs it.
 func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) error {
 	if opts.Ext == "" {
 		opts.Ext = ".md"
@@ -66,7 +85,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	}
 
 	for _, r := range b.Rules {
-		path := filepath.Join(scopedDir(opts.Dir, r), r.Name+opts.Ext)
+		path := filepath.Join(scopedDir(opts, r), r.Name+opts.Ext)
 		if err := s.WriteFile(path, opts.FormatRule(r), dryRun); err != nil {
 			return err
 		}
@@ -74,7 +93,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	if !opts.SkipAgents {
 		for _, a := range b.Agents {
 			name := opts.AgentPrefix + a.Name
-			path := filepath.Join(scopedDir(opts.Dir, a), name+opts.Ext)
+			path := filepath.Join(scopedDir(opts, a), name+opts.Ext)
 			if err := s.WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
 				return err
 			}
@@ -83,7 +102,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	if !opts.SkipSkills {
 		for _, sk := range b.Skills {
 			name := opts.SkillPrefix + sk.Name
-			path := filepath.Join(scopedDir(opts.Dir, sk), name+opts.Ext)
+			path := filepath.Join(scopedDir(opts, sk), name+opts.Ext)
 			if err := s.WriteFile(path, opts.FormatSkill(sk), dryRun); err != nil {
 				return err
 			}
@@ -92,15 +111,32 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	return nil
 }
 
-// scopedDir returns `<dir>/<scope>` when the entry has a non-empty
-// EffectiveScope, otherwise `dir` unchanged. The scope nests inside the
-// rules directory so output stays under the tool dir (e.g.
-// `.cursor/rules/backend`) rather than at the repo root.
-func scopedDir(dir string, e spec.Entry) string {
-	if s := e.EffectiveScope(); s != "" {
-		return filepath.Join(dir, s)
+// scopedDir returns the directory one entry's file belongs in:
+// `<Dir>/<scope>` by default, `<scope>/<Dir>` under ScopeAtRoot, and
+// `Dir` unchanged when the entry has no EffectiveScope.
+func scopedDir(opts RulesDirOpts, e spec.Entry) string {
+	s := e.EffectiveScope()
+	if s == "" {
+		return opts.Dir
 	}
-	return dir
+	if !opts.ScopeAtRoot {
+		return filepath.Join(opts.Dir, s)
+	}
+	// A frontmatter `scope: ../x` would anchor the tool directory
+	// outside the project. Fall back to the unscoped dir: the entry
+	// loses its scope but still reaches the tool, which beats writing
+	// it somewhere nothing reads (#628).
+	if ScopeEscapesRoot(s) {
+		return opts.Dir
+	}
+	return filepath.Join(s, opts.Dir)
+}
+
+// ScopeEscapesRoot reports whether a cleaned scope points at or above
+// the project root (a leading `..`).
+func ScopeEscapesRoot(scope string) bool {
+	clean := filepath.ToSlash(filepath.Clean(scope))
+	return clean == ".." || strings.HasPrefix(clean, "../")
 }
 
 func defaultFormatRule(e spec.Entry) string {

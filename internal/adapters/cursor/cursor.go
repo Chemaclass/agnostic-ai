@@ -23,8 +23,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -300,7 +298,7 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 		byScope[scope] = append(byScope[scope], r)
 	}
 	for _, scope := range scopeOrder {
-		if scopeEscapesRoot(scope) {
+		if emit.ScopeEscapesRoot(scope) {
 			// A frontmatter `scope: ../x` would anchor BUGBOT.md outside the
 			// repo (review files sit at the project root, not under a tool
 			// dir). Skip it rather than write beyond the project.
@@ -356,14 +354,6 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 	return sess.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
-// scopeEscapesRoot reports whether a cleaned scope points at or above the
-// repo root (a leading `..`), which would let an emitted file land outside
-// the project tree.
-func scopeEscapesRoot(scope string) bool {
-	clean := filepath.ToSlash(filepath.Clean(scope))
-	return clean == ".." || strings.HasPrefix(clean, "../")
-}
-
 // mdc renders one rule as a `.mdc` file. Rules default to
 // `alwaysApply: true`; the spec frontmatter overrides.
 func mdc(e spec.Entry) string {
@@ -404,7 +394,7 @@ func mdc(e spec.Entry) string {
 	// rather than always double-quoting, which rewrote `apps/foo/**` to
 	// `"apps/foo/**"` and broke byte round-trips (#443).
 	if globs != "" {
-		b.WriteString("globs: " + mdcScalar(globs) + "\n")
+		b.WriteString("globs: " + emit.YAMLScalar(globs) + "\n")
 	}
 	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
 	b.WriteString("---\n\n")
@@ -435,16 +425,4 @@ func pathsToGlobs(paths any) []string {
 	default:
 		return nil
 	}
-}
-
-// mdcScalar renders s as a YAML scalar with minimal quoting: a plain
-// value like `apps/foo/**` stays unquoted, while a value YAML cannot
-// represent plainly (a leading `*`, a colon, ...) is quoted just enough
-// to stay valid.
-func mdcScalar(s string) string {
-	out, err := yaml.Marshal(s)
-	if err != nil {
-		return fmt.Sprintf("%q", s)
-	}
-	return strings.TrimRight(string(out), "\n")
 }

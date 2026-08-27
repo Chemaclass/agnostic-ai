@@ -16,6 +16,30 @@ type rulesDirCounts struct {
 	rules, agents, skills int
 }
 
+// add folds one directory's counts into c, so an importer that reads
+// several rules directories reports a single total.
+func (c *rulesDirCounts) add(o rulesDirCounts) {
+	c.rules += o.rules
+	c.agents += o.agents
+	c.skills += o.skills
+}
+
+// rulesDirImportOpts tunes importRulesDirectoryWith for a target whose
+// rules directory is not a plain root-level tree. Zero value reproduces
+// importRulesDirectory exactly.
+type rulesDirImportOpts struct {
+	// ScopePrefix is prepended to every imported spec's destination
+	// path. Set when srcDir is a copy of the tool directory living in a
+	// project sub-directory, so `backend/.devin/rules/auth.md` imports
+	// back to `rules/backend/auth.md` (#628).
+	ScopePrefix string
+	// NormalizeMeta rewrites one file's parsed frontmatter before
+	// rulesDirFileContent renders the spec, so a target-native
+	// activation key translates back into the generic
+	// `description` / `globs` / `alwaysApply` fields.
+	NormalizeMeta func(map[string]any)
+}
+
 // importRulesDirectory walks srcDir for .md files and reclassifies each
 // as a rule, agent, or skill based on filename prefix:
 //
@@ -34,6 +58,12 @@ type rulesDirCounts struct {
 // `# <heading>\n\n` line the RulesDirectory family writes after any
 // frontmatter (re-emitted on sync) is stripped from the body either way.
 func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCounts, error) {
+	return importRulesDirectoryWith(root, srcDir, src, rulesDirImportOpts{})
+}
+
+// importRulesDirectoryWith is importRulesDirectory with the per-target
+// knobs in rulesDirImportOpts applied.
+func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rulesDirImportOpts) (rulesDirCounts, error) {
 	var c rulesDirCounts
 	full := filepath.Join(root, srcDir)
 	if _, err := os.Stat(full); errors.Is(err, fs.ErrNotExist) {
@@ -59,8 +89,11 @@ func importRulesDirectory(root, srcDir string, src config.Sources) (rulesDirCoun
 		kind, baseName := classifyRulesDirFile(rel)
 		dstDir := pickKindDir(kind, src)
 		meta, rest := splitMdcFrontmatter([]byte(header.Strip(string(data))))
+		if opts.NormalizeMeta != nil {
+			opts.NormalizeMeta(meta)
+		}
 		body := stripLeadingHeading(rest)
-		out := filepath.Join(root, dstDir, scopeDir(rel), baseName+".md")
+		out := filepath.Join(root, dstDir, opts.ScopePrefix, scopeDir(rel), baseName+".md")
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
