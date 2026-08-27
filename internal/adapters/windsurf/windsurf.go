@@ -3,9 +3,21 @@
 //
 // Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/`
 // as a backward-compat fallback (`.windsurfrules` is legacy). Rules and
-// agents emit as always-on files into the preferred directory; set
+// agents emit into the preferred directory, always-on unless the rule
+// declares otherwise (see activationFrontmatter); set
 // `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old
-// layout. Skills emit as a folder per skill under
+// layout.
+//
+// A scoped rule or agent goes to `<scope>/.devin/rules/<name>.md`, not
+// to a subdirectory inside the rules dir. Devin reads "`.devin/rules`
+// or `.windsurf/rules` in any sub-directory of your workspace"
+// (docs.devin.ai/desktop/cascade/memories) and globs each one
+// single-level as `.devin/rules/*.md`
+// (docs.devin.ai/cli/extensibility/rules), so the nested form reached
+// no documented discovery path (target-audit 2026-08-27, #628). The old
+// tree is swept through the sync ledger.
+//
+// Skills emit as a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. Devin Desktop's own primary skill
 // path is `.windsurf/skills/` (workspace scope) or
 // `~/.codeium/windsurf/skills/` (global); `.agents/skills/` and
@@ -111,7 +123,8 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one .md per rule and per agent into the rules directory
-// (default `.devin/rules`, the path Devin Desktop prefers), and one
+// (default `.devin/rules`, the path Devin Desktop prefers), or into
+// `<scope>/<rules-dir>` for a scoped one, and one
 // folder per skill under the skills directory (default
 // `.agents/skills`, Devin Desktop's documented cross-agent-compatibility
 // SKILL.md tree behind its own `.windsurf/skills/`; a flat file there
@@ -132,6 +145,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		Dir:         rulesDir,
 		AgentPrefix: "agent-",
 		SkipSkills:  true,
+		ScopeAtRoot: true,
+		FormatRule:  rule,
 	}, dryRun); err != nil {
 		return err
 	}
@@ -154,6 +169,78 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	return emitWorkflows(sess, b, cfg, dryRun)
+}
+
+// The activation modes agnostic-ai emits through the `trigger`
+// frontmatter key on a `.devin/rules/*.md` file
+// (docs.devin.ai/cli/extensibility/rules,
+// docs.devin.ai/desktop/cascade/memories). Devin's fifth documented
+// value, `agent`, and its `always_on` default have no key written here:
+// see activationFrontmatter for why always-on files stay bare, and
+// targets.md for why `agent` is out of reach.
+const (
+	triggerGlob          = "glob"
+	triggerModelDecision = "model_decision"
+	triggerManual        = "manual"
+)
+
+// rule renders one rule file: optional activation frontmatter, then the
+// `# <name>` heading and body the shared rules-directory renderer
+// writes.
+//
+// An always-on rule stays bare. Devin loads a rule file with no
+// frontmatter as always-on and its Always On mode puts the full body in
+// the system prompt on every message, so `description` has no job
+// there; writing it would churn every existing file for no behavior
+// change.
+func rule(e spec.Entry) string {
+	fm := activationFrontmatter(e)
+	if fm == "" {
+		// Byte-identical to emit's default rule renderer, which this
+		// replaces only to add the frontmatter above.
+		return emit.Header(emit.FormatMarkdown) + "\n# " + e.Name + "\n\n" + e.Body
+	}
+	return emit.WithHeader(fm+"# "+e.Name+"\n\n"+e.Body, emit.FormatMarkdown)
+}
+
+// activationFrontmatter maps a rule's generic activation fields onto
+// Devin's `trigger`, and returns "" for an always-on rule so the file
+// stays bare. The mapping mirrors the one cursor's `.mdc` renderer
+// applies to the same three fields:
+//
+//	alwaysApply true or unset          -> always_on (no frontmatter)
+//	alwaysApply false + globs          -> glob, with the globs verbatim
+//	alwaysApply false + description    -> model_decision
+//	alwaysApply false, neither         -> manual
+//
+// Before this existed the file carried no frontmatter at all, so a rule
+// that declared `alwaysApply: false` was silently promoted to always-on
+// (#628).
+func activationFrontmatter(e spec.Entry) string {
+	m := emit.ResolveMeta(e.Meta, target)
+	if always, ok := m["alwaysApply"].(bool); !ok || always {
+		return ""
+	}
+	desc, _ := m["description"].(string)
+	globs, _ := m["globs"].(string)
+	trigger := triggerManual
+	switch {
+	case globs != "":
+		trigger = triggerGlob
+	case desc != "":
+		trigger = triggerModelDecision
+	}
+	var b strings.Builder
+	b.WriteString("---\n")
+	if desc != "" {
+		b.WriteString("description: " + emit.YAMLScalar(desc) + "\n")
+	}
+	if globs != "" {
+		b.WriteString("globs: " + emit.YAMLScalar(globs) + "\n")
+	}
+	b.WriteString("trigger: " + trigger + "\n")
+	b.WriteString("---\n\n")
+	return b.String()
 }
 
 // emitWorkflows writes one workflow per agent under the configured

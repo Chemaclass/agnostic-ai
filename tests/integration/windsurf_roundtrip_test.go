@@ -43,6 +43,12 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	if !strings.Contains(mcpBody, `"transport": "http"`) {
 		t.Fatalf("first sync's mcp file missing transport: http:\n%s", mcpBody)
 	}
+	if _, ok := first["backend/.devin/rules/auth.md"]; !ok {
+		t.Fatalf("first sync produced no scoped rule at backend/.devin/rules/auth.md: %v", sortedKeys(first))
+	}
+	if body := first[".devin/rules/globbed.md"]; !strings.Contains(body, "trigger: glob") {
+		t.Fatalf("first sync's non-always-on rule missing trigger frontmatter:\n%s", body)
+	}
 
 	for _, sub := range []string{"agents", "skills", "rules", "mcps"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
@@ -52,7 +58,9 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "windsurf")
 
-	for _, sub := range []string{".devin", ".agents"} {
+	// `backend` holds the scoped rules dir, so it is emit output too and
+	// has to go before the second sync rebuilds from the imported specs.
+	for _, sub := range []string{".devin", ".agents", "backend"} {
 		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -107,6 +115,15 @@ gitignore:
 		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules", n+".md"),
 			[]byte("---\nname: "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
+	// A scoped rule emits to backend/.devin/rules/ and a non-always-on
+	// one carries `trigger` frontmatter (#628). Both are new discovery
+	// and translation paths on the import side, so the round-trip has
+	// to cover them.
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/rules/backend"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/backend/auth.md"),
+		[]byte("---\nname: auth\n---\n\nauth body\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/globbed.md"),
+		[]byte("---\nname: globbed\ndescription: Test conventions\nglobs: '**/*.test.ts'\nalwaysApply: false\n---\n\nglobbed body\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/fs.yaml"),
@@ -115,45 +132,41 @@ gitignore:
 		[]byte("name: remote\ntype: http\nurl: https://mcp.example.test/mcp\n"), 0o644))
 }
 
-// snapshotWindsurfEmit reads every file under .devin/ (rules, agents)
-// and .agents/ (skill folders) and returns a relative-path -> bytes
-// map.
+// snapshotWindsurfEmit reads every file under a .devin/ (rules, agents)
+// or .agents/ (skill folders) directory anywhere in the tree and
+// returns a relative-path -> bytes map. Scoped rules put a .devin/ dir
+// in a project sub-directory (#628), so matching only at the root would
+// miss them. The spec tree is skipped: it is input, not output.
 func snapshotWindsurfEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	for _, sub := range []string{".devin", ".agents"} {
-		full := filepath.Join(root, sub)
-		info, err := os.Stat(full)
-		if os.IsNotExist(err) {
-			continue
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-		if err != nil {
-			t.Fatalf("stat %s: %v", full, err)
-		}
-		if !info.IsDir() {
-			continue
-		}
-		err = filepath.WalkDir(full, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
+		if d.IsDir() {
+			if d.Name() == ".agnostic-ai" {
+				return fs.SkipDir
 			}
-			if d.IsDir() {
-				return nil
-			}
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			out[filepath.ToSlash(rel)] = string(data)
 			return nil
-		})
-		if err != nil {
-			t.Fatalf("walk %s: %v", full, err)
 		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		slash := "/" + filepath.ToSlash(rel)
+		if !strings.Contains(slash, "/.devin/") && !strings.Contains(slash, "/.agents/") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		out[strings.TrimPrefix(slash, "/")] = string(data)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", root, err)
 	}
 	return out
 }

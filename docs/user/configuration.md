@@ -296,7 +296,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `cline` | `agents-dir` | `.cline/agents` | One `.md` per agent, verbatim body, no synthesized heading. Independent of `rules-dir`. |
 | `cline` | `skills-dir` | `.cline/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Cline's recommended skills path. |
 | `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The native agent-file emission still happens. Opt-in. |
-| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. |
+| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. A scoped spec prefixes the scope instead of nesting inside: `<scope>/.devin/rules/<name>.md` (#628). |
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
 | `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |

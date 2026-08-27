@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - OpenCode's entry point moved from `.opencode/AGENTS.md` to the root `AGENTS.md`, the only file OpenCode's upward lookup opens, so rule bodies now reach a project that syncs opencode alone. A managed file at the old path is swept on sync, a hand-authored one is kept, and `import opencode` still reads it when the root file is absent (#623).
+- Windsurf scoped rules and agents now land at `<scope>/.devin/rules/<name>.md`, a location Devin discovers, instead of `.devin/rules/<scope>/<name>.md`, which no documented discovery path reached. A windsurf rule that sets `alwaysApply: false` also carries the matching `trigger` frontmatter now, so it stops being silently promoted to always-on (#628).
 
 ### Added
 

@@ -138,6 +138,66 @@ func TestImportWindsurf_LegacyFlatSkillStillImports(t *testing.T) {
 // TestImportWindsurf_KnownSourceWiredIn guards the wiring: windsurf
 // moved off the inline windsurfImportDir switch in runImport onto its
 // own dedicated importer and must stay a known source.
+// TestImportWindsurf_ReadsScopedRulesDirs covers the import half of
+// #628: a rules dir sitting in a project sub-directory imports back to
+// a scoped spec, not to a flat one.
+func TestImportWindsurf_ReadsScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+	writeFile(t, filepath.Join(dir, "backend", "api", ".devin", "rules", "limits.md"), "# limits\n\nlimits body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "agent-delta.md"), "# Agent: delta\n\ndelta body\n")
+
+	execCLI(t, "import", "windsurf")
+
+	for _, p := range []string{
+		".agnostic-ai/rules/root.md",
+		".agnostic-ai/rules/backend/auth.md",
+		".agnostic-ai/rules/backend/api/limits.md",
+		".agnostic-ai/agents/backend/delta.md",
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportWindsurf_TriggerBecomesAlwaysApply covers the other import
+// half of #628: Devin's activation key translates back into the generic
+// field, so the next sync re-emits the same trigger instead of
+// defaulting the rule to always-on.
+func TestImportWindsurf_TriggerBecomesAlwaysApply(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "globbed.md"),
+		"---\ndescription: Test conventions\nglobs: '**/*.test.ts'\ntrigger: glob\n---\n\n# globbed\n\nglobbed body\n")
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "always.md"),
+		"---\ntrigger: always_on\n---\n\n# always\n\nalways body\n")
+
+	execCLI(t, "import", "windsurf")
+
+	globbed := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "globbed.md"))
+	for _, want := range []string{"alwaysApply: false", "globs: '**/*.test.ts'", "description: Test conventions"} {
+		if !strings.Contains(globbed, want) {
+			t.Errorf("imported globbed.md missing %q:\n%s", want, globbed)
+		}
+	}
+	if strings.Contains(globbed, "trigger:") {
+		t.Errorf("imported globbed.md kept the target-native trigger key:\n%s", globbed)
+	}
+	always := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"))
+	if !strings.Contains(always, "alwaysApply: true") {
+		t.Errorf("imported always.md missing alwaysApply: true:\n%s", always)
+	}
+}
+
 func TestImportWindsurf_KnownSourceWiredIn(t *testing.T) {
 	if !isKnownImportSource("windsurf") {
 		t.Error("windsurf should be a known import source")
