@@ -30,6 +30,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Zed rules reach Zed again. `sync` writes zed's entry-point to `.rules`, which Zed reads before `.github/copilot-instructions.md`; enabling copilot and zed together handed Zed copilot's pointer-only file, and every rule silently stopped applying (#624).
 
+### Fixed
+
+- Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI actually reads. They went to `.aiexclude` before, which belongs to Gemini Code Assist, so every excluded path stayed visible to `@` file references and file search. A managed `.aiexclude` is removed on the next sync (#625).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

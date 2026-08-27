@@ -551,7 +551,7 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`, Windsurf `.devinignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ## Frontmatter rules
 

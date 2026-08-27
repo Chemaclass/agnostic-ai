@@ -21,6 +21,15 @@
 // MCP stdio servers accept an optional `cwd` (working directory for the
 // server process), the same field Codex documents; it is part of the
 // cross-tool MCP spec, not a gemini-only extension.
+//
+// Ignore specs emit as `.geminiignore` (override via
+// outputs.gemini.ignore-file), gitignore syntax under a `#` provenance
+// header: "Create a file named `.geminiignore` in the root of your
+// project directory" (geminicli.com/docs/cli/gemini-ignore/,
+// target-audit 2026-08-27, #625). `.aiexclude` belongs to Gemini Code
+// Assist, a separate product, and appears nowhere in Gemini CLI's
+// configuration reference, so the adapter sweeps the managed copy it
+// wrote there up to v0.49.
 package gemini
 
 import (
@@ -37,7 +46,15 @@ const (
 	defaultCommandsDir  = ".gemini/commands"
 	defaultSkillsDir    = ".gemini/skills"
 	defaultSettingsFile = ".gemini/settings.json"
-	defaultIgnoreFile   = ".aiexclude"
+	defaultIgnoreFile   = ".geminiignore"
+	// legacyIgnoreFile is the ignore default up to v0.49. `.aiexclude` is
+	// Gemini Code Assist's file, not Gemini CLI's, so every pattern we
+	// wrote there went unread. Sync sweeps the managed copy after
+	// emitting to the current default: an ignore file that looks
+	// applied but is not hides secrets less well than none at all. The
+	// sweep is skipped when the active path matches, i.e. the user
+	// opted back in via `outputs.gemini.ignore-file`.
+	legacyIgnoreFile    = ".aiexclude"
 	skillFilenamePrefix = "skill-"
 )
 
@@ -88,8 +105,14 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitSettings(sess, b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
 		return err
 	}
-	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	ignoreFile := emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile)
+	if err := sess.WriteIgnoreFile(b.Ignores, ignoreFile, dryRun); err != nil {
 		return err
+	}
+	if ignoreFile != legacyIgnoreFile {
+		if err := sess.RemoveGenerated(legacyIgnoreFile, dryRun); err != nil {
+			return err
+		}
 	}
 	return materializeHookScripts(b.HooksFor(target), dryRun)
 }
