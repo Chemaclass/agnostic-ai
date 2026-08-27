@@ -26,6 +26,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
 
+### Fixed
+
+- Zed rules reach Zed again. `sync` writes zed's entry-point to `.rules`, which Zed reads before `.github/copilot-instructions.md`; enabling copilot and zed together handed Zed copilot's pointer-only file, and every rule silently stopped applying (#624).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

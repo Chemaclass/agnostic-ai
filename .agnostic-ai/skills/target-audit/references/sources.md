@@ -118,9 +118,9 @@ cost nobody again:
 
 ## zed
 
-- docs: https://zed.dev/docs/ai/skills · /docs/ai/mcp · /docs/tasks
+- docs: https://zed.dev/docs/ai/skills · /docs/ai/mcp · /docs/tasks · /docs/ai/instructions
 - changelog: https://zed.dev/releases
-- watch: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared. The `x-zed` Task passthrough is a generic merge (`MergeCustomTargetMeta` copies any key), not an enumerated field list: `/docs/tasks` has grown fields since this adapter's own doc comment last enumerated one (`hooks` with `create_worktree`, `show_summary`, `show_command`, confirmed 2026-08-08, #563), which is exactly why an enumerated list here goes stale.
+- watch: rules library was retired in 1.4.2; `context_servers` (not `mcpServers`) key; whether a lifecycle-hook surface appeared. `/docs/ai/instructions` holds the project-instruction lookup order, nine paths, first match wins with no merge: `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. sync writes zed's entry-point to `.rules` (rank 1) because copilot's pointer-only file at rank 5 outranked `AGENTS.md` at rank 7 and left Zed with no rules at all (#624). Zed calls `.rules` a compatibility instruction file and `AGENTS.md` its primary one, so **watch for `.rules` leaving that list**: it moves zed's entry-point back to `AGENTS.md`, and only then. The `x-zed` Task passthrough is a generic merge (`MergeCustomTargetMeta` copies any key), not an enumerated field list: `/docs/tasks` has grown fields since this adapter's own doc comment last enumerated one (`hooks` with `create_worktree`, `show_summary`, `show_command`, confirmed 2026-08-08, #563), which is exactly why an enumerated list here goes stale.
 
 ## warp
 

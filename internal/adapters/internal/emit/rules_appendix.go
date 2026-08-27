@@ -80,9 +80,10 @@ func StripGeneratedAppendices(body string) string {
 // .cursor/rules/, cline .cline/rules/, qoder .qoder/rules/,
 // continue/windsurf/antigravity rules dirs) are absent: they deliver
 // rules without polluting the pointer. Zed inlines since 1.4.2 retired
-// the merged .rules surface in favor of AGENTS.md; Crush and the
-// batch-2 AGENTS.md tools jules, goose, openhands, and factory have no
-// rules directory either.
+// its rules library, leaving instruction files as its only always-on
+// surface (its entry-point is `.rules`, see entryPointPaths); Crush and
+// the batch-2 AGENTS.md tools jules, goose, openhands, and factory have
+// no rules directory either.
 //
 // augment and kilo are two deliberate exceptions: both gained a
 // native per-rule directory (`.augment/rules/`, `.kilo/rules/`) but
@@ -96,6 +97,12 @@ func StripGeneratedAppendices(body string) string {
 // stays loaded whenever present regardless of that ranking, so the
 // inline copy there is a documented fallback layer, not a hole to
 // close.
+//
+// This map and entryPointPaths are independent, so a target absent
+// here still writes an entry-point file, holding the pointer body
+// alone. For a vendor that reads the first match in a documented list
+// of paths, that pointer-only file can shadow a rules-carrying one
+// (#624); TestVendorLookupOrder_WinningFileCarriesRules holds that line.
 //
 // junie fits the main rule (no native rules directory: `.junie/rules/`
 // never was one, Junie's guidelines lookup never reads it, see

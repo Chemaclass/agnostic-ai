@@ -277,19 +277,20 @@ func writeAgnosticFile(t *testing.T, content string) {
 	}
 }
 
-// Zed and Cline join the shared AGENTS.md group: one deduplicated write
-// carries the pointer body, and the rules block the inline consumers
-// (zed among them) need is present. Cline alone does not force the
-// inline block since .cline/rules/ delivers its rules natively.
-func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
+// Codex and Cline join the shared AGENTS.md group: one deduplicated
+// write carries the pointer body, and the rules block the inline
+// consumers (codex among them) need is present. Cline alone does not
+// force the inline block since .cline/rules/ delivers its rules
+// natively.
+func TestWriteAgnosticEntryPoints_CodexAndClineShareAGENTSMd(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
 	b := spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
 	})
 
-	cfg := &config.Config{Targets: []string{"zed", "cline"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"zed", "cline"}, false); err != nil {
+	cfg := &config.Config{Targets: []string{"codex", "cline"}}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"codex", "cline"}, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
@@ -300,7 +301,36 @@ func TestWriteAgnosticEntryPoints_ZedAndClineShareAGENTSMd(t *testing.T) {
 		t.Errorf("AGENTS.md missing pointer body:\n%s", data)
 	}
 	if !strings.Contains(string(data), "rule body") {
-		t.Errorf("zed inlines rules, so the shared AGENTS.md must carry them:\n%s", data)
+		t.Errorf("codex inlines rules, so the shared AGENTS.md must carry them:\n%s", data)
+	}
+}
+
+// Zed reads the first matching instruction file, and copilot's
+// entry-point outranks AGENTS.md there. Zed's own file is `.rules`,
+// rank 1, so the rule bodies reach it whatever else is enabled (#624).
+func TestWriteAgnosticEntryPoints_ZedRulesOutrankCopilotInstructions(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule body"},
+	})
+
+	cfg := &config.Config{Targets: []string{"zed", "copilot"}}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"zed", "copilot"}, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".rules"))
+	if err != nil {
+		t.Fatalf(".rules not written: %v", err)
+	}
+	if !strings.Contains(string(data), "My instructions.") {
+		t.Errorf(".rules missing pointer body:\n%s", data)
+	}
+	if !strings.Contains(string(data), "rule body") {
+		t.Errorf("zed inlines rules, so .rules must carry them:\n%s", data)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("zed no longer consumes AGENTS.md; want it unwritten, stat err: %v", err)
 	}
 }
 
