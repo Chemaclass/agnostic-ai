@@ -25,13 +25,15 @@ Each adapter emits in its tool's native format: separate files where the tool su
 | **openhands**   | `AGENTS.md`                       |
 | **factory**     | `AGENTS.md`                       |
 | **kilo**        | `AGENTS.md`                       |
+| **opencode**    | `AGENTS.md`                       |
 | **gemini**      | `GEMINI.md`                       |
 | **aider**       | `CONVENTIONS.md`                  |
 | **copilot**     | `.github/copilot-instructions.md` |
-| **opencode**    | `.opencode/AGENTS.md`             |
 | **antigravity** | `.agent/AGENTS.md`                |
 
-Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
+Targets sharing a path (codex, amp, warp, zed, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, windsurf, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
+
+OpenCode joined that group in the 2026-08-27 target audit (#623). It used to write `.opencode/AGENTS.md`, a path no OpenCode doc or code path names: the vendor's lookup is an upward walk from the current directory for files called exactly `AGENTS.md` ([opencode.ai/docs/rules](https://opencode.ai/docs/rules/)), which its own `packages/core/src/instruction-context.ts` on branch `dev` spells `fs.up({ targets: ["AGENTS.md"] })`. A managed leftover at the old path is swept on the next `sync`; a hand-authored one stays. `import opencode` still reads the old path when the root file is absent, so a project that has not re-synced keeps its rules.
 
 Junie is the one target with a second, preferred entry-point file. Its guidelines lookup is strict precedence, first match wins, not a merge: `.junie/AGENTS.md`, then the root `AGENTS.md` above, then the legacy `.junie/guidelines.md` / `.junie/guidelines/`. `sync` always writes `.junie/AGENTS.md`, so step 1 always matches and everything after it is unreachable in a synced project (target-audit 2026-08-08, #552). Rule bodies therefore inline directly into `.junie/AGENTS.md`, under a sentinel-marked block (see the Junie section below): the only file Junie itself ever reads. Agents no longer inline anywhere (target-audit 2026-08-11, #604): they emit to their own native `.junie/agents/<name>.md` file instead (see below), so with `sync.target-overview` off, `.junie/AGENTS.md` and the shared root `AGENTS.md` above now render byte-identical content whenever another AGENTS.md-family target is also enabled (same canonical pointer body, same inlined-rules block).
 
@@ -57,7 +59,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **amp**         | `.agents/commands/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | - | - | - | - | - |
 | **zed**         | merged doc w/ opt-in (`outputs.zed.rules-file`) | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy merge via `outputs.zed.rules-file`) | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - | - | - | - | - |
 | **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
-| **opencode**    | `.opencode/agents/<name>.md` | `.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `.opencode/AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
+| **opencode**    | `.opencode/agents/<name>.md` | `.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | - | - | - | - |
 | **antigravity** | as `.md` rule (`agent-<name>.md`) | `.agents/skills/<name>/SKILL.md` | `.agents/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | - | `.agents/mcp_config.json` | - | - | - | - | - |
 | **junie**       | `.junie/agents/<name>.md` | `.junie/skills/<name>/SKILL.md` | inlined into `.junie/AGENTS.md` | - | `.junie/mcp/mcp.json` | `.junie/commands/<name>.md` | - | - | - | - |
 | **kiro**        | `.kiro/agents/<name>.md` (native agent profile) | `.kiro/steering/skill-<name>.md` (`inclusion: auto`) | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | `.kiro/hooks/<name>.json` | `.kiro/settings/mcp.json` | - | - | - | - | - |
@@ -401,7 +403,7 @@ Verify with the real terminal:
 ### OpenCode (`opencode`)
 
 ```
-.opencode/AGENTS.md                       # canonical entry-point pointer body (written by sync)
+AGENTS.md                                 # canonical entry-point pointer body + inlined rules (written by sync)
 .opencode/agents/<name>.md                # one native subagent definition per agent
 .opencode/skills/<name>/SKILL.md          # one folder per skill, bundled assets included
 .opencode/commands/<name>.md              # one per command spec
@@ -409,7 +411,7 @@ Verify with the real terminal:
 opencode.json                             # when MCP entries exist (merged with existing user config)
 ```
 
-- **Routing**: under `.opencode/` rather than the repo root to avoid clashing with Codex's `AGENTS.md`.
+- **Routing**: the entry point is the repo-root `AGENTS.md`, the file [OpenCode's rules lookup](https://opencode.ai/docs/rules/) walks up for ("Local files by traversing up from the current directory (`AGENTS.md`, `CLAUDE.md`)"), confirmed in the vendor's own `packages/core/src/instruction-context.ts` on branch `dev`: `fs.up({ targets: ["AGENTS.md"] })`. It shares that path with codex, amp, warp, and the rest of the AGENTS.md family; the pointer body and the inlined rules block are byte-identical across them, so `sync` writes the file once instead of colliding. Before #623 the adapter wrote `.opencode/AGENTS.md` to stay clear of Codex, and no OpenCode doc or code path ever read it: in a project syncing only opencode, no rule reached the tool at all. A managed leftover at the old path is swept on the next `sync`; a hand-authored one is left alone.
 - **Agents**: native [OpenCode agents](https://opencode.ai/docs/agents/) at `.opencode/agents/<name>.md` (plural dir; the singular is legacy): frontmatter filtered to `description`, `mode`, `model`, `temperature`, `permission`, with arbitrary `x-opencode` keys passing through. The body is the system prompt.
 - **Skills**: native [OpenCode skills](https://opencode.ai/docs/skills/) folders at `.opencode/skills/<name>/SKILL.md` (OpenCode also scans `.claude/skills/` and `.agents/skills/`), with bundled sibling files propagated byte-for-byte. Set `outputs.opencode.emit-skills-as-commands: true` to additionally emit the command form.
 - **Commands**: one markdown file per command spec under `.opencode/commands/<name>.md`, frontmatter filtered to the OpenCode command keys (`description`, `agent`, `model`, `subtask`).
@@ -420,8 +422,8 @@ Config keys: `outputs.opencode.agents-dir` (default `.opencode/agents`), `output
 Verify with the real CLI:
 
 1. Install: `npm install -g sst/opencode` ([install docs](https://opencode.ai/)).
-2. Check the tree: `ls .opencode/AGENTS.md .opencode/agents/ .opencode/skills/ .opencode/commands/ opencode.json`, `grep "Generated by agnostic-ai" .opencode/agents/*.md` for the provenance header (it sits after the frontmatter), `python -m json.tool opencode.json > /dev/null`.
-3. Launch `opencode`. Every `.opencode/agents/<name>.md` appears in the agent picker, every `.opencode/skills/<name>/` in the skills list, and every `.opencode/commands/<name>.md` in the slash-command picker.
+2. Check the tree: `ls AGENTS.md .opencode/agents/ .opencode/skills/ .opencode/commands/ opencode.json`, `grep "Generated by agnostic-ai" .opencode/agents/*.md` for the provenance header (it sits after the frontmatter), `python -m json.tool opencode.json > /dev/null`.
+3. Launch `opencode`. Every rule body from `AGENTS.md` is in context, every `.opencode/agents/<name>.md` appears in the agent picker, every `.opencode/skills/<name>/` in the skills list, and every `.opencode/commands/<name>.md` in the slash-command picker.
 4. The MCP panel shows each `mcp.<name>` from `opencode.json` ready, with a disabled spec showing as disabled.
 
 ### Google Antigravity (`antigravity`)

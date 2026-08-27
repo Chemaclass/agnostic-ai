@@ -13,14 +13,14 @@ func TestImportFromOpencode_NoSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, agnosticMainFile)); !os.IsNotExist(err) {
-		t.Errorf("expected no AGNOSTIC_AI.md when .opencode/AGENTS.md absent: %v", err)
+		t.Errorf("expected no AGNOSTIC_AI.md when no entry-point is present: %v", err)
 	}
 }
 
 func TestImportFromOpencode_MirrorsAgentsMd(t *testing.T) {
 	dir := t.TempDir()
 	body := "# AGENTS.md\n\n## rule-a\n\nbody.\n"
-	writeFile(t, filepath.Join(dir, opencodeMainFile), body)
+	writeFile(t, filepath.Join(dir, opencodeEntryPointFile), body)
 	if err := importFromOpencode(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
@@ -33,6 +33,45 @@ func TestImportFromOpencode_MirrorsAgentsMd(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-a.md")); err != nil {
 		t.Errorf("missing sliced rule rule-a.md: %v", err)
+	}
+}
+
+// A project synced before #623 keeps its rules at `.opencode/AGENTS.md`
+// and has no root AGENTS.md until it re-syncs. Import must still find
+// them there instead of returning nothing.
+func TestImportFromOpencode_FallsBackToLegacyEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	body := "# AGENTS.md\n\n## legacy-rule\n\nold body.\n"
+	writeFile(t, filepath.Join(dir, opencodeLegacyEntryPointFile), body)
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
+	}
+	if string(got) != body {
+		t.Errorf("AGNOSTIC_AI.md not byte-identical. got %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "legacy-rule.md")); err != nil {
+		t.Errorf("missing sliced rule legacy-rule.md: %v", err)
+	}
+}
+
+// With both paths on disk, the root file wins: it is the one OpenCode
+// actually walks up for. Reading both would slice the same rules twice.
+func TestImportFromOpencode_PrefersRootOverLegacyEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, opencodeEntryPointFile), "# AGENTS.md\n\n## current\n\nnew body.\n")
+	writeFile(t, filepath.Join(dir, opencodeLegacyEntryPointFile), "# AGENTS.md\n\n## stale\n\nold body.\n")
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "current.md")); err != nil {
+		t.Errorf("missing sliced rule current.md: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "stale.md")); !os.IsNotExist(err) {
+		t.Errorf("legacy entry-point should not be sliced when the root one exists: %v", err)
 	}
 }
 

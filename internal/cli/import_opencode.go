@@ -1,17 +1,42 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 var (
-	opencodeMainFile    = filepath.Join(".opencode", "AGENTS.md")
-	opencodeAgentsDir   = filepath.Join(".opencode", "agents")
-	opencodeSkillsDir   = filepath.Join(".opencode", "skills")
-	opencodeCommandsDir = filepath.Join(".opencode", "commands")
+	// opencodeEntryPointFile is the file OpenCode's instruction lookup
+	// walks up for (opencode.ai/docs/rules, and `fs.up({ targets:
+	// ["AGENTS.md"] })` in the vendor's
+	// packages/core/src/instruction-context.ts on branch `dev`), and
+	// where `sync` writes opencode's entry point since #623.
+	opencodeEntryPointFile = "AGENTS.md"
+	// opencodeLegacyEntryPointFile is the pre-#623 path. `sync` no
+	// longer writes it and sweeps a managed copy, but a project that
+	// has not re-synced still keeps its rules there, so import falls
+	// back to it rather than dropping them.
+	opencodeLegacyEntryPointFile = filepath.Join(".opencode", "AGENTS.md")
+	opencodeAgentsDir            = filepath.Join(".opencode", "agents")
+	opencodeSkillsDir            = filepath.Join(".opencode", "skills")
+	opencodeCommandsDir          = filepath.Join(".opencode", "commands")
 )
+
+// opencodeMainFile returns the single entry-point import reads rules and
+// the shared body from: the root `AGENTS.md` when present, else the
+// pre-#623 `.opencode/AGENTS.md`. Reading one and not both keeps a
+// project that carries both from slicing the same rules twice.
+func opencodeMainFile(root string) string {
+	if _, err := os.Stat(filepath.Join(root, opencodeEntryPointFile)); err == nil {
+		return opencodeEntryPointFile
+	}
+	if _, err := os.Stat(filepath.Join(root, opencodeLegacyEntryPointFile)); err == nil {
+		return opencodeLegacyEntryPointFile
+	}
+	return opencodeEntryPointFile
+}
 
 const (
 	opencodeMCPFile = "opencode.json"
@@ -19,9 +44,10 @@ const (
 )
 
 // importFromOpencode reads an existing OpenCode (SST) project
-// (`.opencode/AGENTS.md`, `.opencode/agents/`, `.opencode/skills/`,
-// `.opencode/commands/`, `opencode.json`) under root and writes specs
-// into the configured source directories.
+// (`AGENTS.md` or the pre-#623 `.opencode/AGENTS.md`,
+// `.opencode/agents/`, `.opencode/skills/`, `.opencode/commands/`,
+// `opencode.json`) under root and writes specs into the configured
+// source directories.
 func importFromOpencode(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs); err != nil {
 		return err
@@ -46,7 +72,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	if _, err := mirrorMainFile(root, opencodeMainFile); err != nil {
+	if _, err := mirrorMainFile(root, opencodeMainFile(root)); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps\n", rules, agents, skills, commands, mcps)
@@ -54,11 +80,12 @@ func importFromOpencode(root string, src config.Sources) error {
 	return nil
 }
 
-// importOpencodeRules prefers `.opencode/commands/*.md` is NOT a rules
-// source for OpenCode. Rules come from slicing `.opencode/AGENTS.md`
-// on `## ` headings since OpenCode has no dedicated rules directory.
+// importOpencodeRules reconstructs rule specs by slicing OpenCode's
+// entry-point file on `## ` headings; OpenCode has no dedicated rules
+// directory, and `.opencode/commands/*.md` is a slash-command surface,
+// not a rules one.
 func importOpencodeRules(root, dstDir string) (int, error) {
-	return sliceMainFileByH2(root, opencodeMainFile, dstDir)
+	return sliceMainFileByH2(root, opencodeMainFile(root), dstDir)
 }
 
 // importOpencodeMarkdownDir copies every top-level `*.md` in the named

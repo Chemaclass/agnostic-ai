@@ -130,9 +130,9 @@ cost nobody again:
 
 ## opencode
 
-- docs: https://opencode.ai/docs/agents/ · /docs/skills/ · /docs/mcp-servers/ · /docs/commands/
+- docs: https://opencode.ai/docs/agents/ · /docs/skills/ · /docs/mcp-servers/ · /docs/commands/ · /docs/rules/
 - changelog: https://github.com/anomalyco/opencode/releases (the repo moved from `sst`; the redirect still works, and the default branch is `dev`)
-- watch: `agents/` (plural) dir, which foreign skill trees it also scans, `opencode.json` `mcp` block shape. The rules lookup is an upward walk for files named exactly `AGENTS.md`, confirmed in the vendor's own source at `packages/core/src/instruction-context.ts` on branch `dev` (`fs.up({ targets: ["AGENTS.md"] })`); no doc or code path names `.opencode/AGENTS.md`, which is where this repo writes opencode's entry point (target-audit 2026-08-27). Agent `tools` is now vendor-deprecated in favour of `permission`, which our frontmatter filter already emits, so that choice is confirmed rather than a gap.
+- watch: `agents/` (plural) dir, which foreign skill trees it also scans, `opencode.json` `mcp` block shape. The rules lookup is an upward walk for files named exactly `AGENTS.md`, confirmed in the vendor's own source at `packages/core/src/instruction-context.ts` on branch `dev` (`fs.up({ targets: ["AGENTS.md"] })`); no doc or code path names `.opencode/AGENTS.md`, which is where this repo wrote opencode's entry point until #623 moved it to the root `AGENTS.md` (target-audit 2026-08-27). Re-check that the upward walk still targets `AGENTS.md` only, and that the global `~/.config/opencode/AGENTS.md` slot stays out of project scope. Agent `tools` is now vendor-deprecated in favour of `permission`, which our frontmatter filter already emits, so that choice is confirmed rather than a gap.
 
 ## antigravity
 

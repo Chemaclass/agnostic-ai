@@ -1,10 +1,21 @@
 // Package opencode emits configs for the OpenCode (SST) CLI.
 //
-// The `.opencode/AGENTS.md` entry-point is written centrally by `sync`
-// as a slim pointer to the source specs (one body shared with every
-// other target's entry-point file). When `outputs.opencode.rules-file`
-// is set, this adapter instead writes the legacy concatenated layout
-// at that path so users on older workflows keep their behavior.
+// The root `AGENTS.md` entry-point is written centrally by `sync` as a
+// slim pointer to the source specs, with every rule body inlined under
+// a sentinel-marked block (one body shared with codex, amp, warp, and
+// the other AGENTS.md consumers, so the write dedupes). That path is
+// the only one OpenCode reads: opencode.ai/docs/rules documents an
+// upward walk from the current directory for `AGENTS.md` and
+// `CLAUDE.md`, and the vendor's own source file
+// `packages/core/src/instruction-context.ts` on branch `dev` walks with
+// `fs.up({ targets: ["AGENTS.md"] })`. Until #623 the entry point sat at
+// `.opencode/AGENTS.md`, which no vendor doc or code path names, so
+// rules reached OpenCode only when another AGENTS.md target happened
+// to be enabled too. A managed leftover there is swept on sync.
+//
+// When `outputs.opencode.rules-file` is set, this adapter instead
+// writes the legacy concatenated layout at that path so users on older
+// workflows keep their behavior.
 //
 // Agents emit natively as subagent definitions at
 // `.opencode/agents/<name>.md` (frontmatter `description`, `mode`,
@@ -32,6 +43,12 @@ const (
 	defaultMCPFile      = "opencode.json"
 	skillFilenamePrefix = "skill-"
 	opencodeSchemaURL   = "https://opencode.ai/config.json"
+	// legacyEntryPointFile is the pre-#623 entry-point default. OpenCode
+	// walks up for files named exactly `AGENTS.md` and never opens a
+	// `.opencode/` copy, so sync moved the write to the root file and
+	// sweeps a managed leftover here (same treatment codex gives its
+	// v0.26..v0.42 `.codex/skills/` tree).
+	legacyEntryPointFile = ".opencode/AGENTS.md"
 )
 
 // commandFrontmatterKeys names the only frontmatter keys OpenCode reads
@@ -57,10 +74,14 @@ func (Adapter) Name() string { return target }
 // folder per skill (plus the command form when opted in), one command
 // file per command spec, `opencode.json` for MCP servers, and—when
 // opted in via outputs.opencode.rules-file—a legacy concatenated rules
-// document. The `.opencode/AGENTS.md` entry-point is written by `sync`,
-// not here.
+// document. The root `AGENTS.md` entry-point is written by `sync`, not
+// here; this Emit only sweeps the stale `.opencode/AGENTS.md` a
+// pre-#623 sync left behind.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
 		return err
 	}
 
@@ -84,6 +105,24 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+// sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
+// pre-#623 sync left at `.opencode/AGENTS.md`, now that the write moved
+// to the root `AGENTS.md` OpenCode actually walks up for. Files without
+// the provenance header are hand-authored and stay. The sweep is
+// skipped when the user pointed the entry-point
+// (`outputs.opencode.file`) or the legacy concatenated rules document
+// (`outputs.opencode.rules-file`) back at that path, since then it is a
+// live write rather than a leftover.
+func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) error {
+	if emit.EntryPointPath(cfg, target) == legacyEntryPointFile {
+		return nil
+	}
+	if emit.OutputRulesFile(cfg, target, "") == legacyEntryPointFile {
+		return nil
+	}
+	return sess.RemoveGenerated(legacyEntryPointFile, dryRun)
 }
 
 // emitMCPConfig writes (or merges into) opencode.json with the `mcp`

@@ -11,8 +11,9 @@ import (
 
 // TestOpencodeRoundTrip_SyncImportSyncIsByteEqual is the opencode
 // audit's byte-stability gate from #334 acceptance criterion C.
-// Scope: agents + MCPs. Rules round-trip via the sync-owned
-// .opencode/AGENTS.md entry-point (same carve-out as codex/claude).
+// Scope: agents + MCPs. Rules round-trip via the sync-owned root
+// AGENTS.md entry-point (same carve-out as codex/claude), the only
+// file OpenCode's upward walk ever opens (#623).
 func TestOpencodeRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -37,7 +38,7 @@ func TestOpencodeRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, p := range []string{".opencode", "opencode.json"} {
+	for _, p := range []string{".opencode", "opencode.json", "AGENTS.md"} {
 		if err := os.RemoveAll(filepath.Join(dir, p)); err != nil {
 			t.Fatal(err)
 		}
@@ -94,7 +95,7 @@ gitignore:
 func snapshotOpencodeEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	for _, r := range []string{".opencode/commands", "opencode.json"} {
+	for _, r := range []string{".opencode/commands", "opencode.json", "AGENTS.md"} {
 		full := filepath.Join(root, r)
 		info, err := os.Stat(full)
 		if os.IsNotExist(err) {
