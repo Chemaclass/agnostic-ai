@@ -38,6 +38,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Kiro hook files write `"version": "v1"`, the string value the vendor schema documents, instead of the number `1`. A parser that validates the field would reject the file and none of the project's hooks would fire (#626).
 
+### Fixed
+
+- Factory droids translate `tools` onto Droid CLI's own IDs (`Bash` to `Execute`, `Write` to `Create`, `WebFetch` to `FetchUrl`) instead of writing Claude-style names Droid CLI rejects as unknown, which failed the whole droid at load time and kept it out of the picker (#627).
+
 ## v0.49.0 - 2026-08-13
 
 ### Added

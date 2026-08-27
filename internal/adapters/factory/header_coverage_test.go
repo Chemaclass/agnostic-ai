@@ -79,7 +79,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle exercising every kind the factory
 // adapter declares in caps.Supports (Rule, Agent, MCP) with three
 // specimens per kind. Rules are included even though this adapter
-// never writes them itself (see factory.go). The MCP specimens cover
+// never writes them itself (see factory.go). The gamma agent declares
+// one tool name that is already a Factory ID and one that is not, so
+// the golden pins the translation table in emitted bytes. The MCP specimens cover
 // stdio, HTTP, and a genuinely `disabled: true` server: Factory's
 // schema documents a real `disabled` key, unlike Claude Code, Cursor,
 // and Copilot, so this fixture (unlike kilo's pre-B9 one) must
@@ -91,7 +93,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
-		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read"}}, Body: "gamma body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read", "Bash"}}, Body: "gamma body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
