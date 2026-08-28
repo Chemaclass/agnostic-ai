@@ -17,12 +17,21 @@ skill finds that drift on a schedule instead of via a user bug report.
 
 ## Arguments
 
-- no args: audit every registered target
+- no args: audit every registered target **and file an issue per confirmed
+  finding**. Filing is the default, not an opt-in.
 - `claude zed kilo`: audit only those
-- `--file-issues`: also open one GitHub issue per confirmed finding.
-  Without it, the run stops at the report.
-- `--fix`: implies `--file-issues`, then opens a PR per fix bucket.
-  Never merges.
+- `--no-file-issues`: stop at the report. Use it for a scratch run you do
+  not intend to act on.
+- `--fix`: file issues, then open a PR per fix bucket. Never merges.
+
+**Why filing is the default.** It used to be opt-in, and two consecutive
+runs proved that wrong. The 2026-08-19 run found 52 findings and filed
+none. The 2026-08-27 run found 54 and filed none until a human asked, by
+which point it was re-verifying the previous run's backlog instead of
+auditing. The report lands in gitignored `local/`, so a run that does not
+file leaves **nothing** behind: no tracked work, no dedupe set for the
+next run, and a fresh re-derivation of the same findings a week later.
+A report nobody can act on is not a cheaper audit, it is a wasted one.
 
 ## Phase 1: Scope
 
@@ -123,7 +132,7 @@ is the only file this skill edits without being asked.
 Then print the top findings to the user with a recommended next action
 each. Keep it short. The report file holds the detail.
 
-## Phase 5: File issues (only with `--file-issues`)
+## Phase 5: File issues (skipped only with `--no-file-issues`)
 
 Per confirmed finding, most severe first:
 
@@ -134,6 +143,23 @@ gh issue create \
   --assignee Chemaclass \
   --body "<body>"
 ```
+
+**A collapsed issue still has to be a workable unit.** Phase 3 collapses one
+vendor change that hits several targets into one issue, and that is right for
+evidence: the quote is written once. But an issue titled "nine targets have
+hook files we never declare" cannot be closed by doing one of them, so nobody
+starts it. Give every multi-target issue a per-target task list:
+
+```markdown
+- [ ] copilot: `.github/hooks/*.json`, 13 events (`copilot/copilot.go:52`)
+- [ ] openhands: `.openhands/hooks.json`, claude renderer works verbatim
+- [ ] crush: project `crush.json`, `PreToolUse` only
+```
+
+Then a PR can close part of it, progress is visible, and the cheapest target
+is obvious to whoever picks it up. Say which one is cheapest and why, in the
+issue: on 2026-08-27 that was openhands, because the vendor states its hook
+format is Claude-compatible, so the existing renderer worked with no changes.
 
 Use `--label bug` instead of `enhancement` for `breaking` findings. Create
 the `target-audit` label once if missing:
@@ -148,8 +174,13 @@ must touch:
 - [ ] adapter package doc comment
 - [ ] `docs/user/targets.md`: capability matrix row and per-target section
 - [ ] `references/sources.md`, if a URL moved
-- [ ] tests: `capability_parity_test.go`, `kitsink_golden_test.go`, and
-      the target's round-trip test under `tests/integration/`
+- [ ] tests: `capability_parity_test.go`, `kitsink_golden_test.go`, the
+      target's round-trip test under `tests/integration/` **if it has one**,
+      and its golden tree at `tests/integration/fixtures/golden/<target>/`.
+      Check both: 14 of 25 targets have a golden tree and **no** round-trip
+      test, so for those the golden tree is the only guard. A scope list
+      naming only the adapter's own `testdata/` misses it and goes red in
+      CI (found on 2026-08-27, kiro).
 - [ ] `agnostic-ai sync`, then commit the regenerated per-target files
 
 Never open an issue for an `unconfirmed` finding. Those go in the report
