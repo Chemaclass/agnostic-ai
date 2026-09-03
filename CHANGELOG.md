@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
+- Warp's skills doc names `WARP_SKILL_DIRS`, scoped to Cloud agents indexing skills outside the repo, not the general `SKILLS_DIRS` this repo's own docs and adapter comment claimed. A user who exported `SKILLS_DIRS` got nothing (#663).
 
 ## v0.50.0 - 2026-08-28
 
