@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
+
 ## v0.50.0 - 2026-08-28
 
 ### Added
