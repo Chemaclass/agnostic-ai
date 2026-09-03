@@ -16,7 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo pre"
+            "command": "echo pre",
+            "async": true
           }
         ]
       }

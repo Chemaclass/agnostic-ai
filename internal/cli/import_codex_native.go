@@ -629,6 +629,11 @@ type codexHookEntry struct {
 	// name (see codexHookSlot / mergeCodexHooksJSON); captured here too
 	// so a hand-authored `[[hooks.<event>]]` TOML block round-trips it.
 	AdditionalContextLimit *int `toml:"additionalContextLimit"`
+	// Async mirrors the hooks.json field of the same name; captured
+	// here too so a hand-authored `[[hooks.<event>]]` TOML block
+	// round-trips it (learn.chatgpt.com/docs/hooks documents
+	// `async = true` as the inline-TOML spelling). See #636.
+	Async bool `toml:"async"`
 }
 
 type codexMCPEntry struct {
@@ -790,6 +795,7 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 					StatusMessage:          h.StatusMessage,
 					CommandWindows:         h.CommandWindows,
 					AdditionalContextLimit: h.AdditionalContextLimit,
+					Async:                  h.Async,
 				}
 				if !exists {
 					hooks[k] = &codexHookSlot{
@@ -847,6 +853,9 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 		}
 		if h.AdditionalContextLimit != nil {
 			doc["additionalContextLimit"] = *h.AdditionalContextLimit
+		}
+		if h.Async {
+			doc["async"] = true
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {

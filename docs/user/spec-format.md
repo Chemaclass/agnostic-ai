@@ -181,7 +181,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `command` | yes | none | Shell command to run when triggered. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex. |
 | `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex. |
-| `async` | no | `false` | Run in the background without blocking. Claude. |
+| `async` | no | `false` | Run in the background without blocking. Claude + Codex. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude. |
 | `shell` | no | empty | `bash` or `powershell`. Claude. |
 | `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude. |

@@ -15,6 +15,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
 - Warp's skills doc names `WARP_SKILL_DIRS`, scoped to Cloud agents indexing skills outside the repo, not the general `SKILLS_DIRS` this repo's own docs and adapter comment claimed. A user who exported `SKILLS_DIRS` got nothing (#663).
 - Gemini MCP servers pass through `timeout`, `trust`, `description`, `includeTools`, and `excludeTools`. Codex MCP servers pass through `http_headers_helper`, `enabled_tools`, and `disabled_tools`. Cursor MCP servers pass through stdio's `envFile` and a remote server's static-OAuth `auth` object. All ten fields were documented by the vendor and dropped silently before, with no coverage note (#661).
+- Codex hooks accept `async: true` to run a command hook in the background instead of blocking the session on it. `import codex` reads it back from `.codex/hooks.json` (#636).
+- Kilo Code's docs note `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both files exist. Documented as a caveat: the vendor's config precedence is a merge across named sources, not an exclusive first-match read, so this stays a doc clarification rather than a behavior change (#644).
 
 ## v0.50.0 - 2026-08-28
 

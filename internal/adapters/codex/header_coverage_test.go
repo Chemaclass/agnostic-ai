@@ -115,7 +115,10 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindHook, Name: "lint-pre",
-			Meta: map[string]any{"event": "PreToolUse", "matcher": "Write", "command": "echo pre"},
+			Meta: map[string]any{
+				"event": "PreToolUse", "matcher": "Write", "command": "echo pre",
+				"async": true,
+			},
 		},
 		{
 			Kind: spec.KindHook, Name: "session-start",

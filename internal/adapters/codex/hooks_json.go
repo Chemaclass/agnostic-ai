@@ -94,6 +94,10 @@ type hookCommandEntry struct {
 	// reach the model, propagated from the spec's `additionalContextLimit`
 	// Meta key. See learn.chatgpt.com/docs/hooks.
 	AdditionalContextLimit *int `json:"additionalContextLimit,omitempty"`
+	// Async runs the command hook in the background instead of blocking
+	// the session on it, propagated from the spec's `async` Meta key.
+	// See learn.chatgpt.com/docs/hooks.
+	Async bool `json:"async,omitempty"`
 }
 
 // buildHooksJSON returns the rendered document or nil when no hooks
@@ -109,6 +113,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		statusMessage          string
 		commandWindows         string
 		additionalContextLimit *int
+		async                  bool
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
@@ -123,6 +128,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		statusMessage, _ := h.Meta["statusMessage"].(string)
 		commandWindows, _ := h.Meta["commandWindows"].(string)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
+		async := hookBoolMeta(h.Meta, "async")
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
 			k := key{event: event, command: cmd}
@@ -149,6 +155,9 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			}
 			if a.additionalContextLimit == nil && additionalContextLimit != nil {
 				a.additionalContextLimit = additionalContextLimit
+			}
+			if async {
+				a.async = true
 			}
 		}
 	}
@@ -182,6 +191,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			StatusMessage:          a.statusMessage,
 			CommandWindows:         a.commandWindows,
 			AdditionalContextLimit: a.additionalContextLimit,
+			Async:                  a.async,
 		})
 	}
 
@@ -261,6 +271,19 @@ func hookIntMetaPtr(meta map[string]any, key string) *int {
 		return nil
 	}
 	return &value
+}
+
+// hookBoolMeta reads a bool-typed meta key, accepting bool and the
+// string forms "true"/"false" a hand-edited YAML may carry. Returns
+// false when missing or any other type.
+func hookBoolMeta(meta map[string]any, key string) bool {
+	switch v := meta[key].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true"
+	}
+	return false
 }
 
 // orderedHookEvents reorders event names by the canonical Codex/Claude

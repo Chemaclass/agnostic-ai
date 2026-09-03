@@ -272,3 +272,29 @@ func TestEmit_HookAdditionalContextLimitZeroPropagates(t *testing.T) {
 		t.Errorf("explicit zero additionalContextLimit missing in hooks.json:\n%s", got)
 	}
 }
+
+// learn.chatgpt.com/docs/hooks documents async ("Set async to true to
+// run a command hook in the background while Codex continues") as the
+// seventh command-hook field, alongside type/command/timeout/
+// statusMessage/commandWindows/additionalContextLimit. See #636.
+func TestEmit_HookAsyncPropagates(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+			"event":   "PostToolUse",
+			"command": "lint.sh",
+			"async":   true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"async": true`) {
+		t.Errorf("async missing in hooks.json:\n%s", got)
+	}
+}

@@ -44,6 +44,10 @@
 // threshold for how much hook output reaches the model), propagated
 // into `.codex/hooks.json` the same way `commandWindows` already is.
 // An explicit zero is preserved because Codex gives it distinct behavior.
+// `async` (run the command hook in the background instead of blocking
+// the session on it) propagates the same way; `import codex` reads it
+// back from both `.codex/hooks.json` and a hand-authored
+// `[[hooks.<event>]]` TOML block.
 package codex
 
 import (
