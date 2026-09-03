@@ -20,10 +20,14 @@
 // left to redirect a Command spec to. A Command spec targeting amp is
 // skipped with a warning (see #553).
 //
-// Previous releases of this adapter wrote `AGENT.md` (singular) which
-// Amp no longer reads. The first sync after upgrading detects an old
-// agnostic-generated `AGENT.md` and renames it to `AGENT.md.bak` so
-// users can verify the new layout before deleting the backup.
+// Previous releases of this adapter wrote `AGENT.md` (singular).
+// `AGENTS.md` is Amp's primary file and wins when both exist in a
+// directory; `AGENT.md` remains a documented fallback Amp reads only
+// when no `AGENTS.md` is present there, which never happens once sync
+// writes `AGENTS.md` (target-audit 2026-09-03, #663). The first sync
+// after upgrading detects an old agnostic-generated `AGENT.md` and
+// renames it to `AGENT.md.bak` so users can verify the new layout
+// before deleting the backup.
 package amp
 
 import (

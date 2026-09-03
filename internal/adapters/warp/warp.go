@@ -20,13 +20,17 @@
 // scans — `.agents/skills/` (recommended), `.warp/skills/`,
 // `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`,
 // `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`,
-// `.github/skills/`, and `.opencode/skills/` — plus a `SKILLS_DIRS` env
-// var (added in the 2026-08-07 changelog) for indexing further ones
-// (target-audit 2026-08-09, #590). `.opencode/skills/` is OpenCode's
-// own default, so a project running both tools gets Warp's scan for
-// free. This adapter defaults to `.agents/skills/`, the vendor's own
-// recommended path and the tree codex, amp, zed, crush, and others
-// already emit into, so identical skill folders dedupe there (#557).
+// `.github/skills/`, and `.opencode/skills/`. A `WARP_SKILL_DIRS` env
+// var (added in the 2026-08-07 changelog) indexes further directories,
+// but only for Cloud agents: the vendor scopes it to skills that live
+// outside the repositories a cloud run already has, not a general
+// extension of the ten scanned directories above (target-audit
+// 2026-09-03, #663; first cited 2026-08-09, #590). `.opencode/skills/`
+// is OpenCode's own default, so a project running both tools gets
+// Warp's scan for free. This adapter defaults to `.agents/skills/`,
+// the vendor's own recommended path and the tree codex, amp, zed,
+// crush, and others already emit into, so identical skill folders
+// dedupe there (#557).
 //
 // MCP servers write to `.warp/.mcp.json` (mcp.go). A stdio server's
 // `working_directory` reads from the spec's cross-tool `cwd` field
