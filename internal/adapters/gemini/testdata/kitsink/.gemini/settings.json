@@ -23,14 +23,23 @@
       "command": "x"
     },
     "http-server": {
-      "httpUrl": "https://example.test/mcp"
+      "description": "Remote MCP over HTTP",
+      "excludeTools": [
+        "delete_file"
+      ],
+      "httpUrl": "https://example.test/mcp",
+      "includeTools": [
+        "read_file"
+      ]
     },
     "stdio-server": {
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "timeout": 5000,
+      "trust": true
     }
   }
 }

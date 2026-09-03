@@ -7,8 +7,11 @@ enabled = false
 [mcp_servers.http-server]
 url = "https://example.test/mcp"
 auth = "oauth"
+http_headers_helper = "./scripts/mcp-headers.sh"
 
 [mcp_servers.stdio-server]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem"]
 cwd = "/workspace"
+enabled_tools = ["read_file"]
+disabled_tools = ["delete_file"]

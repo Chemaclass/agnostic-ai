@@ -645,6 +645,9 @@ type codexMCPEntry struct {
 	EnvHTTPHeaders    map[string]string `toml:"env_http_headers"`
 	// Auth is the http server's auth mode (`oauth` | `chatgpt`). See #532.
 	Auth string `toml:"auth"`
+	// HTTPHeadersHelper is documented "Supported only for locally
+	// connected HTTP MCP servers". See #661.
+	HTTPHeadersHelper string `toml:"http_headers_helper"`
 	// Shared fields the codex emitter writes via writeMCPSharedFields.
 	// Round-tripping requires capturing them here so a re-sync does
 	// not silently drop description / enabled / roots metadata.
@@ -662,6 +665,10 @@ type codexMCPEntry struct {
 	// already-declared disabled flag on its first `import codex`.
 	Disabled bool           `toml:"disabled"`
 	Roots    []codexMCPRoot `toml:"roots"`
+	// EnabledTools / DisabledTools have no transport restriction
+	// documented, unlike HTTPHeadersHelper. See #661.
+	EnabledTools  []string `toml:"enabled_tools"`
+	DisabledTools []string `toml:"disabled_tools"`
 }
 
 type codexMCPRoot struct {
@@ -893,6 +900,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			if s.Auth != "" {
 				doc["auth"] = s.Auth
 			}
+			if s.HTTPHeadersHelper != "" {
+				doc["http_headers_helper"] = s.HTTPHeadersHelper
+			}
 		default:
 			doc["type"] = "stdio"
 			if s.Command != "" {
@@ -932,6 +942,12 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			if len(roots) > 0 {
 				doc["roots"] = roots
 			}
+		}
+		if len(s.EnabledTools) > 0 {
+			doc["enabled_tools"] = s.EnabledTools
+		}
+		if len(s.DisabledTools) > 0 {
+			doc["disabled_tools"] = s.DisabledTools
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {

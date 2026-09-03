@@ -16,6 +16,14 @@
 // anywhere in its server schema, only a sidebar UI toggle. The emitter
 // drops the field rather than write one Cursor ignores, and buffers a
 // coverage note so the drop is loud, not silent.
+//
+// A stdio MCP server also accepts `envFile` (a path to an env file to
+// load additional variables); a remote server (`url`) accepts a static
+// `auth` object (`CLIENT_ID`, `CLIENT_SECRET`, `scopes`) for providers
+// without OAuth Dynamic Client Registration. Neither is documented for
+// the other targets sharing this adapter's MCP builder, so both are
+// scoped to cursor.com/docs/mcp.md's own emission path (target-audit
+// 2026-09-03, #661).
 package cursor
 
 import (
@@ -127,7 +135,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithCursorMCPExtras())
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why

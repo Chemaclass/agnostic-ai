@@ -20,7 +20,12 @@
 //
 // MCP stdio servers accept an optional `cwd` (working directory for the
 // server process), the same field Codex documents; it is part of the
-// cross-tool MCP spec, not a gemini-only extension.
+// cross-tool MCP spec, not a gemini-only extension. Every mcpServers.<name>
+// entry, regardless of transport, also accepts `timeout` (milliseconds),
+// `trust` (bypass tool-call confirmations), `description`, `includeTools`,
+// and `excludeTools`; all five pass through verbatim
+// (geminicli.com/docs/reference/configuration.md, target-audit
+// 2026-09-03, #661).
 //
 // Ignore specs emit as `.geminiignore` (override via
 // outputs.gemini.ignore-file), gitignore syntax under a `#` provenance
@@ -205,6 +210,26 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	}
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		out["env"] = env
+	}
+	// timeout, trust, description, includeTools, excludeTools are
+	// documented on every mcpServers.<name> entry regardless of
+	// transport (geminicli.com/docs/reference/configuration.md), so
+	// they land here rather than in the transport-specific branches
+	// above. See #661.
+	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {
+		out["timeout"] = timeout
+	}
+	if trust, _ := e.Meta["trust"].(bool); trust {
+		out["trust"] = true
+	}
+	if desc, _ := e.Meta["description"].(string); desc != "" {
+		out["description"] = desc
+	}
+	if include := emit.StringSlice(e.Meta["includeTools"]); len(include) > 0 {
+		out["includeTools"] = include
+	}
+	if exclude := emit.StringSlice(e.Meta["excludeTools"]); len(exclude) > 0 {
+		out["excludeTools"] = exclude
 	}
 	return out
 }

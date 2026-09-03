@@ -59,6 +59,24 @@ func StringMap(v any) map[string]string {
 	return out
 }
 
+// IntField reads a meta key that yaml.v3 may have decoded as int, int64,
+// or float64 depending on the source scalar, returning ok=false when the
+// key is absent or holds a non-numeric value. Adapters use this instead
+// of a bare type assertion so a plain-integer frontmatter value (e.g.
+// `timeout: 5000`) is not silently dropped by an assertion to the wrong
+// concrete type.
+func IntField(meta map[string]any, key string) (int, bool) {
+	switch v := meta[key].(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	}
+	return 0, false
+}
+
 // CustomTargetMeta returns the entries under `x-<target>` that an adapter
 // should emit verbatim, minus the keys it already handles itself (passed
 // via exclude: fields it emits by hand or routes to another file). It

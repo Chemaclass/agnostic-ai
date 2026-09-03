@@ -32,10 +32,13 @@
 // `mcp_servers.<id>.enabled: boolean`, not `disabled`), the one target
 // where this field genuinely works. Stdio servers also accept `cwd`
 // (working directory, part of the cross-tool MCP spec); http servers
-// accept `auth` (`oauth` | `chatgpt`), read verbatim from the spec's
-// top-level `cwd` / `auth` fields the same way `bearer_token_env_var`
-// already is. Codex-specific `env_vars` and `env_http_headers` retain
-// the vendor's mixed-array and environment-backed header shapes.
+// accept `auth` (`oauth` | `chatgpt`) and `http_headers_helper`
+// ("Supported only for locally connected HTTP MCP servers"), read
+// verbatim from the spec's top-level fields the same way
+// `bearer_token_env_var` already is. `enabled_tools` and
+// `disabled_tools` carry no transport restriction and pass through on
+// any server (#661). Codex-specific `env_vars` and `env_http_headers`
+// retain the vendor's mixed-array and environment-backed header shapes.
 //
 // Hook entries accept an optional `additionalContextLimit` (token
 // threshold for how much hook output reaches the model), propagated
