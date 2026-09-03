@@ -35,6 +35,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"config.toml"}},
+		{spec.KindEnvironment, []string{".openhands/setup.sh"}},
 	}
 	for _, k := range caps.Supports {
 		if k == spec.KindRule {

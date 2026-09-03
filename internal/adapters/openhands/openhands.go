@@ -30,6 +30,16 @@
 // the same field writers Codex's `[mcp_servers.<name>]` tables use (see
 // internal/adapters/internal/emit/toml.go) rather than a second
 // hand-rolled copy.
+//
+// An environment spec's `install` field writes `.openhands/setup.sh`
+// (override via outputs.openhands.setup-file), the vendor's documented
+// project bootstrap script: "You can add a `.openhands/setup.sh` file,
+// which will run every time OpenHands begins working with your
+// repository" (docs.openhands.dev/openhands/usage/customization/repository).
+// `terminals` has no OpenHands surface (the script runs once,
+// synchronously, not as a set of long-running processes) and surfaces
+// a coverage note. See setup_script.go for the full mapping and the
+// merge policy across multiple environment specs.
 package openhands
 
 import (
@@ -42,6 +52,7 @@ const (
 	target           = "openhands"
 	defaultSkillsDir = ".agents/skills"
 	defaultMCPFile   = "config.toml"
+	defaultSetupFile = ".openhands/setup.sh"
 )
 
 var caps = emit.Capabilities{
@@ -50,7 +61,7 @@ var caps = emit.Capabilities{
 	// itself: they reach OpenHands through the shared AGENTS.md
 	// entry-point sync writes centrally. KindAgent is absent; OpenHands
 	// has no agent surface, so the unsupported warning is accurate.
-	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindEnvironment},
 }
 
 // Adapter emits OpenHands configs.
@@ -63,14 +74,18 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one native skill folder per skill under .agents/skills/,
-// plus a merged `./config.toml` for MCP servers. The project-root
-// AGENTS.md (with rule bodies inlined) is written by `sync`, not here.
+// plus a merged `./config.toml` for MCP servers and `.openhands/setup.sh`
+// for environment specs. The project-root AGENTS.md (with rule bodies
+// inlined) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitSetupScript(sess, b.Environments, cfg, dryRun); err != nil {
 		return err
 	}
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

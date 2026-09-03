@@ -315,6 +315,9 @@
         "environment-file": {
           "type": "string"
         },
+        "setup-file": {
+          "type": "string"
+        },
         "ignore-file": {
           "type": "string"
         },

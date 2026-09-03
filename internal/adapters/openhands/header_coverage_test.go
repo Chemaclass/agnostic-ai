@@ -60,11 +60,11 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle exercising every kind the openhands
 // adapter emits directly: three skills, with names, paths, and bodies
 // matching crush's and codex's kit-sink fixtures so their SKILL.md
-// renders stay byte-identical (see skill_render_parity_test.go), plus
-// three MCP specimens covering all three OpenHands [mcp] arrays
-// (stdio, sse, and http/shttp). Rules are included too since KindRule
-// is declared in caps.Supports, even though this adapter never writes
-// them itself (see openhands.go).
+// renders stay byte-identical (see skill_render_parity_test.go), three
+// MCP specimens covering all three OpenHands [mcp] arrays (stdio, sse,
+// and http/shttp), and one environment spec covering `.openhands/setup.sh`.
+// Rules are included too since KindRule is declared in caps.Supports,
+// even though this adapter never writes them itself (see openhands.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -84,6 +84,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
+		{
+			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
+			Meta: map[string]any{"install": "go mod download"},
 		},
 	}
 	return spec.NewBundle(entries)
