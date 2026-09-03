@@ -149,6 +149,87 @@ func TestValidate_AcceptsClaudeDirectoryAddedHookEvent(t *testing.T) {
 	}
 }
 
+// code.claude.com/docs/en/hooks documents PreModelSwitch and
+// PostModelSwitch (Claude Code v2.1.251); hookEventsByTarget tracked
+// neither. The emitter passes `event:` through verbatim, so both
+// already worked and validate flagged them as unknown by mistake (#660).
+func TestValidate_AcceptsClaudeModelSwitchHookEvents(t *testing.T) {
+	for _, event := range []string{"PreModelSwitch", "PostModelSwitch"} {
+		t.Run(event, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+				"version: 1\ntargets:\n  - claude\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+				"name: h\nevent: "+event+"\ncommand: \"true\"\n")
+			testutil.Chdir(t, dir)
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"validate"})
+			out := &bytes.Buffer{}
+			root.SetOut(out)
+			root.SetErr(&bytes.Buffer{})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("validate: %v", err)
+			}
+			if strings.Contains(out.String(), "unknown hook event") {
+				t.Errorf("%s is a documented Claude event: %s", event, out.String())
+			}
+		})
+	}
+}
+
+// learn.chatgpt.com/docs/hooks documents Interrupt ("When you interrupt
+// an active turn"); hookEventsByTarget tracked only 10 codex events.
+// The emitter passes `event:` through verbatim, so Interrupt already
+// worked and validate flagged it as unknown by mistake (#660).
+func TestValidate_AcceptsCodexInterruptHookEvent(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - codex\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+		"name: h\nevent: Interrupt\ncommand: \"true\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if strings.Contains(out.String(), "unknown hook event") {
+		t.Errorf("Interrupt is a documented Codex event: %s", out.String())
+	}
+}
+
+// kiro.dev/docs/hooks/types.md documents Agent Spawn as a CLI-only
+// trigger distinct from Session Start, spelled `AgentSpawn` in the
+// file-schema `trigger` field (kiro.dev/docs/hooks/actions.md: "AgentSpawn
+// hooks are never cached"). hookEventsByTarget tracked only 10 kiro
+// events. The emitter passes `event:` through verbatim, so AgentSpawn
+// already worked and validate flagged it as unknown by mistake (#660).
+func TestValidate_AcceptsKiroAgentSpawnHookEvent(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - kiro\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+		"name: h\nevent: AgentSpawn\ncommand: \"true\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if strings.Contains(out.String(), "unknown hook event") {
+		t.Errorf("AgentSpawn is a documented Kiro event: %s", out.String())
+	}
+}
+
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	// copilot + cline configured; neither emits hooks. The hook spec
 	// is dead weight and validate should say so.

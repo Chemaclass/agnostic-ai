@@ -23,6 +23,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged",
 		"WorktreeCreate", "WorktreeRemove",
 		"Notification",
+		"PreModelSwitch", "PostModelSwitch",
 	),
 	"codex": setOf(
 		"PreToolUse", "PostToolUse",
@@ -31,6 +32,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"SessionStart", "SessionEnd", "Stop",
 		"SubagentStart", "SubagentStop",
 		"PreCompact", "PostCompact",
+		"Interrupt",
 	),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
@@ -60,6 +62,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreTaskExec", "PostTaskExec",
 		"UserPromptSubmit",
 		"PostFileCreate", "PostFileSave", "PostFileDelete",
+		"AgentSpawn",
 	),
 }
 
