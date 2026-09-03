@@ -198,6 +198,7 @@ outputs:
   openhands:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
     mcp-file: config.toml               # default. [mcp] table: stdio_servers / sse_servers / shttp_servers.
+    setup-file: .openhands/setup.sh     # default. Repository bootstrap script; an environment spec's `install` field.
   factory:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.

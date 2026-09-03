@@ -539,7 +539,11 @@ terminals:
     command: go run ./cmd/agnostic-ai
 ```
 
-Native emission: Cursor background-agent [environment.json](https://docs.cursor.com/background-agent). The spec body is the `.cursor/environment.json` content: every key except the agnostic-ai routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) passes through verbatim, so you author Cursor's schema while agnostic-ai single-sources it. Multiple environment specs merge by top-level key (last wins). Override the path with `outputs.cursor.environment-file`. Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
+Native emission: Cursor background-agent [environment.json](https://docs.cursor.com/background-agent). The spec body is the `.cursor/environment.json` content: every key except the agnostic-ai routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) passes through verbatim, so you author Cursor's schema while agnostic-ai single-sources it. Multiple environment specs merge by top-level key (last wins). Override the path with `outputs.cursor.environment-file`.
+
+Also native on OpenHands: the `install` field writes [`.openhands/setup.sh`](https://docs.openhands.dev/openhands/usage/customization/repository), the vendor's documented repository bootstrap script that "will run every time OpenHands begins working with your repository". The script body is `install` verbatim under a `#!/bin/bash` shebang. `terminals` has no OpenHands equivalent (the script runs once, synchronously; there is no long-running process surface) and surfaces a coverage note instead. Multiple environment specs merge the same way as Cursor's (last `install` wins). Override the path with `outputs.openhands.setup-file`.
+
+Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
 
 ## Ignore
 

@@ -178,6 +178,7 @@ type Output struct {
 	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
 	ReviewFile           string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
 	EnvironmentFile      string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
+	SetupFile            string            `yaml:"setup-file,omitempty"               json:"setup-file,omitempty"`
 	IgnoreFile           string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
 	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
 	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`

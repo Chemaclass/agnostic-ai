@@ -42,6 +42,16 @@ func OutputEnvironmentFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputSetupFile returns cfg.Outputs[target].SetupFile when set,
+// otherwise fallback. Used by the OpenHands adapter to opt into
+// `.openhands/setup.sh`.
+func OutputSetupFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.SetupFile != "" {
+		return o.SetupFile
+	}
+	return fallback
+}
+
 // OutputIgnoreFile returns cfg.Outputs[target].IgnoreFile when set, otherwise fallback.
 func OutputIgnoreFile(cfg *config.Config, target, fallback string) string {
 	if o, ok := cfg.Outputs[target]; ok && o.IgnoreFile != "" {

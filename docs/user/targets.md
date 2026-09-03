@@ -68,7 +68,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `crush.json` (`mcp`) | - | - | - | - | - |
 | **trae**        | as `.md` rule (`agent-<name>.md`) | `.trae/skills/<name>/SKILL.md` | `.trae/rules/*.md` | - | `.trae/mcp.json` | `.trae/commands/<name>.md` | - | - | - | - |
 | **qoder**       | `.qoder/agents/<name>.md` | `.qoder/skills/<name>/SKILL.md` | `.qoder/rules/<name>.md` | - | `.mcp.json` | - | - | - | - | - |
-| **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | - | - |
+| **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `config.toml` (`[mcp]`) | - | - | - | `.openhands/setup.sh` | - |
 | **factory**     | `.factory/droids/<name>.md` | - | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
 | **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.kilo/rules/<name>.md` (+ `kilo.jsonc` `instructions` array; also inlined into `AGENTS.md`) | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
@@ -590,19 +590,21 @@ Verify with the real IDE:
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed/crush)
 config.toml                        # when MCP entries exist
+.openhands/setup.sh                # when an environment spec sets `install`
 ```
 
 All Hands [OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` natively and loads skills from `.agents/skills/`, the same cross-tool tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree dedupes into one write. OpenHands has no per-rule directory, so rule bodies inline into the shared `AGENTS.md` `## Rules` block. Agents and hooks have no OpenHands surface yet and skip with a warning.
 
 - **MCP**: merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`/`command`/`args`/`env`) and `sse_servers` / `shttp_servers` (`shttp_servers` is OpenHands' streamable-HTTP transport, the cross-tool spec's `type: http`). Each remote element is a bare URL string, OpenHands' simplest documented form, or the vendor's `{ url, api_key, timeout }` object once the entry sets a top-level `api_key` and/or (shttp only) `timeout` field; TOML allows mixing both forms in one array, as OpenHands' own example does. `timeout` (int, 1-3600 seconds, default 60, vendor example `timeout = 1800`) is documented for the SHTTP tab only; an sse entry that sets it gets a coverage note instead of a silent no-op. The spec's generic `headers` field has no equivalent here (OpenHands documents only the single `api_key` credential, never a header map) and surfaces a coverage note instead of reaching the target with the credential silently missing. A transport OpenHands documents no array for (e.g. `type: ws`) reaches neither array and surfaces a coverage note instead of guessing one. The project-tier `config.toml` is managed (its `[mcp]` table is overwritten each sync); keep unmanaged OpenHands config elsewhere.
+- **Environments**: an environment spec's `install` field writes `.openhands/setup.sh`, the vendor's [documented repository bootstrap script](https://docs.openhands.dev/openhands/usage/customization/repository) ("You can add a `.openhands/setup.sh` file, which will run every time OpenHands begins working with your repository... an ideal location for installing dependencies, setting environment variables, and performing other setup tasks"). The script gets a `#!/bin/bash` shebang, then the provenance header, then `install` verbatim as the body. OpenHands chmods the script itself before running it (`chmod +x {script} && source {script}`), so this file needs no executable bit set on write. `terminals` (Cursor's long-running dev processes) has no equivalent here, since the script runs once, synchronously, at repo start; it surfaces a coverage note instead of being silently dropped. Multiple environment specs merge the same way Cursor's do: last spec's `install` wins.
 
-Config keys: `outputs.openhands.skills-dir` (default `.agents/skills`), `outputs.openhands.mcp-file` (default `config.toml`).
+Config keys: `outputs.openhands.skills-dir` (default `.agents/skills`), `outputs.openhands.mcp-file` (default `config.toml`), `outputs.openhands.setup-file` (default `.openhands/setup.sh`).
 
 Verify with the real CLI:
 
 1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
-2. Check the tree: `ls AGENTS.md .agents/skills/ config.toml`, `test -f .agents/skills/*/SKILL.md`, `head -1 config.toml` for the provenance comment.
-3. Launch OpenHands; the context loads `AGENTS.md`, each `.agents/skills/<name>/` appears as a skill, and each `[mcp]` server from `config.toml` connects.
+2. Check the tree: `ls AGENTS.md .agents/skills/ config.toml .openhands/setup.sh`, `test -f .agents/skills/*/SKILL.md`, `head -1 config.toml` for the provenance comment.
+3. Launch OpenHands; the context loads `AGENTS.md`, each `.agents/skills/<name>/` appears as a skill, each `[mcp]` server from `config.toml` connects, and `.openhands/setup.sh` runs at session start.
 
 ### Factory (`factory`)
 

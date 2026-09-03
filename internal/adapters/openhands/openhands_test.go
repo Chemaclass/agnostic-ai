@@ -420,6 +420,122 @@ func TestEmit_MCP_SSETimeoutSurfacesCoverageNote(t *testing.T) {
 	}
 }
 
+// An environment spec's `install` field writes `.openhands/setup.sh`
+// with a shebang line and the provenance header, in that order, then
+// the install command verbatim (#662).
+func TestEmit_Environment_WritesSetupScript(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
+			Meta: map[string]any{"name": "default", "scope": "ignored", "install": "go mod download"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".openhands/setup.sh"))
+	if !strings.HasPrefix(got, "#!/bin/bash\n") {
+		t.Errorf("setup.sh must start with a shebang, got:\n%s", got)
+	}
+	if !strings.Contains(got, "go mod download") {
+		t.Errorf("missing install passthrough in setup.sh:\n%s", got)
+	}
+	for _, leaked := range []string{"name: default", "scope: ignored"} {
+		if strings.Contains(got, leaked) {
+			t.Errorf("routing key leaked into setup.sh: %s", got)
+		}
+	}
+}
+
+// A later environment spec's `install` overrides an earlier one,
+// matching Cursor's last-wins merge policy for the same spec kind.
+func TestEmit_Environment_MergeLastWins(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "a", Path: "environments/a.yaml", Meta: map[string]any{"install": "first"}},
+		{Kind: spec.KindEnvironment, Name: "b", Path: "environments/b.yaml", Meta: map[string]any{"install": "second"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".openhands/setup.sh"))
+	if strings.Contains(got, "first") || !strings.Contains(got, "second") {
+		t.Errorf("last-wins violated, got:\n%s", got)
+	}
+}
+
+// The setup script path is overridable via outputs.openhands.setup-file.
+func TestEmit_Environment_SetupFileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"openhands": {SetupFile: "bootstrap.sh"}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml", Meta: map[string]any{"install": "x"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "bootstrap.sh")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".openhands/setup.sh")); !os.IsNotExist(err) {
+		t.Errorf("default path should not exist alongside the override, err=%v", err)
+	}
+}
+
+// No environment spec sets `install`: nothing to write, and no error.
+func TestEmit_Environment_NoInstallWritesNothing(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
+			Meta: map[string]any{"terminals": []any{map[string]any{"name": "dev", "command": "go run ."}}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".openhands/setup.sh")); !os.IsNotExist(err) {
+		t.Errorf("expected no setup.sh when no environment spec sets install, err=%v", err)
+	}
+}
+
+// `terminals` has no `.openhands/setup.sh` equivalent (the script runs
+// once, synchronously, not as a set of long-running processes), so it
+// surfaces a coverage note instead of vanishing silently, while
+// `install` still reaches the target in full.
+func TestEmit_Environment_TerminalsSurfacesCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml", Meta: map[string]any{
+			"install":   "go mod download",
+			"terminals": []any{map[string]any{"name": "dev", "command": "go run ./cmd/agnostic-ai"}},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	note := buf.String()
+	for _, want := range []string{"`terminals`", "1 environment", "openhands"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+
+	got := readFile(t, filepath.Join(dir, ".openhands/setup.sh"))
+	if !strings.Contains(got, "go mod download") {
+		t.Errorf("install should still reach openhands in full, got: %s", got)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
