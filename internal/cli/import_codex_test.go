@@ -805,6 +805,40 @@ env_http_headers = { Authorization = "MCP_TOKEN" }
 	}
 }
 
+// Round-trip for #661: http_headers_helper, enabled_tools, and
+// disabled_tools must survive an import so a sync -> import -> sync
+// cycle does not silently drop a field the previous sync just wrote to
+// .codex/config.toml.
+func TestImportFromCodex_MCPHeadersHelperAndToolsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+http_headers_helper = "./scripts/mcp-headers.sh"
+enabled_tools = ["read_file", "list_dir"]
+disabled_tools = ["delete_file"]
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	github, err := os.ReadFile(filepath.Join(dir, "mcps", "github.yaml"))
+	if err != nil {
+		t.Fatalf("read github.yaml: %v", err)
+	}
+	for _, want := range []string{
+		"http_headers_helper: ./scripts/mcp-headers.sh",
+		"enabled_tools:",
+		"- read_file",
+		"- list_dir",
+		"disabled_tools:",
+		"- delete_file",
+	} {
+		if !strings.Contains(string(github), want) {
+			t.Errorf("github.yaml missing %q:\n%s", want, github)
+		}
+	}
+}
+
 // When both hooks.json and config.toml carry the same event/matcher/command,
 // keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
 func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {

@@ -173,6 +173,64 @@ func TestEmit_MCP_HTTPWritesEnvHTTPHeaders(t *testing.T) {
 	}
 }
 
+// learn.chatgpt.com/docs/config-file/config-reference documents
+// http_headers_helper on http entries only ("Supported only for locally
+// connected HTTP MCP servers"). See #661.
+func TestEmit_MCP_HTTPWritesHeadersHelper(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type":                "http",
+				"url":                 "https://api.githubcopilot.com/mcp/",
+				"http_headers_helper": "./scripts/mcp-headers.sh",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `http_headers_helper = "./scripts/mcp-headers.sh"`) {
+		t.Errorf("missing http_headers_helper in %s", got)
+	}
+}
+
+// learn.chatgpt.com/docs/config-file/config-reference documents
+// enabled_tools / disabled_tools as shared mcp_servers.<id> keys, not
+// restricted to a transport, so they emit alongside description/enabled
+// via writeMCPSharedFields. See #661.
+func TestEmit_MCP_EnabledAndDisabledTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":        "npx",
+				"enabled_tools":  []any{"read_file", "list_dir"},
+				"disabled_tools": []any{"delete_file"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		`enabled_tools = ["read_file", "list_dir"]`,
+		`disabled_tools = ["delete_file"]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // Hooks emit into .codex/hooks.json grouped per event in the same shape
 // Claude's settings.json hooks block uses.
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {

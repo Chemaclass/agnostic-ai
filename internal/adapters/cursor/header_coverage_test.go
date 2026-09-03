@@ -97,11 +97,17 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"envFile": "${workspaceFolder}/.env",
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"auth": map[string]any{"CLIENT_ID": "abc123", "scopes": []any{"read"}},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

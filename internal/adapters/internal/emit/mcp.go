@@ -34,15 +34,40 @@ const (
 	MCPSchemaServersMapNoType
 )
 
+// MCPOption gates an optional, target-scoped field in the shared
+// MCPSchemaServersMap builder. Kept separate from MCPSchema because the
+// same schema (and therefore the same JSON wrapper shape) is shared by
+// several targets whose vendor docs disagree on which extra per-server
+// fields exist.
+type MCPOption func(*mcpOptions)
+
+type mcpOptions struct {
+	cursorExtras bool
+}
+
+// WithCursorMCPExtras turns on Cursor-only MCP fields (`envFile` on
+// stdio servers, an `auth` object on remote servers) in the shared
+// MCPSchemaServersMap builder. This builder also serves Claude Code,
+// Kiro, Junie, Qoder, Factory, and Copilot's root-mcp-file mirror; none
+// of their vendor docs mention either field, so the option keeps them
+// opt-in per caller rather than always-on for every MCPSchemaServersMap
+// target. cursor.com/docs/mcp.md: "envFile ... Path to an environment
+// file to load more variables" (stdio only) and "Add an `auth` object
+// to remote server entries that use `url`" (target-audit 2026-09-03,
+// #661).
+func WithCursorMCPExtras() MCPOption {
+	return func(o *mcpOptions) { o.cursorExtras = true }
+}
+
 // WriteMCPFile renders mcps with the target schema and writes to path.
 // No file is written when mcps is empty or every entry produces an empty
 // server block. Adapters call this in lieu of hand-rolling the
 // guard / render / write triple at every call site.
-func (s *Session) WriteMCPFile(mcps []spec.Entry, schema MCPSchema, path string, dryRun bool) error {
+func (s *Session) WriteMCPFile(mcps []spec.Entry, schema MCPSchema, path string, dryRun bool, opts ...MCPOption) error {
 	if len(mcps) == 0 {
 		return nil
 	}
-	doc, err := MCPDocument(mcps, schema)
+	doc, err := MCPDocument(mcps, schema, opts...)
 	if err != nil {
 		return err
 	}
@@ -57,13 +82,17 @@ func (s *Session) WriteMCPFile(mcps []spec.Entry, schema MCPSchema, path string,
 // Each entry's frontmatter accepts: type (stdio|http|sse, default stdio),
 // command, args, env, url, headers, description, disabled, roots.
 // Empty entries are skipped.
-func MCPDocument(mcps []spec.Entry, schema MCPSchema) (string, error) {
+func MCPDocument(mcps []spec.Entry, schema MCPSchema, opts ...MCPOption) (string, error) {
+	var o mcpOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	servers := map[string]map[string]any{}
 	for _, e := range mcps {
 		if e.Name == "" {
 			continue
 		}
-		entry := buildServer(e, schema)
+		entry := buildServer(e, schema, o)
 		if len(entry) == 0 {
 			continue
 		}
@@ -86,7 +115,7 @@ func MCPDocument(mcps []spec.Entry, schema MCPSchema) (string, error) {
 	return string(raw) + "\n", nil
 }
 
-func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
+func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	transport := stringField(e.Meta, "type")
 	if transport == "" {
 		transport = "stdio"
@@ -101,12 +130,30 @@ func buildServer(e spec.Entry, schema MCPSchema) map[string]any {
 		if args := stringSlice(e.Meta, "args"); len(args) > 0 {
 			out["args"] = args
 		}
+		// envFile is documented stdio-only: "The envFile option is only
+		// available for STDIO servers. Remote servers (HTTP/SSE) do not
+		// support envFile." cursor.com/docs/mcp.md.
+		if o.cursorExtras {
+			if envFile := stringField(e.Meta, "envFile"); envFile != "" {
+				out["envFile"] = envFile
+			}
+		}
 	case "http", "sse", "ws":
 		if url := stringField(e.Meta, "url"); url != "" {
 			out["url"] = url
 		}
 		if h := mapField(e.Meta, "headers"); len(h) > 0 {
 			out["headers"] = h
+		}
+		// "Add an auth object to remote server entries that use url":
+		// CLIENT_ID / CLIENT_SECRET / scopes, explicit field mapping
+		// rather than a generic passthrough so a typo in the spec cannot
+		// leak an unrelated key into Cursor's static-OAuth block.
+		// cursor.com/docs/mcp.md.
+		if o.cursorExtras {
+			if auth := buildCursorMCPAuth(e.Meta); len(auth) > 0 {
+				out["auth"] = auth
+			}
 		}
 		// Remote servers carry an explicit `type` in every schema. A
 		// `.mcp.json` entry with only `url` is ambiguous (http vs sse
@@ -208,6 +255,34 @@ func BuildRoots(meta map[string]any) []map[string]any {
 		}
 	}
 	return roots
+}
+
+// buildCursorMCPAuth reads the spec's `auth` object into Cursor's static
+// OAuth shape: `{CLIENT_ID, CLIENT_SECRET, scopes}`. Explicit field
+// mapping, not a generic passthrough, so an unrelated key under `auth`
+// (or a value meant for another target's differently-shaped `auth`
+// field, e.g. Codex's `auth: "oauth"` string) cannot reach the emitted
+// file. Returns nil when the meta value is missing, the wrong type, or
+// carries none of the three known keys.
+func buildCursorMCPAuth(meta map[string]any) map[string]any {
+	raw, ok := meta["auth"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	if id, _ := raw["CLIENT_ID"].(string); id != "" {
+		out["CLIENT_ID"] = id
+	}
+	if secret, _ := raw["CLIENT_SECRET"].(string); secret != "" {
+		out["CLIENT_SECRET"] = secret
+	}
+	if scopes := stringSlice(raw, "scopes"); len(scopes) > 0 {
+		out["scopes"] = scopes
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func stringField(m map[string]any, key string) string {

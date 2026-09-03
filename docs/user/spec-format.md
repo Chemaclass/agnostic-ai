@@ -365,9 +365,16 @@ env:
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
-| `auth` | no | empty | Codex HTTP authentication fallback: `oauth` or `chatgpt`. |
+| `envFile` | stdio only, Cursor | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
+| `auth` | no | empty | Two unrelated shapes by target. Codex HTTP authentication fallback, a string: `oauth` or `chatgpt`. Cursor static OAuth on a remote (`url`) entry, an object: `{CLIENT_ID, CLIENT_SECRET, scopes}` (`CLIENT_ID` required, the other two optional). |
+| `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
+| `enabled_tools` | no, Codex | empty | Allow list of tool names exposed by the server. |
+| `disabled_tools` | no, Codex | empty | Deny list applied after `enabled_tools`. |
+| `trust` | no, Gemini | `false` | Bypass all tool-call confirmations for this server. |
+| `includeTools` | no, Gemini | empty | Allowlist of tool names exposed from this server. |
+| `excludeTools` | no, Gemini | empty | Denylist of tool names; takes precedence over `includeTools` on a name in both. |
 | `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
-| `timeout` | no | empty | OpenHands tool-execution timeout in seconds (1-3600, default 60) for an `http` server. Documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does; an `sse` entry that sets it surfaces a coverage note instead. |
+| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini: request timeout in milliseconds, any transport, no documented range. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 

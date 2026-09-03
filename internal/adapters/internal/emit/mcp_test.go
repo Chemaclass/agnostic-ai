@@ -420,3 +420,146 @@ func TestMCPDocument_WSTransport(t *testing.T) {
 		t.Errorf("headers dropped: %s", got)
 	}
 }
+
+// cursor.com/docs/mcp.md documents `envFile` (stdio only) and an `auth`
+// object (CLIENT_ID / CLIENT_SECRET / scopes, remote servers using
+// `url`). Both are cursor-specific, so they must stay off by default
+// and only appear when the caller opts in via WithCursorMCPExtras. See
+// #661.
+func TestMCPDocument_CursorExtrasOffByDefault(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "envFile": ".env"},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "oauth-server",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://example.test/mcp",
+				"auth": map[string]any{"CLIENT_ID": "abc", "CLIENT_SECRET": "xyz", "scopes": []any{"read", "write"}},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, "envFile") {
+		t.Errorf("envFile must not appear without WithCursorMCPExtras: %s", got)
+	}
+	if strings.Contains(got, "CLIENT_ID") {
+		t.Errorf("auth must not appear without WithCursorMCPExtras: %s", got)
+	}
+}
+
+func TestMCPDocument_CursorExtras_EnvFileStdioOnly(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "envFile": "${workspaceFolder}/.env"},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "remote",
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "envFile": ".env"},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap, WithCursorMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	servers := parsed["mcpServers"].(map[string]any)
+	fs := servers["fs"].(map[string]any)
+	if fs["envFile"] != "${workspaceFolder}/.env" {
+		t.Errorf("stdio envFile missing: %s", got)
+	}
+	remote := servers["remote"].(map[string]any)
+	if _, ok := remote["envFile"]; ok {
+		t.Errorf("remote server must not carry envFile (stdio only per vendor doc): %s", got)
+	}
+}
+
+func TestMCPDocument_CursorExtras_AuthOnRemoteServers(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "oauth-server",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://example.test/mcp",
+				"auth": map[string]any{
+					"CLIENT_ID":     "your-oauth-client-id",
+					"CLIENT_SECRET": "your-client-secret",
+					"scopes":        []any{"read", "write"},
+				},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"auth":    map[string]any{"CLIENT_ID": "irrelevant"},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap, WithCursorMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	servers := parsed["mcpServers"].(map[string]any)
+	oauth := servers["oauth-server"].(map[string]any)
+	auth, ok := oauth["auth"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected auth object: %s", got)
+	}
+	if auth["CLIENT_ID"] != "your-oauth-client-id" || auth["CLIENT_SECRET"] != "your-client-secret" {
+		t.Errorf("auth CLIENT_ID/CLIENT_SECRET mismatch: %v", auth)
+	}
+	scopes, _ := auth["scopes"].([]any)
+	if len(scopes) != 2 {
+		t.Errorf("expected 2 scopes, got %v", auth["scopes"])
+	}
+	fs := servers["fs"].(map[string]any)
+	if _, ok := fs["auth"]; ok {
+		t.Errorf("stdio server must not carry auth (remote-only per vendor doc): %s", got)
+	}
+}
+
+// The shared builder also serves claude, kiro, junie, qoder, factory,
+// and copilot's root-mcp-file mirror. None documents envFile or auth,
+// so WithCursorMCPExtras must stay opt-in rather than a schema-wide
+// default; this test only guards that the option itself has no
+// hard-coded schema check that would silently no-op it elsewhere.
+func TestMCPDocument_CursorExtras_AppliesRegardlessOfSchema(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "envFile": ".env"},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers, WithCursorMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "envFile") {
+		t.Errorf("expected envFile: the option itself is schema-independent; callers gate it by only passing it for cursor.go: %s", got)
+	}
+}

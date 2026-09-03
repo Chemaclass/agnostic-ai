@@ -379,6 +379,54 @@ func TestEmit_MCP_SSEUsesUrlKey(t *testing.T) {
 	}
 }
 
+// geminicli.com/docs/reference/configuration.md documents five more
+// per-server mcpServers.<name> fields beyond transport/env: timeout,
+// trust, description, includeTools, excludeTools. All five pass through
+// verbatim, unrelated to transport. See #661.
+func TestEmit_MCP_PassesThroughTimeoutTrustDescriptionIncludeExcludeTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"timeout": 5000,
+				"trust":   true,
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type":         "http",
+				"url":          "https://api.githubcopilot.com/mcp/",
+				"description":  "Remote MCP over HTTP",
+				"includeTools": []any{"read_file"},
+				"excludeTools": []any{"delete_file"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/settings.json"))
+	for _, want := range []string{
+		`"timeout": 5000`,
+		`"trust": true`,
+		`"description": "Remote MCP over HTTP"`,
+		`"includeTools"`,
+		`"read_file"`,
+		`"excludeTools"`,
+		`"delete_file"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // Hooks emit under hooks.<event> = [{matcher, command}, ...].
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)

@@ -4,6 +4,12 @@
       "command": "x"
     },
     "http-server": {
+      "auth": {
+        "CLIENT_ID": "abc123",
+        "scopes": [
+          "read"
+        ]
+      },
       "type": "http",
       "url": "https://example.test/mcp"
     },
@@ -12,7 +18,8 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "envFile": "${workspaceFolder}/.env"
     }
   }
 }

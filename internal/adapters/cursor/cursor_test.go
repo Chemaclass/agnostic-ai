@@ -480,6 +480,55 @@ func TestEmit_WritesMCPFile(t *testing.T) {
 	}
 }
 
+// cursor.com/docs/mcp.md documents `envFile` (stdio only, ".env" path to
+// load more variables) and a static-OAuth `auth` object on remote
+// server entries that use `url`. See #661.
+func TestEmit_MCP_EnvFileAndAuthPassThrough(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"envFile": "${workspaceFolder}/.env",
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "oauth-server",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://example.test/mcp",
+				"auth": map[string]any{
+					"CLIENT_ID":     "your-oauth-client-id",
+					"CLIENT_SECRET": "your-client-secret",
+					"scopes":        []any{"read", "write"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".cursor/mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"envFile": "${workspaceFolder}/.env"`,
+		`"CLIENT_ID": "your-oauth-client-id"`,
+		`"CLIENT_SECRET": "your-client-secret"`,
+		`"scopes"`,
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // Skills emit natively under `.cursor/skills/<name>/SKILL.md` (Cursor
 // 2.4+ discovers the Agent Skills layout); no flattened skill-*.mdc
 // copy is written, which would double-expose the skill.

@@ -222,6 +222,12 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 		if auth, _ := m.Meta["auth"].(string); auth != "" {
 			emit.WriteTOMLString(sb, "auth", auth)
 		}
+		// http_headers_helper is documented "Supported only for locally
+		// connected HTTP MCP servers", so it belongs in this branch, not
+		// writeMCPSharedFields (which also covers stdio). See #661.
+		if helper, _ := m.Meta["http_headers_helper"].(string); helper != "" {
+			emit.WriteTOMLString(sb, "http_headers_helper", helper)
+		}
 	}
 	writeMCPSharedFields(sb, m.Meta)
 	sb.WriteString("\n")
@@ -261,9 +267,9 @@ func writeCodexMCPEnvVars(sb *strings.Builder, raw any) {
 	}
 }
 
-// writeMCPSharedFields emits description, enabled, and roots into the
-// current `[mcp_servers.<name>]` table. Roots renders as an array of
-// inline tables.
+// writeMCPSharedFields emits description, enabled, enabled_tools,
+// disabled_tools, and roots into the current `[mcp_servers.<name>]`
+// table. Roots renders as an array of inline tables.
 //
 // The spec's `disabled` field inverts to Codex's own `enabled` key:
 // `learn.chatgpt.com/docs/config-file/config-reference` documents
@@ -271,12 +277,23 @@ func writeCodexMCPEnvVars(sb *strings.Builder, raw any) {
 // `disabled` key at all, so writing one here would silently fail to stop
 // the server. `enabled` only emits when the spec asks for `disabled:
 // true`; Codex's own default (enabled) needs no explicit key.
+//
+// enabled_tools / disabled_tools are documented on `mcp_servers.<id>`
+// with no transport restriction, unlike http_headers_helper, so they
+// land here rather than in writeMCPServerTable's http/sse branch. See
+// #661.
 func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if desc, _ := meta["description"].(string); desc != "" {
 		emit.WriteTOMLString(sb, "description", desc)
 	}
 	if disabled, _ := meta["disabled"].(bool); disabled {
 		sb.WriteString("enabled = false\n")
+	}
+	if tools := emit.StringSlice(meta["enabled_tools"]); len(tools) > 0 {
+		emit.WriteTOMLStringArray(sb, "enabled_tools", tools)
+	}
+	if tools := emit.StringSlice(meta["disabled_tools"]); len(tools) > 0 {
+		emit.WriteTOMLStringArray(sb, "disabled_tools", tools)
 	}
 	raw, _ := meta["roots"].([]any)
 	if len(raw) == 0 {
