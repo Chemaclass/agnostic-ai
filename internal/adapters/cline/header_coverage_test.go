@@ -71,6 +71,19 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
+		{
+			Kind: spec.KindRule, Name: "r4", Path: "rules/r4.md", Body: "glob rule body",
+			Meta: map[string]any{"globs": "src/components/**,src/hooks/**", "alwaysApply": false},
+		},
+		{
+			Kind: spec.KindRule, Name: "r5", Path: "rules/backend/r5.md",
+			Scope: "backend", Body: "scoped rule body",
+			Meta: map[string]any{"alwaysApply": false},
+		},
+		{
+			Kind: spec.KindRule, Name: "r6", Path: "rules/r6.md", Body: "unscopable rule body",
+			Meta: map[string]any{"description": "Applies to API design", "alwaysApply": false},
+		},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},

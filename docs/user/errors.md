@@ -60,7 +60,7 @@ The config file was found but could not be parsed as YAML, or its keys do not ma
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory and kilo). Last-writer-wins would mask drift.
+Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory and kilo). Last-writer-wins would mask drift.
 
 **Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
 

@@ -18,6 +18,11 @@ var antigravityRulesDirs = []string{
 
 const antigravityMainFile = ".agent/AGENTS.md"
 
+// antigravityAgentsDir is Antigravity's native custom-subagent
+// directory (antigravity.google/docs/subagents): flat `<name>.md`
+// files, not the pre-#638 `agent-<name>.md` rule-form.
+const antigravityAgentsDir = ".agents/agents"
+
 // antigravityMCPFile mirrors the antigravity adapter's own
 // defaultMCPFile (internal/adapters/antigravity/antigravity.go).
 // Adapter packages cannot import each other, so the literal path is
@@ -63,7 +68,14 @@ func antigravityImportDir(root string) string {
 //   - `.agents/rules/*.md` (or the legacy `.agent/rules/*.md`) walks via
 //     the shared rules-directory importer (agent-<name>.md routes to
 //     agents, the rest to rules; the provenance header and the leading
-//     `# <heading>\n` block are stripped from each body).
+//     `# <heading>\n` block are stripped from each body). The
+//     `agent-<name>.md` form covers projects synced before agents moved
+//     to their own directory (#638).
+//   - `.agents/agents/*.md` (the native subagent directory)
+//     reconstructs agents, byte-for-byte minus the provenance header,
+//     so `model` and any `x-antigravity` key round-trip untouched. A
+//     generic `tools` list never reaches the file on emit, so it never
+//     comes back from one either.
 //   - When `outputs.antigravity.rules-file` is set in agnostic-ai.yaml,
 //     the legacy concatenated file is sliced by H2 sections.
 //   - `.agents/mcp_config.json`'s `mcpServers` map walks via
@@ -78,6 +90,12 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if err != nil {
 		return err
 	}
+
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, antigravityAgentsDir), filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	c.agents += nativeAgents
 
 	rulesFileCount := 0
 	if rulesFile := antigravityRulesFileFromCfg(cfg); rulesFile != "" {

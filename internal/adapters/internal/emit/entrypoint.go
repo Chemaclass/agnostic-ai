@@ -37,6 +37,7 @@ var entryPointPaths = map[string]string{
 	"amp":         "AGENTS.md",
 	"warp":        "AGENTS.md",
 	"cline":       "AGENTS.md",
+	"windsurf":    "AGENTS.md",
 	"junie":       "AGENTS.md",
 	"kiro":        "AGENTS.md",
 	"crush":       "AGENTS.md",

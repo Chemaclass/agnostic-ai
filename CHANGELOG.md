@@ -10,6 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's documented repository bootstrap script. Environment specs previously reached no OpenHands surface at all (#662).
 - Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
+- Windsurf writes the shared root `AGENTS.md`, the file Devin CLI reads automatically and its docs call the recommended way to give a project rules. A windsurf-only repo had no root entry point at all before, so unscoped rules reached Devin through no path (#645).
 
 ### Changed
 
@@ -30,6 +31,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Zed MCP servers honor `disabled: true` as Zed's own `enabled: false`, and take `x-zed` keys for the `timeout`, `oauth`, and `remote` fields Zed's settings struct documents but its MCP page does not (#641).
 - OpenCode MCP servers pass through a local server's `cwd` and either transport's `timeout` (#641).
 - Qoder MCP servers pass through the nine fields on the vendor's "Common Optional Fields" table plus a stdio server's `cwd`, including a `disabled` that now works (#641).
+- Agents reach the subagent loader on Windsurf, Trae, and Antigravity. Each writes a native profile file (`.devin/agents/<name>.md`, `.trae/agents/<name>.md`, `.agents/agents/<name>.md`) instead of flattening into an always-on rule file, so `model`, `tools`, and the other documented frontmatter fields stop being dropped. A stale `agent-<name>.md` in the rules directory is swept on the next sync (#638).
+- Windsurf translates an agent's `tools` onto Devin's own `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`. Antigravity never writes a generic `tools` list, because its vocabulary shares no name with agnostic-ai's and the vendor warns an unmapped name can hang the subagent; set `x-antigravity.tools` instead (#638).
+- Cline rules that set `alwaysApply: false` carry a `paths` glob array, Cline's one documented conditional, so a rule scoped to `src/components/**` stops loading on every request (#639).
+- Continue rules carry `name`, `globs`, `alwaysApply`, and `description` frontmatter, with `globs` falling back to the rule's source-layout scope. No rule file carried frontmatter before, so every scoped rule was always-on. `x-continue.regex` reaches the file too (#639).
 
 ## v0.50.0 - 2026-08-28
 

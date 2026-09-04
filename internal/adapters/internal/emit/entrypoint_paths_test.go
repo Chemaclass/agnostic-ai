@@ -37,6 +37,10 @@ func TestEntryPointPath_MatchesVendorReadPath(t *testing.T) {
 		"copilot": ".github/copilot-instructions.md",
 		// learn.chatgpt.com/docs/agent-configuration/agents-md
 		"codex": "AGENTS.md",
+		// docs.devin.ai/cli/extensibility/rules: "Devin CLI reads this
+		// file automatically", and its supported-file-names table rows
+		// AGENTS.md as "Recommended" (#645).
+		"windsurf": "AGENTS.md",
 	} {
 		if got := EntryPointPath(&config.Config{}, target); got != want {
 			t.Errorf("%s entry point = %q, want %q (vendor-documented read path)", target, got, want)

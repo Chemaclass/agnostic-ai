@@ -1,8 +1,9 @@
 // Package antigravity emits configs for Google Antigravity IDE.
 //
 // Antigravity reads project instructions from per-rule files under
-// `.agents/rules/*.md` and skills from a folder per skill under
-// `.agents/skills/<name>/SKILL.md`. This adapter emits both. Antigravity
+// `.agents/rules/*.md`, custom subagents from `.agents/agents/<name>.md`,
+// and skills from a folder per skill under
+// `.agents/skills/<name>/SKILL.md`. This adapter emits all three. Antigravity
 // "now defaults to `.agents/rules`, but still maintains backward support
 // for `.agent/rules`" (antigravity.google/docs/ide/rules), and the
 // same wording covers skills (/docs/ide/skills). This adapter defaults to
@@ -12,6 +13,31 @@
 // is also the shared tree codex, amp, zed, crush, openhands, and
 // windsurf already emit into, so identical skill folders dedupe there
 // once an adapter's default lands on it.
+//
+// Agents emit as native subagent profiles at
+// `.agents/agents/<name>.md`: "Antigravity automatically discovers
+// custom subagent `.md` files in the following locations", workspace
+// row `.agents/agents/<name>.md` (antigravity.google/docs/subagents).
+// Frontmatter carries `name` and `description` (both required); "The
+// content following the YAML `---` delimiter defines the subagent's
+// system prompt." This adapter previously flattened agents into
+// `.agents/rules/agent-<name>.md`, which the subagent loader never
+// reads (target-audit 2026-08-27, #638); a stale managed copy at the
+// old name is swept for every current agent, at both the current and
+// the pre-plural rules path.
+//
+// A generic `tools` list never reaches that file. Antigravity's
+// vocabulary is its own (`view_file`, `replace_file_content`,
+// `grep_search`, `run_command`, ...) with zero name overlap with
+// agnostic-ai's Claude-style set, and the same page warns: "Specifying
+// an unmapped or misspelled tool name in the `tools` list may cause the
+// subagent process to hang during execution." So it drops with a
+// coverage note, and `x-antigravity.tools` is the one channel trusted
+// to already hold Antigravity's own names. `model` is a three-value
+// tier enum (`inherit`, `flash`, `pro`), not a model ID, so a value
+// outside it drops the same way. Every other documented key
+// (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`,
+// `skills`/`plugins`) reaches the file through `x-antigravity` too.
 //
 // The `.agent/AGENTS.md` entry-point is written centrally by `sync`
 // as a slim pointer to the source specs (one body shared with every
@@ -60,6 +86,14 @@ const (
 	// the matching outputs.antigravity.* key). See the package doc.
 	legacyRulesDir  = ".agent/rules"
 	legacySkillsDir = ".agent/skills"
+	// defaultAgentsDir is Antigravity's workspace subagent path:
+	// "Antigravity automatically discovers custom subagent `.md` files"
+	// at `.agents/agents/<name>.md` (antigravity.google/docs/subagents).
+	defaultAgentsDir = ".agents/agents"
+	// legacyAgentPrefix is the filename prefix agents carried while they
+	// flattened into the rules directory. Emit sweeps a stale managed
+	// copy for every current agent name, at both rules paths.
+	legacyAgentPrefix = "agent-"
 )
 
 var caps = emit.Capabilities{
@@ -76,8 +110,9 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes per-rule files under .agents/rules/, a folder per skill
-// under .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
+// Emit writes per-rule files under .agents/rules/, one subagent file
+// per agent under .agents/agents/<name>.md, a folder per skill under
+// .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
 // servers, and, when opted in via outputs.antigravity.rules-file, a
 // legacy merged document at that path. A stale managed tree at the
 // pre-plural `.agent/rules` / `.agent/skills` defaults is swept unless
@@ -88,12 +123,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
-	// Skills emit through the native folder layout below, so suppress
-	// the rule-form `skill-<name>.md` output from RulesDirectory.
+	// Agents and skills emit through their native layouts below, so
+	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
+	// output from RulesDirectory.
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         rulesDir,
-		AgentPrefix: "agent-",
-		SkipSkills:  true,
+		Dir:        rulesDir,
+		SkipAgents: true,
+		SkipSkills: true,
 	}, dryRun); err != nil {
 		return err
 	}
@@ -101,6 +137,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
 			return err
 		}
+	}
+
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	if err := emitAgents(sess, b.Agents, agentsDir, []string{rulesDir, legacyRulesDir}, dryRun); err != nil {
+		return err
 	}
 
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

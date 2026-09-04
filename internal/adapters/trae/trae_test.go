@@ -33,7 +33,7 @@ func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 
 	cases := map[string]string{
 		".trae/rules/r1.md":         "rule",
-		".trae/rules/agent-ag1.md":  "agent",
+		".trae/agents/ag1.md":       "agent",
 		".trae/skills/sk1/SKILL.md": "skill",
 	}
 	for p, want := range cases {
@@ -142,10 +142,10 @@ func TestEmit_RuleFrontmatter_AlwaysApplyFalseFallsBackToPaths(t *testing.T) {
 	}
 }
 
-// Agents flatten to rule-form files and carry the same activation
-// frontmatter as a plain rule, using the agent's own meta; the "Agent: "
-// heading prefix this adapter already wrote survives underneath it.
-func TestEmit_AgentFrontmatter_SameActivationMatrix(t *testing.T) {
+// A native subagent file carries the subagent frontmatter, not the
+// rule activation matrix: Trae's `/ide/subagents` table names `name`
+// and `description` as the required pair and has no `alwaysApply` key.
+func TestEmit_AgentFrontmatter_UsesSubagentFields(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -155,15 +155,18 @@ func TestEmit_AgentFrontmatter_SameActivationMatrix(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".trae/rules/agent-ag1.md"))
+	got := readFile(t, filepath.Join(dir, ".trae/agents/ag1.md"))
+	if !strings.Contains(got, "name: ag1\n") {
+		t.Errorf("missing name:\n%s", got)
+	}
 	if !strings.Contains(got, "description: reviews code\n") {
 		t.Errorf("missing description:\n%s", got)
 	}
-	if !strings.Contains(got, "alwaysApply: true\n") {
-		t.Errorf("agent should default alwaysApply=true:\n%s", got)
+	if strings.Contains(got, "alwaysApply") {
+		t.Errorf("rule activation keys must not reach a subagent file:\n%s", got)
 	}
-	if !strings.Contains(got, "# Agent: ag1\n\nagent body") {
-		t.Errorf("expected the pre-existing agent heading and body to survive:\n%s", got)
+	if !strings.Contains(got, "agent body") {
+		t.Errorf("expected the system prompt body:\n%s", got)
 	}
 }
 
@@ -360,5 +363,45 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".trae")); !os.IsNotExist(err) {
 		t.Errorf("expected no .trae dir for an empty bundle, err=%v", err)
+	}
+}
+
+// Trae's `/ide/subagents` page documents a real project subagent file
+// at `{project_folder}/.trae/agents/{my_agent}.md` with `name` and
+// `description` required. Flattening an Agent spec into a rule-form
+// `.trae/rules/agent-<name>.md` put it on a path the subagent loader
+// never reads and dropped every field rule frontmatter has no key for
+// (#638).
+func TestEmit_AgentsWriteNativeSubagentFiles(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent, Name: "reviewer", Body: "reviewer body",
+		Meta: map[string]any{
+			"description": "Reviews code changes",
+			"tools":       []any{"Read", "Grep", "Bash"},
+		},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, ".trae/agents/reviewer.md"))
+	for _, want := range []string{
+		"name: reviewer\n",
+		"description: Reviews code changes\n",
+		// Trae spells `tools` as a comma-separated string, not a YAML
+		// list, and its vocabulary is Claude-style, so the names pass
+		// through unmapped.
+		"tools: Read, Grep, Bash\n",
+		"reviewer body",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in .trae/agents/reviewer.md:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".trae/rules/agent-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no rule-form .trae/rules/agent-reviewer.md, err=%v", err)
 	}
 }

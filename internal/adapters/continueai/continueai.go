@@ -1,5 +1,23 @@
 // Package continueai emits .continue/rules/*.md and .continue/mcpServers/*.yaml for continue.dev.
 //
+// Every rule file carries Continue's documented activation
+// frontmatter: `name`, `globs`, `alwaysApply`, and `description`
+// (continuedev/continue, docs/customize/deep-dives/rules.mdx; the docs
+// site itself is client-rendered with no markdown mirror, so the repo
+// is the fetchable source). `globs` falls back to the rule's
+// source-layout scope (`<scope>/**`) when the spec declares none, so a
+// rule authored by directory narrows instead of loading everywhere.
+// `alwaysApply` and `description` emit only when the spec sets them:
+// Continue's undefined default ("Included if no globs exist OR globs
+// exist and match") is not the same as an explicit `false`, so
+// synthesizing one would change behavior. `regex`, new since the last
+// audit ("When files are provided as context and their content matches
+// this regex pattern, the rule will be included"), has no generic spec
+// field and reaches the file through `x-continue`, along with any key
+// Continue adds next. Before this existed no rule file carried
+// frontmatter at all, so every scoped rule was always-on (target-audit
+// 2026-08-27, #639).
+//
 // The package name is suffixed because `continue` is a Go keyword.
 package continueai
 
@@ -47,6 +65,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
+		FormatRule:  rule,
 	}, dryRun); err != nil {
 		return err
 	}
