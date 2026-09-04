@@ -195,7 +195,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // that means the user explicitly opted into that layout.
 func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir string, dryRun bool) error {
 	if agentsDir != legacyAgentsDir {
-		if err := sess.RemoveGeneratedTree(legacyAgentsDir, dryRun); err != nil {
+		// Scoped to .toml: antigravity's vendor-documented subagent path
+		// is this same directory, and its `<name>.md` files carry the
+		// same provenance header a whole-tree sweep deletes on (#638).
+		// Codex agents are TOML at both the native and the legacy path,
+		// so nothing codex-managed escapes this filter.
+		if err := sess.RemoveGeneratedTreeExt(legacyAgentsDir, ".toml", dryRun); err != nil {
 			return err
 		}
 	}
