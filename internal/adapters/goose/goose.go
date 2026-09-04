@@ -25,8 +25,17 @@
 // zed, aider, warp, and antigravity adapters use for their own opt-in
 // merged documents (`Session.EmitLegacyRulesFile`) for the root
 // document; there is no dedicated `hints-file` config key. Only rule
-// bodies go into the document: Goose has no per-agent or per-skill file
-// surface, so caps.Supports declares KindRule only.
+// bodies go into the document.
+//
+// Skills emit as one folder per skill at `.agents/skills/<name>/SKILL.md`
+// (override via outputs.goose.skills-dir), the same cross-tool tree
+// codex, amp, zed, and crush already write byte-identically, so the
+// shared tree dedupes into one write. Goose's own docs name it "the
+// recommended standard" (github.com/aaif-goose/goose, using-skills.md):
+// ".agents/skills/ — Project-level skills, scoped to the current
+// project"; a legacy `.goose/skills/`, `.claude/skills/`, and others
+// are also discovered but not written here. Goose has no per-agent file
+// surface (tracked separately), so caps.Supports omits KindAgent.
 package goose
 
 import (
@@ -38,11 +47,14 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-const target = "goose"
+const (
+	target           = "goose"
+	defaultSkillsDir = ".agents/skills"
+)
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule},
+	Supports: []spec.Kind{spec.KindRule, spec.KindSkill},
 }
 
 // Adapter emits Goose configs.
@@ -54,17 +66,22 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes the legacy concatenated `.goosehints`-style document only
-// when `outputs.goose.rules-file` is set, scoped to rules so an agent
-// or skill spec targeted at goose (which has no native surface for
-// either) never leaks into the document. Root-scoped rules concatenate
-// into that path unchanged; a rule carrying a source-layout or
-// frontmatter scope concatenates into a sibling `<scope>/<basename>`
-// file instead, matching Goose's own nested-discovery mechanism (see
-// the package doc). The root AGENTS.md entry-point (with rule bodies
-// inlined) is written centrally by `sync`, not here.
+// Emit writes one skill folder per skill spec under `.agents/skills/`,
+// plus the legacy concatenated `.goosehints`-style document only when
+// `outputs.goose.rules-file` is set, scoped to rules so an agent spec
+// targeted at goose (which has no native surface) never leaks into the
+// document. Root-scoped rules concatenate into that path unchanged; a
+// rule carrying a source-layout or frontmatter scope concatenates into
+// a sibling `<scope>/<basename>` file instead, matching Goose's own
+// nested-discovery mechanism (see the package doc). The root AGENTS.md
+// entry-point (with rule bodies inlined) is written centrally by
+// `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	root, scoped := splitRulesByScope(b.Rules)

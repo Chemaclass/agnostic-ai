@@ -15,6 +15,15 @@
 // `x-factory` keys pass through verbatim so the rest of the documented
 // schema is reachable without waiting on this adapter's allowlist.
 //
+// Skills emit as one folder per skill at `.agents/skills/<name>/SKILL.md`
+// (override via outputs.factory.skills-dir), the same cross-tool tree
+// codex, amp, zed, crush, and others already write byte-identically, so
+// the shared tree dedupes into one write. docs.factory.ai/harness/skills
+// documents this compatibility path alongside a second one this adapter
+// does not additionally write, `.agent/skills/**/SKILL.md`: "Droid can
+// load skills from several scopes. A skill is any directory under a
+// `skills/` folder that contains SKILL.md."
+//
 // `tools` is translated, not passed through. Droid CLI's tool IDs are
 // its own vocabulary and "Arrays must use valid IDs from this table or
 // exact registered MCP tool IDs. Unknown IDs cause a validation error"
@@ -75,6 +84,7 @@ import (
 const (
 	target           = "factory"
 	defaultDroidsDir = ".factory/droids"
+	defaultSkillsDir = ".agents/skills"
 	defaultMCPFile   = ".factory/mcp.json"
 )
 
@@ -91,7 +101,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -104,7 +114,8 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one droid Markdown file per agent spec under
-// `.factory/droids/`, plus a merged `.factory/mcp.json` for MCP
+// `.factory/droids/`, one skill folder per skill spec under
+// `.agents/skills/`, plus a merged `.factory/mcp.json` for MCP
 // servers. The project-root AGENTS.md (rules' single source of truth
 // for Droid CLI) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -113,6 +124,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
 	if err := emitDroids(sess, b.Agents, dir, dryRun); err != nil {
+		return err
+	}
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	// Factory's schema documents a working `disabled` key (unlike

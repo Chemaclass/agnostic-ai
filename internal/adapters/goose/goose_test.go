@@ -20,8 +20,9 @@ func TestName(t *testing.T) {
 
 // The project-root AGENTS.md (with rule bodies inlined) is written
 // centrally by sync; this adapter never writes it, and without the
-// rules-file opt-in it writes nothing at all.
-func TestEmit_NoFilesByDefault(t *testing.T) {
+// rules-file opt-in a rule-only bundle produces no rules output at
+// all.
+func TestEmit_NoRulesFileByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -35,6 +36,41 @@ func TestEmit_NoFilesByDefault(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".goosehints")); !os.IsNotExist(err) {
 		t.Errorf("adapter should not write .goosehints without the rules-file opt-in, err=%v", err)
+	}
+}
+
+// Skills write to the shared `.agents/skills/` tree unconditionally,
+// unlike rules: no rules-file opt-in is needed (#632).
+func TestEmit_Skill_WritesSkillFolderWithoutRulesFileOptIn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "release-checklist", Meta: map[string]any{"description": "Prepare a release."}, Body: "Check the changelog."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/release-checklist/SKILL.md"))
+	for _, want := range []string{"name: release-checklist", "description: Prepare a release.", "Check the changelog."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"goose": {SkillsDir: "custom/skills"}}}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "s1", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/s1/SKILL.md")); err != nil {
+		t.Errorf("expected override dir to hold the skill file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/s1/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default skills dir, err=%v", err)
 	}
 }
 
@@ -61,9 +97,9 @@ func TestEmit_RulesFile_WritesConcatenatedRules(t *testing.T) {
 	}
 }
 
-// An agent or skill spec targeted at goose has no native surface, so
-// it must not leak into the opt-in rules document: only rule bodies
-// belong there.
+// An agent spec has no native goose surface, and a skill spec routes
+// to its own native folder (see TestEmit_Skill_WritesSkillFolderWithoutRulesFileOptIn),
+// so neither belongs in the opt-in rules document: only rule bodies do.
 func TestEmit_RulesFile_ExcludesAgentsAndSkills(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

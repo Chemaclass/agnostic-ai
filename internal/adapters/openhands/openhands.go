@@ -8,10 +8,23 @@
 // The project-root AGENTS.md is written centrally by `sync` as a slim
 // pointer to the source specs (one body shared with every other
 // target's entry-point file). OpenHands reads that file natively for
-// project instructions, and rules reach it exclusively through that
-// shared entry-point: OpenHands has no per-rule directory, so this
-// adapter never writes rules directly.
+// project instructions, and an always-on rule (no `paths`/`globs`
+// value and no source-layout or frontmatter scope) reaches it
+// exclusively through that shared entry-point.
 //
+// A rule that carries one of those instead emits natively as a
+// path-triggered rule: `<skillsDir>/<name>/SKILL.md` with a `paths:`
+// frontmatter list, OpenHands' own deterministic per-file mechanism
+// (docs.openhands.dev/overview/skills/path): "guaranteed to load for
+// the files they scope, with no reliance on the model choosing them",
+// and "zero baseline cost" to the context window until a matching file
+// is touched. The vendor's own example places this content in a flat
+// `.md` file; this adapter writes the folder form instead, the second
+// documented location, which shares `.agents/skills/` with regular
+// skills rather than needing a separate `outputs.openhands.rules-dir`
+// key. See path_rules.go for the glob-resolution and rendering.
+//
+
 // MCP servers merge into `./config.toml` (override via
 // outputs.openhands.mcp-file) under a `[mcp]` table with three arrays:
 // `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`,
@@ -57,10 +70,12 @@ const (
 
 var caps = emit.Capabilities{
 	Target: target,
-	// KindRule is declared even though this adapter never writes rules
-	// itself: they reach OpenHands through the shared AGENTS.md
-	// entry-point sync writes centrally. KindAgent is absent; OpenHands
-	// has no agent surface, so the unsupported warning is accurate.
+	// KindRule covers two paths: an always-on rule reaches OpenHands
+	// only through the shared AGENTS.md entry-point sync writes
+	// centrally, while a path-triggered rule (paths/globs/scope) writes
+	// its own skill folder directly (see path_rules.go). KindAgent is
+	// absent; OpenHands has no agent surface, so the unsupported
+	// warning is accurate.
 	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindEnvironment},
 }
 
@@ -74,15 +89,20 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one native skill folder per skill under .agents/skills/,
-// plus a merged `./config.toml` for MCP servers and `.openhands/setup.sh`
-// for environment specs. The project-root AGENTS.md (with rule bodies
-// inlined) is written by `sync`, not here.
+// one path-triggered-rule skill folder per scoped rule under the same
+// directory, plus a merged `./config.toml` for MCP servers and
+// `.openhands/setup.sh` for environment specs. The project-root
+// AGENTS.md (with always-on rule bodies inlined) is written by `sync`,
+// not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitPathTriggeredRules(sess, b.Rules, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if err := emitSetupScript(sess, b.Environments, cfg, dryRun); err != nil {

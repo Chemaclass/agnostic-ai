@@ -11,9 +11,11 @@ import (
 )
 
 // TestKitSink_GoldenSnapshot pins the byte-exact emit footprint for a
-// goose sync over the canonical kit-sink bundle (3 rules) with the
-// rules-file opted in, so the golden tree captures actual content
-// rather than an empty directory (see TestEmit_NoFilesByDefault in
+// goose sync over the canonical kit-sink bundle (3 rules + 3 skills)
+// with the rules-file opted in, so the golden tree captures the
+// `.goosehints` document alongside the unconditional skill folders
+// (see TestEmit_NoRulesFileByDefault and
+// TestEmit_Skill_WritesSkillFolderWithoutRulesFileOptIn in
 // goose_test.go for the un-opted-in default).
 //
 // Diff regressions (merged-document reorder, heading drift) trip this

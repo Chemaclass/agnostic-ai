@@ -200,11 +200,12 @@ outputs:
     skills-dir: .qoder/skills           # default. One folder per skill (<name>/SKILL.md), Qoder's own tree (not the shared .agents/skills/).
     mcp-file: .qoder/settings.json      # default. Standard mcpServers schema, merged; user keys preserved.
   openhands:
-    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; also where a path-triggered rule (globs/paths/scope) lands, as <name>/SKILL.md; AGENTS.md pointer written by sync.
     mcp-file: config.toml               # default. [mcp] table: stdio_servers / sse_servers / shttp_servers.
     setup-file: .openhands/setup.sh     # default. Repository bootstrap script; an environment spec's `install` field.
   factory:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
     rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
@@ -212,6 +213,7 @@ outputs:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
     mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
+    skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
     rules-dir: .augment/rules           # default. One .md per rule (type: agent_requested when alwaysApply: false).
@@ -350,14 +352,16 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `qoder` | `agents-dir` | `.qoder/agents` | One `.md` per agent (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as a comma-separated string (`Read, Grep, Bash`), Qoder's only documented form; safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style. |
 | `qoder` | `skills-dir` | `.qoder/skills` | One folder per skill (`<name>/SKILL.md`, Qoder's native Agent Skills layout). Qoder's own tree, not the `.agents/skills/` compatibility path Kilo Code, Augment, and OpenHands share: the vendor doc does not list it as a compatible location. |
 | `qoder` | `mcp-file` | `.qoder/settings.json` | Standard `mcpServers` schema, merged into Qoder's own settings file so unrelated keys survive. Moved off the project-root `.mcp.json` in #641: that path is Claude Code's, and Qoder's documented per-server fields (`trust`, `includeTools`, `alwaysAllow`, a working `disabled`) diverge from Claude Code's. Delete a leftover `.mcp.json` by hand in a Qoder-only project; it still loads and outranks this file. |
-| `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
+| `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. A rule carrying `globs`/`paths` or a scope also lands here as `<name>/SKILL.md` (a path-triggered rule), sharing this key rather than a separate rules-dir. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL strings, or `{ url, api_key }` objects when the entry sets `api_key`). No `type` field; transport is implied by the array. `headers` has no equivalent and surfaces a coverage note instead of reaching OpenHands silently. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
+| `factory` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
 | `kilo` | `rules-dir` | `.kilo/rules` | One `.md` per rule; each resolved path also lands as its own entry in `kilo.jsonc`'s `instructions` array (not a directory glob, so a scoped rule is never missed). |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
+| `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |

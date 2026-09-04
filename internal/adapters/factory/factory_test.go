@@ -184,6 +184,42 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 	}
 }
 
+// Skills land in the shared cross-tool tree at `.agents/skills/`
+// (docs.factory.ai/harness/skills, #632), the same folder codex, amp,
+// zed, and crush already write.
+func TestEmit_Skill_WritesSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "release-checklist", Meta: map[string]any{"description": "Prepare a release."}, Body: "Check the changelog."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/skills/release-checklist/SKILL.md"))
+	for _, want := range []string{"name: release-checklist", "description: Prepare a release.", "Check the changelog."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"factory": {SkillsDir: "custom/skills"}}}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "s1", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/s1/SKILL.md")); err != nil {
+		t.Errorf("expected override dir to hold the skill file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/s1/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default skills dir, err=%v", err)
+	}
+}
+
 // Stdio MCP merges into .factory/mcp.json under the standard
 // mcpServers map (target-audit 2026-08-01, MISSING: factory MCP).
 func TestEmit_MCP_StdioWritesFactoryMCPJSON(t *testing.T) {
