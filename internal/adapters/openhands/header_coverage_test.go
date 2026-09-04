@@ -63,13 +63,17 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // renders stay byte-identical (see skill_render_parity_test.go), three
 // MCP specimens covering all three OpenHands [mcp] arrays (stdio, sse,
 // and http/shttp), and one environment spec covering `.openhands/setup.sh`.
-// Rules are included too since KindRule is declared in caps.Supports,
-// even though this adapter never writes them itself (see openhands.go).
+// Rules cover both paths KindRule can take: r1-r3 are always-on and
+// reach OpenHands only through the shared AGENTS.md entry-point this
+// adapter never writes itself (see openhands.go); r4 carries a `globs`
+// value and becomes a path-triggered rule, landing at
+// `.agents/skills/r4/SKILL.md` (see path_rules.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
+		{Kind: spec.KindRule, Name: "r4", Path: "rules/r4.md", Meta: map[string]any{"globs": "src/**"}, Body: "rule 4 body"},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},

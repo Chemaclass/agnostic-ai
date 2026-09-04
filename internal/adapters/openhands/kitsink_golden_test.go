@@ -11,8 +11,10 @@ import (
 )
 
 // TestKitSink_GoldenSnapshot pins the byte-exact emit footprint for an
-// openhands sync over the canonical kit-sink bundle (3 rules + 3
-// skills), even though rules never land on disk through this adapter.
+// openhands sync over the canonical kit-sink bundle (4 rules + 3
+// skills): r1-r3 stay off disk (always-on, they reach OpenHands only
+// through the shared AGENTS.md entry-point), while r4 (path-triggered,
+// `globs: src/**`) lands at `.agents/skills/r4/SKILL.md`.
 //
 // Diff regressions (frontmatter key reorder, skill folder layout
 // drift) trip this test and must be acknowledged by either fixing the

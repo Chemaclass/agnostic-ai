@@ -77,11 +77,14 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the factory
-// adapter declares in caps.Supports (Rule, Agent, MCP) with three
-// specimens per kind. Rules are included even though this adapter
-// never writes them itself (see factory.go). The gamma agent declares
-// one tool name that is already a Factory ID and one that is not, so
-// the golden pins the translation table in emitted bytes. The MCP specimens cover
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
+// three specimens per kind. Rules are included even though this
+// adapter never writes them itself (see factory.go). The gamma agent
+// declares one tool name that is already a Factory ID and one that is
+// not, so the golden pins the translation table in emitted bytes. The
+// skill entries use the same names, paths, and bodies as every other
+// adapter's kit-sink skills so the shared `.agents/skills/` tree stays
+// byte-identical. The MCP specimens cover
 // stdio, HTTP, and a genuinely `disabled: true` server: Factory's
 // schema documents a real `disabled` key, unlike Claude Code, Cursor,
 // and Copilot, so this fixture (unlike kilo's pre-B9 one) must
@@ -94,6 +97,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read", "Bash"}}, Body: "gamma body"},
+		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
+		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
+		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

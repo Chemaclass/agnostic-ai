@@ -12,7 +12,8 @@ import (
 
 // TestKitSink_GoldenSnapshot pins the byte-exact emit footprint for a
 // factory sync over the canonical kit-sink bundle (3 rules + 3
-// agents), even though rules never land on disk through this adapter.
+// agents + 3 skills), even though rules never land on disk through
+// this adapter.
 //
 // Diff regressions (frontmatter key reorder, droid rendering drift)
 // trip this test and must be acknowledged by either fixing the

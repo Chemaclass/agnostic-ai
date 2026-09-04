@@ -13,14 +13,12 @@ import (
 
 // TestEmit_CapabilityMatrixCoversEveryDeclaredKind enforces the
 // invariant that the openhands adapter actually emits something for
-// every spec kind it declares in caps.Supports, with one deliberate
-// exception: KindRule has no per-adapter output at all. Rules reach
-// OpenHands exclusively through the shared AGENTS.md entry-point that
-// `sync` writes centrally (see openhands.go), a write this per-package
-// test never observes because it calls Adapter.Emit directly.
-// Declaring KindRule keeps the "unsupported" warning honest (rules do
-// reach OpenHands) without this adapter ever touching a rules file
-// itself.
+// every spec kind it declares in caps.Supports. KindRule's case only
+// matches r4, the kit-sink bundle's one path-triggered rule (see
+// header_coverage_test.go): r1-r3 stay always-on and reach OpenHands
+// only through the shared AGENTS.md entry-point `sync` writes
+// centrally, a write this per-package test never observes because it
+// calls Adapter.Emit directly.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -33,14 +31,12 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindRule, []string{".agents/skills/r4/SKILL.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"config.toml"}},
 		{spec.KindEnvironment, []string{".openhands/setup.sh"}},
 	}
 	for _, k := range caps.Supports {
-		if k == spec.KindRule {
-			continue // delivered by sync's shared entry-point, not this adapter
-		}
 		found := false
 		for _, c := range cases {
 			if c.kind != k {
