@@ -6,39 +6,34 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.51.0 - 2026-09-04
+
 ### Added
 
+- MCP servers stop dropping documented vendor fields on ten targets. Claude Code gains `timeout` and `alwaysLoad`, plus `headersHelper` and an `oauth` object on a remote server; Gemini `timeout`, `trust`, `description`, `includeTools`, `excludeTools`; Codex `http_headers_helper`, `enabled_tools`, `disabled_tools`; Cursor a stdio server's `envFile` and a remote server's static-OAuth `auth`; Kiro `autoApprove`, `disabledTools`, and a remote server's `oauth` and `oauthScopes`; Crush `disabled`, `sessionless`, `enabled_tools`, `disabled_tools`; OpenCode a local server's `cwd` and either transport's `timeout`; Qoder the nine fields on the vendor's "Common Optional Fields" table plus a stdio server's `cwd`. Amp and Zed reach theirs through `x-amp` and `x-zed`. Every field was vendor-documented and dropped in silence before, with no coverage note (#634, #641, #661).
 - Augment MCP servers merge into `<workspace>/.augment/settings.json` under `mcpServers`, alongside `shell`, `theme`, and other Auggie CLI settings the file already holds. MCP specs previously reached no Augment surface at all (#633).
+- Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
+- Agents reach the subagent loader on Windsurf, Trae, and Antigravity. Each writes a native profile file (`.devin/agents/<name>.md`, `.trae/agents/<name>.md`, `.agents/agents/<name>.md`) instead of flattening into an always-on rule file, so `model`, `tools`, and the other documented frontmatter fields stop being dropped. A stale `agent-<name>.md` in the rules directory is swept on the next sync (#638).
+- Windsurf translates an agent's `tools` onto Devin's own `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`. Antigravity never writes a generic `tools` list, because its vocabulary shares no name with agnostic-ai's and the vendor warns an unmapped name can hang the subagent; set `x-antigravity.tools` instead (#638).
+- Windsurf writes the shared root `AGENTS.md`, the file Devin CLI reads automatically and its docs call the recommended way to give a project rules. A windsurf-only repo had no root entry point at all before, so unscoped rules reached Devin through no path (#645).
 - Factory and Goose emit skills to the shared `.agents/skills/` tree. Neither had a skill surface before, so a skill spec reached either target only by accident, through another enabled target's write (#632).
 - OpenHands emits a rule carrying `globs`/`paths` or a source-layout scope as a native path-triggered rule (`.agents/skills/<name>/SKILL.md`, `paths:` frontmatter), the vendor's deterministic per-file mechanism. The rule now loads only for the files it scopes, at zero context cost until touched, instead of an always-on block in `AGENTS.md` (#643).
 - OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's documented repository bootstrap script. Environment specs previously reached no OpenHands surface at all (#662).
-- Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
-- Windsurf writes the shared root `AGENTS.md`, the file Devin CLI reads automatically and its docs call the recommended way to give a project rules. A windsurf-only repo had no root entry point at all before, so unscoped rules reached Devin through no path (#645).
+- Codex hooks accept `async: true` to run a command hook in the background instead of blocking the session on it. `import codex` reads it back from `.codex/hooks.json` (#636).
 
 ### Changed
 
-- Qoder MCP servers move from the project-root `.mcp.json` to `.qoder/settings.json`, Qoder's own documented project-level location. The old path is Claude Code's, and the two targets' documented per-server fields have diverged far enough that sharing it would trip sync's collision check. Delete a leftover `.mcp.json` by hand in a Qoder-only project: it still loads and outranks the new file (#641).
+- Qoder MCP servers move from the project-root `.mcp.json` to `.qoder/settings.json`, Qoder's own documented project-level location. The old path is Claude Code's, and the two targets' documented per-server fields have diverged far enough that sharing it would trip sync's collision check. Delete a leftover `.mcp.json` by hand in a Qoder-only project: it still loads and outranks the new file. In a project that also targets Claude Code, that file is Claude Code's and stays, so Qoder resolves a same-named server from it and the fields above do not take effect (#641).
 - Warp MCP servers no longer emit `description`, `disabled`, or `roots`. Warp publishes two closed property tables and names none of the three, so the keys did nothing. `disabled` now raises a coverage note, and the other two stay reachable through `x-warp` (#641).
+- Codex's sweep of its pre-v0.26 `.agents/agents/` agents tree is scoped to `.toml`, the extension Codex agents use. Antigravity's subagents live in that same vendor-documented directory as `.md`, so the wholesale sweep deleted them and whichever adapter ran last decided whether the project had subagents at all (#638).
 
 ### Fixed
 
-- `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
-- Warp's skills doc names `WARP_SKILL_DIRS`, scoped to Cloud agents indexing skills outside the repo, not the general `SKILLS_DIRS` this repo's own docs and adapter comment claimed. A user who exported `SKILLS_DIRS` got nothing (#663).
-- Gemini MCP servers pass through `timeout`, `trust`, `description`, `includeTools`, and `excludeTools`. Codex MCP servers pass through `http_headers_helper`, `enabled_tools`, and `disabled_tools`. Cursor MCP servers pass through stdio's `envFile` and a remote server's static-OAuth `auth` object. All ten fields were documented by the vendor and dropped silently before, with no coverage note (#661).
-- Codex hooks accept `async: true` to run a command hook in the background instead of blocking the session on it. `import codex` reads it back from `.codex/hooks.json` (#636).
-- Kilo Code's docs note `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both files exist. Documented as a caveat: the vendor's config precedence is a merge across named sources, not an exclusive first-match read, so this stays a doc clarification rather than a behavior change (#644).
-- Claude Code MCP servers pass through `timeout`, `alwaysLoad`, and, on a remote server, `headersHelper` and an `oauth` object. A Claude Code user on Kerberos, internal SSO, or short-lived tokens could not author their MCP auth through agnostic-ai at all before this (#634).
-- Kiro MCP servers pass through `autoApprove`, `disabledTools`, and, on a remote server, `oauth` and `oauthScopes` (#634).
-- Amp MCP servers honor `x-amp` keys, so a documented field such as `includeTools` reaches `.amp/settings.json` instead of being dropped. Every other Amp surface already had that passthrough (#634).
-- Crush MCP servers emit `disabled`, `sessionless`, `enabled_tools`, and `disabled_tools`. `disabled` is the worst of the four: one spec synced to crush and trae printed a note for trae and nothing for crush, so the silence read as the field working (#634, #641).
-- Zed MCP servers honor `disabled: true` as Zed's own `enabled: false`, and take `x-zed` keys for the `timeout`, `oauth`, and `remote` fields Zed's settings struct documents but its MCP page does not (#641).
-- OpenCode MCP servers pass through a local server's `cwd` and either transport's `timeout` (#641).
-- Qoder MCP servers pass through the nine fields on the vendor's "Common Optional Fields" table plus a stdio server's `cwd`, including a `disabled` that now works (#641).
-- Agents reach the subagent loader on Windsurf, Trae, and Antigravity. Each writes a native profile file (`.devin/agents/<name>.md`, `.trae/agents/<name>.md`, `.agents/agents/<name>.md`) instead of flattening into an always-on rule file, so `model`, `tools`, and the other documented frontmatter fields stop being dropped. A stale `agent-<name>.md` in the rules directory is swept on the next sync (#638).
-- Windsurf translates an agent's `tools` onto Devin's own `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`. Antigravity never writes a generic `tools` list, because its vocabulary shares no name with agnostic-ai's and the vendor warns an unmapped name can hang the subagent; set `x-antigravity.tools` instead (#638).
-- Codex's sweep of its pre-v0.26 `.agents/agents/` agents tree is scoped to `.toml`, the extension Codex agents use. Antigravity's subagents live in that same vendor-documented directory as `.md`, so the wholesale sweep deleted them and whichever adapter ran last decided whether the project had subagents at all (#638).
 - Cline rules that set `alwaysApply: false` carry a `paths` glob array, Cline's one documented conditional, so a rule scoped to `src/components/**` stops loading on every request (#639).
 - Continue rules carry `name`, `globs`, `alwaysApply`, and `description` frontmatter, with `globs` falling back to the rule's source-layout scope. No rule file carried frontmatter before, so every scoped rule was always-on. `x-continue.regex` reaches the file too (#639).
+- `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
+- Warp's skills doc names `WARP_SKILL_DIRS`, scoped to Cloud agents indexing skills outside the repo, not the general `SKILLS_DIRS` this repo's own docs and adapter comment claimed. A user who exported `SKILLS_DIRS` got nothing (#663).
+- Kilo Code's docs note `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both files exist. Documented as a caveat: the vendor's config precedence is a merge across named sources, not an exclusive first-match read, so this stays a doc clarification rather than a behavior change (#644).
 
 ## v0.50.0 - 2026-08-28
 
@@ -921,5 +916,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Docs, examples, integration tests, dogfood specs.
 - OSS scaffolding: CONTRIBUTING, COC, GOVERNANCE, issue/PR templates, CI, GoReleaser, golangci-lint, Dockerfile, lefthook, Taskfile, dependabot/renovate.
 
-[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.51.0...HEAD
+[v0.51.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.50.0...v0.51.0
 [v0.18.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.17.0...v0.18.0
