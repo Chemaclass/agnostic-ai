@@ -80,6 +80,18 @@
 // adapter writes plain JSON: JSONC is a superset of JSON, so every
 // JSONC parser accepts the output, and agnostic-ai never needs to emit
 // (or preserve) comments of its own.
+//
+// Kilo's docs also read from `.kilo/kilo.jsonc` when present, a second
+// project-tier config file this adapter does not write. The vendor's
+// documented 8-level config precedence
+// (kilo.ai/docs/getting-started/settings#config-file-precedence) places
+// `.kilo/` above project-root `kilo.jsonc` and describes higher levels
+// as overriding lower ones, i.e. a merge, not an exclusive first-match
+// read: an untouched key on the root file still reaches Kilo Code even
+// when `.kilo/kilo.jsonc` exists. A hand-authored `.kilo/kilo.jsonc`
+// that redeclares `mcp` or `instructions` would still shadow this
+// adapter's output for those two keys specifically (target-audit
+// 2026-08-27, #644).
 package kilo
 
 import (

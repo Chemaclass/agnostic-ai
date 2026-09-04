@@ -746,6 +746,33 @@ func TestImportFromCodex_HookAdditionalContextLimitZeroRoundTrip(t *testing.T) {
 	}
 }
 
+// Round-trip for #636: async must survive an import so a sync -> import
+// -> sync cycle does not silently drop the field the previous sync just
+// wrote to .codex/hooks.json.
+func TestImportFromCodex_HookAsyncRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "lint.sh", "async": true}
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data, _ := os.ReadFile(post)
+	if !strings.Contains(string(data), "async: true") {
+		t.Errorf("expected async in spec:\n%s", data)
+	}
+}
+
 // Round-trip for #547: commandWindows must survive import so Windows hook
 // behavior is not lost on the next sync.
 func TestImportFromCodex_HookCommandWindowsRoundTrip(t *testing.T) {
