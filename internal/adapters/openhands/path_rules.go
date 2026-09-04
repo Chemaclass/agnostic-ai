@@ -42,21 +42,54 @@ func emitPathTriggeredRules(sess *emit.Session, rules []spec.Entry, skillsDir st
 // source-layout or frontmatter scope widens to `<scope>/**`, the same
 // fallback order Copilot's applyToFor uses for its own path-scoped
 // instructions.
+//
+// A `paths`/`globs` value that resolves to nothing but catch-all
+// patterns (`**`, `**/*`, `*`, or empty) also stays always-on: it
+// scopes to every file, so writing it as a path-triggered rule would
+// only relocate an always-on rule out of AGENTS.md, not scope it.
+// agents_tree.go's RouteScope treats the same three patterns as "no
+// scope" for the same reason. This also absorbs a real round-trip: a
+// rule authored with `globs: "**/*"` and `alwaysApply: true` loses the
+// explicit `alwaysApply` key once it is re-synced through Claude Code
+// (whose own rule frontmatter carries only `paths`, dropping
+// `alwaysApply` and translating a catch-all `globs` into a catch-all
+// `paths` on the way) and re-imported; without this check the
+// re-imported rule would flip from always-on to path-triggered on the
+// next sync.
 func pathTriggerGlobs(e spec.Entry) []string {
 	m := emit.ResolveMeta(e.Meta, target)
 	if always, ok := m["alwaysApply"].(bool); ok && always {
 		return nil
 	}
-	if paths := globList(m["paths"]); len(paths) > 0 {
+	if paths := globList(m["paths"]); len(paths) > 0 && !hasCatchAllGlob(paths) {
 		return paths
 	}
 	if g, _ := m["globs"].(string); g != "" {
-		return splitGlobs(g)
+		if globs := splitGlobs(g); len(globs) > 0 && !hasCatchAllGlob(globs) {
+			return globs
+		}
 	}
 	if s := e.EffectiveScope(); s != "" {
 		return []string{s + "/**"}
 	}
 	return nil
+}
+
+// hasCatchAllGlob reports whether any pattern in globs matches every
+// file. Per docs.openhands.dev/overview/skills/path's own glob
+// semantics table, `**` matches "any number of path segments,
+// including zero", and a slash-less pattern like a bare `*` matches
+// "the basename at any depth", so either alone matches every path; one
+// catch-all pattern makes the whole list catch-all regardless of what
+// else it contains.
+func hasCatchAllGlob(globs []string) bool {
+	for _, g := range globs {
+		switch strings.TrimPrefix(g, "/") {
+		case "", "*", "**", "**/*":
+			return true
+		}
+	}
+	return false
 }
 
 // globList normalizes a `paths` value (a scalar string or a list) into

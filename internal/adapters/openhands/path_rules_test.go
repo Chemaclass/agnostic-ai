@@ -114,6 +114,41 @@ func TestEmit_Rule_AlwaysApplyTrueOverridesGlobs(t *testing.T) {
 	}
 }
 
+// A glob (or paths list) that resolves to nothing but catch-all
+// patterns stays always-on: it scopes to every file, so treating it as
+// path-triggered would only relocate an always-on rule out of
+// AGENTS.md, never actually scope it. This also covers a real
+// round-trip: Claude Code's own rule frontmatter carries only `paths`
+// (no `alwaysApply`), so a rule authored with `globs: "**/*"` and
+// `alwaysApply: true` loses the explicit always-on marker once it
+// re-syncs through Claude and gets re-imported, leaving only a
+// catch-all `paths` value behind.
+func TestEmit_Rule_CatchAllGlobStaysAlwaysOn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cases := []struct {
+		name string
+		meta map[string]any
+	}{
+		{"globs-star-star-slash-star", map[string]any{"globs": "**/*"}},
+		{"globs-star-star", map[string]any{"globs": "**"}},
+		{"globs-star", map[string]any{"globs": "*"}},
+		{"paths-star-star-slash-star", map[string]any{"paths": []any{"**/*"}}},
+		{"mixed-catch-all-and-scoped", map[string]any{"paths": []any{"src/**", "**/*"}}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			entries := []spec.Entry{{Kind: spec.KindRule, Name: c.name, Meta: c.meta, Body: "rule body"}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".agents/skills", c.name, "SKILL.md")); !os.IsNotExist(err) {
+				t.Errorf("adapter should not write a skill folder for a catch-all glob, err=%v", err)
+			}
+		})
+	}
+}
+
 // A path-triggered rule shares outputs.openhands.skills-dir with
 // regular skills: the issue's Fix note says no separate
 // outputs.openhands.rules-dir workaround is needed.
