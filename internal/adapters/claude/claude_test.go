@@ -1351,6 +1351,119 @@ func TestEmit_MCP_RemoteCarriesType_StdioDoesNot(t *testing.T) {
 	}
 }
 
+// code.claude.com/docs/en/mcp documents four per-server fields that
+// reached `.mcp.json` by no route before #634, top-level or namespaced.
+// headersHelper and oauth are remote-only ("These flags only apply to
+// HTTP and SSE transports. They have no effect on stdio servers");
+// timeout and alwaysLoad apply to every transport ("The alwaysLoad
+// field is available on all server types").
+func TestEmit_MCP_PassesThroughHeadersHelperTimeoutAlwaysLoadOAuth(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "local",
+			Meta: map[string]any{"command": "npx", "timeout": 600000, "alwaysLoad": true},
+		},
+		{
+			Kind: spec.KindMCP, Name: "internal-api",
+			Meta: map[string]any{
+				"type":          "http",
+				"url":           "https://mcp.internal.example.com",
+				"headersHelper": "/opt/bin/get-mcp-auth-headers.sh",
+				"oauth": map[string]any{
+					"clientId":              "client-abc",
+					"callbackPort":          8080,
+					"authServerMetadataUrl": "https://auth.example.com/.well-known/openid-configuration",
+					"scopes":                "channels:read chat:write",
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	for _, want := range []string{
+		`"timeout": 600000`,
+		`"alwaysLoad": true`,
+		`"headersHelper": "/opt/bin/get-mcp-auth-headers.sh"`,
+		`"clientId": "client-abc"`,
+		`"callbackPort": 8080`,
+		`"authServerMetadataUrl"`,
+		`"scopes": "channels:read chat:write"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// headersHelper and oauth are documented for HTTP and SSE only, so a
+// stdio entry that sets them writes neither. Guards against a
+// transport-blind passthrough sneaking a dead key into a local server.
+func TestEmit_MCP_StdioOmitsRemoteOnlyAuthFields(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "local",
+			Meta: map[string]any{
+				"command":       "npx",
+				"headersHelper": "/opt/bin/headers.sh",
+				"oauth":         map[string]any{"clientId": "abc"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{`"headersHelper"`, `"oauth"`} {
+		if strings.Contains(string(raw), unwanted) {
+			t.Errorf("unexpected %q on a stdio server: %s", unwanted, raw)
+		}
+	}
+}
+
+// The vendor stores the OAuth client secret "in your system keychain
+// (macOS) or a credentials file, not in your config", so a spec that
+// sets one must not get it written into a committed file.
+func TestEmit_MCP_OAuthClientSecretNeverEmitted(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "remote",
+			Meta: map[string]any{
+				"type":  "http",
+				"url":   "https://mcp.example.com/mcp",
+				"oauth": map[string]any{"clientId": "abc", "clientSecret": "s3cret"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "s3cret") {
+		t.Errorf("client secret must never reach .mcp.json: %s", raw)
+	}
+}
+
 func TestEmit_MCPFileOverride(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

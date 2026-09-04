@@ -43,6 +43,8 @@ type MCPOption func(*mcpOptions)
 
 type mcpOptions struct {
 	cursorExtras bool
+	claudeExtras bool
+	kiroExtras   bool
 }
 
 // WithCursorMCPExtras turns on Cursor-only MCP fields (`envFile` on
@@ -57,6 +59,50 @@ type mcpOptions struct {
 // #661).
 func WithCursorMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.cursorExtras = true }
+}
+
+// WithClaudeMCPExtras turns on the four Claude Code MCP fields that
+// reached `.mcp.json` by no route before, top-level or namespaced
+// (target-audit 2026-08-27, #634). code.claude.com/docs/en/mcp:
+//
+//   - headersHelper (remote only): "If your MCP server uses an
+//     authentication scheme other than OAuth, such as Kerberos,
+//     short-lived tokens, or an internal SSO, use headersHelper to
+//     generate request headers at connection time."
+//   - timeout: "Set a per-server tool execution timeout by adding a
+//     timeout field in milliseconds to that server's .mcp.json entry".
+//   - alwaysLoad: "If a server's tools should always be visible to
+//     Claude without a search step, set alwaysLoad to true in that
+//     server's configuration." The page adds that it "is available on
+//     all server types", so it is not gated on transport.
+//   - oauth (remote only): "Set authServerMetadataUrl in the oauth
+//     object of your server's config in .mcp.json".
+//
+// Kept opt-in rather than always-on because this builder also serves
+// Cursor, Kiro, Junie, Qoder, Factory, and Copilot's root-mcp-file
+// mirror, and none of their vendor docs names these four.
+func WithClaudeMCPExtras() MCPOption {
+	return func(o *mcpOptions) { o.claudeExtras = true }
+}
+
+// WithKiroMCPExtras turns on the four Kiro MCP fields that reached
+// `.kiro/settings/mcp.json` by no route before (target-audit
+// 2026-08-27, #634). kiro.dev/docs/mcp/configuration/ documents
+// `autoApprove` ("Tool names to auto-approve without prompting") and
+// `disabledTools` ("Tool names to omit when calling the Agent") on both
+// local and remote servers, plus `oauth` ("OAuth configuration for
+// servers that require authentication") and `oauthScopes` ("OAuth
+// scopes to request (fallback; overridden by oauth.oauthScopes if both
+// are set)") on remote servers only.
+//
+// Kiro's `oauth` object is not Claude Code's: it takes clientId,
+// clientSecret, redirectUri, clientMetadataUrl, and oauthScopes, where
+// Claude Code takes clientId, callbackPort, authServerMetadataUrl, and
+// a space-separated scopes string. Each target maps its own documented
+// sub-keys, so a spec written for one never leaks an unrecognized key
+// into the other's file.
+func WithKiroMCPExtras() MCPOption {
+	return func(o *mcpOptions) { o.kiroExtras = true }
 }
 
 // WriteMCPFile renders mcps with the target schema and writes to path.
@@ -155,6 +201,29 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 				out["auth"] = auth
 			}
 		}
+		// headersHelper and the oauth object are remote-only on Claude
+		// Code: the ws section says a `ws` entry "accepts the same url,
+		// headers, headersHelper, timeout, and alwaysLoad fields as
+		// http", and the OAuth flags "only apply to HTTP and SSE
+		// transports. They have no effect on stdio servers". See #634.
+		if o.claudeExtras {
+			if helper := stringField(e.Meta, "headersHelper"); helper != "" {
+				out["headersHelper"] = helper
+			}
+			if oauth := buildClaudeMCPOAuth(e.Meta); len(oauth) > 0 {
+				out["oauth"] = oauth
+			}
+		}
+		// Kiro documents oauth and oauthScopes on its remote-server
+		// table only; the local-server table has neither. See #634.
+		if o.kiroExtras {
+			if oauth := buildKiroMCPOAuth(e.Meta); len(oauth) > 0 {
+				out["oauth"] = oauth
+			}
+			if scopes, ok := scopeList(e.Meta, "oauthScopes"); ok {
+				out["oauthScopes"] = scopes
+			}
+		}
 		// Remote servers carry an explicit `type` in every schema. A
 		// `.mcp.json` entry with only `url` is ambiguous (http vs sse
 		// vs ws); stdio stays type-less since it is the inferred
@@ -183,10 +252,121 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	if roots := BuildRoots(e.Meta); len(roots) > 0 {
 		out["roots"] = roots
 	}
+	// timeout and alwaysLoad are transport-independent on Claude Code
+	// ("The alwaysLoad field is available on all server types"), so they
+	// land here rather than in a transport branch. See #634.
+	if o.claudeExtras {
+		if timeout, ok := IntField(e.Meta, "timeout"); ok {
+			out["timeout"] = timeout
+		}
+		if alwaysLoad, _ := e.Meta["alwaysLoad"].(bool); alwaysLoad {
+			out["alwaysLoad"] = true
+		}
+	}
+	// Kiro lists autoApprove and disabledTools in both its local-server
+	// and remote-server tables, so both are transport-independent too.
+	if o.kiroExtras {
+		if approve := stringSlice(e.Meta, "autoApprove"); len(approve) > 0 {
+			out["autoApprove"] = approve
+		}
+		if disabledTools := stringSlice(e.Meta, "disabledTools"); len(disabledTools) > 0 {
+			out["disabledTools"] = disabledTools
+		}
+	}
 	if schema == MCPSchemaVSCodeServers {
 		out["type"] = transport
 	}
 	return out
+}
+
+// buildClaudeMCPOAuth reads the spec's `oauth` object into the shape
+// code.claude.com/docs/en/mcp documents for a `.mcp.json` entry:
+// `clientId`, `callbackPort`, `authServerMetadataUrl`, and a
+// space-separated `scopes` string. Explicit field mapping, not a
+// generic passthrough, so a key meant for another target's
+// differently-shaped `oauth` (Kiro's `redirectUri`, Crush's plain bool)
+// cannot reach the file.
+//
+// `clientSecret` is deliberately absent: the vendor says "The client
+// secret is stored securely in your system keychain (macOS) or a
+// credentials file, not in your config", so writing one here would put
+// a secret in a committed file that Claude Code never reads.
+func buildClaudeMCPOAuth(meta map[string]any) map[string]any {
+	raw, ok := meta["oauth"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	if id, _ := raw["clientId"].(string); id != "" {
+		out["clientId"] = id
+	}
+	if port, ok := IntField(raw, "callbackPort"); ok {
+		out["callbackPort"] = port
+	}
+	if url, _ := raw["authServerMetadataUrl"].(string); url != "" {
+		out["authServerMetadataUrl"] = url
+	}
+	if scopes, _ := raw["scopes"].(string); scopes != "" {
+		out["scopes"] = scopes
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// buildKiroMCPOAuth reads the spec's `oauth` object into Kiro's own
+// documented shape (kiro.dev/docs/mcp/configuration/ "OAuth
+// properties"): `clientId`, `clientSecret`, `redirectUri`,
+// `clientMetadataUrl`, and an `oauthScopes` array. Explicit field
+// mapping for the same reason as the Claude Code mapper above.
+//
+// Unlike Claude Code, Kiro does document `clientSecret` inside the
+// config object, with its own warning that "The CLI supports
+// confidential clients (clientId + clientSecret)", so it maps here.
+func buildKiroMCPOAuth(meta map[string]any) map[string]any {
+	raw, ok := meta["oauth"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	if id, _ := raw["clientId"].(string); id != "" {
+		out["clientId"] = id
+	}
+	if secret, _ := raw["clientSecret"].(string); secret != "" {
+		out["clientSecret"] = secret
+	}
+	if uri, _ := raw["redirectUri"].(string); uri != "" {
+		out["redirectUri"] = uri
+	}
+	if url, _ := raw["clientMetadataUrl"].(string); url != "" {
+		out["clientMetadataUrl"] = url
+	}
+	if scopes, ok := scopeList(raw, "oauthScopes"); ok {
+		out["oauthScopes"] = scopes
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// scopeList reads a list-valued meta key, reporting presence separately
+// from length so an explicitly empty list still emits. Kiro's own doc
+// makes `[]` meaningful rather than equivalent to absent: "If you
+// encounter OAuth scope errors, use an empty array: `oauthScopes: []`".
+func scopeList(m map[string]any, key string) ([]string, bool) {
+	raw, ok := m[key].([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out, true
 }
 
 // StripMCPDisabled returns mcps with any `disabled: true` meta flag

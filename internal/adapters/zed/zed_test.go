@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,6 +175,79 @@ func TestEmit_MCP_HTTPWritesNativeURL(t *testing.T) {
 	for _, absent := range []string{`"path"`, `"mcp-remote"`, `"settings"`} {
 		if strings.Contains(got, absent) {
 			t.Errorf("unexpected stale key %q in %s", absent, got)
+		}
+	}
+}
+
+// Zed's per-server toggle is file-backed, not UI-only: every variant of
+// ContextServerSettingsContent in
+// crates/settings_content/src/project.rs carries `enabled: bool`
+// defaulting to true, and `context_servers` is a field of
+// ProjectSettingsContent, the struct `.zed/settings.json` deserializes
+// into. A spec's `disabled: true` maps to `enabled: false`; an enabled
+// server gets no key, since true is Zed's own default (#641).
+func TestEmit_MCP_DisabledWritesEnabledFalse(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "off", Meta: map[string]any{"command": "npx", "disabled": true}},
+		{Kind: spec.KindMCP, Name: "on", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFile(t, filepath.Join(dir, ".zed/settings.json"))
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	servers, ok := parsed["context_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing context_servers in %s", raw)
+	}
+	off, ok := servers["off"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing off server in %s", raw)
+	}
+	if off["enabled"] != false {
+		t.Errorf("expected enabled=false on a disabled server: %s", raw)
+	}
+	on, ok := servers["on"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing on server in %s", raw)
+	}
+	if _, present := on["enabled"]; present {
+		t.Errorf("an enabled server needs no key; true is Zed's default: %s", raw)
+	}
+}
+
+// timeout, oauth and remote live in the same Rust settings struct but
+// on no vendor doc page, and no other target documents a same-named
+// field with the same meaning. They reach the file namespaced rather
+// than promoted from a top-level spec key (#641).
+func TestEmit_MCP_XZedPassthroughReachesUndocumentedFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "remote-server",
+			Meta: map[string]any{
+				"type": "http", "url": "https://mcp.example.test",
+				"x-zed": map[string]any{
+					"timeout": 90,
+					"oauth":   map[string]any{"client_id": "abc"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".zed/settings.json"))
+	for _, want := range []string{`"timeout": 90`, `"oauth"`, `"client_id": "abc"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
 		}
 	}
 }

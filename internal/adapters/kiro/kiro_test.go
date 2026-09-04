@@ -548,6 +548,108 @@ func TestEmit_MCPFileWritten(t *testing.T) {
 	}
 }
 
+// kiro.dev/docs/mcp/configuration/ documents autoApprove and
+// disabledTools on both its local-server and remote-server tables, plus
+// oauth and oauthScopes on the remote table only. None reached
+// `.kiro/settings/mcp.json` before #634, top-level or namespaced.
+func TestEmit_MCP_PassesThroughAutoApproveDisabledToolsAndOAuth(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "fs",
+			Meta: map[string]any{
+				"command":       "npx",
+				"autoApprove":   []any{"read_file"},
+				"disabledTools": []any{"delete_file"},
+			},
+		},
+		{
+			Kind: spec.KindMCP, Name: "figma",
+			Meta: map[string]any{
+				"type": "http", "url": "https://mcp.figma.com",
+				"oauth": map[string]any{
+					"clientId":     "my-figma-client-id",
+					"clientSecret": "my-figma-client-secret",
+					"redirectUri":  "http://localhost:7778/oauth/callback",
+					"oauthScopes":  []any{"files:read"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".kiro/settings/mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(got)
+	for _, want := range []string{
+		`"autoApprove"`, `"read_file"`,
+		`"disabledTools"`, `"delete_file"`,
+		`"clientId": "my-figma-client-id"`,
+		`"clientSecret": "my-figma-client-secret"`,
+		`"redirectUri"`,
+		`"oauthScopes"`, `"files:read"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in %s", want, body)
+		}
+	}
+}
+
+// "If you encounter OAuth scope errors, use an empty array:
+// `oauthScopes: []`". An empty list is a meaningful value here, not the
+// same thing as an absent key, so it has to survive to the file.
+func TestEmit_MCP_EmptyOAuthScopesEmitsAsEmptyArray(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "remote",
+			Meta: map[string]any{
+				"type": "http", "url": "https://mcp.example.test",
+				"oauthScopes": []any{},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".kiro/settings/mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"oauthScopes": []`) {
+		t.Errorf("expected an explicit empty oauthScopes array: %s", got)
+	}
+}
+
+// Kiro's own tables carry `disabled` on both transports ("Whether the
+// server is disabled (default: false)"), so unlike claude and cursor it
+// emits rather than being stripped with a coverage note.
+func TestEmit_MCP_DisabledEmits(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".kiro/settings/mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"disabled": true`) {
+		t.Errorf("expected disabled to reach the file: %s", got)
+	}
+}
+
 func TestEmit_NoMCPEntriesNoFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

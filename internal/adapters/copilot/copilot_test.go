@@ -298,6 +298,66 @@ func TestEmit_MCPFile_Unchanged(t *testing.T) {
 	}
 }
 
+// `.vscode/mcp.json` alone reaches no Copilot CLI user: "The
+// `.vscode/mcp.json` file for VS Code is not read by Copilot CLI. It
+// uses the unsupported top-level key `servers`." The CLI's own
+// project-level discovery table names `.github/mcp.json` as "Shared
+// configuration that is committed to the repository", and that file
+// takes the `mcpServers` wrapper (#646).
+func TestEmit_MCP_WritesGitHubCLIFileWithMcpServersWrapper(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y"}},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	cli := readFile(t, filepath.Join(dir, ".github/mcp.json"))
+	if !strings.Contains(cli, `"mcpServers"`) {
+		t.Errorf("expected the mcpServers wrapper Copilot CLI accepts: %s", cli)
+	}
+	if strings.Contains(cli, `"servers"`) {
+		t.Errorf("the CLI calls the servers key unsupported: %s", cli)
+	}
+	if !strings.Contains(cli, `"command": "npx"`) {
+		t.Errorf("missing the server itself: %s", cli)
+	}
+
+	// The VS Code file keeps its own wrapper; both readers stay served.
+	vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json"))
+	if !strings.Contains(vscode, `"servers"`) {
+		t.Errorf("VS Code file must keep the servers wrapper: %s", vscode)
+	}
+}
+
+func TestEmit_MCP_CLIFileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"copilot": {CLIMCPFile: "vendor/copilot-mcp.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/copilot-mcp.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".github/mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default CLI path, err=%v", err)
+	}
+}
+
 // An empty bundle produces no files at all - no stub main file, no MCP file.
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
@@ -308,8 +368,10 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".github/copilot-instructions.md")); !os.IsNotExist(err) {
 		t.Errorf("expected no main file for empty bundle, err=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".vscode/mcp.json")); !os.IsNotExist(err) {
-		t.Errorf("expected no mcp file for empty bundle, err=%v", err)
+	for _, mcpFile := range []string{".vscode/mcp.json", ".github/mcp.json"} {
+		if _, err := os.Stat(filepath.Join(dir, mcpFile)); !os.IsNotExist(err) {
+			t.Errorf("expected no %s for empty bundle, err=%v", mcpFile, err)
+		}
 	}
 }
 

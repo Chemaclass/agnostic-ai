@@ -9,6 +9,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's documented repository bootstrap script. Environment specs previously reached no OpenHands surface at all (#662).
+- Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
+
+### Changed
+
+- Qoder MCP servers move from the project-root `.mcp.json` to `.qoder/settings.json`, Qoder's own documented project-level location. The old path is Claude Code's, and the two targets' documented per-server fields have diverged far enough that sharing it would trip sync's collision check. Delete a leftover `.mcp.json` by hand in a Qoder-only project: it still loads and outranks the new file (#641).
+- Warp MCP servers no longer emit `description`, `disabled`, or `roots`. Warp publishes two closed property tables and names none of the three, so the keys did nothing. `disabled` now raises a coverage note, and the other two stay reachable through `x-warp` (#641).
 
 ### Fixed
 
@@ -17,6 +23,13 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Gemini MCP servers pass through `timeout`, `trust`, `description`, `includeTools`, and `excludeTools`. Codex MCP servers pass through `http_headers_helper`, `enabled_tools`, and `disabled_tools`. Cursor MCP servers pass through stdio's `envFile` and a remote server's static-OAuth `auth` object. All ten fields were documented by the vendor and dropped silently before, with no coverage note (#661).
 - Codex hooks accept `async: true` to run a command hook in the background instead of blocking the session on it. `import codex` reads it back from `.codex/hooks.json` (#636).
 - Kilo Code's docs note `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both files exist. Documented as a caveat: the vendor's config precedence is a merge across named sources, not an exclusive first-match read, so this stays a doc clarification rather than a behavior change (#644).
+- Claude Code MCP servers pass through `timeout`, `alwaysLoad`, and, on a remote server, `headersHelper` and an `oauth` object. A Claude Code user on Kerberos, internal SSO, or short-lived tokens could not author their MCP auth through agnostic-ai at all before this (#634).
+- Kiro MCP servers pass through `autoApprove`, `disabledTools`, and, on a remote server, `oauth` and `oauthScopes` (#634).
+- Amp MCP servers honor `x-amp` keys, so a documented field such as `includeTools` reaches `.amp/settings.json` instead of being dropped. Every other Amp surface already had that passthrough (#634).
+- Crush MCP servers emit `disabled`, `sessionless`, `enabled_tools`, and `disabled_tools`. `disabled` is the worst of the four: one spec synced to crush and trae printed a note for trae and nothing for crush, so the silence read as the field working (#634, #641).
+- Zed MCP servers honor `disabled: true` as Zed's own `enabled: false`, and take `x-zed` keys for the `timeout`, `oauth`, and `remote` fields Zed's settings struct documents but its MCP page does not (#641).
+- OpenCode MCP servers pass through a local server's `cwd` and either transport's `timeout` (#641).
+- Qoder MCP servers pass through the nine fields on the vendor's "Common Optional Fields" table plus a stdio server's `cwd`, including a `disabled` that now works (#641).
 
 ## v0.50.0 - 2026-08-28
 

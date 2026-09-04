@@ -95,6 +95,19 @@ func OutputMCPFile(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
+// OutputCLIMCPFile returns cfg.Outputs[target].CLIMCPFile when set,
+// otherwise fallback. Separate from OutputMCPFile because Copilot has
+// two readers for one server list that disagree on the file: VS Code
+// reads `.vscode/mcp.json` with a `servers` wrapper, Copilot CLI reads
+// `.github/mcp.json` with an `mcpServers` one and is documented not to
+// read the VS Code file at all.
+func OutputCLIMCPFile(cfg *config.Config, target, fallback string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.CLIMCPFile != "" {
+		return o.CLIMCPFile
+	}
+	return fallback
+}
+
 // OutputRootMCPFile returns cfg.Outputs[target].RootMCPFile, or "" when
 // unset. It has no fallback on purpose: a project-root MCP file is
 // opt-in, so an unconfigured target writes nothing rather than dropping

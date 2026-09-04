@@ -104,7 +104,10 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"x-amp": map[string]any{"includeTools": []any{"list_issues", "create_issue"}},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

@@ -31,7 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".qoder/rules/r1.md", ".qoder/rules/r2.md", ".qoder/rules/r3.md"}},
 		{spec.KindAgent, []string{".qoder/agents/alpha.md", ".qoder/agents/beta.md", ".qoder/agents/gamma.md"}},
 		{spec.KindSkill, []string{".qoder/skills/uno/SKILL.md", ".qoder/skills/dos/SKILL.md", ".qoder/skills/tres/SKILL.md"}},
-		{spec.KindMCP, []string{".mcp.json"}},
+		{spec.KindMCP, []string{".qoder/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

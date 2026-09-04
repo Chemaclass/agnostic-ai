@@ -360,7 +360,7 @@ env:
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
-| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini. Warp maps this to its own `working_directory` field. |
+| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder. Warp maps this to its own `working_directory` field. |
 | `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
@@ -368,13 +368,21 @@ env:
 | `envFile` | stdio only, Cursor | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
 | `auth` | no | empty | Two unrelated shapes by target. Codex HTTP authentication fallback, a string: `oauth` or `chatgpt`. Cursor static OAuth on a remote (`url`) entry, an object: `{CLIENT_ID, CLIENT_SECRET, scopes}` (`CLIENT_ID` required, the other two optional). |
 | `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
-| `enabled_tools` | no, Codex | empty | Allow list of tool names exposed by the server. |
-| `disabled_tools` | no, Codex | empty | Deny list applied after `enabled_tools`. |
-| `trust` | no, Gemini | `false` | Bypass all tool-call confirmations for this server. |
-| `includeTools` | no, Gemini | empty | Allowlist of tool names exposed from this server. |
-| `excludeTools` | no, Gemini | empty | Denylist of tool names; takes precedence over `includeTools` on a name in both. |
+| `enabled_tools` | no, Codex + Crush | empty | Allow list of tool names exposed by the server. |
+| `disabled_tools` | no, Codex + Crush | empty | Deny list applied after `enabled_tools`. |
+| `sessionless` | no, Crush | `false` | Mark a server that sends no `Mcp-Session-Id` so Crush skips the subscriptions/listen stream it would otherwise reject. Leave unset to let Crush auto-detect known sessionless servers such as GitHub MCP. |
+| `trust` | no, Gemini + Qoder | `false` | Bypass all tool-call confirmations for this server. |
+| `includeTools` | no, Gemini + Qoder | empty | Allowlist of tool names exposed from this server. On Amp the same concept exists but goes in namespaced as `x-amp.includeTools`: Amp's MCP page enumerates its fields without naming it, so a top-level mapping would assert more than the vendor states. |
+| `excludeTools` | no, Gemini + Qoder | empty | Denylist of tool names; takes precedence over `includeTools` on a name in both. |
+| `alwaysAllow` | no, Qoder | empty | Tool names always allowed without confirmation. |
+| `autoApprove` | no, Kiro | empty | Tool names to auto-approve without prompting. `"*"` auto-approves all of the server's tools. |
+| `disabledTools` | no, Kiro | empty | Tool names to omit when calling the agent. |
+| `alwaysLoad` | no, Claude Code | `false` | Load every tool from this server into context at session start instead of deferring it behind tool search. Available on all transports. |
+| `headersHelper` | http/sse/ws only, Claude Code | empty | Command run at connection time that prints headers to merge into the connection, for a server on Kerberos, short-lived tokens, or internal SSO. |
+| `oauthScopes` | http/sse only, Kiro | empty | OAuth scopes to request. Overridden by `oauth.oauthScopes` when both are set; an explicitly empty list emits as written, since Kiro documents `[]` as the remedy for scope errors. |
+| `oauth` | no | empty | Four unrelated shapes by target, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. |
 | `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
-| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini: request timeout in milliseconds, any transport, no documented range. |
+| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, and Qoder: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
 
@@ -384,7 +392,7 @@ Targets with native MCP propagation:
 |--------|------|--------|
 | Claude Code | `.mcp.json` | standard `mcpServers` |
 | Cursor | `.cursor/mcp.json` | standard `mcpServers` |
-| Copilot / VS Code | `.vscode/mcp.json` | `servers` with `type` field |
+| Copilot / VS Code | `.vscode/mcp.json` + `.github/mcp.json` | `servers` with `type` field for VS Code; `mcpServers` for Copilot CLI, which does not read the VS Code file |
 | Codex | `.codex/config.toml` | `[mcp_servers.<name>]` table |
 | Gemini | `.gemini/settings.json` | `mcpServers` (uses `httpUrl` for HTTP) |
 | Continue | `.continue/mcpServers/<name>.yaml` | one YAML per server |
@@ -394,7 +402,7 @@ Targets with native MCP propagation:
 | OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
 | Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
 | Factory | `.factory/mcp.json` | standard `mcpServers` |
-| Qoder | `.mcp.json` | standard `mcpServers` (same file Claude Code writes; the two dedupe when both are enabled) |
+| Qoder | `.qoder/settings.json` | standard `mcpServers`, merged so unrelated settings keys survive |
 | OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field; a remote entry is a bare URL string, or `{ url, api_key, timeout }` once `api_key` and/or (shttp only) `timeout` is set |
 | Trae | `.trae/mcp.json` | standard `mcpServers`, no `type` field (stdio: `command`/`args`/`env`; HTTP: `url`/`headers`) |
 | Windsurf | `.devin/mcp_config.json` | `mcpServers` (Devin Local's file, not Cascade's; remote uses `transport`, not `type`) |
@@ -409,12 +417,16 @@ Confirmed per target, never generalized: a target not listed here has not been c
 |--------|----------|
 | Antigravity | Native `disabled` boolean in `.agents/mcp_config.json` (default `false`); passes through unchanged under that literal name, unlike Codex and Kilo Code which map it to `enabled: false`. |
 | Codex | Maps to `enabled = false` in `.codex/config.toml`. |
+| Crush | Native `disabled` boolean in `crush.json` (default `false`); passes through unchanged. Confirmed in the vendor's published `schema.json` (`$defs.MCPConfig.properties.disabled`), not in the README. |
 | Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
 | Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |
+| Kiro | Native `disabled` boolean in `.kiro/settings/mcp.json` (default `false`); passes through unchanged on both local and remote servers. |
 | OpenCode | Maps to `"enabled": false` in `opencode.json`; an enabled server gets no key at all. `import opencode` reads it back into `disabled: true`. |
+| Qoder | Native `disabled` boolean in `.qoder/settings.json` (default `false`); passes through unchanged. It had no effect while qoder shared Claude Code's `.mcp.json`, and works now that qoder writes its own file. |
 | Windsurf | Native `disabled` boolean in `.devin/mcp_config.json` (default `false`); passes through unchanged. `devin mcp enable`/`disable` toggle the same key. |
+| Zed | Maps to `"enabled": false` in `.zed/settings.json`; an enabled server gets no key at all, since Zed defaults it to true. Confirmed in Zed's own settings struct (`crates/settings_content/src/project.rs`), not on its MCP doc page, which names no per-server toggle. |
 | Claude Code, Cursor, Copilot, Trae | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
-| Qoder | Not vendor-confirmed either way. `.mcp.json` is the same file Claude Code reads, so agnostic-ai drops the field there too rather than risk the two targets disagreeing on one shared file. |
+| Warp | No file-based way to pre-disable a project-scoped MCP server: Warp's two property tables are closed lists and neither carries a disable key. Little is lost, since "project-scoped servers never auto-spawn" there; start the server from the MCP servers page when you want it. |
 
 ### `tools` support by target
 

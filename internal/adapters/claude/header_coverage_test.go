@@ -114,11 +114,23 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"timeout": 600000, "alwaysLoad": true,
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"headersHelper": "/opt/bin/get-mcp-auth-headers.sh",
+				"oauth": map[string]any{
+					"clientId":              "client-abc",
+					"callbackPort":          8080,
+					"authServerMetadataUrl": "https://auth.example.test/.well-known/openid-configuration",
+					"scopes":                "channels:read chat:write",
+				},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

@@ -4,6 +4,10 @@
       "command": "x"
     },
     "http-server": {
+      "includeTools": [
+        "list_issues",
+        "create_issue"
+      ],
       "url": "https://example.test/mcp"
     },
     "stdio-server": {

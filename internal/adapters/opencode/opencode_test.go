@@ -385,6 +385,43 @@ func TestEmit_MCP_XOpencodePassthroughReachesOAuth(t *testing.T) {
 	}
 }
 
+// cwd is local-only ("Working directory for the MCP server process.
+// Relative paths resolve from the workspace."); timeout appears in both
+// option tables ("Timeout in ms for fetching tools from the MCP server.
+// Defaults to 5000 (5 seconds)."). Both names match the spec field
+// exactly, so both map top-level rather than through x-opencode (#641).
+func TestEmit_MCP_PassesThroughCwdAndTimeout(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "cwd": "/srv/project", "timeout": 4500},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type": "remote", "url": "https://mcp.linear.app",
+				"cwd": "/ignored", "timeout": 7000,
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "opencode.json"))
+	for _, want := range []string{`"cwd": "/srv/project"`, `"timeout": 4500`, `"timeout": 7000`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"cwd": "/ignored"`) {
+		t.Errorf("cwd is documented for local servers only: %s", got)
+	}
+}
+
 // A spec's `disabled: true` writes OpenCode's own `enabled: false` key
 // (#555), the vocabulary opencode.ai/docs/mcp-servers documents:
 // "You can also disable a server by setting `enabled` to `false`."

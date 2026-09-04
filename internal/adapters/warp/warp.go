@@ -36,7 +36,11 @@
 // `working_directory` reads from the spec's cross-tool `cwd` field
 // (docs.warp.dev/agents/capabilities/mcp, #606); `import warp` renames
 // it back on the way in. Remote servers carry no `type` discriminant,
-// since Warp's own schema has none (#592).
+// since Warp's own schema has none (#592). The emitted key set is
+// exactly the two vendor tables: `description`, `disabled`, and `roots`
+// are documented nowhere on that page and no longer emit, with
+// `disabled` raising a coverage note and the other two reachable
+// through `x-warp` (#641).
 package warp
 
 import (

@@ -1,9 +1,11 @@
 {
   "context_servers": {
     "disabled-server": {
-      "command": "x"
+      "command": "x",
+      "enabled": false
     },
     "http-server": {
+      "timeout": 90,
       "url": "https://example.test/mcp"
     },
     "stdio-server": {

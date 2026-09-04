@@ -26,7 +26,10 @@
 // MCP servers are configured in `.zed/settings.json` under the
 // `context_servers` key (note: not `mcpServers`), with a flat
 // `command`/`args`/`env` shape for stdio and a native `url`/`headers`
-// shape for remote (HTTP / SSE) servers.
+// shape for remote (HTTP / SSE) servers. A spec's `disabled: true`
+// emits as Zed's own `enabled: false`; see buildContextServer for the
+// vendor source, which is Zed's Rust settings struct rather than its
+// MCP doc page.
 //
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
 // as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
@@ -177,6 +180,26 @@ func buildContextServers(mcps []spec.Entry) map[string]any {
 // produce a flat `command`/`args`/`env` block; HTTP / SSE specs produce
 // a native `url`/`headers` block. Both shapes match Zed's current
 // `context_servers` schema (https://zed.dev/docs/ai/mcp).
+//
+// A spec's `disabled: true` maps to Zed's own `enabled: false`. Zed
+// defaults the key to true, so an enabled server gets no key at all,
+// the same convention the codex, kilo, and opencode adapters use for
+// their own `enabled` fields. The toggle is file-backed, not UI-only:
+// every variant of `ContextServerSettingsContent` in
+// crates/settings_content/src/project.rs carries `/// Whether the
+// context server is enabled.` over `#[serde(default = "default_true")]
+// enabled: bool`, and `context_servers` is a field of
+// `ProjectSettingsContent`, the struct `.zed/settings.json`
+// deserializes into (target-audit 2026-08-27, #641).
+//
+// zed.dev/docs/ai/mcp names none of this, which is why every earlier
+// audit missed it: the only `enabled`-family key on that page is
+// `enable_all_context_servers`, an agent-profile key rather than a
+// per-server one. The same source carries three more per-server fields
+// the docs omit (`timeout` and `oauth` on an HTTP server, `remote` on
+// stdio and extension servers); those reach the file through `x-zed`
+// rather than a top-level mapping, since no other target documents a
+// same-named field with the same meaning.
 func buildContextServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -209,6 +232,13 @@ func buildContextServer(e spec.Entry) map[string]any {
 	default:
 		return nil
 	}
+
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		out["enabled"] = false
+	}
+	var keys []string
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
+		"command", "args", "env", "url", "headers", "enabled")
 
 	return out
 }

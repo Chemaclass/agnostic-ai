@@ -351,6 +351,37 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	}
 }
 
+// buildMCPEntry enumerated a fixed field set with no escape hatch, so
+// even an explicit `x-amp` key was dropped, unlike commandFile and the
+// skill renderer which both merge one. The field this unblocks is
+// `includeTools`, "optional but recommended" per
+// ampcode.com/docs/customize/skills (#634).
+func TestEmit_MCP_XAmpPassthroughReachesIncludeTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type": "http", "url": "https://mcp.linear.app/sse",
+				"x-amp": map[string]any{
+					"includeTools": []any{"list_issues", "create_issue"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".amp/settings.json"))
+	for _, want := range []string{`"includeTools"`, `"list_issues"`, `"create_issue"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

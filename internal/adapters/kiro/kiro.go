@@ -94,8 +94,19 @@
 // Kiro looks for hook definitions, and there is no vendor confirmation
 // that a plain script file living alongside them is safe.
 //
-// MCP servers write to `.kiro/settings/mcp.json` as a `mcpServers` map
-// with `command`, `args`, and optional `env` per local server.
+// MCP servers write to `.kiro/settings/mcp.json` as a `mcpServers` map.
+// A local server carries `command` plus optional `args` and `env`; a
+// remote server carries `url` plus optional `headers` and `env`, and
+// a `type` discriminant so the transport is never guessed. Both
+// transports also carry `description` when the spec sets one,
+// `disabled` (Kiro's own key, honored as written, unlike Claude Code
+// and Cursor which have no file-based equivalent), and `autoApprove` /
+// `disabledTools` tool lists. A remote server additionally carries
+// `oauth` (`clientId`, `clientSecret`, `redirectUri`,
+// `clientMetadataUrl`, `oauthScopes`) and the top-level `oauthScopes`
+// fallback; an explicitly empty `oauthScopes: []` emits as written,
+// since kiro.dev/docs/mcp/configuration/ makes that the documented
+// remedy for OAuth scope errors (target-audit 2026-08-27, #634).
 //
 // The root `AGENTS.md` entry-point (which Kiro reads directly and
 // always includes) is written centrally by `sync`, not by this
@@ -163,7 +174,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithKiroMCPExtras())
 }
 
 // emitRules writes one `<dir>/<name>.md` per rule. Rules that target a

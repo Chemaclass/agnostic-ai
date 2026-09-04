@@ -9,6 +9,7 @@
       "type": "local"
     },
     "http-server": {
+      "timeout": 5000,
       "type": "remote",
       "url": "https://example.test/mcp"
     },
@@ -18,6 +19,7 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
+      "cwd": "/srv/project",
       "type": "local"
     }
   }
