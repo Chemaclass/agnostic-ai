@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Augment MCP servers merge into `<workspace>/.augment/settings.json` under `mcpServers`, alongside `shell`, `theme`, and other Auggie CLI settings the file already holds. MCP specs previously reached no Augment surface at all (#633).
 - OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's documented repository bootstrap script. Environment specs previously reached no OpenHands surface at all (#662).
 - Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
 - Windsurf writes the shared root `AGENTS.md`, the file Devin CLI reads automatically and its docs call the recommended way to give a project rules. A windsurf-only repo had no root entry point at all before, so unscoped rules reached Devin through no path (#645).

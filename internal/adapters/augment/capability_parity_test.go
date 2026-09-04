@@ -37,6 +37,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".augment-guidelines", ".augment/rules/r1.md"}},
 		{spec.KindAgent, []string{".augment/agents/alpha.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md"}},
+		{spec.KindMCP, []string{".augment/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -73,9 +74,10 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind augment does not declare in caps.Supports (Hook, MCP).
-// A future caps.Supports expansion needs to delete the matching row
-// here and demonstrate the emit path that backs the new claim.
+// every kind augment does not declare in caps.Supports (Hook only,
+// since #633; MCP moved to the supported side). A future caps.Supports
+// expansion needs to delete the matching row here and demonstrate the
+// emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
@@ -83,13 +85,12 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
-		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/mcp), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (hook), got %d", got)
 	}
 }
 

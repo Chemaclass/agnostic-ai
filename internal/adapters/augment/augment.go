@@ -58,8 +58,37 @@
 // hand-authors under `.augment/skills/` wins over the synced one; this
 // only matters outside agnostic-ai's own managed tree.
 //
-// caps.Supports declares KindRule, KindAgent, and KindSkill. Hooks and
-// MCP have no confirmed Augment surface yet and skip with a warning.
+// MCP servers merge into `<workspace>/.augment/settings.json` (override
+// via outputs.augment.mcp-file) under an `mcpServers` map: "Project
+// settings (shared, per-project) ... Best for team-shared project
+// configuration, such as shared MCP servers or tool permissions"
+// (docs.augmentcode.com/cli/config). The shape is
+// emit.MCPSchemaServersMap exactly — stdio carries `command`/`args`/
+// `env` with no `type`; remote carries an explicit `type: "http"|"sse"`
+// plus `url`/`headers` (docs.augmentcode.com/cli/integrations) — the
+// same builder Claude Code, Cursor, Qoder, and Factory already share.
+// This file also holds `shell`, `startupScript`, `theme`, plugin keys,
+// and tool permissions, so the write goes through emit.MergeJSONFile
+// and only ever sets the `mcpServers` key: every other key already in
+// the file, hand-authored or written by Auggie itself, survives the
+// sync untouched. "MCP server and plugin entries are replaced, not
+// deep-merged" is the vendor's own semantics for a same-named server
+// across tiers (user vs. project settings), not a reason to touch
+// unrelated keys in the one file this adapter writes to. No per-server
+// `disabled` key is documented here, so a spec's `disabled: true` is
+// stripped with a coverage note (the same choice claude.go and
+// qoder.go make for their own MCP files) rather than writing a key
+// Auggie would silently ignore. This surface reaches Auggie CLI: the
+// settings-file hierarchy and the `mcpServers` shape both live under
+// the "Auggie CLI" docs section, distinct from the VS Code / JetBrains
+// extension's own Settings Panel GUI for MCP configuration
+// (docs.augmentcode.com/setup-augment/mcp), which does not read this
+// file (target-audit 2026-08-27, #633).
+//
+// caps.Supports declares KindRule, KindAgent, KindSkill, and KindMCP.
+// Hooks have no confirmed Augment surface in this adapter yet and skip
+// with a warning; see #629, which lands a `hooks` key in the same
+// settings.json this adapter already merges into.
 package augment
 
 import (
@@ -80,11 +109,17 @@ const (
 	// amp, zed, crush, openhands, and windsurf already write here, so
 	// identical skill folders dedupe under sync.shared-skills.
 	defaultSkillsDir = ".agents/skills"
+	// defaultSettingsFile is the project-tier settings file (see the
+	// package doc). This adapter only ever sets the `mcpServers` key on
+	// it; every other key (shell, startupScript, theme, plugin keys,
+	// tool permissions, and eventually hooks per #629) is left alone by
+	// emit.MergeJSONFile.
+	defaultSettingsFile = ".augment/settings.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
 }
 
 // Adapter emits Augment configs.
@@ -97,9 +132,10 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one `.augment/rules/<name>.md` per rule, one
-// `.augment/agents/<name>.md` per agent, and one shared
-// `.agents/skills/<name>/SKILL.md` folder per skill. The legacy
-// concatenated `.augment-guidelines` document remains opt-in via
+// `.augment/agents/<name>.md` per agent, one shared
+// `.agents/skills/<name>/SKILL.md` folder per skill, and merges MCP
+// servers into `.augment/settings.json`. The legacy concatenated
+// `.augment-guidelines` document remains opt-in via
 // `outputs.augment.rules-file`, scoped to rules only so an agent or
 // skill body never leaks into it. The root AGENTS.md entry-point (with
 // rule bodies inlined) is written centrally by `sync`, not here.
@@ -127,8 +163,39 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	return sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun)
+	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	return emitSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
 }
+
+// emitSettings merges MCP servers into `.augment/settings.json` under
+// `mcpServers`, in the exact shape emit.MCPSchemaServersMap already
+// produces for Claude Code, Cursor, Qoder, and Factory (see the package
+// doc). Routes through emit.MergeJSONFile so the file's other keys
+// (shell, startupScript, theme, plugin keys, tool permissions) survive
+// the sync untouched; only `mcpServers` is ever set here. Building the
+// merge on a `keys` map, the same shape gemini.go and kilo.go already
+// use for their own multi-key settings files, leaves room for a future
+// hooks fix (#629) to add a `hooks` key to this same map without
+// restructuring this function.
+func emitSettings(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
+	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
+	keys := map[string]any{}
+	if servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap); servers != nil {
+		keys["mcpServers"] = servers
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	return sess.MergeJSONFile(path, keys, dryRun)
+}
+
+// mcpDisabledNoOpReason explains, in the flushed coverage note, why
+// `disabled: true` on an MCP spec never reaches `.augment/settings.json`:
+// no per-server disable key is documented there (see the package doc),
+// the same choice claude.go and qoder.go make for their own MCP files.
+const mcpDisabledNoOpReason = "no confirmed per-server disable key in .augment/settings.json; use auggie mcp remove to drop the entry instead"
 
 // ruleMarkdown renders one `.augment/rules/<name>.md` file. `type`
 // stays absent for the vendor default (`always_apply`); setting the

@@ -406,8 +406,9 @@ Targets with native MCP propagation:
 | OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field; a remote entry is a bare URL string, or `{ url, api_key, timeout }` once `api_key` and/or (shttp only) `timeout` is set |
 | Trae | `.trae/mcp.json` | standard `mcpServers`, no `type` field (stdio: `command`/`args`/`env`; HTTP: `url`/`headers`) |
 | Windsurf | `.devin/mcp_config.json` | `mcpServers` (Devin Local's file, not Cascade's; remote uses `transport`, not `type`) |
+| Augment | `.augment/settings.json` | standard `mcpServers`, merged into the file alongside `shell`, `theme`, and other Auggie CLI settings rather than overwriting it |
 
-Aider, Cline, Jules, Goose, and Augment have no project-scoped MCP file and skip with a warning.
+Aider, Cline, Jules, and Goose have no project-scoped MCP file and skip with a warning.
 
 ### `disabled` support by target
 
@@ -425,7 +426,7 @@ Confirmed per target, never generalized: a target not listed here has not been c
 | Qoder | Native `disabled` boolean in `.qoder/settings.json` (default `false`); passes through unchanged. It had no effect while qoder shared Claude Code's `.mcp.json`, and works now that qoder writes its own file. |
 | Windsurf | Native `disabled` boolean in `.devin/mcp_config.json` (default `false`); passes through unchanged. `devin mcp enable`/`disable` toggle the same key. |
 | Zed | Maps to `"enabled": false` in `.zed/settings.json`; an enabled server gets no key at all, since Zed defaults it to true. Confirmed in Zed's own settings struct (`crates/settings_content/src/project.rs`), not on its MCP doc page, which names no per-server toggle. |
-| Claude Code, Cursor, Copilot, Trae | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead. |
+| Claude Code, Cursor, Copilot, Trae, Augment | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead (Augment: `auggie mcp remove`). |
 | Warp | No file-based way to pre-disable a project-scoped MCP server: Warp's two property tables are closed lists and neither carries a disable key. Little is lost, since "project-scoped servers never auto-spawn" there; start the server from the MCP servers page when you want it. |
 
 ### `tools` support by target

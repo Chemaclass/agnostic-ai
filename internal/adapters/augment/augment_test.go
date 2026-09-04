@@ -603,6 +603,153 @@ func TestEmit_RulesFile_ExcludesAgentsAndSkills(t *testing.T) {
 	}
 }
 
+// Stdio MCP merges into `.augment/settings.json` under the standard
+// mcpServers map, the exact schema docs.augmentcode.com/cli/integrations
+// documents: no `type` for the inferred stdio default (#633).
+func TestEmit_MCP_StdioWritesAugmentSettingsJSON(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/settings.json"))
+	for _, want := range []string{`"mcpServers"`, `"fs"`, `"command": "npx"`, `"ALLOWED_PATHS"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"type"`) {
+		t.Errorf("stdio is the inferred default; type must stay unset, got:\n%s", got)
+	}
+}
+
+func TestEmit_MCP_HTTPWritesTypeAndURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "context7",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://mcp.context7.com/mcp",
+				"headers": map[string]any{"CONTEXT7_API_KEY": "x"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/settings.json"))
+	for _, want := range []string{`"type": "http"`, `"url": "https://mcp.context7.com/mcp"`, `"CONTEXT7_API_KEY"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// It must merge, not overwrite: .augment/settings.json also holds
+// shell, startupScript, theme, plugin keys, and tool permissions (see
+// the package doc), none of which this adapter manages.
+func TestEmit_MCP_PreservesExistingSettingsKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".augment"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"shell": "zsh", "theme": "ansi", "toolPermissions": [{"tool": "terminal", "action": "ask"}]}`
+	if err := os.WriteFile(filepath.Join(dir, ".augment/settings.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/settings.json"))
+	for _, want := range []string{
+		`"shell": "zsh"`,
+		`"theme": "ansi"`,
+		`"toolPermissions"`,
+		`"mcpServers"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// No per-server disable key is documented in .augment/settings.json, so
+// `disabled: true` is stripped rather than written as a key Auggie
+// would silently ignore. Mirrors claude's and qoder's
+// TestEmit_MCP_DisabledHasNoFileBasedEffect.
+func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "disabled": true}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/settings.json"))
+	if strings.Contains(got, "disabled") {
+		t.Errorf("disabled must not reach the shared settings.json: %s", got)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one field no-op note, got %d", n)
+	}
+}
+
+func TestEmit_MCP_FileOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"augment": {MCPFile: "vendor/augment-settings.json"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/augment-settings.json")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
+func TestEmit_MCP_NoFileWhenNoEntries(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".augment/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no settings.json for a bundle with no MCP entries, err=%v", err)
+	}
+}
+
 func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
