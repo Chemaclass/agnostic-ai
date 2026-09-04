@@ -24,6 +24,11 @@ var windsurfRulesDirs = []string{
 // openhands emit into.
 const windsurfSkillsDir = ".agents/skills"
 
+// windsurfAgentsDir is Devin CLI's native custom-subagent directory
+// (docs.devin.ai/cli/subagents): flat `<name>.md` files, not the
+// pre-#638 `agent-<name>.md` rule-form.
+const windsurfAgentsDir = ".devin/agents"
+
 // windsurfMCPFile is the project-scoped MCP server registry Devin
 // Local reads (docs.devin.ai/cli/extensibility/mcp/configuration).
 const windsurfMCPFile = ".devin/mcp_config.json"
@@ -124,6 +129,13 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 //   - `<scope>/.devin/rules/*.md` in any project sub-directory imports
 //     back to a scoped spec at `rules/<scope>/<name>.md`, the emit side
 //     of #628.
+//   - `.devin/agents/*.md` (the native subagent directory) reconstructs
+//     agents, byte-for-byte minus the provenance header, so `model`,
+//     `max-nesting`, and any `x-windsurf` key round-trip untouched. One
+//     field is lossy: `allowed-tools` re-imports as whatever Devin name
+//     is on disk (e.g. `edit`), not the Claude-style name it collapsed
+//     from, since `Write` and `Edit` both emit as `edit` and are
+//     indistinguishable once written.
 //   - `.agents/skills/<name>/SKILL.md` folders reconstruct skills
 //     natively, with bundled sibling assets copied byte-for-byte.
 //   - `.devin/mcp_config.json`'s `mcpServers` map writes one yaml per
@@ -154,6 +166,11 @@ func importFromWindsurf(root string, src config.Sources) error {
 		}
 		c.add(scoped)
 	}
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, windsurfAgentsDir), filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	c.agents += nativeAgents
 	folderSkills, err := importSkillFolders(filepath.Join(root, windsurfSkillsDir), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err

@@ -28,7 +28,7 @@ func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".devin/rules/r1.md", ".devin/rules/agent-ag1.md", ".agents/skills/sk1/SKILL.md"} {
+	for _, p := range []string{".devin/rules/r1.md", ".devin/agents/ag1.md", ".agents/skills/sk1/SKILL.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}
@@ -166,9 +166,9 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 		t.Errorf("workflow missing body: %q", body)
 	}
 
-	// Rule-form emission still happens for back-compat.
-	if _, err := os.Stat(filepath.Join(dir, ".devin/rules/agent-ship-it.md")); err != nil {
-		t.Errorf("rule-form agent missing: %v", err)
+	// The native subagent file emits either way.
+	if _, err := os.Stat(filepath.Join(dir, ".devin/agents/ship-it.md")); err != nil {
+		t.Errorf("native agent file missing: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".devin/rules/r1.md")); err != nil {
 		t.Errorf("rule missing: %v", err)
@@ -186,7 +186,7 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".devin/rules/r1.md", ".devin/rules/agent-ag1.md"} {
+	for _, p := range []string{".devin/rules/r1.md", ".devin/agents/ag1.md"} {
 		got, err := os.ReadFile(filepath.Join(dir, p))
 		if err != nil {
 			t.Fatalf("read %s: %v", p, err)
@@ -330,7 +330,9 @@ func TestEmit_ScopedRulesLandInASubdirectoryRulesDir(t *testing.T) {
 	for _, p := range []string{
 		"backend/.devin/rules/auth.md",
 		"backend/api/.devin/rules/limits.md",
-		"backend/.devin/rules/agent-delta.md",
+		// A scoped agent stays flat: Devin documents sub-directory
+		// discovery for rules only.
+		".devin/agents/delta.md",
 		".devin/rules/root.md",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
@@ -340,7 +342,6 @@ func TestEmit_ScopedRulesLandInASubdirectoryRulesDir(t *testing.T) {
 	for _, p := range []string{
 		".devin/rules/backend/auth.md",
 		".devin/rules/backend/api/limits.md",
-		".devin/rules/backend/agent-delta.md",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
 			t.Errorf("unreachable nested path still written: %s (err=%v)", p, err)

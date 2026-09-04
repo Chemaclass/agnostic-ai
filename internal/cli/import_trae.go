@@ -10,6 +10,10 @@ const (
 	// traeRulesDir is where Trae reads always-on rules and agents
 	// (reclassified by filename prefix; see classifyRulesDirFile).
 	traeRulesDir = ".trae/rules"
+	// traeAgentsDir is Trae's native project-subagent path
+	// (docs.trae.ai/ide/subagents): flat `<name>.md` files, not the
+	// pre-#638 `agent-<name>.md` rule-form.
+	traeAgentsDir = ".trae/agents"
 	// traeSkillsDir is Trae's native skills path
 	// (docs.trae.ai/ide/skills): a folder per skill holding a SKILL.md,
 	// the layout `sync` writes today.
@@ -30,8 +34,13 @@ const (
 //
 //   - `.trae/rules/*.md` reclassifies by filename prefix into rules and
 //     agents (`agent-<name>.md`); a `skill-<name>.md` there still
-//     imports as a skill too, covering projects synced before skills
-//     moved to a native folder.
+//     imports as a skill too, and an `agent-<name>.md` covers projects
+//     synced before agents moved to their own directory (#638).
+//   - `.trae/agents/*.md` (the native subagent directory) reconstructs
+//     agents, byte-for-byte minus the provenance header, so `model`,
+//     `tools`, and any `x-trae` key round-trip untouched. The generic
+//     spec spells `tools` as a list and Trae as a comma-separated
+//     string, so that one field re-imports in Trae's spelling.
 //   - `.trae/skills/<name>/SKILL.md` folders reconstruct skills
 //     natively, with bundled sibling assets copied byte-for-byte.
 //   - `.trae/commands/*.md` copies byte-for-byte into the commands
@@ -48,6 +57,11 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, traeAgentsDir), filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	c.agents += nativeAgents
 	folderSkills, err := importSkillFolders(filepath.Join(root, traeSkillsDir), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err

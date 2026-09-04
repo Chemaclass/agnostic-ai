@@ -531,6 +531,24 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 // happen on the real path (no transaction logging) since an empty
 // directory has no content to restore.
 func (s *Session) RemoveGeneratedTree(dir string, dryRun bool) error {
+	return s.removeGeneratedTree(dir, "", dryRun)
+}
+
+// RemoveGeneratedTreeExt is RemoveGeneratedTree restricted to files with
+// the given extension (e.g. ".toml"). Use it when the legacy directory
+// is shared with another target that writes a different file type there:
+// a whole-tree sweep would delete that target's current output, since
+// both carry the provenance header and neither adapter can see the
+// other. Codex's pre-v0.26 `.agents/agents/*.toml` is the one such
+// sweep today, sharing the directory with antigravity's `<name>.md`
+// subagents (#638).
+func (s *Session) RemoveGeneratedTreeExt(dir, ext string, dryRun bool) error {
+	return s.removeGeneratedTree(dir, ext, dryRun)
+}
+
+// removeGeneratedTree walks dir and removes generated files, optionally
+// limited to one extension. An empty ext matches every file.
+func (s *Session) removeGeneratedTree(dir, ext string, dryRun bool) error {
 	info, err := os.Stat(dir)
 	if IsAbsent(err) {
 		return nil
@@ -547,6 +565,9 @@ func (s *Session) RemoveGeneratedTree(dir string, dryRun bool) error {
 			return walkErr
 		}
 		if d.IsDir() {
+			return nil
+		}
+		if ext != "" && filepath.Ext(path) != ext {
 			return nil
 		}
 		filePaths = append(filePaths, path)

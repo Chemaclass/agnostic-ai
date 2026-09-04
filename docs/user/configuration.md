@@ -143,7 +143,8 @@ outputs:
     skills-dir: .cline/skills    # default. One folder per skill (<name>/SKILL.md), Cline's recommended path.
     # workflows-dir: .cline/workflows  # opt-in: also emit each agent as a Cline Workflow (/<name>.md).
   windsurf:
-    rules-dir: .devin/rules      # default. One .md per rule and per agent (Devin Desktop, the renamed Windsurf).
+    rules-dir: .devin/rules      # default. One .md per rule (Devin Desktop, the renamed Windsurf).
+    agents-dir: .devin/agents    # default. One custom-subagent .md per agent.
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
     ignore-file: .devinignore    # default. Agent ignore patterns (gitignore syntax); legacy .codeiumignore / .windsurfignore still read.
     mcp-file: .devin/mcp_config.json  # default. Devin Local's file; remote entries use transport, not type.
@@ -171,7 +172,8 @@ outputs:
     emit-skills-as-commands: false       # default. When true, skills also emit a skill-<name>.md command.
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:
-    rules-dir: .agents/rules            # default. One .md per rule and per agent. Legacy .agent/rules still reads.
+    rules-dir: .agents/rules            # default. One .md per rule. Legacy .agent/rules still reads.
+    agents-dir: .agents/agents          # default. One custom-subagent .md per agent.
     skills-dir: .agents/skills          # default. One folder per skill (<name>/SKILL.md). Shared tree with codex/amp/zed.
     mcp-file: .agents/mcp_config.json   # default. mcpServers map; remote entries use serverUrl, not url.
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
@@ -188,7 +190,8 @@ outputs:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
     mcp-file: crush.json                # default. mcp map merged; user keys preserved.
   trae:
-    rules-dir: .trae/rules              # default. One .md per rule and per agent.
+    rules-dir: .trae/rules              # default. One .md per rule.
+    agents-dir: .trae/agents            # default. One project-subagent .md per agent.
     skills-dir: .trae/skills            # default. One folder per skill (<name>/SKILL.md + bundled assets).
     commands-dir: .trae/commands        # default. One .md per command. Frontmatter filtered to name, description.
   qoder:
@@ -295,15 +298,16 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
-| `cline` | `rules-dir` | `.cline/rules` | One `.md` per rule. Set to `.clinerules` to keep the pre-migration layout; a stale managed tree there is swept otherwise. |
+| `cline` | `rules-dir` | `.cline/rules` | One `.md` per rule. A rule with `alwaysApply: false` carries a `paths` glob array, Cline's one conditional; explicit `globs` win, otherwise the source-layout scope becomes `<scope>/**` (#639). Set to `.clinerules` to keep the pre-migration layout; a stale managed tree there is swept otherwise. |
 | `cline` | `agents-dir` | `.cline/agents` | One `.md` per agent, verbatim body, no synthesized heading. Independent of `rules-dir`. |
 | `cline` | `skills-dir` | `.cline/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Cline's recommended skills path. |
 | `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The native agent-file emission still happens. Opt-in. |
-| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule and per agent. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. A scoped spec prefixes the scope instead of nesting inside: `<scope>/.devin/rules/<name>.md` (#628). |
+| `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. A scoped rule prefixes the scope instead of nesting inside: `<scope>/.devin/rules/<name>.md` (#628). |
+| `windsurf` | `agents-dir` | `.devin/agents` | One custom-subagent `.md` per agent (`name`, `description`, optional `model`; `tools` translated onto Devin's `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`; `x-windsurf` passthrough for `max-nesting`, or `allowed-tools` directly to bypass the translation). Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
-| `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The rule-form emission still happens. Opt-in. |
+| `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The native subagent file emits either way. Opt-in. |
 | `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |
-| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). |
+| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). A rule carries Continue's `name`/`globs`/`alwaysApply`/`description` frontmatter when it has an activation to state; `globs` falls back to `<scope>/**`, and `x-continue.regex` reaches the file too (#639). |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
 | `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent. |
@@ -324,7 +328,8 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `opencode` | `emit-skills-as-commands` | `false` | When true, skills additionally emit as `.opencode/commands/skill-<name>.md`. |
 | `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
 | `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
-| `antigravity` | `rules-dir` | `.agents/rules` | One `.md` per rule and per agent. The legacy `.agent/rules` singular form still reads for backward compatibility; a stale managed copy there is swept on sync. |
+| `antigravity` | `rules-dir` | `.agents/rules` | One `.md` per rule. The legacy `.agent/rules` singular form still reads for backward compatibility; a stale managed copy there is swept on sync. |
+| `antigravity` | `agents-dir` | `.agents/agents` | One custom-subagent `.md` per agent (`name` + `description`; `model` only when it names a documented tier, `inherit`/`flash`/`pro`). A generic `tools` list never emits: Antigravity's vocabulary shares no name with agnostic-ai's and an unmapped one can hang the subagent, so set `x-antigravity.tools`. Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
 | `antigravity` | `mcp-file` | `.agents/mcp_config.json` | `mcpServers` map. Remote entries use `serverUrl`; Antigravity's doc says the legacy `url` / `httpUrl` names are not supported. |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
@@ -337,7 +342,8 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
 | `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http\|sse`; a spec's `remote` type has no matching Crush value and defaults to `http`). User keys (`models`, `providers`, `lsp`) preserved. |
-| `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule and per agent. |
+| `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule. |
+| `trae` | `agents-dir` | `.trae/agents` | One project-subagent `.md` per agent (`name` + `description` required; optional `model`, `tools`). `tools` renders as a comma-separated string, Trae's documented form, and passes through unmapped since Trae's vocabulary is Claude-style. `model` emits only when scoped to Trae (`model: {trae: <id>}` or `x-trae.model`), since Trae accepts only its own built-in model IDs. Gated behind Settings > Beta > Subagents. Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `trae` | `skills-dir` | `.trae/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Trae's native skills path. |
 | `trae` | `commands-dir` | `.trae/commands` | One `.md` per command. Frontmatter filtered to `name`, `description` (the only keys confirmed native; Trae's own docs do not cover the format). |
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
@@ -408,7 +414,7 @@ sync:
   target-overview: true
 ```
 
-The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, cline, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
+The canonical body stays identical across every target; only the appendix differs per file. An entry-point shared by several targets (codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode all read `AGENTS.md`) lists each consumer in its own section. The appendix sits between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->` markers; `import` strips it, so the `AGNOSTIC_AI.md` round-trip stays lossless. `.agnostic-ai/AGNOSTIC_AI.md` itself never carries the appendix. Do not hand-edit the block: every sync regenerates it.
 
 ### `sync.resolve-imports`
 

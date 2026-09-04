@@ -66,8 +66,19 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	}
 }
 
-func TestEmit_AgentRuleFile_StillWritten(t *testing.T) {
+// A rule-form `agent-<name>.md` a prior sync left in the rules
+// directory is swept once the agent has a native subagent file, so the
+// same body does not load twice from two different loaders.
+func TestEmit_StaleAgentRuleFileIsSwept(t *testing.T) {
 	dir := testutil.TempCwd(t)
+
+	stale := filepath.Join(dir, ".agents/rules/agent-deployer.md")
+	if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, []byte(emit.Header(emit.FormatMarkdown)+"\n# Agent: deployer\n\nold body\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	entries := []spec.Entry{
 		{
@@ -81,9 +92,11 @@ func TestEmit_AgentRuleFile_StillWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ruleFile := filepath.Join(dir, ".agents/rules/agent-deployer.md")
-	if _, err := os.Stat(ruleFile); err != nil {
-		t.Errorf("expected agent rule file at %s: %v", ruleFile, err)
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("expected the rule-form agent file to be swept, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents/agents/deployer.md")); err != nil {
+		t.Errorf("expected the native subagent file: %v", err)
 	}
 }
 

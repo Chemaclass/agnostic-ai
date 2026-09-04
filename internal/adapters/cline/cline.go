@@ -1,8 +1,8 @@
 // Package cline emits configs for the Cline VSCode extension and CLI.
 //
-// Rules and agents emit as always-on Markdown files under
-// `.cline/rules/` and `.cline/agents/` respectively, the layout
-// Cline's current config reference documents at
+// Rules emit as Markdown files under `.cline/rules/` and agents under
+// `.cline/agents/`, the layout Cline's current config reference
+// documents at
 // `.cline/{rules,skills,hooks,agents,plugins,cron}/`
 // (docs.cline.bot/getting-started/config, no mention of `.clinerules/`
 // anywhere, not even as a fallback). The older
@@ -22,6 +22,27 @@
 // shape) would round-trip back into the body on the next `import
 // cline` and double itself on the next sync, since nothing downstream
 // of a native, un-prefixed agent file expects to strip one back out.
+// A rule that declares `alwaysApply: false` narrows through Cline's one
+// conditional, `paths`: "Currently, `paths` is the supported
+// conditional. It takes an array of glob patterns"
+// (docs.cline.bot/customization/cline-rules). Explicit globs win over
+// the rule's source-layout scope, which falls back to `<scope>/**`.
+// Everything else stays bare, since "Rules without frontmatter are
+// always active" and writing an empty block would churn every existing
+// file for no behavior change. Before this existed no file carried
+// frontmatter at all, so a rule scoped to `src/components/**` loaded on
+// every request (target-audit 2026-08-27, #639).
+//
+// The wrinkle worth stating rather than papering over: the conditional
+// -rules page says `.clinerules/` throughout and never names
+// `.cline/rules/`, this adapter's default. The finding held either way,
+// since no frontmatter was emitted at either path, and `paths` is the
+// only activation key Cline documents anywhere. A rule that asks not to
+// be always-on but gives nothing to match on has no Cline
+// representation: `paths: []` is documented, but it "means the rule
+// never activates", which disables the rule instead of narrowing it, so
+// that case stays always-active and surfaces as a coverage note.
+//
 // Cline also reads the cross-tool root `AGENTS.md`, which is written
 // centrally by `sync` as a slim pointer to the source specs (shared
 // with codex, amp, warp, and zed).
@@ -103,9 +124,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		Dir:        rulesDir,
 		SkipAgents: true,
 		SkipSkills: true,
+		FormatRule: rule,
 	}, dryRun); err != nil {
 		return err
 	}
+	emit.NoteFieldNoOp(target, spec.KindRule, "alwaysApply", unscopableRules(b.Rules),
+		"Cline's only conditional is `paths`; a rule with no globs and no scope stays always-active")
 	// Sweep managed leftovers at the pre-migration path unless the user
 	// explicitly opted to keep emitting there. Hand-authored files (no
 	// provenance marker) survive.

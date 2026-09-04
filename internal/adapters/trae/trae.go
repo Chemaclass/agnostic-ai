@@ -1,25 +1,52 @@
-// Package trae emits .trae/rules/*.md, .trae/skills/<name>/SKILL.md,
-// .trae/commands/<name>.md, and .trae/mcp.json for Trae, ByteDance's AI
-// IDE.
+// Package trae emits .trae/rules/*.md, .trae/agents/<name>.md,
+// .trae/skills/<name>/SKILL.md, .trae/commands/<name>.md, and
+// .trae/mcp.json for Trae, ByteDance's AI IDE.
 //
 // Trae reads project rules from `.trae/rules/*.md` as persistent
 // behavioral constraints; it also applies `.trae/rules/` folders found
 // in subdirectories, but this adapter targets the project root only.
 // `project_rules.md` is the older single-file location and is not
-// emitted here. Every rule and agent file carries `description` /
-// `globs` / `alwaysApply` YAML frontmatter: docs.trae.ai/ide/rules
-// documents all three but never states what an activation mode a file
-// with none of them gets (#607), so this adapter always emits them
-// rather than leave the mode to guesswork. alwaysApply defaults to
-// true; a true rule omits globs entirely; alwaysApply:false without an
-// explicit globs falls back to the Claude spelling (`paths`,
-// comma-joined). This is the same three-field matrix Cursor's `.mdc`
-// files use off the same spec metadata (internal/adapters/cursor),
-// ported here rather than shared, since the two targets emit different
-// file shapes around it. Trae's custom-agent surface has no documented
-// file format yet, so agents flatten to rule-form files carrying the
-// same frontmatter, alongside plain rules (the same approach cline
-// uses).
+// emitted here. Every rule file carries `description` / `globs` /
+// `alwaysApply` YAML frontmatter: docs.trae.ai/ide/rules documents all
+// three but never states what activation mode a file with none of them
+// gets (#607), so this adapter always emits them rather than leave the
+// mode to guesswork. alwaysApply defaults to true; a true rule omits
+// globs entirely; alwaysApply:false without an explicit globs falls
+// back to the Claude spelling (`paths`, comma-joined). This is the same
+// three-field matrix Cursor's `.mdc` files use off the same spec
+// metadata (internal/adapters/cursor), ported here rather than shared,
+// since the two targets emit different file shapes around it.
+//
+// Agents emit as native project subagents at `.trae/agents/<name>.md`:
+// "Project subagents | ... | `{project_folder}/.trae/agents/{my_agent}.md`"
+// (docs.trae.ai/ide/subagents). Frontmatter carries `name` and
+// `description` (both required), plus optional `model`, `tools`,
+// `disallowedTools`, and `mcpServers`; the body after the closing
+// delimiter is the system prompt. This adapter previously flattened
+// agents into `.trae/rules/agent-<name>.md`, which reached the rules
+// loader instead of the subagent loader and dropped every field rule
+// frontmatter has no key for (target-audit 2026-08-27, #638); a stale
+// managed copy at the old name is swept for every current agent.
+//
+// Trae's tool vocabulary is Claude-style and covers agnostic-ai's set
+// exactly (Bash, Edit, Glob, Grep, Read, Write, WebFetch, WebSearch,
+// plus Skill, LSP, TodoWrite, and `mcp__<server>__<tool>`), so `tools`
+// passes through with no translation table, comma-joined into the
+// string spelling the vendor documents rather than a YAML list. `model`
+// is the opposite case: Trae accepts "Only built-in models provided by
+// TraeCode", a table of its own IDs (`gpt-5.4`, `minimax-m3`, ...) with
+// zero overlap with a cross-target `model:` value, so a bare generic
+// model never reaches the file. Name one for Trae with
+// `model: {trae: <id>}` or `x-trae.model`, and the drop surfaces as a
+// coverage note either way. `disallowedTools` and `mcpServers` have no
+// generic spec field and reach the file through `x-trae`.
+//
+// Subagents sit behind a toggle: "Go to Settings > Beta > Subagents,
+// ensure that the Enable Subagents Directory switch is toggled on."
+// The page never states its default, so a project may need that switch
+// before the emitted files load. The files are inert until then, which
+// is why this ships anyway: the rule-form path it replaces was reaching
+// the wrong loader in every case, toggle or not.
 //
 // Skills emit as one folder per skill under `.trae/skills/<name>/SKILL.md`
 // (docs.trae.ai/ide/skills), frontmatter `name` + `description`; sibling
@@ -80,6 +107,14 @@ const (
 	defaultSkillsDir   = ".trae/skills"
 	defaultCommandsDir = ".trae/commands"
 	defaultMCPFile     = ".trae/mcp.json"
+	// defaultAgentsDir is Trae's project subagent path:
+	// "`{project_folder}/.trae/agents/{my_agent}.md`"
+	// (docs.trae.ai/ide/subagents).
+	defaultAgentsDir = ".trae/agents"
+	// legacyAgentPrefix is the filename prefix agents carried while they
+	// flattened into the rules directory. Emit sweeps a stale managed
+	// copy for every current agent name.
+	legacyAgentPrefix = "agent-"
 )
 
 // commandFrontmatterKeys names the only frontmatter keys confirmed
@@ -101,22 +136,27 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one .md per rule and agent into the rules directory
-// (default `.trae/rules`), one folder per skill into the skills
-// directory (default `.trae/skills`), one file per command into the
-// commands directory (default `.trae/commands`), and the MCP server
-// registry (default `.trae/mcp.json`).
+// Emit writes one .md per rule into the rules directory (default
+// `.trae/rules`), one .md per agent into the agents directory (default
+// `.trae/agents`, Trae's native project-subagent path), one folder per
+// skill into the skills directory (default `.trae/skills`), one file
+// per command into the commands directory (default `.trae/commands`),
+// and the MCP server registry (default `.trae/mcp.json`).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
-		AgentPrefix: "agent-",
-		SkipSkills:  true,
-		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(ruleForm(e, ""), emit.FormatMarkdown) },
-		FormatAgent: func(e spec.Entry) string { return emit.WithHeader(ruleForm(e, "Agent: "), emit.FormatMarkdown) },
+		Dir:        rulesDir,
+		SkipAgents: true,
+		SkipSkills: true,
+		FormatRule: func(e spec.Entry) string { return emit.WithHeader(ruleForm(e), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
+		return err
+	}
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	if err := emitAgents(sess, b.Agents, agentsDir, rulesDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -167,16 +207,13 @@ func commandFile(e spec.Entry) string {
 	return sb.String()
 }
 
-// ruleForm renders one rule or agent as a `.md` file: the
+// ruleForm renders one rule as a `.md` file: the
 // description/globs/alwaysApply activation frontmatter (see the
-// package doc), then a `# <headingPrefix><name>` heading and the body.
-// headingPrefix is "" for a rule and "Agent: " for an agent flattened
-// to rule-form, matching the headings this adapter wrote before
-// frontmatter existed.
-func ruleForm(e spec.Entry, headingPrefix string) string {
+// package doc), then a `# <name>` heading and the body.
+func ruleForm(e spec.Entry) string {
 	var b strings.Builder
 	b.WriteString(activationFrontmatter(emit.ResolveMeta(e.Meta, target)))
-	b.WriteString("# " + headingPrefix + e.Name + "\n\n")
+	b.WriteString("# " + e.Name + "\n\n")
 	b.WriteString(e.Body)
 	return b.String()
 }
