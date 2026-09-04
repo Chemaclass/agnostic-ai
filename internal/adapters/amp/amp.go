@@ -131,6 +131,19 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // Amp accepts the standard `command`/`args`/`env` for stdio and
 // `url`/`headers` for HTTP transports (see Amp owner's manual MCP
 // guide).
+//
+// Any field beyond that set reaches the entry through `x-amp`
+// (emit.MergeCustomTargetMeta), the same passthrough commandFile and
+// the skill renderer already give their own surfaces. The field this
+// unblocks today is `includeTools`, which ampcode.com/docs/customize/skills
+// lists under "Common fields": "includeTools (string[], optional but
+// recommended) contains tool names or glob patterns used to choose
+// which tools are exposed". It stays namespaced rather than mapped
+// top-level because ampcode.com/docs/customize/mcp says MCP servers
+// "use the same configuration fields as MCP servers in skills" and
+// then enumerates without naming it: the clause implies the field, the
+// enumeration does not, and a namespaced key is correct either way
+// (target-audit 2026-08-27, #634).
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -156,6 +169,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		entry["env"] = env
 	}
+	var keys []string
+	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
+		"command", "args", "url", "headers", "env")
 	return entry
 }
 

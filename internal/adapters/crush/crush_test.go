@@ -284,6 +284,73 @@ func TestEmit_MCP_StdioIgnoresOAuthFields(t *testing.T) {
 	}
 }
 
+// disabled is Crush's own documented key ("Whether this MCP server is
+// disabled", schema.json `$defs.MCPConfig.properties.disabled`) and was
+// dropped silently until #641. That drop was worse than a warning: one
+// spec synced to crush and trae printed a note for trae and nothing for
+// crush, so the silence read as success.
+func TestEmit_MCP_DisabledEmits(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "disabled": true},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	if !strings.Contains(got, `"disabled": true`) {
+		t.Errorf("expected disabled to reach crush.json: %s", got)
+	}
+}
+
+// sessionless, enabled_tools and disabled_tools are properties of
+// MCPConfig itself rather than of a transport variant, so each emits on
+// whichever transport the spec declares (#634). Explicit field mapping,
+// not a generic x-crush merge: MCPConfig sets
+// `"additionalProperties": false`, so a typo would produce a config
+// Crush rejects outright.
+func TestEmit_MCP_PassesThroughSessionlessAndToolLists(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type": "http", "url": "https://api.githubcopilot.com/mcp/",
+				"sessionless":   true,
+				"enabled_tools": []any{"read_file", "list_issues"},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":        "npx",
+				"disabled_tools": []any{"delete_file"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "crush.json"))
+	for _, want := range []string{
+		`"sessionless": true`,
+		`"enabled_tools"`, `"list_issues"`,
+		`"disabled_tools"`, `"delete_file"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

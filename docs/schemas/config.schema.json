@@ -327,6 +327,9 @@
         "mcp-file": {
           "type": "string"
         },
+        "cli-mcp-file": {
+          "type": "string"
+        },
         "root-mcp-file": {
           "type": "string"
         },

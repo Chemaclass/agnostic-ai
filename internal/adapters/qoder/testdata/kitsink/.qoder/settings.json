@@ -5,13 +5,16 @@
       "disabled": true
     },
     "http-server": {
-      "oauth": {
-        "clientId": "client-abc",
-        "oauthScopes": [
-          "files:read"
-        ],
-        "redirectUri": "http://localhost:7778/oauth/callback"
-      },
+      "alwaysAllow": [
+        "read_file"
+      ],
+      "description": "Remote MCP over HTTP",
+      "excludeTools": [
+        "delete_file"
+      ],
+      "includeTools": [
+        "read_file"
+      ],
       "type": "http",
       "url": "https://example.test/mcp"
     },
@@ -20,13 +23,10 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "autoApprove": [
-        "read_file"
-      ],
       "command": "npx",
-      "disabledTools": [
-        "delete_file"
-      ]
+      "cwd": "/srv/project",
+      "timeout": 4500,
+      "trust": true
     }
   }
 }

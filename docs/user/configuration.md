@@ -127,7 +127,8 @@ outputs:
     instructions-dir: .github/instructions  # default. One .instructions.md per rule.
     agents-dir: .github/agents              # default. One <name>.agent.md profile per agent.
     skills-dir: .github/skills              # default. One folder per skill (<name>/SKILL.md + bundled assets).
-    mcp-file: .vscode/mcp.json              # default
+    mcp-file: .vscode/mcp.json              # default. VS Code's file, servers wrapper.
+    cli-mcp-file: .github/mcp.json          # default. Copilot CLI's file, mcpServers wrapper. The CLI does not read .vscode/mcp.json.
     # root-mcp-file: .mcp.json             # opt-in: also write the servers to a workspace-root .mcp.json under mcpServers, the key its reader accepts.
     # chatmodes-dir: .github/chatmodes      # opt-in: also emit each agent as a Copilot Custom Chat Mode.
   aider:
@@ -194,7 +195,7 @@ outputs:
     rules-dir: .qoder/rules             # default. One .md per rule (native, precedence over AGENTS.md).
     agents-dir: .qoder/agents           # default. One .md per agent (name/description required; model/tools/skills/mcpServers optional).
     skills-dir: .qoder/skills           # default. One folder per skill (<name>/SKILL.md), Qoder's own tree (not the shared .agents/skills/).
-    mcp-file: .mcp.json                 # default. Standard mcpServers schema; same file Claude Code writes.
+    mcp-file: .qoder/settings.json      # default. Standard mcpServers schema, merged; user keys preserved.
   openhands:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; AGENTS.md pointer written by sync.
     mcp-file: config.toml               # default. [mcp] table: stdio_servers / sse_servers / shttp_servers.
@@ -289,6 +290,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `copilot` | `chatmodes-dir` | _empty_ | When set, each agent also emits as a Copilot Custom Chat Mode at `<dir>/<name>.chatmode.md`. The native agent profile still emits. Opt-in. |
 | `copilot` | `rules-file` | _empty_ | When set, writes always-on rules concatenated at that path (legacy layout). `sync` skips the pointer-body write for `copilot`. |
 | `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
+| `copilot` | `cli-mcp-file` | `.github/mcp.json` | Copilot CLI schema: top-level `mcpServers`. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so both files emit with the same servers under different wrappers. |
 | `aider` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path (typically `CONVENTIONS.md`). `sync` skips the pointer-body write for `aider`. |
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
@@ -341,7 +343,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
 | `qoder` | `agents-dir` | `.qoder/agents` | One `.md` per agent (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as a comma-separated string (`Read, Grep, Bash`), Qoder's only documented form; safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style. |
 | `qoder` | `skills-dir` | `.qoder/skills` | One folder per skill (`<name>/SKILL.md`, Qoder's native Agent Skills layout). Qoder's own tree, not the `.agents/skills/` compatibility path Kilo Code, Augment, and OpenHands share: the vendor doc does not list it as a compatible location. |
-| `qoder` | `mcp-file` | `.mcp.json` | Standard `mcpServers` schema; the identical file and path Claude Code writes, deduplicated when both targets are enabled. `disabled` is dropped (not vendor-confirmed; the file is shared with Claude Code, which ignores the key). |
+| `qoder` | `mcp-file` | `.qoder/settings.json` | Standard `mcpServers` schema, merged into Qoder's own settings file so unrelated keys survive. Moved off the project-root `.mcp.json` in #641: that path is Claude Code's, and Qoder's documented per-server fields (`trust`, `includeTools`, `alwaysAllow`, a working `disabled`) diverge from Claude Code's. Delete a leftover `.mcp.json` by hand in a Qoder-only project; it still loads and outranks this file. |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL strings, or `{ url, api_key }` objects when the entry sets `api_key`). No `type` field; transport is implied by the array. `headers` has no equivalent and surfaces a coverage note instead of reaching OpenHands silently. |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |

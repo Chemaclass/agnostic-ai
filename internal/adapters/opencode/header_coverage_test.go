@@ -94,11 +94,14 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"cwd": "/srv/project",
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "timeout": 5000},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

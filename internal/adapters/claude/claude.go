@@ -16,6 +16,16 @@
 // field rather than write one Claude Code ignores, and buffers a
 // coverage note so the drop is loud, not silent.
 //
+// Four other `.mcp.json` per-server fields do emit, all four confirmed
+// on the same vendor page (target-audit 2026-08-27, #634):
+// `headersHelper` (a command run at connection time for a server on
+// Kerberos, short-lived tokens, or internal SSO), `timeout` (tool
+// execution, milliseconds), `alwaysLoad` (exempt the server's tools
+// from tool-search deferral), and an `oauth` object carrying
+// `clientId`, `callbackPort`, `authServerMetadataUrl`, and `scopes`.
+// `oauth.clientSecret` is not among them on purpose: the vendor stores
+// the secret in the system keychain, "not in your config".
+//
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
 // CLAUDE.md is never clobbered. Claude Code auto-loads every `.md` file
 // under that directory (recursively) at session start, and scopes a rule
@@ -145,7 +155,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithClaudeMCPExtras())
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why

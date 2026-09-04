@@ -46,17 +46,31 @@
 // kilo, augment, and openhands, so this is Qoder's own tree, not a
 // dedupe target for the shared one.
 //
-// MCP servers merge into `.mcp.json` (override via
-// outputs.qoder.mcp-file) under a root `mcpServers` map: stdio carries
-// `command`/`args`/`env` with no `type`; remote carries an explicit
-// `type` plus `url`/`headers`. That is the exact shape and the exact
-// literal project-root path Claude Code already writes: two targets
-// sharing one file, deduplicated by sync when both are enabled. Qoder's
-// own support for a per-server `disabled` key is not vendor-confirmed,
-// and `.mcp.json` is the same file Claude Code reads there (which
-// ignores the key entirely), so this adapter strips `disabled` the way
-// the claude adapter does rather than risk two targets writing
-// different bytes to one shared path.
+// MCP servers merge into `.qoder/settings.json` (override via
+// outputs.qoder.mcp-file) under a root `mcpServers` map. See mcp.go for
+// the emitted field set.
+//
+// That file replaced the project-root `.mcp.json` in #641. Both are
+// documented project-level locations on
+// docs.qoder.com/cli/mcp-reference's own scope table, but `.mcp.json`
+// is the identical literal path Claude Code writes, and the two
+// adapters only shared it while their emitted bytes stayed identical.
+// They no longer can: Qoder documents nine per-server fields Claude
+// Code does not (`trust`, `includeTools`, `excludeTools`,
+// `alwaysAllow`, a working `disabled`, and more), Claude Code documents
+// four Qoder does not (`headersHelper`, `alwaysLoad`, and its own
+// `oauth` and `timeout` shapes), and a spec using any of them would
+// have made two adapters write different bytes to one path. That trips
+// sync's collision check as a hard error, on a pair of targets both in
+// the default set. Moving to Qoder's own file removes the shared path
+// instead of arbitrating it.
+//
+// One migration note: a `.mcp.json` left behind by an older
+// agnostic-ai still loads, and the vendor's precedence order puts it
+// ahead of `.qoder/settings.json` for a same-named server. Sync cannot
+// sweep it, since a JSON file carries no provenance header and the file
+// may well belong to Claude Code. A Qoder-only project should delete it
+// by hand once.
 package qoder
 
 import (
@@ -73,7 +87,7 @@ const (
 	defaultDir       = ".qoder/rules"
 	defaultAgentsDir = ".qoder/agents"
 	defaultSkillsDir = ".qoder/skills"
-	defaultMCPFile   = ".mcp.json"
+	defaultMCPFile   = ".qoder/settings.json"
 )
 
 var caps = emit.Capabilities{
@@ -94,8 +108,8 @@ func (Adapter) Name() string { return target }
 // `.qoder/rules`), one .md per agent into the agents directory (default
 // `.qoder/agents`), one folder per skill into the skills directory
 // (default `.qoder/skills`, Qoder's native Agent Skills layout; a flat
-// file there never loads as a skill), plus a merged `.mcp.json` for MCP
-// servers.
+// file there never loads as a skill), plus a merged
+// `.qoder/settings.json` for MCP servers.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -115,15 +129,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
-
-// mcpDisabledNoOpReason explains, in the flushed coverage note, why
-// `disabled: true` on an MCP spec never reaches `.mcp.json`: the file
-// is shared byte-for-byte with Claude Code, which has no per-server
-// disable key there (see the package doc comment).
-const mcpDisabledNoOpReason = "no confirmed file-based way to pre-disable a project-scoped MCP server; .mcp.json is the same file Claude Code reads there, and Claude Code ignores a per-server disabled key"
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {

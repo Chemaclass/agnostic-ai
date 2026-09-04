@@ -4,15 +4,24 @@
       "command": "x"
     },
     "http-server": {
+      "headersHelper": "/opt/bin/get-mcp-auth-headers.sh",
+      "oauth": {
+        "authServerMetadataUrl": "https://auth.example.test/.well-known/openid-configuration",
+        "callbackPort": 8080,
+        "clientId": "client-abc",
+        "scopes": "channels:read chat:write"
+      },
       "type": "http",
       "url": "https://example.test/mcp"
     },
     "stdio-server": {
+      "alwaysLoad": true,
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "timeout": 600000
     }
   }
 }

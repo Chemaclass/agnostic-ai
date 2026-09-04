@@ -90,7 +90,7 @@ var targetVarPaths = map[string]map[string]string{
 	},
 	"qoder": {
 		emit.VarSkillsDir: ".qoder/skills", emit.VarAgentsDir: ".qoder/agents",
-		emit.VarRulesDir: ".qoder/rules", emit.VarMCPFile: ".mcp.json",
+		emit.VarRulesDir: ".qoder/rules", emit.VarMCPFile: ".qoder/settings.json",
 	},
 	"openhands": {
 		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: "config.toml",

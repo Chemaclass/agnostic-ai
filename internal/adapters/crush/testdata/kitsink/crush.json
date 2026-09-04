@@ -2,12 +2,20 @@
   "mcp": {
     "disabled-server": {
       "command": "x",
+      "disabled": true,
       "type": "stdio"
     },
     "http-server": {
+      "disabled_tools": [
+        "delete_file"
+      ],
+      "enabled_tools": [
+        "read_file"
+      ],
       "oauth": true,
       "oauth_callback_port": 8090,
       "oauth_client_id": "client-abc",
+      "sessionless": true,
       "type": "http",
       "url": "https://example.test/mcp"
     },

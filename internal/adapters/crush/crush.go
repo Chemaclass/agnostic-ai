@@ -28,7 +28,11 @@
 // connect rather than merely being mislabelled. Both shapes also accept
 // "headers": {...}, "oauth": ..., "oauth_client_id": ...,
 // "oauth_client_secret": ..., and "oauth_callback_port": ... (oauth
-// fields optional, shipped in Crush v0.87.0). crush.json also holds
+// fields optional, shipped in Crush v0.87.0). Either transport also
+// accepts "disabled": true, "sessionless": true, "enabled_tools":
+// [...], and "disabled_tools": [...], all four read from the vendor's
+// published schema.json rather than the README, which is the only place
+// the MCP property set appears closed. crush.json also holds
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
 package crush
@@ -110,6 +114,13 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // tag since Crush routes it to a different transport, while http and
 // remote (Crush has no "remote" MCPType of its own) both default to
 // `type: "http"`.
+//
+// Every field here is mapped explicitly rather than merged from a
+// generic `x-crush` block. Crush's schema.json sets
+// `"additionalProperties": false` on `$defs.MCPConfig`, so a typo in a
+// namespaced passthrough would produce a config Crush rejects outright
+// rather than one it ignores. Skill frontmatter has no such constraint,
+// which is why the shared skill renderer still takes the generic merge.
 func buildMCPEntry(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -167,6 +178,32 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		}
 	default:
 		return nil
+	}
+
+	// disabled is Crush's own key, "Whether this MCP server is disabled"
+	// (default false), and it was dropped silently until #641: a spec
+	// carrying `disabled: true` synced to crush and trae printed a note
+	// for trae only, so a user reasonably read the silence as crush
+	// honoring the field. It did not.
+	if disabled, _ := e.Meta["disabled"].(bool); disabled {
+		out["disabled"] = true
+	}
+	// sessionless, enabled_tools and disabled_tools round out the
+	// documented property set. schema.json: sessionless is "Mark a
+	// sessionless MCP server (no Mcp-Session-Id) so Crush skips the
+	// subscriptions/listen stream it would otherwise reject" (shipped
+	// v0.91.2), enabled_tools is an "Allow list of tools from this MCP
+	// server", disabled_tools a "List of tools from this MCP server to
+	// disable". All three are properties of MCPConfig itself, not of a
+	// transport variant, so none is gated on `type` (#634).
+	if sessionless, _ := e.Meta["sessionless"].(bool); sessionless {
+		out["sessionless"] = true
+	}
+	if enabled := emit.StringSlice(e.Meta["enabled_tools"]); len(enabled) > 0 {
+		out["enabled_tools"] = enabled
+	}
+	if disabledTools := emit.StringSlice(e.Meta["disabled_tools"]); len(disabledTools) > 0 {
+		out["disabled_tools"] = disabledTools
 	}
 
 	return out

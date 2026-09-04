@@ -82,11 +82,15 @@ func TestEmit_MCP_RemoteServerIgnoresCwd(t *testing.T) {
 	}
 }
 
-// description, disabled, and roots predate this bespoke builder (they
-// came from the shared emit.MCPSchemaServersMapNoType path this adapter
-// used before #606); moving to a dedicated builder must not drop them.
-func TestEmit_MCP_DescriptionDisabledAndRootsStillEmit(t *testing.T) {
+// description, disabled, and roots came from the shared
+// emit.MCPSchemaServersMapNoType path this adapter used before #606 and
+// carried through that split unexamined. Warp publishes two closed
+// property tables (CLI Server: command, args, env, working_directory;
+// URL Server: url, headers) and names none of the three anywhere, so
+// #641 stopped emitting them.
+func TestEmit_MCP_DescriptionDisabledAndRootsNoLongerEmit(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
 
 	entries := []spec.Entry{
 		{
@@ -106,13 +110,43 @@ func TestEmit_MCP_DescriptionDisabledAndRootsStillEmit(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
-	for _, want := range []string{
-		`"description": "Filesystem access"`,
-		`"disabled": true`,
-		`"uri": "file:///workspace"`,
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
+	for _, unwanted := range []string{`"description"`, `"disabled"`, `"roots"`, `"uri"`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("unexpected %q in %s", unwanted, got)
 		}
+	}
+	if !strings.Contains(got, `"command": "npx"`) {
+		t.Errorf("documented fields must survive: %s", got)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`disabled` on 1 mcp has no effect on warp") {
+		t.Errorf("expected a field no-op note for disabled, got: %s", buf.String())
+	}
+}
+
+// description and roots stay reachable through x-warp for anyone who
+// wants them written anyway, the same escape hatch the workflow
+// renderer already offers. Undocumented keys go in namespaced, never
+// promoted from a top-level spec field.
+func TestEmit_MCP_UndocumentedFieldsReachableViaXWarp(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"x-warp":  map[string]any{"description": "Filesystem access"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	if !strings.Contains(got, `"description": "Filesystem access"`) {
+		t.Errorf("missing x-warp passthrough in %s", got)
 	}
 }

@@ -91,15 +91,23 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Meta: map[string]any{"description": "Tres skill description."}, Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"cwd": "/srv/project", "timeout": 4500, "trust": true,
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"description":  "Remote MCP over HTTP",
+				"includeTools": []any{"read_file"}, "excludeTools": []any{"delete_file"},
+				"alwaysAllow": []any{"read_file"},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x"},
+			Meta: map[string]any{"command": "x", "disabled": true},
 		},
 	}
 	return spec.NewBundle(entries)

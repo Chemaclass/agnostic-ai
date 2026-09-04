@@ -17,6 +17,23 @@
 // at `.github/skills/<name>/SKILL.md` with bundled assets, the two
 // surfaces Copilot discovers directly.
 //
+// MCP servers emit twice, because Copilot has two readers that
+// disagree on the file. `.vscode/mcp.json` is VS Code's, and VS Code
+// forwards its non-interactive servers to the Agent Host.
+// `.github/mcp.json` is Copilot CLI's, listed on its project-level
+// discovery table as "Shared configuration that is committed to the
+// repository"; the same page says "The `.vscode/mcp.json` file for VS
+// Code is not read by Copilot CLI." Until #646 only the VS Code file
+// was written by default, so a Copilot CLI user with no VS Code in the
+// loop got no MCP server at all. Override either path with
+// outputs.copilot.mcp-file / outputs.copilot.cli-mcp-file.
+//
+// The table's other project-level entry is a `.mcp.json` anywhere from
+// the working directory up to the repository root. That one stays
+// opt-in behind outputs.copilot.root-mcp-file, since the project root
+// is shared ground with Claude Code and Qoder rather than Copilot's own
+// directory.
+//
 // An MCP spec's `disabled: true` has no file-based equivalent here:
 // VS Code's own docs state the enable/disable state "is stored
 // separately from the server configuration in mcp.json, so it does not
@@ -42,6 +59,7 @@ const (
 	defaultAgentsDir       = ".github/agents"
 	defaultSkillsDir       = ".github/skills"
 	defaultMCPFile         = ".vscode/mcp.json"
+	defaultCLIMCPFile      = ".github/mcp.json"
 	instructionFileSuffix  = ".instructions.md"
 	agentFileSuffix        = ".agent.md"
 	catchAllApplyTo        = "**"
@@ -92,14 +110,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitMCP(sess, b, cfg, dryRun)
 }
 
-// emitMCP writes the VS Code MCP file, and the workspace-root copy too
-// when outputs.copilot.root-mcp-file is set. The two files carry the same
-// servers under different wrappers, because they have different readers.
-// `.vscode/mcp.json` is VS Code's own file and keeps `servers`. The root
-// `.mcp.json` is read by Copilot CLI and Agent Host, and that reader
-// rejects the VS Code wrapper: "The `.vscode/mcp.json` file for VS Code
-// is not read by Copilot CLI. It uses the unsupported top-level key
-// `servers`."
+// emitMCP writes the two Copilot MCP files, plus the workspace-root
+// copy when outputs.copilot.root-mcp-file is set. They carry the same
+// servers under different wrappers, because they have different
+// readers.
+//
+// `.vscode/mcp.json` is VS Code's own file and keeps `servers`.
+// `.github/mcp.json` and the opt-in root `.mcp.json` are read by
+// Copilot CLI, and that reader rejects the VS Code wrapper: "The
+// `.vscode/mcp.json` file for VS Code is not read by Copilot CLI. It
+// uses the unsupported top-level key `servers`."
 // (docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers).
 // The same page accepts `mcpServers`, and its own migration recipe is a
 // rename of that one key.
@@ -107,6 +127,10 @@ func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool)
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
+		emit.OutputCLIMCPFile(cfg, target, defaultCLIMCPFile), dryRun); err != nil {
 		return err
 	}
 	root := emit.OutputRootMCPFile(cfg, target)

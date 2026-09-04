@@ -103,15 +103,25 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"autoApprove": []any{"read_file"}, "disabledTools": []any{"delete_file"},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"oauth": map[string]any{
+					"clientId":    "client-abc",
+					"redirectUri": "http://localhost:7778/oauth/callback",
+					"oauthScopes": []any{"files:read"},
+				},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x"},
+			Meta: map[string]any{"command": "x", "disabled": true},
 		},
 	}
 	return spec.NewBundle(entries)

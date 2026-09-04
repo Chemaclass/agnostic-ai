@@ -10,7 +10,18 @@ import (
 // emitMCP writes .warp/.mcp.json (default; override via
 // outputs.warp.mcp-file). No file is written when mcps is empty or every
 // entry renders empty. See buildMCPServer for the confirmed schema.
+// mcpDisabledNoOpReason explains, in the flushed coverage note, why
+// `disabled: true` on an MCP spec never reaches `.warp/.mcp.json`:
+// docs.warp.dev/agents/capabilities/mcp publishes two closed property
+// tables (CLI Server and URL Server) and neither has a disable key.
+// The same page removes most of the need for one: "Project-scoped
+// servers never auto-spawn - Warp detects project-scoped MCP config
+// files in cloned repos, but requires you to start each server
+// manually."
+const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; project-scoped servers never auto-spawn, so toggle the server on from the MCP servers page when you want it"
+
 func emitMCP(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
+	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
 	doc, err := buildMCPDocument(mcps)
 	if err != nil {
 		return err
@@ -62,10 +73,16 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 // single tab covers both transports, so the transport is never named in
 // config (#592).
 //
-// `description`, `disabled`, and `roots` are not documented on that
-// page but are kept here unchanged from the shared builder this adapter
-// used before: this fix maps a confirmed field, not a re-audit of the
-// rest.
+// `description`, `disabled`, and `roots` appear in neither table and
+// no longer emit (target-audit 2026-08-27, #641). They were inherited
+// from the shared builder this adapter used before it grew its own, and
+// carried through the #606 split unexamined. Warp's two tables are
+// closed lists, so writing a key from outside them asserts vendor
+// support that no vendor sentence backs. `disabled` surfaces a coverage
+// note instead of vanishing (see mcpDisabledNoOpReason); `description`
+// and `roots` are pure documentation on the spec side and reach the
+// file through `x-warp` for anyone who wants them written anyway, the
+// same escape hatch warp.go's workflow renderer already offers.
 func buildMCPServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
@@ -94,14 +111,8 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 		out["env"] = env
 	}
-	if desc, _ := e.Meta["description"].(string); desc != "" {
-		out["description"] = desc
-	}
-	if disabled, _ := e.Meta["disabled"].(bool); disabled {
-		out["disabled"] = true
-	}
-	if roots := emit.BuildRoots(e.Meta); len(roots) > 0 {
-		out["roots"] = roots
-	}
+	var keys []string
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
+		"command", "args", "env", "working_directory", "url", "headers")
 	return out
 }

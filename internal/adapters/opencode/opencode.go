@@ -167,9 +167,10 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 }
 
 // buildMCPEntry renders one `mcp.<name>` entry from this fixed field
-// set: type, command (stdio) or url/headers (remote), environment, and
-// enabled. Any other documented field beyond that set (`oauth` on a
-// "Pre-registered" remote entry, opencode.ai/docs/mcp-servers/) or any
+// set: type, command plus cwd (stdio) or url/headers (remote),
+// environment, enabled, and timeout. Any other documented field beyond
+// that set (`oauth` on a "Pre-registered" remote entry,
+// opencode.ai/docs/mcp-servers/) or any
 // field OpenCode adds next reaches the entry through `x-opencode`
 // (emit.MergeCustomTargetMeta) instead of staying unreachable: commands
 // and agents already get that passthrough (commandFile, agent.go), so
@@ -184,6 +185,13 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	case "stdio":
 		entry["type"] = "local"
 		entry["command"] = combineCommand(e.Meta)
+		// Local-server option table only: "cwd | String | Working
+		// directory for the MCP server process. Relative paths resolve
+		// from the workspace." The remote table has no such row. The
+		// field name is identical on both sides, so no rename (#641).
+		if cwd, _ := e.Meta["cwd"].(string); cwd != "" {
+			entry["cwd"] = cwd
+		}
 	case "http", "sse", "remote":
 		entry["type"] = "remote"
 		if url, _ := e.Meta["url"].(string); url != "" {
@@ -199,9 +207,17 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		entry["enabled"] = false
 	}
+	// timeout appears in both the local and remote option tables:
+	// "Timeout in ms for fetching tools from the MCP server. Defaults to
+	// 5000 (5 seconds)." Milliseconds, matching the gemini and claude
+	// spelling of the same spec field, so it needs no unit conversion
+	// (target-audit 2026-09-03, #641).
+	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {
+		entry["timeout"] = timeout
+	}
 	var keys []string
 	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
-		"type", "command", "url", "headers", "environment", "enabled")
+		"type", "command", "cwd", "url", "headers", "environment", "enabled", "timeout")
 	return entry
 }
 
