@@ -114,7 +114,7 @@ The same file lands in every target's own rules directory: `.claude/rules/`, `.k
 | Kilo Code               |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 | Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
 | Goose (Block)           |   -    |   -    |   ◐   |   -   |  -   |
-| Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  -   |
+| Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
 
 - **✅ native** — the tool's own format, at the path it auto-loads.
 - **◐ bundled** — folded into the target's entry-point file, no per-spec file.

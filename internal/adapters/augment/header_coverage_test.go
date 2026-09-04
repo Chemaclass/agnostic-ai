@@ -19,7 +19,11 @@ import (
 // the agnostic-ai provenance marker. The kit-sink bundle opts into the
 // legacy rules-file too, so the header-bearing footprint also covers
 // `.augment-guidelines` alongside the unconditional native rules,
-// agents, and skills output.
+// agents, and skills output. `.augment/settings.json` legitimately
+// skips the header (JSON has no comment syntax agnostic-ai emits into,
+// and the file is shared with Auggie's own settings) but the test still
+// asserts it is non-empty so a regression that produces an empty file
+// trips here.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -28,6 +32,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
+
+	jsonExempt := func(p string) bool { return strings.HasSuffix(p, ".json") }
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -42,6 +48,16 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 			return err
 		}
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
+			return nil
+		}
+		if jsonExempt(rel) {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				t.Errorf("expected non-empty JSON output %s", rel)
+			}
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -64,7 +80,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the augment
-// adapter declares in caps.Supports (Rule, Agent, Skill).
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP). The MCP
+// specimens cover both transports the shared MCPSchemaServersMap
+// builder renders: stdio (command/args) and remote (type/url).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -76,6 +94,14 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
+		{
+			Kind: spec.KindMCP, Name: "stdio-server",
+			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+		},
+		{
+			Kind: spec.KindMCP, Name: "http-server",
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

@@ -133,17 +133,7 @@ func MCPDocument(mcps []spec.Entry, schema MCPSchema, opts ...MCPOption) (string
 	for _, opt := range opts {
 		opt(&o)
 	}
-	servers := map[string]map[string]any{}
-	for _, e := range mcps {
-		if e.Name == "" {
-			continue
-		}
-		entry := buildServer(e, schema, o)
-		if len(entry) == 0 {
-			continue
-		}
-		servers[e.Name] = entry
-	}
+	servers := buildServersMap(mcps, schema, o)
 	if len(servers) == 0 {
 		return "", nil
 	}
@@ -159,6 +149,45 @@ func MCPDocument(mcps []spec.Entry, schema MCPSchema, opts ...MCPOption) (string
 		return "", fmt.Errorf("marshal mcp: %w", err)
 	}
 	return string(raw) + "\n", nil
+}
+
+// BuildMCPServersMap renders the same {name: server-config} entries as
+// MCPDocument, without the mcpServers/servers wrapper key. For a target
+// whose MCP servers live inside a larger, merge-based settings file
+// under their own top-level key (augment's `.augment/settings.json`,
+// alongside shell, theme, and — once #629 lands — hooks) rather than a
+// dedicated MCP-only file WriteMCPFile can overwrite outright. Returns
+// nil when mcps is empty or every entry renders empty, so the caller can
+// skip setting the key entirely instead of writing an empty map.
+func BuildMCPServersMap(mcps []spec.Entry, schema MCPSchema, opts ...MCPOption) map[string]any {
+	var o mcpOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	servers := buildServersMap(mcps, schema, o)
+	if len(servers) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(servers))
+	for k, v := range servers {
+		out[k] = v
+	}
+	return out
+}
+
+func buildServersMap(mcps []spec.Entry, schema MCPSchema, o mcpOptions) map[string]map[string]any {
+	servers := map[string]map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		entry := buildServer(e, schema, o)
+		if len(entry) == 0 {
+			continue
+		}
+		servers[e.Name] = entry
+	}
+	return servers
 }
 
 func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "http-server": {
+      "type": "http",
+      "url": "https://example.test/mcp"
+    },
+    "stdio-server": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ],
+      "command": "npx"
+    }
+  }
+}
