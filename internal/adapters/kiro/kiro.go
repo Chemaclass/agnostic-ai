@@ -39,11 +39,21 @@
 // `todo_list`), `@server_name` / `@server_name/tool_name` for one or
 // all tools from a specific MCP server, `@mcp` for every MCP tool
 // across servers, `@builtin` for every built-in tool, and `*` for
-// everything. This adapter translates agnostic-ai's Claude-style names
-// onto that vocabulary (kiroToolCategory): `Read`, `Grep`, and `Glob`
-// collapse onto `read`; `Write` and `Edit` onto `write`; `Bash` onto
-// `shell`; `WebFetch` and `WebSearch` onto `web`, deduplicated so
-// several Claude-style names sharing a category emit that tag once.
+// everything. A second page (kiro.dev/docs/tools/, updated 2026-08-21,
+// seventeen days after configuration-reference's own 2026-08-04 date)
+// tables the same field differently: `read`, `write`, `shell`, `web`,
+// `subagent`, `spec`, `context`, where `context` bundles
+// `disclose_context`, `introspect`, and `knowledge`; `todo_list` is
+// gone and `knowledge` no longer stands alone. The two pages disagree
+// and neither states which one the shipping product follows, so this
+// adapter keeps citing configuration-reference rather than guessing;
+// it does not matter functionally, since both pages agree on the four
+// categories this adapter actually emits. This adapter translates
+// agnostic-ai's Claude-style names onto that vocabulary
+// (kiroToolCategory): `Read`, `Grep`, and `Glob` collapse onto `read`;
+// `Write` and `Edit` onto `write`; `Bash` onto `shell`; `WebFetch` and
+// `WebSearch` onto `web`, deduplicated so several Claude-style names
+// sharing a category emit that tag once.
 // Kiro's built-in-tools catalog (kiro.dev/docs/tools/) documents each
 // category as a bundle, not a single tool: `write` covers `fs_write`,
 // `fs_append`, `str_replace`, and `delete_file`, so an agent declaring

@@ -60,11 +60,14 @@
 // their own unmapped fields (#588); `import antigravity` captures it
 // back the same way. Hooks now have a documented schema
 // (antigravity.google/docs/ide/hooks: `.agents/hooks.json`, five
-// events, PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop),
-// but whether the IDE itself executes them stays unconfirmed
-// (target-audit 2026-08-08, #563), so this adapter still skips hooks
-// with a warning; commands remain fully unconfirmed in the
-// public-preview docs and skip the same way.
+// events, PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop).
+// The hook payload's `transcriptPath` resolves under
+// `~/.gemini/antigravity-ide`, the IDE's own app-data directory,
+// confirming the IDE itself runs them (target-audit 2026-08-27, #563);
+// that question no longer blocks adding the surface, tracked in #629.
+// This adapter still skips hooks with a warning until #629 lands;
+// commands remain fully unconfirmed in the public-preview docs and
+// skip the same way.
 package antigravity
 
 import (
