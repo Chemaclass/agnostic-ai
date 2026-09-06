@@ -35,6 +35,25 @@
 // the MCP property set appears closed. crush.json also holds
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
+//
+// crush.json is Crush's legacy format. The vendor's own docs call it
+// deprecated and freeze it: "new configuration options will only be
+// added to Bash-based config" (`crushrc`, a Bash script Crush sources
+// on startup, now the documented primary format). This adapter still
+// targets crush.json because crushrc needs its own design pass, not a
+// drift fix: shell-quoting arbitrary header/URL values and choosing how
+// a generated crushrc interacts with the merge below are open questions
+// (#674). Practical effect: our MCP entries keep loading, since the
+// vendor gives JSON no removal date and says it plans to keep it
+// working, but a future crush-only MCP field ships Bash-only and has no
+// path through this adapter. Discovery order matters too: on Unix,
+// Crush reads `./.crushrc`, then `./crushrc`, then
+// `$XDG_CONFIG_HOME/crush/crushrc`, merges every legacy `crush.json` /
+// `.crush.json` found alongside those paths, with project settings
+// overriding global ones and crushrc overriding JSON in the same
+// directory, and logs a warning whenever a directory holds both. A
+// project that also hand-authors a `crushrc` gets that warning against
+// our crush.json on every launch; nothing on our side can suppress it.
 package crush
 
 import (
