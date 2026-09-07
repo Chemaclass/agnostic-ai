@@ -8,22 +8,17 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `agnostic-ai sync --global` emits shared user-level instructions, hooks, and skills as native configuration directly from `~/.agnostic-ai/`, while preserving unrelated native configuration and keeping project sync isolated (#680).
-- `sync --global` now covers 22 of the 25 targets instead of Claude Code and Cursor alone, each at its own documented user-level path. Rules inline into the instructions file, or land in `~/.augment/rules/` for the one target that documents no user-level instructions file. Hooks reach Codex, Gemini, and Qoder, which share Claude Code's documented schema at user scope. Aider, Continue, and Jules are excluded: no vendor documents an auto-loaded user-level surface for them (#680).
-
+- `agnostic-ai sync --global` installs shared user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) as native configuration for 22 of the 25 targets, each at its own documented user-level path. Unrelated native text, JSON keys, hooks, and skills are preserved, and project sync stays isolated (#680).
 - Codex MCP servers emit the vendor's per-tool sub-tables from a `tools` map: `[mcp_servers.<name>.tools.<tool>]`, keys passed through verbatim, covering `output_token_limit` (shipped in Codex v0.153.0) and the per-tool approval override. The block was dropped in silence before, with no warning and no coverage note (#678).
 - `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much command and background-task output Claude Code takes inline before spilling it to a file, up to 128K characters. Both shipped in Claude Code v2.1.261 and previously had no declarative path, only the captured overlay (#679).
 
 ### Changed
 
 - Ordinary project sync no longer loads `~/.agnostic-ai/` as a low-precedence spec layer. The directory is now the explicit global source for `sync --global`; keep project-only defaults in each project or a pack (#680).
-
 - Crush docs now record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields, and that Crush merges it with `crushrc` (with a startup warning when a project has both). No emission changes; MCP servers still write to `crush.json` (#674).
 
 ### Fixed
 
-- `sync --global` no longer seeds an empty hooks or instructions file into a home directory that had none, and now fails with a named path when two targets resolve to the same global file with different content (#680).
-- `sync --global` keeps the trailing newline of user text it preserves. Stripping the managed block from an instructions file used to hand the file back without its final newline (#680).
 - Kiro's adapter doc and `docs/user/targets.md` now note that `/docs/tools/` (2026-08-21) tables the agent `tools` category vocabulary differently from `/docs/custom-agents/configuration-reference/` (2026-08-04): `spec` and `context` replace `todo_list` and a standalone `knowledge`. This adapter still cites configuration-reference and only ever emits the four categories both pages agree on, so behavior is unchanged (#675).
 - Antigravity's adapter doc and `docs/user/targets.md` drop a stale "stays unconfirmed" note on whether the IDE executes its documented hooks. The vendor's own hook payload confirms it does; that no longer blocks adding the surface, tracked in #629 (#675).
 
