@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -58,15 +59,16 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 }
 
 func TestGlobalPath_ResolvesBothRoots(t *testing.T) {
+	home, cfg := t.TempDir(), t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", "")
-	if got, want := globalPath("/h", globalPathHome+".claude/CLAUDE.md"), "/h/.claude/CLAUDE.md"; got != want {
+	if got, want := globalPath(home, globalPathHome+".claude/CLAUDE.md"), filepath.Join(home, ".claude", "CLAUDE.md"); got != want {
 		t.Errorf("home path: got %q want %q", got, want)
 	}
-	if got, want := globalPath("/h", globalPathXDG+"zed/AGENTS.md"), "/h/.config/zed/AGENTS.md"; got != want {
+	if got, want := globalPath(home, globalPathXDG+"zed/AGENTS.md"), filepath.Join(home, ".config", "zed", "AGENTS.md"); got != want {
 		t.Errorf("xdg fallback: got %q want %q", got, want)
 	}
-	t.Setenv("XDG_CONFIG_HOME", "/cfg")
-	if got, want := globalPath("/h", globalPathXDG+"zed/AGENTS.md"), "/cfg/zed/AGENTS.md"; got != want {
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	if got, want := globalPath(home, globalPathXDG+"zed/AGENTS.md"), filepath.Join(cfg, "zed", "AGENTS.md"); got != want {
 		t.Errorf("xdg override: got %q want %q", got, want)
 	}
 }
