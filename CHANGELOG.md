@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- The npm publish no longer rides on every package-manager push succeeding. Release archives upload before the Homebrew, Scoop, and winget steps, so one stale tap token used to hold back the npm release too. The npm job now gates on the release archives actually being present, and skips cleanly when that version is already on the registry, so a re-run is safe.
+
 ## v0.52.0 - 2026-09-07
 
 ### Added
