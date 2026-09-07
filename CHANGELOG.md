@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- Crush docs now record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields, and that Crush merges it with `crushrc` (with a startup warning when a project has both). No emission changes; MCP servers still write to `crush.json` (#674).
+
 ## v0.51.0 - 2026-09-04
 
 ### Added
