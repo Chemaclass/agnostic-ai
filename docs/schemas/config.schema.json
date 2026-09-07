@@ -62,6 +62,12 @@
         "attribution": {
           "$ref": "#/$defs/ClaudeAttribution"
         },
+        "bashOutputMaxChars": {
+          "type": "integer"
+        },
+        "taskOutputMaxChars": {
+          "type": "integer"
+        },
         "enabledPlugins": {
           "additionalProperties": {
             "type": "boolean"

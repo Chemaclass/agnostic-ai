@@ -583,6 +583,8 @@ outputs:
       outputStyle: verbose
       apiKeyHelper: ./bin/keyhelper.sh
       cleanupPeriodDays: 30
+      bashOutputMaxChars: 64000
+      taskOutputMaxChars: 128000
       attribution:
         commit: ""
         pr: ""
@@ -613,6 +615,8 @@ outputs:
 | `outputStyle` | string | One of the Claude Code output styles. |
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
+| `bashOutputMaxChars` | integer | How much command output Claude Code takes inline before spilling it to a file, up to 128000. Needs Claude Code v2.1.261 or later. |
+| `taskOutputMaxChars` | integer | The same budget for background-task output, up to 128000. Needs Claude Code v2.1.261 or later. |
 | `attribution` | object | Current attribution controls. `commit` and `pr` set the text for commits and pull requests; an explicit empty string disables that attribution. `sessionUrl` controls whether the Claude session URL is included. |
 | `includeCoAuthoredBy` | boolean | Deprecated Claude Code setting. Use `attribution`; when both are present, `attribution` takes precedence. |
 | `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them. Matches the `enabledPlugins` object in Claude Code's settings schema; a plain list cannot express the required `@marketplace-id` qualifier. |

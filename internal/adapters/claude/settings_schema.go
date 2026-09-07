@@ -35,6 +35,12 @@ func buildConfigSettings(cfg *config.Config) map[string]any {
 	if s.IncludeCoAuthoredBy != nil {
 		out["includeCoAuthoredBy"] = *s.IncludeCoAuthoredBy
 	}
+	if s.BashOutputMaxChars != nil {
+		out["bashOutputMaxChars"] = *s.BashOutputMaxChars
+	}
+	if s.TaskOutputMaxChars != nil {
+		out["taskOutputMaxChars"] = *s.TaskOutputMaxChars
+	}
 	if s.Attribution != nil {
 		if attribution := attributionMap(s.Attribution); len(attribution) > 0 {
 			out["attribution"] = attribution

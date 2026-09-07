@@ -29,6 +29,8 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 					APIKeyHelper:        "./bin/keyhelper.sh",
 					CleanupPeriodDays:   intPtr(30),
 					IncludeCoAuthoredBy: boolPtr(false),
+					BashOutputMaxChars:  intPtr(64000),
+					TaskOutputMaxChars:  intPtr(128000),
 					Attribution: &config.ClaudeAttribution{
 						Commit:     stringPtr("Co-Authored-By: Team Bot <bot@example.com>"),
 						PR:         stringPtr(""),
@@ -71,6 +73,13 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	}
 	if got := parsed["apiKeyHelper"]; got != "./bin/keyhelper.sh" {
 		t.Errorf("apiKeyHelper: got %v", got)
+	}
+	// Both shipped in Claude Code v2.1.261 (#679).
+	if got := parsed["bashOutputMaxChars"]; got != float64(64000) {
+		t.Errorf("bashOutputMaxChars: got %v", got)
+	}
+	if got := parsed["taskOutputMaxChars"]; got != float64(128000) {
+		t.Errorf("taskOutputMaxChars: got %v", got)
 	}
 	if got := parsed["cleanupPeriodDays"]; got != float64(30) {
 		t.Errorf("cleanupPeriodDays: got %v", got)

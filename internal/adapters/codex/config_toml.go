@@ -230,7 +230,75 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 		}
 	}
 	writeMCPSharedFields(sb, m.Meta)
+	writeMCPToolTables(sb, m.Name, m.Meta)
 	sb.WriteString("\n")
+}
+
+// writeMCPToolTables emits one `[mcp_servers.<id>.tools.<tool>]`
+// sub-table per entry in the spec's `tools` map.
+//
+// `learn.chatgpt.com/docs/config-file/config-reference` documents this
+// per-tool table with `output_token_limit` ("Token budget for one MCP
+// tool's output, before the standard 20% serialization allowance",
+// integer, shipped in codex v0.153.0) and a per-tool approval override.
+// Keys pass through verbatim rather than being mapped one by one: the
+// table is small, vendor-owned, and gains entries without warning, and
+// nothing in the spec vocabulary corresponds to either key. This is the
+// same reasoning `roots` already follows for structured nested data.
+//
+// Called after writeMCPSharedFields, and last in the table, because a
+// TOML sub-table header ends the parent table: any scalar written after
+// it would land inside the sub-table instead of on the server. Values
+// route through emit.WriteTOMLValue, which skips a type it cannot
+// render rather than emitting malformed TOML. Before #678 the whole
+// block was dropped in silence.
+func writeMCPToolTables(sb *strings.Builder, server string, meta map[string]any) {
+	tools, _ := meta["tools"].(map[string]any)
+	if len(tools) == 0 {
+		return
+	}
+	names := make([]string, 0, len(tools))
+	for name := range tools {
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		fields, _ := tools[name].(map[string]any)
+		if len(fields) == 0 {
+			continue
+		}
+		keys := make([]string, 0, len(fields))
+		for k := range fields {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		sb.WriteString("\n[mcp_servers." + server + ".tools." + tomlKeySegment(name) + "]\n")
+		for _, k := range keys {
+			emit.WriteTOMLValue(sb, tomlKeySegment(k), fields[k])
+		}
+	}
+}
+
+// tomlKeySegment returns s as a TOML key: bare when it holds only the
+// characters TOML allows unquoted, otherwise a quoted key. MCP tool
+// names come from a vendor's tool list, so they can carry characters a
+// bare key rejects.
+func tomlKeySegment(s string) string {
+	for _, r := range s {
+		bare := r == '-' || r == '_' ||
+			(r >= '0' && r <= '9') ||
+			(r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z')
+		if !bare {
+			return `"` + emit.EscapeTOMLBasic(s) + `"`
+		}
+	}
+	if s == "" {
+		return `""`
+	}
+	return s
 }
 
 // writeCodexMCPEnvVars emits Codex's mixed array form. String entries use

@@ -395,7 +395,7 @@ func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
 // emit order. agnostic-ai-managed keys land in a canonical sequence so
 // the diff stays predictable when none of them exist in the overlay yet.
 func orderedConfigKeys(m map[string]any) []string {
-	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy"
+	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars,taskOutputMaxChars"
 	out := make([]string, 0, len(m))
 	seen := make(map[string]bool, len(m))
 	for _, k := range strings.Split(canonical, ",") {

@@ -231,6 +231,49 @@ func TestEmit_MCP_EnabledAndDisabledTools(t *testing.T) {
 	}
 }
 
+// The vendor's per-tool table (`mcp_servers.<id>.tools.<tool>`) carries
+// output_token_limit and a per-tool approval override. Keys pass through
+// verbatim. Before #678 the whole block was dropped in silence.
+func TestEmit_MCP_PerToolTables(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "noisy",
+			Meta: map[string]any{
+				"command":       "npx",
+				"enabled_tools": []any{"big_tool"},
+				"tools": map[string]any{
+					"big_tool": map[string]any{"output_token_limit": 4096},
+					// A tool name TOML cannot carry as a bare key.
+					"weird/name": map[string]any{"approval_policy": "never"},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		"[mcp_servers.noisy.tools.big_tool]",
+		"output_token_limit = 4096",
+		`[mcp_servers.noisy.tools."weird/name"]`,
+		`approval_policy = "never"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	// A sub-table header ends the parent table, so every server-level
+	// scalar must be written before the first one. If enabled_tools
+	// drifted below it, Codex would read it as a key of big_tool.
+	if i, j := strings.Index(got, "enabled_tools"), strings.Index(got, "[mcp_servers.noisy.tools."); i == -1 || j == -1 || i > j {
+		t.Errorf("server scalars must precede the per-tool sub-tables:\n%s", got)
+	}
+}
+
 // Hooks emit into .codex/hooks.json grouped per event in the same shape
 // Claude's settings.json hooks block uses.
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {

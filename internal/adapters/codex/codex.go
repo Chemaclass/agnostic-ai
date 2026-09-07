@@ -37,8 +37,14 @@
 // verbatim from the spec's top-level fields the same way
 // `bearer_token_env_var` already is. `enabled_tools` and
 // `disabled_tools` carry no transport restriction and pass through on
-// any server (#661). Codex-specific `env_vars` and `env_http_headers`
-// retain the vendor's mixed-array and environment-backed header shapes.
+// any server (#661). A `tools` map emits the vendor's per-tool
+// sub-tables, `[mcp_servers.<name>.tools.<tool>]`, whose keys pass
+// through verbatim rather than being mapped one by one: the table is
+// vendor-owned and gains entries without warning, and nothing in the
+// spec vocabulary corresponds to `output_token_limit` or the per-tool
+// approval override it documents today (#678). Codex-specific
+// `env_vars` and `env_http_headers` retain the vendor's mixed-array
+// and environment-backed header shapes.
 //
 // Hook entries accept an optional `additionalContextLimit` (token
 // threshold for how much hook output reaches the model), propagated

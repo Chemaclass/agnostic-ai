@@ -6,6 +6,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Codex MCP servers emit the vendor's per-tool sub-tables from a `tools` map: `[mcp_servers.<name>.tools.<tool>]`, keys passed through verbatim, covering `output_token_limit` (shipped in Codex v0.153.0) and the per-tool approval override. The block was dropped in silence before, with no warning and no coverage note (#678).
+- `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much command and background-task output Claude Code takes inline before spilling it to a file, up to 128K characters. Both shipped in Claude Code v2.1.261 and previously had no declarative path, only the captured overlay (#679).
+
 ### Changed
 
 - Crush docs now record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields, and that Crush merges it with `crushrc` (with a startup warning when a project has both). No emission changes; MCP servers still write to `crush.json` (#674).

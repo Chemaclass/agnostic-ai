@@ -225,6 +225,16 @@ type ClaudeSettings struct {
 	CleanupPeriodDays   *int               `yaml:"cleanupPeriodDays,omitempty"   json:"cleanupPeriodDays,omitempty"`
 	IncludeCoAuthoredBy *bool              `yaml:"includeCoAuthoredBy,omitempty" json:"includeCoAuthoredBy,omitempty"`
 	Attribution         *ClaudeAttribution `yaml:"attribution,omitempty"         json:"attribution,omitempty"`
+	// BashOutputMaxChars and TaskOutputMaxChars raise how much command
+	// and background-task output Claude Code takes inline before
+	// spilling it to a file, up to 128K characters. Both shipped in
+	// Claude Code v2.1.261 and are documented as top-level
+	// settings.json keys ("Any file" scope) at
+	// code.claude.com/docs/en/settings-reference. Pointers, like
+	// CleanupPeriodDays, so an explicit 0 is emitted rather than read
+	// as unset.
+	BashOutputMaxChars *int `yaml:"bashOutputMaxChars,omitempty" json:"bashOutputMaxChars,omitempty"`
+	TaskOutputMaxChars *int `yaml:"taskOutputMaxChars,omitempty" json:"taskOutputMaxChars,omitempty"`
 	// EnabledPlugins maps `plugin-id@marketplace-id` to whether Claude
 	// Code should load it. Matches the authoritative schema at
 	// json.schemastore.org/claude-code-settings.json, which types
