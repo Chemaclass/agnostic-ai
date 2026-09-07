@@ -15,7 +15,7 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
-	source := filepath.Join(home, "source", "global")
+	source := filepath.Join(home, "source")
 	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
 	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
@@ -70,8 +70,8 @@ func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "AGNOSTIC_AI.md"), "new\n")
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "skills", "review", "SKILL.md"), "---\nname: review\n---\nmanaged\n")
+	mustWriteGlobalTest(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "new\n")
+	mustWriteGlobalTest(t, filepath.Join(home, "source", "skills", "review", "SKILL.md"), "---\nname: review\n---\nmanaged\n")
 	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "skills", "review", "SKILL.md"), "unmanaged\n")
 
 	root := NewRootCmd("test")
@@ -90,7 +90,7 @@ func TestSyncGlobal_RejectsScopedRuleAndUnsupportedFlags(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
+	mustWriteGlobalTest(t, filepath.Join(home, "source", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global"})
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "scoped") {
@@ -109,7 +109,7 @@ func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
-	sourceHook := filepath.Join(home, "source", "global", "hooks", "notify.yaml")
+	sourceHook := filepath.Join(home, "source", "hooks", "notify.yaml")
 	mustWriteGlobalTest(t, sourceHook, "name: notify\nevent: sessionStart\ncommand: managed-command\n")
 	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "hooks.json"), "{\n  \"version\": 1,\n  \"theme\": \"dark\",\n  \"hooks\": {\"sessionStart\": [{\"command\": \"user-command\"}]}\n}\n")
 

@@ -64,10 +64,10 @@ Commit it so peers and CI install the same revisions. The file is sorted by name
 
 ## Layer precedence
 
-Packs slot between the user-global layer and the project layer:
+Packs load before the project and personal project layers:
 
 ```
-user-global  →  packs  →  project  →  project-user
+packs  →  project  →  project-user
 ```
 
 Higher layers override by `(kind, name)`. A project rule named `conventional-commits` masks the pack version with the same name. This is the escape hatch when a pack convention needs project-specific tweaks.

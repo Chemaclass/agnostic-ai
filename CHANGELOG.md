@@ -8,12 +8,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `agnostic-ai sync --global` emits shared user-level instructions, hooks, and skills as native Claude Code and Cursor configuration from `~/.agnostic-ai/global/`, while preserving unrelated native configuration and keeping project sync isolated (#680).
+- `agnostic-ai sync --global` emits shared user-level instructions, hooks, and skills as native Claude Code and Cursor configuration directly from `~/.agnostic-ai/`, while preserving unrelated native configuration and keeping project sync isolated (#680).
 
 - Codex MCP servers emit the vendor's per-tool sub-tables from a `tools` map: `[mcp_servers.<name>.tools.<tool>]`, keys passed through verbatim, covering `output_token_limit` (shipped in Codex v0.153.0) and the per-tool approval override. The block was dropped in silence before, with no warning and no coverage note (#678).
 - `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much command and background-task output Claude Code takes inline before spilling it to a file, up to 128K characters. Both shipped in Claude Code v2.1.261 and previously had no declarative path, only the captured overlay (#679).
 
 ### Changed
+
+- Ordinary project sync no longer loads `~/.agnostic-ai/` as a low-precedence spec layer. The directory is now the explicit native-global source for `sync --global`; keep project-only defaults in each project or a pack (#680).
 
 - Crush docs now record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields, and that Crush merges it with `crushrc` (with a startup warning when a project has both). No emission changes; MCP servers still write to `crush.json` (#674).
 
@@ -851,7 +853,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `agnostic-ai validate --fix`: rewrite specs for autofixable issues (backfills missing `name:` from filename / parent dir). Plain `validate` flags fixable issues with `*`.
 - Plugin protocol v1 for external adapters (`agnostic-ai-adapter-<target>` on PATH; JSON over stdin/stdout). Docs at `docs/internal/plugin-protocol.md`.
 - `adapters.Resolve(name)`: lookup site with built-in → external fallback.
-- `agnostic-ai packs add|remove|update|list`: shareable spec packs from Git URLs. Pinned in `agnostic.packs.lock`. Load as a layer between user-global and project.
+- `agnostic-ai packs add|remove|update|list`: shareable spec packs from Git URLs. Pinned in `agnostic.packs.lock`. Load as a layer before project specs.
 - `docs/user/ci.md`: dedicated CI page + `chemaclass/agnostic-ai-action@v1`.
 - `completion bash|zsh|fish|powershell`.
 - JSON schemas at `docs/schemas/config.schema.json` (generated) and `spec.schema.json` (hand-authored).

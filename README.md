@@ -161,7 +161,7 @@ Five kinds here. `command`, `settings`, `review`, `environment`, and `ignore` ar
 
 ### Share user configuration across Claude Code and Cursor
 
-Put user-wide instructions in `~/.agnostic-ai/global/AGNOSTIC_AI.md`, with optional `rules/`, `hooks/`, and `skills/` folders beside it. Then run this from any directory:
+Put user-wide instructions in `~/.agnostic-ai/AGNOSTIC_AI.md`, with optional `rules/`, `hooks/`, and `skills/` folders beside it. Then run this from any directory:
 
 ```bash
 agnostic-ai sync --global

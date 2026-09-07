@@ -9,9 +9,6 @@ import (
 )
 
 func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
-	t.Setenv(envUserGlobalRoot, "/nonexistent-agnostic-ai-test-path")
-	t.Setenv("HOME", t.TempDir()) // empty home, no ~/.agnostic-ai
-
 	root := t.TempDir()
 	cfg := &config.Config{Sources: defaultLayerSources()}
 
@@ -24,30 +21,21 @@ func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
 	}
 }
 
-func TestResolveLayers_UserGlobalDetectedViaEnv(t *testing.T) {
-	ug := t.TempDir()
-	t.Setenv(envUserGlobalRoot, ug)
-	t.Setenv("HOME", t.TempDir())
+func TestResolveLayers_DoesNotLoadGlobalHome(t *testing.T) {
+	globalHome := t.TempDir()
+	t.Setenv(envUserGlobalRoot, globalHome)
+	if err := os.MkdirAll(filepath.Join(globalHome, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	root := t.TempDir()
-	cfg := &config.Config{Sources: defaultLayerSources()}
-
-	layers := resolveLayers(root, cfg)
-	if len(layers) != 2 {
-		t.Fatalf("expected 2 layers, got %d", len(layers))
-	}
-	if layers[0].Name != layerNameUserGlobal || layers[0].Root != ug {
-		t.Errorf("layer[0]=%+v", layers[0])
-	}
-	if layers[1].Name != layerNameProject {
-		t.Errorf("layer[1]=%+v", layers[1])
+	layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	if len(layers) != 1 || layers[0].Name != layerNameProject {
+		t.Fatalf("global home joined project layers: %+v", layers)
 	}
 }
 
 func TestResolveLayers_ProjectUserDetected(t *testing.T) {
-	t.Setenv(envUserGlobalRoot, "/nonexistent-agnostic-ai-test-path")
-	t.Setenv("HOME", t.TempDir())
-
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, defaultProjectUser), 0o755); err != nil {
 		t.Fatal(err)
@@ -66,11 +54,7 @@ func TestResolveLayers_ProjectUserDetected(t *testing.T) {
 	}
 }
 
-func TestResolveLayers_AllThreePrecedenceOrder(t *testing.T) {
-	ug := t.TempDir()
-	t.Setenv(envUserGlobalRoot, ug)
-	t.Setenv("HOME", t.TempDir())
-
+func TestResolveLayers_ProjectAndProjectUserPrecedenceOrder(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, defaultProjectUser), 0o755); err != nil {
 		t.Fatal(err)
@@ -78,10 +62,10 @@ func TestResolveLayers_AllThreePrecedenceOrder(t *testing.T) {
 	cfg := &config.Config{Sources: defaultLayerSources()}
 
 	layers := resolveLayers(root, cfg)
-	if len(layers) != 3 {
-		t.Fatalf("expected 3 layers, got %d", len(layers))
+	if len(layers) != 2 {
+		t.Fatalf("expected 2 layers, got %d", len(layers))
 	}
-	want := []string{layerNameUserGlobal, layerNameProject, layerNameProjectUser}
+	want := []string{layerNameProject, layerNameProjectUser}
 	for i, n := range want {
 		if layers[i].Name != n {
 			t.Errorf("layers[%d]=%q, want %q", i, layers[i].Name, n)

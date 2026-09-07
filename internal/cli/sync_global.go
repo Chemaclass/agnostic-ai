@@ -79,7 +79,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if sourceHome == "" {
 		sourceHome = filepath.Join(home, ".agnostic-ai")
 	}
-	source := filepath.Join(sourceHome, "global")
+	source := sourceHome
 	cfg := &config.Config{Sources: config.Sources{Rules: "rules", Hooks: "hooks", Skills: "skills"}}
 	bundle, err := spec.LoadBundle(source, cfg)
 	if err != nil {

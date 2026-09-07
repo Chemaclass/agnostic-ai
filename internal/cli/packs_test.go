@@ -138,10 +138,7 @@ func TestPacksUpdate_LocalSource(t *testing.T) {
 	}
 }
 
-func TestResolveLayers_PacksLayerInsertedBetweenUserGlobalAndProject(t *testing.T) {
-	t.Setenv(envUserGlobalRoot, "/nonexistent-agnostic-ai-test-path")
-	t.Setenv("HOME", t.TempDir())
-
+func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 	root := t.TempDir()
 	src := filepath.Join(t.TempDir(), "p1")
 	mustWrite(t, filepath.Join(src, "rules", "r.md"), "---\nname: r\n---\nb")

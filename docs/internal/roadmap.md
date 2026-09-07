@@ -6,7 +6,7 @@ High-level directions. Concrete work in [issues](https://github.com/Chemaclass/a
 
 Three layers, low to high precedence:
 
-- **user-global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): cross-project source of truth.
+- **native global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): explicit source for `sync --global`, separate from project sync.
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
 - **project-user** (`<project>/.agnostic-ai.local/`, gitignored): per-developer overrides.
 
