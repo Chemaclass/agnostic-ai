@@ -411,7 +411,17 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 			next[event] = append(next[event], item)
 		}
 	}
-	doc["hooks"] = hooks
+	if len(hooks) > 0 {
+		doc["hooks"] = hooks
+	} else {
+		delete(doc, "hooks")
+	}
+	// Nothing of ours left and nothing of the user's either: drop the
+	// file rather than leave a `{"hooks": {}}` shell behind. The
+	// version key below is ours too, so it is not counted as content.
+	if len(doc) == 0 {
+		return nil, nil
+	}
 	if format == "cursor" {
 		doc["version"] = float64(1)
 	}
