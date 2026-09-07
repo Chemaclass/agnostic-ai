@@ -32,7 +32,9 @@ cost nobody again:
 
 - Appending `.md` to a docs path serves a clean markdown mirror on
   **factory, qoder, augment, openhands, cline** (all Mintlify) and on
-  **antigravity**. It does **not** work on kilo or trae.
+  **antigravity** and **cursor** (confirmed on `/docs/hooks.md` and
+  `/docs/skills.md`; not Mintlify, served from a Vercel `/api/raw`
+  route). It does **not** work on kilo or trae.
 - **amp**: append `/markdown` after `/docs` for a raw mirror;
   `https://ampcode.com/llms.txt` indexes all 45 pages in one call.
 - **junie**: `https://junie.jetbrains.com/docs/HelpTOC.json` returns the full
@@ -156,7 +158,7 @@ cost nobody again:
 
 - docs: https://github.com/charmbracelet/crush (README is the reference) · https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json (the vendor's published JSON schema, and the only place the MCP property set appears closed) · https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md
 - changelog: https://github.com/charmbracelet/crush/releases
-- watch: `crush.json` `mcp` block, whether agents/commands surfaces landed. Read `schema.json` rather than the README for MCP: it is the only place the property set appears closed, and it sets `"additionalProperties": false` on `MCPConfig` — so a generic `x-crush` passthrough on MCP entries would let a typo produce a config Crush rejects outright. Prefer explicit field mapping there, unlike skill frontmatter where the generic merge is safe. `disabled`, `sessionless` (new in v0.91.2, 2026-08-26), `enabled_tools`, and `disabled_tools` now emit (#634, #641). Still unmapped: `timeout`, which schema.json documents as **seconds defaulting to 10** while the spec's own `timeout` is milliseconds on gemini, claude, opencode, and qoder. A blind top-level map would read `timeout: 5000` as 5000 seconds, so this needs a unit decision before it lands. Hooks are project-scoped in `crush.json` and support `PreToolUse` only; the matcher vocabulary is lowercase in the vendor's own example (`^bash$`).
+- watch: `crush.json` `mcp` block, whether agents/commands surfaces landed, and `crushrc` / `.crushrc`, the Bash config format the vendor now prefers over JSON (docs/config/README.md's precedence table: `.crushrc` > `crushrc` > `$XDG_CONFIG_HOME/crush/crushrc`, ahead of legacy `.crush.json` / `crush.json` in the same directories; everything found merges, with `crushrc` overriding JSON in the same directory and Crush logging a warning when a folder has both). Tracked in #674. Read `schema.json` rather than the README for MCP: it is the only place the property set appears closed, and it sets `"additionalProperties": false` on `MCPConfig` — so a generic `x-crush` passthrough on MCP entries would let a typo produce a config Crush rejects outright. Prefer explicit field mapping there, unlike skill frontmatter where the generic merge is safe. `disabled`, `sessionless` (new in v0.91.2, 2026-08-26), `enabled_tools`, and `disabled_tools` now emit (#634, #641). Still unmapped: `timeout`, which schema.json documents as **seconds defaulting to 10** while the spec's own `timeout` is milliseconds on gemini, claude, opencode, and qoder. A blind top-level map would read `timeout: 5000` as 5000 seconds, so this needs a unit decision before it lands. Hooks are project-scoped in `crush.json` and support `PreToolUse` only; the matcher vocabulary is lowercase in the vendor's own example (`^bash$`).
 
 ## trae
 
