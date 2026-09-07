@@ -321,3 +321,44 @@ func TestSyncGlobal_KeepsTheTrailingNewlineOfPreservedUserText(t *testing.T) {
 		t.Errorf("preserved user text = %q, want %q", got, "Personal notes.\n")
 	}
 }
+
+func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	hook := filepath.Join(home, "source", "hooks", "notify.yaml")
+	mustWriteGlobalTest(t, hook, "name: notify\nevent: SessionStart\ncommand: managed-command\n")
+	// A second target keeps unrelated content in its hooks file, so the
+	// same teardown must leave that one in place.
+	mustWriteGlobalTest(t, filepath.Join(home, ".gemini", "settings.json"), "{\n  \"theme\": \"dark\"\n}\n")
+
+	for _, pass := range []string{"create", "teardown"} {
+		if pass == "teardown" {
+			if err := os.Remove(hook); err != nil {
+				t.Fatal(err)
+			}
+		}
+		root := NewRootCmd("test")
+		root.SetArgs([]string{"sync", "--global", "--only", "claude,gemini"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v", pass, err)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); !os.IsNotExist(err) {
+		data, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+		t.Errorf("empty hooks file left behind: %s", data)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".gemini", "settings.json"))
+	if err != nil {
+		t.Fatalf("settings.json with unrelated keys was removed: %v", err)
+	}
+	if !strings.Contains(string(data), `"theme": "dark"`) {
+		t.Errorf("unrelated key lost:\n%s", data)
+	}
+	if strings.Contains(string(data), "managed-command") {
+		t.Errorf("managed hook survived its source:\n%s", data)
+	}
+}
