@@ -49,6 +49,12 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if len(o.only) > 0 && len(o.except) > 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
 	}
+	if err := validateCheckFormat(o.format); err != nil {
+		return err
+	}
+	if o.format != checkFormatHuman && !o.check {
+		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --global")
+	}
 	targets := o.targets
 	if len(targets) == 0 {
 		targets = []string{"claude", "cursor"}
@@ -120,13 +126,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 		return nil
 	}
-	if err := applyGlobalWrites(writes, o.backup); err != nil {
+	removals := removedGlobalFiles(old.Files, next.Files)
+	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
 		return err
-	}
-	for _, path := range removedGlobalFiles(old.Files, next.Files) {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove managed %s: %w", path, err)
-		}
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets))
 	return nil
@@ -417,7 +419,7 @@ func removedGlobalFiles(old, next []string) []string {
 	return out
 }
 
-func applyGlobalWrites(writes []globalWrite, backup bool) error {
+func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) error {
 	type prior struct {
 		path   string
 		data   []byte
@@ -483,6 +485,26 @@ func applyGlobalWrites(writes []globalWrite, backup bool) error {
 			_ = tmp.Close()
 			rollback()
 			return fmt.Errorf("write %s: %w", w.path, writeErr)
+		}
+	}
+	for _, path := range removals {
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			rollback()
+			return fmt.Errorf("read managed %s: %w", path, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			rollback()
+			return fmt.Errorf("stat managed %s: %w", path, err)
+		}
+		done = append(done, prior{path: path, data: data, mode: info.Mode()})
+		if err := os.Remove(path); err != nil {
+			rollback()
+			return fmt.Errorf("remove managed %s: %w", path, err)
 		}
 	}
 	return nil
