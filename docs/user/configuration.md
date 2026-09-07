@@ -1,5 +1,25 @@
 # Configuration
 
+## Global configuration
+
+`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to Claude Code and Cursor. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs.
+
+The source root is `$AGNOSTIC_AI_HOME/global/`, or `~/.agnostic-ai/global/` when `AGNOSTIC_AI_HOME` is unset:
+
+```text
+global/
+├── AGNOSTIC_AI.md
+├── rules/*.md
+├── hooks/*.yaml
+└── skills/<name>/SKILL.md
+```
+
+Run `agnostic-ai sync --global`. Both targets are enabled by default. `--target`, `--only`, and `--except` can narrow the set to `claude` or `cursor`. `--dry-run`, `--check`, and `--backup` retain their normal meaning. Project-only flags such as `--watch`, `--plan`, `--json`, `--gitignore`, and `--jobs` are rejected before any write.
+
+Global rules must be unconditional. A nested rule or a rule with scope, path, glob, or target conditions is rejected rather than flattened. Global mode does not support agents, commands, MCP servers, settings, inheritance, or merging with project specs.
+
+Generated files are real files, never symlinks. Managed instruction blocks, hook entries, and skill assets are recorded under `$AGNOSTIC_AI_HOME/state/global.json`. Sync preserves unrelated text, JSON keys, hooks, and skills. It removes only artifacts recorded as managed. An unmanaged skill collision, damaged managed marker, invalid native JSON file, or corrupt ownership state stops the whole operation before writes. Native tool precedence still applies when both global and project configuration exist.
+
 `agnostic-ai.yaml` lives at the project root. It is read from the current working directory at command time. Every section is optional. Defaults are listed below.
 
 Legacy filename: `agnostic.config.yaml` still loads, with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
