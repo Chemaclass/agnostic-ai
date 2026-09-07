@@ -341,15 +341,30 @@ func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
 			}
 		}
 		root := NewRootCmd("test")
-		root.SetArgs([]string{"sync", "--global", "--only", "claude,gemini"})
+		root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor,gemini"})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%s: %v", pass, err)
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); !os.IsNotExist(err) {
-		data, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
-		t.Errorf("empty hooks file left behind: %s", data)
+	// Cursor keeps its bridge hook while instructions exist, so drop
+	// those too and sync once more to empty its file out.
+	if err := os.Remove(filepath.Join(home, "source", "AGNOSTIC_AI.md")); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor,gemini"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".cursor", "hooks.json"),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			data, _ := os.ReadFile(path)
+			t.Errorf("%s left behind: %s", path, data)
+		}
 	}
 	data, err := os.ReadFile(filepath.Join(home, ".gemini", "settings.json"))
 	if err != nil {
