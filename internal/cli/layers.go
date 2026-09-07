@@ -15,8 +15,6 @@ const (
 	layerNameProject     = "project"
 	layerNameProjectUser = "project-user"
 
-	envUserGlobalRoot  = "AGNOSTIC_AI_HOME"
-	defaultUserGlobal  = ".agnostic-ai"
 	defaultProjectUser = ".agnostic-ai.local"
 )
 

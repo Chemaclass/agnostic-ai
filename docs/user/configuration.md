@@ -755,7 +755,7 @@ Last wins:
 
 ## Layered specs
 
-Project specs load from up to three sources, low- to high-precedence:
+Project specs load from three tiers, low- to high-precedence:
 
 | Layer | Root | Loaded when |
 |-------|------|-------------|

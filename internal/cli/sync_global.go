@@ -19,8 +19,10 @@ import (
 )
 
 const (
-	globalStart = "<!-- agnostic-ai:global:start -->"
-	globalEnd   = "<!-- agnostic-ai:global:end -->"
+	globalStart       = "<!-- agnostic-ai:global:start -->"
+	globalEnd         = "<!-- agnostic-ai:global:end -->"
+	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
+	defaultUserGlobal = ".agnostic-ai"
 )
 
 type globalSyncOptions struct {

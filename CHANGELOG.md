@@ -15,7 +15,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
-- Ordinary project sync no longer loads `~/.agnostic-ai/` as a low-precedence spec layer. The directory is now the explicit native-global source for `sync --global`; keep project-only defaults in each project or a pack (#680).
+- Ordinary project sync no longer loads `~/.agnostic-ai/` as a low-precedence spec layer. The directory is now the explicit global source for `sync --global`; keep project-only defaults in each project or a pack (#680).
 
 - Crush docs now record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields, and that Crush merges it with `crushrc` (with a startup warning when a project has both). No emission changes; MCP servers still write to `crush.json` (#674).
 
