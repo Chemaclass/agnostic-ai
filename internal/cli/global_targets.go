@@ -4,28 +4,34 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
-// globalTarget describes where one tool keeps its user-level
-// configuration. Every path is relative to the target's own config
-// directory, which is itself resolved against the user home (or
-// XDG_CONFIG_HOME when xdg is set).
+// Path prefixes used in the globalTargets table. A path carries its own
+// root because several tools split surfaces across two roots: Kilo Code
+// reads instructions from ~/.config/kilo/ but skills from ~/.kilo/, and
+// Goose reads hints from ~/.config/goose/ but skills from ~/.agents/.
+const (
+	globalPathHome = "home:"
+	globalPathXDG  = "xdg:"
+)
+
+// globalTarget describes one tool's user-level surfaces. Every field is
+// a table path (see globalPathHome / globalPathXDG).
 //
-// A field left empty means the vendor documents no user-level surface
-// of that kind; sync --global then emits nothing for it rather than
-// guessing a path.
+// An empty field means the vendor documents no user-level surface of
+// that kind, so sync --global emits nothing for it rather than guessing
+// a path.
 type globalTarget struct {
-	// dir is the config directory relative to the user home. Ignored
-	// when xdg is set.
-	dir string
-	// xdg is the config directory relative to XDG_CONFIG_HOME
-	// (default ~/.config) for tools that follow the base-dir spec.
-	xdg string
-	// instructions is the always-on context file inside the config dir.
+	// instructions is the always-on context file the tool loads with no
+	// wiring. Global rules inline into it.
 	instructions string
-	// skills is the skills directory inside the config dir.
+	// rules is a per-rule directory, used only for a target whose
+	// vendor documents no user-level instructions file at all.
+	rules string
+	// skills is the skills directory.
 	skills string
-	// hooks is the hooks file inside the config dir.
+	// hooks is the hooks file.
 	hooks string
 	// hooksFormat selects the native hooks schema: "claude" or "cursor".
 	hooksFormat string
@@ -41,11 +47,115 @@ type globalTarget struct {
 	bridgeKey string
 }
 
-// globalTargets maps target name to its user-level surfaces. Only
-// targets listed here are accepted by sync --global.
+// globalTargets maps target name to its user-level surfaces, as
+// documented by each vendor (target-audit 2026-09-07). Only targets
+// listed here are accepted by sync --global.
+//
+// Absent by verdict: aider (a home instructions file reaches it only
+// through a `read:` entry in ~/.aider.conf.yml, never automatically),
+// continue (its one home surface is the `rules:` list inside the
+// config.yaml Continue itself rewrites), and jules (nothing documented
+// at user scope at all).
 var globalTargets = map[string]globalTarget{
-	"claude": {dir: ".claude", instructions: "CLAUDE.md", skills: "skills", hooks: "settings.json", hooksFormat: "claude"},
-	"cursor": {dir: ".cursor", instructions: "AGENTS.md", skills: "skills", hooks: "hooks.json", hooksFormat: "cursor", bridge: true, bridgeEvent: "sessionStart", bridgeKey: "additional_context"},
+	"claude": {
+		instructions: globalPathHome + ".claude/CLAUDE.md",
+		skills:       globalPathHome + ".claude/skills",
+		hooks:        globalPathHome + ".claude/settings.json",
+		hooksFormat:  "claude",
+	},
+	"cursor": {
+		instructions: globalPathHome + ".cursor/AGENTS.md",
+		skills:       globalPathHome + ".cursor/skills",
+		hooks:        globalPathHome + ".cursor/hooks.json",
+		hooksFormat:  "cursor",
+		bridge:       true,
+		bridgeEvent:  "sessionStart",
+		bridgeKey:    "additional_context",
+	},
+	"codex": {
+		instructions: globalPathHome + ".codex/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+		hooks:        globalPathHome + ".codex/hooks.json",
+		hooksFormat:  "claude",
+	},
+	"gemini": {
+		instructions: globalPathHome + ".gemini/GEMINI.md",
+		skills:       globalPathHome + ".gemini/skills",
+		hooks:        globalPathHome + ".gemini/settings.json",
+		hooksFormat:  "claude",
+	},
+	"qoder": {
+		instructions: globalPathHome + ".qoder/AGENTS.md",
+		skills:       globalPathHome + ".qoder/skills",
+		hooks:        globalPathHome + ".qoder/settings.json",
+		hooksFormat:  "claude",
+	},
+	"copilot": {
+		instructions: globalPathHome + ".copilot/copilot-instructions.md",
+		skills:       globalPathHome + ".copilot/skills",
+	},
+	"cline": {
+		instructions: globalPathHome + ".agents/AGENTS.md",
+		skills:       globalPathHome + ".cline/skills",
+	},
+	"windsurf": {
+		instructions: globalPathXDG + "devin/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+	},
+	"amp": {
+		instructions: globalPathXDG + "amp/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+	},
+	"zed": {
+		instructions: globalPathXDG + "zed/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+	},
+	"warp": {
+		instructions: globalPathHome + ".agents/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+	},
+	"opencode": {
+		instructions: globalPathXDG + "opencode/AGENTS.md",
+		skills:       globalPathXDG + "opencode/skills",
+	},
+	"antigravity": {
+		instructions: globalPathHome + ".gemini/GEMINI.md",
+		skills:       globalPathHome + ".gemini/antigravity/skills",
+	},
+	"junie": {
+		instructions: globalPathHome + ".junie/AGENTS.md",
+		skills:       globalPathHome + ".junie/skills",
+	},
+	"kiro": {
+		instructions: globalPathHome + ".kiro/steering/AGENTS.md",
+		skills:       globalPathHome + ".kiro/skills",
+	},
+	"crush": {
+		instructions: globalPathXDG + "crush/CRUSH.md",
+		skills:       globalPathXDG + "crush/skills",
+	},
+	"factory": {
+		instructions: globalPathHome + ".factory/AGENTS.md",
+		skills:       globalPathHome + ".factory/skills",
+	},
+	"kilo": {
+		instructions: globalPathXDG + "kilo/AGENTS.md",
+		skills:       globalPathHome + ".kilo/skills",
+	},
+	"goose": {
+		instructions: globalPathXDG + "goose/.goosehints",
+		skills:       globalPathHome + ".agents/skills",
+	},
+	"openhands": {
+		skills: globalPathHome + ".agents/skills",
+	},
+	"trae": {
+		skills: globalPathHome + ".trae/skills",
+	},
+	"augment": {
+		rules:  globalPathHome + ".augment/rules",
+		skills: globalPathHome + ".augment/skills",
+	},
 }
 
 // globalTargetNames returns every target sync --global supports, sorted.
@@ -58,14 +168,44 @@ func globalTargetNames() []string {
 	return out
 }
 
-// base returns the absolute config directory for the target.
-func (g globalTarget) base(home string) string {
-	if g.xdg != "" {
+// globalPath resolves one table path against the user home.
+func globalPath(home, p string) string {
+	if rest, ok := strings.CutPrefix(p, globalPathXDG); ok {
 		root := os.Getenv("XDG_CONFIG_HOME")
 		if root == "" {
 			root = filepath.Join(home, ".config")
 		}
-		return filepath.Join(root, g.xdg)
+		return filepath.Join(root, filepath.FromSlash(rest))
 	}
-	return filepath.Join(home, g.dir)
+	return filepath.Join(home, filepath.FromSlash(strings.TrimPrefix(p, globalPathHome)))
+}
+
+// trees returns the target's managed directory surfaces, resolved.
+// Everything under one is owned by sync --global and swept when the
+// source spec goes away.
+func (g globalTarget) trees(home string) []string {
+	var out []string
+	for _, p := range []string{g.skills, g.rules} {
+		if p != "" {
+			out = append(out, globalPath(home, p))
+		}
+	}
+	return out
+}
+
+// files returns the target's single-file surfaces, resolved, including
+// the bridge script when it has one. Ownership of these is by exact
+// path, since each sits in a directory the tool also uses for its own
+// unmanaged configuration.
+func (g globalTarget) files(home string) []string {
+	var out []string
+	for _, p := range []string{g.instructions, g.hooks} {
+		if p != "" {
+			out = append(out, globalPath(home, p))
+		}
+	}
+	if g.bridge {
+		out = append(out, globalBridgePath(filepath.Dir(globalPath(home, g.hooks))))
+	}
+	return out
 }

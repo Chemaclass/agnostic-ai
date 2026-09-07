@@ -167,4 +167,4 @@ Put user-wide instructions in `~/.agnostic-ai/AGNOSTIC_AI.md`, with optional `ru
 agnostic-ai sync --global
 ```
 
-This mode is opt-in and separate from project sync. It writes native user configuration for Claude Code and Cursor. See [global configuration](docs/user/configuration.md#global-configuration).
+This mode is opt-in and separate from project sync. It writes native user configuration for 22 of the 25 targets. See [global configuration](docs/user/configuration.md#global-configuration).

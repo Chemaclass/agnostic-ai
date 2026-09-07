@@ -121,7 +121,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return fmt.Errorf("marshal %s: %w", statePath, err)
 	}
 	writes = append(writes, globalWrite{statePath, append(stateData, '\n'), 0o644})
-	if err := preflightGlobalWrites(writes, old, next); err != nil {
+	var trees []string
+	for _, target := range targets {
+		trees = append(trees, globalTargets[target].trees(home)...)
+	}
+	if err := preflightGlobalWrites(writes, trees, old); err != nil {
 		return err
 	}
 	if o.check {
@@ -190,12 +194,17 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, hooks := range old.Hooks {
 		next.Hooks[target] = cloneHookState(hooks)
 	}
-	// Strip every synced target's tree before emitting any of them: two
-	// targets can share one config directory, and stripping inside the
-	// loop would drop the earlier target's fresh entries.
+	// Drop every surface the synced targets own before emitting any of
+	// them, so a file the sources no longer produce is swept rather
+	// than kept alive by its own prior record. Targets left out of this
+	// run keep theirs. This runs before the emit loop because several
+	// targets share one skills directory.
 	for _, target := range targets {
-		base := globalTargets[target].base(home)
-		next.Files = removePathPrefix(next.Files, base+string(filepath.Separator))
+		g := globalTargets[target]
+		for _, tree := range g.trees(home) {
+			next.Files = removePathPrefix(next.Files, tree+string(filepath.Separator))
+		}
+		next.Files = removePaths(next.Files, g.files(home))
 	}
 	var writes []globalWrite
 	seen := map[string]int{}
@@ -221,24 +230,35 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	managed := globalStart + "\n" + body + "\n" + globalEnd
 	for _, target := range targets {
 		g := globalTargets[target]
-		base := g.base(home)
 		if g.instructions != "" {
-			path := filepath.Join(base, g.instructions)
+			path := globalPath(home, g.instructions)
 			merged, err := mergeGlobalBlock(path, managed)
 			if err != nil {
 				return nil, next, err
 			}
-			// Never create an empty instructions file for a user who
-			// authored no global instructions and no global rules.
-			if merged != "" || fileExists(path) {
+			// An empty merge means no global instructions, no global
+			// rules, and no user text left around the managed block.
+			// Emit nothing so the file is never seeded, and so one
+			// already recorded is swept instead of left empty.
+			if merged != "" {
 				if err := add(path, []byte(merged), 0o644); err != nil {
 					return nil, next, err
 				}
 			}
 		}
+		if g.rules != "" {
+			dir := globalPath(home, g.rules)
+			for _, rule := range b.Rules {
+				out := filepath.Join(dir, rule.Name+".md")
+				if err := add(out, []byte(strings.TrimSpace(rule.Body)+"\n"), 0o644); err != nil {
+					return nil, next, err
+				}
+			}
+		}
 		if g.skills != "" {
+			dir := globalPath(home, g.skills)
 			for _, skill := range b.Skills {
-				if err := addGlobalSkill(filepath.Join(base, g.skills, skill.Name), skill.Path, add); err != nil {
+				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill.Path, add); err != nil {
 					return nil, next, err
 				}
 			}
@@ -247,15 +267,15 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			continue
 		}
 		next.Hooks[target] = map[string][]any{}
+		path := globalPath(home, g.hooks)
 		hooks := b.Hooks
 		if g.bridge && body != "" {
-			bridge, command, script, mode := globalContextBridge(base, body, g.bridgeKey)
+			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
 				return nil, next, err
 			}
 			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
 		}
-		path := filepath.Join(base, g.hooks)
 		doc, err := mergeGlobalHooks(path, g.hooksFormat, hooks, old.Hooks[target], next.Hooks[target])
 		if err != nil {
 			return nil, next, err
@@ -439,32 +459,40 @@ func globalUserHome() (string, error) {
 	return home, nil
 }
 
+// globalBridgePath returns the managed context-bridge script path for a
+// target whose hooks file lives in base.
+func globalBridgePath(base string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(base, "hooks", "agnostic-ai-global-context.ps1")
+	}
+	return filepath.Join(base, "hooks", "agnostic-ai-global-context.sh")
+}
+
 func globalContextBridge(base, body, key string) (path, command, script string, mode fs.FileMode) {
 	payload := `{` + jsonString(key) + `:` + jsonString(body) + `}`
+	path = globalBridgePath(base)
 	if runtime.GOOS == "windows" {
-		path = filepath.Join(base, "hooks", "agnostic-ai-global-context.ps1")
 		command = `powershell -NoProfile -ExecutionPolicy Bypass -File "` + strings.ReplaceAll(path, `"`, `\"`) + `"`
 		script = "$payload = '" + strings.ReplaceAll(payload, "'", "''") + "'\r\n[Console]::Out.WriteLine($payload)\r\n"
 		return path, command, script, 0o644
 	}
-	path = filepath.Join(base, "hooks", "agnostic-ai-global-context.sh")
 	return path, path, "#!/bin/sh\nprintf '%s\\n' " + shellQuote(payload) + "\n", 0o755
 }
 
-func preflightGlobalWrites(writes []globalWrite, old, next globalState) error {
+func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState) error {
 	owned := map[string]bool{}
 	for _, p := range old.Files {
 		owned[p] = true
 	}
 	for _, w := range writes {
-		if strings.Contains(w.path, string(filepath.Separator)+"skills"+string(filepath.Separator)) && !owned[w.path] {
+		if inManagedTree(w.path, trees) && !owned[w.path] {
 			if filepath.Base(w.path) == "SKILL.md" {
 				if _, err := os.Stat(filepath.Dir(w.path)); err == nil {
 					return fmt.Errorf("%s: unmanaged global skill collision", filepath.Dir(w.path))
 				}
 			}
 			if _, err := os.Stat(w.path); err == nil {
-				return fmt.Errorf("%s: unmanaged global skill collision", w.path)
+				return fmt.Errorf("%s: unmanaged global spec collision", w.path)
 			}
 		}
 		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -474,6 +502,17 @@ func preflightGlobalWrites(writes []globalWrite, old, next globalState) error {
 	return nil
 }
 
+// inManagedTree reports whether path sits under one of the directory
+// surfaces sync --global owns for the targets in this run.
+func inManagedTree(path string, trees []string) bool {
+	for _, tree := range trees {
+		if strings.HasPrefix(path, tree+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
 func cloneHookState(in map[string][]any) map[string][]any {
 	out := map[string][]any{}
 	for k, v := range in {
@@ -481,6 +520,20 @@ func cloneHookState(in map[string][]any) map[string][]any {
 	}
 	return out
 }
+func removePaths(paths, drop []string) []string {
+	unwanted := map[string]bool{}
+	for _, p := range drop {
+		unwanted[p] = true
+	}
+	out := paths[:0]
+	for _, p := range paths {
+		if !unwanted[p] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func removePathPrefix(paths []string, prefix string) []string {
 	out := paths[:0]
 	for _, p := range paths {
