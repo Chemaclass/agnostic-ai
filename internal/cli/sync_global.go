@@ -417,9 +417,15 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 		delete(doc, "hooks")
 	}
 	// Nothing of ours left and nothing of the user's either: drop the
-	// file rather than leave a `{"hooks": {}}` shell behind. The
-	// version key below is ours too, so it is not counted as content.
-	if len(doc) == 0 {
+	// file rather than leave a shell behind. Cursor's schema version is
+	// ours as well, so an earlier run's copy of it is not user content.
+	remaining := len(doc)
+	if format == "cursor" {
+		if version, ok := doc["version"]; ok && version == float64(1) {
+			remaining--
+		}
+	}
+	if remaining == 0 {
 		return nil, nil
 	}
 	if format == "cursor" {
