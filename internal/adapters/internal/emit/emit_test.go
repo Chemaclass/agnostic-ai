@@ -227,6 +227,34 @@ func TestRemoveGeneratedTree_PreservesUserFilesAndTheirDirs(t *testing.T) {
 	}
 }
 
+// sync --jobs runs one target's empty-directory prune alongside another
+// target's write into the same shared directory (codex sweeping its
+// legacy `.agents/agents/*.toml` next to antigravity's `<name>.md`).
+// The write used to fail outright on the pruned parent.
+func TestWriteFile_SurvivesAConcurrentPruneOfItsParent(t *testing.T) {
+	sess := NewSession()
+	dir := t.TempDir()
+	shared := filepath.Join(dir, "agents", "agents")
+	if err := os.MkdirAll(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Stand in for the prune landing between mkdirAll and the write.
+	if err := os.Remove(shared); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(shared, "agent-0.md")
+	if err := sess.WriteFile(path, "body\n", false); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if string(got) != "body\n" {
+		t.Errorf("content = %q, want %q", got, "body\n")
+	}
+}
+
 func TestRemoveGeneratedTree_MissingDirIsNoOp(t *testing.T) {
 	sess := NewSession()
 	dir := t.TempDir()

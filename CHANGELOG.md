@@ -19,6 +19,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `sync --jobs` no longer fails intermittently on a directory two adapters share. Codex prunes its legacy `.agents/agents/` once the last `*.toml` is swept, which raced antigravity's write of `.agents/agents/<name>.md` into the same directory: the run failed with `no such file or directory` on macOS and Linux, or `The directory is not empty` on Windows. A write now recreates a parent the prune removed, and the prune accepts a directory another target has just written into.
 - Kiro's adapter doc and `docs/user/targets.md` now note that `/docs/tools/` (2026-08-21) tables the agent `tools` category vocabulary differently from `/docs/custom-agents/configuration-reference/` (2026-08-04): `spec` and `context` replace `todo_list` and a standalone `knowledge`. This adapter still cites configuration-reference and only ever emits the four categories both pages agree on, so behavior is unchanged (#675).
 - Antigravity's adapter doc and `docs/user/targets.md` drop a stale "stays unconfirmed" note on whether the IDE executes its documented hooks. The vendor's own hook payload confirms it does; that no longer blocks adding the surface, tracked in #629 (#675).
 

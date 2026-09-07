@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -333,6 +334,28 @@ func mkdirAll(dir string, perm os.FileMode) error {
 	return err
 }
 
+// writeFileAt writes content to path, recreating the parent directory
+// when a concurrent prune removed it between mkdirAll and the write.
+//
+// `sync --jobs` runs one target's empty-directory prune alongside
+// another target's write into the same shared directory. Codex sweeps
+// its legacy `.agents/agents/*.toml` and prunes the directory once the
+// last one is gone, while antigravity writes `.agents/agents/<name>.md`
+// into it. Observed as `open .agents/agents/agent-0.md: no such file or
+// directory` on macOS. The prune is correct and the write is correct;
+// only their interleaving is wrong, and recreating the parent is the
+// cheap half of that fix. See removeEmptyDirs for the other half.
+func writeFileAt(path, content string, mode os.FileMode) error {
+	err := os.WriteFile(path, []byte(content), mode)
+	if err == nil || !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if mkErr := mkdirAll(filepath.Dir(path), dirPerm); mkErr != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), mode)
+}
+
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
 	s.mu.Lock()
 	capturing := s.capturing
@@ -403,7 +426,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 		}
-		if err := os.WriteFile(path, []byte(content), mode); err != nil {
+		if err := writeFileAt(path, content, mode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		s.mu.Lock()
@@ -433,7 +456,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 			}
 		}
 	}
-	if err := os.WriteFile(path, []byte(content), mode); err != nil {
+	if err := writeFileAt(path, content, mode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
@@ -621,7 +644,11 @@ func removeEmptyDirs(dir string) error {
 		if len(entries) > 0 {
 			continue
 		}
-		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) {
+		// A concurrent write from another target can land between the
+		// ReadDir above and this Remove, and then the directory is no
+		// longer ours to prune. Windows reports that as "The directory
+		// is not empty"; treat it as the success it effectively is.
+		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) && !errors.Is(err, syscall.ENOTEMPTY) {
 			return fmt.Errorf("remove %s: %w", dirs[i], err)
 		}
 	}
