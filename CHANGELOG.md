@@ -8,7 +8,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `agnostic-ai sync --global` emits shared user-level instructions, hooks, and skills as native Claude Code and Cursor configuration directly from `~/.agnostic-ai/`, while preserving unrelated native configuration and keeping project sync isolated (#680).
+- `agnostic-ai sync --global` emits shared user-level instructions, hooks, and skills as native configuration directly from `~/.agnostic-ai/`, while preserving unrelated native configuration and keeping project sync isolated (#680).
+- `sync --global` now covers 22 of the 25 targets instead of Claude Code and Cursor alone, each at its own documented user-level path. Rules inline into the instructions file, or land in `~/.augment/rules/` for the one target that documents no user-level instructions file. Hooks reach Codex, Gemini, and Qoder, which share Claude Code's documented schema at user scope. Aider, Continue, and Jules are excluded: no vendor documents an auto-loaded user-level surface for them (#680).
 
 - Codex MCP servers emit the vendor's per-tool sub-tables from a `tools` map: `[mcp_servers.<name>.tools.<tool>]`, keys passed through verbatim, covering `output_token_limit` (shipped in Codex v0.153.0) and the per-tool approval override. The block was dropped in silence before, with no warning and no coverage note (#678).
 - `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much command and background-task output Claude Code takes inline before spilling it to a file, up to 128K characters. Both shipped in Claude Code v2.1.261 and previously had no declarative path, only the captured overlay (#679).
