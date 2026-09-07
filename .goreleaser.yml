@@ -124,11 +124,14 @@ homebrew_casks:
   - name: agnostic-ai
     binaries:
       - agnostic-ai
+    # Matches scoop and winget above: without a token the cask is still
+    # built, just never pushed, so a fork or a local run still releases.
+    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}false{{ else }}true{{ end }}'
     repository:
       owner: Chemaclass
       name: homebrew-tap
       branch: master
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
     directory: Casks
     homepage: https://github.com/Chemaclass/agnostic-ai
     description: Sync agent prompts, skills, rules, and hooks across AI coding tools

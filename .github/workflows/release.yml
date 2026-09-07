@@ -46,8 +46,12 @@ jobs:
   npm:
     name: npm
     # The wrapper downloads release assets on install, so it can only publish
-    # once GoReleaser has uploaded them.
+    # once GoReleaser has uploaded them. It runs even when the GoReleaser job
+    # failed: assets upload before the Homebrew, Scoop, and winget pushes, so
+    # a package-manager token going stale must not also hold back npm. The
+    # asset check below is the real gate, rather than the job result.
     needs: goreleaser
+    if: always() && needs.goreleaser.result != 'cancelled' && needs.goreleaser.result != 'skipped'
     runs-on: ubuntu-latest
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -62,15 +66,47 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Require the release archives the wrapper downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
+          echo "$assets"
+          for want in \
+            agnostic-ai_darwin_amd64.tar.gz agnostic-ai_darwin_arm64.tar.gz \
+            agnostic-ai_linux_amd64.tar.gz agnostic-ai_linux_arm64.tar.gz \
+            agnostic-ai_windows_amd64.zip agnostic-ai_windows_arm64.zip \
+            checksums.txt; do
+            if ! grep -qx "$want" <<<"$assets"; then
+              echo "::error::release ${GITHUB_REF_NAME} is missing $want; not publishing to npm"
+              exit 1
+            fi
+          done
+
       - name: Version the package from the tag
         working-directory: npm
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+
+      - name: Skip when this version is already on the registry
+        id: published
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          # `npm view` exits non-zero for a package that has never been
+          # published, which is the first-release case, not an error.
+          if npm view "agnostic-ai@${version}" version >/dev/null 2>&1; then
+            echo "::notice::agnostic-ai@${version} is already published; nothing to do"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish
         # Skipped until NPM_TOKEN exists, so a release never fails over it.
         # setup-node replaces an empty NODE_AUTH_TOKEN with a placeholder, so
         # test the secret-presence flag captured before setup instead.
-        if: env.NPM_TOKEN_CONFIGURED == 'true'
+        if: env.NPM_TOKEN_CONFIGURED == 'true' && steps.published.outputs.exists == 'false'
         working-directory: npm
         run: npm publish --access public
 
