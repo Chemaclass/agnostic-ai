@@ -333,7 +333,12 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	}
 	body = strings.TrimSpace(body)
 	if strings.TrimSpace(managed) == globalStart+"\n\n"+globalEnd {
-		return body, nil
+		if body == "" {
+			return "", nil
+		}
+		// The file is now the user's text alone. Keep it a well-formed
+		// text file rather than handing it back without its newline.
+		return body + "\n", nil
 	}
 	if body != "" {
 		body += "\n\n"

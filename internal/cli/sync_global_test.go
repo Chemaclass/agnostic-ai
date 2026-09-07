@@ -288,3 +288,36 @@ func TestSyncGlobal_SweepsAnInstructionsFileAfterItsSourceIsGone(t *testing.T) {
 		t.Errorf("managed instructions file survived its source: %v", err)
 	}
 }
+
+func TestSyncGlobal_KeepsTheTrailingNewlineOfPreservedUserText(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	intro := filepath.Join(home, "source", "AGNOSTIC_AI.md")
+	mustWriteGlobalTest(t, intro, "Shared instructions\n")
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal notes.\n")
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--global", "--only", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(intro); err != nil {
+		t.Fatal(err)
+	}
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--global", "--only", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".claude", "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); got != "Personal notes.\n" {
+		t.Errorf("preserved user text = %q, want %q", got, "Personal notes.\n")
+	}
+}
