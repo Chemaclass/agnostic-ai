@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -12,6 +13,7 @@ import (
 func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	source := filepath.Join(home, "source", "global")
 	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
@@ -44,14 +46,16 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(home, ".cursor", "skills", "review", "SKILL.md")); err != nil {
 		t.Error(err)
 	}
-	bridge := filepath.Join(home, ".cursor", "hooks", "agnostic-ai-global-context.sh")
-	out, err := exec.Command(bridge).Output()
-	if err != nil {
-		t.Fatalf("run Cursor bridge: %v", err)
-	}
-	var payload map[string]string
-	if err := json.Unmarshal(out, &payload); err != nil || !strings.Contains(payload["additional_context"], "Shared instructions") {
-		t.Fatalf("invalid Cursor bridge payload %q: %v", out, err)
+	if runtime.GOOS != "windows" {
+		bridge := filepath.Join(home, ".cursor", "hooks", "agnostic-ai-global-context.sh")
+		out, err := exec.Command(bridge).Output()
+		if err != nil {
+			t.Fatalf("run Cursor bridge: %v", err)
+		}
+		var payload map[string]string
+		if err := json.Unmarshal(out, &payload); err != nil || !strings.Contains(payload["additional_context"], "Shared instructions") {
+			t.Fatalf("invalid Cursor bridge payload %q: %v", out, err)
+		}
 	}
 
 	root = NewRootCmd("test")
@@ -64,6 +68,7 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "AGNOSTIC_AI.md"), "new\n")
 	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "skills", "review", "SKILL.md"), "---\nname: review\n---\nmanaged\n")
@@ -83,6 +88,7 @@ func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 func TestSyncGlobal_RejectsScopedRuleAndUnsupportedFlags(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	mustWriteGlobalTest(t, filepath.Join(home, "source", "global", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
 	root := NewRootCmd("test")
@@ -101,6 +107,7 @@ func TestSyncGlobal_RejectsScopedRuleAndUnsupportedFlags(t *testing.T) {
 func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	sourceHook := filepath.Join(home, "source", "global", "hooks", "notify.yaml")
 	mustWriteGlobalTest(t, sourceHook, "name: notify\nevent: sessionStart\ncommand: managed-command\n")

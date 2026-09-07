@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -70,9 +71,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 	}
 
-	home, err := os.UserHomeDir()
+	home, err := globalUserHome()
 	if err != nil {
-		return fmt.Errorf("resolve home directory: %w", err)
+		return err
 	}
 	sourceHome := os.Getenv("AGNOSTIC_AI_HOME")
 	if sourceHome == "" {
@@ -225,13 +226,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		} else {
 			next.CursorHooks = map[string][]any{}
-			bridge := filepath.Join(base, "hooks", "agnostic-ai-global-context.sh")
-			script := "#!/bin/sh\nprintf '%s\\n' " + shellQuote(`{"additional_context":`+jsonString(body)+`}`) + "\n"
-			writes = append(writes, globalWrite{bridge, []byte(script), 0o755})
+			bridge, command, script, mode := cursorGlobalBridge(base, body)
+			writes = append(writes, globalWrite{bridge, []byte(script), mode})
 			next.Files = append(next.Files, bridge)
 			path := filepath.Join(base, "hooks.json")
 			hooks := append([]spec.Entry{}, b.Hooks...)
-			hooks = append(hooks, spec.Entry{Meta: map[string]any{"event": "sessionStart", "command": bridge}})
+			hooks = append(hooks, spec.Entry{Meta: map[string]any{"event": "sessionStart", "command": command}})
 			doc, err := mergeGlobalHooks(path, "cursor", hooks, old.CursorHooks, next.CursorHooks)
 			if err != nil {
 				return nil, next, err
@@ -368,6 +368,29 @@ func globalHookCommands(raw any) []string {
 }
 func jsonString(s string) string { raw, _ := json.Marshal(s); return string(raw) }
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+
+func globalUserHome() (string, error) {
+	if home := os.Getenv("HOME"); home != "" {
+		return home, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return home, nil
+}
+
+func cursorGlobalBridge(base, body string) (path, command, script string, mode fs.FileMode) {
+	payload := `{"additional_context":` + jsonString(body) + `}`
+	if runtime.GOOS == "windows" {
+		path = filepath.Join(base, "hooks", "agnostic-ai-global-context.ps1")
+		command = `powershell -NoProfile -ExecutionPolicy Bypass -File "` + strings.ReplaceAll(path, `"`, `\"`) + `"`
+		script = "$payload = '" + strings.ReplaceAll(payload, "'", "''") + "'\r\n[Console]::Out.WriteLine($payload)\r\n"
+		return path, command, script, 0o644
+	}
+	path = filepath.Join(base, "hooks", "agnostic-ai-global-context.sh")
+	return path, path, "#!/bin/sh\nprintf '%s\\n' " + shellQuote(payload) + "\n", 0o755
+}
 
 func preflightGlobalWrites(writes []globalWrite, old, next globalState) error {
 	owned := map[string]bool{}
