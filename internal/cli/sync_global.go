@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -23,6 +24,9 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
+	// globalStateVersion is 2 since the per-target hooks map replaced
+	// the claude-and-cursor-only fields.
+	globalStateVersion = 2
 )
 
 type globalSyncOptions struct {
@@ -33,8 +37,14 @@ type globalSyncOptions struct {
 }
 
 type globalState struct {
-	Version     int              `json:"version"`
-	Files       []string         `json:"files"`
+	Version int      `json:"version"`
+	Files   []string `json:"files"`
+	// Hooks records the managed hook entries per target, keyed by
+	// target name then event, so a later sync can remove exactly what
+	// it added and leave user-authored entries alone.
+	Hooks map[string]map[string][]any `json:"hooks,omitempty"`
+	// ClaudeHooks and CursorHooks are the version-1 layout, read for
+	// migration only.
 	ClaudeHooks map[string][]any `json:"claudeHooks,omitempty"`
 	CursorHooks map[string][]any `json:"cursorHooks,omitempty"`
 }
@@ -60,7 +70,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	targets := o.targets
 	if len(targets) == 0 {
-		targets = []string{"claude", "cursor"}
+		targets = globalTargetNames()
 	}
 	var err error
 	targets, err = filterTargets(targets, o.only, o.except)
@@ -68,8 +78,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	for _, target := range targets {
-		if target != "claude" && target != "cursor" {
-			return fmt.Errorf("--global: unsupported target %q (supported: claude, cursor)", target)
+		if _, ok := globalTargets[target]; !ok {
+			return fmt.Errorf("--global: unsupported target %q (supported: %s)", target, strings.Join(globalTargetNames(), ", "))
 		}
 	}
 
@@ -153,21 +163,54 @@ func hasGlobalRuleCondition(meta map[string]any) bool {
 func loadGlobalState(path string) (globalState, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return globalState{Version: 1}, nil
+		return globalState{Version: globalStateVersion}, nil
 	}
 	if err != nil {
 		return globalState{}, fmt.Errorf("read %s: %w", path, err)
 	}
 	var state globalState
-	if err := json.Unmarshal(data, &state); err != nil || state.Version != 1 {
+	if err := json.Unmarshal(data, &state); err != nil || state.Version < 1 || state.Version > globalStateVersion {
 		return globalState{}, fmt.Errorf("parse %s: corrupt global ownership state", path)
 	}
+	if state.Hooks == nil {
+		state.Hooks = map[string]map[string][]any{}
+	}
+	for target, hooks := range map[string]map[string][]any{"claude": state.ClaudeHooks, "cursor": state.CursorHooks} {
+		if len(hooks) > 0 && state.Hooks[target] == nil {
+			state.Hooks[target] = hooks
+		}
+	}
+	state.ClaudeHooks, state.CursorHooks = nil, nil
+	state.Version = globalStateVersion
 	return state, nil
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState) ([]globalWrite, globalState, error) {
-	next := globalState{Version: 1, Files: append([]string(nil), old.Files...), ClaudeHooks: cloneHookState(old.ClaudeHooks), CursorHooks: cloneHookState(old.CursorHooks)}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}}
+	for target, hooks := range old.Hooks {
+		next.Hooks[target] = cloneHookState(hooks)
+	}
+	// Strip every synced target's tree before emitting any of them: two
+	// targets can share one config directory, and stripping inside the
+	// loop would drop the earlier target's fresh entries.
+	for _, target := range targets {
+		base := globalTargets[target].base(home)
+		next.Files = removePathPrefix(next.Files, base+string(filepath.Separator))
+	}
 	var writes []globalWrite
+	seen := map[string]int{}
+	add := func(path string, data []byte, mode fs.FileMode) error {
+		if i, ok := seen[path]; ok {
+			if !bytes.Equal(writes[i].data, data) {
+				return fmt.Errorf("%s: two global targets emit different content to one path", path)
+			}
+			return nil
+		}
+		seen[path] = len(writes)
+		writes = append(writes, globalWrite{path, data, mode})
+		next.Files = append(next.Files, path)
+		return nil
+	}
 	body := strings.TrimSpace(string(intro))
 	for _, rule := range b.Rules {
 		if body != "" {
@@ -177,73 +220,81 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	managed := globalStart + "\n" + body + "\n" + globalEnd
 	for _, target := range targets {
-		base := filepath.Join(home, "."+target)
-		next.Files = removePathPrefix(next.Files, base+string(filepath.Separator))
-		instructionsPath := filepath.Join(base, map[string]string{"claude": "CLAUDE.md", "cursor": "AGENTS.md"}[target])
-		merged, err := mergeGlobalBlock(instructionsPath, managed)
+		g := globalTargets[target]
+		base := g.base(home)
+		if g.instructions != "" {
+			path := filepath.Join(base, g.instructions)
+			merged, err := mergeGlobalBlock(path, managed)
+			if err != nil {
+				return nil, next, err
+			}
+			// Never create an empty instructions file for a user who
+			// authored no global instructions and no global rules.
+			if merged != "" || fileExists(path) {
+				if err := add(path, []byte(merged), 0o644); err != nil {
+					return nil, next, err
+				}
+			}
+		}
+		if g.skills != "" {
+			for _, skill := range b.Skills {
+				if err := addGlobalSkill(filepath.Join(base, g.skills, skill.Name), skill.Path, add); err != nil {
+					return nil, next, err
+				}
+			}
+		}
+		if g.hooks == "" {
+			continue
+		}
+		next.Hooks[target] = map[string][]any{}
+		hooks := b.Hooks
+		if g.bridge && body != "" {
+			bridge, command, script, mode := globalContextBridge(base, body, g.bridgeKey)
+			if err := add(bridge, []byte(script), mode); err != nil {
+				return nil, next, err
+			}
+			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
+		}
+		path := filepath.Join(base, g.hooks)
+		doc, err := mergeGlobalHooks(path, g.hooksFormat, hooks, old.Hooks[target], next.Hooks[target])
 		if err != nil {
 			return nil, next, err
 		}
-		writes = append(writes, globalWrite{instructionsPath, []byte(merged), 0o644})
-		next.Files = append(next.Files, instructionsPath)
-		for _, skill := range b.Skills {
-			dst := filepath.Join(base, "skills", skill.Name)
-			if err := filepath.WalkDir(filepath.Dir(skill.Path), func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-				if d.IsDir() {
-					return nil
-				}
-				rel, err := filepath.Rel(filepath.Dir(skill.Path), path)
-				if err != nil {
-					return err
-				}
-				data, err := os.ReadFile(path)
-				if err != nil {
-					return fmt.Errorf("read %s: %w", path, err)
-				}
-				out := filepath.Join(dst, rel)
-				info, err := d.Info()
-				if err != nil {
-					return fmt.Errorf("stat %s: %w", path, err)
-				}
-				writes = append(writes, globalWrite{out, data, info.Mode().Perm()})
-				next.Files = append(next.Files, out)
-				return nil
-			}); err != nil {
+		if doc != nil {
+			if err := add(path, doc, 0o644); err != nil {
 				return nil, next, err
 			}
-		}
-		if target == "claude" {
-			next.ClaudeHooks = map[string][]any{}
-			path := filepath.Join(base, "settings.json")
-			doc, err := mergeGlobalHooks(path, "claude", b.Hooks, old.ClaudeHooks, next.ClaudeHooks)
-			if err != nil {
-				return nil, next, err
-			}
-			if doc != nil {
-				writes = append(writes, globalWrite{path, doc, 0o644})
-				next.Files = append(next.Files, path)
-			}
-		} else {
-			next.CursorHooks = map[string][]any{}
-			bridge, command, script, mode := cursorGlobalBridge(base, body)
-			writes = append(writes, globalWrite{bridge, []byte(script), mode})
-			next.Files = append(next.Files, bridge)
-			path := filepath.Join(base, "hooks.json")
-			hooks := append([]spec.Entry{}, b.Hooks...)
-			hooks = append(hooks, spec.Entry{Meta: map[string]any{"event": "sessionStart", "command": command}})
-			doc, err := mergeGlobalHooks(path, "cursor", hooks, old.CursorHooks, next.CursorHooks)
-			if err != nil {
-				return nil, next, err
-			}
-			writes = append(writes, globalWrite{path, doc, 0o644})
-			next.Files = append(next.Files, path)
 		}
 	}
 	sort.Strings(next.Files)
 	return writes, next, nil
+}
+
+// addGlobalSkill copies a source skill folder (SKILL.md plus sibling
+// assets) into dst through add.
+func addGlobalSkill(dst, specPath string, add func(string, []byte, fs.FileMode) error) error {
+	root := filepath.Dir(specPath)
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		return add(filepath.Join(dst, rel), data, info.Mode().Perm())
+	})
 }
 
 func mergeGlobalBlock(path, managed string) (string, error) {
@@ -270,15 +321,21 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	return body + managed + "\n", nil
 }
 
-func mergeGlobalHooks(path, target string, entries []spec.Entry, previous map[string][]any, next map[string][]any) ([]byte, error) {
+func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[string][]any, next map[string][]any) ([]byte, error) {
 	doc := map[string]any{}
 	data, err := os.ReadFile(path)
+	absent := os.IsNotExist(err)
 	if err == nil {
 		if err := json.Unmarshal(data, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-	} else if !os.IsNotExist(err) {
+	} else if !absent {
 		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	// Nothing managed, nothing previously managed, no file: leave the
+	// user's home directory untouched rather than seeding an empty one.
+	if absent && len(entries) == 0 && len(previous) == 0 {
+		return nil, nil
 	}
 	hooks, _ := doc["hooks"].(map[string]any)
 	if hooks == nil {
@@ -306,7 +363,7 @@ func mergeGlobalHooks(path, target string, entries []spec.Entry, previous map[st
 		}
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
 			var item any
-			if target == "claude" {
+			if format == "claude" {
 				commandHook := map[string]any{"type": "command", "command": command}
 				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
 					if value, ok := entry.Meta[key]; ok {
@@ -330,7 +387,7 @@ func mergeGlobalHooks(path, target string, entries []spec.Entry, previous map[st
 		}
 	}
 	doc["hooks"] = hooks
-	if target == "cursor" {
+	if format == "cursor" {
 		doc["version"] = float64(1)
 	}
 	out, err := json.MarshalIndent(doc, "", "  ")
@@ -382,8 +439,8 @@ func globalUserHome() (string, error) {
 	return home, nil
 }
 
-func cursorGlobalBridge(base, body string) (path, command, script string, mode fs.FileMode) {
-	payload := `{"additional_context":` + jsonString(body) + `}`
+func globalContextBridge(base, body, key string) (path, command, script string, mode fs.FileMode) {
+	payload := `{` + jsonString(key) + `:` + jsonString(body) + `}`
 	if runtime.GOOS == "windows" {
 		path = filepath.Join(base, "hooks", "agnostic-ai-global-context.ps1")
 		command = `powershell -NoProfile -ExecutionPolicy Bypass -File "` + strings.ReplaceAll(path, `"`, `\"`) + `"`
