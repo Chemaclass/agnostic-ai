@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.52.0 - 2026-09-07
+
 ### Added
 
 - `agnostic-ai sync --global` installs shared user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) as native configuration for 22 of the 25 targets, each at its own documented user-level path. Unrelated native text, JSON keys, hooks, and skills are preserved, and project sync stays isolated (#680).
