@@ -158,3 +158,13 @@ Five kinds here. `command`, `settings`, `review`, `environment`, and `ignore` ar
 **Write the rule once. Every AI tool obeys it. Outlive the tool.**
 
 </div>
+
+### Share user configuration across Claude Code and Cursor
+
+Put user-wide instructions in `~/.agnostic-ai/AGNOSTIC_AI.md`, with optional `rules/`, `hooks/`, and `skills/` folders beside it. Then run this from any directory:
+
+```bash
+agnostic-ai sync --global
+```
+
+This mode is opt-in and separate from project sync. It writes native user configuration for Claude Code and Cursor. See [global configuration](docs/user/configuration.md#global-configuration).

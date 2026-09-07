@@ -81,7 +81,7 @@ type Entry struct {
     Name  string            // identifier
     Path  string            // source file path (for errors and provenance)
     Scope string            // implicit per-dir scope from layout
-    Layer string            // source layer: user-global | project | project-user
+    Layer string            // project source: pack:<name> | project | project-user
     Meta  map[string]any    // frontmatter or YAML fields
     Body  string            // markdown body (empty for hooks/mcps)
 }

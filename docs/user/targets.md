@@ -1,5 +1,16 @@
 # Targets
 
+## Global output
+
+`sync --global` supports Claude Code and Cursor only. These paths are user-level and are independent of the project outputs documented below.
+
+| Target | Instructions | Hooks | Skills |
+|--------|--------------|-------|--------|
+| Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/settings.json` | `~/.claude/skills/<name>/` |
+| Cursor | `~/.cursor/AGENTS.md` | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` |
+
+Cursor does not automatically load the home-level `AGENTS.md`. Global sync therefore installs a managed `sessionStart` hook and a self-contained script bridge under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows). The bridge returns the rendered instructions as valid `additional_context` JSON without calling agnostic-ai, Python, or jq. Cursor session-start hooks are fire-and-forget context injection, not enforced policy. Existing `sessionStart` entries remain in place.
+
 Each adapter emits in its tool's native format: separate files where the tool supports them, a merged document otherwise. Unsupported features (e.g. hooks for a non-hook-aware target) skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).
 
 ## Entry-point files

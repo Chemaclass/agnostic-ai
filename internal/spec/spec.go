@@ -56,7 +56,7 @@ type Entry struct {
 	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
 	Scope string
 	// Layer names the source layer this entry came from
-	// ("user-global", "project", "project-user"). Empty when loaded
+	// ("pack:<name>", "project", "project-user"). Empty when loaded
 	// outside the layered loader (legacy path).
 	Layer string
 	Meta  map[string]any

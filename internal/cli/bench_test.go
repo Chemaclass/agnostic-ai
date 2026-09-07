@@ -107,7 +107,6 @@ func BenchmarkSyncFull(b *testing.B) {
 				root := benchProject(b, n)
 				benchQuiet(b)
 				benchChdir(b, root)
-				benchIsolateGlobalLayer(b)
 				// Prime once so timed iterations measure the re-sync path.
 				if err := runSyncOnce(".", nil, false, false, "off", jc.jobs); err != nil {
 					b.Fatal(err)
@@ -135,7 +134,6 @@ func BenchmarkSyncCheck(b *testing.B) {
 			root := benchProject(b, n)
 			benchQuiet(b)
 			benchChdir(b, root)
-			benchIsolateGlobalLayer(b)
 			// Prime disk via the check path's own writers so the timed
 			// compare finds every file in sync.
 			reports, err := collectDrift(nil)
@@ -259,9 +257,8 @@ func benchProject(b *testing.B, n int) string {
 }
 
 // benchLoad loads the fixture config and a project-only bundle. It skips
-// resolveLayers on purpose so the user-global and project-user layers
-// never leak host state into the numbers; benchIsolateGlobalLayer covers
-// the paths that load through the CLI instead.
+// resolveLayers so the project-user layer cannot leak host state into the
+// numbers.
 func benchLoad(b *testing.B, root string) (*config.Config, spec.Bundle) {
 	b.Helper()
 	cfg, err := config.Load(root)
@@ -414,15 +411,6 @@ func benchQuiet(b *testing.B) {
 		logOut = prevOut
 		adapters.SetWarner(os.Stderr)
 	})
-}
-
-// benchIsolateGlobalLayer points the user-global layer at an empty temp
-// dir so host state under ~/.agnostic-ai cannot leak into a benchmark
-// that loads through the CLI (resolveLayers). The dir exists but has no
-// spec subdirs, so the layer contributes nothing.
-func benchIsolateGlobalLayer(b *testing.B) {
-	b.Helper()
-	b.Setenv(envUserGlobalRoot, b.TempDir())
 }
 
 // resetBenchBuffers clears the process-global capability-warning and

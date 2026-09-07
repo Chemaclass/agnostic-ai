@@ -278,7 +278,7 @@ type ClaudePermissions struct {
 //
 // These fields are written into the project-tier `.codex/config.toml` on each
 // sync. Keys not listed here (e.g. user-specific overrides) belong in the
-// user-global `~/.codex/config.toml` which Codex merges last.
+// user-level `~/.codex/config.toml` which Codex merges last.
 type CodexConfig struct {
 	Sandbox               string                        `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
 	ApprovalPolicy        string                        `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`

@@ -15,7 +15,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets, diff bool
+	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets, diff, global bool
 	var gitignoreFlag, format string
 	var jobs int
 
@@ -52,6 +52,9 @@ func newSyncCmd() *cobra.Command {
   # Machine-readable output for CI dashboards and editor extensions
   agnostic-ai sync --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if global {
+				return runGlobalSync(cmd, globalSyncOptions{targets: targets, only: only, except: except, dryRun: dryRun, check: check, backup: backup, plan: plan, watch: watch, watchPoll: watchPoll, jsonOut: jsonOut, allTargets: allTargets, diff: diff, format: format, gitignore: gitignoreFlag, jobs: jobs})
+			}
 			if err := validateGitignoreFlag(gitignoreFlag); err != nil {
 				return err
 			}
@@ -136,6 +139,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	cmd.Flags().IntVar(&jobs, "jobs", 0, "Number of targets to emit in parallel (0 = one per CPU; 1 = serial). Output is identical regardless.")
+	cmd.Flags().BoolVar(&global, "global", false, "Sync user-level Claude Code and Cursor configuration")
 	registerTargetCompletion(cmd)
 	return cmd
 }

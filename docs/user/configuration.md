@@ -1,5 +1,29 @@
 # Configuration
 
+## Global configuration
+
+`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to Claude Code and Cursor. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs.
+
+The source root is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset:
+
+```text
+~/.agnostic-ai/
+├── AGNOSTIC_AI.md
+├── rules/*.md
+├── hooks/*.yaml
+└── skills/<name>/SKILL.md
+```
+
+Run `agnostic-ai sync --global`. Both targets are enabled by default. `--target`, `--only`, and `--except` can narrow the set to `claude` or `cursor`. `--dry-run`, `--check`, and `--backup` retain their normal meaning. Project-only flags such as `--watch`, `--plan`, `--json`, `--gitignore`, and `--jobs` are rejected before any write.
+
+Global rules must be unconditional. A nested rule or a rule with scope, path, glob, or target conditions is rejected rather than flattened. Global mode does not support agents, commands, MCP servers, settings, inheritance, or merging with project specs.
+
+Generated files are real files, never symlinks. Managed instruction blocks, hook entries, and skill assets are recorded under `$AGNOSTIC_AI_HOME/state/global.json`. Sync preserves unrelated text, JSON keys, hooks, and skills. It removes only artifacts recorded as managed. An unmanaged skill collision, damaged managed marker, invalid native JSON file, or corrupt ownership state stops the whole operation before writes. Native tool precedence still applies when both global and project configuration exist.
+
+Migration: ordinary `agnostic-ai sync` no longer loads specs from `~/.agnostic-ai/`. Rules, hooks, and skills already stored there become native global inputs when you run `sync --global`. Move defaults intended only for project output into each project's `.agnostic-ai/` tree or a shared pack. Move unsupported old global kinds such as agents, MCP servers, commands, settings, reviews, environments, and ignore specs into projects or packs because global mode does not load them.
+
+A repository's `.agnostic-ai/` directory remains project-specific, even though the default user root has the same basename. Keep organization or team defaults in committed project specs or a pinned pack. `.agnostic-ai.local/` remains the uncommitted personal override for one project.
+
 `agnostic-ai.yaml` lives at the project root. It is read from the current working directory at command time. Every section is optional. Defaults are listed below.
 
 Legacy filename: `agnostic.config.yaml` still loads, with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
@@ -628,7 +652,7 @@ Any setting not declared here round-trips through the overlay captured during `a
 
 ## Codex config
 
-The `outputs.codex.config` block declares first-class `.codex/config.toml` global keys, written into the project-tier config on each sync. Keys not listed here belong in the user-global `~/.codex/config.toml`, which Codex merges last.
+The `outputs.codex.config` block declares first-class `.codex/config.toml` global keys, written into the project-tier config on each sync. Keys not listed here belong in the user-level `~/.codex/config.toml`, which Codex merges last.
 
 ```yaml
 outputs:
@@ -731,17 +755,17 @@ Last wins:
 
 ## Layered specs
 
-Specs load from up to three layers, low- to high-precedence:
+Project specs load from three tiers, low- to high-precedence:
 
 | Layer | Root | Loaded when |
 |-------|------|-------------|
-| `user-global` | `$AGNOSTIC_AI_HOME` if set, else `~/.agnostic-ai` | directory exists |
+| packs | `.agnostic-ai/packs/` from `agnostic.packs.lock` | packs are installed |
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
 | `project-user` | `<project>/.agnostic-ai.local` | directory exists |
 
 Higher layers override by spec name (per kind). New names append.
 
-`user-global` and `project-user` use a fixed source layout: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/` under the layer root. Only the `project` layer honors custom `sources` paths.
+`project-user` uses the fixed kind directories under its root. Only the `project` layer honors custom `sources` paths. `$AGNOSTIC_AI_HOME` is not a project layer; `sync --global` reads it through the separate global workflow above.
 
 Add `.agnostic-ai.local/` to your `.gitignore` so personal overrides stay local.
 
