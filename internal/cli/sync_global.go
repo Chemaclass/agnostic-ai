@@ -122,7 +122,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	if o.dryRun {
 		for _, w := range writes {
-			fmt.Fprintf(cmd.OutOrStdout(), "dry-run: write %s\n", w.path)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: write %s\n", w.path); err != nil {
+				return fmt.Errorf("write dry-run output: %w", err)
+			}
 		}
 		return nil
 	}
@@ -130,7 +132,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets))
+	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
+		return fmt.Errorf("write sync summary: %w", err)
+	}
 	return nil
 }
 
@@ -469,7 +473,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		}
 		tmpName := tmp.Name()
 		writeErr := func() error {
-			defer os.Remove(tmpName)
+			defer func() { _ = os.Remove(tmpName) }()
 			if _, err := tmp.Write(w.data); err != nil {
 				return err
 			}
