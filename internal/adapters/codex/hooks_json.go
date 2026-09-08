@@ -78,15 +78,30 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 }
 
 type matcherGroup struct {
-	Matcher string             `json:"matcher,omitempty"`
-	Hooks   []hookCommandEntry `json:"hooks"`
+	Matcher string      `json:"matcher,omitempty"`
+	Hooks   []hookEntry `json:"hooks"`
+}
+
+// hookEntry is either a hookCommandEntry or a hookMCPToolEntry.
+// learn.chatgpt.com/docs/hooks documents both shapes in the same
+// `hooks[]` array; a shared interface (rather than a single struct
+// with nullable command/server/tool fields) keeps each shape's
+// required fields from leaking into the other's JSON. See #693.
+type hookEntry interface {
+	isHookEntry()
+}
+
+// hookBase holds the two fields learn.chatgpt.com/docs/hooks documents
+// as shared between a command hook and an mcp_tool hook.
+type hookBase struct {
+	Timeout       int    `json:"timeout,omitempty"`
+	StatusMessage string `json:"statusMessage,omitempty"`
 }
 
 type hookCommandEntry struct {
-	Type          string `json:"type"`
-	Command       string `json:"command"`
-	Timeout       int    `json:"timeout,omitempty"`
-	StatusMessage string `json:"statusMessage,omitempty"`
+	Type    string `json:"type"`
+	Command string `json:"command"`
+	hookBase
 	// CommandWindows is Codex's optional Windows-specific command
 	// override, propagated from the spec's `commandWindows` Meta key.
 	CommandWindows string `json:"commandWindows,omitempty"`
@@ -100,13 +115,33 @@ type hookCommandEntry struct {
 	Async bool `json:"async,omitempty"`
 }
 
+func (hookCommandEntry) isHookEntry() {}
+
+// hookMCPToolEntry calls a tool on an already-connected MCP server
+// instead of running a shell command: "It sends structured arguments
+// directly to the tool and uses the same trust review and output
+// contract as a command hook." learn.chatgpt.com/docs/hooks. See #693.
+type hookMCPToolEntry struct {
+	Type   string         `json:"type"`
+	Server string         `json:"server"`
+	Tool   string         `json:"tool"`
+	Input  map[string]any `json:"input,omitempty"`
+	hookBase
+}
+
+func (hookMCPToolEntry) isHookEntry() {}
+
 // buildHooksJSON returns the rendered document or nil when no hooks
 // produce output. Walks the bundle, normalizes commands via
-// RewriteHookPath, then collapses (event, command) duplicates by
-// unioning their matcher segments.
+// RewriteHookPath, then collapses (event, kind, identity) duplicates by
+// unioning their matcher segments. identity is the rewritten command
+// for a command hook, or "server\x00tool" for an mcp_tool hook, so the
+// two shapes never collide even when both fields happen to be empty
+// (both are filtered out before a key is ever created).
 func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
-	type key struct{ event, command string }
+	type key struct{ event, kind, identity string }
 	type accum struct {
+		kind                   string
 		matchers               map[string]bool
 		matcherOrder           []string
 		timeout                int
@@ -114,6 +149,8 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		commandWindows         string
 		additionalContextLimit *int
 		async                  bool
+		server, tool           string
+		input                  map[string]any
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
@@ -126,15 +163,53 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		matcher, _ := h.Meta["matcher"].(string)
 		timeout := hookIntMeta(h.Meta, "timeout")
 		statusMessage, _ := h.Meta["statusMessage"].(string)
+
+		// An mcp_tool hook calls a tool on an already-connected MCP
+		// server instead of running a shell command, so it carries no
+		// `command` at all. Routing it through the command path below
+		// would make hookCommands return nothing and drop the entry
+		// silently. See #693.
+		if hookType, _ := h.Meta["type"].(string); hookType == "mcp_tool" {
+			server, _ := h.Meta["server"].(string)
+			tool, _ := h.Meta["tool"].(string)
+			if server == "" || tool == "" {
+				continue
+			}
+			input, _ := h.Meta["input"].(map[string]any)
+			k := key{event: event, kind: "mcp_tool", identity: server + "\x00" + tool}
+			a, ok := byKey[k]
+			if !ok {
+				a = &accum{kind: "mcp_tool", matchers: map[string]bool{}, server: server, tool: tool}
+				byKey[k] = a
+				keyOrder = append(keyOrder, k)
+			}
+			for _, seg := range matcherSegments(matcher) {
+				if !a.matchers[seg] {
+					a.matchers[seg] = true
+					a.matcherOrder = append(a.matcherOrder, seg)
+				}
+			}
+			if a.timeout == 0 && timeout != 0 {
+				a.timeout = timeout
+			}
+			if a.statusMessage == "" && statusMessage != "" {
+				a.statusMessage = statusMessage
+			}
+			if a.input == nil && len(input) > 0 {
+				a.input = input
+			}
+			continue
+		}
+
 		commandWindows, _ := h.Meta["commandWindows"].(string)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
 		async := hookBoolMeta(h.Meta, "async")
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
-			k := key{event: event, command: cmd}
+			k := key{event: event, kind: "command", identity: cmd}
 			a, ok := byKey[k]
 			if !ok {
-				a = &accum{matchers: map[string]bool{}}
+				a = &accum{kind: "command", matchers: map[string]bool{}}
 				byKey[k] = a
 				keyOrder = append(keyOrder, k)
 			}
@@ -184,11 +259,20 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			groups[gk] = g
 			groupOrder = append(groupOrder, gk)
 		}
+		if a.kind == "mcp_tool" {
+			g.Hooks = append(g.Hooks, hookMCPToolEntry{
+				Type:     "mcp_tool",
+				Server:   a.server,
+				Tool:     a.tool,
+				Input:    a.input,
+				hookBase: hookBase{Timeout: a.timeout, StatusMessage: a.statusMessage},
+			})
+			continue
+		}
 		g.Hooks = append(g.Hooks, hookCommandEntry{
 			Type:                   "command",
-			Command:                k.command,
-			Timeout:                a.timeout,
-			StatusMessage:          a.statusMessage,
+			Command:                k.identity,
+			hookBase:               hookBase{Timeout: a.timeout, StatusMessage: a.statusMessage},
 			CommandWindows:         a.commandWindows,
 			AdditionalContextLimit: a.additionalContextLimit,
 			Async:                  a.async,

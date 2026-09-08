@@ -228,8 +228,21 @@ func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
 		if helper, _ := m.Meta["http_headers_helper"].(string); helper != "" {
 			emit.WriteTOMLString(sb, "http_headers_helper", helper)
 		}
+		// scopes and oauth_resource authenticate to an MCP HTTP server,
+		// so they land here rather than in writeMCPSharedFields: a
+		// stdio server launches locally and has no HTTP OAuth to
+		// configure. See #693.
+		if scopes := emit.StringSlice(m.Meta["scopes"]); len(scopes) > 0 {
+			emit.WriteTOMLStringArray(sb, "scopes", scopes)
+		}
+		if resource, _ := m.Meta["oauth_resource"].(string); resource != "" {
+			emit.WriteTOMLString(sb, "oauth_resource", resource)
+		}
 	}
 	writeMCPSharedFields(sb, m.Meta)
+	if transport == "http" || transport == "sse" {
+		writeMCPOAuthTable(sb, m.Name, m.Meta)
+	}
 	writeMCPToolTables(sb, m.Name, m.Meta)
 	sb.WriteString("\n")
 }
@@ -301,6 +314,51 @@ func tomlKeySegment(s string) string {
 	return s
 }
 
+// writeMCPNumberField writes `key = v` only when v decoded as a Go
+// numeric type (int, int64, or float64). The vendor documents
+// startup_timeout_sec / tool_timeout_sec as `number`, which can be
+// fractional, so this skips IntField's int-only conversion rather than
+// flooring a value like `2.5` to `2`.
+func writeMCPNumberField(sb *strings.Builder, key string, v any) {
+	switch v.(type) {
+	case int, int64, float64:
+		emit.WriteTOMLValue(sb, key, v)
+	}
+}
+
+// writeMCPOAuthTable emits `[mcp_servers.<name>.oauth]` with
+// client_id, callback_url, and callback_port when the spec's `oauth`
+// object carries them. Like writeMCPToolTables, this must run after
+// every server-level scalar (called from writeMCPServerTable after
+// writeMCPSharedFields): a TOML sub-table header ends its parent
+// table, so a scalar written after this one would be read as a key of
+// the oauth table instead of the server.
+// learn.chatgpt.com/docs/config-file/config-reference documents this
+// sub-table for an MCP HTTP server; the caller only invokes it on the
+// http/sse branch. See #693.
+func writeMCPOAuthTable(sb *strings.Builder, server string, meta map[string]any) {
+	raw, ok := meta["oauth"].(map[string]any)
+	if !ok {
+		return
+	}
+	clientID, _ := raw["client_id"].(string)
+	callbackURL, _ := raw["callback_url"].(string)
+	callbackPort, hasPort := emit.IntField(raw, "callback_port")
+	if clientID == "" && callbackURL == "" && !hasPort {
+		return
+	}
+	sb.WriteString("\n[mcp_servers." + server + ".oauth]\n")
+	if clientID != "" {
+		emit.WriteTOMLString(sb, "client_id", clientID)
+	}
+	if callbackURL != "" {
+		emit.WriteTOMLString(sb, "callback_url", callbackURL)
+	}
+	if hasPort {
+		emit.WriteTOMLValue(sb, "callback_port", callbackPort)
+	}
+}
+
 // writeCodexMCPEnvVars emits Codex's mixed array form. String entries use
 // local environment variables. Inline tables can select local or remote
 // executor sourcing with { name, source }.
@@ -357,11 +415,42 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if disabled, _ := meta["disabled"].(bool); disabled {
 		sb.WriteString("enabled = false\n")
 	}
+	// required has no documented transport restriction: "When true,
+	// fail startup/resume if this enabled MCP server cannot
+	// initialize." Defaults to false, so only an explicit true writes.
+	// See #693.
+	if required, _ := meta["required"].(bool); required {
+		sb.WriteString("required = true\n")
+	}
+	// startup_timeout_sec / tool_timeout_sec override Codex's own
+	// 10s/60s defaults and are documented in seconds. They read their
+	// own, distinctly-named meta keys rather than the spec's shared
+	// `timeout` field, which is milliseconds on Claude Code, Gemini,
+	// OpenCode, and Qoder: reusing that key here would silently apply
+	// the wrong unit. See #693.
+	if v, ok := meta["startup_timeout_sec"]; ok {
+		writeMCPNumberField(sb, "startup_timeout_sec", v)
+	}
+	if v, ok := meta["tool_timeout_sec"]; ok {
+		writeMCPNumberField(sb, "tool_timeout_sec", v)
+	}
+	if mode, _ := meta["default_tools_approval_mode"].(string); mode != "" {
+		emit.WriteTOMLString(sb, "default_tools_approval_mode", mode)
+	}
 	if tools := emit.StringSlice(meta["enabled_tools"]); len(tools) > 0 {
 		emit.WriteTOMLStringArray(sb, "enabled_tools", tools)
 	}
 	if tools := emit.StringSlice(meta["disabled_tools"]); len(tools) > 0 {
 		emit.WriteTOMLStringArray(sb, "disabled_tools", tools)
+	}
+	// experimental_environment documents no transport restriction; its
+	// only implemented value today (`remote`, "starts stdio servers
+	// through a remote executor environment") is stdio-specific, but
+	// the vendor notes HTTP placement is merely "not implemented" yet,
+	// not invalid. Passed through verbatim; Codex validates the enum
+	// itself. See #693.
+	if env, _ := meta["experimental_environment"].(string); env != "" {
+		emit.WriteTOMLString(sb, "experimental_environment", env)
 	}
 	raw, _ := meta["roots"].([]any)
 	if len(raw) == 0 {

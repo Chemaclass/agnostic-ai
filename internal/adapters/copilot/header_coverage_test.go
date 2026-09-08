@@ -81,7 +81,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle exercising every kind the copilot
 // adapter declares in caps.Supports (Agent, Skill, Rule, MCP) with
 // three specimens per kind. MCPs cover stdio + http + disabled-with-
-// command.
+// command, plus VS Code's cwd/envFile/dev/sandboxEnabled (stdio) and
+// oauth (http) extras (#692).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body", Meta: map[string]any{"globs": "**/*.go"}},
@@ -95,11 +96,20 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"cwd":            "${workspaceFolder}",
+				"envFile":        "${workspaceFolder}/.env",
+				"sandboxEnabled": true,
+				"dev":            map[string]any{"watch": "src/**/*.ts", "debug": map[string]any{"type": "node"}},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type": "http", "url": "https://example.test/mcp",
+				"oauth": map[string]any{"clientId": "example-client-id"},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

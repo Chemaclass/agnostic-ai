@@ -23,18 +23,28 @@ package claudehooks
 // (learn.chatgpt.com/docs/hooks); they live here anyway per this package's
 // own round-trip rule, and stay absent from claude's own emit because
 // internal/adapters/claude never sets it on the struct it builds.
+//
+// Server, Tool, and Input are also Codex-only: an `mcp_tool` hook
+// (learn.chatgpt.com/docs/hooks) calls a tool on an already-connected
+// MCP server instead of running a shell command, so it carries these
+// three in place of Command. Kept on this shared struct rather than a
+// second type for the same round-trip reason as CommandWindows; the
+// codex importer is the only reader that branches on Type == "mcp_tool".
 type CommandEntry struct {
-	Type                   string `json:"type"`
-	Command                string `json:"command"`
-	Timeout                int    `json:"timeout,omitempty"`
-	StatusMessage          string `json:"statusMessage,omitempty"`
-	Async                  bool   `json:"async,omitempty"`
-	AsyncRewake            bool   `json:"asyncRewake,omitempty"`
-	Shell                  string `json:"shell,omitempty"`
-	If                     string `json:"if,omitempty"`
-	Once                   bool   `json:"once,omitempty"`
-	CommandWindows         string `json:"commandWindows,omitempty"`
-	AdditionalContextLimit *int   `json:"additionalContextLimit,omitempty"`
+	Type                   string         `json:"type"`
+	Command                string         `json:"command"`
+	Timeout                int            `json:"timeout,omitempty"`
+	StatusMessage          string         `json:"statusMessage,omitempty"`
+	Async                  bool           `json:"async,omitempty"`
+	AsyncRewake            bool           `json:"asyncRewake,omitempty"`
+	Shell                  string         `json:"shell,omitempty"`
+	If                     string         `json:"if,omitempty"`
+	Once                   bool           `json:"once,omitempty"`
+	CommandWindows         string         `json:"commandWindows,omitempty"`
+	AdditionalContextLimit *int           `json:"additionalContextLimit,omitempty"`
+	Server                 string         `json:"server,omitempty"`
+	Tool                   string         `json:"tool,omitempty"`
+	Input                  map[string]any `json:"input,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

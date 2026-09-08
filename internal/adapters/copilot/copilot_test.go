@@ -298,6 +298,61 @@ func TestEmit_MCPFile_Unchanged(t *testing.T) {
 	}
 }
 
+// VS Code's five documented mcp.json fields (target-audit 2026-09-08,
+// #692) must reach `.vscode/mcp.json`, VS Code's own file, but not
+// `.github/mcp.json`, Copilot CLI's file: the CLI's schema is the
+// generic mcpServers map, not VS Code's own dev/sandboxEnabled/oauth
+// extension.
+func TestEmit_MCPFile_VSCodeExtras(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":        "node",
+				"cwd":            "${workspaceFolder}",
+				"envFile":        "${workspaceFolder}/.env",
+				"sandboxEnabled": true,
+				"dev":            map[string]any{"watch": "src/**/*.ts", "debug": map[string]any{"type": "node"}},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "remote",
+			Meta: map[string]any{
+				"type":  "http",
+				"url":   "https://example.test/mcp",
+				"oauth": map[string]any{"clientId": "example-client-id"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json"))
+	for _, want := range []string{
+		`"cwd": "${workspaceFolder}"`,
+		`"envFile": "${workspaceFolder}/.env"`,
+		`"sandboxEnabled": true`,
+		`"type": "node"`,
+		`"clientId": "example-client-id"`,
+	} {
+		if !strings.Contains(vscode, want) {
+			t.Errorf("missing %q in %s", want, vscode)
+		}
+	}
+
+	cli := readFile(t, filepath.Join(dir, ".github/mcp.json"))
+	for _, absent := range []string{"cwd", "envFile", "sandboxEnabled", "clientId", "\"dev\""} {
+		if strings.Contains(cli, absent) {
+			t.Errorf("Copilot CLI's mcpServers schema must not carry VS Code extra %q: %s", absent, cli)
+		}
+	}
+}
+
 // `.vscode/mcp.json` alone reaches no Copilot CLI user: "The
 // `.vscode/mcp.json` file for VS Code is not read by Copilot CLI. It
 // uses the unsupported top-level key `servers`." The CLI's own

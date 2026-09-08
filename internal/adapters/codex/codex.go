@@ -44,7 +44,13 @@
 // spec vocabulary corresponds to `output_token_limit` or the per-tool
 // approval override it documents today (#678). Codex-specific
 // `env_vars` and `env_http_headers` retain the vendor's mixed-array
-// and environment-backed header shapes.
+// and environment-backed header shapes. `required`, `startup_timeout_sec`,
+// `tool_timeout_sec`, `default_tools_approval_mode`, and
+// `experimental_environment` carry no transport restriction and pass
+// through on any server; `scopes`, `oauth_resource`, and an
+// `[mcp_servers.<name>.oauth]` sub-table (`client_id`, `callback_url`,
+// `callback_port`) authenticate to an MCP HTTP server, so they land
+// alongside `auth` on the http/sse branch only (#693).
 //
 // Hook entries accept an optional `additionalContextLimit` (token
 // threshold for how much hook output reaches the model), propagated
@@ -54,6 +60,12 @@
 // the session on it) propagates the same way; `import codex` reads it
 // back from both `.codex/hooks.json` and a hand-authored
 // `[[hooks.<event>]]` TOML block.
+//
+// A hook can also call an already-connected MCP server's tool instead
+// of running a shell command: `type: mcp_tool` with `server`, `tool`,
+// and an optional `input` argument-template object emits as
+// `{type, server, tool, input, timeout, statusMessage}` in
+// `.codex/hooks.json`, the same file command hooks use (#693).
 package codex
 
 import (

@@ -563,3 +563,162 @@ func TestMCPDocument_CursorExtras_AppliesRegardlessOfSchema(t *testing.T) {
 		t.Errorf("expected envFile: the option itself is schema-independent; callers gate it by only passing it for cursor.go: %s", got)
 	}
 }
+
+// VS Code's five documented mcp.json fields with no route into the
+// shared builder before WithVSCodeMCPExtras (target-audit 2026-09-08,
+// #692): code.visualstudio.com/docs/agents/reference/mcp-configuration
+// documents cwd, envFile, dev, and sandboxEnabled on stdio servers, and
+// oauth on http/sse servers.
+func TestMCPDocument_VSCodeExtrasOffByDefault(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":        "node",
+				"cwd":            "${workspaceFolder}",
+				"envFile":        "${workspaceFolder}/.env",
+				"dev":            map[string]any{"watch": "src/**/*.ts", "debug": map[string]any{"type": "node"}},
+				"sandboxEnabled": true,
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "remote",
+			Meta: map[string]any{
+				"type":  "http",
+				"url":   "https://example.test/mcp",
+				"oauth": map[string]any{"clientId": "example-client-id"},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, absent := range []string{"cwd", "envFile", "dev", "sandboxEnabled", "oauth", "clientId"} {
+		if strings.Contains(got, absent) {
+			t.Errorf("%q must not appear without WithVSCodeMCPExtras: %s", absent, got)
+		}
+	}
+}
+
+func TestMCPDocument_VSCodeExtras_StdioFields(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "py-server",
+			Meta: map[string]any{
+				"command": "python",
+				"cwd":     "${workspaceFolder}",
+				"envFile": "${workspaceFolder}/.env",
+				"dev": map[string]any{
+					"watch": "**/*.py",
+					"debug": map[string]any{"type": "debugpy", "debugpyPath": "/opt/debugpy"},
+				},
+				"sandboxEnabled": true,
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "remote",
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://example.test/mcp",
+				"cwd":     "/should/not/appear",
+				"envFile": ".env",
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers, WithVSCodeMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	servers := parsed["servers"].(map[string]any)
+	py := servers["py-server"].(map[string]any)
+	if py["cwd"] != "${workspaceFolder}" {
+		t.Errorf("cwd missing: %s", got)
+	}
+	if py["envFile"] != "${workspaceFolder}/.env" {
+		t.Errorf("envFile missing: %s", got)
+	}
+	if py["sandboxEnabled"] != true {
+		t.Errorf("sandboxEnabled missing: %s", got)
+	}
+	dev, ok := py["dev"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected dev object: %s", got)
+	}
+	if dev["watch"] != "**/*.py" {
+		t.Errorf("dev.watch mismatch: %v", dev["watch"])
+	}
+	debug, ok := dev["debug"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected dev.debug object: %s", got)
+	}
+	// A wrong-key mapping (e.g. flattening debug.type onto dev) would
+	// still leave "debugpy" somewhere in the JSON blob, so assert the
+	// exact nested path rather than a substring match.
+	if debug["type"] != "debugpy" || debug["debugpyPath"] != "/opt/debugpy" {
+		t.Errorf("dev.debug mismatch: %v", debug)
+	}
+	remote := servers["remote"].(map[string]any)
+	for _, key := range []string{"cwd", "envFile", "dev", "sandboxEnabled"} {
+		if _, ok := remote[key]; ok {
+			t.Errorf("remote server must not carry stdio-only %q (vendor scopes it to stdio): %s", key, got)
+		}
+	}
+}
+
+func TestMCPDocument_VSCodeExtras_OAuthOnRemoteServers(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "oauth-server",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://example.test/mcp",
+				"oauth": map[string]any{
+					"clientId":          "example-client-id",
+					"enterpriseManaged": true,
+				},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"oauth":   map[string]any{"clientId": "irrelevant"},
+			},
+		},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers, WithVSCodeMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	servers := parsed["servers"].(map[string]any)
+	oauthServer := servers["oauth-server"].(map[string]any)
+	oauth, ok := oauthServer["oauth"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected oauth object: %s", got)
+	}
+	if oauth["clientId"] != "example-client-id" || oauth["enterpriseManaged"] != true {
+		t.Errorf("oauth field mismatch: %v", oauth)
+	}
+	fs := servers["fs"].(map[string]any)
+	if _, ok := fs["oauth"]; ok {
+		t.Errorf("stdio server must not carry oauth (http/sse-only per vendor doc): %s", got)
+	}
+}

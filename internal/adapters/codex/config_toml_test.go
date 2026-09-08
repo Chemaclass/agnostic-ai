@@ -231,6 +231,138 @@ func TestEmit_MCP_EnabledAndDisabledTools(t *testing.T) {
 	}
 }
 
+// learn.chatgpt.com/docs/config-file/config-reference documents
+// `required`, `startup_timeout_sec`, `tool_timeout_sec`, and
+// `default_tools_approval_mode` as shared mcp_servers.<id> keys with no
+// transport restriction (target-audit 2026-09-08, #693). Fractional
+// startup_timeout_sec proves the field is written as a number rather
+// than silently truncated by an int-only field reader.
+func TestEmit_MCP_WritesRequiredAndTimeouts(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":                     "npx",
+				"required":                    true,
+				"startup_timeout_sec":         2.5,
+				"tool_timeout_sec":            90,
+				"default_tools_approval_mode": "writes",
+				"experimental_environment":    "remote",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		"required = true",
+		"startup_timeout_sec = 2.5",
+		"tool_timeout_sec = 90",
+		`default_tools_approval_mode = "writes"`,
+		`experimental_environment = "remote"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// required defaults to false (Codex's own default), so it must stay
+// absent rather than write a redundant `required = false`.
+func TestEmit_MCP_RequiredOmittedWhenFalse(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "required": false}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if strings.Contains(got, "required") {
+		t.Errorf("required: false must be omitted, not written: %s", got)
+	}
+}
+
+// oauth.client_id / oauth.callback_url / oauth.callback_port, scopes,
+// and oauth_resource are documented for authenticating to an MCP HTTP
+// server, so they land alongside the existing `auth` field in the
+// http/sse branch rather than in the transport-independent shared
+// fields. See #693.
+func TestEmit_MCP_HTTPWritesOAuthSubtableAndScopes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "github",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://api.githubcopilot.com/mcp/",
+				"oauth": map[string]any{
+					"client_id":     "abc123",
+					"callback_url":  "https://localhost/callback",
+					"callback_port": 8765,
+				},
+				"scopes":         []any{"repo", "read:org"},
+				"oauth_resource": "https://api.githubcopilot.com/mcp/",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{
+		"[mcp_servers.github.oauth]",
+		`client_id = "abc123"`,
+		`callback_url = "https://localhost/callback"`,
+		"callback_port = 8765",
+		`scopes = ["repo", "read:org"]`,
+		`oauth_resource = "https://api.githubcopilot.com/mcp/"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	// The [mcp_servers.<id>.oauth] sub-table header ends the parent
+	// table, so every server-level scalar (url, scopes, oauth_resource)
+	// must precede it, the same rule the per-tool tables follow.
+	if i, j := strings.Index(got, "oauth_resource"), strings.Index(got, "[mcp_servers.github.oauth]"); i == -1 || j == -1 || i > j {
+		t.Errorf("server scalars must precede the oauth sub-table:\n%s", got)
+	}
+}
+
+// oauth / scopes / oauth_resource are documented for MCP HTTP
+// authentication; a stdio server has no HTTP auth to configure, so
+// they must not leak in from the shared-fields path.
+func TestEmit_MCP_StdioOmitsOAuthFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command": "npx",
+				"oauth":   map[string]any{"client_id": "irrelevant"},
+				"scopes":  []any{"irrelevant"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if strings.Contains(got, "oauth") || strings.Contains(got, "scopes") {
+		t.Errorf("stdio server must not carry HTTP-only oauth/scopes: %s", got)
+	}
+}
+
 // The vendor's per-tool table (`mcp_servers.<id>.tools.<tool>`) carries
 // output_token_limit and a per-tool approval override. Keys pass through
 // verbatim. Before #678 the whole block was dropped in silence.

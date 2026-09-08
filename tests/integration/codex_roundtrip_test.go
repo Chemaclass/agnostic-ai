@@ -113,6 +113,10 @@ gitignore:
 		[]byte("name: pre-write\nevent: PreToolUse\nmatcher: Write\ncommand: \"echo pre\"\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/hooks/session-start.yaml"),
 		[]byte("name: session-start\nevent: SessionStart\ncommand: \"echo session\"\n"), 0o644))
+	// An mcp_tool hook (#693) exercises the branch that carries
+	// server/tool/input instead of command.
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/hooks/scan-patch.yaml"),
+		[]byte("name: scan-patch\nevent: PostToolUse\nmatcher: Write|Edit\ntype: mcp_tool\nserver: scanner\ntool: scan_patch\ninput:\n  patch: \"${tool_input.command}\"\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/commands"), 0o755))
 	for _, n := range []string{"cmd-one", "cmd-two", "cmd-three"} {
@@ -121,10 +125,15 @@ gitignore:
 	}
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	// required/startup_timeout_sec/tool_timeout_sec/default_tools_approval_mode
+	// and oauth/scopes/oauth_resource exercise #693.
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-server.yaml"),
-		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
+		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"+
+			"required: true\nstartup_timeout_sec: 2.5\ntool_timeout_sec: 90\ndefault_tools_approval_mode: writes\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-server.yaml"),
-		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\n"), 0o644))
+		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\n"+
+			"scopes:\n  - repo\n  - \"read:org\"\noauth_resource: https://example.test/mcp\n"+
+			"oauth:\n  client_id: abc123\n  callback_url: https://localhost/callback\n  callback_port: 8765\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/disabled-server.yaml"),
 		[]byte("name: disabled-server\ncommand: x\ndisabled: true\n"), 0o644))
 }

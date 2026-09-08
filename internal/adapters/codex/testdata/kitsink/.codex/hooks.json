@@ -32,6 +32,19 @@
             "additionalContextLimit": 2000
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "scanner",
+            "tool": "scan_patch",
+            "input": {
+              "patch": "${tool_input.command}"
+            }
+          }
+        ]
       }
     ]
   }

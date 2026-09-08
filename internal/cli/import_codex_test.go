@@ -866,6 +866,56 @@ disabled_tools = ["delete_file"]
 	}
 }
 
+// Round-trip for #693: required, startup_timeout_sec, tool_timeout_sec,
+// default_tools_approval_mode, oauth, scopes, oauth_resource, and
+// experimental_environment must survive an import. A fractional
+// startup_timeout_sec proves the importer decodes the vendor's
+// `number` type rather than only the integer literal form.
+func TestImportFromCodex_MCPOAuthAndTimeoutFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+required = true
+startup_timeout_sec = 2.5
+tool_timeout_sec = 90
+default_tools_approval_mode = "writes"
+scopes = ["repo", "read:org"]
+oauth_resource = "https://api.githubcopilot.com/mcp/"
+experimental_environment = "remote"
+
+[mcp_servers.github.oauth]
+client_id = "abc123"
+callback_url = "https://localhost/callback"
+callback_port = 8765
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	github, err := os.ReadFile(filepath.Join(dir, "mcps", "github.yaml"))
+	if err != nil {
+		t.Fatalf("read github.yaml: %v", err)
+	}
+	for _, want := range []string{
+		"required: true",
+		"startup_timeout_sec: 2.5",
+		"tool_timeout_sec: 90",
+		"default_tools_approval_mode: writes",
+		"scopes:",
+		"- repo",
+		"- read:org",
+		"oauth_resource: https://api.githubcopilot.com/mcp/",
+		"experimental_environment: remote",
+		"client_id: abc123",
+		"callback_url: https://localhost/callback",
+		"callback_port: 8765",
+	} {
+		if !strings.Contains(string(github), want) {
+			t.Errorf("github.yaml missing %q:\n%s", want, github)
+		}
+	}
+}
+
 // When both hooks.json and config.toml carry the same event/matcher/command,
 // keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
 func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {
@@ -894,6 +944,61 @@ command = "fmt"
 	data, _ := os.ReadFile(matches[0])
 	if !strings.Contains(string(data), "timeout: 30") {
 		t.Errorf("dedupe should keep hooks.json variant carrying timeout:\n%s", data)
+	}
+}
+
+// Round-trip for #693: an mcp_tool hook has no `command`, so before
+// this fix mergeCodexHooksJSON's `if h.Command == "" { continue }`
+// dropped it entirely rather than importing the wrong shape.
+func TestImportFromCodex_MCPToolHookRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "scanner",
+            "tool": "scan_patch",
+            "input": {"patch": "${tool_input.command}"},
+            "timeout": 30,
+            "statusMessage": "Scanning edited files"
+          }
+        ]
+      }
+    ]
+  }
+}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "hooks", "posttooluse-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one PostToolUse spec, got %d: %v", len(matches), matches)
+	}
+	data, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"type: mcp_tool",
+		"server: scanner",
+		"tool: scan_patch",
+		"patch: ${tool_input.command}",
+		"timeout: 30",
+		"statusMessage: Scanning edited files",
+	} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("missing %q in %s:\n%s", want, matches[0], data)
+		}
+	}
+	if strings.Contains(string(data), "command:") {
+		t.Errorf("mcp_tool hook must not carry command:\n%s", data)
 	}
 }
 

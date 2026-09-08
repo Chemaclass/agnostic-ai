@@ -298,3 +298,118 @@ func TestEmit_HookAsyncPropagates(t *testing.T) {
 		t.Errorf("async missing in hooks.json:\n%s", got)
 	}
 }
+
+// learn.chatgpt.com/docs/hooks documents an MCP tool hook as
+// `{type: "mcp_tool", server, tool, input, timeout, statusMessage}`.
+// Before this, buildHooksJSON wrote `Type: "command"` unconditionally,
+// so such a hook carried no `command` and hookCommands returned
+// nothing: the entry silently disappeared from hooks.json rather than
+// emitting the wrong shape (target-audit 2026-09-08, #693).
+func TestEmit_HooksJSON_MCPToolHook(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "scan-patch",
+			Meta: map[string]any{
+				"event":         "PostToolUse",
+				"matcher":       "Write|Edit",
+				"type":          "mcp_tool",
+				"server":        "scanner",
+				"tool":          "scan_patch",
+				"input":         map[string]any{"patch": "${tool_input.command}"},
+				"timeout":       30,
+				"statusMessage": "Scanning edited files",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("invalid json: %v\n%s", err, raw)
+	}
+	post, ok := doc["hooks"].(map[string]any)["PostToolUse"].([]any)
+	if !ok || len(post) != 1 {
+		t.Fatalf("expected 1 PostToolUse matcher group, got:\n%s", raw)
+	}
+	group := post[0].(map[string]any)
+	hooks, _ := group["hooks"].([]any)
+	if len(hooks) != 1 {
+		t.Fatalf("expected 1 hook entry, got %d:\n%s", len(hooks), raw)
+	}
+	entry := hooks[0].(map[string]any)
+	if entry["type"] != "mcp_tool" {
+		t.Errorf("type = %v, want mcp_tool", entry["type"])
+	}
+	if entry["server"] != "scanner" || entry["tool"] != "scan_patch" {
+		t.Errorf("server/tool mismatch: %v", entry)
+	}
+	if _, hasCommand := entry["command"]; hasCommand {
+		t.Errorf("mcp_tool entry must not carry command: %v", entry)
+	}
+	input, ok := entry["input"].(map[string]any)
+	if !ok || input["patch"] != "${tool_input.command}" {
+		t.Errorf("input mismatch: %v", entry["input"])
+	}
+	if entry["timeout"] != float64(30) {
+		t.Errorf("timeout = %v, want 30", entry["timeout"])
+	}
+	if entry["statusMessage"] != "Scanning edited files" {
+		t.Errorf("statusMessage = %v", entry["statusMessage"])
+	}
+}
+
+// A command hook and an mcp_tool hook sharing an event must not
+// collapse into one entry just because both have empty/matching
+// identity fields; each keeps its own shape in the output.
+func TestEmit_HooksJSON_MCPToolAndCommandHooksCoexist(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Write", "command": "gofmt -w",
+		}},
+		{Kind: spec.KindHook, Name: "scan", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Write", "type": "mcp_tool",
+			"server": "scanner", "tool": "scan_patch",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"command": "gofmt -w"`, `"type": "mcp_tool"`, `"server": "scanner"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("missing %q in:\n%s", want, raw)
+		}
+	}
+}
+
+// An mcp_tool hook with no server or tool has no identity to key on
+// and no command to fall back to, so it is dropped rather than
+// emitting a malformed entry.
+func TestEmit_HooksJSON_MCPToolMissingServerOrToolIsSkipped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "bad", Meta: map[string]any{
+			"event": "PostToolUse", "type": "mcp_tool", "tool": "scan_patch",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".codex/hooks.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no hooks.json for a hook with no usable identity, err=%v", err)
+	}
+}

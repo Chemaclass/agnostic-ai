@@ -6,6 +6,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Copilot's `.vscode/mcp.json` gains VS Code's own `cwd`, `envFile`, `dev`, and `sandboxEnabled` on a stdio server, and `oauth` on an http/sse server. None of the five reach Copilot CLI's `.github/mcp.json`, since its own docs never name them (#692).
+- Codex MCP servers gain `required`, `startup_timeout_sec`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, and an `[mcp_servers.<name>.oauth]` sub-table. Codex hooks gain `type: mcp_tool` (a hook that calls an already-connected MCP server's tool instead of running a shell command), which previously had no `command` field and was silently dropped from `.codex/hooks.json` (#693).
+
 ### Fixed
 
 - Warp: sync now warns when a hand-authored `WARP.md` sits next to the `AGENTS.md` it just wrote. Warp reads `WARP.md` first when both exist, so every synced rule was reaching nowhere with no signal (#691).
