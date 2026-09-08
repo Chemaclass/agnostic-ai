@@ -5,6 +5,9 @@
       "type": "stdio"
     },
     "http-server": {
+      "oauth": {
+        "clientId": "example-client-id"
+      },
       "type": "http",
       "url": "https://example.test/mcp"
     },
@@ -14,6 +17,15 @@
         "@modelcontextprotocol/server-filesystem"
       ],
       "command": "npx",
+      "cwd": "${workspaceFolder}",
+      "dev": {
+        "debug": {
+          "type": "node"
+        },
+        "watch": "src/**/*.ts"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "sandboxEnabled": true,
       "type": "stdio"
     }
   }

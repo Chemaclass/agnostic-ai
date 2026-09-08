@@ -634,6 +634,17 @@ type codexHookEntry struct {
 	// round-trips it (learn.chatgpt.com/docs/hooks documents
 	// `async = true` as the inline-TOML spelling). See #636.
 	Async bool `toml:"async"`
+	// Type, Server, Tool, and Input carry an mcp_tool hook
+	// (learn.chatgpt.com/docs/hooks). readCodexConfigTOML's own
+	// `if h.Command == "" { continue }` filter drops these from the
+	// inline `[[hooks.<event>]]` TOML form regardless (#669, a
+	// pre-existing gap this fix does not close); mergeCodexHooksJSON
+	// populates them from `.codex/hooks.json`, the file the codex
+	// emitter actually writes an mcp_tool hook to. See #693.
+	Type   string         `toml:"type"`
+	Server string         `toml:"server"`
+	Tool   string         `toml:"tool"`
+	Input  map[string]any `toml:"input"`
 }
 
 type codexMCPEntry struct {
@@ -674,11 +685,37 @@ type codexMCPEntry struct {
 	// documented, unlike HTTPHeadersHelper. See #661.
 	EnabledTools  []string `toml:"enabled_tools"`
 	DisabledTools []string `toml:"disabled_tools"`
+	// Required, StartupTimeoutSec, ToolTimeoutSec,
+	// DefaultToolsApprovalMode, and ExperimentalEnvironment have no
+	// transport restriction documented; OAuth, Scopes, and
+	// OAuthResource authenticate to an MCP HTTP server. See #693.
+	//
+	// StartupTimeoutSec / ToolTimeoutSec are `any` rather than a
+	// numeric type: the vendor documents them as `number`, and TOML
+	// decodes `10` as int64 but `2.5` as float64, so a fixed numeric
+	// field would fail to decode whichever literal form the file
+	// doesn't use.
+	Required                 bool          `toml:"required"`
+	StartupTimeoutSec        any           `toml:"startup_timeout_sec"`
+	ToolTimeoutSec           any           `toml:"tool_timeout_sec"`
+	DefaultToolsApprovalMode string        `toml:"default_tools_approval_mode"`
+	OAuth                    codexMCPOAuth `toml:"oauth"`
+	Scopes                   []string      `toml:"scopes"`
+	OAuthResource            string        `toml:"oauth_resource"`
+	ExperimentalEnvironment  string        `toml:"experimental_environment"`
 }
 
 type codexMCPRoot struct {
 	URI  string `toml:"uri"`
 	Name string `toml:"name"`
+}
+
+// codexMCPOAuth mirrors the `[mcp_servers.<id>.oauth]` sub-table
+// (learn.chatgpt.com/docs/config-file/config-reference). See #693.
+type codexMCPOAuth struct {
+	ClientID     string `toml:"client_id"`
+	CallbackURL  string `toml:"callback_url"`
+	CallbackPort int    `toml:"callback_port"`
 }
 
 // importCodexConfig reads `<root>/.codex/config.toml` plus the
@@ -709,10 +746,14 @@ func importCodexConfig(root, hooksDst, mcpsDst string) (int, int, error) {
 	return hooks, mcps, nil
 }
 
-// codexHookKey identifies a hook for dedupe across sources. Hooks with
-// the same (event, matcher, command) are considered the same entry.
+// codexHookKey identifies a hook for dedupe across sources. A command
+// hook's identity is (event, matcher, command); an mcp_tool hook has no
+// command, so it keys on (event, matcher, server, tool) instead. The
+// two never collide: each source only ever populates one identity pair
+// per entry, so the field the other kind doesn't use always stays "".
 type codexHookKey struct {
 	event, matcher, command string
+	server, tool            string
 }
 
 // codexHookSlot is the merged hook representation built up by reading
@@ -783,11 +824,32 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 	for _, event := range sortedMapKeys(s.Hooks) {
 		for _, g := range s.Hooks[event] {
 			for _, h := range g.Hooks {
+				// An mcp_tool hook carries server/tool/input instead of
+				// a command; keying and merging it here (rather than
+				// falling into the command branch, where it would fail
+				// the `h.Command == ""` check and vanish) is what makes
+				// it round-trip. See #693.
+				if h.Type == "mcp_tool" {
+					if h.Server == "" || h.Tool == "" {
+						continue
+					}
+					k := codexHookKey{event: event, matcher: g.Matcher, server: h.Server, tool: h.Tool}
+					entry := codexHookEntry{
+						Matcher:       g.Matcher,
+						Type:          "mcp_tool",
+						Server:        h.Server,
+						Tool:          h.Tool,
+						Input:         h.Input,
+						Timeout:       h.Timeout,
+						StatusMessage: h.StatusMessage,
+					}
+					mergeCodexHookSlot(hooks, k, event, entry)
+					continue
+				}
 				if h.Command == "" {
 					continue
 				}
 				k := codexHookKey{event: event, matcher: g.Matcher, command: h.Command}
-				slot, exists := hooks[k]
 				entry := codexHookEntry{
 					Matcher:                g.Matcher,
 					Command:                h.Command,
@@ -797,21 +859,29 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 					AdditionalContextLimit: h.AdditionalContextLimit,
 					Async:                  h.Async,
 				}
-				if !exists {
-					hooks[k] = &codexHookSlot{
-						order:         len(hooks),
-						entry:         entry,
-						event:         event,
-						fromHooksJSON: true,
-					}
-					continue
-				}
-				slot.entry = entry
-				slot.fromHooksJSON = true
+				mergeCodexHookSlot(hooks, k, event, entry)
 			}
 		}
 	}
 	return nil
+}
+
+// mergeCodexHookSlot inserts entry at k, or overwrites an existing
+// TOML-sourced slot so hooks.json wins on a conflict (it can carry
+// timeout/statusMessage/input the inline TOML form cannot).
+func mergeCodexHookSlot(hooks map[codexHookKey]*codexHookSlot, k codexHookKey, event string, entry codexHookEntry) {
+	slot, exists := hooks[k]
+	if !exists {
+		hooks[k] = &codexHookSlot{
+			order:         len(hooks),
+			entry:         entry,
+			event:         event,
+			fromHooksJSON: true,
+		}
+		return
+	}
+	slot.entry = entry
+	slot.fromHooksJSON = true
 }
 
 // writeCodexHooksFromMap emits one yaml per discovered hook. Hooks are
@@ -832,12 +902,40 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 	count := 0
 	for _, slot := range slots {
 		h := slot.entry
-		name := hookSpecName(slot.event, h.Matcher, []string{h.Command})
-		doc := map[string]any{
-			"name":    name,
-			"event":   slot.event,
-			"command": h.Command,
-			"target":  "codex",
+		var doc map[string]any
+		var name string
+		if h.Type == "mcp_tool" {
+			// identity is server+tool rather than a command string;
+			// hookSpecName only cares that its input hashes stably.
+			name = hookSpecName(slot.event, h.Matcher, []string{h.Server, h.Tool})
+			doc = map[string]any{
+				"name":   name,
+				"event":  slot.event,
+				"type":   "mcp_tool",
+				"server": h.Server,
+				"tool":   h.Tool,
+				"target": "codex",
+			}
+			if len(h.Input) > 0 {
+				doc["input"] = h.Input
+			}
+		} else {
+			name = hookSpecName(slot.event, h.Matcher, []string{h.Command})
+			doc = map[string]any{
+				"name":    name,
+				"event":   slot.event,
+				"command": h.Command,
+				"target":  "codex",
+			}
+			if h.CommandWindows != "" {
+				doc["commandWindows"] = h.CommandWindows
+			}
+			if h.AdditionalContextLimit != nil {
+				doc["additionalContextLimit"] = *h.AdditionalContextLimit
+			}
+			if h.Async {
+				doc["async"] = true
+			}
 		}
 		if h.Matcher != "" {
 			doc["matcher"] = h.Matcher
@@ -847,15 +945,6 @@ func writeCodexHooksFromMap(hooks map[codexHookKey]*codexHookSlot, dstDir string
 		}
 		if h.StatusMessage != "" {
 			doc["statusMessage"] = h.StatusMessage
-		}
-		if h.CommandWindows != "" {
-			doc["commandWindows"] = h.CommandWindows
-		}
-		if h.AdditionalContextLimit != nil {
-			doc["additionalContextLimit"] = *h.AdditionalContextLimit
-		}
-		if h.Async {
-			doc["async"] = true
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {
@@ -879,6 +968,26 @@ func sortedMapKeys[V any](m map[string]V) []string {
 		out = append(out, k)
 	}
 	sort.Strings(out)
+	return out
+}
+
+// codexMCPOAuthDoc converts a decoded `[mcp_servers.<id>.oauth]` table
+// into the spec's `oauth:` map, or nil when the table was absent (every
+// field at its zero value). See #693.
+func codexMCPOAuthDoc(o codexMCPOAuth) map[string]any {
+	out := map[string]any{}
+	if o.ClientID != "" {
+		out["client_id"] = o.ClientID
+	}
+	if o.CallbackURL != "" {
+		out["callback_url"] = o.CallbackURL
+	}
+	if o.CallbackPort != 0 {
+		out["callback_port"] = o.CallbackPort
+	}
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
@@ -911,6 +1020,15 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			}
 			if s.HTTPHeadersHelper != "" {
 				doc["http_headers_helper"] = s.HTTPHeadersHelper
+			}
+			if oauth := codexMCPOAuthDoc(s.OAuth); oauth != nil {
+				doc["oauth"] = oauth
+			}
+			if len(s.Scopes) > 0 {
+				doc["scopes"] = s.Scopes
+			}
+			if s.OAuthResource != "" {
+				doc["oauth_resource"] = s.OAuthResource
 			}
 		default:
 			doc["type"] = "stdio"
@@ -957,6 +1075,21 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		}
 		if len(s.DisabledTools) > 0 {
 			doc["disabled_tools"] = s.DisabledTools
+		}
+		if s.Required {
+			doc["required"] = true
+		}
+		if s.StartupTimeoutSec != nil {
+			doc["startup_timeout_sec"] = s.StartupTimeoutSec
+		}
+		if s.ToolTimeoutSec != nil {
+			doc["tool_timeout_sec"] = s.ToolTimeoutSec
+		}
+		if s.DefaultToolsApprovalMode != "" {
+			doc["default_tools_approval_mode"] = s.DefaultToolsApprovalMode
+		}
+		if s.ExperimentalEnvironment != "" {
+			doc["experimental_environment"] = s.ExperimentalEnvironment
 		}
 		raw, err := yaml.Marshal(doc)
 		if err != nil {

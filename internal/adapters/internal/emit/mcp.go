@@ -45,6 +45,7 @@ type mcpOptions struct {
 	cursorExtras bool
 	claudeExtras bool
 	kiroExtras   bool
+	vscodeExtras bool
 }
 
 // WithCursorMCPExtras turns on Cursor-only MCP fields (`envFile` on
@@ -103,6 +104,31 @@ func WithClaudeMCPExtras() MCPOption {
 // into the other's file.
 func WithKiroMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.kiroExtras = true }
+}
+
+// WithVSCodeMCPExtras turns on the five VS Code / Copilot MCP fields
+// that reached `.vscode/mcp.json` by no route before (target-audit
+// 2026-09-08, #692). code.visualstudio.com/docs/agents/reference/mcp-configuration
+// documents four on the stdio table: `cwd` ("Working directory for the
+// server command. Defaults to the workspace folder when run in a
+// workspace"), `envFile` ("Path to an environment file to load more
+// variables"), `dev` ("Development mode settings to watch for file
+// changes and debug the server"), and `sandboxEnabled` ("Run the server
+// in a sandboxed environment. Only supported on macOS and Linux."). The
+// fifth, `oauth`, is on the http/sse table only
+// ("OAuth configuration for authenticating with the server").
+//
+// envFile shares the same stdio-only scoping as Cursor's own envFile
+// (cursor.com/docs/mcp.md confirms it independently), so the stdio
+// branch checks cursorExtras || vscodeExtras rather than duplicating
+// the field under a second gate.
+//
+// Kept opt-in for the same reason as the other three: this builder also
+// serves Claude Code, Cursor, Kiro, Junie, Qoder, and Factory, and none
+// of their vendor docs name cwd, dev, sandboxEnabled, or this shape of
+// oauth.
+func WithVSCodeMCPExtras() MCPOption {
+	return func(o *mcpOptions) { o.vscodeExtras = true }
 }
 
 // WriteMCPFile renders mcps with the target schema and writes to path.
@@ -205,12 +231,27 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		if args := stringSlice(e.Meta, "args"); len(args) > 0 {
 			out["args"] = args
 		}
-		// envFile is documented stdio-only: "The envFile option is only
-		// available for STDIO servers. Remote servers (HTTP/SSE) do not
-		// support envFile." cursor.com/docs/mcp.md.
-		if o.cursorExtras {
+		// envFile is documented stdio-only by both vendors that gate it:
+		// "The envFile option is only available for STDIO servers.
+		// Remote servers (HTTP/SSE) do not support envFile."
+		// cursor.com/docs/mcp.md. VS Code's own stdio field table lists
+		// envFile with no counterpart on the http/sse table. See #692.
+		if o.cursorExtras || o.vscodeExtras {
 			if envFile := stringField(e.Meta, "envFile"); envFile != "" {
 				out["envFile"] = envFile
+			}
+		}
+		// cwd, dev, and sandboxEnabled are VS Code's own stdio-only
+		// fields (target-audit 2026-09-08, #692); see WithVSCodeMCPExtras.
+		if o.vscodeExtras {
+			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
+				out["cwd"] = cwd
+			}
+			if dev := buildVSCodeMCPDev(e.Meta); len(dev) > 0 {
+				out["dev"] = dev
+			}
+			if sandboxEnabled, _ := e.Meta["sandboxEnabled"].(bool); sandboxEnabled {
+				out["sandboxEnabled"] = true
 			}
 		}
 	case "http", "sse", "ws":
@@ -240,6 +281,13 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 				out["headersHelper"] = helper
 			}
 			if oauth := buildClaudeMCPOAuth(e.Meta); len(oauth) > 0 {
+				out["oauth"] = oauth
+			}
+		}
+		// VS Code documents oauth on its http/sse table only, with no
+		// stdio counterpart. See #692.
+		if o.vscodeExtras {
+			if oauth := buildVSCodeMCPOAuth(e.Meta); len(oauth) > 0 {
 				out["oauth"] = oauth
 			}
 		}
@@ -373,6 +421,81 @@ func buildKiroMCPOAuth(meta map[string]any) map[string]any {
 	}
 	if scopes, ok := scopeList(raw, "oauthScopes"); ok {
 		out["oauthScopes"] = scopes
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// buildVSCodeMCPOAuth reads the spec's `oauth` object into VS Code's
+// documented shape (code.visualstudio.com/docs/agents/reference/mcp-configuration):
+// `clientId` (required) and `enterpriseManaged` (optional, preview SSO
+// flag). Explicit field mapping, not a generic passthrough, for the
+// same reason as the Claude Code and Kiro mappers above: VS Code's
+// shape has no clientSecret or scopes, so a key meant for another
+// target's differently-shaped oauth object never reaches this file.
+func buildVSCodeMCPOAuth(meta map[string]any) map[string]any {
+	raw, ok := meta["oauth"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	if id, _ := raw["clientId"].(string); id != "" {
+		out["clientId"] = id
+	}
+	if em, _ := raw["enterpriseManaged"].(bool); em {
+		out["enterpriseManaged"] = true
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// buildVSCodeMCPDev reads the spec's `dev` object into VS Code's
+// stdio-only development-mode shape: `watch` (a glob pattern or array
+// of glob patterns) and `debug` (`{type: "node"|"debugpy",
+// debugpyPath}`). code.visualstudio.com/docs/agents/reference/mcp-configuration
+// ("Development mode") documents watch and debug as the object's only
+// two properties, and the linked MCP Dev Guide's Node.js and Python
+// examples are the source for debug's own two fields. See #692.
+func buildVSCodeMCPDev(meta map[string]any) map[string]any {
+	raw, ok := meta["dev"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	switch watch := raw["watch"].(type) {
+	case string:
+		if watch != "" {
+			out["watch"] = watch
+		}
+	case []any:
+		if patterns := stringSlice(raw, "watch"); len(patterns) > 0 {
+			out["watch"] = patterns
+		}
+	}
+	if debug := buildVSCodeMCPDevDebug(raw); len(debug) > 0 {
+		out["debug"] = debug
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func buildVSCodeMCPDevDebug(dev map[string]any) map[string]any {
+	raw, ok := dev["debug"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	if t, _ := raw["type"].(string); t != "" {
+		out["type"] = t
+	}
+	if path, _ := raw["debugpyPath"].(string); path != "" {
+		out["debugpyPath"] = path
 	}
 	if len(out) == 0 {
 		return nil

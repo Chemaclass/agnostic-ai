@@ -178,9 +178,13 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `description` | no | empty | Free-form documentation. |
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
-| `command` | yes | none | Shell command to run when triggered. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex. |
-| `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex. |
+| `command` | yes, unless `type: mcp_tool` | none | Shell command to run when triggered. |
+| `type` | no | `command` | Set to `mcp_tool` for a Codex hook that calls a tool on an already-connected MCP server instead of running a shell command, in place of `command`. Codex. |
+| `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
+| `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |
+| `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Codex. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes. |
+| `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes. |
 | `async` | no | `false` | Run in the background without blocking. Claude + Codex. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude. |
 | `shell` | no | empty | `bash` or `powershell`. Claude. |
@@ -360,14 +364,23 @@ env:
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
-| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder. Warp maps this to its own `working_directory` field. |
+| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder, Copilot/VS Code. Warp maps this to its own `working_directory` field. |
 | `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
 | `url` | http/sse only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
-| `envFile` | stdio only, Cursor | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
+| `envFile` | stdio only, Cursor + Copilot/VS Code | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
+| `dev` | stdio only, Copilot/VS Code | empty | Development-mode settings: `{watch, debug}`. `watch` is a glob pattern or array of glob patterns that restarts the server on change. `debug` is `{type: "node"\|"debugpy", debugpyPath}` for setting up a debugger. |
+| `sandboxEnabled` | stdio only, Copilot/VS Code | `false` | Run the server in a sandboxed environment. macOS and Linux only. |
 | `auth` | no | empty | Two unrelated shapes by target. Codex HTTP authentication fallback, a string: `oauth` or `chatgpt`. Cursor static OAuth on a remote (`url`) entry, an object: `{CLIENT_ID, CLIENT_SECRET, scopes}` (`CLIENT_ID` required, the other two optional). |
 | `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
+| `required` | no, Codex | `false` | Fail startup/resume if this enabled MCP server cannot initialize. |
+| `startup_timeout_sec` | no, Codex | `10` | Override the server's startup timeout, in seconds. Distinct from `timeout` below, which is milliseconds on the targets that use it; Codex's own field name says `sec` so the two never conflate. |
+| `tool_timeout_sec` | no, Codex | `60` | Override the per-tool execution timeout, in seconds. Same unit note as `startup_timeout_sec`. |
+| `default_tools_approval_mode` | no, Codex | unset | Default approval behavior (`auto`, `prompt`, `writes`, or `approve`) for this server's tools, unless a per-tool override exists. |
+| `scopes` | http/sse only, Codex | empty | OAuth scopes to request when authenticating to this MCP server. |
+| `oauth_resource` | http/sse only, Codex | empty | RFC 8707 OAuth resource parameter to include during MCP login. |
+| `experimental_environment` | no, Codex | unset | `local` or `remote` placement for the server. `remote` starts a stdio server through a remote executor environment; HTTP remote placement is documented as not yet implemented. |
 | `enabled_tools` | no, Codex + Crush | empty | Allow list of tool names exposed by the server. |
 | `disabled_tools` | no, Codex + Crush | empty | Deny list applied after `enabled_tools`. |
 | `sessionless` | no, Crush | `false` | Mark a server that sends no `Mcp-Session-Id` so Crush skips the subscriptions/listen stream it would otherwise reject. Leave unset to let Crush auto-detect known sessionless servers such as GitHub MCP. |
@@ -380,7 +393,7 @@ env:
 | `alwaysLoad` | no, Claude Code | `false` | Load every tool from this server into context at session start instead of deferring it behind tool search. Available on all transports. |
 | `headersHelper` | http/sse/ws only, Claude Code | empty | Command run at connection time that prints headers to merge into the connection, for a server on Kerberos, short-lived tokens, or internal SSO. |
 | `oauthScopes` | http/sse only, Kiro | empty | OAuth scopes to request. Overridden by `oauth.oauthScopes` when both are set; an explicitly empty list emits as written, since Kiro documents `[]` as the remedy for scope errors. |
-| `oauth` | no | empty | Four unrelated shapes by target, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. |
+| `oauth` | no | empty | Six unrelated shapes by target, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. Copilot/VS Code (http/sse): `{clientId, enterpriseManaged}`. Codex (http/sse): `{client_id, callback_url, callback_port}`, a nested `[mcp_servers.<id>.oauth]` table rather than a top-level object. |
 | `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
 | `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, and Qoder: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |

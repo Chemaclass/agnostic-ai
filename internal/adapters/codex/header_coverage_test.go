@@ -94,7 +94,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle that exercises every spec kind the
 // codex adapter declares in caps.Supports. Tests that want to assert
 // against the full emit footprint reuse this fixture rather than
-// hand-rolling minimal cases that only hit one code path.
+// hand-rolling minimal cases that only hit one code path. Includes an
+// mcp_tool hook and the required/timeout/oauth/scopes MCP fields from
+// #693.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
@@ -124,6 +126,14 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "session-start",
 			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
 		},
+		{
+			Kind: spec.KindHook, Name: "scan-patch",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Write|Edit", "type": "mcp_tool",
+				"server": "scanner", "tool": "scan_patch",
+				"input": map[string]any{"patch": "${tool_input.command}"},
+			},
+		},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
@@ -131,9 +141,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{
 				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
-				"cwd":            "/workspace",
-				"enabled_tools":  []any{"read_file"},
-				"disabled_tools": []any{"delete_file"},
+				"cwd":                         "/workspace",
+				"enabled_tools":               []any{"read_file"},
+				"disabled_tools":              []any{"delete_file"},
+				"required":                    true,
+				"startup_timeout_sec":         2.5,
+				"tool_timeout_sec":            90,
+				"default_tools_approval_mode": "writes",
 			},
 		},
 		{
@@ -141,6 +155,13 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{
 				"type": "http", "url": "https://example.test/mcp", "auth": "oauth",
 				"http_headers_helper": "./scripts/mcp-headers.sh",
+				"oauth": map[string]any{
+					"client_id":     "abc123",
+					"callback_url":  "https://localhost/callback",
+					"callback_port": 8765,
+				},
+				"scopes":         []any{"repo", "read:org"},
+				"oauth_resource": "https://example.test/mcp",
 			},
 		},
 		{

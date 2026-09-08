@@ -104,10 +104,15 @@ gitignore:
 	}
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	// cwd/envFile/dev/sandboxEnabled and oauth exercise WithVSCodeMCPExtras
+	// (#692); importJSONMCPMap passes server fields through verbatim, so
+	// this fixture also proves the import side needs no dedicated mapper.
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-server.yaml"),
-		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
+		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"+
+			"cwd: \"${workspaceFolder}\"\nenvFile: \"${workspaceFolder}/.env\"\nsandboxEnabled: true\n"+
+			"dev:\n  watch: \"src/**/*.ts\"\n  debug:\n    type: node\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-server.yaml"),
-		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\n"), 0o644))
+		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\noauth:\n  clientId: example-client-id\n"), 0o644))
 }
 
 func snapshotCopilotEmit(t *testing.T, root string) map[string]string {

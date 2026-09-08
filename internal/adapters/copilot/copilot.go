@@ -40,6 +40,13 @@
 // affect shared configuration files" (code.visualstudio.com/docs/agent-customization/mcp-servers).
 // The emitter drops the field rather than write one Copilot ignores, and
 // buffers a coverage note so the drop is loud, not silent.
+//
+// `.vscode/mcp.json` also carries five fields the plain mcpServers map
+// does not: `cwd`, `envFile`, `dev`, and `sandboxEnabled` on a stdio
+// server, and `oauth` on an http/sse one
+// (code.visualstudio.com/docs/agents/reference/mcp-configuration, #692).
+// `.github/mcp.json` and the root mirror stay on the plain schema, since
+// Copilot CLI's own docs never name any of the five.
 package copilot
 
 import (
@@ -126,7 +133,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithVSCodeMCPExtras()); err != nil {
 		return err
 	}
 	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,

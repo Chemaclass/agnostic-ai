@@ -8,10 +8,21 @@ enabled = false
 url = "https://example.test/mcp"
 auth = "oauth"
 http_headers_helper = "./scripts/mcp-headers.sh"
+scopes = ["repo", "read:org"]
+oauth_resource = "https://example.test/mcp"
+
+[mcp_servers.http-server.oauth]
+client_id = "abc123"
+callback_url = "https://localhost/callback"
+callback_port = 8765
 
 [mcp_servers.stdio-server]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem"]
 cwd = "/workspace"
+required = true
+startup_timeout_sec = 2.5
+tool_timeout_sec = 90
+default_tools_approval_mode = "writes"
 enabled_tools = ["read_file"]
 disabled_tools = ["delete_file"]
