@@ -11,6 +11,15 @@ import (
 //
 // zed: "Zed uses the first matching file in this list"
 // (https://zed.dev/docs/ai/instructions, target-audit 2026-08-27, #624).
+//
+// warp: "If both WARP.md and AGENTS.md exist in the same directory,
+// WARP.md takes priority" (docs.warp.dev/agents/capabilities/rules,
+// target-audit 2026-09-08, #691). Unlike zed's hazard, no target this
+// repo ships defaults its entry-point to WARP.md, so this entry is a
+// regression guard rather than today's failure mode: the failure mode
+// live today is a *user-authored* WARP.md, which these path-only maps
+// cannot model (see warp_test.go's TestEmit_KeepsLegacyWarpMd_WhenUserAuthored
+// for that guard).
 var vendorLookupOrders = map[string][]string{
 	"zed": {
 		".rules",
@@ -22,6 +31,10 @@ var vendorLookupOrders = map[string][]string{
 		"AGENTS.md",
 		"CLAUDE.md",
 		"GEMINI.md",
+	},
+	"warp": {
+		"WARP.md",
+		"AGENTS.md",
 	},
 }
 

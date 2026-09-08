@@ -94,11 +94,7 @@ func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defa
 	if dryRun || s.IsCapturing() {
 		return
 	}
-	rootDir := filepath.Dir(OutputFile(cfg, target, defaultNewPath))
-	legacyPath := legacyName
-	if rootDir != "." && rootDir != "" {
-		legacyPath = filepath.Join(rootDir, legacyName)
-	}
+	legacyPath := legacyFilePath(cfg, target, legacyName, defaultNewPath)
 	data, err := os.ReadFile(legacyPath)
 	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) {
 		return
@@ -109,4 +105,48 @@ func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defa
 	newName := filepath.Base(defaultNewPath)
 	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s.bak; new layout writes %s\n",
 		target, legacyPath, legacyPath, newName)
+}
+
+// legacyFilePath resolves legacyName against the directory holding the
+// target's current entry-point output, honoring an outputs.<target>.file
+// override the same way MigrateLegacyFile's rename target does.
+func legacyFilePath(cfg *config.Config, target, legacyName, defaultNewPath string) string {
+	rootDir := filepath.Dir(OutputFile(cfg, target, defaultNewPath))
+	if rootDir == "." || rootDir == "" {
+		return legacyName
+	}
+	return filepath.Join(rootDir, legacyName)
+}
+
+// WarnIfLegacyFileOutranksEntryPoint fires when legacyName exists next to
+// the resolved entry-point file without the agnostic-ai provenance marker.
+// MigrateLegacyFile already leaves such a file untouched, since it reads
+// as real user content, but for a vendor whose CLI reads the legacy
+// filename ahead of the new default that silence hides a total delivery
+// failure rather than a harmless leftover: every rule sync just wrote to
+// defaultNewPath never reaches the tool.
+//
+// Warp is the motivating case: "If both WARP.md and AGENTS.md exist in
+// the same directory, WARP.md takes priority"
+// (docs.warp.dev/agents/capabilities/rules, target-audit 2026-09-08,
+// #691). Callers opt in per target; amp's AGENT.md is a documented
+// fallback read only when AGENTS.md is absent, so it never calls this.
+//
+// Skipped while capture mode is active: `sync` itself runs every
+// adapter once in capture mode first (collision detection) and once for
+// real, and only the real pass should print. `sync --check` / `status`
+// / `revert` never leave capture mode, so this stays silent there too,
+// the same tradeoff MigrateLegacyFile's own rename already makes.
+func (s *Session) WarnIfLegacyFileOutranksEntryPoint(cfg *config.Config, target, legacyName, defaultNewPath string) {
+	if s.IsCapturing() {
+		return
+	}
+	legacyPath := legacyFilePath(cfg, target, legacyName, defaultNewPath)
+	data, err := os.ReadFile(legacyPath)
+	if err != nil || bytes.Contains(data, []byte(ProvenanceMarker)) {
+		return
+	}
+	newName := filepath.Base(defaultNewPath)
+	_, _ = fmt.Fprintf(Warner, "%s: %s takes priority over %s; it is not agnostic-ai-generated, so none of the synced rules reach %s until you rename or remove it\n",
+		target, legacyPath, newName, target)
 }

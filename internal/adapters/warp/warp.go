@@ -11,8 +11,20 @@
 // `tags`). Other documented workflow fields (`shells`, `arguments`,
 // `source_url`, `author`, `author_url`) pass through when declared
 // under `x-warp`; `import warp` captures them back the same way.
-// Previous releases of this adapter wrote `WARP.md` (the legacy name),
-// which newer Warp versions no longer read.
+//
+// Previous releases of this adapter wrote `WARP.md` (the legacy name).
+// Warp still reads it, and reads it first: "If both WARP.md and
+// AGENTS.md exist in the same directory, WARP.md takes priority"
+// (docs.warp.dev/agents/capabilities/rules, target-audit 2026-09-08,
+// #691), correcting an earlier claim here that newer Warp versions no
+// longer read it. On first sync after upgrading, an agnostic-generated
+// `WARP.md` (carrying the provenance header) is renamed to
+// `WARP.md.bak` so the new `AGENTS.md` layout takes over. A `WARP.md`
+// with no such header is left in place, since it may be real user
+// content agnostic-ai must not overwrite, but it still shadows the
+// `AGENTS.md` this adapter just wrote: every synced rule reaches
+// nowhere until the user renames or removes it, and Emit warns rather
+// than deliver that outcome silently.
 //
 // Skills emit natively as one folder per skill at
 // `.agents/skills/<name>/SKILL.md`. Warp's docs
@@ -81,13 +93,17 @@ func (Adapter) Name() string { return target }
 // `.warp/.mcp.json`, and—when opted in via outputs.warp.rules-file—a
 // legacy concatenated rules document. The project-root AGENTS.md is
 // written by `sync`, not here. Legacy agnostic-generated WARP.md is
-// migrated to WARP.md.bak on first sync.
+// migrated to WARP.md.bak on first sync; a WARP.md that survives that
+// step (user-authored, no provenance marker) still outranks AGENTS.md
+// in Warp's own lookup, so Emit warns that the rules just written there
+// do not reach Warp.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
 	sess.MigrateLegacyFile(cfg, target, legacyOutFile, defaultOutFile, dryRun)
+	sess.WarnIfLegacyFileOutranksEntryPoint(cfg, target, legacyOutFile, defaultOutFile)
 
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
