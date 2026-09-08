@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- Cursor skills promote the vendor-documented `icon` and `color` frontmatter fields to first-class keys, alongside `paths`, `disable-model-invocation`, and `metadata`. Both reached `.cursor/skills/<name>/SKILL.md` before only through `x-cursor`, so setting either at the top level silently did nothing (#694).
+
 ## v0.52.1 - 2026-09-07
 
 ### Changed

@@ -18,9 +18,9 @@ import (
 // folder per skill, the Agent Skills layout it shares with Claude and
 // Codex) and supports bundled asset files, so the source skill folder
 // propagates byte-for-byte. Beyond the two required fields, the
-// documented optional `paths` and `disable-model-invocation` frontmatter
-// keys pass through when the spec declares them; arbitrary `x-cursor`
-// keys pass through as well.
+// documented optional `paths`, `disable-model-invocation`, `icon`,
+// `color`, and `metadata` frontmatter keys pass through when the spec
+// declares them; arbitrary `x-cursor` keys pass through as well.
 func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) error {
 	folder := filepath.Join(skillsDir, s.Name)
 
@@ -41,7 +41,7 @@ func skillMarkdown(s spec.Entry) string {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
-	for _, k := range []string{"paths", "disable-model-invocation", "metadata"} {
+	for _, k := range []string{"paths", "disable-model-invocation", "icon", "color", "metadata"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)

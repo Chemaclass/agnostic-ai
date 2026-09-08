@@ -570,6 +570,8 @@ func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
 			"description":              "d",
 			"paths":                    []string{"src/**"},
 			"disable-model-invocation": true,
+			"icon":                     "beaker",
+			"color":                    "green",
 		}, Body: "b"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
@@ -579,7 +581,7 @@ func TestEmit_SkillHonorsOptionalFieldsAndDirOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"paths:", "src/**", "disable-model-invocation: true"} {
+	for _, want := range []string{"paths:", "src/**", "disable-model-invocation: true", "icon: beaker", "color: green"} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("missing %q in SKILL.md:\n%s", want, got)
 		}
