@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Warp: sync now warns when a hand-authored `WARP.md` sits next to the `AGENTS.md` it just wrote. Warp reads `WARP.md` first when both exist, so every synced rule was reaching nowhere with no signal (#691).
 - Cursor skills promote the vendor-documented `icon` and `color` frontmatter fields to first-class keys, alongside `paths`, `disable-model-invocation`, and `metadata`. Both reached `.cursor/skills/<name>/SKILL.md` before only through `x-cursor`, so setting either at the top level silently did nothing (#694).
 
 ## v0.52.1 - 2026-09-07

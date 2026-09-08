@@ -41,6 +41,11 @@ func TestEntryPointPath_MatchesVendorReadPath(t *testing.T) {
 		// file automatically", and its supported-file-names table rows
 		// AGENTS.md as "Recommended" (#645).
 		"windsurf": "AGENTS.md",
+		// docs.warp.dev/agents/capabilities/rules: "We recommend
+		// creating AGENTS.md for new projects." WARP.md still outranks
+		// it when both exist in the same directory (#691); see
+		// vendor_lookup_test.go's vendorLookupOrders for that order.
+		"warp": "AGENTS.md",
 	} {
 		if got := EntryPointPath(&config.Config{}, target); got != want {
 			t.Errorf("%s entry point = %q, want %q (vendor-documented read path)", target, got, want)
