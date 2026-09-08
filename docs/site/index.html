@@ -5,6 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agnostic-ai — one spec, every AI CLI</title>
 <meta name="description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format, byte-stable across runs.">
+<link rel="canonical" href="https://chemaclass.github.io/agnostic-ai/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="theme-color" content="#f6f5f9" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#131017" media="(prefers-color-scheme:dark)">
+<meta name="author" content="Chemaclass">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="agnostic-ai">
+<meta property="og:url" content="https://chemaclass.github.io/agnostic-ai/">
+<meta property="og:title" content="agnostic-ai — one spec, every AI CLI">
+<meta property="og:description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format, byte-stable across runs.">
+<meta property="og:image" content="https://chemaclass.github.io/agnostic-ai/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="agnostic-ai: one spec, every AI CLI. Chips for Claude Code, Codex, Gemini, Cursor, Copilot and 20 more.">
+<meta property="og:locale" content="en_US">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="agnostic-ai — one spec, every AI CLI">
+<meta name="twitter:description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits each AI CLI's native config, byte-stable across runs.">
+<meta name="twitter:image" content="https://chemaclass.github.io/agnostic-ai/og.png">
+<meta name="twitter:image:alt" content="agnostic-ai: one spec, every AI CLI.">
+
+<link rel="alternate" type="text/plain" href="https://chemaclass.github.io/agnostic-ai/llms.txt" title="llms.txt">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='white' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -236,6 +262,73 @@ footer .links{display:flex; gap:1.3rem; flex-wrap:wrap}
 .reveal.in{opacity:1; transform:none}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1; transform:none; transition:none}}
 </style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://chemaclass.github.io/agnostic-ai/#website",
+      "url": "https://chemaclass.github.io/agnostic-ai/",
+      "name": "agnostic-ai",
+      "alternateName": "agnostic-ai CLI",
+      "description": "One source of truth for AI agents, skills, rules, and hooks. Transpile to every AI CLI you use.",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://github.com/Chemaclass#person" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://github.com/Chemaclass#person",
+      "name": "Chemaclass",
+      "url": "https://chemaclass.com",
+      "sameAs": ["https://github.com/Chemaclass"]
+    },
+    {
+      "@type": ["SoftwareApplication", "SoftwareSourceCode"],
+      "@id": "https://chemaclass.github.io/agnostic-ai/#software",
+      "name": "agnostic-ai",
+      "url": "https://chemaclass.github.io/agnostic-ai/",
+      "codeRepository": "https://github.com/Chemaclass/agnostic-ai",
+      "downloadUrl": "https://github.com/Chemaclass/agnostic-ai/releases",
+      "installUrl": "https://chemaclass.github.io/agnostic-ai/#how",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Command Line Tool",
+      "operatingSystem": "macOS, Linux, Windows",
+      "programmingLanguage": "Go",
+      "runtimePlatform": "Go 1.24",
+      "license": "https://github.com/Chemaclass/agnostic-ai/blob/main/LICENSE",
+      "isAccessibleForFree": true,
+      "image": "https://chemaclass.github.io/agnostic-ai/og.png",
+      "description": "agnostic-ai keeps one source of truth for AI coding agents, skills, rules, hooks, MCP servers and commands, and emits each AI CLI's native config: CLAUDE.md, AGENTS.md, GEMINI.md, .cursor/rules, .github/copilot-instructions.md and 20 more. Byte-stable across runs, with a sync --check CI gate.",
+      "featureList": [
+        "One spec transpiled to 25 AI CLI targets",
+        "Byte-stable, reviewable generated output",
+        "Round-trip safe import then sync",
+        "Scoped rules routed to each tool's native glob syntax",
+        "sync --check CI gate that fails on config drift",
+        "MCP server, hook and slash command emission"
+      ],
+      "keywords": "AI CLI config, CLAUDE.md, AGENTS.md, GEMINI.md, cursor rules, copilot instructions, MCP servers, agent skills, coding agent rules, agentic AI tooling",
+      "author": { "@id": "https://github.com/Chemaclass#person" },
+      "maintainer": { "@id": "https://github.com/Chemaclass#person" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://chemaclass.github.io/agnostic-ai/playground/#webapp",
+      "name": "agnostic-ai Playground",
+      "url": "https://chemaclass.github.io/agnostic-ai/playground/",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires WebAssembly",
+      "isAccessibleForFree": true,
+      "description": "Author one agnostic-ai spec and see what every AI CLI receives. Runs entirely in the browser via WebAssembly, with no server and no upload.",
+      "isPartOf": { "@id": "https://chemaclass.github.io/agnostic-ai/#website" }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 

@@ -1,0 +1,53 @@
+# agnostic-ai
+
+> One source of truth for AI coding-agent configuration. You author agents,
+> skills, rules, hooks, MCP servers and commands once under `.agnostic-ai/`,
+> run `agnostic-ai sync`, and every AI CLI you use gets the same content in
+> its own native format: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
+> `.cursor/rules/*.mdc`, `.github/copilot-instructions.md`, and 20 more.
+> Output is byte-stable across runs, so generated files diff cleanly and
+> `sync --check` works as a CI gate.
+
+A Go CLI, MIT licensed. 25 supported targets, 20 enabled by default. Install
+with `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`,
+Homebrew, or a release binary.
+
+Key terms an agent may be searching for: multi-tool AI config sync, CLAUDE.md
+generator, AGENTS.md generator, shared Cursor rules, Copilot instructions from
+a single source, MCP server config across tools, agent skills across CLIs,
+stop duplicating prompt files per tool.
+
+## Start here
+
+- [Landing page](https://chemaclass.github.io/agnostic-ai/): what it does and why, with a worked example.
+- [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, pick targets, see each CLI's output. Runs in-browser via WebAssembly.
+- [Full docs as one file](https://chemaclass.github.io/agnostic-ai/llms-full.txt): every user doc concatenated, for a single fetch.
+- [Repository](https://github.com/Chemaclass/agnostic-ai): source, issues, releases.
+
+## Docs
+
+- [Getting started](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/getting-started.md): install, init, first sync.
+- [Why](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/why.md): the problem this replaces, and when not to use it.
+- [Spec format](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/spec-format.md): the frontmatter and body of every spec kind.
+- [Targets](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/targets.md): all 25 tools, their capability matrix, and the exact paths written per tool.
+- [Configuration](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/configuration.md): `agnostic-ai.yaml` reference.
+- [CLI reference](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/cli-reference.md): every command and flag.
+- [CI](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/ci.md): the `sync --check` drift gate.
+- [Packs](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/packs.md): sharing and reusing spec bundles.
+- [Git hooks](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/git-hooks.md): keeping generated files in step with commits.
+- [Graph](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/graph.md): visualising what reaches which tool.
+- [Errors](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/errors.md): every diagnostic, and what fixes it.
+- [Why not symlinks](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/alternatives-why-not-symlinks.md): the alternatives considered.
+
+## Machine-readable
+
+- [Config JSON Schema](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json): validates `agnostic-ai.yaml`.
+- [Spec JSON Schema](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/spec.schema.json): validates spec frontmatter.
+- [Example config](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/examples/agnostic-ai.yaml): a commented starting point.
+
+## Optional
+
+- [Architecture](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/architecture.md): how adapters and the emit pipeline fit together.
+- [Adding adapters](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/adding-adapters.md): supporting a new AI CLI.
+- [Contributing](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/contributing.md): local setup and review expectations.
+- [Changelog](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/CHANGELOG.md): what changed per release.

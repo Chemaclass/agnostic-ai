@@ -10,6 +10,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - Copilot's `.vscode/mcp.json` gains VS Code's own `cwd`, `envFile`, `dev`, and `sandboxEnabled` on a stdio server, and `oauth` on an http/sse server. None of the five reach Copilot CLI's `.github/mcp.json`, since its own docs never name them (#692).
 - Codex MCP servers gain `required`, `startup_timeout_sec`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, and an `[mcp_servers.<name>.oauth]` sub-table. Codex hooks gain `type: mcp_tool` (a hook that calls an already-connected MCP server's tool instead of running a shell command), which previously had no `command` field and was silently dropped from `.codex/hooks.json` (#693).
+- The published site now carries the metadata search engines and agent crawlers look for: a canonical URL, Open Graph and Twitter card tags with a real 1200x630 preview image, and `SoftwareApplication`, `WebSite` and `WebApplication` structured data. Sharing a link renders a card instead of a bare URL.
+- `llms.txt` and `llms-full.txt` are served from the site root, so an agent can find the docs in one fetch. `llms-full.txt` is every user doc concatenated in reading order, rebuilt on each deploy.
+- `sitemap.xml` and `robots.txt` are published, with sitemap `lastmod` taken from each page's real commit date at deploy time.
 
 ### Fixed
 
