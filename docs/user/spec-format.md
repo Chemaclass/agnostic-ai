@@ -657,7 +657,7 @@ Per surface:
 | `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
 | `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
 | `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` (e.g. crush's `user-invocable: true`, which adds the skill to the command palette) |
-| `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`metadata` |
+| `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`icon`/`color`/`metadata` |
 | `cursor` | agent `.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`model`/`readonly`/`is_background` |
 | `copilot` | rule `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
 | `copilot` | `.agent.md` frontmatter | every `x-copilot` key beyond `name`/`description`/`tools`/`model` |
