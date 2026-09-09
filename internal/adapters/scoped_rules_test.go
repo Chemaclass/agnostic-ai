@@ -122,6 +122,8 @@ func TestScopedRules_ProtectOwnedPaths(t *testing.T) {
 		symlink                  bool
 	}{
 		{"absolute", "/", "", false},
+		{"glob delimiter", "payments,catalog", "", false},
+		{"glob negation", "!payments", "", false},
 		{"traversal", "services/../payments", "", false},
 		{"handwritten", "payments", "payments/AGENTS.md", false},
 		{"override", "payments", "payments/AGENTS.override.md", false},

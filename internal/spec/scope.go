@@ -12,7 +12,7 @@ func NormalizeScope(scope string) (string, error) {
 	if scope == "" {
 		return "", nil
 	}
-	if strings.TrimSpace(scope) != scope || strings.ContainsAny(scope, "\\:*?[]{}\r\n\x00") || strings.HasPrefix(scope, "/") {
+	if strings.TrimSpace(scope) != scope || strings.ContainsAny(scope, "\\:*?[]{}!,()\r\n\x00") || strings.HasPrefix(scope, "/") {
 		return "", fmt.Errorf("invalid scope %q: use a project-relative directory", scope)
 	}
 	for _, part := range strings.Split(scope, "/") {
