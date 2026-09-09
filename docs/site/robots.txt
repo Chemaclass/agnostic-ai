@@ -1,0 +1,16 @@
+# agnostic-ai — https://chemaclass.github.io/agnostic-ai/
+#
+# Served from a project path, so most crawlers will not read this file:
+# robots.txt is only honoured at the host root, which belongs to the
+# chemaclass.github.io repo. It is here for the agent fetchers that do a
+# path-relative lookup, and so the rules move with the site if it ever
+# gets its own domain.
+
+User-agent: *
+Allow: /
+
+# The WASM bundle and its glue are assets, not pages.
+Disallow: /agnostic-ai/playground/agnostic-ai.wasm
+Disallow: /agnostic-ai/playground/wasm_exec.js
+
+Sitemap: https://chemaclass.github.io/agnostic-ai/sitemap.xml

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The lastmod placeholders below are replaced with the real git commit date
+  of each page's source at deploy time; a hand-maintained date would go stale
+  the first time someone forgot it. See .github/workflows/playground.yml.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://chemaclass.github.io/agnostic-ai/</loc>
+    <lastmod>__LASTMOD_INDEX__</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://chemaclass.github.io/agnostic-ai/playground/</loc>
+    <lastmod>__LASTMOD_PLAYGROUND__</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>

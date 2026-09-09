@@ -27,6 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history: sitemap lastmod comes from each page's real commit
+          # date, and a shallow clone cannot resolve it.
+          fetch-depth: 0
 
       - uses: actions/setup-go@v7
         with:
@@ -46,7 +50,39 @@ jobs:
           rm -rf _site
           mkdir -p _site/playground
           cp docs/site/index.html _site/index.html
+          cp docs/site/og.png docs/site/robots.txt docs/site/llms.txt _site/
           cp -R docs/playground/. _site/playground/
+
+      - name: Build sitemap and llms-full.txt
+        run: |
+          set -euo pipefail
+
+          # lastmod must reflect the page's own last change, not the deploy
+          # date; a sitemap that claims everything changed today gets ignored.
+          index_mod=$(git log -1 --format=%cs -- docs/site/index.html)
+          play_mod=$(git log -1 --format=%cs -- docs/playground/)
+          sed -e "s|__LASTMOD_INDEX__|${index_mod}|" \
+              -e "s|__LASTMOD_PLAYGROUND__|${play_mod}|" \
+              docs/site/sitemap.xml > _site/sitemap.xml
+          grep -q '__LASTMOD' _site/sitemap.xml && { echo "sitemap token left unsubstituted"; exit 1; } || true
+
+          # One fetch that gives an agent every user doc, in reading order.
+          {
+            echo "# agnostic-ai — full documentation"
+            echo
+            echo "Generated from docs/user/ at ${GITHUB_SHA}. Source of truth:"
+            echo "https://github.com/Chemaclass/agnostic-ai"
+            for doc in getting-started why spec-format targets configuration \
+                       cli-reference ci packs git-hooks graph errors \
+                       alternatives-why-not-symlinks; do
+              echo
+              echo "---"
+              echo
+              cat "docs/user/${doc}.md"
+            done
+          } > _site/llms-full.txt
+
+          ls -lh _site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
