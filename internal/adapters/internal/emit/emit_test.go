@@ -1,9 +1,11 @@
 package emit
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -455,5 +457,33 @@ func TestStopCounting_WithoutStart_ReturnsZero(t *testing.T) {
 	sess := NewSession()
 	if n := sess.StopCounting(); n != 0 {
 		t.Fatalf("want 0 when not counting, got %d", n)
+	}
+}
+
+// The prune race surfaces as two different errnos, and only ENOENT was
+// handled: sync failed intermittently with `invalid argument` instead
+// (#701). EACCES is in the table because widening the guard must not
+// start swallowing a permission failure as a missing parent.
+func TestParentGone_CoversBothPruneErrnosAndNothingElse(t *testing.T) {
+	pathErr := func(e error) error {
+		return &os.PathError{Op: "open", Path: "agents/agents/reviewer.md", Err: e}
+	}
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"enoent", pathErr(syscall.ENOENT), true},
+		{"einval", pathErr(syscall.EINVAL), true},
+		{"eacces", pathErr(syscall.EACCES), false},
+		{"unrelated", errors.New("boom"), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := parentGone(c.err); got != c.want {
+				t.Errorf("parentGone(%v) = %v, want %v", c.err, got, c.want)
+			}
+		})
 	}
 }

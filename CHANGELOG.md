@@ -17,6 +17,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `sync --jobs` no longer fails intermittently with `invalid argument` when two targets share a directory. The write path recreated a concurrently pruned parent only on `no such file or directory`, but the same race raises `EINVAL` just as readily on macOS, which the retry then skipped. Both errnos now trigger the single recreate-and-retry (#701).
 - The generated entry-point body no longer offers `.aiexclude` as an example ignore file. That file belongs to Gemini Code Assist and agnostic-ai stopped writing it in #625; the example is now `.geminiignore`, which Gemini CLI actually reads. Prose only, in every target's entry-point file (#651).
 - Warp: sync now warns when a hand-authored `WARP.md` sits next to the `AGENTS.md` it just wrote. Warp reads `WARP.md` first when both exist, so every synced rule was reaching nowhere with no signal (#691).
 - Cursor skills promote the vendor-documented `icon` and `color` frontmatter fields to first-class keys, alongside `paths`, `disable-model-invocation`, and `metadata`. Both reached `.cursor/skills/<name>/SKILL.md` before only through `x-cursor`, so setting either at the top level silently did nothing (#694).
