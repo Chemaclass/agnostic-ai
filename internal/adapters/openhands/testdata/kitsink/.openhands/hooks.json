@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "terminal",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

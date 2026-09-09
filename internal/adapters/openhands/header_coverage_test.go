@@ -38,6 +38,11 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
 			return nil
 		}
+		// JSON has no comment syntax, so .openhands/hooks.json carries
+		// no provenance header. Same exemption codex's hooks.json takes.
+		if strings.HasSuffix(rel, ".json") {
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -92,6 +97,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
 			Meta: map[string]any{"install": "go mod download"},
+		},
+		{
+			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "terminal", "command": "hooks/guard.sh", "timeout": 10},
 		},
 	}
 	return spec.NewBundle(entries)

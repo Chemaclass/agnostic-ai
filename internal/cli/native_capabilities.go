@@ -64,6 +64,16 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PostFileCreate", "PostFileSave", "PostFileDelete",
 		"AgentSpawn",
 	),
+	// The six in the vendor's own Hook Types table. OpenHands names
+	// them in snake_case natively and documents these PascalCase keys as
+	// equally supported, for sharing hook scripts with Claude Code, so
+	// the set is spelled the way this repo emits it
+	// (docs.openhands.dev/openhands/usage/customization/hooks).
+	"openhands": setOf(
+		"PreToolUse", "PostToolUse",
+		"UserPromptSubmit", "Stop",
+		"SessionStart", "SessionEnd",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -93,7 +103,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie"),
 	spec.KindSettings:    setOf("claude"),

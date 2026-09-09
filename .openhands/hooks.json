@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_TOOL_INPUT\" in *'git commit'*) go run ./cmd/agnostic-ai sync --check || { echo 'specs drift from emitted files; run: agnostic-ai sync' \u003e\u00262; exit 1; } ;; esac"
+          },
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_TOOL_INPUT\" in *'git commit'*) go test ./... ;; esac"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATHS\" | tr ' ' '\\n' | grep '\\.go$' | xargs -r gofmt -w"
+          },
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATHS\" in *internal/config/config.go*) go run ./cmd/schemagen ;; esac"
+          },
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATHS\" | tr ' ' '\\n' | grep '\\.go$' | xargs -r -I{} dirname {} | sort -u | xargs -r -I{} go vet ./{}/..."
+          }
+        ]
+      }
+    ]
+  }
+}
