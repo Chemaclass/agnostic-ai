@@ -334,6 +334,21 @@ func mkdirAll(dir string, perm os.FileMode) error {
 	return err
 }
 
+// parentGone reports whether err is the failure a concurrent prune of the
+// parent directory produces.
+//
+// Both errnos count. macOS raises EINVAL as readily as ENOENT when a path
+// component is being created or removed underneath the call, which is the
+// same pairing mkdirAll above already absorbs. Checking only ENOENT left
+// the EINVAL half of one race unhandled and surfaced as an intermittent
+// `open .agents/agents/reviewer.md: invalid argument` from sync (#701).
+//
+// Widening this cannot swallow a genuinely invalid path: writeFileAt
+// retries the write once and a real EINVAL comes straight back.
+func parentGone(err error) bool {
+	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.EINVAL)
+}
+
 // writeFileAt writes content to path, recreating the parent directory
 // when a concurrent prune removed it between mkdirAll and the write.
 //
@@ -341,13 +356,13 @@ func mkdirAll(dir string, perm os.FileMode) error {
 // another target's write into the same shared directory. Codex sweeps
 // its legacy `.agents/agents/*.toml` and prunes the directory once the
 // last one is gone, while antigravity writes `.agents/agents/<name>.md`
-// into it. Observed as `open .agents/agents/agent-0.md: no such file or
-// directory` on macOS. The prune is correct and the write is correct;
+// into it. Observed as both `no such file or directory` and `invalid
+// argument` on macOS. The prune is correct and the write is correct;
 // only their interleaving is wrong, and recreating the parent is the
 // cheap half of that fix. See removeEmptyDirs for the other half.
 func writeFileAt(path, content string, mode os.FileMode) error {
 	err := os.WriteFile(path, []byte(content), mode)
-	if err == nil || !errors.Is(err, fs.ErrNotExist) {
+	if err == nil || !parentGone(err) {
 		return err
 	}
 	if mkErr := mkdirAll(filepath.Dir(path), dirPerm); mkErr != nil {
