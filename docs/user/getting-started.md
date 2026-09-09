@@ -78,6 +78,7 @@ Keep this running while editing specs; Ctrl+C stops it. Run `agnostic-ai status`
 
 ## Next steps
 
+- [Directory-specific instructions](scoped-context.md): keep service conventions within their subtree.
 - [Spec format](spec-format.md): add skills, agents, hooks, and MCP servers.
 - [Configuration](configuration.md): select tools and customize paths.
 - [Git hooks](git-hooks.md): generate output when opening a fresh checkout.

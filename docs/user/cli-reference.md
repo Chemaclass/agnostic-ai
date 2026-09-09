@@ -168,7 +168,7 @@ Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec d
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-Lossy on round-trip: rules reach Crush only through the inlined block, which carries no `globs`/scope, so rule scoping does not round-trip (Crush's output is unaffected either way).
+Crush imports root rules from its inlined block. It has no verified native directory scope; scoped source rules are skipped on sync. Import cannot recover scope from previously flattened instructions. See [scoped context](scoped-context.md).
 
 ## validate
 

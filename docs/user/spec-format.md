@@ -153,8 +153,10 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `globs` | no | `**/*` | File patterns where this rule applies. Used by Cursor. |
-| `alwaysApply` | no | `true` for rules, `false` for agents emitted as Cursor rules | Inject unconditionally, or only on matching context. |
+| `scope` | no | project-wide | Project-relative directory and descendants. Source-layout scope takes precedence. Native routing and supported targets are listed in [scoped context](scoped-context.md). |
+| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns. With `scope`, the selector must preserve the directory boundary. `new rule --scope` omits this field. |
+| `paths` | no | unset | Project-relative file patterns, as a string or list. Scoped rules accept this alongside or instead of `globs`; see [selector limits](scoped-context.md#narrow-a-rule-to-certain-files). |
+| `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, applies only within the directory boundary; sync chooses the required native flags. `new rule --scope` omits this field. |
 
 ## Hooks
 

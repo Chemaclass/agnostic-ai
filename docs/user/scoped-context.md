@@ -2,15 +2,18 @@
 
 [User docs](README.md)
 
-Keep service conventions close to the code they govern, without maintaining a separate source file for each coding tool.
+Write a service's conventions once. Sync generates each tool's native scoped instructions, without copying them into root context.
 
 ## Start with one directory
 
-Select the tools your team uses in `agnostic-ai.yaml`, then create a rule:
+Run commands from the project root. For a new scratch project:
 
 ```bash
+echo "claude,codex,gemini,cursor" | agnostic-ai init
 agnostic-ai new rule payments-context --scope services/payments
 ```
+
+For an existing project, skip `init` and check [target compatibility](#shared-files-and-safe-updates). If `new rule --help` does not list `--scope`, your binary predates the feature. Go users can install main with `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@main`.
 
 Edit `.agnostic-ai/rules/payments-context.md`:
 
@@ -21,34 +24,47 @@ scope: services/payments
 ---
 
 Use integer minor units for monetary values.
-Run make test-payments after changing payment behavior.
 ```
 
-Preview and sync:
+Generate and check:
 
 ```bash
-agnostic-ai render .agnostic-ai/rules/payments-context.md
 agnostic-ai sync
 agnostic-ai sync --check
+agnostic-ai graph --spec payments-context
 ```
 
-For Claude, this creates a native rule with `paths: [services/payments/**]`. For Codex, it creates `services/payments/AGENTS.md`. Gemini receives `services/payments/GEMINI.md`. The root instructions do not contain the payments rule.
+Claude receives a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini receives `services/payments/GEMINI.md`. Cursor alone would receive a native `.mdc` rule instead.
 
-Use `graph --spec payments-context` to see its destinations, or `why services/payments/AGENTS.md` to find its source.
+Edit the source and sync again. Use `agnostic-ai render .agnostic-ai/rules/payments-context.md` to preview, or `agnostic-ai why services/payments/AGENTS.md` to trace the generated file.
 
 ## Scope contract
 
-- `scope` names a project-relative directory and its descendants. Absolute paths, parent traversal, and paths escaping through symlinks are rejected.
-- A source under `rules/services/payments/` has that layout-derived scope. It takes precedence over frontmatter. Flat sources with explicit scope are easier to maintain in monorepos.
-- Keep rule names unique across the project, including different scopes.
-- A deeper rule adds instructions for its own subtree. It does not copy parent rules into its file. The tool controls ancestor loading and precedence.
-- `alwaysApply: true` cannot widen a scoped rule to the entire project. Sync writes the native conditional flags required by each target.
-- `paths` and `globs` remain project-relative. A catch-all such as `**/*` reduces to the scope. A narrower selector such as `services/payments/**/*.go` stays narrow on a compatible target. Directory-document targets cannot represent narrower file filters. Unrepresentable intersections are skipped with a warning, or rejected with `on-unsupported: error`.
-- Scope controls when instructions are discovered or applied. It does not remove instructions already loaded into a conversation.
+- `scope` covers a project-relative directory and its descendants. Use `/` separators. Absolute paths, `..`, glob-control characters, and symlink escapes are rejected. Omit scope for project-wide rules; `scope: .` is invalid.
+- Source subdirectories take precedence: `.agnostic-ai/rules/services/payments/limits.md` has scope `services/payments`. Prefer flat sources with explicit scope for easier navigation.
+- Keep rule names unique across directories.
+- Deeper rules add local context. Parent loading and precedence belong to the tool.
+- `alwaysApply: true` cannot widen scope. Sync chooses the native conditional flags.
+- Scope does not remove instructions already loaded into a conversation.
+
+## Narrow a rule to certain files
+
+On file-filter targets, use project-relative patterns inside the scope:
+
+```yaml
+scope: services/payments
+globs: "services/payments/**/*.go"
+```
+
+`**/*` reduces to the whole scope. `**/*.go` is not rewritten relative to the scope and is currently unsupported. Directory-document targets such as Codex cannot express narrower file filters.
+
+Prefer one `paths` or `globs` selector per rule. If both are present, their constrained patterns must agree or one must cover the scope. Multiple patterns work for scoped Claude, Cline, Qoder, and OpenHands rules. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`.
+
+Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
 
 ## Native support
 
-The following mappings were checked against vendor documentation on 2026-09-09. Output tests verify serialization and routing. They do not establish identical runtime behavior across products or versions.
+Mappings checked against vendor documentation on 2026-09-09. Tests verify generated output, not identical behavior across live products.
 
 | Target | Scoped destination or condition | Vendor reference |
 |---|---|---|
@@ -72,20 +88,27 @@ The following mappings were checked against vendor documentation on 2026-09-09. 
 | Factory | `<scope>/AGENTS.md` | [Instructions](https://docs.factory.ai/harness/agents-md) |
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 
-Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope in this implementation. Antigravity documents a Glob mode, but its serialized activation format remains unverified. These six targets skip scoped rules instead of placing their bodies in global context. Root rules continue to work. Set `on-unsupported: error` in CI to require complete coverage, or `silent` to suppress skip notices.
 
-Runtime limits matter: Codex and OpenCode use working-directory ancestry at startup; Warp documents root/current-directory loading and best-effort cross-directory discovery. Gemini discovers context as files are accessed. OpenHands path injection applies to local conversations, not ACP conversations. Copilot support varies by host. Cline's `.cline/rules` versus `.clinerules`, Qoder Desktop parity, and Kiro custom-agent resource loading still need product-specific runtime checks. Start the tool in the relevant subtree when its loader requires that.
+Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope here. Antigravity's Glob mode lacks a verified serialized format. These six targets skip scoped rules; root rules still work.
+
+Runtime limits:
+
+- Codex and OpenCode use working-directory ancestry. Warp documents root/current-directory loading and best-effort cross-directory discovery. Gemini discovers context as files are accessed.
+- Copilot support varies by host. OpenHands path injection supports local conversations, not ACP.
+- Cline's `.cline/rules` versus `.clinerules`, Qoder Desktop parity, and Kiro custom-agent resource loading still need product-specific runtime checks.
 
 ## Shared files and safe updates
 
-Sync checks all configured readers, including during `--only` syncs. It rejects known combinations that cannot preserve scope:
+Sync checks all configured readers, even with `--only`:
 
-- Kiro eagerly includes nested `AGENTS.md` files globally. It cannot share a worktree with targets emitting scoped `AGENTS.md` under this contract.
-- Crush reads `.cursor/rules` recursively without applying Cursor's activation conditions. It cannot share native scoped Cursor rules.
-- Targets reading the same nested `AGENTS.md` must receive identical rules. Target exclusions, different scopes, bodies, or file filters cannot be resolved by overwriting one target's output with another's.
+- Kiro loads nested `AGENTS.md` globally, so it conflicts with targets emitting those files.
+- Crush reads `.cursor/rules` without applying its conditions, so it conflicts with native scoped Cursor rules.
+- Readers sharing nested `AGENTS.md` need identical scoped rules, target selection, and bodies.
 
-Use compatible targets in one worktree, or separate worktrees for incompatible tools. `sync.collision-policy: prefer-spec` does not bypass these checks. Cursor uses the shared document when possible to avoid loading both that document and a native rule copy.
+Use compatible targets or separate worktrees. `prefer-spec` cannot bypass scope conflicts.
 
-Hand-authored destination files and conflicting instruction aliases must be imported or moved before sync. Scoped output requires provenance headers. Native directory-document routing rejects output overrides that would move instructions away from their discovery path. Existing output options remain available for ordinary rules.
+Keep provenance headers enabled. Directory-document targets reject `file` and `rules-dir` overrides. Scoped rules reject `rules-file` overrides except Goose's `.goosehints` opt-in.
 
-Generated scoped files participate in sync checks, the output ledger, backups, and revert. Full sync removes obsolete managed paths after a scope moves or a rule is deleted. Partial sync preserves files owned by omitted targets, so run a full sync after changing the scope layout. Existing Codex and Gemini importers retain directory provenance as `scope`; Claude's rule importer retains its source subdirectories. This feature adds no new importer, per-directory config, or inheritance language.
+For existing hand-authored files or conflicting aliases, follow [migration](migration.md#keep-directory-specific-instructions). After moving or deleting a scope, run a full sync to remove obsolete managed output; partial sync preserves omitted targets' files. Backups and revert work for scoped outputs too.
+
+See [troubleshooting](troubleshooting.md#scoped-rules) for common errors. No per-directory config or separate inheritance language is needed.

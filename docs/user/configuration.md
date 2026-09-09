@@ -328,7 +328,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
 | `aider` | `model` | _empty_ | Optional `model:` value written into the conf file. |
 | `aider` | `weak-model` | _empty_ | Optional `weak-model:` value written into the conf file. |
-| `cline` | `rules-dir` | `.cline/rules` | One `.md` per rule. A rule with `alwaysApply: false` carries a `paths` glob array, Cline's one conditional; explicit `globs` win, otherwise the source-layout scope becomes `<scope>/**` (#639). Set to `.clinerules` to keep the pre-migration layout; a stale managed tree there is swept otherwise. |
+| `cline` | `rules-dir` | `.cline/rules` | One `.md` per rule. Scoped rules always carry conditional `paths` within the directory boundary. Unscoped rules use `alwaysApply: false` to request conditional activation. Set `.clinerules` for the alternate native layout. |
 | `cline` | `agents-dir` | `.cline/agents` | One `.md` per agent, verbatim body, no synthesized heading. Independent of `rules-dir`. |
 | `cline` | `skills-dir` | `.cline/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Cline's recommended skills path. |
 | `cline` | `workflows-dir` | _empty_ | When set, each agent also emits as a Cline Workflow at `<dir>/<name>.md` (invokable as `/<name>.md`). The native agent-file emission still happens. Opt-in. |
@@ -337,7 +337,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The native subagent file emits either way. Opt-in. |
 | `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |
-| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). A rule carries Continue's `name`/`globs`/`alwaysApply`/`description` frontmatter when it has an activation to state; `globs` falls back to `<scope>/**`, and `x-continue.regex` reaches the file too (#639). |
+| `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). Scoped rules emit constrained `globs` and omit `alwaysApply`. `x-continue.regex` is supported only without `scope`. |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
 | `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent. |
@@ -386,7 +386,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `factory` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
-| `kilo` | `rules-dir` | `.kilo/rules` | One `.md` per rule; each resolved path also lands as its own entry in `kilo.jsonc`'s `instructions` array (not a directory glob, so a scoped rule is never missed). |
+| `kilo` | `rules-dir` | `.kilo/rules` | Unscoped rules emit here and enter `kilo.jsonc.instructions`. Scoped rules use nested `AGENTS.md` without unconditional references; remove this override to use scoped rules. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |

@@ -67,7 +67,7 @@ The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-ident
 
 ### Rules delivery is path-divergent
 
-Claude emits per-file `.claude/rules/*.md`, which current Claude Code versions auto-load at session start (`outputs.claude.rules-mode: import` wires them via `@`-imports for older versions). Codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and kilo have no native rules directory, so they inline every rule body into their shared entry-point file under a sentinel-marked `## Rules` block. Junie and zed have no native rules directory either, but inline into their own file (`.junie/AGENTS.md` and `.rules`) instead of that shared one, alongside a sentinel-marked `## Agents` block no other inlining target has (Junie has no native per-agent surface at all, see #552). Cursor, cline, windsurf, continue, kiro, trae, qoder, antigravity, and augment each get one file per rule in their own directory and format; augment inlines into `AGENTS.md` too, on top of its native `.augment/rules/` directory. A shared source directory cannot satisfy "separate per-rule files" and "inlined block in one file" at the same time.
+Tools consume different instruction layouts: native per-rule files, root instruction blocks, or nested directory documents. Sync renders the format each target needs and preserves [directory scope](scoped-context.md) where supported. A symlink shares bytes; it cannot translate activation fields, combine rule bodies, or prevent one tool from loading another tool's scoped file globally.
 
 ### Hooks are target-specific
 

@@ -7,6 +7,7 @@ Start with the guide for your task. Reference pages are for lookup; you do not n
 | Use agnostic-ai in a project | [Getting started](user/getting-started.md) |
 | Install or upgrade the CLI | [Installation](user/installation.md) |
 | Adopt it without losing existing instructions | [Migration](user/migration.md) |
+| Share service or monorepo instructions across tools | [Directory-specific instructions](user/scoped-context.md) |
 | Find a command, field, or output path | [User documentation](user/README.md) |
 | Fix a setup or sync problem | [Troubleshooting](user/troubleshooting.md) |
 | Build and contribute to the project | [Contributor setup](../CONTRIBUTING.md) |

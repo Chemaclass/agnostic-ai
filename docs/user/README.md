@@ -12,6 +12,7 @@ The working loop is **edit `.agnostic-ai/` → run `agnostic-ai sync` → use yo
 
 | Task | Guide |
 |---|---|
+| Add service or directory conventions | [Directory-specific instructions](scoped-context.md) |
 | Keep generated outputs consistent in CI | [CI](ci.md) |
 | Sync or check at commit and checkout time | [Git hooks](git-hooks.md) |
 | Reuse specs across projects | [Packs](packs.md) |
@@ -31,5 +32,3 @@ The working loop is **edit `.agnostic-ai/` → run `agnostic-ai sync` → use yo
 | Commands, flags, and exit codes | [CLI reference](cli-reference.md) |
 | An `AAI-NNN` diagnostic | [Error codes](errors.md) |
 | A complete config or starter specs | [Examples](../examples/README.md) |
-
-For monorepos and service-specific conventions, use [directory-specific instructions](scoped-context.md).

@@ -13,6 +13,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- Scoped-context docs add a runnable walkthrough, migration steps, and troubleshooting; references now distinguish scoped output from root instructions.
 - Documentation starts with a focused first-rule tutorial, dedicated installation, migration, and troubleshooting guides, and one contributor setup path. Reference navigation and CI recipes distinguish committed from ignored output.
 
 ## v0.53.0 - 2026-09-09

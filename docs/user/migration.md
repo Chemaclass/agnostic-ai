@@ -26,6 +26,21 @@ Keep helper scripts referenced by hooks or settings in Git. Files inside a skill
 
 Commit the reviewed source specs, `agnostic-ai.yaml`, and `.gitignore` before generating output if you want a separate migration checkpoint. The instructions source lives inside `.agnostic-ai/`, not at the repository root.
 
+## Keep directory-specific instructions
+
+`import codex` and `import gemini` retain discovered nested instruction directories as `scope`. `import claude` preserves subdirectories within `.claude/rules/`, but does not import every nested `CLAUDE.md`. For other layouts, create a rule with `new rule <name> --scope <directory>` and copy the instructions into it.
+
+Review and commit the imported source. Then move conflicting hand-authored originals out of their native filenames before syncing:
+
+```bash
+mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
+agnostic-ai sync --dry-run
+```
+
+Keep the saved file until you check the generated output. The same rule applies to conflicting `AGENTS.override.md`, `WARP.md`, `CLAUDE.md`, or `.goosehints` aliases. `sync --backup` does not bypass ownership checks.
+
+Upgrading older generated scopes can move output paths or skip unsupported targets. Use a full `sync`, then `sync --check`, to remove obsolete managed files. See [scoped context](scoped-context.md) for compatibility.
+
 ## Generate and inspect
 
 ```bash
