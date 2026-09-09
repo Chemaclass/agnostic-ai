@@ -8,19 +8,17 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- OpenHands hooks emit to `.openhands/hooks.json`, the file the vendor reads per-repository across Cloud, CLI, and local GUI setups. Six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Hook specs previously reached no OpenHands surface at all and skipped with a warning. A `matcher` carried over from a Claude spec now surfaces a coverage note, since OpenHands names its own tools (`terminal`, not `Bash`) and such a matcher parses but matches nothing (#629).
-- Copilot's `.vscode/mcp.json` gains VS Code's own `cwd`, `envFile`, `dev`, and `sandboxEnabled` on a stdio server, and `oauth` on an http/sse server. None of the five reach Copilot CLI's `.github/mcp.json`, since its own docs never name them (#692).
-- Codex MCP servers gain `required`, `startup_timeout_sec`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, and an `[mcp_servers.<name>.oauth]` sub-table. Codex hooks gain `type: mcp_tool` (a hook that calls an already-connected MCP server's tool instead of running a shell command), which previously had no `command` field and was silently dropped from `.codex/hooks.json` (#693).
-- The published site now carries the metadata search engines and agent crawlers look for: a canonical URL, Open Graph and Twitter card tags with a real 1200x630 preview image, and `SoftwareApplication`, `WebSite` and `WebApplication` structured data. Sharing a link renders a card instead of a bare URL.
-- `llms.txt` and `llms-full.txt` are served from the site root, so an agent can find the docs in one fetch. `llms-full.txt` is every user doc concatenated in reading order, rebuilt on each deploy.
-- `sitemap.xml` and `robots.txt` are published, with sitemap `lastmod` taken from each page's real commit date at deploy time.
+- OpenHands hooks emit to `.openhands/hooks.json`, across six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Hook specs previously reached no OpenHands surface and skipped with a warning. A `matcher` copied from a Claude spec surfaces a coverage note, since OpenHands names its own tools (`terminal`, not `Bash`) so such a matcher parses but matches nothing (#629).
+- MCP passthrough gaps close on codex and copilot. Codex gains `required`, `startup_timeout_sec`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, and an `[mcp_servers.<name>.oauth]` sub-table; copilot's `.vscode/mcp.json` gains VS Code's `cwd`, `envFile`, `dev`, and `sandboxEnabled` on stdio plus `oauth` on http/sse. All were documented and dropped in silence (#692).
+- Codex hooks gain `type: mcp_tool`, a hook that calls an already-connected MCP server's tool instead of running a shell command. Carrying no `command`, it was silently dropped from `.codex/hooks.json` before (#693).
+- The published site is findable by search engines and agent crawlers: canonical URL, Open Graph and Twitter cards with a 1200x630 preview image, `SoftwareApplication`/`WebSite`/`WebApplication` structured data, `llms.txt` and `llms-full.txt` (every user doc concatenated, rebuilt each deploy), plus `sitemap.xml` and `robots.txt` with `lastmod` from each page's real commit date.
 
 ### Fixed
 
-- `sync --jobs` no longer fails intermittently with `invalid argument` when two targets share a directory. The write path recreated a concurrently pruned parent only on `no such file or directory`, but the same race raises `EINVAL` just as readily on macOS, which the retry then skipped. Both errnos now trigger the single recreate-and-retry (#701).
-- The generated entry-point body no longer offers `.aiexclude` as an example ignore file. That file belongs to Gemini Code Assist and agnostic-ai stopped writing it in #625; the example is now `.geminiignore`, which Gemini CLI actually reads. Prose only, in every target's entry-point file (#651).
-- Warp: sync now warns when a hand-authored `WARP.md` sits next to the `AGENTS.md` it just wrote. Warp reads `WARP.md` first when both exist, so every synced rule was reaching nowhere with no signal (#691).
-- Cursor skills promote the vendor-documented `icon` and `color` frontmatter fields to first-class keys, alongside `paths`, `disable-model-invocation`, and `metadata`. Both reached `.cursor/skills/<name>/SKILL.md` before only through `x-cursor`, so setting either at the top level silently did nothing (#694).
+- `sync --jobs` no longer fails intermittently with `invalid argument` when two targets share a directory. Recreating a concurrently pruned parent was wired to `no such file or directory` alone, but macOS raises `EINVAL` on the same race. Both errnos now trigger the single recreate-and-retry (#701).
+- Warp: sync warns when a hand-authored `WARP.md` sits beside the `AGENTS.md` it just wrote. Warp reads `WARP.md` first when both exist, so every synced rule was reaching nowhere with no signal (#691).
+- Cursor skills promote the documented `icon` and `color` frontmatter to first-class keys, alongside `paths`, `disable-model-invocation`, and `metadata`. Both reached `.cursor/skills/<name>/SKILL.md` only through `x-cursor`, so setting either at the top level silently did nothing (#694).
+- The generated entry-point body offers `.geminiignore` instead of `.aiexclude` as its example ignore file. `.aiexclude` belongs to Gemini Code Assist and agnostic-ai stopped writing it in #625. Prose only, in every target's entry-point file (#651).
 
 ## v0.52.1 - 2026-09-07
 
@@ -958,6 +956,6 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Docs, examples, integration tests, dogfood specs.
 - OSS scaffolding: CONTRIBUTING, COC, GOVERNANCE, issue/PR templates, CI, GoReleaser, golangci-lint, Dockerfile, lefthook, Taskfile, dependabot/renovate.
 
-[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.51.0...HEAD
+[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.52.1...HEAD
 [v0.51.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.50.0...v0.51.0
 [v0.18.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.17.0...v0.18.0
