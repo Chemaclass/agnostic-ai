@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agnostic-ai — one spec, every AI CLI</title>
+<title>agnostic-ai: one spec, every AI CLI</title>
 <meta name="description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format, byte-stable across runs.">
 <link rel="canonical" href="https://chemaclass.github.io/agnostic-ai/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<meta name="theme-color" content="#f6f5f9" media="(prefers-color-scheme:light)">
-<meta name="theme-color" content="#131017" media="(prefers-color-scheme:dark)">
+<meta name="theme-color" content="#f7f7f6" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#14120f" media="(prefers-color-scheme:dark)">
 <meta name="author" content="Chemaclass">
 <meta name="color-scheme" content="light dark">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="agnostic-ai">
 <meta property="og:url" content="https://chemaclass.github.io/agnostic-ai/">
-<meta property="og:title" content="agnostic-ai — one spec, every AI CLI">
+<meta property="og:title" content="agnostic-ai: one spec, every AI CLI">
 <meta property="og:description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format, byte-stable across runs.">
 <meta property="og:image" content="https://chemaclass.github.io/agnostic-ai/og.png">
 <meta property="og:image:type" content="image/png">
@@ -25,50 +25,50 @@
 <meta property="og:locale" content="en_US">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="agnostic-ai — one spec, every AI CLI">
+<meta name="twitter:title" content="agnostic-ai: one spec, every AI CLI">
 <meta name="twitter:description" content="Write your agents, skills, rules, and hooks once. agnostic-ai emits each AI CLI's native config, byte-stable across runs.">
 <meta name="twitter:image" content="https://chemaclass.github.io/agnostic-ai/og.png">
 <meta name="twitter:image:alt" content="agnostic-ai: one spec, every AI CLI.">
 
 <link rel="alternate" type="text/plain" href="https://chemaclass.github.io/agnostic-ai/llms.txt" title="llms.txt">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='white' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
 <style>
 :root{
-  --paper:#f6f5f9; --surface:#ffffff; --surface-2:#f0eef6;
-  --ink:#1a1823; --ink-soft:#413d52; --muted:#6e6a7c;
-  --line:#e4e1ec; --line-soft:#eeecf3;
-  --accent:#6d28d9; --accent-ink:#ffffff; --accent-soft:#f0e9fd;
-  --cyan:#0e7490; --warn:#b4531f; --good:#0e7490;
-  --shadow:0 1px 2px rgba(26,24,35,.04), 0 12px 32px -12px rgba(26,24,35,.14);
+  --paper:#f7f7f6; --surface:#ffffff; --surface-2:#eeeeeb;
+  --ink:#1a1714; --ink-soft:#45403a; --muted:#6f6960;
+  --line:#e3e2de; --line-soft:#edecea;
+  --accent:#a8481a; --accent-ink:#ffffff; --accent-soft:#faeee4;
+  --warn:#a3341f; --good:#4a6b2f; --code-str:#7a5230;
+  --shadow:0 1px 2px rgba(26,23,20,.05), 0 12px 32px -12px rgba(26,23,20,.16);
   --mono:ui-monospace,"JetBrains Mono","SFMono-Regular","SF Mono",Menlo,Consolas,monospace;
   --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --maxw:64rem; --prose:44rem;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --paper:#131017; --surface:#1b1826; --surface-2:#221e30;
-    --ink:#ecebf2; --ink-soft:#c3bfd2; --muted:#8b859c;
-    --line:#2a2636; --line-soft:#231f30;
-    --accent:#a78bfa; --accent-ink:#17121f; --accent-soft:#241a3a;
-    --cyan:#22d3ee; --warn:#e08a5a; --good:#22d3ee;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+    --paper:#14120f; --surface:#1c1917; --surface-2:#241f1b;
+    --ink:#f2ede5; --ink-soft:#cec6ba; --muted:#9c9082;
+    --line:#302a24; --line-soft:#241f1b;
+    --accent:#f0a35e; --accent-ink:#1a1714; --accent-soft:#2a1f14;
+    --warn:#ef8f74; --good:#a9c77e; --code-str:#d9b98a;
+    --shadow:0 1px 2px rgba(0,0,0,.32), 0 10px 26px -14px rgba(0,0,0,.62);
   }
 }
 :root[data-theme="light"]{
-  --paper:#f6f5f9; --surface:#ffffff; --surface-2:#f0eef6;
-  --ink:#1a1823; --ink-soft:#413d52; --muted:#6e6a7c;
-  --line:#e4e1ec; --line-soft:#eeecf3;
-  --accent:#6d28d9; --accent-ink:#ffffff; --accent-soft:#f0e9fd;
-  --cyan:#0e7490; --warn:#b4531f; --good:#0e7490;
-  --shadow:0 1px 2px rgba(26,24,35,.04), 0 12px 32px -12px rgba(26,24,35,.14);
+  --paper:#f7f7f6; --surface:#ffffff; --surface-2:#eeeeeb;
+  --ink:#1a1714; --ink-soft:#45403a; --muted:#6f6960;
+  --line:#e3e2de; --line-soft:#edecea;
+  --accent:#a8481a; --accent-ink:#ffffff; --accent-soft:#faeee4;
+  --warn:#a3341f; --good:#4a6b2f; --code-str:#7a5230;
+  --shadow:0 1px 2px rgba(26,23,20,.05), 0 12px 32px -12px rgba(26,23,20,.16);
 }
 :root[data-theme="dark"]{
-  --paper:#131017; --surface:#1b1826; --surface-2:#221e30;
-  --ink:#ecebf2; --ink-soft:#c3bfd2; --muted:#8b859c;
-  --line:#2a2636; --line-soft:#231f30;
-  --accent:#a78bfa; --accent-ink:#17121f; --accent-soft:#241a3a;
-  --cyan:#22d3ee; --warn:#e08a5a; --good:#22d3ee;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+  --paper:#14120f; --surface:#1c1917; --surface-2:#241f1b;
+  --ink:#f2ede5; --ink-soft:#cec6ba; --muted:#9c9082;
+  --line:#302a24; --line-soft:#241f1b;
+  --accent:#f0a35e; --accent-ink:#1a1714; --accent-soft:#2a1f14;
+  --warn:#ef8f74; --good:#a9c77e; --code-str:#d9b98a;
+  --shadow:0 1px 2px rgba(0,0,0,.32), 0 10px 26px -14px rgba(0,0,0,.62);
 }
 
 *{box-sizing:border-box}
@@ -84,12 +84,6 @@ a{color:inherit}
 h1,h2,h3{text-wrap:balance; line-height:1.1; margin:0}
 code,kbd{font-family:var(--mono)}
 .wrap{max-width:var(--maxw); margin-inline:auto; padding-inline:1.5rem}
-.eyebrow{
-  font-family:var(--mono); font-size:.72rem; font-weight:600;
-  letter-spacing:.16em; text-transform:uppercase; color:var(--accent);
-  display:inline-flex; align-items:center; gap:.6rem; margin:0 0 1.1rem;
-}
-.eyebrow::before{content:""; width:1.6rem; height:1px; background:var(--accent); opacity:.6}
 :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
 
 /* header */
@@ -100,7 +94,7 @@ header.site{
 }
 .bar{display:flex; align-items:center; gap:1rem; height:60px}
 .brand{display:flex; align-items:center; gap:.6rem; font-family:var(--mono); font-weight:700; letter-spacing:-.01em; text-decoration:none}
-.logo{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,#7c3aed,#06b6d4); display:grid; place-items:center; color:#fff; font-family:var(--mono); font-weight:700; font-size:15px; box-shadow:0 2px 8px -2px rgba(124,58,237,.6)}
+.logo{width:26px; height:26px; border-radius:8px; background:var(--accent); display:grid; place-items:center; color:var(--accent-ink); font-family:var(--mono); font-weight:700; font-size:15px}
 .nav{margin-left:auto; display:flex; align-items:center; gap:.4rem}
 .nav a{font-size:.9rem; color:var(--ink-soft); text-decoration:none; padding:.4rem .7rem; border-radius:8px}
 .nav a:hover{color:var(--ink); background:var(--surface-2)}
@@ -121,8 +115,8 @@ header.site{
   padding:.7rem 1.15rem; border-radius:10px; border:1px solid transparent; transition:transform .12s ease, box-shadow .12s ease;
 }
 .btn:active{transform:translateY(1px)}
-.btn-primary{background:var(--accent); color:var(--accent-ink); box-shadow:0 6px 20px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
-.btn-primary:hover{box-shadow:0 10px 26px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+.btn-primary{background:var(--accent); color:var(--accent-ink); box-shadow:0 1px 2px rgba(26,23,20,.12), 0 6px 16px -8px rgba(26,23,20,.28)}
+.btn-primary:hover{box-shadow:0 2px 4px rgba(26,23,20,.14), 0 10px 22px -10px rgba(26,23,20,.32)}
 .btn-ghost{background:var(--surface); color:var(--ink); border-color:var(--line)}
 .btn-ghost:hover{border-color:var(--accent); color:var(--accent)}
 .btn svg{width:16px; height:16px}
@@ -137,7 +131,7 @@ h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-we
 /* hero */
 .hero{padding-top:clamp(3rem,7vw,5rem); padding-bottom:clamp(3rem,7vw,5rem)}
 .hero h1{font-family:var(--mono); font-weight:700; letter-spacing:-.03em; font-size:clamp(2.3rem,6.4vw,4rem)}
-.hero h1 .g{background:linear-gradient(100deg,var(--accent),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero h1 .g{color:var(--accent)}
 .hero .lead{margin-top:1.4rem; font-size:1.2rem}
 .hero .cta{display:flex; flex-wrap:wrap; gap:.75rem; margin-top:2rem}
 .hero-grid{display:grid; grid-template-columns:1fr; gap:3rem; align-items:center}
@@ -154,7 +148,7 @@ h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-we
 .spec-card .fname{font-family:var(--mono); font-size:.74rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); color:var(--ink-soft); display:flex; align-items:center; gap:.45rem}
 .dot{width:8px; height:8px; border-radius:50%}
 .spec-card pre{margin:0; padding:.7rem .8rem; font-family:var(--mono); font-size:.72rem; line-height:1.55; color:var(--ink-soft); overflow-x:auto}
-.k{color:var(--accent)} .s{color:var(--cyan)}
+.k{color:var(--accent)} .s{color:var(--code-str)}
 .outs{display:grid; gap:.5rem}
 .outfile{display:flex; align-items:center; gap:.6rem; font-family:var(--mono); font-size:.76rem; padding:.5rem .7rem; background:var(--surface-2); border:1px solid var(--line); border-radius:9px; color:var(--ink-soft)}
 .outfile .tick{color:var(--good); flex:none}
@@ -182,10 +176,10 @@ h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-we
 @media (min-width:560px){.tools{grid-template-columns:repeat(3,1fr)}}
 @media (min-width:860px){.tools{grid-template-columns:repeat(3,1fr)}}
 .tool{display:flex; align-items:center; gap:.7rem; padding:.7rem .85rem; border:1px solid var(--line); border-radius:11px; background:var(--surface); font-size:.9rem}
-.tool .badge{font-family:var(--mono); font-size:.62rem; font-weight:600; letter-spacing:.04em; padding:.12rem .4rem; border-radius:5px; margin-left:auto; text-transform:uppercase}
+.tool .badge{font-family:var(--mono); font-size:.75rem; font-weight:600; letter-spacing:.04em; padding:.2rem .5rem; border-radius:5px; margin-left:auto; text-transform:uppercase}
 .tool .badge.def{color:var(--good); background:color-mix(in srgb,var(--good) 12%,transparent)}
 .tool .badge.opt{color:var(--muted); background:var(--surface-2)}
-.tool .g{width:9px; height:9px; border-radius:3px; background:linear-gradient(135deg,var(--accent),var(--cyan)); flex:none}
+.tool .g{width:9px; height:9px; border-radius:3px; background:var(--accent); flex:none}
 .tname{font-weight:600; color:var(--ink)} .tpath{font-family:var(--mono); font-size:.72rem; color:var(--muted)}
 .tool .meta{display:flex; flex-direction:column; min-width:0}
 .tool .tpath{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -194,7 +188,6 @@ h2.title{font-family:var(--mono); font-size:clamp(1.55rem,3.6vw,2.1rem); font-we
 .how-steps{display:grid; grid-template-columns:1fr; gap:1.1rem; margin-top:2.4rem}
 @media (min-width:820px){.how-steps{grid-template-columns:repeat(3,1fr)}}
 .step{position:relative; padding:1.3rem 1.2rem; border:1px solid var(--line); border-radius:14px; background:var(--surface)}
-.step .num{font-family:var(--mono); font-size:.72rem; font-weight:700; color:var(--accent); letter-spacing:.1em}
 .step h3{font-size:1.05rem; margin:.5rem 0 .5rem; font-family:var(--sans); font-weight:650}
 .step p{margin:0; font-size:.92rem; color:var(--ink-soft)}
 .step code{font-size:.82rem; color:var(--accent); background:var(--accent-soft); padding:.05rem .35rem; border-radius:5px}
@@ -353,9 +346,8 @@ footer .links{display:flex; gap:1.3rem; flex-wrap:wrap}
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <p class="eyebrow">Open source · Go CLI</p>
       <h1>One spec.<br><span class="g">Every AI CLI.</span></h1>
-      <p class="lead">You write <code>CLAUDE.md</code>, then <code>.cursor/rules</code>, then <code>GEMINI.md</code>, then <code>AGENTS.md</code> — the same content in four formats. Switch tools and you rewrite everything. agnostic-ai keeps <strong>one source of truth</strong> and emits each tool's native config, byte-stable across runs.</p>
+      <p class="lead">You write <code>CLAUDE.md</code>, then <code>.cursor/rules</code>, then <code>GEMINI.md</code>, then <code>AGENTS.md</code>. The same content in four formats. Switch tools and you rewrite everything. agnostic-ai keeps <strong>one source of truth</strong> and emits each tool's native config, byte-stable across runs.</p>
       <div class="cta">
         <a class="btn btn-primary" href="playground/">Try the playground
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -395,9 +387,8 @@ Use Conventional Commits.</pre>
 <!-- WHY -->
 <section class="band" id="why">
   <div class="wrap">
-    <p class="eyebrow">Why</p>
     <h2 class="title">Same content, <span class="dim">N formats, endless drift.</span></h2>
-    <p class="lead">Every AI coding tool invented its own config file. The instructions are identical; only the wrapper differs. Copy-paste keeps them in sync until it doesn't — and a stale <code>GEMINI.md</code> is a silent bug.</p>
+    <p class="lead">Every AI coding tool invented its own config file. The instructions are identical; only the wrapper differs. Copy-paste keeps them in sync until it doesn't, and a stale <code>GEMINI.md</code> is a silent bug.</p>
     <div class="compare">
       <div class="panel bad">
         <div class="head">Without agnostic-ai</div>
@@ -424,9 +415,8 @@ Use Conventional Commits.</pre>
 <!-- WHAT -->
 <section id="what">
   <div class="wrap">
-    <p class="eyebrow">What</p>
     <h2 class="title">One source of truth, <span class="dim">25 tools, each native.</span></h2>
-    <p class="lead">Author agents, skills, rules, hooks, commands, and MCP servers under <code>.agnostic-ai/</code>. Stateless adapters translate them into every target's documented location and shape — aligned with the <a href="https://agents.md" style="color:var(--accent)">AGENTS.md</a> open standard. 16 targets emit by default; Amp and Warp are opt-in.</p>
+    <p class="lead">Author agents, skills, rules, hooks, commands, and MCP servers under <code>.agnostic-ai/</code>. Stateless adapters translate them into every target's documented location and shape, aligned with the <a href="https://agents.md" style="color:var(--accent)">AGENTS.md</a> open standard. 16 targets emit by default; Amp and Warp are opt-in.</p>
     <div class="tools">
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Claude Code</span><span class="tpath">.claude/ · CLAUDE.md</span></div><span class="badge def">default</span></div>
       <div class="tool"><span class="g"></span><div class="meta"><span class="tname">Codex CLI</span><span class="tpath">AGENTS.md · .codex/</span></div><span class="badge def">default</span></div>
@@ -460,23 +450,19 @@ Use Conventional Commits.</pre>
 <!-- HOW -->
 <section class="band" id="how">
   <div class="wrap">
-    <p class="eyebrow">How</p>
     <h2 class="title">Two layers, <span class="dim">one command.</span></h2>
     <p class="lead">Drop a file in <code>.agnostic-ai/</code>, run <code>agnostic-ai sync</code>. Each target gets two things: a slim shared entry-point that points at the canonical body, and the real spec rendered into that tool's native per-file location.</p>
 
     <div class="how-steps">
       <div class="step">
-        <div class="num">01 · AUTHOR</div>
         <h3>Write once</h3>
         <p>One Markdown file with YAML frontmatter under <code>.agnostic-ai/rules/</code>, <code>agents/</code>, <code>skills/</code>, <code>hooks/</code>, or <code>mcps/</code>. Plain, reviewable, tool-agnostic.</p>
       </div>
       <div class="step">
-        <div class="num">02 · SYNC</div>
         <h3>Emit native</h3>
-        <p>Stateless adapters write each target's format at the path it auto-loads. Same input, same bytes — diffable and reviewable. Run targets in parallel with <code>--jobs</code>.</p>
+        <p>Stateless adapters write each target's format at the path it auto-loads. Same input, same bytes. Diffable and reviewable. Run targets in parallel with <code>--jobs</code>.</p>
       </div>
       <div class="step">
-        <div class="num">03 · GUARD</div>
         <h3>Never drift</h3>
         <p><code>sync --check</code> re-emits in memory and fails CI on any difference, printing a per-file diff of what drifted. <code>import</code> pulls existing configs back into specs; the round-trip stays byte-stable.</p>
       </div>
@@ -555,14 +541,14 @@ Use Conventional Commits. Subject under
       </div>
       <div class="outstack">
         <div class="codeblock">
-          <div class="fname"><span class="dot" style="background:var(--cyan)"></span>CLAUDE.md &nbsp;<span class="cmt">— shared pointer</span></div>
+          <div class="fname"><span class="dot" style="background:var(--muted)"></span>CLAUDE.md &nbsp;<span class="cmt">(shared pointer)</span></div>
 <pre># AI Project Conventions
 
 Every supported AI tool reads this
 body from its native entry-point.</pre>
         </div>
         <div class="codeblock">
-          <div class="fname"><span class="dot" style="background:var(--cyan)"></span>.cursor/rules/conventional-commits.mdc</div>
+          <div class="fname"><span class="dot" style="background:var(--muted)"></span>.cursor/rules/conventional-commits.mdc</div>
 <pre><span class="cmt">---</span>
 <span class="k">description</span>: Always use Conventional…
 <span class="k">globs</span>: <span class="s">"**/*"</span>
@@ -597,7 +583,6 @@ Use Conventional Commits. Subject…</pre>
 <!-- CTA -->
 <section class="cta-band">
   <div class="wrap cta-inner">
-    <p class="eyebrow" style="justify-content:center">Get started in two minutes</p>
     <h2>Write the rule once.<br>Every AI tool obeys it.</h2>
     <div class="install">
       <span><span class="p">$</span> go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest</span>

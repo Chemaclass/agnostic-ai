@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- The site and playground move off the violet-to-cyan palette onto a single amber accent on ink, with every foreground/background pair checked against WCAG AA. Gradient text, gradient logo marks, colored glow shadows, the five section eyebrows, the 01/02/03 step numbers, and the sub-10px target badges are gone; the social card and favicons are regenerated to match.
+
 ## v0.53.0 - 2026-09-09
 
 ### Added
