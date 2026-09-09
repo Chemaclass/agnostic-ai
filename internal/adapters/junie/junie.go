@@ -60,10 +60,12 @@
 // (junie.jetbrains.com/docs/custom-slash-commands.html, target-audit
 // 2026-08-11, #605): "Project-specific commands are stored as Markdown
 // files in the `.junie/commands` folder at your project's root
-// directory." Frontmatter is `description` only on the vendor side, but
-// any other key an author sets still passes through verbatim, matching
-// emitAgents. The body may reference `$argumentName` placeholders Junie
-// substitutes at invocation.
+// directory." The vendor documents two frontmatter fields for
+// commands, `description` and `allowPromptArgument` (accepts free-form
+// text via a `$prompt` placeholder); any other key an author sets
+// still passes through verbatim, matching emitAgents. The body may
+// reference `$argumentName` placeholders Junie substitutes at
+// invocation.
 //
 // Both subagents and slash commands are CLI-only surfaces:
 // junie-ide-plugin.html mentions neither, confirmed by full-text search
@@ -225,9 +227,10 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 }
 
 // emitCommands writes one native slash-command file per command at
-// `<dir>/<name>.md`. Frontmatter is `description` only on the vendor
-// side, but emit.DocumentStyled passes through every other key
-// verbatim too, exactly as emitAgents does.
+// `<dir>/<name>.md`. The vendor documents `description` and
+// `allowPromptArgument` as command frontmatter fields, but
+// emit.DocumentStyled passes through every other key verbatim too,
+// exactly as emitAgents does.
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
 		path := filepath.Join(dir, c.Name+".md")

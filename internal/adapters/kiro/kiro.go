@@ -108,10 +108,14 @@
 // A local server carries `command` plus optional `args` and `env`; a
 // remote server carries `url` plus optional `headers` and `env`, and
 // a `type` discriminant so the transport is never guessed. Both
-// transports also carry `description` when the spec sets one,
-// `disabled` (Kiro's own key, honored as written, unlike Claude Code
-// and Cursor which have no file-based equivalent), and `autoApprove` /
-// `disabledTools` tool lists. A remote server additionally carries
+// transports also carry `description` and `roots` when the spec sets
+// them, plus `disabled` (Kiro's own key, honored as written, unlike
+// Claude Code and Cursor which have no file-based equivalent) and
+// `autoApprove` / `disabledTools` tool lists. kiro.dev's own local- and
+// remote-server field tables document `disabled`, `autoApprove`, and
+// `disabledTools`, but list neither `description` nor `roots`, so this
+// adapter writes both unconfirmed, the same as every other target
+// sharing this builder. A remote server additionally carries
 // `oauth` (`clientId`, `clientSecret`, `redirectUri`,
 // `clientMetadataUrl`, `oauthScopes`) and the top-level `oauthScopes`
 // fallback; an explicitly empty `oauthScopes: []` emits as written,
