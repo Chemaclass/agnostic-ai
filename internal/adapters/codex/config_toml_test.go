@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -403,6 +405,68 @@ func TestEmit_MCP_PerToolTables(t *testing.T) {
 	// drifted below it, Codex would read it as a key of big_tool.
 	if i, j := strings.Index(got, "enabled_tools"), strings.Index(got, "[mcp_servers.noisy.tools."); i == -1 || j == -1 || i > j {
 		t.Errorf("server scalars must precede the per-tool sub-tables:\n%s", got)
+	}
+}
+
+// Codex CLI 0.152.0 widened the MCP server-name charset to allow `:`,
+// `@`, `/`, and `.` (openai/codex#41700, "Support package-style MCP
+// server names"), enabling names such as
+// npm:@modelcontextprotocol/server-sequential.thinking. A raw,
+// unquoted `[mcp_servers.<name>]` header for that name is invalid TOML
+// ("Invalid group name ... Try quoting it"), which commonly aborts the
+// whole config parse and takes every other MCP server down with it.
+// The header must quote the server name exactly like tomlKeySegment
+// already quotes a tool name. This covers all three call sites: the
+// server table itself, its per-tool sub-table, and its oauth
+// sub-table. See #706.
+func TestEmit_MCP_PackageStyleServerNameQuoted(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	name := "npm:@modelcontextprotocol/server-sequential.thinking"
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: name,
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://example.test/mcp",
+				"oauth": map[string]any{
+					"client_id": "abc123",
+				},
+				"tools": map[string]any{
+					"search": map[string]any{"output_token_limit": 4096},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+
+	for _, want := range []string{
+		`[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking"]`,
+		`[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking".oauth]`,
+		`[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking".tools.search]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing quoted table header %q in %s", want, got)
+		}
+	}
+
+	// A malformed header commonly aborts the whole parse, so the real
+	// assertion is that a TOML parser accepts the file at all and
+	// decodes the server back under its bare (unquoted-in-Go) name.
+	var doc struct {
+		MCPServers map[string]struct {
+			URL string `toml:"url"`
+		} `toml:"mcp_servers"`
+	}
+	if _, err := toml.Decode(got, &doc); err != nil {
+		t.Fatalf("emitted config.toml does not parse as TOML: %v\n%s", err, got)
+	}
+	if doc.MCPServers[name].URL != "https://example.test/mcp" {
+		t.Errorf("server %q missing after TOML decode, got %+v", name, doc.MCPServers)
 	}
 }
 

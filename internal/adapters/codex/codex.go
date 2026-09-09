@@ -21,11 +21,17 @@
 // same path; identical bytes dedupe, so co-enabling both is safe.
 //
 // Codex MCP servers live in `.codex/config.toml` (one
-// `[mcp_servers.<name>]` table each). Lifecycle hooks (SessionStart,
-// Stop, UserPromptSubmit, PreToolUse, PostToolUse, pre/post compact)
-// emit to `.codex/hooks.json`, which preserves matcher metadata the
-// inline `[[hooks.<event>]]` TOML form cannot. Override the hooks path
-// via `outputs.codex.hooks-file`.
+// `[mcp_servers.<name>]` table each). A name is quoted (`tomlKeySegment`)
+// when it carries a character a bare TOML key rejects; Codex CLI
+// 0.152.0 widened the accepted server-name charset to include `:`,
+// `@`, `/`, and `.` for package-style names such as
+// `npm:@modelcontextprotocol/server-sequential.thinking`
+// (openai/codex#41700), and an unquoted header for one of those names
+// is invalid TOML that aborts the whole file's parse (#706). Lifecycle
+// hooks (SessionStart, Stop, UserPromptSubmit, PreToolUse, PostToolUse,
+// pre/post compact) emit to `.codex/hooks.json`, which preserves
+// matcher metadata the inline `[[hooks.<event>]]` TOML form cannot.
+// Override the hooks path via `outputs.codex.hooks-file`.
 //
 // An MCP spec's `disabled: true` maps to Codex's own `enabled = false`
 // key (`learn.chatgpt.com/docs/config-file/config-reference` documents
