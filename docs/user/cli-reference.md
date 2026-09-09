@@ -219,6 +219,14 @@ agnostic-ai new mcp filesystem          # → <mcps>/filesystem.yaml
 
 Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`), the form Cursor and Cline expect. Honors `sources:` from `agnostic-ai.yaml`, so a project under `specs/` lands files there.
 
+### Create a directory-specific rule
+
+```bash
+agnostic-ai new rule payments-context --scope services/payments
+```
+
+`--scope` applies to `new rule` only. It accepts a project-relative directory and creates a flat source without global catch-all selectors. See [scoped context](scoped-context.md).
+
 ## explain
 
 Reverse provenance: list every output file and section one spec contributes to. Pairs with the `<!-- source: ... -->` forward markers adapters write into merged documents.

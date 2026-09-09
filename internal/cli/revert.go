@@ -65,6 +65,7 @@ func newRevertCmd() *cobra.Command {
 				return runRevertJSON(cmd, effective, dryRun, force)
 			}
 
+			seen := map[string]bool{}
 			sess := adapters.NewSession()
 			for _, t := range effective {
 				adapter, err := adapters.Resolve(t)
@@ -84,6 +85,10 @@ func newRevertCmd() *cobra.Command {
 				summaryf("← revert %s\n", t)
 				var restored, removed, preserved int
 				for _, f := range files {
+					if seen[f.Path] {
+						continue
+					}
+					seen[f.Path] = true
 					action, err := revertOne(f.Path, dryRun, force)
 					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
@@ -194,6 +199,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 	}
 
 	out := jsonOutput{Version: "1", Command: "revert"}
+	seen := map[string]bool{}
 	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
@@ -209,6 +215,10 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 		}
 		files := sess.StopCapture()
 		for _, f := range files {
+			if seen[f.Path] {
+				continue
+			}
+			seen[f.Path] = true
 			action, err := revertOne(f.Path, dryRun, force)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})

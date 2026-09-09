@@ -148,10 +148,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:        rulesDir,
-		SkipAgents: true,
-		SkipSkills: true,
-		FormatRule: func(e spec.Entry) string { return emit.WithHeader(ruleForm(e), emit.FormatMarkdown) },
+		Dir:         rulesDir,
+		ScopeAtRoot: true,
+		SkipAgents:  true,
+		SkipSkills:  true,
+		FormatRule:  func(e spec.Entry) string { return emit.WithHeader(ruleForm(e), emit.FormatMarkdown) },
 	}, dryRun); err != nil {
 		return err
 	}

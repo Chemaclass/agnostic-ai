@@ -215,7 +215,7 @@ func TestImportFromCodex_NestedAgentsMdInfersGlobs(t *testing.T) {
 	}
 
 	src, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule.md"))
-	if !strings.Contains(string(src), "globs: src/**") {
+	if !strings.Contains(string(src), "globs: src/**") || !strings.Contains(string(src), "scope: src") {
 		t.Errorf("src rule missing globs: src/**, got:\n%s", src)
 	}
 

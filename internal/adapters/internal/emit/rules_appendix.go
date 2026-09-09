@@ -31,7 +31,13 @@ func RenderRulesAppendix(b spec.Bundle) string {
 	}
 	var sb strings.Builder
 	for _, r := range b.Rules {
+		if r.EffectiveScope() != "" {
+			continue
+		}
 		WriteSection(&sb, r.Name, r)
+	}
+	if sb.Len() == 0 {
+		return ""
 	}
 	return wrapRulesBlock(sb.String())
 }
@@ -179,6 +185,9 @@ func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle)
 	var sb strings.Builder
 	sb.WriteString("These rule files are loaded into context on every session:\n\n")
 	for _, r := range b.Rules {
+		if r.EffectiveScope() != "" {
+			continue
+		}
 		sb.WriteString("@" + path.Join(rulesDir, r.EffectiveScope(), r.Name+".md") + "\n")
 	}
 	return wrapRulesBlock(sb.String())

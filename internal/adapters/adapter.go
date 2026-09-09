@@ -340,7 +340,19 @@ type Adapter interface {
 // adapter.Emit.
 func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	defer emit.ProvenanceFor(cfg, a.Name())()
-	return a.Emit(sess, expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, dryRun)
+	prepared, files, err := emit.PrepareScopedRules(expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, a.Name())
+	if err != nil {
+		return err
+	}
+	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
+		return err
+	}
+	for _, f := range files {
+		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var registry = map[string]Adapter{

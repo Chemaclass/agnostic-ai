@@ -41,7 +41,7 @@ func TestImportFromGemini_NestedInfersGlobs(t *testing.T) {
 		t.Fatal(err)
 	}
 	src, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule.md"))
-	if !strings.Contains(string(src), "globs: src/**") {
+	if !strings.Contains(string(src), "globs: src/**") || !strings.Contains(string(src), "scope: src") {
 		t.Errorf("src rule missing globs: src/**, got:\n%s", src)
 	}
 	root, _ := os.ReadFile(filepath.Join(dir, "rules", "root-rule.md"))

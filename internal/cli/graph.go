@@ -107,6 +107,9 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
 		targets = adapters.Names()
 	}
 
+	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
+		return nil, err
+	}
 	var edges []graphEdge
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
