@@ -74,7 +74,7 @@ type entryPointFile struct {
 // write stays collision-free.
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
 	body = adapters.StripGeneratedAppendices(body)
-	rulesAppendix := adapters.RenderRulesAppendix(b)
+
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
@@ -102,9 +102,17 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = resolved
 		}
 		if pathInlinesRules(consumers[path]) {
+			var rulesAppendix string
+			for i, target := range consumers[path] {
+				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(b, target))
+				if i > 0 && next != rulesAppendix {
+					return nil, fmt.Errorf("%s: target-specific root rules differ between readers; use compatible target conditions or separate worktrees", path)
+				}
+				rulesAppendix = next
+			}
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
-			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, b))
+			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer)))
 		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts

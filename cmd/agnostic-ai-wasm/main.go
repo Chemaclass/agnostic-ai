@@ -78,6 +78,9 @@ func render(_ js.Value, args []js.Value) any {
 
 	bundle := singleEntryBundleWASM(entry)
 	cfg := defaultPlaygroundConfig(targets)
+	if err := adapters.ValidateScopedRules(cfg, bundle, targets); err != nil {
+		return jsError(err)
+	}
 
 	files := []any{}
 	errs := []any{}
@@ -89,7 +92,7 @@ func render(_ js.Value, args []js.Value) any {
 			continue
 		}
 		sess.StartCapture()
-		err = adapter.Emit(sess, bundle, cfg, false)
+		err = adapters.EmitWithProvenance(sess, adapter, bundle, cfg, false)
 		captured := sess.StopCapture()
 		if err != nil {
 			errs = append(errs, jsErrorEntry(t, err))
@@ -117,7 +120,7 @@ func render(_ js.Value, args []js.Value) any {
 			// entry-point file. Mirror that here so the playground shows
 			// the rule reaching the tool.
 			if adapters.InlinesRulesIntoEntryPoint(t) {
-				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(bundle))
+				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, t)))
 			}
 			files = append(files, map[string]any{
 				"target":  t,

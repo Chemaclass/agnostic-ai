@@ -91,6 +91,9 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
 
+	if err := adapters.ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+		return whyOutput{}, err
+	}
 	target, hit, exact, err := findEmittingAdapter(rel, resolved, b, cfg)
 	if err != nil {
 		return whyOutput{}, err
@@ -160,7 +163,7 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 	}
 	sort.Strings(tgts)
 	sources := make([]whySource, 0, len(b.Rules))
-	for _, r := range b.Rules {
+	for _, r := range adapters.EntryPointRules(b, tgts[0]).Rules {
 		sources = append(sources, whySource{
 			Kind: string(r.Kind),
 			Name: r.Name,

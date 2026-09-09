@@ -45,6 +45,9 @@ func newRenderCmd() *cobra.Command {
 			if len(targets) == 0 {
 				targets = cfg.Targets
 			}
+			if err := adapters.ValidateScopedRules(cfg, bundle, targets); err != nil {
+				return err
+			}
 			single := singleEntryBundle(entry)
 			out := cmd.OutOrStdout()
 			anyOutput := false
@@ -130,7 +133,7 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 // targets, and targets on the legacy concatenated rules-file layout
 // (where the adapter owns the entry-point write instead).
 func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, single spec.Bundle) (adapters.CapturedFile, bool) {
-	if entry.Kind != spec.KindRule {
+	if entry.Kind != spec.KindRule || entry.EffectiveScope() != "" {
 		return adapters.CapturedFile{}, false
 	}
 	path := adapters.EntryPointPath(cfg, target)
@@ -140,9 +143,9 @@ func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, sin
 	var appendix string
 	switch {
 	case adapters.InlinesRulesIntoEntryPoint(target) && !adapters.HasLegacyRulesFile(cfg, target):
-		appendix = adapters.RenderRulesAppendix(single)
+		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(single, target))
 	case adapters.ImportsRulesIntoEntryPoint(cfg, target):
-		appendix = adapters.RenderRulesImportAppendix(cfg, target, single)
+		appendix = adapters.RenderRulesImportAppendix(cfg, target, adapters.EntryPointRules(single, target))
 	}
 	if appendix == "" {
 		return adapters.CapturedFile{}, false

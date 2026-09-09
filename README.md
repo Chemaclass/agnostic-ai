@@ -62,6 +62,8 @@ Keep the subject under 72 characters.
 
 Sync writes this rule to each selected tool's rules directory or includes it in the tool's instructions file. Edit the source spec, since generated files are overwritten on the next sync.
 
+Create directory-specific instructions with `agnostic-ai new rule payments-context --scope services/payments`. Sync preserves native scope across [supported tools](docs/user/scoped-context.md), without adding those instructions to root context.
+
 ## Supported targets
 
 Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 targets](docs/user/targets.md#capability-matrix). Support varies by spec kind. The target reference lists each tool's capabilities, output paths, and opt-in settings.

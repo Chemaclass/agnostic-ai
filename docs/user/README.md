@@ -31,3 +31,5 @@ The working loop is **edit `.agnostic-ai/` → run `agnostic-ai sync` → use yo
 | Commands, flags, and exit codes | [CLI reference](cli-reference.md) |
 | An `AAI-NNN` diagnostic | [Error codes](errors.md) |
 | A complete config or starter specs | [Examples](../examples/README.md) |
+
+For monorepos and service-specific conventions, use [directory-specific instructions](scoped-context.md).

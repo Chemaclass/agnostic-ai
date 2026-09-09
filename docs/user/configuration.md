@@ -17,6 +17,8 @@ gitignore:
 
 Run `agnostic-ai init` to create a config with your selected tools. Source paths default to `.agnostic-ai/<kind>/`; add overrides only when needed.
 
+For directory-specific instructions, keep this one project config and add `scope` to a rule. `agnostic-ai new rule payments-context --scope services/payments` scaffolds it. See [scoped context](scoped-context.md) for target compatibility and output override limits. Set `on-unsupported: error` when every selected target must preserve scope.
+
 ## Find a setting
 
 | Change | Section |

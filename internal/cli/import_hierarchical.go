@@ -70,7 +70,8 @@ func writeScopedRule(dstDir, name, globs, body string) error {
 	var fm strings.Builder
 	fm.WriteString("---\nname: " + name + "\n")
 	if globs != "" {
-		fm.WriteString("globs: " + globs + "\n")
+		fm.WriteString(yamlFrontmatterLine("globs", globs))
+		fm.WriteString(yamlFrontmatterLine("scope", strings.TrimSuffix(globs, "/**")))
 	}
 	fm.WriteString("---\n\n")
 	fm.WriteString(strings.TrimRight(body, "\n"))

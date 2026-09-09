@@ -417,7 +417,10 @@ func writeCodexRule(dstDir, name, description, globs, body string) error {
 		fm.WriteString(yamlFrontmatterLine("description", description))
 	}
 	if globs != "" {
-		fm.WriteString("globs: " + globs + "\n")
+		fm.WriteString(yamlFrontmatterLine("globs", globs))
+		if strings.HasSuffix(globs, "/**") {
+			fm.WriteString(yamlFrontmatterLine("scope", strings.TrimSuffix(globs, "/**")))
+		}
 	}
 	fm.WriteString("---\n\n")
 	fm.WriteString(strings.TrimRight(body, "\n"))

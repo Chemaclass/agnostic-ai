@@ -116,6 +116,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:        emit.OutputRulesDir(cfg, target, defaultDir),
+		FormatRule: ruleMarkdown,
 		SkipAgents: true,
 		SkipSkills: true,
 	}, dryRun); err != nil {
@@ -201,4 +202,13 @@ func qoderToolsString(v any) string {
 		return s
 	}
 	return strings.Join(emit.StringSlice(v), ", ")
+}
+
+// ruleMarkdown retains ordinary rules and emits native conditions for scoped rules.
+func ruleMarkdown(e spec.Entry) string {
+	body := "# " + e.Name + "\n\n" + e.Body
+	if e.EffectiveScope() != "" {
+		body = emit.Frontmatter(map[string]any{"paths": e.Meta["paths"]}) + "\n" + body
+	}
+	return emit.WithHeader(body, emit.FormatMarkdown)
 }

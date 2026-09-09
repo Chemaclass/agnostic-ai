@@ -27,6 +27,7 @@ var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 func newNewCmd() *cobra.Command {
 	var dryRun bool
+	var scope string
 	cmd := &cobra.Command{
 		Use:   "new <kind> <name>",
 		Short: "Scaffold a single spec file with kind-appropriate frontmatter.",
@@ -54,6 +55,19 @@ func newNewCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kind, name := strings.ToLower(args[0]), args[1]
+			if cmd.Flags().Changed("scope") {
+				if kind != "rule" {
+					return fmt.Errorf("--scope is supported only for rules")
+				}
+				var err error
+				scope, err = spec.NormalizeScope(scope)
+				if err != nil {
+					return err
+				}
+				if scope == "" {
+					return fmt.Errorf("--scope requires a project-relative subdirectory")
+				}
+			}
 			if !validKind(kind) {
 				return fmt.Errorf("unknown kind %q; expected one of: %s", kind, strings.Join(newSpecKinds, ", "))
 			}
@@ -69,6 +83,9 @@ func newNewCmd() *cobra.Command {
 				return err
 			}
 			body := newSpecTemplate(kind, name)
+			if scope != "" {
+				body = strings.Replace(body, "globs: \"**/*\"\nalwaysApply: true", yamlFrontmatterLine("scope", scope), 1)
+			}
 			if dryRun {
 				summaryf("would create %s\n\n%s", path, body)
 				return nil
@@ -87,6 +104,7 @@ func newNewCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&scope, "scope", "", "Project-relative directory for a rule and its descendants.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Print the spec that would be scaffolded (path plus rendered frontmatter and body) without writing it.")
 	return cmd
