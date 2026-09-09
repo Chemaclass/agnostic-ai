@@ -49,6 +49,20 @@
 // project bootstrap script: "You can add a `.openhands/setup.sh` file,
 // which will run every time OpenHands begins working with your
 // repository" (docs.openhands.dev/openhands/usage/customization/repository).
+// Hooks emit to `.openhands/hooks.json`, configured "per-repository"
+// and honored "across Cloud, CLI, and local GUI setups". The vendor's
+// native layout uses snake_case event keys with no wrapper, and
+// documents the Claude shape as equally supported: "PascalCase event
+// keys (e.g., `PreToolUse`) and the `{"hooks": {...}}` wrapper are both
+// supported, so you can share hook scripts between the two tools"
+// (docs.openhands.dev/openhands/usage/customization/hooks). This
+// adapter emits that shared shape, so one renderer serves both targets.
+// Six events: PreToolUse, PostToolUse, UserPromptSubmit, Stop,
+// SessionStart, SessionEnd. A matcher only applies to the two ToolUse
+// events, and OpenHands names its own tools, so a Claude-style matcher
+// such as `Bash` parses and then matches nothing; that case surfaces a
+// coverage note rather than a guessed rename. See hooks.go and #629.
+//
 // `terminals` has no OpenHands surface (the script runs once,
 // synchronously, not as a set of long-running processes) and surfaces
 // a coverage note. See setup_script.go for the full mapping and the
@@ -76,7 +90,7 @@ var caps = emit.Capabilities{
 	// its own skill folder directly (see path_rules.go). KindAgent is
 	// absent; OpenHands has no agent surface, so the unsupported
 	// warning is accurate.
-	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindEnvironment},
+	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
 }
 
 // Adapter emits OpenHands configs.
@@ -106,6 +120,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitSetupScript(sess, b.Environments, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
