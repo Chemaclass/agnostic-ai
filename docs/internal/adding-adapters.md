@@ -1,5 +1,7 @@
 # Adding an adapter
 
+[Contributor docs](README.md)
+
 Add a new AI CLI target (`foo`).
 
 ## 1. Create the package
@@ -63,7 +65,9 @@ Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and t
 ## 3. Document
 
 - Add a row to `docs/user/targets.md` capability matrix + per-target output section.
-- Update `README.md` capability table.
+- Update `README.md` supported-target summary and `docs/user/configuration.md`.
+- Add an `[Unreleased]` entry in `CHANGELOG.md`.
+- If config struct fields or tags change, run `go run ./cmd/schemagen`.
 
 ## 4. Wire config
 
@@ -145,7 +149,7 @@ Non-trivial shapes emit custom: Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServer
 
 ## 9. Hooks (optional)
 
-Emit alongside MCPs in the target's project-tier file (Codex: `.codex/config.toml`; Gemini: `.gemini/settings.json`). Group by `Meta["event"]`; skip entries without one. Pass-through event names verbatim.
+Emit alongside MCPs in the target's project-tier file (Codex: `.codex/hooks.json`; Gemini: `.gemini/settings.json`). Group by `Meta["event"]`; skip entries without one. Pass-through event names verbatim.
 
 ## 10. Keeping the adapter true
 
@@ -170,6 +174,6 @@ adding an adapter to confirm the new rows read correctly.
 ## Conventions
 
 - Adapter packages never import other adapters. Share via `internal/adapters/internal/emit`.
-- Stateless. No globals; `New()` only.
+- Stateless adapters, with no mutable instance fields; construct with `New()`.
 - Frontmatter passes through unless the target needs transformation (e.g. Cursor `.mdc`).
 - Generated files belong in `.gitignore` (or rely on `gitignore.enabled: true`).

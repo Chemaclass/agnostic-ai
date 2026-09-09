@@ -1,5 +1,7 @@
 # `agnostic-ai why <file>`
 
+[User docs](README.md)
+
 Trace an emitted file back to its source: the adapter that wrote it, the source spec(s), the `outputs.<target>.*` keys used for the path, and the last sync time.
 
 Use it to find out why a file under a target directory exists. The inverse of [`agnostic-ai explain <spec>`](cli-reference.md#explain) (spec to outputs).

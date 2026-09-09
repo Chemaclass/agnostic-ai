@@ -1,25 +1,15 @@
-# agnostic-ai documentation
+# Documentation
 
-## For users
+Start with the guide for your task. Reference pages are for lookup; you do not need to read them in order.
 
-Start at [user/README.md](user/README.md) for the recommended reading order.
+| Your goal | Start here |
+|---|---|
+| Use agnostic-ai in a project | [Getting started](user/getting-started.md) |
+| Install or upgrade the CLI | [Installation](user/installation.md) |
+| Adopt it without losing existing instructions | [Migration](user/migration.md) |
+| Find a command, field, or output path | [User documentation](user/README.md) |
+| Fix a setup or sync problem | [Troubleshooting](user/troubleshooting.md) |
+| Build and contribute to the project | [Contributor setup](../CONTRIBUTING.md) |
+| Understand or extend the implementation | [Contributor documentation](internal/README.md) |
 
-1. [Getting started](user/getting-started.md): install, scaffold, first sync.
-2. [Spec format](user/spec-format.md): agents, skills, rules, hooks, MCP servers; nested scope; `x-<target>` namespace.
-3. [Targets](user/targets.md): capability matrix and per-target output paths.
-4. [Configuration](user/configuration.md): `agnostic-ai.yaml` schema, including `gitignore` automation.
-5. [CLI reference](user/cli-reference.md): every command and flag, including `sync --watch`, `init --demo`, `init --all`, `import <source>`, `revert`, `sync --backup`, `status`, and `--json` machine output.
-
-## For contributors
-
-Start at [internal/README.md](internal/README.md).
-
-1. [Architecture](internal/architecture.md): code layout, data flow, core types.
-2. [Adding an adapter](internal/adding-adapters.md): ~50-line walkthrough.
-3. [Contributing](internal/contributing.md): workflow and conventions.
-4. [Release process](internal/release-process.md): how versions ship.
-5. [Decision log](internal/decisions.md): why things are the way they are.
-
-## Examples
-
-[examples/](examples/) ships a reference config. For live spec templates run `agnostic-ai init --demo`.
+Try the [browser playground](https://chemaclass.github.io/agnostic-ai/playground/) without installing anything, or use the [examples](examples/README.md) in a local project.

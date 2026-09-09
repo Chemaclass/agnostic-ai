@@ -1,142 +1,25 @@
-# Full reference config showing every available knob with its default value.
-# Trim down to what you need. Every section is optional.
-
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json
+# Starter config for Claude Code and Cursor. Save at your project root.
+# Field reference: ../user/configuration.md
 version: 1
 
-# Where to read agnostic specs from. Relative to this file. Optional: any
-# omitted kind defaults to `.agnostic-ai/<kind>` (the values shown here).
-sources:
-  agents: .agnostic-ai/agents
-  skills: .agnostic-ai/skills
-  rules: .agnostic-ai/rules
-  hooks: .agnostic-ai/hooks
-  mcps: .agnostic-ai/mcps
-  commands: .agnostic-ai/commands
-
-# AI CLIs to emit configs for. Comment out any to skip.
+# Select only the tools you use.
 targets:
   - claude
-  - codex
-  - gemini
   - cursor
-  - copilot
-  - aider
-  - cline
-  - windsurf
-  - continue
-  - amp
-  - zed
-  - warp
-  - opencode
-  - junie
-  - kiro
-  - crush
-  - trae
 
-# Per-target output overrides. Useful when:
-#  - You vendor configs into a non-standard path.
-#  - Two projects in a monorepo share one config but write to different dirs.
-#  - You want to commit generated configs into a `vendor-ai/` directory.
-outputs:
-  claude:
-    dir: .claude              # default
-    rules-file: CLAUDE.md     # default
-    mcp-file: .mcp.json       # default
+# Sources default to .agnostic-ai/<kind>/, with no sources block needed.
+# Override a source directory only when your project uses another layout:
+# sources:
+#   rules: config/ai/rules
 
-  codex:
-    file: AGENTS.md              # default. Hierarchical per scope.
-    agents-dir: .codex/agents    # default. One TOML per agent. Set to .agents/agents for the shared community layout.
-    skills-dir: .agents/skills   # default. One folder per skill, the path Codex CLI scans (shared with Amp).
-    mcp-file: .codex/config.toml # default. Holds [[hooks.<event>]] and [mcp_servers.<name>].
+# Output paths use each tool's native defaults. Look up target-specific
+# overrides in ../user/targets.md before changing where a tool reads files.
 
-  gemini:
-    file: GEMINI.md                  # default. Hierarchical per scope.
-    commands-dir: .gemini/commands   # default. One .toml per agent and per command.
-    skills-dir: .gemini/skills       # default. One folder per skill with SKILL.md + assets.
-    emit-skills-as-commands: false   # default. When true, skills also emit a skill-<name>.toml command.
-    mcp-file: .gemini/settings.json  # default. Holds mcpServers + hooks. HTTP uses httpUrl.
+# Report spec kinds a selected tool cannot use.
+on-unsupported: warn
 
-  cursor:
-    rules-dir: .cursor/rules   # default
-    mcp-file: .cursor/mcp.json # default
-
-  copilot:
-    file: .github/copilot-instructions.md   # default. Always-on rules.
-    instructions-dir: .github/instructions  # default. One .instructions.md per rule.
-    agents-dir: .github/agents              # default. One <name>.agent.md profile per agent.
-    skills-dir: .github/skills              # default. One folder per skill with SKILL.md + assets.
-    mcp-file: .vscode/mcp.json              # default. VS Code schema.
-
-  aider:
-    file: CONVENTIONS.md      # default. Pair with `aider --read CONVENTIONS.md`.
-
-  cline:
-    rules-dir: .cline/rules   # default. One .md per rule; set to .clinerules for the pre-migration layout.
-    agents-dir: .cline/agents # default. One .md per agent, independent of rules-dir.
-    skills-dir: .cline/skills # default. One folder per skill (Cline's recommended skills path).
-
-  windsurf:
-    rules-dir: .devin/rules     # default. Devin Desktop (renamed Windsurf) prefers .devin/; .windsurf/rules still read.
-    skills-dir: .agents/skills  # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
-
-  continue:
-    rules-dir: .continue/rules     # default
-    mcp-dir: .continue/mcpServers  # default. One YAML per MCP server.
-
-  amp:
-    file: AGENTS.md                 # default. Hierarchical per scope. Was AGENT.md (auto-migrated).
-    commands-dir: .agents/commands  # default. One .md per agent.
-    skills-dir: .agents/skills      # default. One folder per skill with SKILL.md (Amp's native layout).
-    mcp-file: .amp/settings.json    # default. amp.mcpServers dotted key.
-
-  zed:
-    skills-dir: .agents/skills    # default. Shared tree with codex/amp; AGENTS.md pointer written by sync.
-    mcp-file: .zed/settings.json  # default. context_servers (stdio + HTTP/SSE native: command/args/env or url/headers).
-    # rules-file: .rules          # opt-in: legacy merged doc (rules + agents); skips the AGENTS.md pointer write.
-
-  warp:
-    file: AGENTS.md            # default. Hierarchical per scope. Was WARP.md (auto-migrated).
-    mcp-file: .warp/.mcp.json  # default. Standard mcpServers schema.
-
-  opencode:
-    file: AGENTS.md                      # default. The file OpenCode walks up for; shared with Codex et al.
-    agents-dir: .opencode/agents         # default. One native subagent .md per agent.
-    skills-dir: .opencode/skills         # default. One folder per skill with SKILL.md + assets.
-    commands-dir: .opencode/commands     # default. One .md per command.
-    emit-skills-as-commands: false       # default. When true, skills also emit a skill-<name>.md command.
-    mcp-file: opencode.json              # default. mcp map with type: local|remote.
-
-  junie:
-    # rules-dir: .junie/rules          # legacy-sweep target only; rules and agents inline into .junie/AGENTS.md instead.
-    mcp-file: .junie/mcp/mcp.json      # default. Standard mcpServers schema.
-
-  kiro:
-    rules-dir: .kiro/steering          # default. Steering files with inclusion frontmatter.
-    mcp-file: .kiro/settings/mcp.json  # default. Standard mcpServers schema.
-
-  crush:
-    skills-dir: .agents/skills         # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
-    mcp-file: crush.json               # default. mcp map merged; user keys preserved.
-
-  trae:
-    rules-dir: .trae/rules             # default. One .md per rule and per agent.
-    skills-dir: .trae/skills           # default. One folder per skill (<name>/SKILL.md + bundled assets).
-    commands-dir: .trae/commands       # default. One .md per command. Frontmatter filtered to name, description.
-
-# How to react when a spec kind is not supported by a target
-# (e.g. hooks for any target other than claude).
-on-unsupported: warn   # warn | error | silent
-
-# Global sync behavior. Per-target overrides live under outputs.<target>.
-sync:
-  collision-policy: prompt   # prompt | prefer-spec | fail
-  target-overview: false     # append a generated artifacts appendix to each entry-point
-  resolve-imports: passthrough   # passthrough | strip | inline (@path lines in AGNOSTIC_AI.md)
-  dropped-summary: false     # per-target summary of dropped/downgraded kinds after sync
-  shared-skills: false       # link byte-identical emitted skill folders to one canonical copy
-
-# Auto-managed .gitignore block listing every generated path.
-# Lines outside the block are preserved.
+# Generated files stay local. Run sync after each fresh clone or worktree.
+# To commit outputs instead, set this to false and remove their ignore entries.
 gitignore:
-  enabled: false
-  path: .gitignore   # default
+  enabled: true

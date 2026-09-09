@@ -1,5 +1,7 @@
 # Architecture
 
+[Contributor docs](README.md)
+
 ## Code layout
 
 ```
@@ -15,9 +17,7 @@ agnostic-ai/
 │       ├── header/                 # provenance-header helper shared across adapters
 │       ├── claudehooks/            # Claude settings.json hook schema (shared by emit + import)
 │       ├── external/               # plugin-protocol passthrough adapter
-│       └── claude/ codex/ gemini/ cursor/ copilot/ aider/ cline/ windsurf/
-│           continueai/ amp/ zed/ warp/ opencode/ antigravity/ junie/ kiro/
-│           crush/ trae/
+│       └── <target>/              # one package per built-in target
 ├── .agnostic-ai/                   # dogfood source specs
 ├── docs/                           # user docs, internal docs, examples
 └── Makefile
@@ -25,7 +25,7 @@ agnostic-ai/
 
 ## Data flow
 
-Config and specs load independently, then feed each adapter.
+The CLI loads config and source specs, selects targets, and orchestrates emission. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../user/configuration.md#layered-specs).
 
 ### Config layer
 
@@ -44,7 +44,7 @@ Legacy `agnostic.config.yaml` still loads, with a one-shot stderr rename warning
 ```
 agents/*.md   ─┐
 skills/*.md   ─┤
-rules/*.md    ─┼─► spec.LoadBundle ─► spec.Bundle
+rules/*.md    ─┼─► spec.LoadLayered ─► spec.Bundle
 hooks/*.yaml  ─┤                       (Entries pre-bucketed by Kind; per-entry Scope from layout)
 mcps/*.yaml   ─┘
 ```
@@ -59,7 +59,7 @@ Per-target outputs documented in [docs/user/targets.md](../user/targets.md).
 
 ## Emit modes
 
-The shared `emit` package keeps three orthogonal modes behind a mutex-guarded `state` struct:
+The shared `emit` package keeps mode flags and buffers in a mutex-protected `Session` owned by each emission pass. Common modes include:
 
 | Mode | Effect | Used by |
 |------|--------|---------|
@@ -77,7 +77,7 @@ Modes stack independently (e.g. recording + backup during gitignore-managed sync
 
 ```go
 type Entry struct {
-    Kind  Kind             // KindAgent | KindSkill | KindRule | KindHook | KindMCP
+    Kind  Kind             // One of the ten kinds in spec.AllKinds
     Name  string            // identifier
     Path  string            // source file path (for errors and provenance)
     Scope string            // implicit per-dir scope from layout
@@ -105,7 +105,7 @@ Stateless. `New()` once, `Emit` per sync.
 
 ### `config.Config`
 
-Mirrors `agnostic-ai.yaml`. Holds `Sources`, `Outputs`, `Gitignore`, `Sync`.
+Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/config/config.go) for the full type and [Configuration](../user/configuration.md) for user-facing fields.
 
 ## Registry
 

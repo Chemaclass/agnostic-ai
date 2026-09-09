@@ -1,8 +1,12 @@
 # Git hooks
 
+[User docs](README.md)
+
 Catch spec drift at commit time, before CI. Each recipe runs `agnostic-ai sync --check` whenever a spec or `agnostic-ai.yaml` is staged, blocking the commit if any generated file is out of date.
 
 The same `sync --check` powers the [CI gate](ci.md). Running it locally shortens the feedback loop from "push, wait, fail" to "commit, fix, commit".
+
+For ignored outputs, run `sync` when bootstrapping each checkout before enabling a drift hook. In CI, use the [ignored-output recipe](ci.md#ignored-outputs). A local drift check compares your working tree, not only staged files.
 
 ## Why a pre-commit hook
 
@@ -23,7 +27,7 @@ repos:
         entry: agnostic-ai sync --check
         language: system
         pass_filenames: false
-        files: '^(\.agnostic-ai/|agnostic\.config\.yaml$)'
+        files: '^(\.agnostic-ai/|agnostic-ai\.yaml$|agnostic\.config\.yaml$)'
 ```
 
 Install once per checkout:

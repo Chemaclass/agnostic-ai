@@ -1,5 +1,7 @@
 # Decision log
 
+[Contributor docs](README.md)
+
 Non-obvious architectural choices. Append-only.
 
 ## 001: Go over Phel/PHP

@@ -1,5 +1,7 @@
 # Error codes
 
+[User docs](README.md)
+
 Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets:
 
 ```

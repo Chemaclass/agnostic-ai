@@ -1,10 +1,8 @@
-<div align="center">
-
 # agnostic-ai
 
-### **One spec. Every AI CLI.**
+**One spec. Every AI CLI.**
 
-Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, Codex, Gemini, Cursor, Copilot, and **20** more in their native format.
+Write shared instructions, rules, skills, agents, hooks, and MCP configuration once. `agnostic-ai sync` writes the native files for the coding tools your team uses.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
@@ -12,159 +10,75 @@ Write your agents, skills, rules, and hooks **once**. Ship them to Claude Code, 
 [![Go](https://img.shields.io/github/go-mod/go-version/Chemaclass/agnostic-ai)](go.mod)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-</div>
-
----
-
-## Why
-
-You run more than one AI CLI: Claude Code in the terminal, Cursor in the editor, whichever model leads next month. Each wants the same conventions in its own format: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, `GEMINI.md`.
-
-agnostic-ai keeps one source of truth in Markdown plus YAML frontmatter, aligned with [AGENTS.md](https://agents.md). `sync` writes what each tool expects, where it expects it. Switching tools is one command. Running four is the same command.
-
-## Install
-
-```bash
-brew install --cask Chemaclass/tap/agnostic-ai                                                      # macOS / Linux
-irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex         # Windows
-curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash  # no package manager
-```
-
-The scripts need no Go toolchain: each fetches the archive for your OS and CPU, verifies it against `checksums.txt`, and puts the binary on PATH.
-
-Inside Claude Code, skills that install and drive the CLI for you:
-
-```
-/plugin marketplace add Chemaclass/agnostic-ai
-/plugin install agnostic-ai@chemaclass
-```
-
-Other routes (`go install`, `npx`, winget, Scoop, prebuilt archives) and `agnostic-ai upgrade`, which detects the route you used: [install reference](docs/user/getting-started.md#install).
-
 ## Quickstart
 
+Install on macOS or Linux:
+
 ```bash
-agnostic-ai init --demo   # scaffold specs, one example per kind
-agnostic-ai sync          # emit native config for every target
+curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
 ```
 
-Edit anything under `.agnostic-ai/`, run `sync` again. Already have `CLAUDE.md` or `.cursor/rules`? `agnostic-ai import claude` (also `cursor`, `codex`, `gemini`, `cline`, ...) turns them into specs first.
+On Windows (PowerShell):
 
-Watch mode, shell completion, CI drift gate, commit-vs-ignore: [Getting started](docs/user/getting-started.md).
+```powershell
+irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
+```
+
+In your project directory:
+
+```bash
+agnostic-ai init --demo
+agnostic-ai sync
+```
+
+Choose your tools during setup. The demo creates sample specs under `.agnostic-ai/`; sync generates their native configuration. Edit the specs and sync again. Generated outputs are ignored by Git by default.
+
+Already have tool configuration? Start with [importing an existing project](docs/user/migration.md) to preserve your instructions.
+
+[Step-by-step tutorial](docs/user/getting-started.md) · [More install options](docs/user/installation.md) · [Try the playground](https://chemaclass.github.io/agnostic-ai/playground/)
 
 ## How it works
 
-<img width="1472" height="536" alt="diagram" src="https://github.com/user-attachments/assets/c065913b-67d9-4759-b584-56dca79a6a14" />
+```text
+.agnostic-ai/                 agnostic-ai sync        Native tool files
+  AGNOSTIC_AI.md          ───────────────────────►      CLAUDE.md, AGENTS.md, ...
+  rules/                                               .cursor/rules/, ...
+  skills/                                              .claude/skills/, ...
+  agents/, hooks/, mcps/, ...
+```
 
-One rule in `.agnostic-ai/rules/conventional-commits.md`:
+Specs use Markdown with YAML frontmatter, or YAML for structured configuration. For example, `.agnostic-ai/rules/conventional-commits.md`:
 
 ```markdown
 ---
 name: conventional-commits
-description: Always use Conventional Commits format.
-globs: "**/*"
+description: Use Conventional Commits.
 alwaysApply: true
 ---
 
-Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
+Use feat:, fix:, docs:, refactor:, test:, or chore: prefixes.
+Keep the subject under 72 characters.
 ```
 
-`agnostic-ai sync` turns it into `.cursor/rules/conventional-commits.mdc`:
-
-```markdown
----
-description: Always use Conventional Commits format.
-globs: "**/*"
-alwaysApply: true
----
-<!-- Generated by agnostic-ai -->
-
-Use Conventional Commits. Subject under 72 chars. Body explains why, not what.
-```
-
-The same file lands in every target's own rules directory: `.claude/rules/`, `.kiro/steering/`, `.trae/rules/`, and the rest. Tools without one (Codex, Gemini, Aider, Junie) get the body inlined in their entry-point instead. Every root file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`) carries the same short pointer back to the specs, so no tool reads a stale copy.
+Sync writes this rule to each selected tool's rules directory or includes it in the tool's instructions file. Edit the source spec, since generated files are overwritten on the next sync.
 
 ## Supported targets
 
-**25** targets, all first-class: find your row, read what works out of the box. `sync` enables 20 by default. Amp, Warp, Jules, Goose, and Augment are opt-in: add them to `targets:` or pass `-t amp,warp,jules,goose,augment`.
+Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 targets](docs/user/targets.md#capability-matrix). Support varies by spec kind. The target reference lists each tool's capabilities, output paths, and opt-in settings.
 
-| Target                  | Agents | Skills | Rules | Hooks | MCPs |
-|-------------------------|:------:|:------:|:-----:|:-----:|:----:|
-| Claude Code             |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Codex CLI               |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
-| Gemini CLI              |   ✅    |   ✅    |   ◐   |   ✅   |  ✅   |
-| Cursor                  |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| GitHub Copilot          |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Aider                   |   ○    |   ○    |   ◐   |   -   |  -   |
-| Cline                   |   ✅    |   ✅    |   ✅   |   -   |  -   |
-| Windsurf / Devin        |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Continue                |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Amp                     |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
-| Zed                     |   ○    |   ✅    |   ◐   |   ○   |  ✅   |
-| Warp                    |   ○    |   ✅    |   ◐   |   -   |  ✅   |
-| OpenCode                |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
-| Google Antigravity      |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Junie (JetBrains)       |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Kiro (AWS)              |   ✅    |   ✅    |   ✅   |   ✅   |  ✅   |
-| Crush (Charm)           |   -    |   ✅    |   ◐   |   -   |  ✅   |
-| Trae (ByteDance)        |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Qoder (Alibaba)         |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| OpenHands (All Hands)   |   -    |   ✅    |   ✅   |   -   |  ✅   |
-| Factory (Droid)         |   ✅    |   ✅    |   ◐   |   -   |  ✅   |
-| Kilo Code               |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
-| Jules (Google)          |   -    |   -    |   ◐   |   -   |  -   |
-| Goose (Block)           |   -    |   ✅    |   ◐   |   -   |  -   |
-| Augment Code            |   ✅    |   ✅    |   ✅   |   -   |  ✅   |
+Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructions shared across your own projects, see [global configuration](docs/user/configuration.md#global-configuration).
 
-- **✅ native** — the tool's own format, at the path it auto-loads.
-- **◐ bundled** — folded into the target's entry-point file, no per-spec file.
-- **○ opt-in** — set the matching `outputs.<target>.*` key to materialize a file.
-- **- not supported** — skipped with a warning (silence it with `on-unsupported: silent`).
+## Find your next step
 
-Five kinds here. `command`, `settings`, `review`, `environment`, and `ignore` are in the [full matrix](docs/user/targets.md), which also carries a **Verify with the real CLI** checklist per target. Golden-snapshot tests lock every cell.
+| I want to... | Read |
+|---|---|
+| Sync my first rule | [Getting started](docs/user/getting-started.md) |
+| Bring existing tool config into one source | [Migration](docs/user/migration.md) |
+| Write a skill, agent, hook, or MCP spec | [Spec format](docs/user/spec-format.md) |
+| Change targets or output paths | [Configuration](docs/user/configuration.md) |
+| Automate sync for a team | [CI](docs/user/ci.md) and [Git hooks](docs/user/git-hooks.md) |
+| Share specs across repositories | [Packs](docs/user/packs.md) |
+| Diagnose missing or stale output | [Troubleshooting](docs/user/troubleshooting.md) |
+| Work on agnostic-ai | [Contributing](CONTRIBUTING.md) |
 
-## Documentation
-
-**Get started**
-- [Getting started](docs/user/getting-started.md): first rule, first sync, in 2 minutes
-- [Spec format](docs/user/spec-format.md): frontmatter reference for every kind
-- [Examples](docs/examples/): drop-in templates
-- [Why not symlinks](docs/user/alternatives-why-not-symlinks.md): versus symlinks, copies, shared files
-
-**Reference**
-- [Targets](docs/user/targets.md): what each adapter emits and where
-- [Configuration](docs/user/configuration.md): `agnostic-ai.yaml` reference
-- [CLI reference](docs/user/cli-reference.md): every flag, every command
-- [Errors](docs/user/errors.md): error code lookup
-
-**Workflows**
-- [CI gate](docs/user/ci.md): drift checks on every PR
-- [Git hooks](docs/user/git-hooks.md): pre-commit, lefthook, husky recipes
-- [Packs](docs/user/packs.md): share spec bundles across repos
-
-**Tools**
-- [Claude Code plugin](plugins/agnostic-ai/): install, init, sync, and import as skills
-- [Landing page](https://chemaclass.github.io/agnostic-ai/): the visual why / what / how
-- [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, see what every adapter emits (WASM, runs offline)
-- [Editor extensions](editors/): VS Code and JetBrains, both shipped
-
-**Contributing**
-- [Architecture & roadmap](docs/internal/): adapter pattern, adding targets, release process
-
----
-
-<div align="center">
-
-**Write the rule once. Every AI tool obeys it. Outlive the tool.**
-
-</div>
-
-### Share user configuration across Claude Code and Cursor
-
-Put user-wide instructions in `~/.agnostic-ai/AGNOSTIC_AI.md`, with optional `rules/`, `hooks/`, and `skills/` folders beside it. Then run this from any directory:
-
-```bash
-agnostic-ai sync --global
-```
-
-This mode is opt-in and separate from project sync. It writes native user configuration for 22 of the 25 targets. See [global configuration](docs/user/configuration.md#global-configuration).
+[All documentation](docs/README.md) · [CLI reference](docs/user/cli-reference.md) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [Changelog](CHANGELOG.md)

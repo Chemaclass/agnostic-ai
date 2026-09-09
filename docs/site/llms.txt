@@ -10,7 +10,7 @@
 
 A Go CLI, MIT licensed. 25 supported targets, 20 enabled by default. Install
 with `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`,
-Homebrew, or a release binary.
+or a release binary.
 
 Key terms an agent may be searching for: multi-tool AI config sync, CLAUDE.md
 generator, AGENTS.md generator, shared Cursor rules, Copilot instructions from
@@ -26,8 +26,13 @@ stop duplicating prompt files per tool.
 
 ## Docs
 
+- [Documentation index](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/README.md): choose a guide by task.
+- [Installation](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/installation.md): install, upgrade, and shell setup.
+- [Migration](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/migration.md): import existing tool configuration and review the first sync.
+- [Troubleshooting](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/troubleshooting.md): diagnose setup, sync, and CI problems.
+
 - [Getting started](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/getting-started.md): install, init, first sync.
-- [Why](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/why.md): the problem this replaces, and when not to use it.
+- [Why](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/why.md): trace an output file to its source specs.
 - [Spec format](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/spec-format.md): the frontmatter and body of every spec kind.
 - [Targets](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/targets.md): all 25 tools, their capability matrix, and the exact paths written per tool.
 - [Configuration](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/configuration.md): `agnostic-ai.yaml` reference.
@@ -49,5 +54,5 @@ stop duplicating prompt files per tool.
 
 - [Architecture](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/architecture.md): how adapters and the emit pipeline fit together.
 - [Adding adapters](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/adding-adapters.md): supporting a new AI CLI.
-- [Contributing](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/internal/contributing.md): local setup and review expectations.
+- [Contributing](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/CONTRIBUTING.md): local setup and review expectations.
 - [Changelog](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/CHANGELOG.md): what changed per release.

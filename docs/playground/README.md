@@ -1,19 +1,18 @@
 # Playground
 
+[All docs](../README.md) · [Contributor setup](../../CONTRIBUTING.md)
+
 In-browser playground for agnostic-ai. Paste a spec, pick targets, see
 each adapter's emission live. Runs entirely client-side via WebAssembly,
 so the page costs zero server resources and works on any static host.
 
 ## Try it
 
-The published page lives at GitHub Pages once the `Playground` workflow
-runs (manual dispatch or release tag). The URL appears in the run
-summary.
+Open the [published playground](https://chemaclass.github.io/agnostic-ai/playground/). The [Pages workflow](../../.github/workflows/playground.yml) rebuilds it on pushes to `main` and manual dispatch.
 
 ## Run locally
 
 ```bash
-make playground-build       # compiles the WASM and copies wasm_exec.js
 make playground-serve       # builds, then serves on http://127.0.0.1:8080
 ```
 
@@ -40,11 +39,15 @@ static HTTP server pointed at `docs/playground/`.
 - `agnosticAITargets()` returns the list of every adapter linked into
   the binary, so the UI can build the target picker dynamically.
 
-Adapters run under capture mode (`adapters.StartCapture()`), so no
-filesystem operations occur, perfect for the WASM sandbox.
+Adapters use an emission session in capture mode, recording output in memory for the browser.
 
 ## Build size
 
-The current Go-toolchain WASM build clocks in around 5 MB raw, ~1.4 MB
-gzipped. GitHub Pages serves with `Content-Encoding: gzip` automatically,
-so visitors see the gzipped size on the wire.
+Measure the artifact after building:
+
+```bash
+ls -lh docs/playground/agnostic-ai.wasm
+gzip -c docs/playground/agnostic-ai.wasm | wc -c
+```
+
+The first command shows raw size; the second shows gzip size in bytes. Transfer size depends on your static host's compression settings.

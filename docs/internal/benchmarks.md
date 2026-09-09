@@ -1,11 +1,8 @@
 # Benchmarks
 
-A permanent benchmark suite covers the `sync` hot paths. It exists so any
-hot-path perf change lands against a measured baseline, per
-[`bench-before-perf-refactor`](../../.agnostic-ai/rules/bench-before-perf-refactor.md).
-The rule blocks refactoring a hot path without a bench, so this suite is a
-prerequisite for the perf work (capture fast-path, parallel emission,
-render memoization).
+[Contributor docs](README.md)
+
+Measure sync performance before and after changing a hot path. The permanent benchmark suite provides repeatable baselines for emission, comparison, and rendering.
 
 Most benchmarks live in `internal/cli/bench_test.go`, colocated so they can
 call the unexported sync internals directly. `BenchmarkCompareToDisk` lives

@@ -1,5 +1,7 @@
 # Spec packs
 
+[User docs](README.md)
+
 A pack is a versioned directory of agnostic specs (agents, skills, rules, hooks, MCPs) published as a Git repo or shared on disk. Packs let teams and the community ship reusable conventions without copying spec files between projects.
 
 ## Install

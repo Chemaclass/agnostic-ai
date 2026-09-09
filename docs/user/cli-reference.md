@@ -1,8 +1,24 @@
 # CLI reference
 
+[User docs](README.md)
+
 ```
 agnostic-ai [command] [flags]
 ```
+
+## Find a command
+
+| Task | Commands |
+|---|---|
+| Set up a project | [init](#init), [import](#import), [new](#new) |
+| Generate or preview output | [sync](#sync), [render](#render) |
+| Check source and output | [validate](#validate), [lint](#lint), [doctor](#doctor), [status](#status) |
+| Inspect routing | [list](#list), [explain](#explain), [graph](#graph), [why](#why) |
+| Restore or remove generated files | [revert](#revert), [cleanup](#cleanup) |
+| Share specs | [packs](#packs) |
+| Set up your environment | [completion](#completion), [upgrade](#upgrade), [install-hook](#install-hook), [lsp](#lsp) |
+
+For a walkthrough, use [Getting started](getting-started.md) or [Migration](migration.md). For automation, check [exit codes](#exit-codes) and the [CI guide](ci.md).
 
 ## Global flags
 
@@ -244,7 +260,7 @@ agnostic-ai render rules/no-console-log.md         # all configured targets
 |------|-------------|
 | `-t, --target <list>` | Target(s) to render. Repeat or comma-separate. Default: every target in `agnostic-ai.yaml`. |
 
-Output format is `# target: <name> — <output path>` followed by the file body, one block per emitted file. Targets that produce no output for the spec's kind print a short note. Writes nothing; pair with `sync` once the output looks right.
+Output format is `# target: <name>: <output path>` followed by the file body, one block per emitted file. Targets that produce no output for the spec's kind print a short note. Writes nothing; pair with `sync` once the output looks right.
 
 ## sync
 

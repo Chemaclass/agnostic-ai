@@ -1,26 +1,19 @@
-# Contributor docs
+# Contributor documentation
 
-1. [Architecture](architecture.md): code layout, data flow, core types.
-2. [Adding an adapter](adding-adapters.md): walkthrough for a new target.
-3. [Plugin protocol](plugin-protocol.md): JSON-over-stdio contract for out-of-tree adapter binaries.
-4. [Contributing](contributing.md): dev setup, branch flow, tests.
-5. [Release process](release-process.md): tag to release.
-6. [Contributing a preset](contributing-presets.md): adding an `init --preset <name>` pack.
-7. [Decision log](decisions.md): historical design choices.
-8. [Roadmap](roadmap.md): planned directions.
-9. [Benchmarks](benchmarks.md): permanent sync-hot-path bench suite and how to extend it.
-10. [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md): recurring check that every adapter still matches its vendor's current docs.
+[All docs](../README.md) · [Set up your checkout](../../CONTRIBUTING.md)
 
-## House rules
+Build and run the CLI first using the contributor setup guide. Then choose the area you want to change.
 
-- One concern per PR. Refactors get their own PR.
-- Adapter packages stay independent. Share via `internal/adapters/internal/emit/`.
-- `gofmt` clean, `goimports` for grouping, stdlib first.
-- Test names describe behavior (`TestEmit_WritesAgentFile`, not `TestEmit1`).
-
-## Local CI
-
-```bash
-make preflight                            # fmt-check + vet + lint + test
-go run ./cmd/agnostic-ai sync --check     # dogfood: our own outputs are in sync
-```
+| Task | Guide |
+|---|---|
+| Find the relevant package and understand the data flow | [Architecture](architecture.md) |
+| Choose checks and prepare a change | [Development workflow](contributing.md) |
+| Support another coding tool | [Adding an adapter](adding-adapters.md) |
+| Build an adapter outside this repository | [Plugin protocol](plugin-protocol.md) |
+| Add a starter template for a stack | [Contributing a preset](contributing-presets.md) |
+| Publish reusable specs | [Pack authors](pack-authors.md) |
+| Measure or improve sync performance | [Benchmarks](benchmarks.md) |
+| Work on the browser playground | [Playground development](../playground/README.md) |
+| Ship a version | [Release process](release-process.md) |
+| Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
+| Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md) |

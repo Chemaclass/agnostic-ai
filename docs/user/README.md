@@ -1,41 +1,33 @@
-# User docs
+# User documentation
 
-Read in order. Each builds on the previous.
+[All docs](../README.md) · [Contributor setup](../../CONTRIBUTING.md)
 
-1. [Getting started](getting-started.md): install, scaffold, first sync. ~5 min.
-2. [Spec format](spec-format.md): the ten kinds (agent, skill, rule, hook, MCP, command, settings, review, environment, ignore), per-directory scope, and the `x-<target>` namespace for tool-specific extensions.
-3. [Targets](targets.md): capability matrix and per-target output paths (25 tools).
-4. [Configuration](configuration.md): `agnostic-ai.yaml` schema, precedence, and the optional auto-managed `.gitignore` block.
-5. [CLI reference](cli-reference.md): every command and flag, including `sync --watch`, `sync --check`, `sync --backup`, `init --demo`, `init --all`, `import <source>`, `revert`, `doctor`, `status`, and `--json` output on `sync`/`revert`/`doctor`/`status`.
-6. [CI](ci.md): drift detection in pull requests with `sync --check`.
-7. [Git hooks](git-hooks.md): pre-commit recipes for pre-commit, lefthook, husky.
-8. [Packs](packs.md): install shared spec packs (`agnostic-ai packs add`).
-9. [Why not symlinks](alternatives-why-not-symlinks.md): how agnostic-ai compares to symlinks, manual copies, and shared-file approaches, and when a simpler option suffices.
+## Start here
 
-## Mental model
+[Install](installation.md), then follow [Getting started](getting-started.md) to sync one rule to two tools. For an existing project, use [Migration](migration.md).
 
-```
-   agents/  skills/  rules/  hooks/  mcps/   ← single source of truth
-        │       │      │      │       │
-        └───────┴──┬───┴──────┴───────┘
-                   │  agnostic-ai sync
-                   ▼
-   ┌──────────┬──────────┬──────────┬──────────┬──────────┐
-   │ CLAUDE.md│ AGENTS.md│ GEMINI.md│  .cursor │   ...    │  ← per-target outputs
-   │ .claude/ │          │          │  /rules/ │          │     (regenerated)
-   │ .mcp.json│          │          │ mcp.json │          │
-   └──────────┴──────────┴──────────┴──────────┴──────────┘
-```
+The working loop is **edit `.agnostic-ai/` → run `agnostic-ai sync` → use your tool**. Commit the specs and project config. Decide whether to commit generated outputs using the [Git strategy](getting-started.md#commit-or-ignore-generated-outputs).
 
-Write the rule, agent, skill, hook, or MCP server **once**. Every supported AI CLI reads the same contract.
+## Workflows
 
-## Standards this rides on
+| Task | Guide |
+|---|---|
+| Keep generated outputs consistent in CI | [CI](ci.md) |
+| Sync or check at commit and checkout time | [Git hooks](git-hooks.md) |
+| Reuse specs across projects | [Packs](packs.md) |
+| Share your own instructions across projects | [Global configuration](configuration.md#global-configuration) |
+| See where a spec goes | [Graph](graph.md) |
+| Trace an output to its source | [Why](why.md) |
+| Resolve a failure or missing output | [Troubleshooting](troubleshooting.md) |
+| Compare with symlinks or manual copies | [Alternatives](alternatives-why-not-symlinks.md) |
 
-- **[`AGENTS.md`](https://agents.md/)**: open contract format. Originally OpenAI for Codex CLI, donated to the Linux Foundation in Dec 2025. Read natively by Codex, Cursor, Gemini CLI, GitHub Copilot, Aider, Cline, Windsurf, Continue, and others.
-- **[`agentskills.io`](https://agentskills.io/specification)**: open skill spec from Anthropic, Dec 2025. Defines the minimal frontmatter (`name`, `description`) and progressive-disclosure loading.
+## Reference
 
-The CLI emits to whichever conventions each target reads, anchored on these open standards.
-
-## CI gate
-
-See [CI](ci.md) for the workflow snippet and gating recipes.
+| Look up | Page |
+|---|---|
+| Spec kinds, frontmatter, scope, and extensions | [Spec format](spec-format.md) |
+| Tool support and native output paths | [Targets](targets.md) |
+| Project config, overrides, and defaults | [Configuration](configuration.md) |
+| Commands, flags, and exit codes | [CLI reference](cli-reference.md) |
+| An `AAI-NNN` diagnostic | [Error codes](errors.md) |
+| A complete config or starter specs | [Examples](../examples/README.md) |

@@ -1,17 +1,23 @@
 # Spec format
 
+[User docs](README.md)
+
+Source paths below are relative to `.agnostic-ai/` by default. For example, `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](configuration.md#sources).
+
+Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable workflow, or an [MCP server](#mcp-servers) for a tool connection. See [Getting started](getting-started.md) for a complete first-rule example.
+
 | Kind    | Source                                    | Format                      |
 |---------|-------------------------------------------|-----------------------------|
-| Agent   | `agents/*.md`                             | Markdown + YAML frontmatter |
-| Skill   | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
-| Rule    | `rules/*.md`                              | Markdown + YAML frontmatter |
-| Hook    | `hooks/*.yaml`                            | YAML                        |
-| MCP      | `mcps/*.yaml`                             | YAML                        |
-| Command  | `commands/*.md`                           | Markdown + YAML frontmatter |
-| Settings    | `settings/*.yaml`                      | YAML                        |
-| Review      | `reviews/*.md`                         | Markdown + YAML frontmatter |
-| Environment | `environments/*.yaml`                  | YAML                        |
-| Ignore      | `ignore/*.md`                          | Markdown + YAML frontmatter |
+| [Agent](#agents) | `agents/*.md`                             | Markdown + YAML frontmatter |
+| [Skill](#skills) | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
+| [Rule](#rules) | `rules/*.md`                              | Markdown + YAML frontmatter |
+| [Hook](#hooks) | `hooks/*.yaml`                            | YAML                        |
+| [MCP](#mcp-servers) | `mcps/*.yaml`                             | YAML                        |
+| [Command](#commands) | `commands/*.md`                           | Markdown + YAML frontmatter |
+| [Settings](#settings) | `settings/*.yaml`                      | YAML                        |
+| [Review](#reviews) | `reviews/*.md`                         | Markdown + YAML frontmatter |
+| [Environment](#environments) | `environments/*.yaml`                  | YAML                        |
+| [Ignore](#ignore) | `ignore/*.md`                          | Markdown + YAML frontmatter |
 
 Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, `ignore/` is picked up; every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
 

@@ -1,5 +1,7 @@
 # Plugin protocol (v1)
 
+[Contributor docs](README.md)
+
 External adapters live outside this repo as standalone binaries. The host (`agnostic-ai`) discovers them by name on `PATH` and drives them through a JSON-over-stdin/stdout protocol. Language-agnostic: any binary that reads stdin and writes stdout can implement an adapter.
 
 ## Discovery

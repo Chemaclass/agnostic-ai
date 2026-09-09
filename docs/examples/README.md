@@ -1,24 +1,22 @@
 # Examples
 
-The fastest way to see real specs is `agnostic-ai init --demo`. It
-seeds one minimal example per source folder so you can run
-`agnostic-ai sync --dry-run` immediately and see what every adapter
-produces.
+[All docs](../README.md) · [Spec format](../user/spec-format.md)
+
+## Try the starter specs
+
+Run in an empty scratch directory:
 
 ```bash
-agnostic-ai init --demo
+echo "claude,cursor" | agnostic-ai init --demo
 agnostic-ai sync --dry-run
 ```
 
-The seeded files live in your project after init; edit or delete to
-taste. The canonical copies ship with the CLI binary under
-`internal/cli/initdata/`.
+The demo seeds examples for agents, skills, rules, hooks, and MCP servers. Some targets do not support every kind; preview output includes warnings for those omissions. Edit or delete the samples before using them in a real project.
 
-## Reference config
+For stack-specific starters, use `init --preset go`, `init --preset ts-react`, or `init --preset python`. The bundled sources live in [internal/cli/initdata](../../internal/cli/initdata/).
 
-[agnostic-ai.yaml](agnostic-ai.yaml) shows every available
-knob with its default value. Drop into your project root and trim to
-what you need; every section is optional.
+## Configure only what you need
 
-See [user docs](../user/README.md) for the full spec format and
-per-target behavior.
+Start with the config created by `init`. [agnostic-ai.yaml](agnostic-ai.yaml) is a small, commented starter for Claude Code and Cursor. The [configuration reference](../user/configuration.md#full-schema) contains the expanded field listing.
+
+See [Configuration](../user/configuration.md) for defaults and [Targets](../user/targets.md) for supported fields per tool.

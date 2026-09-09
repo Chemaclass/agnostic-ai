@@ -1,5 +1,7 @@
 # Authoring a spec pack
 
+[Contributor docs](README.md)
+
 A pack is a Git repo (or local directory) shaped like an agnostic project's source layout. Users install via `agnostic-ai packs add`; contents merge into their layered spec load.
 
 ## Layout

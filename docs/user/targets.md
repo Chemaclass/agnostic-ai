@@ -1,47 +1,8 @@
 # Targets
 
-## Global output
+[User docs](README.md)
 
-`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs documented below. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
-
-| Target | Instructions | Rules | Hooks | Skills |
-|--------|--------------|-------|-------|--------|
-| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` |
-| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` |
-| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` |
-| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` |
-| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` |
-| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` |
-| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` |
-| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` |
-| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/antigravity/skills/<name>/` |
-| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` |
-| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` |
-| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` |
-| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` |
-| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` |
-| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` |
-| **openhands** | - | - | - | `~/.agents/skills/<name>/` |
-| **trae** | - | - | - | `~/.trae/skills/<name>/` |
-| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` |
-
-Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
-
-Three targets are absent by verdict. Aider reaches a home instructions file only through a `read:` entry in `~/.aider.conf.yml`, never automatically. Continue's one documented home surface is the `rules:` list inside the `config.yaml` that Continue itself rewrites. Jules documents nothing at user scope at all: its CLI reference has no config file and no home path.
-
-Several targets share a path on purpose, and the shared write happens once. `~/.agents/skills/` is read by codex, windsurf, amp, zed, warp, goose, and openhands; `~/.agents/AGENTS.md` by cline and warp; `~/.gemini/GEMINI.md` by gemini and antigravity. Two targets resolving to one path with different bytes is a hard error naming the path, not a last-writer-wins race.
-
-Hooks reach five targets. Claude Code, Codex, Gemini, and Qoder all document the Claude-style `{"hooks": {"<Event>": [{"matcher", "hooks": [...]}]}}` shape at user scope, so one renderer serves them; Cursor keeps its own. The other seventeen are declined for a stated reason, not for lack of a surface: Factory keys `hooks.json` directly by event with no wrapper, Augment measures `timeout` in milliseconds and requires a script extension, Copilot uses `version: 1` with camelCase events and `timeoutSec`, Cascade uses snake_case events with no matcher, Antigravity nests events under a named hook object, Crush supports `PreToolUse` alone, Goose needs a wrapping plugin directory plus a manifest, Junie's are Early Access, Kiro uses a `{"version": "v1", "hooks": [...]}` array, and Amp, OpenCode, and Cline expose hooks only as TypeScript plugin modules. Adding those shapes is tracked in #629, which covers the same schemas at project tier.
-
-Cursor does not automatically load the home-level `AGENTS.md`. Global sync therefore installs a managed `sessionStart` hook and a self-contained script bridge under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows). The bridge returns the rendered instructions as valid `additional_context` JSON without calling agnostic-ai, Python, or jq. Cursor session-start hooks are fire-and-forget context injection, not enforced policy. Existing `sessionStart` entries remain in place. Every other instructions path in the table above auto-loads, so Cursor is the only target that needs the bridge.
-
-Two interactions to know before enabling everything at once. OpenCode reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist, so syncing both targets moves OpenCode onto its own file and any user text that lived only in the Claude file stops reaching it. Devin CLI and VS Code Copilot read `~/.claude/` surfaces by default, so a user syncing claude plus windsurf or copilot gets the same instructions body through two paths.
-
-Each adapter emits in its tool's native format: separate files where the tool supports them, a merged document otherwise. Unsupported features (e.g. hooks for a non-hook-aware target) skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).
+Choose your tools in `targets:` in `agnostic-ai.yaml`. Use the [capability matrix](#capability-matrix) to check a spec kind, then the [per-target output](#per-target-output) sections for exact paths and options. [Target selection](#selecting-targets) covers defaults and filters; [global output](#global-output) covers personal configuration.
 
 ## Entry-point files
 
@@ -351,7 +312,7 @@ AGENTS.md                            # shared pointer body (dedup with the other
 
 Windsurf became Devin Desktop (2026-06). Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/` as a backward-compat fallback (`.windsurfrules` is legacy), so rules now emit at the preferred path. The target keeps its `windsurf` name: existing `outputs.windsurf.*` keys and `x-windsurf` meta continue to work. Set `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old layout; otherwise sync sweeps managed leftovers at the pre-rename path (hand-authored files survive). Devin also reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared pointer body there (see the entry-point table above, #645).
 
-- **Agents**: one custom subagent profile per agent at `.devin/agents/<name>.md`. "Custom subagents are defined as markdown files under `agents/`", project layout `.devin/agents/`, "**Flat file** — `agents/<name>.md`" ([docs.devin.ai/cli/subagents](https://docs.devin.ai/cli/subagents)). Frontmatter carries `name`, `description`, `model`, `allowed-tools`, and `max-nesting`; the body after the closing delimiter is the subagent's system prompt. Agents used to flatten into `.devin/rules/agent-<name>.md`, which reached the rules loader instead of the subagent loader and had no key for any of those five fields (target-audit 2026-08-27, #638); a managed copy at the old name is swept for every current agent. A scoped agent lands flat here, since Devin documents sub-directory discovery for rules only. `allowed-tools` translates agnostic-ai's Claude-style names onto the five Devin publishes as its complete set, `read`, `edit`, `grep`, `glob`, `exec` ([docs.devin.ai/cli/reference/permissions](https://docs.devin.ai/cli/reference/permissions)): `Read`/`Grep`/`Glob`/`Bash` map one-to-one onto `read`/`grep`/`glob`/`exec`, while `Write` and `Edit` both collapse onto `edit`, so an agent declaring only `Write` also gains edit capability. An `mcp__<server>__<tool>` name passes through untranslated. Anything else drops with a coverage note rather than shipping a name the vendor never documented; set `x-windsurf.allowed-tools` to write Devin's vocabulary directly, and `x-windsurf.max-nesting` for the nesting override, which has no generic spec field. `model` passes through verbatim, since the vendor's own example pins `model: sonnet`. The vendor caveat holds: "Custom subagents are **experimental**. The format, behavior, and configuration options may change in future releases."
+- **Agents**: one custom subagent profile per agent at `.devin/agents/<name>.md`. "Custom subagents are defined as markdown files under `agents/`", project layout `.devin/agents/`, "**Flat file**: `agents/<name>.md`" ([docs.devin.ai/cli/subagents](https://docs.devin.ai/cli/subagents)). Frontmatter carries `name`, `description`, `model`, `allowed-tools`, and `max-nesting`; the body after the closing delimiter is the subagent's system prompt. Agents used to flatten into `.devin/rules/agent-<name>.md`, which reached the rules loader instead of the subagent loader and had no key for any of those five fields (target-audit 2026-08-27, #638); a managed copy at the old name is swept for every current agent. A scoped agent lands flat here, since Devin documents sub-directory discovery for rules only. `allowed-tools` translates agnostic-ai's Claude-style names onto the five Devin publishes as its complete set, `read`, `edit`, `grep`, `glob`, `exec` ([docs.devin.ai/cli/reference/permissions](https://docs.devin.ai/cli/reference/permissions)): `Read`/`Grep`/`Glob`/`Bash` map one-to-one onto `read`/`grep`/`glob`/`exec`, while `Write` and `Edit` both collapse onto `edit`, so an agent declaring only `Write` also gains edit capability. An `mcp__<server>__<tool>` name passes through untranslated. Anything else drops with a coverage note rather than shipping a name the vendor never documented; set `x-windsurf.allowed-tools` to write Devin's vocabulary directly, and `x-windsurf.max-nesting` for the nesting override, which has no generic spec field. `model` passes through verbatim, since the vendor's own example pins `model: sonnet`. The vendor caveat holds: "Custom subagents are **experimental**. The format, behavior, and configuration options may change in future releases."
 - **Scoped rules**: a scoped rule lands at `<scope>/.devin/rules/<name>.md`, not nested inside the root rules dir. Devin reads "`.devin/rules` or `.windsurf/rules` in any sub-directory of your workspace" ([docs.devin.ai/desktop/cascade/memories](https://docs.devin.ai/desktop/cascade/memories)) and globs each one single-level as `.devin/rules/*.md` ([docs.devin.ai/cli/extensibility/rules](https://docs.devin.ai/cli/extensibility/rules)), so the old `.devin/rules/<scope>/<name>.md` reached no documented discovery path (target-audit 2026-08-27, #628). Sync sweeps the old nested tree through the ledger. With `outputs.windsurf.rules-dir` set the prefix follows it, so the legacy layout scopes to `<scope>/.windsurf/rules/<name>.md`. Devin CLI loads a sub-directory rules dir lazily, when the agent touches files there; Devin Desktop discovers every one of them at session start, so the scope narrows what the CLI sees but not what Desktop sees.
 - **Rule activation**: a rule that sets `alwaysApply: false` carries a `trigger` frontmatter key, the activation mode Devin reads. `globs` present writes `trigger: glob` plus the pattern verbatim, a `description` alone writes `trigger: model_decision`, and neither writes `trigger: manual`. An always-on rule stays bare: Devin loads a file with no frontmatter as always-on, and its Always On mode puts the full body in the system prompt on every message, so a `description` has no job there. Devin's fifth documented value, `agent`, has no counterpart in the spec format and is never emitted. Before this, no rule file carried frontmatter, so `alwaysApply: false` was silently promoted to always-on (#628).
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`. Devin Desktop's own primary skill path is `.windsurf/skills/` (workspace scope) or `~/.codeium/windsurf/skills/` (global scope); [`.agents/skills/` is a separate, documented "cross-agent compatibility" path](https://docs.devin.ai/desktop/cascade/skills) behind those (target-audit 2026-08-08, #563). This adapter writes the compatibility path deliberately: it is the same cross-tool tree eight other targets already emit into byte-identically (codex, amp, zed, crush, openhands, antigravity, augment, and kilo), so identical skills dedupe under `sync.shared-skills` instead of adding a ninth on-disk copy at `.windsurf/skills/`. A flat file directly under `.devin/rules/` never loads as a skill. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
@@ -812,3 +773,46 @@ Interactive `init` pre-ticks any target whose marker is present in the working d
 ## New targets
 
 See [adding-adapters](../internal/adding-adapters.md). ~50 lines plus one registry entry.
+
+## Global output
+
+`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs documented below. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
+
+| Target | Instructions | Rules | Hooks | Skills |
+|--------|--------------|-------|-------|--------|
+| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` |
+| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` |
+| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` |
+| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` |
+| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` |
+| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` |
+| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` |
+| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
+| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
+| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
+| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
+| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` |
+| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/antigravity/skills/<name>/` |
+| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` |
+| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` |
+| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` |
+| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` |
+| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` |
+| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` |
+| **openhands** | - | - | - | `~/.agents/skills/<name>/` |
+| **trae** | - | - | - | `~/.trae/skills/<name>/` |
+| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` |
+
+Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
+
+Three targets are absent by verdict. Aider reaches a home instructions file only through a `read:` entry in `~/.aider.conf.yml`, never automatically. Continue's one documented home surface is the `rules:` list inside the `config.yaml` that Continue itself rewrites. Jules documents nothing at user scope at all: its CLI reference has no config file and no home path.
+
+Several targets share a path on purpose, and the shared write happens once. `~/.agents/skills/` is read by codex, windsurf, amp, zed, warp, goose, and openhands; `~/.agents/AGENTS.md` by cline and warp; `~/.gemini/GEMINI.md` by gemini and antigravity. Two targets resolving to one path with different bytes is a hard error naming the path, not a last-writer-wins race.
+
+Hooks reach five targets. Claude Code, Codex, Gemini, and Qoder all document the Claude-style `{"hooks": {"<Event>": [{"matcher", "hooks": [...]}]}}` shape at user scope, so one renderer serves them; Cursor keeps its own. The other seventeen are declined for a stated reason, not for lack of a surface: Factory keys `hooks.json` directly by event with no wrapper, Augment measures `timeout` in milliseconds and requires a script extension, Copilot uses `version: 1` with camelCase events and `timeoutSec`, Cascade uses snake_case events with no matcher, Antigravity nests events under a named hook object, Crush supports `PreToolUse` alone, Goose needs a wrapping plugin directory plus a manifest, Junie's are Early Access, Kiro uses a `{"version": "v1", "hooks": [...]}` array, and Amp, OpenCode, and Cline expose hooks only as TypeScript plugin modules. Adding those shapes is tracked in #629, which covers the same schemas at project tier.
+
+Cursor does not automatically load the home-level `AGENTS.md`. Global sync therefore installs a managed `sessionStart` hook and a self-contained script bridge under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows). The bridge returns the rendered instructions as valid `additional_context` JSON without calling agnostic-ai, Python, or jq. Cursor session-start hooks are fire-and-forget context injection, not enforced policy. Existing `sessionStart` entries remain in place. Every other instructions path in the table above auto-loads, so Cursor is the only target that needs the bridge.
+
+Two interactions to know before enabling everything at once. OpenCode reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist, so syncing both targets moves OpenCode onto its own file and any user text that lived only in the Claude file stops reaching it. Devin CLI and VS Code Copilot read `~/.claude/` surfaces by default, so a user syncing claude plus windsurf or copilot gets the same instructions body through two paths.
+
+Each adapter emits in its tool's native format: separate files where the tool supports them, a merged document otherwise. Unsupported features (e.g. hooks for a non-hook-aware target) skip with a warning by default. Override via `on-unsupported` in [configuration](configuration.md).

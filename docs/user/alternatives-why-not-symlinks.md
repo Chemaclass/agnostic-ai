@@ -1,5 +1,7 @@
 # Why agnostic-ai instead of symlinks or manual copies
 
+[User docs](README.md)
+
 You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools and you rewrite everything.
 
 The instinct is to fix this with a symlink or a copy. Link one file into each tool's path, or copy it by hand on every change. Both assume the real problem is "share one file across tools". It is not.

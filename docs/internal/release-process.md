@@ -1,5 +1,7 @@
 # Release process
 
+[Contributor docs](README.md)
+
 ## Versioning
 
 Semantic Versioning. Pre-1.0: minor bumps may break spec format; patches are bug-fix only. Breaking changes go in `CHANGELOG.md`.

@@ -1,5 +1,7 @@
 # graph
 
+[User docs](README.md)
+
 Render the spec to target to file dependency graph for the current project.
 
 `graph` walks the loaded spec bundle, asks every configured target adapter which files each spec produces, and prints the result. Read-only: it never invokes Emit on disk. Output is deterministic, sorted by spec name then target.

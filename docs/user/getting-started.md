@@ -1,257 +1,123 @@
 # Getting started
 
+[User docs](README.md) · [Install the CLI](installation.md)
+
+Create one rule and sync it to Claude Code and Cursor. This example uses explicit targets so the commands also work in a non-interactive shell.
+
+Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration? Follow [Migration](migration.md) before syncing.
+
 ## Install
 
-| Method | Platform | Command |
-|--------|----------|---------|
-| Homebrew | macOS, Linux | `brew install --cask Chemaclass/tap/agnostic-ai` |
-| Install script | macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
-| Install script | Windows | `irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 \| iex` |
-| From source | any with Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
-| Prebuilt archive | any | [releases page](https://github.com/Chemaclass/agnostic-ai/releases) |
-| winget | Windows | `winget install Chemaclass.agnostic-ai` (not published yet) |
-| Scoop | Windows | `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket` then `scoop install agnostic-ai` (not published yet) |
-| npm | any with Node ≥18 | `npx agnostic-ai <command>`, or `npm install -g agnostic-ai` (not published yet) |
-
-Every row works today except the last three. Those are wired into the release pipeline but stay unpublished until their credentials are configured, so the commands 404 for now. Use the install script or Homebrew instead.
-
-The install scripts pick the archive for your OS and architecture, verify it against the release `checksums.txt`, and put the binary on PATH: `/usr/local/bin` when writable (else `~/.local/bin`) on macOS and Linux, `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows. Override with `AGNOSTIC_AI_INSTALL_DIR` (`-InstallDir` on PowerShell) and pin a version with `AGNOSTIC_AI_VERSION` (`-Version`).
-
-Once the npm package is published, `npx agnostic-ai` will need no install at all, which makes it the quickest way to try one command. The package downloads the same prebuilt binary on first use.
-
-### Upgrade
-
-`agnostic-ai upgrade` detects the install route (Homebrew, `go install`, Scoop, winget, npm, or a raw binary) and prints the matching command; `--run` executes it, `--check` diagnoses PATH shadowing. See [CLI reference](cli-reference.md#upgrade).
-
-### Inside Claude Code
-
-Skills that install the CLI, scaffold specs, import an existing config, and sync:
-
-```
-/plugin marketplace add Chemaclass/agnostic-ai
-/plugin install agnostic-ai@chemaclass
-```
-
-## Shell completion
-
-Tab completion for subcommands and `--target`:
-
-```bash
-agnostic-ai completion zsh > "${fpath[1]}/_agnostic-ai"
-agnostic-ai completion bash > ~/.local/share/bash-completion/completions/agnostic-ai
-agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
-```
-
-Restart your shell after installing. Run `agnostic-ai completion <shell> --help` for more options.
+Follow [Installation](installation.md), then confirm `agnostic-ai --version` works.
 
 ## Scaffold
 
-```bash
-agnostic-ai init                 # prompt for targets (TTY), base dir .agnostic-ai/
-agnostic-ai init --all           # enable every target, skip the prompt
-agnostic-ai init specs           # custom base dir
-agnostic-ai init .               # legacy root-level layout
-agnostic-ai init --demo          # plus one example spec per source folder
-echo "claude,codex" | agnostic-ai init   # non-TTY: pipe a comma-separated target list
-```
-
-- `init` opens a target picker when stdin is a TTY.
-- Non-TTY: pipe a comma-separated list.
-- `--all` (`-a`): skip the picker, enable every target.
-- `--demo`: seed each source folder with a minimal spec so the first `sync` produces output.
-
-The generated `agnostic-ai.yaml` carries a `yaml-language-server` comment pointing at the published JSON Schema. Editors with YAML Language Server support (VS Code, JetBrains, Neovim) validate and autocomplete the config.
-
-```
-.
-├── agnostic-ai.yaml
-└── .agnostic-ai/
-    ├── agents/
-    ├── skills/
-    ├── rules/
-    ├── hooks/
-    └── mcps/
-```
-
-### Add a single spec
-
-`new <kind> <name>` scaffolds one spec (agent, skill, rule, hook, or MCP) with kind-appropriate frontmatter, under the source dir configured for that kind:
+From the root of a project without existing tool configuration:
 
 ```bash
-agnostic-ai new rule no-console-log            # writes .agnostic-ai/rules/no-console-log.md
-agnostic-ai new rule no-console-log --dry-run  # preview the path and rendered body, write nothing
+echo "claude,cursor" | agnostic-ai init
+agnostic-ai new rule conventional-commits
 ```
 
-`--dry-run` prints the destination path plus the frontmatter and body it would write, so you can check the shape before it lands on disk.
+`init` creates `agnostic-ai.yaml` and source folders under `.agnostic-ai/`. `new` writes `.agnostic-ai/rules/conventional-commits.md`.
 
-### Import an existing AI CLI config
-
-After `init`, run `import <source>` to translate an existing config into agnostic specs under the configured `sources:` paths:
-
-```bash
-agnostic-ai init                  # scaffold
-agnostic-ai import claude         # CLAUDE.md + .claude/{agents,skills,settings.json}
-agnostic-ai import codex          # AGENTS.md (root + nested)
-agnostic-ai import cursor         # .cursor/rules/*.mdc
-agnostic-ai import cline          # .cline/rules/, .cline/agents/ (or legacy .clinerules/)
-agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
-agnostic-ai import continue       # .continue/rules/
-agnostic-ai sync                  # fan out to every target in the config
-```
-
-`import` writes spec files only. It never touches `targets:` or other config. The default `init` config enables every target, so one `sync` covers them all. Edit `targets:` to narrow output.
-
-#### Recommended adoption workflow
-
-The first `sync` after `import` rewrites every generated file (adds the agnostic-ai header, normalizes key order). Split into two commits so the diff is reviewable:
-
-```bash
-# 1. Capture existing CLI config into agnostic-ai specs
-agnostic-ai init
-agnostic-ai import claude          # or codex / cursor / cline / ...
-git add .agnostic-ai/ agnostic-ai.yaml AGNOSTIC_AI.md
-git commit -m "chore(agnostic-ai): import existing claude config"
-
-# 2. Regenerate every target's files from the imported specs
-agnostic-ai sync
-git add -A
-git commit -m "chore(agnostic-ai): regenerate per-target configs (no semantic change)"
-```
-
-- Reviewers focus on commit 1 (content) and skim commit 2 (cosmetic).
-- Importing from multiple CLIs: run each `import` + commit pair before the final `sync`.
-- Gitignoring generated files instead (see [`gitignore.enabled`](configuration.md#gitignore)): skip commit 2. Version only `.agnostic-ai/`; each contributor runs `sync` locally.
-- `sync --backup` keeps a `.bak` next to each overwritten file so you can `revert`. Clear them with `agnostic-ai cleanup` (scoped to the sync-written backups; unrelated `.bak` files are left alone).
-
-#### What `import` does NOT capture
-
-`import <cli>` translates rules, agents, skills, hooks, commands, and a `settings.json`-style overlay into specs. Out of scope:
-
-- `.claude/statusline.sh`, helper scripts referenced from `settings.json`, ad-hoc config files. Keep these in git next to `.agnostic-ai/` so they survive a fresh checkout.
-- Exception: helper files inside a skill directory (e.g. `.claude/skills/yaml-validator/check.mjs`) round-trip via the nested skill layout (see [Skills](spec-format.md#skills)).
-
-#### `.agnostic-ai/.sync-state`
-
-Every `sync` writes `.agnostic-ai/.sync-state`, a JSON document recording the last sync timestamp and files changed.
-
-- `status` reads it for "last sync at ...".
-- `doctor` reads it to tell never-synced from post-sync-edits.
-- Auto-added to the managed `.gitignore` block. Do not commit it.
-- Safe to delete: the next `sync` regenerates it. Until then `status` reports "never synced".
+For an interactive target picker, run `agnostic-ai init` without the pipe. Choose only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](cli-reference.md#init).
 
 ## First rule
 
-`rules/conventional-commits.md`:
+Replace `.agnostic-ai/rules/conventional-commits.md` with:
 
 ```markdown
 ---
 name: conventional-commits
-description: Always use Conventional Commits.
+description: Use Conventional Commits.
 alwaysApply: true
 ---
 
-Use `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` prefixes. Subject under 72 chars.
+Use feat:, fix:, docs:, refactor:, test:, or chore: prefixes.
+Keep the subject under 72 characters.
 ```
 
 ## Sync
 
 ```bash
+agnostic-ai sync --dry-run
 agnostic-ai sync
+agnostic-ai sync --check
 ```
 
-The first run opens a multi-select to pick targets. The choice saves to `agnostic-ai.yaml` and is never asked again. Emit every target without the prompt via `sync --all` or pipe a selection (`echo "claude,codex" | agnostic-ai sync`).
+The preview shows planned output. Sync writes it. The check exits successfully when files match the specs.
 
-| Output | Target |
-|--------|--------|
-| `CLAUDE.md` | Claude Code |
-| `AGENTS.md` | Codex |
-| `GEMINI.md` | Gemini CLI |
-| `.cursor/rules/conventional-commits.mdc` | Cursor |
+For this example, inspect:
 
-Full tree after `sync` with the default targets (only files with content are written; empty stubs are skipped):
+| Output | Purpose |
+|---|---|
+| `.claude/rules/conventional-commits.md` | Claude Code rule |
+| `.cursor/rules/conventional-commits.mdc` | Cursor rule |
+| `CLAUDE.md` | Claude Code entry point that points back to the source specs |
 
-```
-.
-├── agnostic-ai.yaml
-├── rules/
-│   └── conventional-commits.md
-├── .claude/rules/<name>.md                      # for Claude Code (project rules)
-├── AGENTS.md                                    # shared open standard (Codex / Amp / Warp / Zed / Cline / Junie / Kiro / Crush / Trae / Jules / Goose / Augment / Qoder / OpenHands / Factory / Kilo / OpenCode)
-├── .codex/agents/<name>.toml                    # for Codex subagents
-├── .agents/commands/<name>.md                   # for Amp slash commands
-├── GEMINI.md                                    # for Gemini CLI
-├── .gemini/commands/<name>.toml                 # for Gemini CLI slash commands
-├── CONVENTIONS.md                               # for Aider
-├── .agents/skills/<name>/SKILL.md               # shared skills tree (Codex / Amp / Zed / Crush / OpenHands)
-├── .opencode/agents/<name>.md                   # for OpenCode subagents
-├── .github/copilot-instructions.md              # for Copilot (always-on rules)
-├── .github/instructions/<name>.instructions.md  # for Copilot path-scoped rules
-├── .github/agents/<name>.agent.md               # for Copilot custom agents
-├── .cursor/rules/conventional-commits.mdc       # for Cursor
-├── .cline/rules/conventional-commits.md         # for Cline
-├── .devin/rules/conventional-commits.md         # for Windsurf / Devin Desktop
-├── .junie/AGENTS.md                             # for Junie (preferred entry-point; rules + agents inlined)
-├── .kiro/steering/conventional-commits.md       # for Kiro
-├── .trae/rules/conventional-commits.md          # for Trae
-├── .kilo/rules/conventional-commits.md          # for Kilo Code (+ kilo.jsonc instructions array)
-└── .continue/rules/conventional-commits.md      # for Continue
-```
+Both rule files contain your commit convention. Edit the source file and run `sync` again to update them. Do not edit the generated copies.
 
-## Check project status
+To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](targets.md#selecting-targets) for one-run filters and the first-sync picker.
 
-```bash
-agnostic-ai status
-```
+## Commit or ignore generated outputs
 
-Reports the project name, active spec layers, spec counts, configured targets, last sync timestamp, and whether generated files are out of date. Exits 0 regardless of drift. Use `sync --check` or `doctor` in CI.
+`init` enables `gitignore.enabled` by default. Commit `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. The local `.agnostic-ai/.sync-state` cache and personal overrides stay ignored. Every fresh clone or worktree needs `agnostic-ai sync` to create its tool files.
 
-## Roll back a sync
+To keep generated outputs in Git, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block. For a new project, `init --gitignore=false` chooses this from the start. Commit the specs and generated files together, then use the [CI drift gate](ci.md#committed-outputs).
 
-```bash
-agnostic-ai sync --backup    # snapshot existing outputs to <path>.bak
-# ...experiment with spec changes...
-agnostic-ai revert           # restore from .bak when present, else delete
-```
+If outputs are ignored, CI should validate specs and generate files. It cannot compare a fresh checkout against files that were never committed. See [CI for ignored outputs](ci.md#ignored-outputs).
 
-Pair `--backup` with `revert` for safe iteration. Without `--backup`, `revert` deletes the generated files.
-
-## Watch mode
+## Daily use
 
 ```bash
 agnostic-ai sync --watch
 ```
 
-Watches the source directories and `agnostic-ai.yaml` via OS file events (fsnotify) with a 50 ms debounce, so saves re-sync in under 100 ms.
+Keep this running while editing specs; Ctrl+C stops it. Run `agnostic-ai status` for a summary of loaded specs, selected tools, and drift.
 
-- On filesystems where fsnotify fails (some network mounts, container volumes), `sync` falls back to a 200 ms poll.
-- `--watch-poll` forces the poll backend.
-- Ctrl+C exits cleanly.
-- Incompatible with `--check`.
+## Next steps
 
-## Commit or ignore generated outputs
+- [Spec format](spec-format.md): add skills, agents, hooks, and MCP servers.
+- [Configuration](configuration.md): select tools and customize paths.
+- [Git hooks](git-hooks.md): generate output when opening a fresh checkout.
+- [Troubleshooting](troubleshooting.md): resolve missing files or sync failures.
 
-`init` ignores them by default (`gitignore.enabled: true`): `.agnostic-ai/` is the source of truth and each contributor runs `sync`. To commit them instead (e.g. teammates lack the CLI), scaffold with `init --gitignore=false`. The `check` gate below guards drift either way.
+<a id="shell-completion"></a>
 
-### Auto-manage .gitignore
+<a id="add-a-single-spec"></a>
 
-Add to `agnostic-ai.yaml` to keep generated paths out of git:
+<a id="import-an-existing-ai-cli-config"></a>
 
-```yaml
-gitignore:
-  enabled: true
-```
+<a id="recommended-adoption-workflow"></a>
 
-`sync` rewrites a managed block in `.gitignore` listing every emitted path. Lines outside the block are preserved. Full field reference: [configuration](configuration.md#gitignore).
+<a id="what-import-does-not-capture"></a>
 
-Gitignored outputs are not in git, so a fresh clone or a new `git worktree` starts without them until `agnostic-ai sync` runs. A contributor cloning the repo runs `sync` by hand; automated worktree creation does not. Wire `sync` into your worktree bootstrap, or add a `post-checkout` hook (see [Git hooks](git-hooks.md)), so an AI session opened in a new worktree always finds its config.
+<a id="agnostic-aisync-state"></a>
 
-## CI gate
+<a id="check-project-status"></a>
 
-Fail PRs whose generated files drift from the source specs:
+<a id="roll-back-a-sync"></a>
 
-```yaml
-- uses: chemaclass/agnostic-ai-action@v1
-  with: { command: check }
-```
+<a id="watch-mode"></a>
 
-Version pinning, caching, and the plain `agnostic-ai sync --check` step: [CI](ci.md).
+<a id="auto-manage-gitignore"></a>
+
+<a id="ci-gate"></a>
+
+<a id="upgrade"></a>
+
+<a id="inside-claude-code"></a>
+
+## More workflows
+
+These links keep previous guide sections easy to find:
+
+- [Shell completion](installation.md#shell-completion)
+- [Add a single spec](cli-reference.md#new)
+- [Import an existing AI CLI config](migration.md)
+- [Check project status](cli-reference.md#status)
+- [Roll back a sync](migration.md#back-up-and-restore)
+- [Watch mode](cli-reference.md#sync)
+- [Auto-manage .gitignore](configuration.md#gitignore)
+- [CI gate](ci.md)

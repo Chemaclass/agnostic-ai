@@ -1,14 +1,18 @@
 # Roadmap
 
+[Contributor docs](README.md)
+
 High-level directions. Concrete work in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
 
 ## Layered configuration (shipped)
 
-Three layers, low to high precedence:
+Project layers, low to high precedence:
 
-- **native global** (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`): explicit source for `sync --global`, separate from project sync.
+- **packs**: shared defaults installed into the project.
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
 - **project-user** (`<project>/.agnostic-ai.local/`, gitignored): per-developer overrides.
+
+Native global configuration (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --global` and does not participate in project layering.
 
 Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See [configuration.md](../user/configuration.md#layered-specs).
 
@@ -20,8 +24,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
-- MCP for 14/25 targets. Aider/Cline/Windsurf/Trae/Antigravity and the AGENTS.md-only tools (jules/goose/augment/qoder/openhands/factory) lack project-scoped MCP.
-- Hooks beyond Claude: Codex `.codex/config.toml`, Gemini `.gemini/settings.json`.
+- MCP and hook support across tools: see the maintained [capability matrix](../user/targets.md#capability-matrix).
 
 ## Open
 

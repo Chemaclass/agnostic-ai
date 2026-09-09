@@ -1,5 +1,7 @@
 # Contributing a preset
 
+[Contributor docs](README.md)
+
 Presets are stack-flavored starter packs that `init --preset <name>` writes into a fresh project. Today: `go`, `ts-react`, `python`.
 
 ## Layout

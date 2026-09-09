@@ -1,34 +1,34 @@
 # Configuration
 
-## Global configuration
-
-`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](targets.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
-
-The source root is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset:
-
-```text
-~/.agnostic-ai/
-├── AGNOSTIC_AI.md
-├── rules/*.md
-├── hooks/*.yaml
-└── skills/<name>/SKILL.md
-```
-
-Run `agnostic-ai sync --global`. Every supported target is enabled by default. `--target`, `--only`, and `--except` narrow the set; naming a target with no user-level surface fails with the supported list. `--dry-run`, `--check`, and `--backup` retain their normal meaning. Project-only flags such as `--watch`, `--plan`, `--json`, `--gitignore`, and `--jobs` are rejected before any write.
-
-Global rules must be unconditional. A nested rule or a rule with scope, path, glob, or target conditions is rejected rather than flattened. Global mode does not support agents, commands, MCP servers, settings, inheritance, or merging with project specs.
-
-Generated files are real files, never symlinks. Managed instruction blocks, hook entries, and skill assets are recorded per target under `$AGNOSTIC_AI_HOME/state/global.json`. Sync preserves unrelated text, JSON keys, hooks, and skills. It removes only artifacts recorded as managed, and only for the targets in the current run, so `--only` never sweeps another target's output. An unmanaged skill or rule collision, damaged managed marker, invalid native JSON file, or corrupt ownership state stops the whole operation before writes. Native tool precedence still applies when both global and project configuration exist.
-
-Nothing is created for a surface with no content. A target whose instructions body and rules are both empty gets no instructions file, and one already recorded is removed rather than left empty. A target with no hooks gets no hooks file seeded into its config directory.
-
-Migration: ordinary `agnostic-ai sync` no longer loads specs from `~/.agnostic-ai/`. Rules, hooks, and skills already stored there become native global inputs when you run `sync --global`. Move defaults intended only for project output into each project's `.agnostic-ai/` tree or a shared pack. Move unsupported old global kinds such as agents, MCP servers, commands, settings, reviews, environments, and ignore specs into projects or packs because global mode does not load them.
-
-A repository's `.agnostic-ai/` directory remains project-specific, even though the default user root has the same basename. Keep organization or team defaults in committed project specs or a pinned pack. `.agnostic-ai.local/` remains the uncommitted personal override for one project.
+[User docs](README.md)
 
 `agnostic-ai.yaml` lives at the project root. It is read from the current working directory at command time. Every section is optional. Defaults are listed below.
 
 Legacy filename: `agnostic.config.yaml` still loads, with a deprecation warning. Rename to `agnostic-ai.yaml` when convenient.
+
+## Minimal project config
+
+```yaml
+version: 1
+targets: [claude, cursor]
+gitignore:
+  enabled: true
+```
+
+Run `agnostic-ai init` to create a config with your selected tools. Source paths default to `.agnostic-ai/<kind>/`; add overrides only when needed.
+
+## Find a setting
+
+| Change | Section |
+|---|---|
+| Select tools | [Targets](#targets) |
+| Change source or output paths | [Sources](#sources) and [Outputs](#outputs) |
+| Keep generated files out of Git | [Gitignore](#gitignore) |
+| Customize sync behavior | [Sync](#sync) |
+| Override settings on one machine | [Local overrides](#local-overrides) |
+| Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
+| Share personal instructions across projects | [Global configuration](#global-configuration) |
+| Inspect all fields | [Annotated config](#full-schema) or [JSON Schema](../schemas/config.schema.json) |
 
 ## Local overrides
 
@@ -248,7 +248,7 @@ outputs:
     # rules-file: .augment-guidelines   # opt-in: also write a concatenated .augment-guidelines doc.
 
 # What to do when a spec kind is unsupported by a target
-# (e.g. hooks for Cursor, or mcps for Cline).
+# (e.g. hooks for Cline, or MCPs for Aider).
 on-unsupported: warn   # warn | error | silent
 
 # Auto-manage a block in .gitignore listing every generated path.
@@ -773,3 +773,29 @@ Higher layers override by spec name (per kind). New names append.
 Add `.agnostic-ai.local/` to your `.gitignore` so personal overrides stay local.
 
 `agnostic-ai list` prints each spec's source layer for debugging.
+
+## Global configuration
+
+`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](targets.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
+
+The source root is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset:
+
+```text
+~/.agnostic-ai/
+├── AGNOSTIC_AI.md
+├── rules/*.md
+├── hooks/*.yaml
+└── skills/<name>/SKILL.md
+```
+
+Run `agnostic-ai sync --global`. Every supported target is enabled by default. `--target`, `--only`, and `--except` narrow the set; naming a target with no user-level surface fails with the supported list. `--dry-run`, `--check`, and `--backup` retain their normal meaning. Project-only flags such as `--watch`, `--plan`, `--json`, `--gitignore`, and `--jobs` are rejected before any write.
+
+Global rules must be unconditional. A nested rule or a rule with scope, path, glob, or target conditions is rejected rather than flattened. Global mode does not support agents, commands, MCP servers, settings, inheritance, or merging with project specs.
+
+Generated files are real files, never symlinks. Managed instruction blocks, hook entries, and skill assets are recorded per target under `$AGNOSTIC_AI_HOME/state/global.json`. Sync preserves unrelated text, JSON keys, hooks, and skills. It removes only artifacts recorded as managed, and only for the targets in the current run, so `--only` never sweeps another target's output. An unmanaged skill or rule collision, damaged managed marker, invalid native JSON file, or corrupt ownership state stops the whole operation before writes. Native tool precedence still applies when both global and project configuration exist.
+
+Nothing is created for a surface with no content. A target whose instructions body and rules are both empty gets no instructions file, and one already recorded is removed rather than left empty. A target with no hooks gets no hooks file seeded into its config directory.
+
+Migration: ordinary `agnostic-ai sync` no longer loads specs from `~/.agnostic-ai/`. Rules, hooks, and skills already stored there become native global inputs when you run `sync --global`. Move defaults intended only for project output into each project's `.agnostic-ai/` tree or a shared pack. Move unsupported old global kinds such as agents, MCP servers, commands, settings, reviews, environments, and ignore specs into projects or packs because global mode does not load them.
+
+A repository's `.agnostic-ai/` directory remains project-specific, even though the default user root has the same basename. Keep organization or team defaults in committed project specs or a pinned pack. `.agnostic-ai.local/` remains the uncommitted personal override for one project.

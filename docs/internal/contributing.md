@@ -1,75 +1,67 @@
-# Contributing (deep dive)
+# Development workflow
 
-Short version: [/CONTRIBUTING.md](../../CONTRIBUTING.md).
+[Contributor docs](README.md) · [Setup and first contribution](../../CONTRIBUTING.md)
 
-## Setup
+Use this page after building the CLI. It covers checks, conventions, and generated artifacts without repeating checkout setup.
 
-Go 1.24+.
+## Development loop
 
-```bash
-git clone https://github.com/Chemaclass/agnostic-ai
-cd agnostic-ai
-make tools      # golangci-lint + lefthook at CI-pinned versions
-make hooks      # lefthook pre-commit (gofmt + lint + vet) + pre-push (make preflight)
-make build      # builds ./agnostic-ai
-make test
-```
-
-`make tools` puts binaries in `$(go env GOPATH)/bin`. Ensure it is on `$PATH`.
-
-## Dev loop
+Run the smallest relevant example while implementing, then batch the required checks once the change is complete.
 
 ```bash
-go run ./cmd/agnostic-ai sync --dry-run                            # preview emit
-go test ./internal/adapters/claude -run TestEmit_WritesAgent -v    # focused test
-make preflight                                                     # mirrors CI Lint + Test
+go run ./cmd/agnostic-ai validate
+go run ./cmd/agnostic-ai list
+go run ./cmd/agnostic-ai sync -t claude --dry-run
 ```
 
-A green `make preflight` locally means no new lint or test surprise on the PR.
+Use a temporary project when experimenting with imported or generated files. Adapter tests should pass a small bundle to `Emit`, then read the resulting files back from disk.
 
-## First PR
+## Choose checks for your change
 
-1. Pick a `good first issue`.
-2. Branch: `fix/short-description`.
-3. Edit. Add or update `foo_test.go` next to `foo.go`.
-4. `go test ./...`.
-5. Commit with Conventional Commits.
-6. Push, open PR with template, link issue (`Closes #123`).
+| Change | Checks |
+|---|---|
+| Go behavior | Focused package tests during development; `make preflight` before submission |
+| Concurrency | `make test-race` |
+| Shell scripts or CLI end-to-end behavior | `make test-shell` (requires bashunit on PATH) |
+| Config struct or schema fields | `go run ./cmd/schemagen`; include the updated schema |
+| Project source specs | `go run ./cmd/agnostic-ai lint`, then `go run ./cmd/agnostic-ai sync` |
+| Adapter output | Adapter tests and relevant golden fixtures; preview with `sync --dry-run` |
+| Playground or code used by WASM | `make playground-serve`, then exercise affected behavior in a browser |
+| Documentation | Check relative links and anchors; execute changed command examples in a temporary project |
+| Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
+
+`make preflight` covers formatting, vet, lint, and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
 
 ## Conventions
 
-| Topic | Rule |
+| Topic | Convention |
 |---|---|
-| Format | `gofmt` clean, `goimports` grouping |
-| Deps | Stdlib first. New dep needs justification |
-| Adapters | Stateless. `New()` constructor. Never import each other; share via `internal/adapters/internal/emit/` |
-| Tests | Behavior names. `t.TempDir()` + `testutil.Chdir(t, dir)`. No mocks |
-| Errors | Wrap with file/operation context: `fmt.Errorf("%s: %w", path, err)` |
-| CHANGELOG | Update `[Unreleased]` for user-visible changes |
+| Format | `gofmt`; use `goimports` for import grouping |
+| Dependencies | Prefer the standard library; justify new dependencies |
+| Adapters | Stateless, constructed with `New()`; no imports between target packages |
+| Shared output code | Put it in `internal/adapters/internal/emit/` |
+| Tests | Behavior names; `t.TempDir()` and `testutil.Chdir(t, dir)` for filesystem tests; no external mocking libraries |
+| Errors | Wrap with file or operation context and `%w` |
+| Scope | One concern per PR; separate unrelated refactors |
 
-## Debugging
+## Generated project configuration
 
-```bash
-go run ./cmd/agnostic-ai sync --dry-run             # output without writing
-go run ./cmd/agnostic-ai list                       # confirm specs loaded
-go run ./cmd/agnostic-ai validate                   # parse-check only
-go run ./cmd/agnostic-ai sync -t claude --dry-run   # one adapter
-```
+The repository's `.agnostic-ai/` specs generate root entry points and tool folders. Those outputs are ignored. Never edit or commit them as source.
 
-For unexpected adapter behavior: write a unit test calling `Emit` with a small spec slice.
+The repository's output ignore block is maintained by hand. Preserve hierarchical patterns such as `**/AGENTS.md` and the `!internal/adapters/*/testdata/**` exception that keeps golden fixtures tracked. Add new adapter paths to [.gitignore](../../.gitignore).
 
-## Commits
+CI lints source specs. It does not run `sync --check` against a fresh checkout because generated files are not committed. After generating locally, `sync --check` can confirm local output matches the specs.
 
-Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Subject under 72 chars. Body explains *why*.
+## Documentation checklist
 
-## Triage
+- New or changed flags, targets, or output fields: update [targets](../user/targets.md) and [configuration](../user/configuration.md), plus the [CLI reference](../user/cli-reference.md) for command changes.
+- New or changed spec fields: update [spec format](../user/spec-format.md).
+- Config struct tag changes: regenerate [config.schema.json](../schemas/config.schema.json).
+- New commands or visible behavior: update the matching capability or quickstart explanation in [README](../../README.md).
+- User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md).
 
-- 7-day target. Apply labels (`bug`, `enhancement`, `good first issue`, `help wanted`).
-- Tests required for behavior changes. Docs for user-visible changes.
-- Squash-merge.
+Keep tutorials focused on one working outcome. Put optional workflows in task guides and field details in references. Link to the canonical explanation instead of copying tables or setup instructions. Preserve existing page paths and section anchors when reorganizing docs.
 
-## See also
+## Before submitting
 
-- [Release process](release-process.md)
-- [Decision log](decisions.md): add non-obvious architectural calls.
-- Questions: open a Discussion.
+Review the diff for unrelated edits and generated files. Describe the final behavior and the checks you ran in the PR. Record non-obvious architectural choices in the [decision log](decisions.md).
