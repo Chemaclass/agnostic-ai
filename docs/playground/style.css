@@ -2,62 +2,59 @@
   color-scheme: dark light;
 
   /* Dark palette (default) */
-  --bg: #0b0f17;
-  --bg-elev: #11161f;
-  --panel: #141a25;
-  --panel-2: #1a212e;
-  --border: #232a38;
-  --border-strong: #2f3849;
-  --fg: #e6edf6;
-  --fg-dim: #b1bccb;
-  --fg-muted: #7d8aa0;
-  --accent: #8b5cf6;
-  --accent-2: #06b6d4;
-  --accent-fg: #ffffff;
-  --danger: #ef4444;
-  --ok: #22c55e;
+  --bg: #14120f;
+  --bg-elev: #1c1917;
+  --panel: #1c1917;
+  --panel-2: #241f1b;
+  --border: #302a24;
+  --border-strong: #3d352d;
+  --fg: #f2ede5;
+  --fg-dim: #cec6ba;
+  --fg-muted: #9c9082;
+  --accent: #f0a35e;
+  --accent-fg: #1a1714;
+  --danger: #ef8f74;
+  --ok: #a9c77e;
 
   --radius: 10px;
   --radius-sm: 6px;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.42), 0 8px 24px rgba(0, 0, 0, 0.26);
 
   --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
 }
 
 :root[data-theme="light"] {
-  --bg: #f7f8fa;
+  --bg: #f7f7f6;
   --bg-elev: #ffffff;
   --panel: #ffffff;
-  --panel-2: #f6f8fa;
-  --border: #e3e7ed;
-  --border-strong: #cdd5e0;
-  --fg: #0f172a;
-  --fg-dim: #334155;
-  --fg-muted: #64748b;
-  --accent: #7c3aed;
-  --accent-2: #0891b2;
+  --panel-2: #eeeeeb;
+  --border: #e3e2de;
+  --border-strong: #cccbc6;
+  --fg: #1a1714;
+  --fg-dim: #45403a;
+  --fg-muted: #6f6960;
+  --accent: #a8481a;
   --accent-fg: #ffffff;
-  --danger: #dc2626;
-  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --danger: #a3341f;
+  --shadow-1: 0 1px 2px rgba(26, 23, 20, 0.05), 0 8px 24px rgba(26, 23, 20, 0.07);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --bg: #f7f8fa;
+    --bg: #f7f7f6;
     --bg-elev: #ffffff;
     --panel: #ffffff;
-    --panel-2: #f6f8fa;
-    --border: #e3e7ed;
-    --border-strong: #cdd5e0;
-    --fg: #0f172a;
-    --fg-dim: #334155;
-    --fg-muted: #64748b;
-    --accent: #7c3aed;
-    --accent-2: #0891b2;
-    --accent-fg: #ffffff;
-    --danger: #dc2626;
-    --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+    --panel-2: #eeeeeb;
+    --border: #e3e2de;
+    --border-strong: #cccbc6;
+    --fg: #1a1714;
+    --fg-dim: #45403a;
+    --fg-muted: #6f6960;
+    --accent: #a8481a;
+      --accent-fg: #ffffff;
+    --danger: #a3341f;
+    --shadow-1: 0 1px 2px rgba(26, 23, 20, 0.05), 0 8px 24px rgba(26, 23, 20, 0.07);
   }
 }
 
@@ -154,12 +151,11 @@ a:focus-visible {
   border-radius: 8px;
   display: grid;
   place-items: center;
-  color: white;
+  color: var(--accent-fg);
   font-family: var(--sans);
   font-weight: 800;
   font-size: 16px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  background: var(--accent);
 }
 
 .brand-name {
@@ -198,9 +194,11 @@ a:focus-visible {
 
 .hero {
   border-bottom: 1px solid var(--border);
-  background:
-    radial-gradient(900px 220px at 20% -40%, rgba(124, 58, 237, 0.18), transparent 70%),
-    radial-gradient(700px 220px at 90% -20%, rgba(6, 182, 212, 0.14), transparent 70%);
+  background: radial-gradient(
+    1100px 260px at 18% -45%,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    transparent 72%
+  );
 }
 
 .hero-inner {
@@ -214,10 +212,7 @@ a:focus-visible {
   font-size: clamp(1.6rem, 2.4vw + 0.6rem, 2.25rem);
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(90deg, var(--fg), var(--accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--fg);
 }
 
 .hero p {
@@ -315,12 +310,10 @@ a:focus-visible {
 
 .dot-in {
   background: var(--accent);
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.6);
 }
 
 .dot-out {
-  background: var(--accent-2);
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
+  background: var(--fg-muted);
 }
 
 .panel-actions {
@@ -428,10 +421,9 @@ select:hover {
 }
 
 .chips label:has(input:checked) {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: var(--accent);
   border-color: transparent;
   color: var(--accent-fg);
-  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
 }
 
 .chips input:focus-visible + span,
@@ -490,10 +482,9 @@ textarea::placeholder {
 }
 
 .tabs button[aria-selected="true"] {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: var(--accent);
   border-color: transparent;
   color: var(--accent-fg);
-  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.35);
 }
 
 .file-row {
