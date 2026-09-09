@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.53.0 - 2026-09-09
+
 ### Added
 
 - OpenHands hooks emit to `.openhands/hooks.json`, across six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Hook specs previously reached no OpenHands surface and skipped with a warning. A `matcher` copied from a Claude spec surfaces a coverage note, since OpenHands names its own tools (`terminal`, not `Bash`) so such a matcher parses but matches nothing (#629).
