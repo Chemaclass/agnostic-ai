@@ -18,6 +18,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Codex: an MCP server name with a package-style character (`:`, `@`, `/`, `.`), now allowed by Codex CLI 0.152.0, wrote an unquoted `.codex/config.toml` table header that a TOML parser rejects, breaking every MCP server in the file, not just the new one (#706).
 - Windsurf: `outputs.windsurf.workflows-dir` warns instead of writing files nothing reads. Devin Desktop removed Cascade, the only agent that ever read a Workflow, in v3.9.19; its replacement, Devin Local, does not support them (#707).
 
 ## v0.53.0 - 2026-09-09

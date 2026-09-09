@@ -70,7 +70,7 @@ cost nobody again:
 
 - docs: https://learn.chatgpt.com/docs/build-skills · /docs/agent-configuration/subagents · /docs/custom-prompts · /docs/hooks · /docs/config-file/config-reference · /docs/agent-configuration/rules (exec-policy precedence, not AGENTS.md discovery) · /docs/agent-configuration/agents-md (AGENTS.md discovery)
 - changelog: https://learn.chatgpt.com/docs/changelog
-- watch: skills dir has moved twice (`.codex/skills` -> `.agents/skills`); prompts are deprecated in favour of skills; hooks JSON event names.
+- watch: skills dir has moved twice (`.codex/skills` -> `.agents/skills`); prompts are deprecated in favour of skills; hooks JSON event names. Codex CLI 0.152.0 (2026-09-01, changelog) widened the MCP server-name charset to `:`, `@`, `/`, `.` for package-style names (openai/codex#41700, "Support package-style MCP server names"); `config.toml` server-name and per-tool/oauth sub-table headers now quote a non-bare name via `tomlKeySegment` (#706, confirmed 2026-09-09). The vendor's own importer (`internal/cli/import_codex_native.go`'s `writeCodexMCPs`) still builds the on-disk spec filename as `filepath.Join(dstDir, name+".yaml")` with no sanitization, and the shared `internal/spec.checkSpecName` rejects any spec name containing `/` outright: a package-style server name survives the TOML *read* but neither `import codex` nor a subsequent `sync` can round-trip it end to end. That is a separate, cross-target gap (every adapter's spec loader, not just codex's), left open by #706 and worth its own issue.
 
 ## gemini
 

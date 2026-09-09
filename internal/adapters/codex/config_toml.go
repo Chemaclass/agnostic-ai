@@ -191,8 +191,17 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 // transport-appropriate keys plus the shared description/enabled/roots
 // fields that mirror the `.mcp.json` schema (the spec's `disabled` field
 // maps to Codex's own `enabled` key; see writeMCPSharedFields).
+//
+// The name routes through tomlKeySegment, the same helper already
+// applied to a tool name below. Codex CLI 0.152.0 widened the MCP
+// server-name charset to allow `:`, `@`, `/`, and `.`
+// (openai/codex#41700, "Support package-style MCP server names"),
+// enabling names such as npm:@modelcontextprotocol/server-sequential.
+// thinking. A bare, unquoted header for that name is invalid TOML and
+// commonly aborts the whole config parse, taking every other MCP
+// server down with it (#706).
 func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
-	sb.WriteString("[mcp_servers." + m.Name + "]\n")
+	sb.WriteString("[mcp_servers." + tomlKeySegment(m.Name) + "]\n")
 
 	transport, _ := m.Meta["type"].(string)
 	if transport == "" {
@@ -287,7 +296,7 @@ func writeMCPToolTables(sb *strings.Builder, server string, meta map[string]any)
 			keys = append(keys, k)
 		}
 		slices.Sort(keys)
-		sb.WriteString("\n[mcp_servers." + server + ".tools." + tomlKeySegment(name) + "]\n")
+		sb.WriteString("\n[mcp_servers." + tomlKeySegment(server) + ".tools." + tomlKeySegment(name) + "]\n")
 		for _, k := range keys {
 			emit.WriteTOMLValue(sb, tomlKeySegment(k), fields[k])
 		}
@@ -347,7 +356,7 @@ func writeMCPOAuthTable(sb *strings.Builder, server string, meta map[string]any)
 	if clientID == "" && callbackURL == "" && !hasPort {
 		return
 	}
-	sb.WriteString("\n[mcp_servers." + server + ".oauth]\n")
+	sb.WriteString("\n[mcp_servers." + tomlKeySegment(server) + ".oauth]\n")
 	if clientID != "" {
 		emit.WriteTOMLString(sb, "client_id", clientID)
 	}
