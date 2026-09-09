@@ -16,6 +16,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Scoped-context docs add a runnable walkthrough, migration steps, and troubleshooting; references now distinguish scoped output from root instructions.
 - Documentation starts with a focused first-rule tutorial, dedicated installation, migration, and troubleshooting guides, and one contributor setup path. Reference navigation and CI recipes distinguish committed from ignored output.
 
+### Fixed
+
+- Windsurf: `outputs.windsurf.workflows-dir` warns instead of writing files nothing reads. Devin Desktop removed Cascade, the only agent that ever read a Workflow, in v3.9.19; its replacement, Devin Local, does not support them (#707).
+
 ## v0.53.0 - 2026-09-09
 
 ### Added

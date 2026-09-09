@@ -131,9 +131,29 @@ func TestKitSink_SkillOutputMatchesAmpGolden(t *testing.T) {
 	}
 }
 
-func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
+func swapWindsurfWarner(t *testing.T) *strings.Builder {
+	t.Helper()
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	return buf
+}
+
+// Devin Desktop v3.9.19 ("September 8, 2026") removed Cascade, the
+// only agent that ever read a Workflow file: "Cascade has been
+// removed. Devin Local is now the only agent available in Devin
+// Desktop" (docs.devin.ai/desktop/changelog.md). Its replacement does
+// not pick the surface back up: "Workflows are not available with the
+// Devin Local agent. Migrate your workflows to skills with the Devin:
+// Open Cascade Migration Wizard command"
+// (docs.devin.ai/desktop/devin-local, Limitations; target-audit
+// 2026-09-09, #707). Emit no longer writes to workflows-dir; it only
+// warns.
+func TestEmit_WorkflowsDirWarnsAndNoLongerEmits(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
+	buf := swapWindsurfWarner(t)
 
 	entries := []spec.Entry{
 		{
@@ -153,20 +173,22 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wfPath := filepath.Join(dir, ".windsurf/workflows/ship-it.md")
-	got, err := os.ReadFile(wfPath)
-	if err != nil {
-		t.Fatalf("missing workflow: %v", err)
-	}
-	body := string(got)
-	if !strings.Contains(body, "description: open and merge a PR") {
-		t.Errorf("workflow missing description frontmatter: %q", body)
-	}
-	if !strings.Contains(body, "Run the release.") {
-		t.Errorf("workflow missing body: %q", body)
+	if _, err := os.Stat(filepath.Join(dir, ".windsurf/workflows")); !os.IsNotExist(err) {
+		t.Errorf("expected no workflows dir written; err=%v", err)
 	}
 
-	// The native subagent file emits either way.
+	out := buf.String()
+	if !strings.Contains(out, "Cascade") {
+		t.Errorf("expected warning to name Cascade's removal, got: %q", out)
+	}
+	if !strings.Contains(out, "skills") {
+		t.Errorf("expected warning to name the vendor's skills migration path, got: %q", out)
+	}
+	if !strings.Contains(out, "outputs.windsurf.workflows-dir") {
+		t.Errorf("expected warning to name the config key, got: %q", out)
+	}
+
+	// The native subagent file and rules still emit either way.
 	if _, err := os.Stat(filepath.Join(dir, ".devin/agents/ship-it.md")); err != nil {
 		t.Errorf("native agent file missing: %v", err)
 	}
@@ -197,9 +219,10 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	}
 }
 
-func TestEmit_NoWorkflowsDirNoEmit(t *testing.T) {
+func TestEmit_NoWorkflowsDirNoEmitNoWarning(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
+	buf := swapWindsurfWarner(t)
 
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag1", Body: "agent"}}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -207,6 +230,9 @@ func TestEmit_NoWorkflowsDirNoEmit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".windsurf/workflows")); !os.IsNotExist(err) {
 		t.Errorf("expected no workflows dir; err=%v", err)
+	}
+	if out := buf.String(); out != "" {
+		t.Errorf("expected no warning when workflows-dir is unset, got: %q", out)
 	}
 }
 

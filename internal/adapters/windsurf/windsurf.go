@@ -66,10 +66,19 @@
 // adding a ninth on-disk copy. The target keeps its `windsurf` name so
 // existing configs and `x-windsurf` meta continue to work.
 //
-// When `outputs.windsurf.workflows-dir` is set, each agent additionally
-// emits as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
-// as `/<name>` (upstream still documents `.windsurf/workflows/` only).
-// The native subagent file emits either way.
+// `outputs.windsurf.workflows-dir` used to additionally emit each
+// agent as a Workflow at `<dir>/<name>.md`, invokable in Cascade chat
+// as `/<name>`. Devin Desktop v3.9.19 ("September 8, 2026") removed
+// Cascade, the only agent that ever read a Workflow file: "Cascade has
+// been removed. Devin Local is now the only agent available in Devin
+// Desktop" (docs.devin.ai/desktop/changelog.md). Devin Local does not
+// pick the surface back up: "Workflows are not available with the
+// Devin Local agent. Migrate your workflows to skills with the Devin:
+// Open Cascade Migration Wizard command"
+// (docs.devin.ai/desktop/devin-local, Limitations; target-audit
+// 2026-09-09, #707). Emit no longer writes there: setting the key now
+// only warns, naming the vendor's migration path. The native subagent
+// file emits either way, unaffected.
 //
 // MCP servers merge into `.devin/mcp_config.json` (override via
 // outputs.windsurf.mcp-file) under a root `mcpServers` map, the same
@@ -115,7 +124,7 @@
 package windsurf
 
 import (
-	"path/filepath"
+	"fmt"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -175,12 +184,13 @@ func (Adapter) Name() string { return target }
 // subagent path), and one folder per skill under the skills directory
 // (default `.agents/skills`, Devin Desktop's documented
 // cross-agent-compatibility SKILL.md tree behind its own
-// `.windsurf/skills/`; a flat file there never loads as a skill). When
-// `outputs.windsurf.workflows-dir` is set, each agent additionally
-// emits as a Workflow at `<dir>/<name>.md`. Ignore specs merge into
-// `.devinignore` (default; override via outputs.windsurf.ignore-file).
-// MCP servers merge into `.devin/mcp_config.json` (default; override
-// via outputs.windsurf.mcp-file), the file Devin Local reads.
+// `.windsurf/skills/`; a flat file there never loads as a skill).
+// Ignore specs merge into `.devinignore` (default; override via
+// outputs.windsurf.ignore-file). MCP servers merge into
+// `.devin/mcp_config.json` (default; override via
+// outputs.windsurf.mcp-file), the file Devin Local reads.
+// `outputs.windsurf.workflows-dir`, still set on an old config, no
+// longer writes anything: Emit warns instead (warnWorkflowsDirRemoved).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -217,7 +227,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
 		return err
 	}
-	return emitWorkflows(sess, b, cfg, dryRun)
+	warnWorkflowsDirRemoved(sess, cfg)
+	return nil
 }
 
 // The activation modes agnostic-ai emits through the `trigger`
@@ -292,33 +303,35 @@ func activationFrontmatter(e spec.Entry) string {
 	return b.String()
 }
 
-// emitWorkflows writes one workflow per agent under the configured
-// workflows directory. No-op when the dir is unset.
-func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+// warnWorkflowsDirRemoved fires once per real sync when
+// outputs.windsurf.workflows-dir is still configured. This adapter
+// used to write one Workflow file per agent there; it no longer does.
+//
+// Devin Desktop v3.9.19 ("September 8, 2026") removed Cascade, the
+// only agent that ever read a Workflow file: "Cascade has been
+// removed. Devin Local is now the only agent available in Devin
+// Desktop" (docs.devin.ai/desktop/changelog.md). Devin Local does not
+// pick the surface back up: "Workflows are not available with the
+// Devin Local agent. Migrate your workflows to skills with the Devin:
+// Open Cascade Migration Wizard command"
+// (docs.devin.ai/desktop/devin-local, Limitations; target-audit
+// 2026-09-09, #707). Unlike the rules legacyDir fallback above, which
+// a real still-supported older layout still reads, there is no reader
+// left for a Workflow file at all, so writing one is pure dead weight
+// forever, not a compat tradeoff. This only warns and names the
+// vendor's own migration path; any file it wrote to this directory
+// before the removal carries the provenance marker and is swept by
+// the sync ledger's orphan sweep on the next full sync, same as any
+// other output this adapter stops emitting.
+func warnWorkflowsDirRemoved(sess *emit.Session, cfg *config.Config) {
+	if sess.IsCapturing() {
+		return
+	}
 	dir := emit.OutputWorkflowsDir(cfg, target, "")
 	if dir == "" {
-		return nil
+		return
 	}
-	for _, a := range b.Agents {
-		path := filepath.Join(dir, a.Name+".md")
-		if err := sess.WriteFile(path, emit.WithHeader(renderWorkflow(a), emit.FormatMarkdown), dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// renderWorkflow renders a Windsurf Workflow file. Frontmatter holds
-// the `description` Cascade shows in the slash-command picker; the
-// body is the prompt the agent runs when the workflow is invoked.
-func renderWorkflow(e spec.Entry) string {
-	desc := e.Description()
-	var b strings.Builder
-	b.WriteString("---\n")
-	if desc != "" {
-		b.WriteString("description: " + desc + "\n")
-	}
-	b.WriteString("---\n\n")
-	b.WriteString(e.Body)
-	return b.String()
+	_, _ = fmt.Fprintf(emit.Warner,
+		"%s: outputs.windsurf.workflows-dir (%s) is set, but Devin Desktop removed Cascade in v3.9.19, the only agent that read Workflows; Devin Local does not support them. Nothing is written there anymore. Migrate to skills instead (Devin: Open Cascade Migration Wizard), or remove outputs.windsurf.workflows-dir to silence this.\n",
+		target, dir)
 }

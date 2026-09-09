@@ -176,7 +176,7 @@ outputs:
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
     ignore-file: .devinignore    # default. Agent ignore patterns (gitignore syntax); legacy .codeiumignore / .windsurfignore still read.
     mcp-file: .devin/mcp_config.json  # default. Devin Local's file; remote entries use transport, not type.
-    # workflows-dir: .windsurf/workflows    # opt-in: also emit each agent as a Workflow (/<name>).
+    # workflows-dir: .windsurf/workflows    # opt-in, now warn-only: Cascade, the only agent that read Workflows, was removed in Devin Desktop v3.9.19.
   continue:
     rules-dir: .continue/rules        # default
     mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
@@ -335,7 +335,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `windsurf` | `rules-dir` | `.devin/rules` | One `.md` per rule. Devin Desktop's preferred path; set `.windsurf/rules` to keep the pre-rename layout. A scoped rule prefixes the scope instead of nesting inside: `<scope>/.devin/rules/<name>.md` (#628). |
 | `windsurf` | `agents-dir` | `.devin/agents` | One custom-subagent `.md` per agent (`name`, `description`, optional `model`; `tools` translated onto Devin's `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`; `x-windsurf` passthrough for `max-nesting`, or `allowed-tools` directly to bypass the translation). Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
-| `windsurf` | `workflows-dir` | _empty_ | When set, each agent also emits as a Workflow at `<dir>/<name>.md` (invokable as `/<name>`). The native subagent file emits either way. Opt-in. |
+| `windsurf` | `workflows-dir` | _empty_ | No longer emits anything: Devin Desktop removed Cascade, the only agent that read Workflows, in v3.9.19, and Devin Local does not support them. Setting this key only prints a sync-time warning naming the vendor's skills migration path. The native subagent file emits either way. |
 | `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). Scoped rules emit constrained `globs` and omit `alwaysApply`. `x-continue.regex` is supported only without `scope`. |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
