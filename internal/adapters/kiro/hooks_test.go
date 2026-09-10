@@ -42,14 +42,15 @@ func TestEmit_Hook_WritesOneFilePerHook(t *testing.T) {
 		t.Fatalf("expected one hook entry, got %d", len(doc.Hooks))
 	}
 	h := doc.Hooks[0]
-	if h.Name != "fmt-go" || h.Trigger != "PostToolUse" || h.Matcher != "Edit" || h.Timeout != 30 {
+	if h["name"] != "fmt-go" || h["trigger"] != "PostToolUse" || h["matcher"] != "Edit" || h["timeout"] != float64(30) {
 		t.Errorf("unexpected entry: %+v", h)
 	}
-	if h.Action.Type != "command" || h.Action.Command != "gofmt -w" {
-		t.Errorf("unexpected action: %+v", h.Action)
+	action, _ := h["action"].(map[string]any)
+	if action["type"] != "command" || action["command"] != "gofmt -w" {
+		t.Errorf("unexpected action: %+v", action)
 	}
-	if h.Enabled != nil {
-		t.Errorf("expected no enabled key for a hook that is not disabled, got %v", *h.Enabled)
+	if _, ok := h["enabled"]; ok {
+		t.Errorf("expected no enabled key for a hook that is not disabled, got %v", h["enabled"])
 	}
 }
 
@@ -97,10 +98,12 @@ func TestEmit_Hook_MultipleCommandsShareOneFile(t *testing.T) {
 	if len(doc.Hooks) != 2 {
 		t.Fatalf("expected two hook entries, got %d", len(doc.Hooks))
 	}
-	if doc.Hooks[0].Name != "multi" || doc.Hooks[0].Action.Command != "echo one" {
+	firstAction, _ := doc.Hooks[0]["action"].(map[string]any)
+	if doc.Hooks[0]["name"] != "multi" || firstAction["command"] != "echo one" {
 		t.Errorf("unexpected first entry: %+v", doc.Hooks[0])
 	}
-	if doc.Hooks[1].Name != "multi-2" || doc.Hooks[1].Action.Command != "echo two" {
+	secondAction, _ := doc.Hooks[1]["action"].(map[string]any)
+	if doc.Hooks[1]["name"] != "multi-2" || secondAction["command"] != "echo two" {
 		t.Errorf("unexpected second entry: %+v", doc.Hooks[1])
 	}
 }
@@ -152,6 +155,67 @@ func TestEmit_HooksDirOverride(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".kiro/hooks/h1.json")); !os.IsNotExist(err) {
 		t.Errorf("expected no output at the default hooks dir, err=%v", err)
+	}
+}
+
+// `description` is a generic spec field (docs/user/spec-format.md's
+// Hooks table: "Free-form documentation"); Kiro documents the matching
+// `hooks[].description` as "Documentation only". It reaches the file
+// now that entries build as a map instead of a fixed struct (#642).
+func TestEmit_Hook_DescriptionReachesFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{
+				"event": "PostToolUse", "command": "gofmt -w",
+				"description": "Format Go files after an edit.",
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kiro/hooks/fmt-go.json"))
+	if !strings.Contains(got, `"description": "Format Go files after an edit."`) {
+		t.Errorf("expected description to reach the file, got:\n%s", got)
+	}
+}
+
+// `confirm` (kiro.dev/docs/hooks/: "Ask for confirmation before a Stop
+// command hook runs") has no agnostic-ai spec equivalent, so it is only
+// reachable through `x-kiro`. Before #642, hookEntry was a fixed Go
+// struct with no route for any unknown key at any layer, including
+// x-kiro, so this was unreachable by construction.
+func TestEmit_Hook_XKiroConfirmPassesThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "release",
+			Meta: map[string]any{
+				"event": "Stop", "command": "./release.sh",
+				"x-kiro": map[string]any{
+					"confirm": map[string]any{
+						"question": "Ship the release?",
+						"options": []any{
+							map[string]any{"id": "yes", "label": "Ship it", "run": true},
+							map[string]any{"id": "no", "label": "Cancel", "run": false},
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kiro/hooks/release.json"))
+	for _, want := range []string{`"confirm"`, `"question": "Ship the release?"`, `"id": "yes"`, `"label": "Ship it"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
 	}
 }
 

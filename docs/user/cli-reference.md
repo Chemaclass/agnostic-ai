@@ -146,18 +146,22 @@ The leading `# <heading>` block (which the adapter prepends on emit) is stripped
 
 `import junie` reads rules and agents from `.junie/AGENTS.md`'s sentinel-marked Rules and Agents blocks: the file Junie's guidelines lookup opens, since that lookup is strict precedence and `sync` always writes it first (target-audit 2026-08-08, #552). It also reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A project synced by an agnostic-ai version before that fix still has real content flattened under `.junie/rules/` (reclassified by filename prefix, the same scheme as the group above); that directory takes precedence over `.junie/AGENTS.md` when it still exists. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
 
-`import kiro` reverses the Kiro steering layout. Steering files are flat under `.kiro/steering/` and carry a frontmatter-first `inclusion:` block; the filename prefix picks the kind:
+`import kiro` reverses the Kiro layout: native agent and skill trees import first, then the flat `.kiro/steering/` files (frontmatter-first `inclusion:` block, filename prefix picks the kind) fill in rules plus anything a pre-native sync still left flattened there:
 
 | Source | Becomes |
 |--------|---------|
+| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md` |
+| `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled sibling assets included |
 | `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (unscoped rule) |
 | `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
-| `.kiro/steering/agent-<name>.md` | `<agents>/<name>.md` |
-| `.kiro/steering/skill-<name>.md` | `<skills>/<name>/SKILL.md` |
+| `.kiro/steering/agent-<name>.md` (legacy, pre-native sync) | `<agents>/<name>.md`, body only |
+| `.kiro/steering/skill-<name>.md` (legacy, pre-native sync) | `<skills>/<name>/SKILL.md`, body only |
 | `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec drops them without changing Kiro's output): a rule's source-layout scope collapses into an equivalent `globs:`, a steering agent keeps only its body, and a steering skill keeps only its SKILL.md (bundled sibling assets are flattened on emit).
+The native rows run after the legacy steering sweep, so a name present under both wins on the native copy.
+
+Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec drops them without changing Kiro's output): a rule's source-layout scope collapses into an equivalent `globs:`; a legacy flattened steering agent or skill keeps only its body, since that flattened form never carried a description, model, or bundled sibling assets in the first place.
 
 `import crush` reverses the Crush layout. Crush has no per-rule directory, so rules ride inside the shared `AGENTS.md`:
 

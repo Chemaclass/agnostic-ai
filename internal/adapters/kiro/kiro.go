@@ -1,10 +1,10 @@
-// Package kiro emits steering files, native agent profiles, hook
-// definitions, and MCP config for AWS Kiro.
+// Package kiro emits steering files, native agent profiles, native
+// skill folders, hook definitions, and MCP config for AWS Kiro.
 //
 // Kiro loads Markdown steering documents from `.kiro/steering/`. Every
 // file starts with a YAML frontmatter block (it must be the first
 // content in the file, no blank line before it) whose `inclusion` key
-// picks one of three loading modes:
+// picks one of three loading modes this adapter uses:
 //
 //   - `always`: loaded on every interaction. Used for rules with no
 //     glob or scope to target.
@@ -12,16 +12,24 @@
 //     matches the pattern. Used for rules that carry `globs` or a
 //     source-layout scope.
 //
-// Skills also become steering files, using a fourth mode Kiro reserves
-// for skill-like matching:
+// (Kiro also documents `auto` and `manual` steering modes; this
+// adapter has no rule shape that needs either.)
 //
-//   - `auto` (+ `name`, `description`): Kiro matches the name and
-//     description against the user's request and loads the file when
-//     it looks relevant, mirroring skill semantics.
-//
-// A skill with bundled sibling assets cannot carry them in a flat
-// steering file; those skills surface a coverage note instead of
-// silently dropping the assets.
+// Skills are a native Kiro surface too, not a steering-file convention:
+// one folder per skill at `.kiro/skills/<name>/SKILL.md`
+// (kiro.dev/docs/skills/: "Workspace skills (`.kiro/skills/`)", loaded
+// by glob at `skill://.kiro/skills/*/SKILL.md`), the standard Agent
+// Skills layout (`name` + `description` frontmatter) this adapter
+// shares byte-for-byte with the `.agents/skills/` render ten other
+// targets already produce (emit.WriteSkillFolders). Bundled sibling
+// assets (`scripts/`, `references/`, `assets/`) copy alongside
+// SKILL.md, so a skill package keeps progressive disclosure and
+// slash-command invocation instead of losing them. A prior version of
+// this adapter flattened skills into `.kiro/steering/skill-<name>.md`
+// with `inclusion: auto`, which dropped bundled assets entirely and
+// never reached Kiro's own skill picker (#642); sync sweeps a stale
+// file of that shape left behind for a current skill name, the same
+// convention agents already use below.
 //
 // Agents are a native Kiro surface, not a steering-file convention: one
 // YAML-frontmatter Markdown file per agent at `.kiro/agents/<name>.md`,
@@ -89,20 +97,32 @@
 // `{"version": "v1", "hooks": [...]}`. A hook entry carries `name`,
 // `trigger` (the spec's `event`, passed through verbatim like every
 // other adapter's hook event), an optional `matcher`, an `action`
-// object, and an optional `timeout`. A spec's `command:` (string or
-// list) always renders `action: {"type": "command", "command": ...}`; a
-// list produces one entry per command in the same file, `name` suffixed
-// `-2`, `-3`, ... to stay unique. Kiro also documents an `{"type":
-// "agent", "prompt": ...}` action that invokes an agent instead of a
-// shell command; agnostic-ai's hook spec has no generic prompt field,
-// so this adapter never emits that shape. `disabled: true` on the spec
-// writes `"enabled": false` (the vendor default, enabled, needs no
-// explicit key), mirroring the `disabled`/`enabled` convention already
-// used for MCP entries. Unlike Claude Code, Codex, Gemini, and Cursor,
-// this adapter does not materialize stashed hook scripts from
-// `.agnostic-ai/scripts/` into `.kiro/hooks/`: that directory is where
-// Kiro looks for hook definitions, and there is no vendor confirmation
-// that a plain script file living alongside them is safe.
+// object, an optional `timeout`, and the spec's generic `description`
+// field (docs/user/spec-format.md: "Free-form documentation"; the
+// vendor field reference lists the matching `hooks[].description` as
+// "Documentation only"). A spec's `command:` (string or list) always
+// renders `action: {"type": "command", "command": ...}`; a list
+// produces one entry per command in the same file, `name` suffixed
+// `-2`, `-3`, ... to stay unique. `disabled: true` on the spec writes
+// `"enabled": false` (the vendor default, enabled, needs no explicit
+// key), mirroring the `disabled`/`enabled` convention already used for
+// MCP entries. Every entry marshals from a `map[string]any`, not a
+// fixed struct, so arbitrary `x-kiro` keys pass through verbatim
+// (emit.MergeCustomTargetMeta): `confirm` (the vendor's Stop-hook
+// confirmation block: "Ask for confirmation before a Stop command hook
+// runs", taking `question`, `options` (`id`/`label`/`run` each), and an
+// optional `confirmCommand`) has no agnostic-ai spec equivalent and so
+// is only reachable this way, and `x-kiro.action` can set the
+// documented `{"type": "agent", "prompt": ...}` shape this adapter
+// never emits by hand (agnostic-ai's hook spec has no generic prompt
+// field). Before #642, `hookEntry` was a fixed Go struct: `description`
+// and `confirm` were unreachable at any layer, including x-kiro,
+// because a struct cannot marshal a key it does not declare. Unlike
+// Claude Code, Codex, Gemini, and Cursor, this adapter does not
+// materialize stashed hook scripts from `.agnostic-ai/scripts/` into
+// `.kiro/hooks/`: that directory is where Kiro looks for hook
+// definitions, and there is no vendor confirmation that a plain script
+// file living alongside them is safe.
 //
 // MCP servers write to `.kiro/settings/mcp.json` as a `mcpServers` map.
 // A local server carries `command` plus optional `args` and `env`; a
@@ -140,6 +160,7 @@ const (
 	target             = "kiro"
 	defaultSteeringDir = ".kiro/steering"
 	defaultAgentsDir   = ".kiro/agents"
+	defaultSkillsDir   = ".kiro/skills"
 	defaultHooksDir    = ".kiro/hooks"
 	defaultMCPFile     = ".kiro/settings/mcp.json"
 	// legacyAgentPrefix names the flattened steering file this adapter
@@ -147,8 +168,13 @@ const (
 	// `.kiro/agents/` surface (see the package doc). Kept only so
 	// emitAgents can sweep away a stale file of this shape left behind
 	// by an older sync.
-	legacyAgentPrefix   = "agent-"
-	skillFilenamePrefix = "skill-"
+	legacyAgentPrefix = "agent-"
+	// legacySkillPrefix names the flattened steering file this adapter
+	// used to write per skill before skills moved to their native
+	// `.kiro/skills/` surface (see the package doc). Kept only so
+	// emitSkills can sweep away a stale file of this shape left behind
+	// by an older sync.
+	legacySkillPrefix = "skill-"
 )
 
 var caps = emit.Capabilities{
@@ -165,9 +191,9 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one steering file per rule and skill, one native agent
-// profile per agent, one hook definition file per hook, plus
-// `.kiro/settings/mcp.json` when MCP entries exist.
+// Emit writes one steering file per rule, one native agent profile per
+// agent, one native skill folder per skill, one hook definition file
+// per hook, plus `.kiro/settings/mcp.json` when MCP entries exist.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -180,7 +206,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitAgents(sess, b.Agents, agentsDir, dir, dryRun); err != nil {
 		return err
 	}
-	if err := emitSkills(sess, b.Skills, dir, dryRun); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	if err := emitSkills(sess, b.Skills, skillsDir, dir, dryRun); err != nil {
 		return err
 	}
 	hooksDir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
@@ -233,24 +260,22 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir 
 	return nil
 }
 
-// emitSkills writes one `<dir>/skill-<name>.md` per skill with
-// `inclusion: auto`, `name`, and `description`, the mode Kiro matches
-// against user requests. Folder-based skills that carry sibling assets
-// beyond SKILL.md surface a coverage note, since a flat steering file
-// cannot represent bundled files.
-func emitSkills(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
-	withAssets := 0
+// emitSkills writes the standard Agent Skills folder layout for every
+// skill into skillsDir (see the package doc and emit.WriteSkillFolders):
+// one `<skillsDir>/<name>/SKILL.md` plus every sibling asset propagated
+// byte-for-byte. It then sweeps the legacy flattened steering file at
+// `<steeringDir>/skill-<name>.md` a prior sync may have left behind for
+// the same name, mirroring emitAgents' sweep of its own legacy path.
+func emitSkills(sess *emit.Session, skills []spec.Entry, skillsDir, steeringDir string, dryRun bool) error {
+	if err := sess.WriteSkillFolders(skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
 	for _, s := range skills {
-		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
-		body := emit.WithHeader(renderSkill(s), emit.FormatMarkdown)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		legacy := filepath.Join(steeringDir, legacySkillPrefix+s.Name+".md")
+		if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
 			return err
 		}
-		if emit.SkillHasBundledAssets(s, emit.SkipSKILLMd) {
-			withAssets++
-		}
 	}
-	emit.NoteCoverageGap(target, spec.KindSkill, withAssets, "bundled assets stay in the source dir")
 	return nil
 }
 
@@ -398,24 +423,6 @@ func xKiroSetsTools(meta map[string]any) bool {
 	}
 	_, tools := x["tools"]
 	return tools
-}
-
-// renderSkill renders a skill's steering-file body with
-// `inclusion: auto`, `name`, and `description`, so Kiro auto-matches it
-// against user requests the way it would a skill. Description falls
-// back to the skill's name when the spec has none.
-func renderSkill(e spec.Entry) string {
-	m := emit.ResolveMeta(e.Meta, target)
-	desc, _ := m["description"].(string)
-	if desc == "" {
-		desc = e.Name
-	}
-	front := map[string]any{
-		"inclusion":   "auto",
-		"name":        e.Name,
-		"description": desc,
-	}
-	return withFrontmatter(front, []string{"inclusion", "name", "description"}, e.Body)
 }
 
 // withFrontmatter joins a rendered frontmatter block with body,

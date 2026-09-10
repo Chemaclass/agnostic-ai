@@ -14,33 +14,29 @@ import (
 // vendor schema documents regardless of how many entries one file
 // carries, so a spec with several `command:` entries shares one file
 // (see buildHookEntries) instead of spawning one file per command.
+//
+// Hooks marshal as `map[string]any` rather than a fixed struct: a Go
+// struct has no route for a key it does not declare, at any layer,
+// including x-kiro, which is how `description` and `confirm` stayed
+// unreachable across three audit passes (#642). `map[string]any` keys
+// alpha-sort under `encoding/json`, so key order below is illustrative,
+// not the emitted order.
 type hooksFile struct {
 	// Version is a string, not a number: the vendor field reference
 	// documents `version` as `Schema version - currently "v1"`.
-	Version string      `json:"version"`
-	Hooks   []hookEntry `json:"hooks"`
+	Version string           `json:"version"`
+	Hooks   []map[string]any `json:"hooks"`
 }
 
 // hookAction is always the `{"type": "command", "command": ...}` shape:
 // Kiro also documents a `{"type": "agent", "prompt": ...}` action that
 // invokes an agent instead of a shell command, but agnostic-ai's hook
-// spec has no generic prompt field, so this adapter never emits it.
+// spec has no generic prompt field, so this adapter never emits it by
+// hand. `x-kiro.action` is not excluded from the passthrough merge
+// below, so an author who wants that shape can still set it directly.
 type hookAction struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
-}
-
-type hookEntry struct {
-	Name    string     `json:"name"`
-	Trigger string     `json:"trigger"`
-	Matcher string     `json:"matcher,omitempty"`
-	Action  hookAction `json:"action"`
-	Timeout int        `json:"timeout,omitempty"`
-	// Enabled is a pointer so the common case (enabled) omits the key
-	// entirely; only disabled: true on the spec sets it to false,
-	// mirroring the disabled/enabled convention this adapter already
-	// uses for MCP entries.
-	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // emitHooks writes one `<dir>/<name>.json` per hook spec. A spec's
@@ -69,10 +65,17 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 	return nil
 }
 
-// buildHookEntries renders one hookEntry per command on h. Returns nil
-// when h has no event or no usable command, so the caller skips writing
-// a file for it entirely.
-func buildHookEntries(h spec.Entry) []hookEntry {
+// buildHookEntries renders one hooks[] entry per command on h as a
+// map[string]any: `name`, `trigger`, `action`, and the optional
+// `matcher`/`timeout`/`enabled`/`description` fields agnostic-ai's spec
+// already carries, plus every key under `x-kiro` (e.g. `confirm`, the
+// vendor's Stop-hook confirmation block, which has no agnostic-ai spec
+// equivalent and so is only reachable this way). Every entry sharing
+// this hook spec's command list also shares its `description` and
+// `x-kiro` passthrough, since both live on the spec, not per-command.
+// Returns nil when h has no event or no usable command, so the caller
+// skips writing a file for it entirely.
+func buildHookEntries(h spec.Entry) []map[string]any {
 	trigger, _ := h.Meta["event"].(string)
 	if trigger == "" {
 		return nil
@@ -83,26 +86,39 @@ func buildHookEntries(h spec.Entry) []hookEntry {
 	}
 	matcher, _ := h.Meta["matcher"].(string)
 	timeout := hookIntMeta(h.Meta, "timeout")
-	var disabledPtr *bool
-	if disabled, _ := h.Meta["disabled"].(bool); disabled {
-		f := false
-		disabledPtr = &f
-	}
+	description, _ := h.Meta["description"].(string)
+	disabled, _ := h.Meta["disabled"].(bool)
 
-	entries := make([]hookEntry, 0, len(cmds))
+	entries := make([]map[string]any, 0, len(cmds))
 	for i, cmd := range cmds {
 		name := h.Name
 		if i > 0 {
 			name = fmt.Sprintf("%s-%d", h.Name, i+1)
 		}
-		entries = append(entries, hookEntry{
-			Name:    name,
-			Trigger: trigger,
-			Matcher: matcher,
-			Action:  hookAction{Type: "command", Command: emit.RewriteHookPath(cmd, target)},
-			Timeout: timeout,
-			Enabled: disabledPtr,
-		})
+		entry := map[string]any{
+			"name":    name,
+			"trigger": trigger,
+			"action":  hookAction{Type: "command", Command: emit.RewriteHookPath(cmd, target)},
+		}
+		var keys []string
+		if matcher != "" {
+			entry["matcher"] = matcher
+		}
+		if timeout != 0 {
+			entry["timeout"] = timeout
+		}
+		if disabled {
+			// The vendor default (enabled) needs no explicit key,
+			// mirroring the disabled/enabled convention this adapter
+			// already uses for MCP entries.
+			entry["enabled"] = false
+		}
+		if description != "" {
+			entry["description"] = description
+		}
+		emit.MergeCustomTargetMeta(entry, &keys, h.Meta, target,
+			"name", "trigger", "matcher", "action", "timeout", "enabled", "description")
+		entries = append(entries, entry)
 	}
 	return entries
 }

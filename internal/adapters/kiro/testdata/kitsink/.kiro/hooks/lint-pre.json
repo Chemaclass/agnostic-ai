@@ -2,13 +2,13 @@
   "version": "v1",
   "hooks": [
     {
-      "name": "lint-pre",
-      "trigger": "PreToolUse",
-      "matcher": "Write",
       "action": {
         "type": "command",
         "command": "echo pre"
-      }
+      },
+      "matcher": "Write",
+      "name": "lint-pre",
+      "trigger": "PreToolUse"
     }
   ]
 }

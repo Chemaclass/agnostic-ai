@@ -667,7 +667,7 @@ Per surface:
 |--------|---------|---------------------|
 | `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
 | `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
-| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` (e.g. crush's `user-invocable: true`, which adds the skill to the command palette) |
+| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot`, `kiro` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` (e.g. crush's `user-invocable: true`, which adds the skill to the command palette) |
 | `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`icon`/`color`/`metadata` |
 | `cursor` | agent `.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`model`/`readonly`/`is_background` |
 | `copilot` | rule `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
@@ -676,8 +676,9 @@ Per surface:
 | `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` |
 | `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
 | `kiro` | agent `.md` frontmatter | every `x-kiro` key beyond `description`/`model` (`name` is excluded: Kiro's agent schema has none, identity comes from the filename) |
+| `kiro` | hook `.json` entry | every `x-kiro` key beyond `name`/`trigger`/`matcher`/`action`/`timeout`/`enabled`/`description` (e.g. `confirm`, Kiro's Stop-hook confirmation block, which has no agnostic-ai spec equivalent) |
 | `qoder` | agent `.md` frontmatter | every `x-qoder` key beyond `name`/`description`/`model`/`tools`/`skills`/`mcpServers` |
 | `warp` | workflow `.yaml` | every `x-warp` key beyond `name`/`command`/`description`/`tags` (e.g. `shells`, `arguments`, `source_url`, `author`, `author_url`) |
 | `zed` | task (in `outputs.zed.tasks-file`) | every `x-zed` key beyond `label`/`command`/`args` (e.g. `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, `reevaluate_context`) |
 
-Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule and skill steering files carry no passthrough; kiro agents do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.
+Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule steering files carry no passthrough; kiro agents, skills, and hooks do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.

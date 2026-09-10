@@ -15,6 +15,7 @@ import (
 const (
 	kiroSteeringDir = ".kiro/steering"
 	kiroAgentsDir   = ".kiro/agents"
+	kiroSkillsDir   = ".kiro/skills"
 	kiroMCPFile     = ".kiro/settings/mcp.json"
 	kiroMCPKey      = "mcpServers"
 	kiroMainFile    = "AGENTS.md"
@@ -28,26 +29,31 @@ const (
 //     filename, same as spec loading's own fallback). Copied verbatim
 //     minus the provenance header, so `model` and any `x-kiro` keys
 //     round-trip untouched.
+//   - `.kiro/skills/<name>/SKILL.md` native skill folders copy
+//     byte-for-byte via importSkillFolders, so bundled sibling assets
+//     (`scripts/`, `references/`, `assets/`) round-trip along with
+//     SKILL.md, the same shared helper cursor/gemini/opencode/copilot use.
 //   - `.kiro/steering/*.md` steering files carry a frontmatter-first
 //     `inclusion:` block. The filename prefix picks the kind
 //     (`agent-<name>.md` -> agent, `skill-<name>.md` -> skill, otherwise
 //     a rule) and a rule's `inclusion:` maps back to scope: `fileMatch`
 //     with `fileMatchPattern` becomes a `globs:` rule, `always` an
-//     unscoped rule. The `agent-<name>.md` form is the flattened surface
-//     this adapter wrote before agents moved to `.kiro/agents/`; still
-//     read here for projects synced before that change, and merged with
-//     `.kiro/agents/` by name (the native file wins on a collision,
-//     since `importKiroAgents` runs second).
+//     unscoped rule. The `agent-<name>.md` and `skill-<name>.md` forms
+//     are the flattened surfaces this adapter wrote before agents and
+//     skills moved to their native `.kiro/agents/` and `.kiro/skills/`
+//     trees; still read here for projects synced before those changes,
+//     and merged with the native trees by name (the native copy wins on
+//     a collision, since `importKiroAgents` and `importSkillFolders` for
+//     `.kiro/skills/` both run after `importKiroSteering`).
 //   - `.kiro/settings/mcp.json` (`mcpServers` map) reconstructs MCP specs.
 //   - `AGENTS.md` (the shared entry-point Kiro reads directly) mirrors to
 //     `.agnostic-ai/AGNOSTIC_AI.md`.
 //
 // Lossy fields (Kiro's emit cannot carry them, so a round-trip drops them
 // without changing Kiro's output): a rule's source-layout scope collapses
-// into an equivalent `globs:`; a legacy steering agent keeps only its body
-// (the flattened form held no description or model); a steering skill
-// keeps only its SKILL.md content (bundled sibling assets flatten away on
-// emit); an agent's generic `tools` list re-imports as whatever Kiro
+// into an equivalent `globs:`; a legacy steering agent or skill keeps only
+// its body (the flattened forms held no description/model, and no bundled
+// assets); an agent's generic `tools` list re-imports as whatever Kiro
 // category name is actually on disk (e.g. `read`), not the Claude-style
 // names it collapsed from (`Read`, `Grep`, and `Glob` all emit as `read`
 // and are indistinguishable once written), since that many-to-one
@@ -66,6 +72,10 @@ func importFromKiro(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	skills, err := importSkillFolders(filepath.Join(root, kiroSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
 	mcps, err := importJSONMCPMap(filepath.Join(root, kiroMCPFile), kiroMCPKey,
 		filepath.Join(root, src.MCPs))
 	if err != nil {
@@ -75,7 +85,7 @@ func importFromKiro(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		c.rules, c.agents+agents, c.skills, mcps)
+		c.rules, c.agents+agents, c.skills+skills, mcps)
 	printImportNextSteps(root, "kiro")
 	return nil
 }
@@ -140,7 +150,11 @@ func importKiroSteering(root string, src config.Sources) (rulesDirCounts, error)
 
 // importKiroSteeringFile reconstructs one steering file into a rule,
 // agent, or skill spec based on its filename prefix, parsing the
-// frontmatter-first `inclusion:` block the kiro adapter writes.
+// frontmatter-first `inclusion:` block the kiro adapter writes. The
+// agent and skill cases only ever see the legacy flattened forms this
+// adapter no longer writes (see importFromKiro); the native
+// `.kiro/agents/` and `.kiro/skills/` trees import separately and win
+// on a name collision.
 func importKiroSteeringFile(root, path, filename string, src config.Sources, c *rulesDirCounts) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
