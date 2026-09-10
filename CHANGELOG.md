@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.54.0 - 2026-09-10
+
 ### Added
 
 - Directory-specific rules via `new rule --scope`, with native scoped output for 19 targets. Scoped bodies stay out of root instructions. Unsupported targets report skipped scope, and preflight rejects unsafe shared readers and hand-authored destination conflicts (#704).
