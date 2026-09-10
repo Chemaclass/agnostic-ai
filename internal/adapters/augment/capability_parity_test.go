@@ -38,6 +38,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindAgent, []string{".augment/agents/alpha.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md"}},
 		{spec.KindMCP, []string{".augment/settings.json"}},
+		{spec.KindHook, []string{".augment/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -73,24 +74,26 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	}
 }
 
-// TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind augment does not declare in caps.Supports (Hook only,
-// since #633; MCP moved to the supported side). A future caps.Supports
-// expansion needs to delete the matching row here and demonstrate the
-// emit path that backs the new claim.
+// TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for a
+// kind augment does not declare in caps.Supports. Command is the
+// closest such kind: `.augment/commands/<name>.md` is #630's row, a
+// separate PR, so it stays unsupported here (Hook moved to the
+// supported side in #629). A future caps.Supports expansion needs to
+// delete the matching row here and demonstrate the emit path that
+// backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
+		{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md", Body: "review body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (hook), got %d", got)
+		t.Errorf("expected 1 capability warning (command), got %d", got)
 	}
 }
 

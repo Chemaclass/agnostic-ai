@@ -80,9 +80,14 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the augment
-// adapter declares in caps.Supports (Rule, Agent, Skill, MCP). The MCP
-// specimens cover both transports the shared MCPSchemaServersMap
-// builder renders: stdio (command/args) and remote (type/url).
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP, Hook).
+// The MCP specimens cover both transports the shared
+// MCPSchemaServersMap builder renders: stdio (command/args) and remote
+// (type/url). The one hook specimen sets `matcher: launch-process`,
+// Augment's own tool name and the vendor's own PreToolUse example,
+// demonstrating the matcher passes straight through with no coverage
+// note, and a `command` ending in `.sh`, satisfying the vendor's
+// script-extension requirement (#629).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -101,6 +106,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+		},
+		{
+			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "launch-process", "command": "hooks/guard.sh", "timeout": 10},
 		},
 	}
 	return spec.NewBundle(entries)

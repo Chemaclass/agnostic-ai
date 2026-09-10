@@ -1,4 +1,18 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "launch-process",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/guard.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  },
   "mcpServers": {
     "http-server": {
       "type": "http",
