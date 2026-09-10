@@ -142,6 +142,46 @@ func TestEmit_RuleFrontmatter_AlwaysApplyFalseFallsBackToPaths(t *testing.T) {
 	}
 }
 
+// TestEmit_RuleXTraeSceneReachesFrontmatter confirms `x-trae.scene`
+// lands in a rule file's frontmatter. docs.trae.ai/ide/rules documents
+// `scene: git_message` as the field that marks a rule for AI-generated
+// Git commit messages, and states it "is compatible with existing
+// fields such as alwaysApply, description, and globs" rather than
+// replacing them, so it must compose onto the same block rather than
+// gate behind it (#635).
+func TestEmit_RuleXTraeSceneReachesFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindRule,
+			Name: "commit-style",
+			Meta: map[string]any{
+				"description": "Conventional commit format",
+				"x-trae":      map[string]any{"scene": "git_message"},
+			},
+			Body: "Use Conventional Commits.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".trae/rules/commit-style.md"))
+	if !strings.Contains(got, "scene: git_message\n") {
+		t.Errorf("expected x-trae.scene to reach frontmatter:\n%s", got)
+	}
+	if !strings.Contains(got, "description: Conventional commit format\n") {
+		t.Errorf("scene should compose with the existing activation fields, not replace them:\n%s", got)
+	}
+	if !strings.Contains(got, "alwaysApply: true\n") {
+		t.Errorf("scene should compose with the existing activation fields, not replace them:\n%s", got)
+	}
+	if strings.Contains(got, "x-trae:") {
+		t.Errorf("x-trae wrapper key itself must not leak:\n%s", got)
+	}
+}
+
 // A native subagent file carries the subagent frontmatter, not the
 // rule activation matrix: Trae's `/ide/subagents` table names `name`
 // and `description` as the required pair and has no `alwaysApply` key.

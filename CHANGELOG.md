@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Trae rule frontmatter merges `x-trae` custom keys, most notably `scene: git_message` for AI-generated commit-message rules. `activationFrontmatter` never called the merge helper commands already use, so no custom key ever reached a rule file (#635).
+
 ### Fixed
 
 - Codex: `import codex` now reads inline hooks from `.codex/config.toml` in the vendor's documented nested shape (`[[hooks.<event>]]` matcher table plus a nested `[[hooks.<event>.hooks]]` command array). Every vendor example uses this shape; before this fix it imported as zero hooks with no warning. The flat table this tool previously required still decodes for backward compatibility (#669).

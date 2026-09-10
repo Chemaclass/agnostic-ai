@@ -184,8 +184,9 @@ cost nobody again:
   emitted since #638; watch whether the vendor ever states the toggle's
   default, and watch the "Available models" table, since a generic
   `model:` is dropped for lack of a value in it. `/ide/rules`
-  documents `scene: git_message` and caps rule nesting at three levels; and
-  `/ide/slash-commands` documents `.trae/commands` with a `Name`/`Description`
+  documents `scene: git_message` and caps rule nesting at three levels;
+  emitted since #635 via `x-trae.scene`, re-confirmed live 2026-09-10 by
+  extracting the same Quill delta. `/ide/slash-commands` documents `.trae/commands` with a `Name`/`Description`
   table, which retires this repo's claim that the command shape was only
   reverse-engineered. Trae's tool vocabulary is Claude-style and matches
   agnostic-ai's exactly, unlike kiro, factory, and antigravity.
