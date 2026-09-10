@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.55.0 - 2026-09-10
+
 ### Added
 
 - Trae rule frontmatter merges `x-trae` custom keys, most notably `scene: git_message` for AI-generated commit-message rules. `activationFrontmatter` never called the merge helper commands already use, so no custom key ever reached a rule file (#635).
