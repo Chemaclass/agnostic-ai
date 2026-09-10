@@ -72,6 +72,39 @@
 // may well belong to Claude Code. A Qoder-only project should delete it
 // by hand once.
 //
+// Commands emit as one Markdown file per command spec at
+// `.qoder/commands/<name>.md` (override via outputs.qoder.commands-dir):
+// docs.qoder.com/cli/commands tables the project-level location as
+// `.qoder/commands/<command_name>.md`, "Recommended (team sharing)",
+// and corroborates the same path for the IDE at
+// docs.qoder.com/user-guide/commands ("Project Commands", "Only
+// effective in the current project root directory and its
+// subdirectories"), so this is not a CLI-only surface. The CLI page's
+// field table documents exactly two frontmatter keys: `description`
+// (Required: Yes) and `name` (Required: No, "serves only as the
+// display name in the TUI; the invocation name is always derived from
+// the file path"). Since the filename already drives invocation the
+// same way it does for kilo and trae, this adapter never writes `name`
+// and always writes `description`, falling back to the command's name
+// when the spec has none rather than leave a required key blank.
+// Subdirectories under `.qoder/commands/` namespace with `:` per the
+// CLI page's naming conventions, the same convention augment
+// documents; this adapter still writes every command flat, since the
+// generic Command spec carries no subdirectory segment to route
+// through. One precedence quirk worth flagging rather than silently
+// hitting later: the CLI page states "If a command with the same name
+// exists at both the project-level and User-Level, the User-Level
+// command takes precedence and overrides the project-level command
+// with the same name" — backwards from the read-order most targets
+// document, and this adapter has no reach into the user-level tier
+// (`~/.qoder/commands/`) to warn about a collision. The IDE page
+// describes different UI behavior for the same case ("a scope
+// indicator will be attached in the list for easy distinction"
+// rather than an override), so the two products may not resolve a
+// same-named pair identically; either way, a project-level command
+// this adapter writes can be shadowed by a user-level file this
+// adapter never touches.
+//
 // Hooks merge into that same `.qoder/settings.json` file under a
 // `hooks` key. docs.qoder.com/cli/hooks documents 23 events, PascalCase
 // (SessionStart, SessionEnd, UserPromptSubmit, PreToolUse, PostToolUse,
@@ -100,16 +133,17 @@ import (
 )
 
 const (
-	target           = "qoder"
-	defaultDir       = ".qoder/rules"
-	defaultAgentsDir = ".qoder/agents"
-	defaultSkillsDir = ".qoder/skills"
-	defaultMCPFile   = ".qoder/settings.json"
+	target             = "qoder"
+	defaultDir         = ".qoder/rules"
+	defaultAgentsDir   = ".qoder/agents"
+	defaultSkillsDir   = ".qoder/skills"
+	defaultCommandsDir = ".qoder/commands"
+	defaultMCPFile     = ".qoder/settings.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand},
 }
 
 // Adapter emits Qoder configs.
@@ -125,7 +159,8 @@ func (Adapter) Name() string { return target }
 // `.qoder/rules`), one .md per agent into the agents directory (default
 // `.qoder/agents`), one folder per skill into the skills directory
 // (default `.qoder/skills`, Qoder's native Agent Skills layout; a flat
-// file there never loads as a skill), plus a merged
+// file there never loads as a skill), one .md per command into the
+// commands directory (default `.qoder/commands`), plus a merged
 // `.qoder/settings.json` for MCP servers and hooks.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
@@ -145,6 +180,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

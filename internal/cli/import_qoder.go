@@ -26,13 +26,21 @@ const (
 	// adapter writes today. Project scope only; this importer has no
 	// reach into the doc's user-level `~/.qoder/skills/` tier.
 	qoderSkillsDir = ".qoder/skills"
+	// qoderCommandsDir is the project-level custom-command path
+	// docs.qoder.com/cli/commands tables: `.qoder/commands/<command_name>.md`.
+	// Project scope only; this importer has no reach into the doc's
+	// user-level `~/.qoder/commands/` tier, and the CLI page states
+	// that tier takes precedence over this one for a same-named
+	// command (#630).
+	qoderCommandsDir = ".qoder/commands"
 )
 
 // importFromQoder reads an existing Qoder project (`.qoder/rules/*.md`,
-// `.qoder/agents/*.md`, and `.qoder/skills/<name>/SKILL.md`) under root
-// and writes specs into the configured source directories.
+// `.qoder/agents/*.md`, `.qoder/skills/<name>/SKILL.md`, and
+// `.qoder/commands/*.md`) under root and writes specs into the
+// configured source directories.
 func importFromQoder(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
 		return err
 	}
 	c, err := importRulesDirectory(root, qoderRulesDir, src)
@@ -47,9 +55,24 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills (from qoder)\n", c.rules, agents, skills)
+	commands, err := importQoderCommands(root, filepath.Join(root, src.Commands))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d commands (from qoder)\n", c.rules, agents, skills, commands)
 	printImportNextSteps(root, "qoder")
 	return nil
+}
+
+// importQoderCommands copies `.qoder/commands/*.md` byte-for-byte into
+// the commands source dir. Each command file becomes one command spec.
+// A missing directory imports nothing.
+func importQoderCommands(root, dstDir string) (int, error) {
+	src := filepath.Join(root, qoderCommandsDir)
+	if !dirExists(src) {
+		return 0, nil
+	}
+	return copyMarkdownDir(src, dstDir)
 }
 
 // importQoderAgents copies every `.qoder/agents/<name>.md` file into

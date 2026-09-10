@@ -12,8 +12,9 @@ import (
 // TestImportQoder_RoundTripFixedPoint emits a bundle to qoder, wipes the
 // source specs, imports the emitted tree back, then re-emits. The
 // second emit must byte-match the first: import reconstructs rules
-// (from `.qoder/rules/`), agents (from `.qoder/agents/`), and skills
-// (from `.qoder/skills/<name>/SKILL.md`, target-audit 2026-08-08, #558).
+// (from `.qoder/rules/`), agents (from `.qoder/agents/`), skills (from
+// `.qoder/skills/<name>/SKILL.md`, target-audit 2026-08-08, #558), and
+// commands (from `.qoder/commands/*.md`, #630).
 //
 // The agent carries a `tools` list deliberately: qoder is the one
 // target that renders `tools` as a comma-separated string
@@ -36,6 +37,8 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: reviewer\ndescription: Reviews diffs.\nmodel: sonnet\ntools: [Read, Grep, Bash]\n---\n\nagent body\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"),
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "deploy.md"),
+		"---\ndescription: Deploy the app.\n---\n\nDeploy command body.\n")
 
 	execCLI(t, "sync", "-t", "qoder")
 	first := snapshotEmitted(t, dir)
@@ -51,6 +54,9 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 	}
 	if _, ok := first[".qoder/skills/my-skill/SKILL.md"]; !ok {
 		t.Fatalf("first emit produced no skill folder: %v", keys(first))
+	}
+	if _, ok := first[".qoder/commands/deploy.md"]; !ok {
+		t.Fatalf("first emit produced no command file: %v", keys(first))
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -81,6 +87,10 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
 	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
 		t.Errorf("skill not reconstructed:\n%s", skill)
+	}
+	command := readFile(t, filepath.Join(dir, ".agnostic-ai", "commands", "deploy.md"))
+	if !strings.Contains(command, "description: Deploy the app.") || !strings.Contains(command, "Deploy command body.") {
+		t.Errorf("command not reconstructed:\n%s", command)
 	}
 
 	execCLI(t, "sync", "-t", "qoder")

@@ -73,15 +73,19 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the qoder
-// adapter declares in caps.Supports (Rule, Agent, Skill, MCP, Hook)
-// with three rule, three agent, and three skill specimens. The MCP
-// specimens are byte-identical to claude's kit-sink MCP entries (same
-// names, same Meta) so the two adapters' `.mcp.json` output can be
-// diffed directly; see TestEmit_MCP_MatchesClaudeSharedFile in
+// adapter declares in caps.Supports (Rule, Agent, Skill, Command, MCP,
+// Hook) with three specimens for rule, agent, skill, and command. The
+// MCP specimens are byte-identical to claude's kit-sink MCP entries
+// (same names, same Meta) so the two adapters' `.mcp.json` output can
+// be diffed directly; see TestEmit_MCP_MatchesClaudeSharedFile in
 // qoder_test.go. The one hook specimen sets `matcher: Bash`, Claude
 // Code's own tool name and one of qoder's documented PreToolUse
 // examples, demonstrating the matcher passes straight through with no
-// coverage note (#629).
+// coverage note (#629). The three command specimens exercise the
+// vendor-required `description` fallback to the spec name (cmd-two
+// omits it) and the `x-qoder` passthrough escape hatch (cmd-three),
+// since docs.qoder.com/cli/commands documents no other native
+// frontmatter key (#630).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -93,6 +97,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Meta: map[string]any{"description": "Uno skill description."}, Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Meta: map[string]any{"description": "Dos skill description."}, Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Meta: map[string]any{"description": "Tres skill description."}, Body: "tres skill body"},
+		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Meta: map[string]any{"description": "cmd one"}, Body: "cmd one body"},
+		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
+		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Meta: map[string]any{"description": "cmd three", "x-qoder": map[string]any{"tags": "release"}}, Body: "cmd three body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{
