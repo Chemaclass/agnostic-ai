@@ -210,8 +210,9 @@ outputs:
     skills-dir: .junie/skills           # default. One folder per skill (<name>/SKILL.md), Junie's native Agent Skills layout.
     mcp-file: .junie/mcp/mcp.json       # default. Standard mcpServers schema.
   kiro:
-    rules-dir: .kiro/steering           # default. Steering files with inclusion frontmatter (rules + skills).
+    rules-dir: .kiro/steering           # default. Steering files with inclusion frontmatter.
     agents-dir: .kiro/agents            # default. One native agent profile .md per agent.
+    skills-dir: .kiro/skills            # default. One folder per skill (<name>/SKILL.md), Kiro's own skill tree.
     hooks-dir: .kiro/hooks              # default. One JSON file per hook.
     mcp-file: .kiro/settings/mcp.json   # default. Standard mcpServers schema.
   crush:
@@ -366,9 +367,10 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `junie` | `rules-dir` | `.junie/rules` | No longer a live output: rules and agents inline into `.junie/AGENTS.md` (see the entry-point section above). Only redirects the sweep of a pre-fix project's stale generated tree at that path. |
 | `junie` | `skills-dir` | `.junie/skills` | One folder per skill (`<name>/SKILL.md`, Junie's native Agent Skills layout, shipped 2026-07-31); a flat file there never loads as a skill. |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
-| `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`) and skill (`auto` + name + description). |
+| `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`). |
 | `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `tools` translated onto Kiro's own category tags `read`/`write`/`shell`/`web`; `x-kiro` passthrough for `mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`, or `tools` directly to bypass the translation). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
-| `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled}]}`). `disabled: true` writes `"enabled": false`. |
+| `kiro` | `skills-dir` | `.kiro/skills` | One folder per skill (`<name>/SKILL.md`), Kiro's own native skill tree (`skill://.kiro/skills/*/SKILL.md`); bundled `scripts/`, `references/`, and `assets/` copy byte-for-byte. Sweeps a stale flattened `.kiro/steering/skill-<name>.md` left by a pre-native sync. |
+| `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled, description}]}`). `disabled: true` writes `"enabled": false`; arbitrary `x-kiro` keys (e.g. `confirm`) pass through. |
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
 | `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http\|sse`; a spec's `remote` type has no matching Crush value and defaults to `http`). User keys (`models`, `providers`, `lsp`) preserved. |

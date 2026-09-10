@@ -1,5 +1,4 @@
 ---
-inclusion: auto
 name: sample-skill
 description: A sample skill for golden snapshot tests.
 ---

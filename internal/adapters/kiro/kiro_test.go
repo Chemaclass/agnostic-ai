@@ -455,7 +455,10 @@ func TestEmit_Agent_DoesNotSweepHandAuthoredLegacyFile(t *testing.T) {
 	}
 }
 
-func TestEmit_Skill_AutoSteeringWithNameDescription(t *testing.T) {
+// Skills emit at Kiro's native `.kiro/skills/<name>/SKILL.md` surface
+// (kiro.dev/docs/skills/), not as a flattened steering file, so they
+// reach Kiro's own skill picker (`skill://.kiro/skills/*/SKILL.md`).
+func TestEmit_Skill_WritesNativeFolder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -470,7 +473,7 @@ func TestEmit_Skill_AutoSteeringWithNameDescription(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(dir, ".kiro/steering/skill-pdf-fill.md"))
+	got, err := os.ReadFile(filepath.Join(dir, ".kiro/skills/pdf-fill/SKILL.md"))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -478,14 +481,17 @@ func TestEmit_Skill_AutoSteeringWithNameDescription(t *testing.T) {
 	if !strings.HasPrefix(body, "---\n") {
 		t.Fatalf("frontmatter must be first, got:\n%s", body)
 	}
-	if !strings.Contains(body, "inclusion: auto") {
-		t.Errorf("expected inclusion: auto, got:\n%s", body)
-	}
 	if !strings.Contains(body, "name: pdf-fill") {
 		t.Errorf("expected name: pdf-fill, got:\n%s", body)
 	}
 	if !strings.Contains(body, "description: fill PDF forms") {
 		t.Errorf("expected resolved description, got:\n%s", body)
+	}
+	if !strings.Contains(body, "Fill in the form fields.") {
+		t.Errorf("expected skill body, got:\n%s", body)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/steering/skill-pdf-fill.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no flat .kiro/steering/skill-pdf-fill.md, err=%v", err)
 	}
 }
 
@@ -498,12 +504,127 @@ func TestEmit_Skill_DescriptionFallsBackToName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(dir, ".kiro/steering/skill-no-desc.md"))
+	got, err := os.ReadFile(filepath.Join(dir, ".kiro/skills/no-desc/SKILL.md"))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 	if !strings.Contains(string(got), "description: no-desc") {
 		t.Errorf("expected description fallback to skill name, got:\n%s", got)
+	}
+}
+
+// TestEmit_SkillsDirOverride confirms outputs.kiro.skills-dir redirects
+// the folder-per-skill output, consistent with every other
+// emit.OutputSkillsDir consumer.
+func TestEmit_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"kiro": {SkillsDir: "custom/skills"}}}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "s1", Body: "skill body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/s1/SKILL.md")); err != nil {
+		t.Errorf("expected override dir to hold the skill: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/skills/s1/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no output at the default skills dir once overridden, err=%v", err)
+	}
+}
+
+// A prior sync's flattened `.kiro/steering/skill-<name>.md` (the old
+// surface, see the package doc) is swept once the current sync writes
+// the same skill natively, mirroring TestEmit_Agent_SweepsLegacySteeringFile.
+func TestEmit_Skill_SweepsLegacySteeringFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	legacy := filepath.Join(dir, ".kiro/steering/skill-pdf-fill.md")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyBody := emit.WithHeader("---\ninclusion: auto\nname: pdf-fill\ndescription: fill PDF forms\n---\n\nFill in the form fields.", emit.FormatMarkdown)
+	if err := os.WriteFile(legacy, []byte(legacyBody), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "pdf-fill", Meta: map[string]any{"description": "fill PDF forms"}, Body: "Fill in the form fields."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Errorf("expected the legacy steering file to be swept, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/skills/pdf-fill/SKILL.md")); err != nil {
+		t.Errorf("expected the native skill file to exist: %v", err)
+	}
+}
+
+// A hand-authored file at the legacy path (no provenance header) is
+// never touched by the sweep: RemoveGenerated only removes files it
+// recognizes as agnostic-ai's own output.
+func TestEmit_Skill_DoesNotSweepHandAuthoredLegacyFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	legacy := filepath.Join(dir, ".kiro/steering/skill-pdf-fill.md")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte("---\ninclusion: auto\nname: pdf-fill\n---\n\nHand-authored.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "pdf-fill", Body: "Fill in the form fields."}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(legacy)
+	if err != nil {
+		t.Fatalf("expected the hand-authored legacy file to survive: %v", err)
+	}
+	if !strings.Contains(string(got), "Hand-authored.") {
+		t.Errorf("hand-authored legacy file content changed:\n%s", got)
+	}
+}
+
+// Bundled sibling assets (e.g. scripts/) now propagate byte-for-byte
+// alongside SKILL.md instead of surfacing a coverage note: the native
+// `.kiro/skills/` folder layout can carry them, unlike the flattened
+// steering file this adapter used to write (#642).
+func TestEmit_Skill_BundledAssetsPropagate(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	skillDir := filepath.Join(dir, "skills", "alpha")
+	if err := os.MkdirAll(filepath.Join(skillDir, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("body"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "scripts", "run.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillDir, "SKILL.md"), Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/skills/alpha/SKILL.md")); err != nil {
+		t.Errorf("expected skill folder: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/skills/alpha/scripts/run.sh")); err != nil {
+		t.Errorf("expected bundled asset to propagate: %v", err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note now that assets propagate, got %d", n)
 	}
 }
 
@@ -663,55 +784,9 @@ func TestEmit_NoMCPEntriesNoFile(t *testing.T) {
 	}
 }
 
-// A flat steering file cannot carry a skill's bundled sibling assets,
-// so a folder-based skill with extra files (beyond SKILL.md) surfaces
-// a coverage note instead of silently dropping them.
-func TestEmit_SkillWithBundledAssets_NotesCoverageGap(t *testing.T) {
-	dir := testutil.TempCwd(t)
-	emit.ResetCoverageNotes()
-	t.Cleanup(emit.ResetCoverageNotes)
-
-	skillDir := filepath.Join(dir, "skills", "alpha")
-	if err := os.MkdirAll(filepath.Join(skillDir, "scripts"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("body"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(skillDir, "scripts", "run.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	entries := []spec.Entry{
-		{Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(skillDir, "SKILL.md"), Body: "body"},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := os.Stat(filepath.Join(dir, ".kiro/steering/skill-alpha.md")); err != nil {
-		t.Errorf("expected skill steering file: %v", err)
-	}
-	if n := emit.PendingCoverageNotesCount(); n != 1 {
-		t.Errorf("expected one coverage note for the bundled-asset skill, got %d", n)
-	}
-}
-
-// A flat-file skill (no sibling assets) must not trigger a coverage
-// note.
-func TestEmit_SkillWithoutBundledAssets_NoCoverageGap(t *testing.T) {
-	testutil.TempCwd(t)
-	emit.ResetCoverageNotes()
-	t.Cleanup(emit.ResetCoverageNotes)
-
-	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "s1", Body: "body"}}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	if n := emit.PendingCoverageNotesCount(); n != 0 {
-		t.Errorf("expected no coverage note for a flat-file skill, got %d", n)
-	}
-}
+// See TestEmit_Skill_BundledAssetsPropagate: bundled sibling assets no
+// longer surface a coverage note, since the native `.kiro/skills/`
+// folder layout can carry them.
 
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	dir := t.TempDir()

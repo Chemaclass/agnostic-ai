@@ -28,7 +28,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	cases := []expect{
 		{spec.KindRule, []string{".kiro/steering/r1.md", ".kiro/steering/r2.md", ".kiro/steering/r3.md"}},
 		{spec.KindAgent, []string{".kiro/agents/alpha.md", ".kiro/agents/beta.md", ".kiro/agents/gamma.md"}},
-		{spec.KindSkill, []string{".kiro/steering/skill-uno.md", ".kiro/steering/skill-dos.md", ".kiro/steering/skill-tres.md"}},
+		{spec.KindSkill, []string{".kiro/skills/uno/SKILL.md", ".kiro/skills/dos/SKILL.md", ".kiro/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".kiro/settings/mcp.json"}},
 		{spec.KindHook, []string{".kiro/hooks/fmt-go.json", ".kiro/hooks/lint-pre.json", ".kiro/hooks/session-start.json"}},
 	}

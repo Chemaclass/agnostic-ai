@@ -2,13 +2,14 @@
   "version": "v1",
   "hooks": [
     {
-      "name": "sample-hook",
-      "trigger": "PostToolUse",
-      "matcher": "Edit",
       "action": {
         "type": "command",
         "command": "echo edited"
-      }
+      },
+      "description": "A sample hook for golden snapshot tests.",
+      "matcher": "Edit",
+      "name": "sample-hook",
+      "trigger": "PostToolUse"
     }
   ]
 }

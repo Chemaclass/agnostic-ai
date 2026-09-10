@@ -109,6 +109,9 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	if _, ok := first[".kiro/agents/my-agent.md"]; !ok {
 		t.Fatalf("first emit produced no native kiro agent file: %v", keys(first))
 	}
+	if _, ok := first[".kiro/skills/my-skill/SKILL.md"]; !ok {
+		t.Fatalf("first emit produced no native kiro skill file: %v", keys(first))
+	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
 		t.Fatalf("wipe source specs: %v", err)
@@ -153,6 +156,34 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	execCLI(t, "sync", "-t", "kiro")
 	second := snapshotEmitted(t, dir)
 	assertEmittedEqual(t, first, second)
+}
+
+// TestImportKiro_NativeSkillFolderWinsOverLegacySteeringFile covers a
+// project carrying both the pre-#642 flattened
+// `.kiro/steering/skill-<name>.md` and the native
+// `.kiro/skills/<name>/SKILL.md` for the same skill name: the native
+// copy must win, since importSkillFolders runs after
+// importKiroSteering (see importFromKiro).
+func TestImportKiro_NativeSkillFolderWinsOverLegacySteeringFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".kiro", "steering", "skill-my-skill.md"),
+		"---\ninclusion: auto\nname: my-skill\ndescription: stale\n---\n\nSTALE legacy body.\n")
+	writeFile(t, filepath.Join(dir, ".kiro", "skills", "my-skill", "SKILL.md"),
+		"---\nname: my-skill\ndescription: current\n---\n\nCURRENT native body.\n")
+
+	execCLI(t, "import", "kiro")
+
+	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
+	if !strings.Contains(skill, "CURRENT native body.") {
+		t.Errorf("expected the native skill folder to win, got:\n%s", skill)
+	}
+	if strings.Contains(skill, "STALE") {
+		t.Errorf("expected no trace of the legacy flattened body, got:\n%s", skill)
+	}
 }
 
 func keys(m map[string]string) []string {
