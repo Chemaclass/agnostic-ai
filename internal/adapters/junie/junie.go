@@ -2,28 +2,38 @@
 //
 // Junie's guidelines lookup is a strict precedence order, first match
 // wins, not a merge: `.junie/AGENTS.md` ("the most preferred standard
-// location"), then the root `AGENTS.md` "if no file is found in the
-// `.junie` folder", then the legacy `.junie/guidelines.md` /
-// `.junie/guidelines/`
+// location"), then the root `AGENTS.md`, combined with
+// `.junie/playbook.md` and every `.junie/rules/*.md` file, "if no file
+// is found in the `.junie` folder"
+// (junie.jetbrains.com/docs/guidelines-and-memory.html: "AGENTS.md file
+// in the project root, combined with `.junie/playbook.md` and every
+// `.junie/rules/*.md` file, if present."), then the legacy
+// `.junie/guidelines.md` / `.junie/guidelines/`
 // (junie.jetbrains.com/docs/junie-ide-plugin.html and
 // guidelines-and-memory.html, target-audit 2026-08-08, #552). `sync`
 // always writes `.junie/AGENTS.md` (see emitEntryPoint below), so step 1
-// always matches and every location after it is unreachable in a synced
-// project. The IDE plugin's own doc separately lists a Custom Path step
-// ahead of `.junie/AGENTS.md`, an IDE Settings preference; the
-// CLI-facing doc has none, and since that per-workspace setting is not
-// usually committed, it rarely changes which file wins here
-// (target-audit 2026-08-09, #590).
+// always matches: step 2, and everything it combines
+// (`.junie/playbook.md`, `.junie/rules/*.md`), is pre-empted outright in
+// a synced project (junie.jetbrains.com/docs/environment-variables.html:
+// "If this file exists, it is used exclusively; no other guidelines
+// files are combined with it."). The IDE plugin's own doc separately
+// lists a Custom Path step ahead of `.junie/AGENTS.md`, an IDE Settings
+// preference; the CLI-facing doc has none, and since that per-workspace
+// setting is not usually committed, it rarely changes which file wins
+// here (target-audit 2026-08-09, #590).
 //
 // Rule bodies inline directly into `.junie/AGENTS.md`, the only file
-// Junie ever opens here, under a sentinel-marked `## Rules` block
-// (emit.RenderRulesAppendix, the same mechanism codex/gemini/aider use
-// for their own single-entry-point surface). There is no separate
-// `.junie/rules/` output anymore: a prior version of this adapter wrote
-// one .md per rule and per agent there, but that directory sits outside
-// Junie's documented lookup order entirely and nothing ever read it. Any
-// agnostic-ai-managed leftovers from that layout are swept on sync
-// (hand-authored files there survive; see sweepLegacyRulesDir).
+// Junie ever opens in a synced project, under a sentinel-marked
+// `## Rules` block (emit.RenderRulesAppendix, the same mechanism
+// codex/gemini/aider use for their own single-entry-point surface).
+// There is no separate `.junie/rules/` output anymore: a prior version
+// of this adapter wrote one .md per rule and per agent there. That
+// directory is read, at step 2 alongside `.junie/playbook.md` (see
+// above), but `.junie/AGENTS.md` always wins step 1 once `sync` has run,
+// so a hand-authored `.junie/rules/*.md` file is shadowed rather than
+// unread: real, just never reached in a synced project. Any
+// agnostic-ai-managed leftovers from the old flattened layout are swept
+// on sync (hand-authored files there survive; see sweepLegacyRulesDir).
 //
 // Agents emit natively, one file per agent, at `.junie/agents/<name>.md`
 // (junie.jetbrains.com/docs/junie-cli-subagents.html, target-audit
@@ -43,11 +53,15 @@
 // instead, mirroring how `outputs.codex.agents-dir: .agents/agents`
 // opts Codex into its own community layout. Frontmatter passes through
 // verbatim: Junie's documented fields (`name`, `description`, `tools`,
-// `disallowedTools`, `mcpServers`, `model`, `reasoningLevel`,
-// `maxTurns`, `skills`, `allowPromptArgument`) are spelled exactly as a
-// spec author already writes them, so nothing here needs translation,
-// same as the commands renderer below. Agent bodies no longer inline
-// into `.junie/AGENTS.md` now that this native destination exists: the
+// `disallowedTools`, `mcpServers`, `model`, `permissionMode`,
+// `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) are
+// spelled exactly as a spec author already writes them, so nothing here
+// needs translation, same as the commands renderer below.
+// `reasoningLevel` also accepts `effort` as an alias, taking precedence
+// when both are set; a spec author can write either key and both pass
+// through unchanged, since there is no separate `effort` field to
+// translate from. Agent bodies no longer inline into `.junie/AGENTS.md`
+// now that this native destination exists: the
 // same rule Augment and Kilo Code follow once their own native agents
 // directory (`.augment/agents/`, `.kilo/agents/`) exists. A project
 // still carrying the pre-#604 inlined `## Agents` block loses it on its

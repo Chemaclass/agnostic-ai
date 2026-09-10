@@ -18,11 +18,11 @@ func TestName(t *testing.T) {
 	}
 }
 
-// Command specs write nothing: Amp's manual documents .agents/skills/
-// and .agents/checks/ but no file-based command surface, and its
-// migration guidance is to delete the old command file rather than
-// point at a replacement path. Writing to .agents/commands/ for a
-// Command spec would be a file Amp never reads. See #553.
+// Command specs write nothing: a full sweep of Amp's docs finds no
+// file-based command surface, and its migration guidance is to delete
+// the old command file rather than point at a replacement path.
+// Writing to .agents/commands/ for a Command spec would be a file Amp
+// never reads. See #553.
 func TestEmit_CommandKind_WritesNoFile_WarnsUnsupported(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()

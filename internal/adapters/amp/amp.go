@@ -9,11 +9,23 @@
 // Agents emit as custom slash commands under `.agents/commands/<name>.md`.
 // Skills emit as a folder per skill under `.agents/skills/<name>/SKILL.md`
 // (Amp's native skills layout); Amp removed custom commands in favor of
-// skills (https://ampcode.com/news/slashing-custom-commands).
+// skills (https://ampcode.com/news/slashing-custom-commands). A native
+// agent surface exists on Amp's side too (ampcode.com/docs/customize/plugins:
+// `amp.createAgent(...)` and `amp.registerAgentMode(...)`, plus
+// project-scoped `.amp/plugins/` files), but it is programmatic
+// TypeScript, out of reach of a declarative emitter, so this adapter's
+// output target does not change because of it.
 //
-// The Command spec kind is not declared in caps.Supports: Amp's owner's
-// manual (https://ampcode.com/manual) documents `.agents/skills/` and
-// `.agents/checks/` but no file-based command surface. Commands register
+// The Command spec kind is not declared in caps.Supports: Amp's docs
+// (ampcode.com/docs/customize/skills) document `.agents/skills/`, but a
+// full sweep of every page in ampcode.com/llms.txt finds no file-based
+// command surface anywhere, confirming #553's conclusion still holds
+// (target-audit 2026-08-27, #647). `ampcode.com/manual`, this repo's
+// former citation for that page, now redirects to the docs index rather
+// than serving its own content, so it is cited by topic instead.
+// `.agents/checks/` was genuinely documented as a code-review surface
+// in the 2026-08-20 snapshot; it is gone from every page in the current
+// sweep, so that surface retires rather than ships. Commands register
 // programmatically via `amp.registerCommand(...)` in plugin TypeScript,
 // and the migration post above tells users to delete the old command
 // file rather than pointing at a replacement path, so there is no path
@@ -129,8 +141,7 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 
 // buildMCPEntry renders a single MCP server in Amp's settings shape.
 // Amp accepts the standard `command`/`args`/`env` for stdio and
-// `url`/`headers` for HTTP transports (see Amp owner's manual MCP
-// guide).
+// `url`/`headers` for HTTP transports (ampcode.com/docs/customize/mcp).
 //
 // Any field beyond that set reaches the entry through `x-amp`
 // (emit.MergeCustomTargetMeta), the same passthrough commandFile and
