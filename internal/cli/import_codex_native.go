@@ -614,10 +614,36 @@ func recordCodexSkillAssets(skillPath string, names []string) error {
 // codexConfigDoc mirrors the relevant `.codex/config.toml` shape: nested
 // `[[hooks.<event>]]` arrays and `[mcp_servers.<name>]` tables.
 type codexConfigDoc struct {
-	Hooks      map[string][]codexHookEntry `toml:"hooks"`
+	Hooks      map[string][]codexHookGroup `toml:"hooks"`
 	MCPServers map[string]codexMCPEntry    `toml:"mcp_servers"`
 }
 
+// codexHookGroup mirrors one `[[hooks.<event>]]` table in the vendor's
+// documented inline-TOML shape (learn.chatgpt.com/docs/hooks,
+// "Equivalent inline TOML in config.toml"): `matcher` lives on this
+// table, and the command fields live in a nested
+// `[[hooks.<event>.hooks]]` array, decoded here as Hooks. Every
+// documented example uses this nested form; none uses a flat one.
+//
+// codexHookEntry is embedded (rather than referenced by name) so its
+// fields also decode flat on this same table. That embedding exists
+// only for backward compatibility with the flat shape this tool
+// accepted before this fix — matcher and command on one table, no
+// nested `hooks` array — which the vendor has never documented.
+// readCodexConfigTOML reads the embedded fields only when Hooks is
+// empty, so a config carrying the vendor's nested form ignores them.
+// See #669.
+type codexHookGroup struct {
+	codexHookEntry
+	Hooks []codexHookEntry `toml:"hooks"`
+}
+
+// codexHookEntry mirrors one command entry: either an element of a
+// codexHookGroup's nested `hooks` array (the vendor's documented
+// shape), or, via that struct's embedding, the same table as `matcher`
+// for the flat back-compat form. Matcher is unused when decoded as a
+// nested array element; the caller applies the group's own matcher to
+// every entry in it.
 type codexHookEntry struct {
 	Matcher             string `toml:"matcher"`
 	Command             string `toml:"command"`
@@ -627,20 +653,23 @@ type codexHookEntry struct {
 	CommandWindowsSnake string `toml:"command_windows"`
 	// AdditionalContextLimit mirrors the hooks.json field of the same
 	// name (see codexHookSlot / mergeCodexHooksJSON); captured here too
-	// so a hand-authored `[[hooks.<event>]]` TOML block round-trips it.
+	// so a hand-authored `[[hooks.<event>.hooks]]` TOML entry round-trips
+	// it.
 	AdditionalContextLimit *int `toml:"additionalContextLimit"`
 	// Async mirrors the hooks.json field of the same name; captured
-	// here too so a hand-authored `[[hooks.<event>]]` TOML block
+	// here too so a hand-authored `[[hooks.<event>.hooks]]` TOML entry
 	// round-trips it (learn.chatgpt.com/docs/hooks documents
 	// `async = true` as the inline-TOML spelling). See #636.
 	Async bool `toml:"async"`
 	// Type, Server, Tool, and Input carry an mcp_tool hook
 	// (learn.chatgpt.com/docs/hooks). readCodexConfigTOML's own
-	// `if h.Command == "" { continue }` filter drops these from the
-	// inline `[[hooks.<event>]]` TOML form regardless (#669, a
-	// pre-existing gap this fix does not close); mergeCodexHooksJSON
-	// populates them from `.codex/hooks.json`, the file the codex
-	// emitter actually writes an mcp_tool hook to. See #693.
+	// `if h.Command == "" { continue }` filter (in addCodexTOMLHook)
+	// drops these from the inline TOML form regardless, nested or
+	// flat: the vendor documents an mcp_tool hook only via JSON
+	// (`.codex/hooks.json`), never an inline-TOML example, so there is
+	// no documented shape to decode here. mergeCodexHooksJSON populates
+	// them from `.codex/hooks.json`, the file the codex emitter
+	// actually writes an mcp_tool hook to. See #693.
 	Type   string         `toml:"type"`
 	Server string         `toml:"server"`
 	Tool   string         `toml:"tool"`
@@ -785,21 +814,43 @@ func readCodexConfigTOML(root string) (map[codexHookKey]*codexHookSlot, map[stri
 		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	for _, event := range sortedMapKeys(doc.Hooks) {
-		for _, h := range doc.Hooks[event] {
-			if h.CommandWindows == "" {
-				h.CommandWindows = h.CommandWindowsSnake
-			}
-			if h.Command == "" {
+		for _, g := range doc.Hooks[event] {
+			if len(g.Hooks) > 0 {
+				// Vendor-documented nested form: every entry in the
+				// array shares the group's matcher.
+				for _, h := range g.Hooks {
+					addCodexTOMLHook(hooks, event, g.Matcher, h)
+				}
 				continue
 			}
-			k := codexHookKey{event: event, matcher: h.Matcher, command: h.Command}
-			if _, exists := hooks[k]; exists {
-				continue
-			}
-			hooks[k] = &codexHookSlot{order: len(hooks), entry: h, event: event}
+			// Flat back-compat form: matcher and command share g's own
+			// table (the embedded codexHookEntry). See #669.
+			addCodexTOMLHook(hooks, event, g.Matcher, g.codexHookEntry)
 		}
 	}
 	return hooks, doc.MCPServers, nil
+}
+
+// addCodexTOMLHook inserts one decoded config.toml command entry into
+// the dedupe map, applying the matcher its enclosing codexHookGroup
+// carried (nested form) or carried itself (flat back-compat form).
+// Mirrors the filter readCodexConfigTOML always applied: an entry with
+// no command (for example an mcp_tool hook, which the vendor never
+// documents an inline-TOML shape for, see #669 discussion) is dropped
+// rather than emitted with missing data.
+func addCodexTOMLHook(hooks map[codexHookKey]*codexHookSlot, event, matcher string, h codexHookEntry) {
+	if h.CommandWindows == "" {
+		h.CommandWindows = h.CommandWindowsSnake
+	}
+	if h.Command == "" {
+		return
+	}
+	h.Matcher = matcher
+	k := codexHookKey{event: event, matcher: matcher, command: h.Command}
+	if _, exists := hooks[k]; exists {
+		return
+	}
+	hooks[k] = &codexHookSlot{order: len(hooks), entry: h, event: event}
 }
 
 // mergeCodexHooksJSON layers `.codex/hooks.json` over the config.toml

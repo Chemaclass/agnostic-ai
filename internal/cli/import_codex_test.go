@@ -499,10 +499,14 @@ args = ["server-filesystem"]
 
 [[hooks.PostToolUse]]
 matcher = "Edit"
+
+[[hooks.PostToolUse.hooks]]
 command = "gofmt && go vet"
 
 [[hooks.PostToolUse]]
 matcher = "Edit"
+
+[[hooks.PostToolUse.hooks]]
 command = "lint"
 `)
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -522,6 +526,86 @@ command = "lint"
 	for _, want := range []string{"name: fs", "command: npx", "server-filesystem", "type: stdio"} {
 		if !strings.Contains(string(mcp), want) {
 			t.Errorf("expected %q in mcp:\n%s", want, mcp)
+		}
+	}
+}
+
+// TestImportFromCodex_HooksFromNestedConfigTOML pins the vendor's
+// documented inline-TOML shape: `[[hooks.<event>]]` carries `matcher`
+// alone, and a nested `[[hooks.<event>.hooks]]` array carries the
+// command fields (learn.chatgpt.com/docs/hooks, "Equivalent inline
+// TOML in config.toml"). Before this fix codexHookEntry decoded
+// matcher and command onto the same flat table, so the nested block's
+// matcher-only outer table had an empty Command and
+// readCodexConfigTOML's own `if h.Command == "" { continue }` filter
+// dropped it: zero hooks, exit 0, no warning. See #669.
+func TestImportFromCodex_HooksFromNestedConfigTOML(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = '/usr/bin/python3 "$(git rev-parse --show-toplevel)/.codex/hooks/pre_tool_use_policy.py"'
+timeout = 30
+statusMessage = "Checking Bash command"
+
+[[hooks.SessionStart]]
+matcher = "^compact$"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "/usr/bin/python3 session_start.py"
+additionalContextLimit = 5000
+
+[[hooks.PostToolUse]]
+matcher = "Bash"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "python3 post_tool_use.py"
+async = true
+timeout = 120
+`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	pre := findOneHookFile(t, filepath.Join(dir, "hooks"), "pretooluse")
+	preData, _ := os.ReadFile(pre)
+	for _, want := range []string{
+		`matcher: ^Bash$`,
+		`command: /usr/bin/python3 "$(git rev-parse --show-toplevel)/.codex/hooks/pre_tool_use_policy.py"`,
+		"timeout: 30",
+		"statusMessage: Checking Bash command",
+	} {
+		if !strings.Contains(string(preData), want) {
+			t.Errorf("expected %q in PreToolUse spec:\n%s", want, preData)
+		}
+	}
+
+	start := findOneHookFile(t, filepath.Join(dir, "hooks"), "sessionstart")
+	startData, _ := os.ReadFile(start)
+	for _, want := range []string{
+		"matcher: ^compact$",
+		"command: /usr/bin/python3 session_start.py",
+		"additionalContextLimit: 5000",
+	} {
+		if !strings.Contains(string(startData), want) {
+			t.Errorf("expected %q in SessionStart spec:\n%s", want, startData)
+		}
+	}
+
+	post := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	postData, _ := os.ReadFile(post)
+	for _, want := range []string{
+		"matcher: Bash",
+		"command: python3 post_tool_use.py",
+		"async: true",
+		"timeout: 120",
+	} {
+		if !strings.Contains(string(postData), want) {
+			t.Errorf("expected %q in PostToolUse spec:\n%s", want, postData)
 		}
 	}
 }
@@ -918,6 +1002,9 @@ callback_port = 8765
 
 // When both hooks.json and config.toml carry the same event/matcher/command,
 // keep one spec and prefer hooks.json (it can carry timeout + statusMessage).
+// The config.toml side is deliberately the flat, never-vendor-documented
+// shape (matcher and command on one table) this tool accepted before
+// #669, so this test also pins that backward-compat path.
 func TestImportFromCodex_HooksDedupHooksJsonOverConfigToml(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/hooks.json"), `{
@@ -1178,6 +1265,8 @@ command = "npx"
 
 [[hooks.PostToolUse]]
 matcher = "Edit"
+
+[[hooks.PostToolUse.hooks]]
 command = "gofmt"
 `)
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -1202,7 +1291,10 @@ command = "gofmt"
 			t.Errorf("overlay missing %q in:\n%s", want, out)
 		}
 	}
-	for _, never := range []string{`[mcp_servers.fs]`, `[[hooks.PostToolUse]]`} {
+	// stripCodexSpecManagedSections strips both the group header and its
+	// nested `.hooks` sub-table: both start with the same "[[hooks." prefix
+	// isManagedSectionHeader matches.
+	for _, never := range []string{`[mcp_servers.fs]`, `[[hooks.PostToolUse]]`, `[[hooks.PostToolUse.hooks]]`, `command = "gofmt"`} {
 		if strings.Contains(out, never) {
 			t.Errorf("overlay should not carry managed key %q:\n%s", never, out)
 		}

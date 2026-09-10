@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex: `import codex` now reads inline hooks from `.codex/config.toml` in the vendor's documented nested shape (`[[hooks.<event>]]` matcher table plus a nested `[[hooks.<event>.hooks]]` command array). Every vendor example uses this shape; before this fix it imported as zero hooks with no warning. The flat table this tool previously required still decodes for backward compatibility (#669).
+
 ## v0.54.0 - 2026-09-10
 
 ### Added

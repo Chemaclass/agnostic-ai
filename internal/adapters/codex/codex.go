@@ -64,8 +64,10 @@
 // An explicit zero is preserved because Codex gives it distinct behavior.
 // `async` (run the command hook in the background instead of blocking
 // the session on it) propagates the same way; `import codex` reads it
-// back from both `.codex/hooks.json` and a hand-authored
-// `[[hooks.<event>]]` TOML block.
+// back from `.codex/hooks.json`, a hand-authored nested
+// `[[hooks.<event>.hooks]]` TOML array (the vendor's own documented
+// inline shape), or the flat `[[hooks.<event>]]` form this tool
+// accepted before the nested shape was added (#669).
 //
 // A hook can also call an already-connected MCP server's tool instead
 // of running a shell command: `type: mcp_tool` with `server`, `tool`,
