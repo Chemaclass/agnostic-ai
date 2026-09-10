@@ -218,7 +218,7 @@ outputs:
     mcp-file: .kiro/settings/mcp.json   # default. Standard mcpServers schema.
   crush:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
-    mcp-file: crush.json                # default. mcp map merged; user keys preserved.
+    mcp-file: crush.json                # default. mcp map and hooks map (PreToolUse only) merged; user keys preserved.
   trae:
     rules-dir: .trae/rules              # default. One .md per rule.
     agents-dir: .trae/agents            # default. One project-subagent .md per agent.
@@ -377,7 +377,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled, description}]}`). `disabled: true` writes `"enabled": false`; arbitrary `x-kiro` keys (e.g. `confirm`) pass through. |
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
-| `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http\|sse`; a spec's `remote` type has no matching Crush value and defaults to `http`). User keys (`models`, `providers`, `lsp`) preserved. |
+| `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http\|sse`; a spec's `remote` type has no matching Crush value and defaults to `http`) and `hooks` map (`PreToolUse` only; a flat `{name, matcher, command, timeout}` array, no Claude-style grouping), merged in one write. User keys (`models`, `providers`, `lsp`) preserved. |
 | `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule. |
 | `trae` | `agents-dir` | `.trae/agents` | One project-subagent `.md` per agent (`name` + `description` required; optional `model`, `tools`). `tools` renders as a comma-separated string, Trae's documented form, and passes through unmapped since Trae's vocabulary is Claude-style. `model` emits only when scoped to Trae (`model: {trae: <id>}` or `x-trae.model`), since Trae accepts only its own built-in model IDs. Gated behind Settings > Beta > Subagents. Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `trae` | `skills-dir` | `.trae/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets), Trae's native skills path. |
@@ -583,6 +583,7 @@ The instrumented gaps:
 | `aider` | agents, skills | `outputs.aider.rules-file` |
 | `zed` | hooks | `outputs.zed.tasks-file` |
 | `kilo` | agents (only those with `tools` set) | no key; Kilo Code has no `tools` frontmatter key (use `x-kilo: {permission: {...}}` for native per-tool access control) |
+| `crush` | hooks (only those targeting an event other than `PreToolUse`) | no key; Crush's own runtime consumes `PreToolUse` only today |
 
 ## `gitignore`
 

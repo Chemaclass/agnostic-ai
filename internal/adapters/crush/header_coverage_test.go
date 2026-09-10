@@ -74,10 +74,11 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the crush
-// adapter emits directly: three skills and three MCPs (stdio + http +
-// disabled-with-command so all buildMCPEntry transport branches run).
-// Rules are included too since KindRule is declared in caps.Supports,
-// even though this adapter never writes them itself (see crush.go).
+// adapter emits directly: three skills, three MCPs (stdio + http +
+// disabled-with-command so all buildMCPEntry transport branches run),
+// and a PreToolUse hook. Rules are included too since KindRule is
+// declared in caps.Supports, even though this adapter never writes
+// them itself (see crush.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -102,6 +103,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
+		},
+		{
+			Kind: spec.KindHook, Name: "no-rm-rf",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "^bash$", "command": "./hooks/no-rm-rf.sh", "timeout": 10},
 		},
 	}
 	return spec.NewBundle(entries)

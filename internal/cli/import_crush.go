@@ -26,12 +26,15 @@ const (
 //     `type: http`, and `type: sse` entries all pass through verbatim
 //     via the shared JSON-map importer; user-managed keys (models,
 //     providers, lsp, options) are ignored.
+//   - `crush.json` (`hooks.PreToolUse` array) reconstructs hook specs,
+//     the only event Crush's own runtime consumes. See
+//     import_crush_hooks.go.
 //
 // Lossy field: rules reach Crush only through the inlined block, which
 // carries no `globs`/scope, so rule scoping does not round-trip (Crush's
 // output is unaffected either way).
 func importFromCrush(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Skills, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := sliceMainFileByH2(root, crushMainFile, filepath.Join(root, src.Rules))
@@ -39,6 +42,10 @@ func importFromCrush(root string, src config.Sources) error {
 		return err
 	}
 	skills, err := importSkillFolders(filepath.Join(root, crushSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	hooks, err := importCrushHooks(root, filepath.Join(root, src.Hooks))
 	if err != nil {
 		return err
 	}
@@ -50,7 +57,7 @@ func importFromCrush(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, crushMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d skills, %d mcps\n", rules, skills, mcps)
+	summaryf("imported %d rules, %d skills, %d hooks, %d mcps\n", rules, skills, hooks, mcps)
 	printImportNextSteps(root, "crush")
 	return nil
 }

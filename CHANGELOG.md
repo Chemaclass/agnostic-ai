@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Augment hooks emit to `.augment/settings.json` (merged alongside `mcpServers` in one write) across five events. `timeout` converts to milliseconds, since Augment's native unit differs from the shared spec's seconds, and a `command` missing a `.sh`/`.ps1`/`.cmd`/`.bat` extension still emits but surfaces a coverage note, since Augment only runs a script path. Hook specs previously reached no Augment surface and skipped with a warning (#629).
+- Crush hooks emit to `crush.json` (merged alongside `mcp` in the same write), `PreToolUse` only, matching the vendor's own current support. Hook specs previously reached no Crush surface and skipped with a warning; `import crush` now reads them back too (#629).
 
 ## v0.55.0 - 2026-09-10
 
