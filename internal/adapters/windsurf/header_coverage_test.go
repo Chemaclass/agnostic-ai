@@ -123,6 +123,10 @@ func kitSinkBundle() spec.Bundle {
 				"headers": map[string]any{"Authorization": "Bearer token"},
 			},
 		},
+		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "edit", "command": "gofmt -w"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

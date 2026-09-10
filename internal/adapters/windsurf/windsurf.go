@@ -1,6 +1,6 @@
-// Package windsurf emits .devin/rules/*.md, .devin/agents/*.md, and
-// .devin/mcp_config.json for Devin Desktop, the renamed Windsurf editor
-// (2026-06).
+// Package windsurf emits .devin/rules/*.md, .devin/agents/*.md,
+// .devin/mcp_config.json, and .devin/hooks.v1.json for Devin Desktop,
+// the renamed Windsurf editor (2026-06).
 //
 // Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/`
 // as a backward-compat fallback (`.windsurfrules` is legacy). Rules emit
@@ -113,6 +113,26 @@
 // file on startup, so writing `.devin/mcp_config.json` is correct
 // whichever version reads it.
 //
+// Hooks merge into `.devin/hooks.v1.json` (override via
+// outputs.windsurf.hooks-file): "Create `.devin/hooks.v1.json` in your
+// project" (docs.devin.ai/cli/extensibility/hooks/overview, #629). The
+// hooks object is the entire file, no wrapper key, unlike the
+// Claude-shaped `{"hooks": {...}}` form Claude Code, Codex, Gemini,
+// and Qoder share; that is the one divergence from an otherwise
+// familiar shape (per-event arrays of `{matcher, hooks: [{type,
+// command, timeout}]}`, `matcher` a regex on `tool_name`). `type` also
+// accepts `"prompt"` in place of `"command"`, evaluating an LLM prompt
+// instead of running a shell command; agnostic-ai's generic hook spec
+// has no `prompt` field, so that shape is reachable only through a
+// hand-authored `type: prompt` plus a `prompt` Meta key. Devin CLI's
+// own tool vocabulary is lowercase and snake_case (`exec`, `edit`,
+// `read`, ...), not Claude's, so a Claude-style matcher parses but
+// matches nothing; that case surfaces a coverage note rather than a
+// guessed rename, the same treatment openhands and antigravity give
+// their own mismatched vocabularies. `import windsurf` reads this
+// file back the same way it already does for rules, agents, skills,
+// and MCP: see internal/cli/import_windsurf_hooks.go.
+//
 // Ignore specs merge into `.devinignore` (override via
 // outputs.windsurf.ignore-file), gitignore syntax under a `#`
 // provenance header: "you can add a `.devinignore` file to your repo
@@ -165,7 +185,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Windsurf configs.
@@ -188,9 +208,12 @@ func (Adapter) Name() string { return target }
 // Ignore specs merge into `.devinignore` (default; override via
 // outputs.windsurf.ignore-file). MCP servers merge into
 // `.devin/mcp_config.json` (default; override via
-// outputs.windsurf.mcp-file), the file Devin Local reads.
-// `outputs.windsurf.workflows-dir`, still set on an old config, no
-// longer writes anything: Emit warns instead (warnWorkflowsDirRemoved).
+// outputs.windsurf.mcp-file), the file Devin Local reads. Hooks merge
+// into `.devin/hooks.v1.json` (default; override via
+// outputs.windsurf.hooks-file), Devin CLI's project-scoped hooks file
+// (#629). `outputs.windsurf.workflows-dir`, still set on an old
+// config, no longer writes anything: Emit warns instead
+// (warnWorkflowsDirRemoved).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -225,6 +248,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	warnWorkflowsDirRemoved(sess, cfg)
