@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - Codex: `import codex` now reads inline hooks from `.codex/config.toml` in the vendor's documented nested shape (`[[hooks.<event>]]` matcher table plus a nested `[[hooks.<event>.hooks]]` command array). Every vendor example uses this shape; before this fix it imported as zero hooks with no warning. The flat table this tool previously required still decodes for backward compatibility (#669).
+- Amp, Junie, Trae, Kiro, Warp, and Cursor docs and package comments drop stale vendor citations (`ampcode.com/manual`, a retired `.agents/checks/` surface, an undocumented Trae command format, `.junie/rules/` read as unread rather than shadowed, a redirected Cursor commands link) and add vendor-confirmed fields (Junie's `permissionMode` and `effort` alias, Kiro's hook `timeout`, Trae's 3-level command nesting limit). Prose and comments only, no emitted bytes change (#647).
 
 ## v0.54.0 - 2026-09-10
 

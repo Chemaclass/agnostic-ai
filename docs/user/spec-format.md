@@ -181,7 +181,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
 | `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |
 | `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Codex. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, and Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60). |
 | `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes. |
 | `async` | no | `false` | Run in the background without blocking. Claude + Codex. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude. |

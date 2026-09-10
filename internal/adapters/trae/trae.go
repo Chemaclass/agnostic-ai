@@ -55,16 +55,22 @@
 // losing them to the flat rule-form Trae never loaded as a skill.
 //
 // Commands emit as one file per command under `.trae/commands/<name>.md`,
-// `name` + `description` frontmatter and the body as the prompt. Trae's
-// own docs do not cover the command format; this shape is confirmed from
-// real `.trae/commands/*.md` files created through Trae's own chat flow,
-// filtered from cross-tool-generated files sharing the same folder
-// (identified by Claude Code's `argument-hint` / `$ARGUMENTS`
-// convention, which never appears in a native Trae file). Only `name`
-// and `description` are confirmed native, so nothing else emits.
-// Nesting under `.trae/commands/` up to 3 levels is documented as
-// organizational only, with no confirmed functional effect, so this
-// adapter writes every command flat.
+// `name` + `description` frontmatter and the body as the prompt. This
+// shape is now vendor-confirmed rather than reverse-engineered:
+// docs.trae.ai/ide/slash-commands tables the same two frontmatter
+// fields, `Name` and `Description`, matching what this adapter already
+// emitted from real `.trae/commands/*.md` files created through Trae's
+// own chat flow (filtered from cross-tool-generated files sharing the
+// same folder, identified by Claude Code's `argument-hint` /
+// `$ARGUMENTS` convention, which never appears in a native Trae file).
+// Only `name` and `description` are documented, so nothing else emits.
+// Nesting under `.trae/commands/` is bounded at 3 levels, not merely
+// organizational: the vendor's own example tree marks a file 3 levels
+// deep as the "Deepest readable level" and a file 4 levels deep as
+// "Exceeds limit" ("Support up to three levels of nested
+// directories"), so a command placed deeper than that never loads.
+// This adapter still writes every command flat rather than risk
+// crossing that limit.
 //
 // MCP servers merge into `.trae/mcp.json` (override via
 // outputs.trae.mcp-file) under a root `mcpServers` map, keyed by server

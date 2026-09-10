@@ -8,9 +8,15 @@
 //
 // When `outputs.warp.workflows-dir` is set, each agent emits as a Warp
 // Workflow YAML at `<dir>/<name>.yaml` (`name`/`command`/`description`/
-// `tags`). Other documented workflow fields (`shells`, `arguments`,
-// `source_url`, `author`, `author_url`) pass through when declared
-// under `x-warp`; `import warp` captures them back the same way.
+// `tags`). docs.warp.dev/terminal/entry/yaml-workflows now opens with a
+// caution recommending new workflows in Warp Drive instead "for a
+// better editing experience"; nothing breaks here, since
+// `{{path_to_git_repo}}/.warp/workflows/` still loads and Warp Drive
+// workflows are cloud-stored, so they are not a file this adapter could
+// emit as an alternative. Other documented workflow fields (`shells`,
+// `arguments`, `source_url`, `author`, `author_url`) pass through when
+// declared under `x-warp`; `import warp` captures them back the same
+// way.
 //
 // Previous releases of this adapter wrote `WARP.md` (the legacy name).
 // Warp still reads it, and reads it first: "If both WARP.md and
