@@ -442,6 +442,108 @@ func TestEmit_SkillsDirOverride_WritesToCustomDir(t *testing.T) {
 	}
 }
 
+// TestEmit_Command_WritesCommandFile confirms a command spec emits one
+// markdown file per command under `.kilo/commands/`, the new Kilo Code
+// extension's slash-command path (#630). Kilo Code takes the workflow
+// name from the filename, so `name` never reaches the frontmatter.
+func TestEmit_Command_WritesCommandFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "submit-pr", Meta: map[string]any{"description": "Submit a pull request with checks", "agent": "code"}, Body: "You are helping submit a pull request."},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/commands/submit-pr.md"))
+	for _, want := range []string{"description: Submit a pull request with checks", "agent: code", "You are helping submit a pull request."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "name:") {
+		t.Errorf("Kilo Code takes the command name from the filename; name must not be written:\n%s", got)
+	}
+}
+
+// TestEmit_Command_FrontmatterOmitsUnconfirmedKeys confirms only the
+// vendor-documented keys (description, agent, model, variant, subtask)
+// reach the frontmatter; anything else (e.g. `tools`, an internal-only
+// field on other kinds) is dropped rather than leaked.
+func TestEmit_Command_FrontmatterOmitsUnconfirmedKeys(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindCommand,
+			Name: "deploy",
+			Meta: map[string]any{
+				"description": "Ship it",
+				"tools":       []any{"Bash"},
+				"variant":     "high",
+			},
+			Body: "Run the deploy steps.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/commands/deploy.md"))
+	if strings.Contains(got, "tools:") {
+		t.Errorf("unexpected leaked frontmatter %q in %s", "tools:", got)
+	}
+	if !strings.Contains(got, "variant: high") {
+		t.Errorf("expected the documented variant key to reach frontmatter:\n%s", got)
+	}
+}
+
+// TestEmit_Command_XKiloKeyReachesFrontmatter confirms the standard
+// x-<target> escape hatch works for commands too: an author-declared
+// custom key is an explicit per-spec opt-in. See #367.
+func TestEmit_Command_XKiloKeyReachesFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindCommand,
+			Name: "deploy",
+			Meta: map[string]any{
+				"description": "Ship it",
+				"x-kilo":      map[string]any{"some-kilo-key": "value"},
+			},
+			Body: "Run the deploy steps.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/commands/deploy.md"))
+	if !strings.Contains(got, "some-kilo-key: value") {
+		t.Errorf("expected x-kilo custom key to reach frontmatter:\n%s", got)
+	}
+	if strings.Contains(got, "x-kilo:") {
+		t.Errorf("x-kilo wrapper key itself must not leak:\n%s", got)
+	}
+}
+
+// TestEmit_CommandsDirOverride confirms outputs.kilo.commands-dir
+// redirects the per-command output, consistent with every other
+// emit.OutputCommandsDir consumer.
+func TestEmit_CommandsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"kilo": {CommandsDir: "vendor/kilo/commands"}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "deploy", Meta: map[string]any{"description": "x"}, Body: "x"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/kilo/commands/deploy.md")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+}
+
 // Stdio MCP merges into kilo.jsonc under mcp.<name> (target-audit
 // 2026-08-01, B1: Kilo Code reads mcp, not the deprecated mcpServers
 // key). command and args combine into one command array, and type:

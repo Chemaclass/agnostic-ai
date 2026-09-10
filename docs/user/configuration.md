@@ -240,6 +240,7 @@ outputs:
     rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
     agents-dir: .kilo/agents            # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
+    commands-dir: .kilo/commands        # default. One .md per command. Frontmatter filtered to description, agent, model, variant, subtask.
     mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
@@ -391,6 +392,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kilo` | `rules-dir` | `.kilo/rules` | Unscoped rules emit here and enter `kilo.jsonc.instructions`. Scoped rules use nested `AGENTS.md` without unconditional references; remove this override to use scoped rules. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
+| `kilo` | `commands-dir` | `.kilo/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `variant`, `subtask`, near-identical to OpenCode's own command frontmatter. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |

@@ -83,8 +83,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
-// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
-// three specimens per kind. "disabled-server"
+// adapter declares in caps.Supports (Rule, Agent, Skill, Command, MCP)
+// with three specimens per kind (except MCP). "disabled-server"
 // actually sets `disabled: true` (B9, target-audit 2026-08-01
 // follow-up: the fixture was named for a server that never carried the
 // flag, so the kit sink emitted with no disable state at all before
@@ -103,6 +103,9 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
+		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Meta: map[string]any{"description": "cmd one"}, Body: "cmd one body"},
+		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Meta: map[string]any{"description": "cmd two", "agent": "code"}, Body: "cmd two body"},
+		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Meta: map[string]any{"description": "cmd three", "model": "gpt-5.5", "variant": "high"}, Body: "cmd three body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

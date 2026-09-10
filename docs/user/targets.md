@@ -81,7 +81,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 | **qoder**       | `.qoder/agents/<name>.md` | `.qoder/skills/<name>/SKILL.md` | `.qoder/rules/<name>.md` | - | `.qoder/settings.json` (`mcpServers`) | - | - | - | - | - |
 | **openhands**   | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md`; a rule with `globs`/`paths` or a source-layout scope instead emits as a path-triggered rule at `.agents/skills/<name>/SKILL.md` (`paths:` frontmatter) | `.openhands/hooks.json` | `config.toml` (`[mcp]`) | - | - | - | `.openhands/setup.sh` | - |
 | **factory**     | `.factory/droids/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | - | `.factory/mcp.json` | - | - | - | - | - |
-| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.kilo/rules/<name>.md` (+ `kilo.jsonc` `instructions` array; also inlined into `AGENTS.md`) | - | `kilo.jsonc` (`mcp`) | - | - | - | - | - |
+| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.kilo/rules/<name>.md` (+ `kilo.jsonc` `instructions` array; also inlined into `AGENTS.md`) | - | `kilo.jsonc` (`mcp`) | `.kilo/commands/<name>.md` | - | - | - | - |
 | **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
 | **goose**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (opt-in `.goosehints`) | - | - | - | - | - | - | - |
 | **augment**     | `.augment/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.augment/rules/<name>.md` (+ inlined into `AGENTS.md`; opt-in `.augment-guidelines`) | - | `.augment/settings.json` (`mcpServers`) | - | - | - | - | - |
@@ -675,6 +675,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 .kilo/rules/<name>.md              # one per rule
 .kilo/agents/<name>.md             # one per agent
 .agents/skills/<name>/SKILL.md     # one folder per skill, plus any bundled assets (shared cross-tool tree)
+.kilo/commands/<name>.md           # one per command
 kilo.jsonc                         # instructions array (one entry per rule) and/or mcp map (merged with existing user config)
 ```
 
@@ -682,17 +683,19 @@ Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` natively and loads 
 
 Unscoped rules emit as one file per rule under `.kilo/rules/`, each one also listed by its own path in `kilo.jsonc`'s [`instructions`](https://kilo.ai/docs/customize/custom-rules) array (target-audit 2026-08-01): "Each entry points to a file path or glob pattern", and this adapter lists explicit paths rather than a `.kilo/rules/*.md` glob for ordinary rules. Scoped rules use nested `AGENTS.md` and are omitted from this unconditional list. Kilo Code's own [precedence order](https://kilo.ai/docs/customize/agents-md) is agent prompt > project `instructions` > AGENTS.md > global, so the `instructions` entry outranks the shared `AGENTS.md` block below it; AGENTS.md is always loaded when present regardless, so this adapter keeps inlining full rule bodies there too as a fallback, rather than treating `instructions` as a replacement. The legacy `.kilocode/rules/` tree (the pre-rename Kilo Code branding) is separate and still auto-included for backward compatibility, but this adapter never emits it.
 
+Commands emit as one Markdown file per command spec at `.kilo/commands/<name>.md`, the new Kilo Code extension's slash-command path: "Workflows are Markdown files stored as slash commands in `.kilo/commands/`" ([packages/kilo-docs/pages/customize/workflows.md](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/workflows.md), mirrored on GitHub since kilo.ai's rendered docs defeat fetching). Kilo Code takes the command name from the filename, so `name` is never written. Frontmatter carries `description`, `agent`, `model`, `variant`, and `subtask` when set, a field list near-identical to OpenCode's own command frontmatter; `variant` (a reasoning-effort override, e.g. `low` or `high`) is the one extra key this vendor documents (#630).
+
 MCP servers merge into the `mcp` map of `kilo.jsonc`: stdio combines `command`+`args` into one `command` array and sets `type: "local"`, using `environment` for env vars; remote sets `type: "remote"` and uses `url`/`headers`. A spec's `disabled: true` writes `"enabled": false`, the key Kilo Code's own documented MCP example carries; an enabled server gets no key at all. `instructions` and `mcp` merge into `kilo.jsonc` together; user-managed keys there survive every sync. Hooks have no Kilo surface yet and skip with a warning.
 
 Kilo Code also reads a second project-tier file, `.kilo/kilo.jsonc`, which this adapter does not write. The vendor's [documented 8-level config precedence](https://kilo.ai/docs/getting-started/settings#config-file-precedence) places `.kilo/kilo.jsonc` above the root `kilo.jsonc`, but describes it as higher levels overriding lower ones, a merge rather than an exclusive first-match read: any key the root file sets and `.kilo/kilo.jsonc` does not still reaches Kilo Code. A hand-authored `.kilo/kilo.jsonc` that redeclares `mcp` or `instructions` itself would shadow this adapter's output for those two keys specifically (target-audit 2026-08-27, #644).
 
-Config keys: `outputs.kilo.rules-dir` (default `.kilo/rules`), `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.skills-dir` (default `.agents/skills`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
+Config keys: `outputs.kilo.rules-dir` (default `.kilo/rules`), `outputs.kilo.agents-dir` (default `.kilo/agents`), `outputs.kilo.skills-dir` (default `.agents/skills`), `outputs.kilo.commands-dir` (default `.kilo/commands`), `outputs.kilo.mcp-file` (default `kilo.jsonc`).
 
 Verify with the real IDE:
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
-2. Check the tree: `ls AGENTS.md .kilo/rules/ .kilo/agents/ .agents/skills/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/rules/*.md .kilo/agents/*.md` for the provenance header.
-3. Open the project; each `.kilo/rules/<name>.md` listed in `kilo.jsonc`'s `instructions` array appears in the loaded-rules list, each `.kilo/agents/<name>.md` appears in the agent picker, each `.agents/skills/<name>/` folder loads as a skill, and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
+2. Check the tree: `ls AGENTS.md .kilo/rules/ .kilo/agents/ .agents/skills/ .kilo/commands/ kilo.jsonc`, `grep "Generated by agnostic-ai" .kilo/rules/*.md .kilo/agents/*.md .kilo/commands/*.md` for the provenance header.
+3. Open the project; each `.kilo/rules/<name>.md` listed in `kilo.jsonc`'s `instructions` array appears in the loaded-rules list, each `.kilo/agents/<name>.md` appears in the agent picker, each `.agents/skills/<name>/` folder loads as a skill, each `.kilo/commands/<name>.md` runs as `/<name>`, and each `mcp.<name>` from `kilo.jsonc` connects, with a disabled spec showing as disabled.
 
 ### Jules (`jules`)
 

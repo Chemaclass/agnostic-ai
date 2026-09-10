@@ -64,6 +64,20 @@
 // openhands, windsurf, and augment already write byte-identically, so
 // pointing here dedupes instead of adding a second on-disk copy.
 //
+// Commands emit as one Markdown file per command spec at
+// `.kilo/commands/<name>.md` (override via outputs.kilo.commands-dir),
+// the new Kilo Code extension's slash-command path: "Workflows are
+// Markdown files stored as slash commands in `.kilo/commands/`"
+// (packages/kilo-docs/pages/customize/workflows.md, mirrored on GitHub
+// since kilo.ai's rendered docs defeat fetching). Kilo Code takes the
+// command name from the filename, so `name` is never written.
+// Frontmatter carries `description`, `agent`, `model`, `variant`, and
+// `subtask`, near-identical to OpenCode's own command frontmatter
+// (internal/adapters/opencode); `variant` (a reasoning-effort override)
+// is the one extra key this vendor documents. Arbitrary `x-kilo` keys
+// pass through the same way commands.go's OpenCode counterpart does
+// (#630).
+//
 // MCP servers merge into the project `kilo.jsonc` (override via
 // outputs.kilo.mcp-file) under an `mcp` map, the key current Kilo Code
 // reads (`mcpServers` is the deprecated MCP-spec 2025-03-26 form).
@@ -113,11 +127,16 @@ const (
 	// zed, crush, openhands, windsurf, and augment already write here,
 	// so identical skill folders dedupe under sync.shared-skills.
 	defaultSkillsDir = ".agents/skills"
+	// defaultCommandsDir is the new Kilo Code extension's slash-command
+	// path: "Workflows are Markdown files stored as slash commands in
+	// `.kilo/commands/`" (packages/kilo-docs/pages/customize/
+	// workflows.md). "Project commands" in the vendor's own wording.
+	defaultCommandsDir = ".kilo/commands"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand},
 }
 
 // Adapter emits Kilo Code configs.
@@ -131,11 +150,12 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one Markdown file per rule under `.kilo/rules/`, one
 // agent Markdown file per agent spec under `.kilo/agents/`, one shared
-// `.agents/skills/<name>/SKILL.md` folder per skill, plus a merged
-// `kilo.jsonc` carrying the `instructions` array (one entry per rule
-// file) and the `mcp` map. The project-root AGENTS.md (still read, but
-// lower priority than `instructions`; see the package doc) is written
-// by `sync`, not here.
+// `.agents/skills/<name>/SKILL.md` folder per skill, one command
+// Markdown file per command spec under `.kilo/commands/`, plus a
+// merged `kilo.jsonc` carrying the `instructions` array (one entry per
+// rule file) and the `mcp` map. The project-root AGENTS.md (still
+// read, but lower priority than `instructions`; see the package doc)
+// is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -154,6 +174,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
 	return emitKiloJSONC(sess, b.Rules, rulesDir, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

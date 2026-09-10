@@ -9,6 +9,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Added
 
 - Trae rule frontmatter merges `x-trae` custom keys, most notably `scene: git_message` for AI-generated commit-message rules. `activationFrontmatter` never called the merge helper commands already use, so no custom key ever reached a rule file (#635).
+- Kilo Code commands emit to `.kilo/commands/<name>.md`, with `description`, `agent`, `model`, `variant`, and `subtask` frontmatter. Command specs previously reached no Kilo Code surface and skipped with a warning (#630).
 
 ### Fixed
 
