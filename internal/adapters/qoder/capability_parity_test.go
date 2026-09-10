@@ -31,6 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".qoder/rules/r1.md", ".qoder/rules/r2.md", ".qoder/rules/r3.md"}},
 		{spec.KindAgent, []string{".qoder/agents/alpha.md", ".qoder/agents/beta.md", ".qoder/agents/gamma.md"}},
 		{spec.KindSkill, []string{".qoder/skills/uno/SKILL.md", ".qoder/skills/dos/SKILL.md", ".qoder/skills/tres/SKILL.md"}},
+		{spec.KindCommand, []string{".qoder/commands/cmd-one.md", ".qoder/commands/cmd-two.md", ".qoder/commands/cmd-three.md"}},
 		{spec.KindMCP, []string{".qoder/settings.json"}},
 		{spec.KindHook, []string{".qoder/settings.json"}},
 	}
@@ -69,23 +70,23 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind qoder does not declare in caps.Supports (Command): Qoder
-// has no documented command surface, so that kind falls through to the
-// unsupported-kind warning channel and must never be silently
-// flattened into the rules directory.
+// every kind qoder does not declare in caps.Supports (Settings): Command
+// moved out of this set once `.qoder/commands/` landed (#630); a future
+// caps.Supports expansion needs to delete the matching row here and
+// demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
+		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (command), got %d", got)
+		t.Errorf("expected 1 capability warning (settings), got %d", got)
 	}
 }
 

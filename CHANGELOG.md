@@ -12,6 +12,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Kilo Code commands emit to `.kilo/commands/<name>.md`, with `description`, `agent`, `model`, `variant`, and `subtask` frontmatter. Command specs previously reached no Kilo Code surface and skipped with a warning (#630).
 - Windsurf (Devin CLI) hooks emit to `.devin/hooks.v1.json` across eight events, with no wrapper key and `type` accepting `prompt` as well as `command`. Hook specs previously reached no Windsurf surface and skipped with a warning; `import windsurf` now reads the file back too (#629).
 - Qoder hooks emit to `.qoder/settings.json` (merged alongside `mcpServers`) across 23 events, matching Claude Code's own tool-name matcher vocabulary and `{"hooks": {...}}` shape. Hook specs previously reached no Qoder surface and skipped with a warning (#629).
+- Qoder commands emit to `.qoder/commands/<name>.md`, with `description` frontmatter (required by the vendor; falls back to the command's name). Command specs previously reached no Qoder surface and skipped with a warning; `import qoder` now reads the directory back too (#630).
 
 ### Fixed
 
