@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Augment hooks emit to `.augment/settings.json` (merged alongside `mcpServers` in one write) across five events. `timeout` converts to milliseconds, since Augment's native unit differs from the shared spec's seconds, and a `command` missing a `.sh`/`.ps1`/`.cmd`/`.bat` extension still emits but surfaces a coverage note, since Augment only runs a script path. Hook specs previously reached no Augment surface and skipped with a warning (#629).
+
 ## v0.55.0 - 2026-09-10
 
 ### Added

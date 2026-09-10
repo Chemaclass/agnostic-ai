@@ -85,10 +85,40 @@
 // (docs.augmentcode.com/setup-augment/mcp), which does not read this
 // file (target-audit 2026-08-27, #633).
 //
-// caps.Supports declares KindRule, KindAgent, KindSkill, and KindMCP.
-// Hooks have no confirmed Augment surface in this adapter yet and skip
-// with a warning; see #629, which lands a `hooks` key in the same
-// settings.json this adapter already merges into.
+// Hooks merge into that same `.augment/settings.json` file under a
+// `hooks` key, in the same single emitSettings write as `mcpServers`
+// (see hooks.go and emitSettings below): "Project-scoped settings
+// (`.augment/settings.json` and `.augment/settings.local.json`) allow
+// repositories to ship hook configurations that apply automatically to
+// all contributors" (docs.augmentcode.com/cli/hooks). Five events,
+// re-verified fresh 2026-09-10: `PreToolUse`, `PostToolUse`, `Stop`,
+// `SessionStart`, `SessionEnd` (the vendor's `hook_event_name` field
+// also lists `Notification` as a possible value, but it has no
+// configuration section of its own, so it is not a sixth registrable
+// event). `timeout` reaches the file in **milliseconds**: the shared
+// hook spec's own `timeout` field is documented in seconds
+// (docs/user/spec-format.md), so this adapter multiplies by 1000
+// before writing it, unlike factory, goose, and qoder's seconds-native
+// renderers; the vendor default when the key is absent is 60000. A
+// hook's `command` must additionally be a path to a script ending in
+// `.sh`, `.ps1`, `.cmd`, or `.bat`: "Path to the script to execute
+// (must use a supported script extension: .ps1, .cmd, .bat, or .sh)".
+// Unlike Claude Code, Codex, and Qoder, Augment never runs an inline
+// shell string; a command missing one of the four extensions still
+// emits verbatim (no guessed rename) but surfaces a coverage note.
+// `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
+// default `.*`) and unused for the three session events, whose own
+// example omits the key outright rather than writing an empty string,
+// so this adapter never sets it there either. Augment's own matcher
+// vocabulary is its tool names (`launch-process`, `str-replace-editor`,
+// `save-file`, ...), the same set `x-augment.tools` already documents
+// above, so a Claude-style matcher (`Bash`, `Write`, ...) parses and
+// then matches nothing; that case surfaces a coverage note too, the
+// same treatment openhands and windsurf give their own mismatched tool
+// vocabularies. See hooks.go for the field-level detail.
+//
+// caps.Supports declares KindRule, KindAgent, KindSkill, KindMCP, and
+// KindHook.
 package augment
 
 import (
@@ -119,7 +149,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Augment configs.
@@ -166,24 +196,34 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emitSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
+	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
 }
 
-// emitSettings merges MCP servers into `.augment/settings.json` under
-// `mcpServers`, in the exact shape emit.MCPSchemaServersMap already
-// produces for Claude Code, Cursor, Qoder, and Factory (see the package
-// doc). Routes through emit.MergeJSONFile so the file's other keys
-// (shell, startupScript, theme, plugin keys, tool permissions) survive
-// the sync untouched; only `mcpServers` is ever set here. Building the
-// merge on a `keys` map, the same shape gemini.go and kilo.go already
-// use for their own multi-key settings files, leaves room for a future
-// hooks fix (#629) to add a `hooks` key to this same map without
-// restructuring this function.
-func emitSettings(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
+// emitSettings merges MCP servers under `mcpServers` (the exact shape
+// emit.MCPSchemaServersMap already produces for Claude Code, Cursor,
+// Qoder, and Factory) and hooks under `hooks` (see hooks.go) into
+// `.augment/settings.json` in one `MergeJSONFile` call. Routes through
+// emit.MergeJSONFile so the file's other keys (shell, startupScript,
+// theme, plugin keys, tool permissions) survive the sync untouched;
+// only `mcpServers` and `hooks` are ever set here.
+//
+// Both keys merge in the same call rather than two separate ones.
+// MergeJSONFile reads the on-disk file fresh on every call, and during
+// sync's collision-detection capture pass writes never reach disk, so
+// a second call would read the same pre-write file and produce a
+// second, divergent snapshot for the same path from the same target:
+// one carrying only `mcpServers`, the other only `hooks`. That trips
+// the collision check as though two targets disagreed on the file's
+// content, when only this adapter writes it (qoder hit exactly this,
+// #629, #718).
+func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
 	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
 	keys := map[string]any{}
 	if servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap); servers != nil {
 		keys["mcpServers"] = servers
+	}
+	if block := buildHooksBlock(hooks); block != nil {
+		keys[hooksKey] = block
 	}
 	if len(keys) == 0 {
 		return nil

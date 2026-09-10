@@ -250,6 +250,7 @@ outputs:
     rules-dir: .augment/rules           # default. One .md per rule (type: agent_requested when alwaysApply: false).
     agents-dir: .augment/agents         # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf.
+    mcp-file: .augment/settings.json    # default. mcpServers + hooks merged in one write; user keys preserved.
     # rules-file: .augment-guidelines   # opt-in: also write a concatenated .augment-guidelines doc.
 
 # What to do when a spec kind is unsupported by a target
@@ -402,6 +403,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |
 | `augment` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf, identical bytes dedupe. Augment also reads `.claude/skills/` and `.augment/skills/` directly. |
 | `augment` | `rules-file` | _empty_ | When set (e.g. `.augment-guidelines`), writes a concatenated guidelines document Augment reads. Opt-in; the vendor's own precedence order truncates it first under budget pressure. |
+| `augment` | `mcp-file` | `.augment/settings.json` | `mcpServers` map and, since #629, `hooks` (five events; `timeout` converts the shared spec's seconds to Augment's milliseconds; `command` must end in `.sh`/`.ps1`/`.cmd`/`.bat`), merged in one write into Auggie CLI's own project settings file so `shell`, `startupScript`, `theme`, and other unrelated keys survive the sync. |
 
 ## `targets`
 

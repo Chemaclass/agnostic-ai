@@ -100,6 +100,16 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"WorktreeCreate", "WorktreeRemove",
 		"Elicitation", "ElicitationResult",
 	),
+	// The five events docs.augmentcode.com/cli/hooks' own "Hook Events"
+	// section documents, re-verified fresh 2026-09-10 (superseding an
+	// earlier audit comment that read six off a stale fetch): the
+	// vendor's `hook_event_name` field also lists `Notification` as a
+	// possible value, but it has no configuration section of its own,
+	// so it is not a sixth registrable event (#629).
+	"augment": setOf(
+		"PreToolUse", "PostToolUse",
+		"Stop", "SessionStart", "SessionEnd",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -129,7 +139,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder"),
 	spec.KindSettings:    setOf("claude"),
