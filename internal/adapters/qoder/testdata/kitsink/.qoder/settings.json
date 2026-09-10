@@ -1,4 +1,18 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
   "mcpServers": {
     "disabled-server": {
       "command": "x",

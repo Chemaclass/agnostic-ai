@@ -73,11 +73,15 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the qoder
-// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
-// three rule, three agent, and three skill specimens. The MCP specimens
-// are byte-identical to claude's kit-sink MCP entries (same names, same
-// Meta) so the two adapters' `.mcp.json` output can be diffed directly;
-// see TestEmit_MCP_MatchesClaudeSharedFile in qoder_test.go.
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP, Hook)
+// with three rule, three agent, and three skill specimens. The MCP
+// specimens are byte-identical to claude's kit-sink MCP entries (same
+// names, same Meta) so the two adapters' `.mcp.json` output can be
+// diffed directly; see TestEmit_MCP_MatchesClaudeSharedFile in
+// qoder_test.go. The one hook specimen sets `matcher: Bash`, Claude
+// Code's own tool name and one of qoder's documented PreToolUse
+// examples, demonstrating the matcher passes straight through with no
+// coverage note (#629).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -108,6 +112,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
+		},
+		{
+			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "hooks/guard.sh", "timeout": 10},
 		},
 	}
 	return spec.NewBundle(entries)
