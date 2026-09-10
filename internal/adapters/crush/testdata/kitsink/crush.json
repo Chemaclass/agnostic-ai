@@ -1,4 +1,14 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "command": "./hooks/no-rm-rf.sh",
+        "matcher": "^bash$",
+        "name": "no-rm-rf",
+        "timeout": 10
+      }
+    ]
+  },
   "mcp": {
     "disabled-server": {
       "command": "x",

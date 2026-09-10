@@ -13,7 +13,8 @@ import (
 // wipes the source specs, imports the emitted tree back, then re-emits.
 // The second emit must byte-match the first: import reconstructs rules
 // (from the inlined `## Rules` block in AGENTS.md), skills (from
-// `.agents/skills/`), and MCP servers (from `crush.json`).
+// `.agents/skills/`), the PreToolUse hook (from `crush.json`), and MCP
+// servers (from `crush.json`).
 func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -26,6 +27,8 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: r2\n---\n\nrule two body\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"),
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "no-rm-rf.yaml"),
+		"name: no-rm-rf\nevent: PreToolUse\nmatcher: \"^bash$\"\ncommand: \"./hooks/no-rm-rf.sh\"\ntimeout: 10\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"),
 		"name: stdio-server\ncommand: npx\nargs:\n  - -y\n  - \"@modelcontextprotocol/server-filesystem\"\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "http-server.yaml"),
@@ -40,6 +43,9 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	}
 	if _, ok := first[".agents/skills/my-skill/SKILL.md"]; !ok {
 		t.Fatalf("first emit produced no skill folder: %v", keys(first))
+	}
+	if !strings.Contains(first["crush.json"], `"PreToolUse"`) {
+		t.Fatalf("first emit produced no hooks.PreToolUse: %s", first["crush.json"])
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -60,6 +66,14 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
 	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
 		t.Errorf("skill not reconstructed:\n%s", skill)
+	}
+	// Hook: crush's own `name` field becomes both the spec filename and
+	// its `name:` key, so a named hook re-imports at the same path.
+	hook := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "no-rm-rf.yaml"))
+	for _, want := range []string{"name: no-rm-rf", "event: PreToolUse", "matcher: ^bash$", "command: ./hooks/no-rm-rf.sh", "timeout: 10"} {
+		if !strings.Contains(hook, want) {
+			t.Errorf("hook not reconstructed, missing %q:\n%s", want, hook)
+		}
 	}
 	// MCP: crush.json carries an explicit `type` on all three transports.
 	stdio := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"))

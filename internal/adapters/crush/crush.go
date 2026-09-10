@@ -36,6 +36,24 @@
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
 //
+// Hooks merge into that same crush.json under a `hooks` map keyed by
+// event name: `{"PreToolUse": [{"name": ..., "matcher": ..., "command":
+// ..., "timeout": ...}, ...]}`. docs/hooks/README.md states "Crush
+// currently supports just one hook, PreToolUse, with plans to support
+// the full gamut" (re-verified 2026-09-10 against both that doc and
+// the vendor's published schema.json, whose `$defs.HookConfig` still
+// lists no other event; #629). A hook spec targeting any other event
+// parses fine and would sit in the file unread, so it earns a coverage
+// note instead. See hooks.go for the field mapping. mcp and hooks
+// merge into crush.json in one MergeJSONFile call, not two:
+// MergeJSONFile reads the on-disk file fresh on every call, and
+// during sync's collision-detection capture pass writes never reach
+// disk, so a second call would read the same pre-write file and
+// produce a second, divergent snapshot for the same path from the
+// same target (one carrying only `mcp`, the other only `hooks`),
+// tripping the collision check as though two different targets
+// disagreed on crush.json's content.
+//
 // crush.json is Crush's legacy format. The vendor's own docs call it
 // deprecated and freeze it: "new configuration options will only be
 // added to Bash-based config" (`crushrc`, a Bash script Crush sources
@@ -74,7 +92,7 @@ var caps = emit.Capabilities{
 	// itself: they reach Crush through the shared AGENTS.md entry-point
 	// sync writes centrally. KindAgent is absent; Crush has no agent
 	// surface, so the unsupported warning is accurate.
-	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Crush configs.
@@ -87,8 +105,9 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes one native skill folder per skill under .agents/skills/
-// and crush.json for MCP servers. The project-root AGENTS.md (with
-// rule bodies inlined) is written by `sync`, not here.
+// and a merged crush.json for MCP servers and PreToolUse hooks. The
+// project-root AGENTS.md (with rule bodies inlined) is written by
+// `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -97,19 +116,28 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitCrushJSON(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitMCPConfig writes (or merges into) crush.json with the `mcp` map.
-// Routes through emit.MergeJSONFile so any pre-existing user-managed
-// keys (models, providers, lsp, options, ...) survive the sync; only
-// `mcp` is overwritten.
-func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	servers := buildMCPMap(mcps)
-	if len(servers) == 0 {
+// emitCrushJSON writes (or merges into) crush.json with the `mcp` and
+// `hooks` keys, in one MergeJSONFile call (see the package doc for why
+// that must stay one call, not two). Routes through
+// emit.MergeJSONFile so any pre-existing user-managed keys (models,
+// providers, lsp, options, ...) survive the sync; only `mcp` and
+// `hooks` are overwritten. No-op when both mcps and hooks render
+// empty.
+func emitCrushJSON(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
+	keys := map[string]any{}
+	if servers := buildMCPMap(mcps); len(servers) > 0 {
+		keys["mcp"] = servers
+	}
+	if hooksBlock := buildHooksBlock(hooks); hooksBlock != nil {
+		keys["hooks"] = hooksBlock
+	}
+	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{"mcp": servers}, dryRun)
+	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {
