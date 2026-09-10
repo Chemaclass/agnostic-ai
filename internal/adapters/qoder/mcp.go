@@ -8,19 +8,40 @@ import (
 // qoderMCPKey is the settings.json key holding the server map.
 const qoderMCPKey = "mcpServers"
 
-// emitMCP merges the `mcpServers` map into `.qoder/settings.json`
-// (default; override via outputs.qoder.mcp-file). Routes through
-// MergeJSONFile so the rest of that file (the `mcp` group's
-// `enableAllProjectMcpServers` / `enabledProjectMcpServers`,
-// permissions, custom models) survives a sync untouched.
+// qoderHooksKey is the settings.json key holding the hooks block.
+const qoderHooksKey = "hooks"
+
+// emitSettings merges the `mcpServers` map and the `hooks` block into
+// `.qoder/settings.json` (default; override via outputs.qoder.mcp-file)
+// in one write. Routes through MergeJSONFile so the rest of that file
+// (the `mcp` group's `enableAllProjectMcpServers` /
+// `enabledProjectMcpServers`, permissions, custom models) survives a
+// sync untouched.
 //
-// No file is written when mcps is empty or every entry renders empty.
-func emitMCP(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	servers := buildMCPMap(mcps)
-	if len(servers) == 0 {
+// Both keys merge in the same MergeJSONFile call rather than two
+// separate ones. MergeJSONFile reads the on-disk file fresh on every
+// call, and during sync's collision-detection capture pass writes
+// never reach disk, so a second call would read the same pre-write
+// file and produce a second, divergent snapshot for the same path from
+// the same target: one carrying only `mcpServers`, the other only
+// `hooks`. That trips the collision check as though two different
+// targets disagreed on the file's content, when only qoder writes it
+// (#629).
+//
+// No file is written when mcps and hooks are both empty, or every
+// entry in both renders empty.
+func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
+	keys := map[string]any{}
+	if servers := buildMCPMap(mcps); len(servers) > 0 {
+		keys[qoderMCPKey] = servers
+	}
+	if block := buildHooksBlock(hooks); block != nil {
+		keys[qoderHooksKey] = block
+	}
+	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{qoderMCPKey: servers}, dryRun)
+	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {

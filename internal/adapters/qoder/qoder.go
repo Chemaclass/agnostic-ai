@@ -71,6 +71,23 @@
 // sweep it, since a JSON file carries no provenance header and the file
 // may well belong to Claude Code. A Qoder-only project should delete it
 // by hand once.
+//
+// Hooks merge into that same `.qoder/settings.json` file under a
+// `hooks` key. docs.qoder.com/cli/hooks documents 23 events, PascalCase
+// (SessionStart, SessionEnd, UserPromptSubmit, PreToolUse, PostToolUse,
+// PostToolUseFailure, PermissionRequest, PermissionDenied, Stop,
+// StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact,
+// Notification, InstructionsLoaded, ConfigChange, CwdChanged,
+// FileChanged, WorktreeCreate, WorktreeRemove, Elicitation,
+// ElicitationResult; #629), and nests them the same way Claude Code
+// does: `{"hooks": {"<Event>": [{"matcher": ..., "hooks": [{"type":
+// "command", "command": ..., ...}]}]}}`. The PreToolUse/PostToolUse
+// matcher is also Claude's own tool-name vocabulary ("e.g. Bash, Write,
+// Edit, Read, Glob, Grep; MCP tool names like mcp__server__tool"), so a
+// matcher carried over from a Claude spec matches, unlike openhands and
+// windsurf. See hooks.go for the field mapping and the vendor quote for
+// each field's semantics; see mcp.go's emitSettings for why the
+// `mcpServers` and `hooks` keys merge in one write rather than two.
 package qoder
 
 import (
@@ -92,7 +109,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Qoder configs.
@@ -109,7 +126,7 @@ func (Adapter) Name() string { return target }
 // `.qoder/agents`), one folder per skill into the skills directory
 // (default `.qoder/skills`, Qoder's native Agent Skills layout; a flat
 // file there never loads as a skill), plus a merged
-// `.qoder/settings.json` for MCP servers.
+// `.qoder/settings.json` for MCP servers and hooks.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -130,7 +147,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	return emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec.
