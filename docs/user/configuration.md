@@ -176,6 +176,7 @@ outputs:
     skills-dir: .agents/skills   # default. One folder per skill; shared tree with codex/amp/zed/crush/openhands.
     ignore-file: .devinignore    # default. Agent ignore patterns (gitignore syntax); legacy .codeiumignore / .windsurfignore still read.
     mcp-file: .devin/mcp_config.json  # default. Devin Local's file; remote entries use transport, not type.
+    hooks-file: .devin/hooks.v1.json  # default. Eight events, no wrapper key; type accepts prompt as well as command.
     # workflows-dir: .windsurf/workflows    # opt-in, now warn-only: Cascade, the only agent that read Workflows, was removed in Devin Desktop v3.9.19.
   continue:
     rules-dir: .continue/rules        # default
@@ -240,6 +241,7 @@ outputs:
     rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
     agents-dir: .kilo/agents            # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
+    commands-dir: .kilo/commands        # default. One .md per command. Frontmatter filtered to description, agent, model, variant, subtask.
     mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
@@ -338,6 +340,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `windsurf` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets); the cross-tool tree shared with codex/amp/zed/crush/openhands, identical bytes dedupe. |
 | `windsurf` | `workflows-dir` | _empty_ | No longer emits anything: Devin Desktop removed Cascade, the only agent that read Workflows, in v3.9.19, and Devin Local does not support them. Setting this key only prints a sync-time warning naming the vendor's skills migration path. The native subagent file emits either way. |
 | `windsurf` | `mcp-file` | `.devin/mcp_config.json` | Devin Local's project-scoped file, not Cascade's. Remote entries use `transport` (`http`\|`sse`), not `type`; also carries `oauthClientId`/`oauthClientSecret`/`oauthResource`. `disabled` is a real key here. |
+| `windsurf` | `hooks-file` | `.devin/hooks.v1.json` | Eight events (`PreToolUse`, `PostToolUse`, `PermissionRequest`, `UserPromptSubmit`, `Stop`, `PostCompaction`, `SessionStart`, `SessionEnd`). The hooks object is the entire file, no wrapper key. `type` accepts `prompt` (an LLM prompt, via a hand-authored `prompt` key) as well as `command`. `matcher` is a regex on Devin CLI's own lowercase snake_case tool names, not Claude's. |
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). Scoped rules emit constrained `globs` and omit `alwaysApply`. `x-continue.regex` is supported only without `scope`. |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
@@ -391,6 +394,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kilo` | `rules-dir` | `.kilo/rules` | Unscoped rules emit here and enter `kilo.jsonc.instructions`. Scoped rules use nested `AGENTS.md` without unconditional references; remove this override to use scoped rules. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
+| `kilo` | `commands-dir` | `.kilo/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `variant`, `subtask`, near-identical to OpenCode's own command frontmatter. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |

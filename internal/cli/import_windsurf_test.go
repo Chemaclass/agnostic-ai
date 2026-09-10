@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,8 @@ func TestImportWindsurf_RoundTripFixedPoint(t *testing.T) {
 		"name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"),
 		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer x\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
+		"name: fmt\nevent: PostToolUse\nmatcher: exec\ncommand: gofmt -w\n")
 
 	execCLI(t, "sync", "-t", "windsurf")
 	first := snapshotEmitted(t, dir)
@@ -47,6 +50,20 @@ func TestImportWindsurf_RoundTripFixedPoint(t *testing.T) {
 		t.Fatalf("first emit produced no mcp file: %v", keys(first))
 	} else if !strings.Contains(body, `"transport": "http"`) {
 		t.Fatalf("first emit's mcp file missing transport: http:\n%s", body)
+	}
+	if body, ok := first[".devin/hooks.v1.json"]; !ok {
+		t.Fatalf("first emit produced no hooks file: %v", keys(first))
+	} else {
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(body), &doc); err != nil {
+			t.Fatalf("hooks.v1.json is not valid json: %v\n%s", err, body)
+		}
+		if _, wrapped := doc["hooks"]; wrapped {
+			t.Fatalf("hooks.v1.json must not carry a top-level hooks wrapper key:\n%s", body)
+		}
+		if _, ok := doc["PostToolUse"]; !ok {
+			t.Fatalf("expected PostToolUse at the top level:\n%s", body)
+		}
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -76,6 +93,13 @@ func TestImportWindsurf_RoundTripFixedPoint(t *testing.T) {
 	}
 	if strings.Contains(linear, "transport:") {
 		t.Errorf("Devin's transport key must not survive into the internal spec's own type meta:\n%s", linear)
+	}
+	hookPath := findOneHookFile(t, filepath.Join(dir, ".agnostic-ai", "hooks"), "posttooluse")
+	hook := readFile(t, hookPath)
+	for _, want := range []string{"event: PostToolUse", "matcher: exec", "command: gofmt -w"} {
+		if !strings.Contains(hook, want) {
+			t.Errorf("hook not reconstructed, missing %q:\n%s", want, hook)
+		}
 	}
 
 	execCLI(t, "sync", "-t", "windsurf")
@@ -195,6 +219,70 @@ func TestImportWindsurf_TriggerBecomesAlwaysApply(t *testing.T) {
 	always := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"))
 	if !strings.Contains(always, "alwaysApply: true") {
 		t.Errorf("imported always.md missing alwaysApply: true:\n%s", always)
+	}
+}
+
+// TestImportWindsurf_HooksImportWithNoWrapperKey confirms the importer
+// decodes `.devin/hooks.v1.json` correctly even though, unlike Claude
+// Code's `.claude/settings.json`, the file carries no top-level
+// `"hooks"` key: the event names sit directly at the document root
+// (#629).
+func TestImportWindsurf_HooksImportWithNoWrapperKey(t *testing.T) {
+	dir := t.TempDir()
+	doc := `{
+  "PostToolUse": [
+    {"matcher": "edit", "hooks": [{"type": "command", "command": "gofmt -w", "timeout": 10}]}
+  ]
+}`
+	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
+	if err := importFromWindsurf(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
+	data := readFile(t, path)
+	for _, want := range []string{"event: PostToolUse", "matcher: edit", "command: gofmt -w", "timeout: 10"} {
+		if !strings.Contains(data, want) {
+			t.Errorf("expected %q in %s", want, data)
+		}
+	}
+}
+
+// TestImportWindsurf_PromptTypeHookImportsPromptField confirms a
+// `type: prompt` entry imports with `prompt:` in place of `command:`,
+// since agnostic-ai's generic hook spec has no dedicated prompt field.
+func TestImportWindsurf_PromptTypeHookImportsPromptField(t *testing.T) {
+	dir := t.TempDir()
+	doc := `{
+  "UserPromptSubmit": [
+    {"matcher": "", "hooks": [{"type": "prompt", "prompt": "Does this look destructive?"}]}
+  ]
+}`
+	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
+	if err := importFromWindsurf(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "userpromptsubmit")
+	data := readFile(t, path)
+	for _, want := range []string{"event: UserPromptSubmit", "type: prompt", "prompt: Does this look destructive?"} {
+		if !strings.Contains(data, want) {
+			t.Errorf("expected %q in %s", want, data)
+		}
+	}
+	if strings.Contains(data, "command:") {
+		t.Errorf("a prompt hook must not import a command key:\n%s", data)
+	}
+}
+
+// TestImportWindsurf_NoHooksFileIsNoOp confirms a missing
+// `.devin/hooks.v1.json` produces no hooks and no error.
+func TestImportWindsurf_NoHooksFileIsNoOp(t *testing.T) {
+	dir := t.TempDir()
+	n, err := importWindsurfHooks(dir, filepath.Join(dir, "hooks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("expected 0 hooks imported, got %d", n)
 	}
 }
 

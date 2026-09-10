@@ -15,7 +15,12 @@
 // back to the Claude spelling (`paths`, comma-joined). This is the same
 // three-field matrix Cursor's `.mdc` files use off the same spec
 // metadata (internal/adapters/cursor), ported here rather than shared,
-// since the two targets emit different file shapes around it.
+// since the two targets emit different file shapes around it. Any
+// `x-trae` custom key on a rule merges onto this same block, most
+// notably `scene: git_message`, which docs.trae.ai/ide/rules documents
+// as the field that marks a rule for AI-generated Git commit messages
+// and states composes with the three fields above rather than
+// replacing them (#635).
 //
 // Agents emit as native project subagents at `.trae/agents/<name>.md`:
 // "Project subagents | ... | `{project_folder}/.trae/agents/{my_agent}.md`"
@@ -219,7 +224,7 @@ func commandFile(e spec.Entry) string {
 // package doc), then a `# <name>` heading and the body.
 func ruleForm(e spec.Entry) string {
 	var b strings.Builder
-	b.WriteString(activationFrontmatter(emit.ResolveMeta(e.Meta, target)))
+	b.WriteString(activationFrontmatter(e))
 	b.WriteString("# " + e.Name + "\n\n")
 	b.WriteString(e.Body)
 	return b.String()
@@ -234,7 +239,17 @@ func ruleForm(e spec.Entry) string {
 // a scalar or list, comma-joined). An empty description still emits a
 // bare `description:` key so every file carries all three keys
 // regardless of what the spec sets, per the package doc.
-func activationFrontmatter(m map[string]any) string {
+//
+// Any `x-trae` custom key merges onto the same block, most notably
+// `scene: git_message`: docs.trae.ai/ide/rules states the field "is
+// compatible with existing fields such as alwaysApply, description,
+// and globs", so it composes onto the activation matrix rather than
+// replacing it. Until #635 this function never called
+// MergeCustomTargetMeta at all, unlike the identical call commands
+// already make (see commandFile), so no rule-scoped x-trae key ever
+// reached a rule file.
+func activationFrontmatter(e spec.Entry) string {
+	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
 	always := true
@@ -255,8 +270,28 @@ func activationFrontmatter(m map[string]any) string {
 		b.WriteString("globs: " + yamlScalar(globs) + "\n")
 	}
 	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
+	writeCustomTraeLines(&b, e.Meta)
 	b.WriteString("---\n\n")
 	return b.String()
+}
+
+// writeCustomTraeLines appends every `x-trae` custom key as an
+// additional frontmatter line, sorted for deterministic output. String
+// values write as a plain (minimally-quoted) scalar; any other value
+// type falls back to yaml.Marshal so the block always parses.
+func writeCustomTraeLines(b *strings.Builder, meta map[string]any) {
+	custom, keys := emit.CustomTargetMeta(meta, target)
+	for _, k := range keys {
+		if s, ok := custom[k].(string); ok {
+			b.WriteString(k + ": " + yamlScalar(s) + "\n")
+			continue
+		}
+		out, err := yaml.Marshal(map[string]any{k: custom[k]})
+		if err != nil {
+			continue
+		}
+		b.WriteString(strings.TrimRight(string(out), "\n") + "\n")
+	}
 }
 
 // pathsToGlobs normalizes a `paths` value (the Claude spelling: a

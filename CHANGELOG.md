@@ -6,6 +6,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Trae rule frontmatter merges `x-trae` custom keys, most notably `scene: git_message` for AI-generated commit-message rules. `activationFrontmatter` never called the merge helper commands already use, so no custom key ever reached a rule file (#635).
+- Kilo Code commands emit to `.kilo/commands/<name>.md`, with `description`, `agent`, `model`, `variant`, and `subtask` frontmatter. Command specs previously reached no Kilo Code surface and skipped with a warning (#630).
+- Windsurf (Devin CLI) hooks emit to `.devin/hooks.v1.json` across eight events, with no wrapper key and `type` accepting `prompt` as well as `command`. Hook specs previously reached no Windsurf surface and skipped with a warning; `import windsurf` now reads the file back too (#629).
+
 ### Fixed
 
 - Codex: `import codex` now reads inline hooks from `.codex/config.toml` in the vendor's documented nested shape (`[[hooks.<event>]]` matcher table plus a nested `[[hooks.<event>.hooks]]` command array). Every vendor example uses this shape; before this fix it imported as zero hooks with no warning. The flat table this tool previously required still decodes for backward compatibility (#669).

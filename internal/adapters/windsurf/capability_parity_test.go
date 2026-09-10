@@ -28,6 +28,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindIgnore, []string{".devinignore"}},
 		{spec.KindMCP, []string{".devin/mcp_config.json"}},
+		{spec.KindHook, []string{".devin/hooks.v1.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -62,24 +63,24 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind windsurf does not declare in caps.Supports (Hook,
-// Command). MCP (`.devin/mcp_config.json`) is now native, so it must
-// not warn: a future caps.Supports expansion needs to delete the
-// matching row here and demonstrate the emit path that backs it.
+// every kind windsurf does not declare in caps.Supports (Command).
+// MCP (`.devin/mcp_config.json`) and Hook (`.devin/hooks.v1.json`) are
+// now native, so neither must warn: a future caps.Supports expansion
+// needs to delete the matching row here and demonstrate the emit path
+// that backs it.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (command), got %d", got)
 	}
 }
 

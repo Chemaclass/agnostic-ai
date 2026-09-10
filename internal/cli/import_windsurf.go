@@ -36,6 +36,10 @@ const windsurfMCPFile = ".devin/mcp_config.json"
 // windsurfMCPKey is the top-level JSON object holding the server map.
 const windsurfMCPKey = "mcpServers"
 
+// windsurfHooksFile is Devin CLI's project-scoped hooks file
+// (docs.devin.ai/cli/extensibility/hooks/overview, #629).
+const windsurfHooksFile = ".devin/hooks.v1.json"
+
 // windsurfImportDir returns the first existing candidate rules dir
 // under root, defaulting to the preferred `.devin/rules` when neither
 // exists yet.
@@ -141,8 +145,12 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 //   - `.devin/mcp_config.json`'s `mcpServers` map writes one yaml per
 //     server. See importWindsurfMCP for the `transport` -> `type`
 //     rename this importer applies on the way in.
+//   - `.devin/hooks.v1.json` writes one yaml per matcher group, same
+//     collapsing rule as importClaudeHooks. Unlike that file, there is
+//     no `"hooks"` wrapper key to unwrap, and a `type: prompt` entry
+//     imports with `prompt:` in place of `command:` (#629).
 func importFromWindsurf(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	rulesDir := windsurfImportDir(root)
@@ -180,7 +188,11 @@ func importFromWindsurf(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps (from windsurf)\n", c.rules, c.agents, c.skills, mcps)
+	hooks, err := importWindsurfHooks(root, filepath.Join(root, src.Hooks))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps)
 	printImportNextSteps(root, "windsurf")
 	return nil
 }

@@ -74,6 +74,14 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"UserPromptSubmit", "Stop",
 		"SessionStart", "SessionEnd",
 	),
+	// The eight events docs.devin.ai/cli/extensibility/hooks/overview's
+	// own Hook Events table lists for Devin CLI's `.devin/hooks.v1.json`.
+	"windsurf": setOf(
+		"PreToolUse", "PostToolUse",
+		"PermissionRequest", "UserPromptSubmit",
+		"Stop", "PostCompaction",
+		"SessionStart", "SessionEnd",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -103,9 +111,9 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
-	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie"),
+	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo"),
 	spec.KindSettings:    setOf("claude"),
 	spec.KindReview:      setOf("cursor"),
 	spec.KindEnvironment: setOf("cursor", "openhands"),
