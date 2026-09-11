@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "matcher": "Bash",
+        "command": "hooks/guard.sh",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

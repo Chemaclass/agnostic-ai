@@ -115,6 +115,32 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// 2026-09-10 against both that doc and the vendor's schema.json,
 	// whose $defs.HookConfig carries no per-event variant; #629).
 	"crush": setOf("PreToolUse"),
+	// docs.github.com/en/copilot/reference/hooks-reference's own "Hook
+	// events" table lists 14 events today (verified 2026-09-10, up from
+	// 13 recorded when #629 was filed). Each is a literal, independently
+	// valid JSON key in both the PascalCase "VS Code compatible" form
+	// this repo's other hook emitters already share (Claude Code,
+	// Codex, OpenHands, Windsurf, Qoder) and Copilot's own camelCase
+	// form; this adapter passes `event:` through verbatim (#629), so
+	// both spellings are listed. `userPromptTransformed` has no
+	// PascalCase pairing documented on that page, so only its camelCase
+	// spelling is valid.
+	"copilot": setOf(
+		"SessionStart", "sessionStart",
+		"SessionEnd", "sessionEnd",
+		"UserPromptSubmit", "userPromptSubmitted",
+		"userPromptTransformed",
+		"PreToolUse", "preToolUse",
+		"PostToolUse", "postToolUse",
+		"PostToolUseFailure", "postToolUseFailure",
+		"Stop", "agentStop",
+		"SubagentStart", "subagentStart",
+		"SubagentStop", "subagentStop",
+		"ErrorOccurred", "errorOccurred",
+		"PreCompact", "preCompact",
+		"Notification", "notification",
+		"PermissionRequest", "permissionRequest",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -134,6 +160,14 @@ var matcherAcceptingEvents = setOf(
 	"beforeMCPExecution", "afterMCPExecution",
 	"beforeReadFile", "afterFileEdit",
 	"preToolUse", "postToolUse", "postToolUseFailure",
+	// copilot: matcher-accepting events per
+	// docs.github.com/en/copilot/reference/hooks-reference's own
+	// matcher-filtering table (notification, permissionRequest,
+	// postToolUse, preCompact, preToolUse, subagentStart), added in
+	// both the PascalCase and camelCase spellings this adapter's
+	// verbatim pass-through accepts (#629).
+	"Notification", "notification",
+	"permissionRequest", "preCompact", "subagentStart",
 )
 
 // targetsSupportingKind lists the targets whose adapter actually
@@ -144,7 +178,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder"),
 	spec.KindSettings:    setOf("claude"),

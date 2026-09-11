@@ -92,6 +92,7 @@ desktop.ini
 /.aider.conf.yml
 /.github/copilot-instructions.md
 /.github/instructions/
+/.github/hooks/
 /.mcp.json
 /opencode.json
 # Codex / Amp / Warp share the open AGENTS.md standard and emit
