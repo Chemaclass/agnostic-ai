@@ -133,7 +133,7 @@
 // file back the same way it already does for rules, agents, skills,
 // and MCP: see internal/cli/import_windsurf_hooks.go.
 //
-// Ignore specs merge into `.devinignore` (override via
+// Ignore specs emit as `.devinignore` (override via
 // outputs.windsurf.ignore-file), gitignore syntax under a `#`
 // provenance header: "you can add a `.devinignore` file to your repo
 // root, with the same syntax as .gitignore" (docs.devin.ai/desktop/
@@ -244,7 +244,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {

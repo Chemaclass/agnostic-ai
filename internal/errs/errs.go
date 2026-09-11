@@ -39,6 +39,7 @@ const (
 
 	// Emit.
 	CodeOutputCollision Code = "AAI-102"
+	CodeIgnoreOverwrite Code = "AAI-103"
 
 	// Import.
 	CodeImportFileUnknown Code = "AAI-202"

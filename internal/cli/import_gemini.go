@@ -27,10 +27,10 @@ const (
 
 // importFromGemini reads an existing Gemini CLI project (root GEMINI.md
 // plus any nested <dir>/GEMINI.md, `.gemini/agents/`,
-// `.gemini/commands/`, `.gemini/skills/`, `.gemini/settings.json`)
-// under root and writes specs into the configured source directories.
-// Every directory is read on its own, so a project carrying both a
-// subagent and a slash command imports both.
+// `.gemini/commands/`, `.gemini/skills/`, `.gemini/settings.json`, a
+// hand-authored `.geminiignore`) under root and writes specs into the
+// configured source directories. Every directory is read on its own, so
+// a project carrying both a subagent and a slash command imports both.
 func importFromGemini(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
@@ -58,11 +58,15 @@ func importFromGemini(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "gemini"); err != nil {
 		return err
 	}
+	ignores, err := importIgnoreFile(root, "gemini", src)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks, %d commands\n",
-		rules, agents, skills, mcps, hooks, commands)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks, %d commands, %d ignores\n",
+		rules, agents, skills, mcps, hooks, commands, ignores)
 	printImportNextSteps(root, "gemini")
 	return nil
 }

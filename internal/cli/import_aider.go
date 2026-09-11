@@ -9,8 +9,8 @@ import (
 const aiderMainFile = "CONVENTIONS.md"
 
 // importFromAider reads an existing Aider project (CONVENTIONS.md plus
-// optional .aider.conf.yml) under root and writes specs into the
-// configured source directories.
+// optional .aider.conf.yml and a hand-authored .aiderignore) under root
+// and writes specs into the configured source directories.
 func importFromAider(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules); err != nil {
 		return err
@@ -19,10 +19,14 @@ func importFromAider(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	ignores, err := importIgnoreFile(root, "aider", src)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, aiderMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules\n", n)
+	summaryf("imported %d rules, %d ignores\n", n, ignores)
 	printImportNextSteps(root, "aider")
 	return nil
 }
