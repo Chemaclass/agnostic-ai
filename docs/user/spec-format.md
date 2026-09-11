@@ -365,7 +365,7 @@ env:
 | `env` | no | empty | Environment variables passed to the server. |
 | `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder, Copilot/VS Code. Warp maps this to its own `working_directory` field. |
 | `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
-| `url` | http/sse only | none | Endpoint URL. |
+| `url` | http/sse/ws only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
 | `envFile` | stdio only, Cursor + Copilot/VS Code | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
@@ -398,6 +398,8 @@ env:
 | `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, and Qoder: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
+
+`command` and `url` are the two fields a server cannot work without, and `agnostic-ai lint` reports a missing one as an error (LINT008). Neither `validate` nor `sync` catches it: some targets drop the entry, the rest write a server object with no way to start or reach anything, and both do it silently. See [lint](cli-reference.md#lint).
 
 Targets with native MCP propagation:
 

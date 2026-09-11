@@ -79,7 +79,7 @@
 // `.factory/mcp.json` directly" (docs.factory.ai/harness/mcp). That
 // edit is lost on the next sync (target-audit 2026-09-11, #737).
 //
-// Hooks merge into `.factory/hooks.json` (override via
+// Hooks are written to `.factory/hooks.json` (override via
 // outputs.factory.hooks-file), keyed directly by event name with no
 // surrounding "hooks" wrapper: "Standalone `hooks.json` files are
 // keyed directly by event name" (docs.factory.ai/harness/hooks), the
@@ -89,7 +89,9 @@
 // `PreCompact`, `SessionStart`, `SessionEnd`. `timeout` is seconds
 // (vendor default 60 when absent), not milliseconds. See hooks.go for
 // the field mapping, the matcher-vocabulary note, and the vendor
-// quote (#629).
+// quote (#629). "Written to", not "merged into", for the same reason
+// as `.factory/mcp.json` above: this is a plain WriteFile, so a hand
+// edit to the file is lost on the next sync (#745).
 package factory
 
 import (

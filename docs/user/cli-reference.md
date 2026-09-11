@@ -564,11 +564,13 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## lint
 
-Semantic checks beyond schema: empty specs, duplicate names, dead specs (kinds no enabled target supports), hooks setting a matcher on an event that ignores it, and unterminated frontmatter. Exit 1 on error findings, or on warnings when `--strict` is set.
+Semantic checks beyond schema: empty specs, duplicate names, dead specs (kinds no enabled target supports), hooks setting a matcher on an event that ignores it, unterminated frontmatter, and MCP servers missing the field their transport requires. Exit 1 on error findings, or on warnings when `--strict` is set.
 
 Two specs of the same kind declaring the same `name` (LINT003) is the one to watch. The loader collapses them, so one body silently never reaches any target. Several hooks sharing an event and matcher is **not** a collision: they all run, which is usually the point (`gofmt` and `vet` on the same save).
 
 Unterminated frontmatter (LINT006) is the one worth knowing about: a spec that opens `---` and never closes it parses as body-only, so the raw YAML is emitted verbatim into every target and the spec silently never loads. `validate` and `sync` both pass in that state, which is why it is a lint error rather than a warning.
+
+An MCP server with no `command:` on a stdio entry, or no `url:` on an `http`/`sse`/`ws` one (LINT008), is an error for the same reason. The entry is dead on every target, and the two ways it dies split the fleet in half. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write a server object carrying neither field, which no vendor schema accepts. `x-<target>` cannot supply the missing field either: both names are reserved, so an override that sets one is dropped before it reaches the file.
 
 ```bash
 agnostic-ai lint

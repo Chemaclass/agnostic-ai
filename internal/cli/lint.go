@@ -115,6 +115,7 @@ func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries)...)
+	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	return findings
 }
 
@@ -251,6 +252,65 @@ func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 	}
 	return out
 }
+
+// lintMCPMissingRequiredField flags an MCP spec with no `command:` on a
+// stdio server, and none with no `url:` on a remote one (LINT008, error).
+// `type` defaults to stdio, matching the spec format and every adapter.
+//
+// The check lives here rather than in the adapters because the entry is
+// dead on every target, so the user should hear it once instead of per
+// target. The two ways it dies split the fleet roughly in half. trae,
+// antigravity and windsurf decline the entry and, before this rule, said
+// nothing; claude, codex, cursor, gemini, copilot, amp, augment, factory,
+// junie, kiro, opencode and warp write a server object carrying neither
+// field, which no vendor schema accepts. Only continue reported it, and
+// only because its loader throws on the entry and would lose the whole
+// file (#739).
+//
+// Error rather than warn, for LINT006's reason: `validate` and `sync`
+// both pass on such a spec, so nothing else tells the user the server
+// will never start. `x-<target>` cannot rescue it either. Both field
+// names are on every adapter's reserved list, so an override that sets
+// one is dropped before it reaches the file.
+func lintMCPMissingRequiredField(mcps []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, e := range mcps {
+		// Every MCP builder drops a nameless entry before it reads the
+		// transport, so there is no missing field to report. A spec
+		// loaded from a file always has one, derived from the filename.
+		if e.Name == "" {
+			continue
+		}
+		transport, _ := e.Meta["type"].(string)
+		if transport == "" {
+			transport = "stdio"
+		}
+		field, verb := "url", "connect to"
+		if transport == "stdio" {
+			field, verb = "command", "start"
+		} else if !remoteMCPTransports[transport] {
+			continue // no known required field to name for this transport
+		}
+		if value, _ := e.Meta[field].(string); value != "" {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT008",
+			Severity: lintError,
+			Path:     e.Path,
+			Message: fmt.Sprintf(
+				"%s MCP server %q has no `%s:`, so no target can %s it; add `%s:` or drop the spec",
+				transport, e.Name, field, verb, field,
+			),
+		})
+	}
+	return out
+}
+
+// remoteMCPTransports is the set of transports the spec format documents
+// as carrying `url`. A transport outside it (and outside stdio) has no
+// documented required field, so LINT008 stays quiet rather than guess.
+var remoteMCPTransports = map[string]bool{"http": true, "sse": true, "ws": true}
 
 func countSeverity(findings []lintFinding, s lintSeverity) int {
 	n := 0

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -179,5 +180,79 @@ func TestLintHookMatcherMisuse_NoFindingsOnCleanHooks(t *testing.T) {
 	}
 	if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
 		t.Errorf("expected 0 findings on clean hooks, got %d", len(got))
+	}
+}
+
+func TestLintMCPMissingRequiredField_FlagsEveryTransport(t *testing.T) {
+	mcps := []spec.Entry{
+		// stdio is the inferred default, so an entry with no `type` at
+		// all still needs a command.
+		{Kind: spec.KindMCP, Name: "implicit-stdio", Path: "mcps/implicit.yaml",
+			Meta: map[string]any{"args": []any{"--flag"}}},
+		{Kind: spec.KindMCP, Name: "explicit-stdio", Path: "mcps/explicit.yaml",
+			Meta: map[string]any{"type": "stdio"}},
+		{Kind: spec.KindMCP, Name: "http", Path: "mcps/http.yaml",
+			Meta: map[string]any{"type": "http", "headers": map[string]any{"A": "b"}}},
+		{Kind: spec.KindMCP, Name: "sse", Path: "mcps/sse.yaml",
+			Meta: map[string]any{"type": "sse"}},
+		{Kind: spec.KindMCP, Name: "ws", Path: "mcps/ws.yaml",
+			Meta: map[string]any{"type": "ws"}},
+	}
+	findings := lintMCPMissingRequiredField(mcps)
+	if len(findings) != len(mcps) {
+		t.Fatalf("expected %d findings, got %d: %+v", len(mcps), len(findings), findings)
+	}
+	for _, f := range findings {
+		if f.Code != "LINT008" {
+			t.Errorf("expected code LINT008, got %s", f.Code)
+		}
+		if f.Severity != lintError {
+			t.Errorf("%s: expected error severity, got %s", f.Path, f.Severity)
+		}
+	}
+	if want := "command"; !strings.Contains(findings[0].Message, want) {
+		t.Errorf("stdio message should name %q, got %q", want, findings[0].Message)
+	}
+	if want := "url"; !strings.Contains(findings[2].Message, want) {
+		t.Errorf("remote message should name %q, got %q", want, findings[2].Message)
+	}
+}
+
+func TestLintMCPMissingRequiredField_NoFindingsOnCompleteEntries(t *testing.T) {
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "stdio", Path: "mcps/stdio.yaml",
+			Meta: map[string]any{"command": "npx"}},
+		{Kind: spec.KindMCP, Name: "remote", Path: "mcps/remote.yaml",
+			Meta: map[string]any{"type": "sse", "url": "https://example.com/sse"}},
+		// An unmapped transport carries no required field this rule can
+		// name, so it stays clean here rather than guess at one.
+		{Kind: spec.KindMCP, Name: "odd", Path: "mcps/odd.yaml",
+			Meta: map[string]any{"type": "carrier-pigeon"}},
+		// Every MCP builder drops a nameless entry before it reads the
+		// transport, so there is no missing field to name.
+		{Kind: spec.KindMCP, Name: "", Path: "mcps/nameless.yaml",
+			Meta: map[string]any{"type": "stdio"}},
+	}
+	if got := lintMCPMissingRequiredField(mcps); len(got) != 0 {
+		t.Errorf("expected 0 findings, got %d: %+v", len(got), got)
+	}
+}
+
+// The rule has to reach `lint` through collectLintFindings, not just
+// exist: the LSP shares that collector, and a rule wired up anywhere
+// else would be missing from the editor.
+func TestCollectLintFindings_IncludesMCPMissingRequiredField(t *testing.T) {
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindMCP, Name: "broken", Path: "mcps/broken.yaml",
+			Meta: map[string]any{"type": "stdio", "description": "no command"}},
+	})
+	var found bool
+	for _, f := range collectLintFindings([]string{"claude"}, b) {
+		if f.Code == "LINT008" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected collectLintFindings to report LINT008")
 	}
 }
