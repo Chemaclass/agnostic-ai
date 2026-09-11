@@ -113,8 +113,18 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// "Crush currently supports just one hook, PreToolUse, with plans
 	// to support the full gamut" (docs/hooks/README.md, re-verified
 	// 2026-09-10 against both that doc and the vendor's schema.json,
-	// whose $defs.HookConfig carries no per-event variant; #629).
-	"crush": setOf("PreToolUse"),
+	// whose $defs.HookConfig carries no per-event variant; #629). The
+	// same page lists five legal spellings of that one event: "Event
+	// names are case insensitive and snake-caseable, so PreToolUse,
+	// pretooluse, PRETOOLUSE, pre_tool_use, and PRE_TOOL_USE all
+	// work" (verified 2026-09-11; #731). The emitter applies the rule
+	// itself rather than this list, so a sixth spelling such as
+	// preToolUse still reaches crush.json, only without a validate
+	// entry to vouch for it.
+	"crush": setOf(
+		"PreToolUse", "pretooluse", "PRETOOLUSE",
+		"pre_tool_use", "PRE_TOOL_USE",
+	),
 	// The nine events docs.factory.ai/harness/hooks' own Event
 	// reference table lists for Droid CLI's `.factory/hooks.json`
 	// (verified 2026-09-11; #629).
@@ -155,6 +165,11 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
 // matcher field. Events outside this set ignore matchers entirely; setting
 // one is a no-op the user likely did not intend.
+//
+// One union keyed by event name, with no target dimension: an event one
+// target filters on silences the warning for every target spelling it the
+// same way. That direction is deliberate. A missed warning costs nothing,
+// while a wrong one tells the user to delete config that works.
 var matcherAcceptingEvents = setOf(
 	"PreToolUse", "PostToolUse", // claude, codex
 	// claude: tool-name matcher on permission and failure events,
@@ -169,6 +184,13 @@ var matcherAcceptingEvents = setOf(
 	"beforeMCPExecution", "afterMCPExecution",
 	"beforeReadFile", "afterFileEdit",
 	"preToolUse", "postToolUse", "postToolUseFailure",
+	// The rest of cursor.com/docs/hooks' own "Available matchers by
+	// hook" table, verified 2026-09-11 (#734): subagentStop filters by
+	// subagent type, and the last four match one fixed value each
+	// (UserPromptSubmit, Stop, AgentResponse, AgentThought).
+	// subagentStart is already listed above, added for copilot.
+	"subagentStop", "beforeSubmitPrompt",
+	"stop", "afterAgentResponse", "afterAgentThought",
 	// copilot: matcher-accepting events per
 	// docs.github.com/en/copilot/reference/hooks-reference's own
 	// matcher-filtering table (notification, permissionRequest,

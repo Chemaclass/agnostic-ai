@@ -955,12 +955,14 @@ disabled_tools = ["delete_file"]
 // experimental_environment must survive an import. A fractional
 // startup_timeout_sec proves the importer decodes the vendor's
 // `number` type rather than only the integer literal form.
+// startup_timeout_ms joins them for #735.
 func TestImportFromCodex_MCPOAuthAndTimeoutFieldsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.github]
 url = "https://api.githubcopilot.com/mcp/"
 required = true
 startup_timeout_sec = 2.5
+startup_timeout_ms = 2500
 tool_timeout_sec = 90
 default_tools_approval_mode = "writes"
 scopes = ["repo", "read:org"]
@@ -983,6 +985,7 @@ callback_port = 8765
 	for _, want := range []string{
 		"required: true",
 		"startup_timeout_sec: 2.5",
+		"startup_timeout_ms: 2500",
 		"tool_timeout_sec: 90",
 		"default_tools_approval_mode: writes",
 		"scopes:",

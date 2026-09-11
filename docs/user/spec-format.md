@@ -176,6 +176,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
 | `command` | yes, unless `type: mcp_tool` | none | Shell command to run when triggered. |
+| `args` | no | empty | Argument list. Claude Code only. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. |
 | `type` | no | `command` | Set to `mcp_tool` for a Codex hook that calls a tool on an already-connected MCP server instead of running a shell command, in place of `command`. Codex. |
 | `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
 | `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |
@@ -373,6 +374,7 @@ env:
 | `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
 | `required` | no, Codex | `false` | Fail startup/resume if this enabled MCP server cannot initialize. |
 | `startup_timeout_sec` | no, Codex | `10` | Override the server's startup timeout, in seconds. Distinct from `timeout` below, which is milliseconds on the targets that use it; Codex's own field name says `sec` so the two never conflate. |
+| `startup_timeout_ms` | no, Codex | `10000` | The same startup timeout in milliseconds. Codex documents it as an alias, so set one or the other, not both. |
 | `tool_timeout_sec` | no, Codex | `60` | Override the per-tool execution timeout, in seconds. Same unit note as `startup_timeout_sec`. |
 | `default_tools_approval_mode` | no, Codex | unset | Default approval behavior (`auto`, `prompt`, `writes`, or `approve`) for this server's tools, unless a per-tool override exists. |
 | `scopes` | http/sse only, Codex | empty | OAuth scopes to request when authenticating to this MCP server. |

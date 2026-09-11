@@ -172,6 +172,40 @@ func TestEmit_Hook_LowercaseMatcherNoNote(t *testing.T) {
 	}
 }
 
+// "Event names are case insensitive and snake-caseable, so PreToolUse,
+// pretooluse, PRETOOLUSE, pre_tool_use, and PRE_TOOL_USE all work"
+// (docs/hooks/README.md, verified 2026-09-11). Every spelling must
+// reach crush.json under the canonical key, with no coverage note
+// claiming Crush cannot run the event (#731).
+func TestEmit_Hook_AcceptsEveryDocumentedEventSpelling(t *testing.T) {
+	for _, event := range []string{"PreToolUse", "pretooluse", "PRETOOLUSE", "pre_tool_use", "PRE_TOOL_USE"} {
+		t.Run(event, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			buf := swapNoteWarner(t)
+
+			entries := []spec.Entry{
+				{
+					Kind: spec.KindHook, Name: "no-rm-rf",
+					Meta: map[string]any{"event": event, "command": "./hooks/no-rm-rf.sh"},
+				},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, "crush.json"))
+			for _, want := range []string{`"PreToolUse"`, `"./hooks/no-rm-rf.sh"`} {
+				if !strings.Contains(got, want) {
+					t.Errorf("missing %q in %s", want, got)
+				}
+			}
+			emit.FlushCoverageNotes()
+			if strings.Contains(buf.String(), "PreToolUse hook event") {
+				t.Errorf("%q is a documented spelling and must not earn a coverage note, got: %s", event, buf.String())
+			}
+		})
+	}
+}
+
 // mcp and hooks share one crush.json and must merge in a single write:
 // an MCP entry's presence must not push out a hook entry, or vice
 // versa, and both keys must land in the same sync (#629, PR #718's

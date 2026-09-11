@@ -140,6 +140,37 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 	}
 }
 
+// cursor.com/docs/hooks' own "Available matchers by hook" table lists
+// these five alongside the tool and shell events already covered:
+// subagentStart/subagentStop filter by subagent type, beforeSubmitPrompt
+// matches UserPromptSubmit, stop matches Stop, afterAgentResponse
+// matches AgentResponse, and afterAgentThought matches AgentThought
+// (verified 2026-09-11). Flagging any of them tells a Cursor user to
+// delete a filter Cursor honors (#734).
+func TestLintHookMatcherMisuse_CursorMatcherEventsStayClean(t *testing.T) {
+	cases := map[string]string{
+		"subagentStart":      "explore",
+		"subagentStop":       "explore",
+		"beforeSubmitPrompt": "UserPromptSubmit",
+		"stop":               "Stop",
+		"afterAgentResponse": "AgentResponse",
+		"afterAgentThought":  "AgentThought",
+	}
+	for event, matcher := range cases {
+		t.Run(event, func(t *testing.T) {
+			hooks := []spec.Entry{
+				{
+					Kind: spec.KindHook, Name: "h", Path: "hooks/h.yaml",
+					Meta: map[string]any{"event": event, "matcher": matcher},
+				},
+			}
+			if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+				t.Errorf("expected no finding for %s, got %+v", event, got)
+			}
+		})
+	}
+}
+
 func TestLintHookMatcherMisuse_NoFindingsOnCleanHooks(t *testing.T) {
 	hooks := []spec.Entry{
 		{Kind: spec.KindHook, Name: "a", Path: "hooks/a.yaml", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash"}},

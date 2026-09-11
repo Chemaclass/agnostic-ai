@@ -1,17 +1,29 @@
 package crush
 
 import (
+	"strings"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // crushPreToolUseEvent is the only hook event Crush's own runtime
-// consumes today. docs/hooks/README.md: "Crush currently supports
-// just one hook, PreToolUse, with plans to support the full gamut"
-// (re-verified 2026-09-10 against that doc and the vendor's published
-// schema.json, whose `$defs.HookConfig` still carries no per-event
-// variant; #629).
+// consumes today, and the spelling this adapter always writes.
+// docs/hooks/README.md: "Crush currently supports just one hook,
+// PreToolUse, with plans to support the full gamut" (re-verified
+// 2026-09-10 against that doc and the vendor's published schema.json,
+// whose `$defs.HookConfig` still carries no per-event variant; #629).
 const crushPreToolUseEvent = "PreToolUse"
+
+// normalizeCrushEvent folds a hook spec's `event:` the way Crush's own
+// parser does: "Event names are case insensitive and snake-caseable,
+// so PreToolUse, pretooluse, PRETOOLUSE, pre_tool_use, and
+// PRE_TOOL_USE all work" (docs/hooks/README.md, verified 2026-09-11).
+// Comparing the raw string would drop four spellings Crush runs and
+// blame the event for it (#731).
+func normalizeCrushEvent(event string) string {
+	return strings.ToLower(strings.ReplaceAll(event, "_", ""))
+}
 
 // crushClaudeToolNames flags the Claude/Codex-style capitalized
 // matcher values (Bash, Edit, Write, ...) a hook spec copied from a
@@ -35,10 +47,11 @@ var crushClaudeToolNames = map[string]bool{
 // `{"matcher": ..., "hooks": [...]}` grouping to nest into, unlike
 // claude, codex, openhands, and qoder.
 //
-// A spec whose `event:` is not PreToolUse earns a coverage note
-// instead of a dead entry: Crush's own docs state PreToolUse is the
-// only event it runs today, so anything else would parse into
-// crush.json and never fire.
+// A spec whose `event:` is not PreToolUse in any of its accepted
+// spellings (see normalizeCrushEvent) earns a coverage note instead of
+// a dead entry: Crush's own docs state PreToolUse is the only event it
+// runs today, so anything else would parse into crush.json and never
+// fire.
 //
 // `name` comes from the hook spec's own Name (agnostic-ai's hooks/*.yaml
 // loader already reads a `name:` key into Entry.Name the same way
@@ -55,7 +68,7 @@ func buildHooksBlock(hooks []spec.Entry) map[string]any {
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
-		if event != crushPreToolUseEvent {
+		if normalizeCrushEvent(event) != normalizeCrushEvent(crushPreToolUseEvent) {
 			if event != "" {
 				otherEvents++
 			}

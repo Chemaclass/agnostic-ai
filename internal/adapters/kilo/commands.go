@@ -21,18 +21,35 @@ import (
 // dropped so internal-only fields (globs, tools, ...) do not leak.
 var commandFrontmatterKeys = []string{"description", "agent", "model", "variant", "subtask"}
 
+// reservedCommandName is the one slash-command name Kilo Code refuses
+// to load: "A custom command or an MCP prompt named `goal` is
+// reserved. Kilo rejects it and reports an error; rename it"
+// (kilo.ai/docs/code-with-ai/agents/goals, shipped in v7.6.0). See
+// #736.
+const reservedCommandName = "goal"
+
 // emitCommands writes one `<dir>/<name>.md` command file per spec.
 // Kilo Code takes the workflow name from the filename ("just the
 // filename without `.md` extension"), the same convention this
-// adapter's agents already follow, so `name` is never written.
+// adapter's agents already follow, so `name` is never written. That
+// also means the spec's own name is what collides with Kilo's reserved
+// `goal` command, so a clash surfaces a coverage note; the file still
+// emits, since renaming it here would put the command at a path the
+// user never asked for.
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
+	reserved := 0
 	for _, c := range commands {
+		if c.Name == reservedCommandName {
+			reserved++
+		}
 		path := filepath.Join(dir, c.Name+".md")
 		body := emit.WithHeader(commandFile(c), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
+	emit.NoteCoverageGap(target, spec.KindCommand, reserved,
+		"Kilo reserves the name goal for its own session-goals feature and rejects a command file using it; rename the spec")
 	return nil
 }
 

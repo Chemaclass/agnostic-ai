@@ -51,11 +51,15 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			timeout := 0
 			statusMessage, shell, ifRule := "", "", ""
 			async, asyncRewake, once := false, false, false
+			var args []string
 			for _, h := range g.Hooks {
 				if h.Command == "" {
 					continue
 				}
 				cmds = append(cmds, h.Command)
+				if len(h.Args) > 0 && args == nil {
+					args = h.Args
+				}
 				if h.Timeout != 0 && timeout == 0 {
 					timeout = h.Timeout
 				}
@@ -86,6 +90,9 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				doc["command"] = cmds[0]
 			} else {
 				doc["command"] = cmds
+			}
+			if len(args) > 0 {
+				doc["args"] = args
 			}
 			if timeout != 0 {
 				doc["timeout"] = timeout

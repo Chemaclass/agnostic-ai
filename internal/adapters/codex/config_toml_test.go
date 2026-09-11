@@ -273,6 +273,30 @@ func TestEmit_MCP_WritesRequiredAndTimeouts(t *testing.T) {
 	}
 }
 
+// startup_timeout_ms is the vendor's own millisecond alias for
+// startup_timeout_sec ("Alias for `startup_timeout_sec` in
+// milliseconds", learn.chatgpt.com/docs/config-file/config-reference,
+// verified 2026-09-11). config.toml is rewritten each sync, so a key we
+// never emit is a key the next sync deletes (#735).
+func TestEmit_MCP_WritesStartupTimeoutMS(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "startup_timeout_ms": 2500},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, "startup_timeout_ms = 2500") {
+		t.Errorf("missing startup_timeout_ms in %s", got)
+	}
+}
+
 // required defaults to false (Codex's own default), so it must stay
 // absent rather than write a redundant `required = false`.
 func TestEmit_MCP_RequiredOmittedWhenFalse(t *testing.T) {

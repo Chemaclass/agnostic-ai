@@ -440,6 +440,14 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if v, ok := meta["startup_timeout_sec"]; ok {
 		writeMCPNumberField(sb, "startup_timeout_sec", v)
 	}
+	// startup_timeout_ms is the vendor's own alias, "Alias for
+	// startup_timeout_sec in milliseconds". Emitted as its own key
+	// rather than converted: config.toml is rewritten each sync, so a
+	// hand-authored ms value we do not write back is a value the next
+	// sync deletes. See #735.
+	if v, ok := meta["startup_timeout_ms"]; ok {
+		writeMCPNumberField(sb, "startup_timeout_ms", v)
+	}
 	if v, ok := meta["tool_timeout_sec"]; ok {
 		writeMCPNumberField(sb, "tool_timeout_sec", v)
 	}
