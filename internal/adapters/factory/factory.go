@@ -55,7 +55,7 @@
 // file Droid CLI itself would call invalid; the skip surfaces through
 // a coverage note instead of failing silently.
 //
-// MCP servers merge into `.factory/mcp.json` (override via
+// MCP servers are written to `.factory/mcp.json` (override via
 // outputs.factory.mcp-file) under a root `mcpServers` map, the same
 // shape emit.MCPSchemaServersMap already produces for Claude Code and
 // Cursor: stdio carries `command`/`args`/`env` with no `type`; HTTP
@@ -70,6 +70,14 @@
 // those three do. Factory's schema also documents `disabledTools`,
 // `timeout`, `connectTimeout`, and `oauth`, none of which the
 // cross-tool spec carries yet; they are not emitted.
+//
+// "Written to", not "merged into": emit.WriteMCPFile is a plain
+// WriteFile, so this adapter owns the whole file, the same as claude,
+// cursor, junie, and kiro. Say it plainly here because the vendor sends
+// users to hand-edit it: "**Project servers cannot be removed** with
+// `droid mcp remove` or the `/mcp` manager. To remove them, edit
+// `.factory/mcp.json` directly" (docs.factory.ai/harness/mcp). That
+// edit is lost on the next sync (target-audit 2026-09-11, #737).
 //
 // Hooks merge into `.factory/hooks.json` (override via
 // outputs.factory.hooks-file), keyed directly by event name with no
@@ -127,7 +135,7 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
-// `.agents/skills/`, a merged `.factory/mcp.json` for MCP servers,
+// `.agents/skills/`, a managed `.factory/mcp.json` for MCP servers,
 // and `.factory/hooks.json` for hook specs. The project-root
 // AGENTS.md (rules' single source of truth for Droid CLI) is written
 // by `sync`, not here.

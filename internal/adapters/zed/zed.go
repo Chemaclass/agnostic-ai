@@ -196,10 +196,14 @@ func buildContextServers(mcps []spec.Entry) map[string]any {
 // audit missed it: the only `enabled`-family key on that page is
 // `enable_all_context_servers`, an agent-profile key rather than a
 // per-server one. The same source carries three more per-server fields
-// the docs omit (`timeout` and `oauth` on an HTTP server, `remote` on
-// stdio and extension servers); those reach the file through `x-zed`
-// rather than a top-level mapping, since no other target documents a
-// same-named field with the same meaning.
+// the docs omit (`timeout` on either transport, `oauth` on an HTTP
+// server, `remote` on stdio and extension servers); those reach the
+// file through `x-zed` rather than a top-level mapping, since no other
+// target documents a same-named field with the same meaning. `timeout`
+// is on both because the Stdio variant `#[serde(flatten)]`s
+// `ContextServerCommand`, which carries "/// Timeout for tool calls in
+// seconds. Defaults to 60 if not specified." (target-audit 2026-09-11,
+// #737).
 func buildContextServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
