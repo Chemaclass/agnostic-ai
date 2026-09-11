@@ -20,6 +20,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Codex MCP servers keep `startup_timeout_ms`. The key was neither emitted nor imported, so `import codex` followed by `sync` deleted it and the server fell back to the 10s default (#735).
 - Kilo Code command specs named `goal` surface a coverage note. Kilo reserves that name as of v7.6.0 and rejects the file, previously with no warning from this tool (#736).
 - Docs no longer say Factory hooks merge into `.factory/hooks.json`. Every sync overwrites that file whole, so a hand edit is lost, the same correction #737 made for `.factory/mcp.json` on the neighbouring surface. It matters on both because Factory's own docs send users to hand-edit them. No emitted bytes change (#745).
+- `validate` accepts Qoder's `TaskCreated`, `TaskCompleted`, `TeammateIdle`, and `Setup` hook events. All four are documented and all four already emitted, so the "unknown hook event" report was wrong (#744).
 - Docs correct five stale vendor claims: Copilot's `subagentStart` and `userPromptTransformed` are camelCase-only, so a PascalCase spelling emits a key that never fires; Trae's Agents row in the capability matrix shows `.trae/agents/<name>.md` instead of the pre-#638 flattened path; Zed's `timeout` works on either MCP transport, not HTTP alone; Qoder documents 27 hook events, not 23; and `.factory/mcp.json` is overwritten each sync, not merged, which matters because Factory's own docs tell users to hand-edit it. No emitted bytes change (#737).
 
 - The skills emission list in `spec-format.md` no longer duplicates the target matrix. It named four native targets when 23 declare a skill surface, still filed Windsurf under rule-file flattening, and pointed Antigravity at `.agent/skills/` rather than `.agents/skills/`. It now describes the three emission shapes and defers the per-target list to `targets.md`, which is maintained per change.
@@ -28,6 +29,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - `lint` reports an MCP server missing the field its transport requires (LINT008, error): no `command:` on a stdio entry, no `url:` on an `http`, `sse`, or `ws` one. The entry is dead on every target and nothing said so. `validate` and `sync` both passed it, Trae, Antigravity and Windsurf dropped it in silence, and Claude Code, Codex, Cursor, Gemini, Copilot and the rest wrote a server object with nothing to start or connect to (#747).
 - Hook specs accept `args`, which switches a Claude Code hook to exec form: the command is spawned directly with no shell, so a path or argument carrying a space, apostrophe, `$`, or backtick runs as written. It survives `import claude` (#732).
+- Qoder hooks emit `args`, the same exec form Claude Code documents. A spec that also sets `shell` still writes it and gets a note, since Qoder ignores `shell` once `args` is present (#746).
 - Augment hooks emit to `.augment/settings.json` (merged alongside `mcpServers` in one write) across five events. `timeout` converts to milliseconds, since Augment's native unit differs from the shared spec's seconds, and a `command` missing a `.sh`/`.ps1`/`.cmd`/`.bat` extension still emits but surfaces a coverage note, since Augment only runs a script path. Hook specs previously reached no Augment surface and skipped with a warning (#629).
 - Crush hooks emit to `crush.json` (merged alongside `mcp` in the same write), `PreToolUse` only, matching the vendor's own current support. Hook specs previously reached no Crush surface and skipped with a warning; `import crush` now reads them back too (#629).
 - Copilot hooks emit to `.github/hooks/agnostic-ai.json`, with an integer `{"version": 1, "hooks": {...}}` wrapper, `timeoutSec`, and 14 events. Hook specs previously reached no Copilot surface and skipped with a warning (#629).
@@ -39,6 +41,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Changed
 
 - Gemini agents no longer write `.gemini/commands/<name>.toml` by default, and a managed file left at that path is swept. Set `outputs.gemini.emit-agents-as-commands: true` to keep the `/name` prompt. This also closes a collision where a same-named agent and command overwrote each other in that directory (#733).
+- Qoder hook events sort in the vendor's own order. `TaskCreated`, `TaskCompleted`, `TeammateIdle`, and `Setup` used to trail any event Qoder does not document and now precede it, so `.qoder/settings.json` changes bytes on the next sync for a project using one of those names alongside a custom event (#744).
 
 ## v0.55.0 - 2026-09-10
 

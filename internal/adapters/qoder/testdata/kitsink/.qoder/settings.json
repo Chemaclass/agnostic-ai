@@ -11,6 +11,32 @@
           }
         ]
       }
+    ],
+    "TaskCreated": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3",
+            "args": [
+              "scripts/check.py",
+              "--strict"
+            ]
+          }
+        ]
+      }
+    ],
+    "CustomThing": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo custom"
+          }
+        ]
+      }
     ]
   },
   "mcpServers": {

@@ -176,7 +176,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
 | `command` | yes, unless `type: mcp_tool` | none | Shell command to run when triggered. |
-| `args` | no | empty | Argument list. Claude Code only. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. |
+| `args` | no | empty | Argument list. Claude Code and Qoder. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. Qoder ignores `shell` in exec form. |
 | `type` | no | `command` | Set to `mcp_tool` for a Codex hook that calls a tool on an already-connected MCP server instead of running a shell command, in place of `command`. Codex. |
 | `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
 | `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |

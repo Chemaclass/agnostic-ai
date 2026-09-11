@@ -99,6 +99,119 @@ func TestEmit_Hook_AllSharedFieldsEmit(t *testing.T) {
 	}
 }
 
+// Event keys land in the vendor's documented lifecycle order first,
+// then any unlisted event in first-seen order. The four events
+// docs.qoder.com/cli/hooks-reference carries beyond the grouped
+// `/cli/hooks` table (`TaskCreated`, `TaskCompleted`, `TeammateIdle`,
+// `Setup`) now sort among the lifecycle instead of behind it, so a
+// spec that names one alongside an unlisted event writes different
+// bytes than it did before #744. This pins that order.
+func TestEmit_Hook_EventOrderIsLifecycleThenFirstSeen(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "custom", Meta: map[string]any{"event": "CustomThing", "command": "echo custom"}},
+		{Kind: spec.KindHook, Name: "setup", Meta: map[string]any{"event": "Setup", "command": "echo setup"}},
+		{Kind: spec.KindHook, Name: "created", Meta: map[string]any{"event": "TaskCreated", "command": "echo created"}},
+		{Kind: spec.KindHook, Name: "start", Meta: map[string]any{"event": "SessionStart", "command": "echo start"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+
+	want := []string{"SessionStart", "TaskCreated", "Setup", "CustomThing"}
+	prev := -1
+	for _, event := range want {
+		at := strings.Index(got, `"`+event+`"`)
+		if at < 0 {
+			t.Fatalf("missing event %q in %s", event, got)
+		}
+		if at < prev {
+			t.Errorf("event %q emitted out of order, want %v in:\n%s", event, want, got)
+		}
+		prev = at
+	}
+}
+
+// `args` switches a command hook to exec form: "`command` is the
+// path/name of a single executable, and each element of `args` is one
+// literal argv entry. The CLI runs the binary directly without a shell"
+// (docs.qoder.com/cli/hooks, "Exec form vs Shell form", #746).
+func TestEmit_Hook_ArgsEmitExecForm(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "check", Meta: map[string]any{
+			"event": "PreToolUse", "command": "/usr/bin/python3",
+			"args": []any{"/opt/my scripts/check.py", "--strict"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+	for _, want := range []string{
+		`"command": "/usr/bin/python3"`, `"args"`,
+		`"/opt/my scripts/check.py"`, `"--strict"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// A hook without `args` stays shell form. An empty array would flip
+// qoder into exec form and stop the command from being shell-parsed.
+func TestEmit_Hook_NoArgsKeyWhenUnset(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+			"event": "PreToolUse", "command": "echo hi",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+	if strings.Contains(got, `"args"`) {
+		t.Errorf("expected no args key when unset:\n%s", got)
+	}
+}
+
+// "The `shell` field is ignored when `args` is set"
+// (docs.qoder.com/cli/hooks). The value still emits, since the user
+// authored it and qoder accepts the key, but the note says it will not
+// run (#746).
+func TestEmit_Hook_ShellWithArgsNotesFieldNoOp(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "check", Meta: map[string]any{
+			"event": "Stop", "command": "/usr/bin/python3",
+			"args": []any{"check.py"}, "shell": "bash",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+	if !strings.Contains(got, `"shell": "bash"`) {
+		t.Errorf("expected shell to emit verbatim, got %s", got)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "shell") {
+		t.Errorf("expected a shell field no-op note for an exec-form hook, got: %q", buf.String())
+	}
+}
+
 // A `command` list produces one hook entry per command, matching
 // Claude Code's and Codex's documented behavior for the same field
 // (docs/user/spec-format.md, "When command is a list...").

@@ -78,10 +78,17 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // MCP specimens are byte-identical to claude's kit-sink MCP entries
 // (same names, same Meta) so the two adapters' `.mcp.json` output can
 // be diffed directly; see TestEmit_MCP_MatchesClaudeSharedFile in
-// qoder_test.go. The one hook specimen sets `matcher: Bash`, Claude
+// qoder_test.go. The first hook specimen sets `matcher: Bash`, Claude
 // Code's own tool name and one of qoder's documented PreToolUse
 // examples, demonstrating the matcher passes straight through with no
-// coverage note (#629). The three command specimens exercise the
+// coverage note (#629). The other two pin the emitted key order at the
+// byte level: `custom-probe` names an event the vendor does not list,
+// `task-created` one that only `/cli/hooks-reference` carries, and the
+// spec order is deliberately the reverse of the emitted order so the
+// golden shows the second sorting ahead of the first (#744).
+// `task-created` is also the exec-form specimen, carrying the `args`
+// argv array that runs its command with no shell (#746). The three
+// command specimens exercise the
 // vendor-required `description` fallback to the spec name (cmd-two
 // omits it) and the `x-qoder` passthrough escape hatch (cmd-three),
 // since docs.qoder.com/cli/commands documents no other native
@@ -123,6 +130,17 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "hooks/guard.sh", "timeout": 10},
+		},
+		{
+			Kind: spec.KindHook, Name: "custom-probe", Path: "hooks/custom-probe.yaml",
+			Meta: map[string]any{"event": "CustomThing", "command": "echo custom"},
+		},
+		{
+			Kind: spec.KindHook, Name: "task-created", Path: "hooks/task-created.yaml",
+			Meta: map[string]any{
+				"event": "TaskCreated", "command": "/usr/bin/python3",
+				"args": []any{"scripts/check.py", "--strict"},
+			},
 		},
 	}
 	return spec.NewBundle(entries)
