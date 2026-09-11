@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- The skills emission list in `spec-format.md` no longer duplicates the target matrix. It named four native targets when 23 declare a skill surface, still filed Windsurf under rule-file flattening, and pointed Antigravity at `.agent/skills/` rather than `.agents/skills/`. It now describes the three emission shapes and defers the per-target list to `targets.md`, which is maintained per change.
+
 ### Added
 
 - Augment hooks emit to `.augment/settings.json` (merged alongside `mcpServers` in one write) across five events. `timeout` converts to milliseconds, since Augment's native unit differs from the shared spec's seconds, and a `command` missing a `.sh`/`.ps1`/`.cmd`/`.bat` extension still emits but surfaces a coverage note, since Augment only runs a script path. Hook specs previously reached no Augment surface and skipped with a warning (#629).

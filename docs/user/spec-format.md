@@ -129,12 +129,11 @@ description: Validate YAML against a schema.
 
 Emission by target:
 
-- **Native** (`<dir>/<name>/SKILL.md`, one folder per skill): Claude Code (`.claude/skills/`), Codex + Amp (shared `.agents/skills/`), Cursor (`.cursor/skills/`), Antigravity (`.agent/skills/`).
-- **As a rule file** (`skill-<name>.{mdc,md}`): Cursor, Cline, Windsurf, Continue.
-- **Listed by default, opt into native slash commands** via `outputs.<target>.emit-skills-as-commands: true`: Gemini, OpenCode.
-- **Listed in a `## Skills` section**: Aider, Copilot, Zed, Warp.
+- **Native**, one folder per skill at `<dir>/<name>/SKILL.md`, carrying bundled assets verbatim. Most targets. Several share one tree at `.agents/skills/`, so identical bytes dedupe instead of writing another on-disk copy.
+- **Flattened to a rule file** (`skill-<name>.md`) on the few targets with no skill surface. Bundled assets cannot follow, so those raise a coverage note.
+- **Also as a slash command**, opt-in per target via `outputs.<target>.emit-skills-as-commands: true`.
 
-See [targets](targets.md) for the full matrix.
+Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](targets.md) — that list is kept current per change and this one is deliberately not a second copy of it.
 
 ## Rules
 
