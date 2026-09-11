@@ -12,10 +12,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// MergeJSONFile reads the existing JSON at path (when not in capture or
+// MergeJSONFile reads the existing JSON or JSONC at path (when not in
 // dry-run mode), sets every key in `keys` on the decoded document, and
-// writes the merged result back to path. Missing or malformed files
-// start from an empty document.
+// writes the merged result back to path. A missing or empty file starts
+// from an empty document; a non-empty file that will not parse is an
+// error, and nothing is written.
 //
 // Used by adapters that share a project-shared config file with other
 // tooling (opencode.json `mcp`, `.amp/settings.json` `amp.mcpServers`)
@@ -25,8 +26,15 @@ import (
 // (the user's sibling keys), not a pure output, so the captured bytes
 // must reflect what sync would write. Skipping the read reported false
 // drift and let `doctor --fix` delete the user's keys (#465).
+//
+// Comments do not survive: the document is re-rendered from parsed
+// values, so a JSONC input keeps every key and loses every comment.
+// The user hears about that once, on the sync that drops them (#725).
 func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
-	doc := readExistingJSON(path, dryRun)
+	doc, err := s.readExistingJSON(path, dryRun)
+	if err != nil {
+		return err
+	}
 	names := make([]string, 0, len(keys))
 	for k := range keys {
 		names = append(names, k)
@@ -44,25 +52,36 @@ func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) e
 	return s.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
-// readExistingJSON parses path as an OrderedJSON. Missing files,
-// malformed JSON, or non-object documents return an empty OrderedJSON
-// so callers can layer their managed keys unconditionally. Source key
-// order is preserved on the round-trip via OrderedJSON. dryRun returns
-// empty so `--dry-run` previews stay pure; capture mode still reads so
-// drift detection and `doctor --fix` see the user's sibling keys (#465).
-func readExistingJSON(path string, dryRun bool) *OrderedJSON {
+// readExistingJSON parses path as an OrderedJSON, accepting JSONC.
+// Source key order is preserved on the round-trip via OrderedJSON.
+// dryRun returns empty so `--dry-run` previews stay pure; capture mode
+// still reads so drift detection and `doctor --fix` see the user's
+// sibling keys (#465).
+//
+// An unreadable or empty file returns an empty document so callers can
+// layer their managed keys unconditionally. Anything else that fails to
+// parse returns an error: the caller's next move is to write the file,
+// and returning empty there means writing the managed keys over the
+// top of content nobody could read. That silent replacement is what
+// deleted user keys from every JSONC config (#725).
+func (s *Session) readExistingJSON(path string, dryRun bool) (*OrderedJSON, error) {
 	if dryRun {
-		return NewOrderedJSON()
+		return NewOrderedJSON(), nil
 	}
 	data, err := os.ReadFile(path)
-	if err != nil {
-		return NewOrderedJSON()
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return NewOrderedJSON(), nil
 	}
+	stripped, hadComments := StripJSONC(data)
 	doc := NewOrderedJSON()
-	if err := json.Unmarshal(data, doc); err != nil {
-		return NewOrderedJSON()
+	if err := json.Unmarshal(stripped, doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w (agnostic-ai will not overwrite a file it cannot read; fix it or move it aside)", path, err)
 	}
-	return doc
+	if hadComments && !s.IsCapturing() {
+		_, _ = fmt.Fprintf(Warner,
+			"%s: comments are not preserved across a sync; every key is kept, the comments are dropped\n", path)
+	}
+	return doc, nil
 }
 
 // ProvenanceMarker is the substring agnostic-ai writes into every

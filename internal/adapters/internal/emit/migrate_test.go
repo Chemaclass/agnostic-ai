@@ -148,3 +148,136 @@ func TestMigrateLegacyFile_HonorsCustomOutputDir(t *testing.T) {
 		t.Errorf("expected backup in vendor/: %v", err)
 	}
 }
+
+// TestMergeJSONFile_KeepsUserKeysInJSONC regresses #725. kilo, qoder and
+// augment each merge into a file their vendor documents as JSONC, and
+// `encoding/json` rejects both `//` comments and trailing commas. The
+// parse error was swallowed and readExistingJSON returned an empty
+// document, so the write back dropped every user-authored key,
+// credentials and permission settings included.
+func TestMergeJSONFile_KeepsUserKeysInJSONC(t *testing.T) {
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	const existing = `{
+  // Provider credentials, hand-authored.
+  "provider": {
+    "name": "anthropic",
+    "apiKey": "sk-secret-value",
+  },
+  /* block form too */
+  "endpoint": "https://example.com//v1",
+  "experimental": { "autoApprove": false },
+}
+`
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{"linear": map[string]any{}}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFileString(t, path)
+	for _, want := range []string{
+		`"provider"`, `"sk-secret-value"`, `"experimental"`, `"mcp"`,
+		`"https://example.com//v1"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("merged file lost %s:\n%s", want, got)
+		}
+	}
+}
+
+// TestMergeJSONFile_FailsLoudlyOnUnparseableFile pins the other half of
+// #725: a non-empty file that is neither JSON nor JSONC aborts the write
+// instead of being silently replaced by the managed keys alone.
+func TestMergeJSONFile_FailsLoudlyOnUnparseableFile(t *testing.T) {
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	const existing = "{ this is not json at all"
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{}}, false)
+	if err == nil {
+		t.Fatal("expected an error on an unparseable existing file")
+	}
+	if !strings.Contains(err.Error(), "settings.json") {
+		t.Errorf("error should name the file: %v", err)
+	}
+	if got := readFileString(t, path); got != existing {
+		t.Errorf("unparseable file must stay untouched, got:\n%s", got)
+	}
+}
+
+// An empty or whitespace-only file is not a parse failure: it is the
+// same starting point as a missing file, so the merge proceeds.
+func TestMergeJSONFile_EmptyFileStartsFresh(t *testing.T) {
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte("\n  \n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFileString(t, path); !strings.Contains(got, `"mcp"`) {
+		t.Errorf("expected managed key in:\n%s", got)
+	}
+}
+
+func TestMergeJSONFile_WarnsWhenCommentsDropped(t *testing.T) {
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte("{\n  // keep me\n  \"theme\": \"dark\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var warner bytes.Buffer
+	prev := Warner
+	Warner = &warner
+	t.Cleanup(func() { Warner = prev })
+
+	if err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(warner.String(), "settings.json") {
+		t.Errorf("expected a dropped-comment warning, got %q", warner.String())
+	}
+}
+
+// A file with no comments must not trigger the dropped-comment warning,
+// or every sync of an ordinary JSON settings file would print it.
+func TestMergeJSONFile_SilentOnPlainJSON(t *testing.T) {
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte(`{"theme": "dark"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var warner bytes.Buffer
+	prev := Warner
+	Warner = &warner
+	t.Cleanup(func() { Warner = prev })
+
+	if err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if warner.Len() > 0 {
+		t.Errorf("plain JSON should warn about nothing, got %q", warner.String())
+	}
+}
+
+func readFileString(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}

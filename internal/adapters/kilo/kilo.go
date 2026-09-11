@@ -93,7 +93,16 @@
 // of the two has nothing to contribute, so those survive a sync. This
 // adapter writes plain JSON: JSONC is a superset of JSON, so every
 // JSONC parser accepts the output, and agnostic-ai never needs to emit
-// (or preserve) comments of its own.
+// comments of its own.
+//
+// It does need to read them. The vendor documents JSONC on this exact
+// file ("Disable a rule temporarily: Comment out the line in kilo.jsonc
+// (JSONC supports // comments)", kilo.ai/docs/customize/custom-rules),
+// and the page's own worked example carries both a comment and two
+// trailing commas. `encoding/json` rejects both, so emit.MergeJSONFile
+// strips JSONC before parsing. Keys survive; comments do not, since the
+// document is re-rendered from parsed values, and the sync that drops
+// them says so (target-audit 2026-09-11, #725).
 //
 // Kilo's docs also read from `.kilo/kilo.jsonc` when present, a second
 // project-tier config file this adapter does not write. The vendor's
@@ -250,9 +259,10 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 // emitKiloJSONC merges the `instructions` and `mcp` keys into
 // kilo.jsonc in a single read-modify-write. Routes through
 // emit.MergeJSONFile so any pre-existing user-managed keys (models,
-// providers, ...) survive the sync. Each key is set only when its
-// source list is non-empty, and no file is written at all when both
-// are empty (or every MCP entry renders empty).
+// providers, ...) survive the sync, in JSONC form as well as plain JSON
+// (see the package doc). Each key is set only when its source list is
+// non-empty, and no file is written at all when both are empty (or
+// every MCP entry renders empty).
 func emitKiloJSONC(sess *emit.Session, rules []spec.Entry, rulesDir string, mcps []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if instructions := ruleInstructions(rules, rulesDir); len(instructions) > 0 {

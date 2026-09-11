@@ -629,6 +629,53 @@ func TestEmit_MCP_PreservesUnrelatedSettingsKeys(t *testing.T) {
 	}
 }
 
+// Same guarantee, JSONC input. docs.qoder.com/cli/settings:
+// "Configuration files are in JSON format (supporting // comments, see
+// below)" and "Configuration files can contain comments (ignored during
+// parsing), making it easy to add explanations for team conventions."
+// `encoding/json` rejects a `//` comment, and the parse error used to
+// be swallowed into an empty document, so one sync deleted every key
+// here, `permissions.deny` included (#725).
+func TestEmit_MCP_PreservesUnrelatedSettingsKeysInJSONC(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".qoder"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{
+  // Team conventions, do not remove.
+  "telemetry": false,
+  "outputStyle": "concise",
+  "permissions": {
+    "deny": ["Bash"],
+  },
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, ".qoder/settings.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+	for _, want := range []string{
+		`"telemetry": false`,
+		`"outputStyle": "concise"`,
+		`"permissions"`,
+		`"Bash"`,
+		`"mcpServers"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 func readSettings(t *testing.T, path string) string {
 	t.Helper()
 	got, err := os.ReadFile(path)

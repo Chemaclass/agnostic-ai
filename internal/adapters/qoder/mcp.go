@@ -18,6 +18,15 @@ const qoderHooksKey = "hooks"
 // `enabledProjectMcpServers`, permissions, custom models) survives a
 // sync untouched.
 //
+// That file is JSONC: "Configuration files are in JSON format
+// (supporting // comments, see below)" and "Configuration files can
+// contain comments (ignored during parsing), making it easy to add
+// explanations for team conventions" (docs.qoder.com/cli/settings).
+// `encoding/json` rejects a `//` comment, so MergeJSONFile strips JSONC
+// before parsing. Keys survive; comments do not, since the document is
+// re-rendered from parsed values, and the sync that drops them says so
+// (target-audit 2026-09-11, #725).
+//
 // Both keys merge in the same MergeJSONFile call rather than two
 // separate ones. MergeJSONFile reads the on-disk file fresh on every
 // call, and during sync's collision-detection capture pass writes
