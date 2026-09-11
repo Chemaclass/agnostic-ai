@@ -8,6 +8,16 @@
         "command": "hooks/guard.sh",
         "timeoutSec": 10
       }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "matcher": "Edit",
+        "exec": "hooks/format.sh",
+        "args": [
+          "--fix"
+        ]
+      }
     ]
   }
 }

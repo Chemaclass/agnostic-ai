@@ -50,10 +50,29 @@ type pendingFieldNote struct {
 	reason string
 }
 
+// pendingSurfaceNote is a coverage note for a spec that emits in full
+// and then lands differently across the target's own execution
+// surfaces: the file is written, one surface honors it, another
+// ignores it. Kept apart from pendingFieldNote, whose subject is inert
+// everywhere on the target, so a note about one surface never reads as
+// the whole target dropping the spec.
+type pendingSurfaceNote struct {
+	target string
+	kind   spec.Kind
+	count  int
+	// surface is the vendor's own name for the surface that ignores the
+	// spec, e.g. "Copilot cloud agent".
+	surface string
+	// reason is a short, user-facing phrase explaining the split and how
+	// to land on the other side of it.
+	reason string
+}
+
 var coverageNoteState struct {
-	mu           sync.Mutex
-	pending      []pendingNote
-	pendingField []pendingFieldNote
+	mu             sync.Mutex
+	pending        []pendingNote
+	pendingField   []pendingFieldNote
+	pendingSurface []pendingSurfaceNote
 }
 
 // NoteCoverageGap records that count specs of kind reach target only via
@@ -92,15 +111,36 @@ func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reaso
 	coverageNoteState.mu.Unlock()
 }
 
+// NoteSurfaceGap records that count specs of kind emit to target and
+// then run on some of its surfaces but not surface. Use this instead of
+// NoteFieldNoOp when the target does honor the spec somewhere: a
+// field-no-op note claims the whole target ignores it, which would be
+// false. reason is a short, user-facing phrase, e.g. "a cloud agent job
+// honors bash and command entries only". No-op when count is zero.
+// Notes buffer until FlushCoverageNotes renders them.
+func NoteSurfaceGap(target string, kind spec.Kind, count int, surface, reason string) {
+	if count <= 0 {
+		return
+	}
+	coverageNoteState.mu.Lock()
+	coverageNoteState.pendingSurface = append(coverageNoteState.pendingSurface, pendingSurfaceNote{
+		target: target, kind: kind, count: count, surface: surface, reason: reason,
+	})
+	coverageNoteState.mu.Unlock()
+}
+
 // FlushCoverageNotes prints one line per buffered coverage gap (whole
-// entries that reach a target only via a hint) and one line per buffered
+// entries that reach a target only via a hint), one line per buffered
 // field no-op (entries that reach a target in full, minus one inert
-// attribute), then clears both buffers. Safe to call when empty.
+// attribute), and one line per buffered surface gap (entries that reach
+// a target but not every surface it runs on), then clears all three
+// buffers. Safe to call when empty.
 func FlushCoverageNotes() {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
 	flushGapNotesLocked()
 	flushFieldNotesLocked()
+	flushSurfaceNotesLocked()
 }
 
 // flushGapNotesLocked prints one line per (kind, count, via) group across
@@ -183,6 +223,44 @@ func flushFieldNotesLocked() {
 	coverageNoteState.pendingField = nil
 }
 
+// flushSurfaceNotesLocked prints one line per (kind, count, surface,
+// reason) group across all buffered targets. A third sentence shape
+// again: the entry reached the target, and every field on it is live,
+// so neither of the other two sentences would be true. Caller holds
+// coverageNoteState.mu.
+func flushSurfaceNotesLocked() {
+	if len(coverageNoteState.pendingSurface) == 0 {
+		return
+	}
+	type key struct {
+		kind    spec.Kind
+		count   int
+		surface string
+		reason  string
+	}
+	order := []key{}
+	groups := map[key][]string{}
+	seen := map[string]bool{} // target+kind+surface+reason dedup within one flush
+	for _, p := range coverageNoteState.pendingSurface {
+		dedupKey := p.target + "\x00" + string(p.kind) + "\x00" + p.surface + "\x00" + p.reason
+		if seen[dedupKey] {
+			continue
+		}
+		seen[dedupKey] = true
+		k := key{p.kind, p.count, p.surface, p.reason}
+		if _, ok := groups[k]; !ok {
+			order = append(order, k)
+		}
+		groups[k] = append(groups[k], p.target)
+	}
+	for _, k := range order {
+		_, _ = fmt.Fprintf(Warner, "  note: %d %s %s %s but not %s (%s)\n",
+			k.count, pluralizeKind(k.kind, k.count), reachVerb(k.count),
+			strings.Join(groups[k], ", "), k.surface, k.reason)
+	}
+	coverageNoteState.pendingSurface = nil
+}
+
 // reachVerb agrees the verb with the subject count: "reaches" for a
 // single spec, "reach" for many.
 func reachVerb(n int) string {
@@ -198,21 +276,24 @@ func ResetCoverageNotes() {
 	coverageNoteState.mu.Lock()
 	coverageNoteState.pending = nil
 	coverageNoteState.pendingField = nil
+	coverageNoteState.pendingSurface = nil
 	coverageNoteState.mu.Unlock()
 }
 
 // CoverageNotesDigest returns a stable hex digest of the buffered
-// coverage gaps and field no-ops, suitable for comparing across sync
-// runs to suppress unchanged repeats. Returns "" when nothing is
-// pending.
+// coverage gaps, field no-ops, and surface gaps, suitable for comparing
+// across sync runs to suppress unchanged repeats. Returns "" when
+// nothing is pending.
 func CoverageNotesDigest() string {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
-	if len(coverageNoteState.pending) == 0 && len(coverageNoteState.pendingField) == 0 {
+	if len(coverageNoteState.pending) == 0 && len(coverageNoteState.pendingField) == 0 &&
+		len(coverageNoteState.pendingSurface) == 0 {
 		return ""
 	}
 	seen := map[string]bool{}
-	keys := make([]string, 0, len(coverageNoteState.pending)+len(coverageNoteState.pendingField))
+	keys := make([]string, 0, len(coverageNoteState.pending)+
+		len(coverageNoteState.pendingField)+len(coverageNoteState.pendingSurface))
 	for _, p := range coverageNoteState.pending {
 		k := fmt.Sprintf("gap\x00%s\x00%s\x00%d\x00%s", p.target, p.kind, p.count, p.via)
 		if seen[k] {
@@ -229,14 +310,23 @@ func CoverageNotesDigest() string {
 		seen[k] = true
 		keys = append(keys, k)
 	}
+	for _, p := range coverageNoteState.pendingSurface {
+		k := fmt.Sprintf("surface\x00%s\x00%s\x00%s\x00%d\x00%s", p.target, p.kind, p.surface, p.count, p.reason)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
 	sort.Strings(keys)
 	sum := sha256.Sum256([]byte(strings.Join(keys, "\n")))
 	return hex.EncodeToString(sum[:])
 }
 
 // PendingCoverageNotesCount returns how many distinct coverage-gap
-// (target, kind, via) and field-no-op (target, kind, field, reason)
-// notes are currently buffered. Used to size the suppression notice when
+// (target, kind, via), field-no-op (target, kind, field, reason), and
+// surface-gap (target, kind, surface, reason) notes are currently
+// buffered. Used to size the suppression notice when
 // sticky-suppressing unchanged repeats.
 func PendingCoverageNotesCount() int {
 	coverageNoteState.mu.Lock()
@@ -247,6 +337,9 @@ func PendingCoverageNotesCount() int {
 	}
 	for _, p := range coverageNoteState.pendingField {
 		seen["field\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.field+"\x00"+p.reason] = true
+	}
+	for _, p := range coverageNoteState.pendingSurface {
+		seen["surface\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.surface+"\x00"+p.reason] = true
 	}
 	return len(seen)
 }

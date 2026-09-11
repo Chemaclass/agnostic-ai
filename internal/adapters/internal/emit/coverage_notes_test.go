@@ -221,3 +221,89 @@ func TestCoverageNotesDigest_ChangesWhenFieldNoOpAdded(t *testing.T) {
 		t.Errorf("digest must change when a field no-op is added, got identical %q", withoutField)
 	}
 }
+
+// A surface gap is the third sentence shape: the entry reached the
+// target and every field on it is live, so one of the target's own
+// surfaces, not the target, is what drops it.
+
+func TestNoteSurfaceGap_FlushRendersOneLinePerGroup(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 1, "Copilot cloud agent", "exec entries are CLI only")
+	if buf.Len() != 0 {
+		t.Fatalf("surface notes must buffer until flush, got early output: %s", buf)
+	}
+	FlushCoverageNotes()
+	want := "  note: 1 hook reaches copilot but not Copilot cloud agent (exec entries are CLI only)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+func TestNoteSurfaceGap_PluralizesSubjectAndVerb(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 3, "Copilot cloud agent", "exec entries are CLI only")
+	FlushCoverageNotes()
+	want := "  note: 3 hooks reach copilot but not Copilot cloud agent (exec entries are CLI only)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+// The point of the third shape: it must not borrow either of the other
+// two sentences, which would claim the entry never landed or that a
+// field is inert everywhere on the target.
+func TestNoteSurfaceGap_NeverClaimsTheWholeTargetIgnoresIt(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 1, "Copilot cloud agent", "exec entries are CLI only")
+	FlushCoverageNotes()
+	got := buf.String()
+	for _, forbidden := range []string{"has no effect on copilot", "in the source dir", "only via"} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("surface gap must not read as a target-wide drop, found %q in: %s", forbidden, got)
+		}
+	}
+}
+
+func TestNoteSurfaceGap_ZeroCountBuffersNothing(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 0, "Copilot cloud agent", "reason")
+	if got := PendingCoverageNotesCount(); got != 0 {
+		t.Fatalf("zero-count surface note must not buffer, count=%d", got)
+	}
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for zero-count surface note, got: %s", buf)
+	}
+}
+
+func TestNoteSurfaceGap_GroupsSameSurfaceAcrossTargets(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 1, "a cloud sandbox", "exec entries are CLI only")
+	NoteSurfaceGap("claude", spec.KindHook, 1, "a cloud sandbox", "exec entries are CLI only")
+	FlushCoverageNotes()
+	want := "  note: 1 hook reaches copilot, claude but not a cloud sandbox (exec entries are CLI only)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected grouped targets on one line, got %q", got)
+	}
+}
+
+func TestNoteSurfaceGap_ResetClearsBuffer(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteSurfaceGap("copilot", spec.KindHook, 1, "Copilot cloud agent", "reason")
+	ResetCoverageNotes()
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected reset to drop buffered surface notes, got: %s", buf)
+	}
+}
+
+func TestCoverageNotesDigest_ChangesWhenSurfaceGapAdded(t *testing.T) {
+	swapWarnerForNotes(t)
+	NoteCoverageGap("gemini", spec.KindSkill, 1, "outputs.gemini.emit-skills-as-commands")
+	withoutSurface := CoverageNotesDigest()
+	NoteSurfaceGap("copilot", spec.KindHook, 1, "Copilot cloud agent", "reason")
+	withSurface := CoverageNotesDigest()
+	if withoutSurface == withSurface {
+		t.Errorf("digest must change when a surface gap is added, got identical %q", withoutSurface)
+	}
+}

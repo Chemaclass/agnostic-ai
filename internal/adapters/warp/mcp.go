@@ -83,29 +83,42 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 // and `roots` are pure documentation on the spec side and reach the
 // file through `x-warp` for anyone who wants them written anyway, the
 // same escape hatch warp.go's workflow renderer already offers.
+//
+// Returns nil when the transport's required field is missing, so
+// buildMCPDocument drops the entry instead of writing a server object
+// Warp cannot run: the CLI Server table marks `command` required and
+// the URL Server table marks `url` required. Until #753 this builder
+// omitted the missing key and kept the rest, so a spec carrying only
+// `args`, `env`, or `cwd` produced a live entry with nothing to launch,
+// contradicting buildMCPDocument's own doc comment. A `type:` outside
+// the three remote spellings falls to the stdio branch, since Warp
+// names no transport in config at all and a spec with a `command` is a
+// command server whatever it calls itself. trae, antigravity, and
+// windsurf decline the same entries the same way.
 func buildMCPServer(e spec.Entry) map[string]any {
 	transport, _ := e.Meta["type"].(string)
-	if transport == "" {
-		transport = "stdio"
-	}
 	out := map[string]any{}
 	switch transport {
-	case "stdio":
-		if cmd, _ := e.Meta["command"].(string); cmd != "" {
-			out["command"] = cmd
+	case "http", "sse", "ws":
+		url, _ := e.Meta["url"].(string)
+		if url == "" {
+			return nil
 		}
+		out["url"] = url
+		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
+			out["headers"] = h
+		}
+	default: // stdio
+		cmd, _ := e.Meta["command"].(string)
+		if cmd == "" {
+			return nil
+		}
+		out["command"] = cmd
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 			out["args"] = args
 		}
 		if cwd, _ := e.Meta["cwd"].(string); cwd != "" {
 			out["working_directory"] = cwd
-		}
-	case "http", "sse", "ws":
-		if url, _ := e.Meta["url"].(string); url != "" {
-			out["url"] = url
-		}
-		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
-			out["headers"] = h
 		}
 	}
 	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {

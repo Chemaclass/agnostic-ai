@@ -104,6 +104,12 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
 		},
+		// Absent from the golden tree on purpose: no `command` means
+		// nothing for Warp to launch, so the entry is declined (#753).
+		{
+			Kind: spec.KindMCP, Name: "partial-stdio",
+			Meta: map[string]any{"type": "stdio", "args": []any{"--flag"}},
+		},
 	}
 	return spec.NewBundle(entries)
 }

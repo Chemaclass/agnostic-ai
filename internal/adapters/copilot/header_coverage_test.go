@@ -124,6 +124,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "hooks/guard.sh", "timeout": 10},
 		},
+		{
+			Kind: spec.KindHook, Name: "format", Path: "hooks/format.yaml",
+			Meta: map[string]any{
+				"event": "PostToolUse", "matcher": "Edit",
+				"command": "hooks/format.sh", "args": []any{"--fix"},
+			},
+		},
 	}
 	return spec.NewBundle(entries)
 }

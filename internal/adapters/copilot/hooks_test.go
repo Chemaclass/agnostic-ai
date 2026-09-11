@@ -185,6 +185,105 @@ func TestEmit_Hook_CommandListProducesMultipleEntries(t *testing.T) {
 	}
 }
 
+// A spec that sets `args` switches to Copilot's own shell-free form.
+// The field table on docs.github.com/en/copilot/reference/hooks-reference
+// reads "`exec` | string | Instead of `bash`, `powershell`, and
+// `command` | Executable name or path. Runs the executable directly
+// without a shell." and "`args` | array of strings | No | Arguments
+// passed directly to `exec`." The executable moves out of `command`,
+// which Claude Code's own exec form does not do, and the prose forbids
+// carrying both: "Do not combine `exec` with `bash`, `powershell`, or
+// `command`" (#755). The command below carries a space so the test
+// distinguishes exec form from the shell form that would tokenize it.
+func TestEmit_Hook_ArgsEmitExecFormWithoutCommand(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{
+			"event": "PreToolUse", "matcher": "Edit",
+			"command": "/usr/local/bin/my formatter",
+			"args":    []any{"--fix", "$CLAUDE_FILE_PATHS"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	for _, want := range []string{
+		`"exec": "/usr/local/bin/my formatter"`, `"args"`, `"--fix"`, `"$CLAUDE_FILE_PATHS"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"command":`) {
+		t.Errorf("exec must not be combined with command, got %s", got)
+	}
+}
+
+// The exec form is Copilot CLI only. The same page's "Hooks locations"
+// section says a cloud agent job fires "a subset of events ... and only
+// `bash` (or `command`) entries are honored", and loads its hooks from
+// "`.github/hooks/*.json` files in the cloned repository" — the file
+// this adapter writes. Emitting `exec` buys shell-free arguments and
+// costs cloud-agent execution, so the note names the surface that
+// drops the entry rather than claiming the whole target ignores it.
+func TestEmit_Hook_ExecFormNotesCloudAgentSurfaceGap(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{
+			"event": "PreToolUse", "command": "fmt.sh", "args": []any{"--fix"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	out := buf.String()
+	if !strings.Contains(out, "1 hook reaches copilot but not Copilot cloud agent") {
+		t.Errorf("expected a surface gap note for the exec form, got: %s", out)
+	}
+	if !strings.Contains(out, "honors `bash` or `command` entries only") {
+		t.Errorf("note must name the cloud-agent reason, got: %s", out)
+	}
+}
+
+// No `args` means no exec form and no note: the cross-platform
+// `command` field is the one a cloud agent job honors, so the default
+// shape stays the portable one.
+func TestEmit_Hook_NoArgsKeepsCommandFormAndRaisesNoNote(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+			"event": "PreToolUse", "command": "hooks/guard.sh",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	if !strings.Contains(got, `"command": "hooks/guard.sh"`) {
+		t.Errorf("expected command form, got %s", got)
+	}
+	for _, unwanted := range []string{`"exec"`, `"args"`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("unexpected %q in %s", unwanted, got)
+		}
+	}
+
+	emit.FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no coverage note without args, got: %s", buf.String())
+	}
+}
+
 func TestEmit_NoHooksFileWhenNoHookEntries(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
