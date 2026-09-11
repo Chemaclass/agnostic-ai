@@ -82,10 +82,13 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Stop", "PostCompaction",
 		"SessionStart", "SessionEnd",
 	),
-	// The 23 events in docs.qoder.com/cli/hooks' own Event Reference
-	// Overview table (verified 2026-09-10, up from 6 at an earlier
+	// The 27 events in docs.qoder.com/cli/hooks-reference's own Event
+	// Types table (re-counted 2026-09-12, up from 6 at an earlier
 	// audit). PascalCase, and a strict superset match against Claude
-	// Code's own vocabulary above (#629).
+	// Code's own vocabulary above (#629). The grouped Event Reference
+	// table on the older `/cli/hooks` page still shows only the first
+	// 23, which is why the last four read as unknown until #744; count
+	// rows on the reference page.
 	"qoder": setOf(
 		"SessionStart", "SessionEnd",
 		"UserPromptSubmit",
@@ -99,6 +102,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"CwdChanged", "FileChanged",
 		"WorktreeCreate", "WorktreeRemove",
 		"Elicitation", "ElicitationResult",
+		"TaskCreated", "TaskCompleted", "TeammateIdle", "Setup",
 	),
 	// The five events docs.augmentcode.com/cli/hooks' own "Hook Events"
 	// section documents, re-verified fresh 2026-09-10 (superseding an

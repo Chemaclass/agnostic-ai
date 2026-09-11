@@ -230,6 +230,36 @@ func TestValidate_AcceptsKiroAgentSpawnHookEvent(t *testing.T) {
 	}
 }
 
+// docs.qoder.com/cli/hooks-reference's own Event Types table carries 27
+// rows; hookEventsByTarget tracked the 23 on the older grouped
+// `/cli/hooks` page. The emitter passes `event:` through verbatim, so
+// all four already worked and validate flagged them as unknown by
+// mistake (#744).
+func TestValidate_AcceptsQoderTaskAndSetupHookEvents(t *testing.T) {
+	for _, event := range []string{"TaskCreated", "TaskCompleted", "TeammateIdle", "Setup"} {
+		t.Run(event, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+				"version: 1\ntargets:\n  - qoder\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+				"name: h\nevent: "+event+"\ncommand: \"true\"\n")
+			testutil.Chdir(t, dir)
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"validate"})
+			out := &bytes.Buffer{}
+			root.SetOut(out)
+			root.SetErr(&bytes.Buffer{})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("validate: %v", err)
+			}
+			if strings.Contains(out.String(), "unknown hook event") {
+				t.Errorf("%s is a documented Qoder event: %s", event, out.String())
+			}
+		})
+	}
+}
+
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	// aider + cline configured; neither emits hooks. The hook spec
 	// is dead weight and validate should say so. (copilot gained
