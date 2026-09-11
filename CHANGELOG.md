@@ -24,6 +24,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Docs correct five stale vendor claims: Copilot's `subagentStart` and `userPromptTransformed` are camelCase-only, so a PascalCase spelling emits a key that never fires; Trae's Agents row in the capability matrix shows `.trae/agents/<name>.md` instead of the pre-#638 flattened path; Zed's `timeout` works on either MCP transport, not HTTP alone; Qoder documents 27 hook events, not 23; and `.factory/mcp.json` is overwritten each sync, not merged, which matters because Factory's own docs tell users to hand-edit it. No emitted bytes change (#737).
 
 - The skills emission list in `spec-format.md` no longer duplicates the target matrix. It named four native targets when 23 declare a skill surface, still filed Windsurf under rule-file flattening, and pointed Antigravity at `.agent/skills/` rather than `.agents/skills/`. It now describes the three emission shapes and defers the per-target list to `targets.md`, which is maintained per change.
+- `import gemini` reads `.gemini/commands/*.toml` again, and writes them to `<commands>/` rather than `<agents>/`. #748 turned that read into a fallback for a missing `.gemini/agents/`, so any project carrying one subagent lost every command on import with no warning. The import summary now counts commands, and a single-line `prompt = "..."` becomes the spec body instead of raw TOML (#750).
 
 ### Added
 

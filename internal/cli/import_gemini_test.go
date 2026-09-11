@@ -57,15 +57,94 @@ func TestImportFromGemini_ImportsCommands(t *testing.T) {
 	if err := importFromGemini(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "agents", "deploy.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "commands", "deploy.md"))
 	if err != nil {
-		t.Fatalf("missing agents/deploy.md: %v", err)
+		t.Fatalf("missing commands/deploy.md: %v", err)
 	}
 	out := string(data)
 	for _, want := range []string{"name: deploy", "description: Ship it", "run ./deploy.sh"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("expected %q in agent file:\n%s", want, out)
+			t.Errorf("expected %q in command file:\n%s", want, out)
 		}
+	}
+}
+
+// Both native directories populated is the shape every synced Gemini
+// project has, and the one #748 stopped reading: the command TOMLs were
+// consulted only when `.gemini/agents/` was missing, so a project with
+// one subagent lost every command (#750).
+func TestImportFromGemini_ImportsCommandsAlongsideNativeAgents(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiAgentsDir, "my-agent.md"),
+		"---\nname: my-agent\ndescription: A subagent\n---\n\nAgent body.\n")
+	writeFile(t, filepath.Join(dir, geminiCommandsDir, "deploy.toml"),
+		"description = \"Deploy the app\"\nprompt = \"\"\"\nDeploy to production\n\"\"\"\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	agent, err := os.ReadFile(filepath.Join(dir, "agents", "my-agent.md"))
+	if err != nil {
+		t.Fatalf("missing agents/my-agent.md: %v", err)
+	}
+	if !strings.Contains(string(agent), "Agent body.") {
+		t.Errorf("expected the subagent body, got:\n%s", agent)
+	}
+
+	command, err := os.ReadFile(filepath.Join(dir, "commands", "deploy.md"))
+	if err != nil {
+		t.Fatalf("missing commands/deploy.md: %v", err)
+	}
+	for _, want := range []string{"name: deploy", "description: Deploy the app", "Deploy to production"} {
+		if !strings.Contains(string(command), want) {
+			t.Errorf("expected %q in command file:\n%s", want, command)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "agents", "deploy.md")); !os.IsNotExist(err) {
+		t.Errorf("a command TOML must not land in the agents source dir: %v", err)
+	}
+}
+
+// The commands source dir has to exist before a command spec can be
+// written into it; mkdirAllSources omitted it until #750.
+func TestImportFromGemini_CreatesCommandsSourceDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(dir, "commands"))
+	if err != nil {
+		t.Fatalf("commands source dir not created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("commands source path is not a directory")
+	}
+}
+
+// Gemini documents a single-line `prompt = "..."` alongside the
+// triple-quoted block (geminicli.com/docs/cli/custom-commands), so a
+// hand-authored command file must yield the prompt as the body rather
+// than the raw TOML text.
+func TestImportFromGemini_SingleLinePromptBecomesBody(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiCommandsDir, "fix.toml"),
+		"description = \"Generates a fix\"\nprompt = \"Please provide a code fix.\"\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "commands", "fix.md"))
+	if err != nil {
+		t.Fatalf("missing commands/fix.md: %v", err)
+	}
+	out := string(data)
+	if !strings.Contains(out, "\n\nPlease provide a code fix.\n") {
+		t.Errorf("expected the prompt as the body, got:\n%s", out)
+	}
+	if strings.Contains(out, "prompt = ") {
+		t.Errorf("raw TOML leaked into the body:\n%s", out)
 	}
 }
 
@@ -179,9 +258,10 @@ func TestImportFromGemini_NativeAgents(t *testing.T) {
 	}
 }
 
-// A project synced before #733 has only the command TOMLs agents used
-// to emit as, so that layout stays the fallback and still imports.
-func TestImportFromGemini_FallsBackToCommandTOMLForAgents(t *testing.T) {
+// A project synced before #733 emitted its agents as command TOMLs, so
+// those files import as commands. The body survives either way, and a
+// re-sync writes it back to the same `.gemini/commands/<name>.toml`.
+func TestImportFromGemini_LegacyAgentTOMLImportsAsCommand(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, geminiCommandsDir, "legacy.toml"),
 		"description = \"Old prompt\"\nprompt = \"\"\"\ndo the thing\n\"\"\"\n")
@@ -189,9 +269,9 @@ func TestImportFromGemini_FallsBackToCommandTOMLForAgents(t *testing.T) {
 	if err := importFromGemini(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "agents", "legacy.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "commands", "legacy.md"))
 	if err != nil {
-		t.Fatalf("missing agents/legacy.md: %v", err)
+		t.Fatalf("missing commands/legacy.md: %v", err)
 	}
 	if !strings.Contains(string(data), "do the thing") {
 		t.Errorf("expected the legacy prompt body, got:\n%s", data)

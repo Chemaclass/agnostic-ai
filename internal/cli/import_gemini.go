@@ -21,18 +21,18 @@ const (
 	geminiSettings    = ".gemini/settings.json"
 	// geminiAgentsDir is Gemini CLI's native project-level subagent
 	// directory: "Project-level: `.gemini/agents/*.md` (Shared with your
-	// team)" (geminicli.com/docs/core/subagents, #733). A project synced
-	// before that fix has no such directory, so the reader falls back to
-	// the command TOMLs agents used to emit as.
+	// team)" (geminicli.com/docs/core/subagents, #733).
 	geminiAgentsDir = ".gemini/agents"
 )
 
 // importFromGemini reads an existing Gemini CLI project (root GEMINI.md
 // plus any nested <dir>/GEMINI.md, `.gemini/agents/`,
-// `.gemini/commands/`, `.gemini/settings.json`) under root and writes
-// specs into the configured source directories.
+// `.gemini/commands/`, `.gemini/skills/`, `.gemini/settings.json`)
+// under root and writes specs into the configured source directories.
+// Every directory is read on its own, so a project carrying both a
+// subagent and a slash command imports both.
 func importFromGemini(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
 	rules, err := importGeminiRules(root, filepath.Join(root, src.Rules), src)
@@ -40,6 +40,10 @@ func importFromGemini(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importGeminiAgents(root, filepath.Join(root, src.Agents))
+	if err != nil {
+		return err
+	}
+	commands, err := importGeminiCommands(root, filepath.Join(root, src.Commands))
 	if err != nil {
 		return err
 	}
@@ -57,7 +61,8 @@ func importFromGemini(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks\n", rules, agents, skills, mcps, hooks)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks, %d commands\n",
+		rules, agents, skills, mcps, hooks, commands)
 	printImportNextSteps(root, "gemini")
 	return nil
 }
@@ -109,22 +114,31 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 // `.gemini/agents/*.md`, and copies each file into the agents source
 // dir with the agnostic-ai provenance header stripped. Every
 // frontmatter key round-trips verbatim, the same way the junie and
-// qoder agent readers handle their own native directories.
-//
-// A project synced before #733 has no such directory, since agents
-// emitted as slash-command TOMLs under `.gemini/commands/` instead;
-// that layout stays the fallback so those projects still import.
+// qoder agent readers handle their own native directories. A missing
+// directory imports nothing.
 func importGeminiAgents(root, dstDir string) (int, error) {
 	src := filepath.Join(root, geminiAgentsDir)
-	if dirExists(src) {
-		return copyMarkdownDir(src, dstDir)
+	if !dirExists(src) {
+		return 0, nil
 	}
-	return importGeminiCommands(root, dstDir)
+	return copyMarkdownDir(src, dstDir)
 }
 
 // importGeminiCommands reads `.gemini/commands/*.toml` and writes one
-// agent spec per command into dstDir. The `prompt` field becomes the
-// agent body; `description` is preserved in frontmatter.
+// command spec per file into dstDir. The `prompt` field becomes the
+// body; `description` is preserved in frontmatter. A missing directory
+// imports nothing.
+//
+// This runs on every import, independent of `.gemini/agents/`. Reading
+// the TOMLs only when the agents directory was absent meant a project
+// with even one subagent lost every command it had, silently (#750).
+//
+// A project synced before #733 emitted its agents as TOMLs at this
+// path, and those import as commands rather than agents. The directory
+// is the one Gemini documents for slash commands ("Project commands
+// (local): Located in `<your-project-root>/.gemini/commands/`",
+// geminicli.com/docs/cli/custom-commands), so that is the kind the file
+// reads back as, and a re-sync writes it to the same path either way.
 func importGeminiCommands(root, dstDir string) (int, error) {
 	src := filepath.Join(root, geminiCommandsDir)
 	entries, err := os.ReadDir(src)
@@ -155,14 +169,20 @@ func importGeminiCommands(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-// parseGeminiCommandTOML extracts `description` and `prompt` from a
-// minimal subset of TOML that matches what the gemini emitter writes:
-// quoted string for description, triple-quoted multiline for prompt.
-// Tolerant of either order. Anything else passes through as the body
-// raw text if `prompt` is missing.
+// parseGeminiCommandTOML extracts `description` and `prompt` from the
+// minimal subset of TOML Gemini command files use: a quoted string for
+// description, and either a triple-quoted block or a quoted string for
+// prompt. Gemini documents both prompt forms and a hand-authored file
+// often takes the single-line one (geminicli.com/docs/cli/custom-commands),
+// while the emitter always writes the block. Tolerant of either order.
+// Anything else passes through as the body raw text if `prompt` is
+// missing.
 func parseGeminiCommandTOML(s string) (description, body string) {
 	description = extractTOMLString(s, "description")
 	body = extractTOMLMultiline(s, "prompt")
+	if body == "" {
+		body = extractTOMLString(s, "prompt")
+	}
 	if body == "" {
 		body = strings.TrimSpace(s)
 	}
@@ -186,6 +206,10 @@ func extractTOMLString(s, key string) string {
 		rest := strings.TrimSpace(after)
 		rest = strings.TrimPrefix(rest, "=")
 		rest = strings.TrimSpace(rest)
+		// A triple-quoted block opens here; extractTOMLMultiline owns it.
+		if strings.HasPrefix(rest, "\"\"\"") {
+			continue
+		}
 		if strings.HasPrefix(rest, "\"") && strings.HasSuffix(rest, "\"") && len(rest) >= 2 {
 			return rest[1 : len(rest)-1]
 		}
