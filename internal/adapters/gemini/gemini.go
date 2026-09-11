@@ -161,7 +161,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	ignoreFile := emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile)
-	if err := sess.WriteIgnoreFile(b.Ignores, ignoreFile, dryRun); err != nil {
+	if err := sess.WriteIgnoreFile(b.Ignores, target, ignoreFile, dryRun); err != nil {
 		return err
 	}
 	if ignoreFile != legacyIgnoreFile {

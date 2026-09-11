@@ -43,6 +43,12 @@ var registry = map[Code]Entry{
 		Cause: "Two or more enabled targets would write to the same path (commonly AGENTS.md, shared by codex, amp, warp, opencode and zed). Last-writer-wins would mask drift.",
 		Fix:   "Drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the colliding path via `outputs.<target>.file`.",
 	},
+	CodeIgnoreOverwrite: {
+		Code:  CodeIgnoreOverwrite,
+		Title: "Hand-authored ignore file would lose patterns",
+		Cause: "A target's ignore file (.cursorignore, .geminiignore, .aiderignore, .devinignore, .kiroignore, .trae/.ignore, .aiignore) carries no agnostic-ai header and holds patterns the ignore specs do not. These files keep credentials out of agent context, so sync writes nothing rather than dropping them.",
+		Fix:   "Run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec, then sync again. The error names every pattern at risk. Deleting the file also clears the error, at the cost of those patterns.",
+	},
 	CodeImportFileUnknown: {
 		Code:  CodeImportFileUnknown,
 		Title: "Import source name unknown",

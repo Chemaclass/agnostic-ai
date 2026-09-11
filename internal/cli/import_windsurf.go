@@ -149,6 +149,7 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 //     collapsing rule as importClaudeHooks. Unlike that file, there is
 //     no `"hooks"` wrapper key to unwrap, and a `type: prompt` entry
 //     imports with `prompt:` in place of `command:` (#629).
+//   - a hand-authored `.devinignore` reconstructs an ignore spec (#754).
 func importFromWindsurf(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
@@ -192,7 +193,11 @@ func importFromWindsurf(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps)
+	ignores, err := importIgnoreFile(root, "windsurf", src)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores)
 	printImportNextSteps(root, "windsurf")
 	return nil
 }

@@ -46,6 +46,7 @@ const (
 //     a collision, since `importKiroAgents` and `importSkillFolders` for
 //     `.kiro/skills/` both run after `importKiroSteering`).
 //   - `.kiro/settings/mcp.json` (`mcpServers` map) reconstructs MCP specs.
+//   - a hand-authored `.kiroignore` reconstructs an ignore spec (#754).
 //   - `AGENTS.md` (the shared entry-point Kiro reads directly) mirrors to
 //     `.agnostic-ai/AGNOSTIC_AI.md`.
 //
@@ -81,11 +82,15 @@ func importFromKiro(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	ignores, err := importIgnoreFile(root, "kiro", src)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, kiroMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		c.rules, c.agents+agents, c.skills+skills, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d ignores\n",
+		c.rules, c.agents+agents, c.skills+skills, mcps, ignores)
 	printImportNextSteps(root, "kiro")
 	return nil
 }

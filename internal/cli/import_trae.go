@@ -45,6 +45,7 @@ const (
 //     natively, with bundled sibling assets copied byte-for-byte.
 //   - `.trae/commands/*.md` copies byte-for-byte into the commands
 //     source dir.
+//   - a hand-authored `.trae/.ignore` reconstructs an ignore spec (#754).
 //   - `.trae/mcp.json`'s `mcpServers` map writes one yaml per server.
 //     Trae's schema has no `type` key, so a `url`-only entry infers
 //     `type: http` on the way in (see importJSONMCPMap) the same way a
@@ -75,7 +76,11 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps (from trae)\n", c.rules, c.agents, c.skills, commands, mcps)
+	ignores, err := importIgnoreFile(root, "trae", src)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d ignores (from trae)\n", c.rules, c.agents, c.skills, commands, mcps, ignores)
 	printImportNextSteps(root, "trae")
 	return nil
 }

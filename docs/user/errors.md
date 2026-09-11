@@ -66,6 +66,12 @@ Two or more enabled targets would write to the same path (commonly the root `AGE
 
 **Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
 
+### AAI-103: Hand-authored ignore file would lose patterns
+
+A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header and holds patterns the ignore specs do not. These files keep credentials out of agent context, so `sync` writes nothing rather than dropping them.
+
+**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec, then sync again. The error names every pattern at risk. Deleting the file also clears the error, at the cost of those patterns.
+
 ### AAI-202: Import source name unknown
 
 The argument to `agnostic-ai import` matches no registered source.
