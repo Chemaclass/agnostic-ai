@@ -118,6 +118,10 @@ gitignore:
 		[]byte("name: pre-write\nevent: PreToolUse\nmatcher: Write\ncommand: \"echo pre\"\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/hooks/session-start.yaml"),
 		[]byte("name: session-start\nevent: SessionStart\ncommand: \"echo session\"\n"), 0o644))
+	// An exec-form hook (#732): `args` turns off shell tokenization, so
+	// an argument carrying a space survives the round-trip intact.
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/hooks/exec-form.yaml"),
+		[]byte("name: exec-form\nevent: PreToolUse\nmatcher: Edit\ncommand: node\nargs:\n  - \"/opt/my scripts/check.js\"\n  - \"--fix\"\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/commands"), 0o755))
 	for _, n := range []string{"cmd-one", "cmd-two", "cmd-three"} {

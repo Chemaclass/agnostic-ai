@@ -566,6 +566,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		shell, _ := h.Meta["shell"].(string)
 		ifRule, _ := h.Meta["if"].(string)
 		once := hookBoolMeta(h.Meta, "once")
+		args := emit.StringSlice(h.Meta["args"])
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
@@ -574,6 +575,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:          "command",
 				Command:       emit.RewriteHookPath(cmd, target),
+				Args:          args,
 				Timeout:       timeout,
 				StatusMessage: statusMessage,
 				Async:         async,

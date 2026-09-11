@@ -134,8 +134,11 @@ gitignore:
 		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\n"+
 			"scopes:\n  - repo\n  - \"read:org\"\noauth_resource: https://example.test/mcp\n"+
 			"oauth:\n  client_id: abc123\n  callback_url: https://localhost/callback\n  callback_port: 8765\n"), 0o644))
+	// startup_timeout_ms is the vendor's millisecond alias (#735); the
+	// captured overlay excludes mcp_servers, so only a real emit +
+	// import pair keeps it across a sync.
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/disabled-server.yaml"),
-		[]byte("name: disabled-server\ncommand: x\ndisabled: true\n"), 0o644))
+		[]byte("name: disabled-server\ncommand: x\ndisabled: true\nstartup_timeout_ms: 2500\n"), 0o644))
 }
 
 // snapshotCodexEmit reads every file under .codex/ and returns a

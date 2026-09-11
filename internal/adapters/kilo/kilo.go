@@ -76,7 +76,11 @@
 // (internal/adapters/opencode); `variant` (a reasoning-effort override)
 // is the one extra key this vendor documents. Arbitrary `x-kilo` keys
 // pass through the same way commands.go's OpenCode counterpart does
-// (#630).
+// (#630). One name is off limits: "A custom command or an MCP prompt
+// named `goal` is reserved. Kilo rejects it and reports an error;
+// rename it" (code-with-ai/agents/goals, shipped in v7.6.0). A command
+// spec called `goal` still emits, so the spec is never lost in
+// silence, and surfaces a coverage note naming the rename (#736).
 //
 // MCP servers merge into the project `kilo.jsonc` (override via
 // outputs.kilo.mcp-file) under an `mcp` map, the key current Kilo Code

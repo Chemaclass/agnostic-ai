@@ -19,6 +19,14 @@ package claudehooks
 // dropping them on emit would strip behavior a user authored in
 // settings.json (import captures them for the round-trip).
 //
+// Args switches a command hook from shell form to exec form: "When
+// present, `command` is resolved as an executable and spawned directly
+// with `args` as the argument vector, with no shell involved"
+// (code.claude.com/docs/en/hooks, verified 2026-09-11). Claude Code is
+// the only emitter here that sets it; Codex's hook docs list no such
+// field, so an `args` on a codex-bound spec would be an invented key
+// (#732).
+//
 // CommandWindows and AdditionalContextLimit are Codex-only
 // (learn.chatgpt.com/docs/hooks); they live here anyway per this package's
 // own round-trip rule, and stay absent from claude's own emit because
@@ -33,6 +41,7 @@ package claudehooks
 type CommandEntry struct {
 	Type                   string         `json:"type"`
 	Command                string         `json:"command"`
+	Args                   []string       `json:"args,omitempty"`
 	Timeout                int            `json:"timeout,omitempty"`
 	StatusMessage          string         `json:"statusMessage,omitempty"`
 	Async                  bool           `json:"async,omitempty"`

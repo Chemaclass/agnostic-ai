@@ -108,6 +108,12 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "no-rm-rf",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "^bash$", "command": "./hooks/no-rm-rf.sh", "timeout": 10},
 		},
+		// A snake_case spelling of the same event, so the golden pins
+		// that it lands under the canonical PreToolUse key (#731).
+		{
+			Kind: spec.KindHook, Name: "audit-edit",
+			Meta: map[string]any{"event": "pre_tool_use", "matcher": "^edit$", "command": "./hooks/audit-edit.sh"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

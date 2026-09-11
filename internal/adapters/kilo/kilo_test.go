@@ -345,6 +345,51 @@ func TestEmit_Agent_ToolsSurfacesCoverageNote(t *testing.T) {
 	}
 }
 
+// "A custom command or an MCP prompt named `goal` is reserved. Kilo
+// rejects it and reports an error; rename it"
+// (kilo.ai/docs/code-with-ai/agents/goals, shipped in v7.6.0, verified
+// 2026-09-11). The file still emits, since dropping it would lose the
+// spec silently, but the clash gets a coverage note so the user knows
+// to rename before Kilo errors (#736).
+func TestEmit_Command_ReservedGoalNameSurfacesCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "goal", Body: "body"},
+		{Kind: spec.KindCommand, Name: "ship", Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note (only goal is reserved), got %d", n)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kilo/commands/goal.md")); err != nil {
+		t.Errorf("the command must still emit so the spec is not lost silently: %v", err)
+	}
+}
+
+// Kilo reserves the exact name `goal`; a command called `goals` or
+// `goal-review` is fine and must not warn.
+func TestEmit_Command_NonReservedNameNoCoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindCommand, Name: "goals", Body: "body"},
+		{Kind: spec.KindCommand, Name: "goal-review", Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note for a non-reserved name, got %d", n)
+	}
+}
+
 // A bundle where no agent sets tools must not surface a coverage note.
 func TestEmit_Agent_NoToolsNoCoverageGap(t *testing.T) {
 	testutil.TempCwd(t)

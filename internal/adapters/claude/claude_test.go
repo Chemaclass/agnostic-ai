@@ -796,6 +796,90 @@ func TestEmit_HookAsyncShellIfPropagate(t *testing.T) {
 	}
 }
 
+// `args` switches a command hook to exec form: "When present, `command`
+// is resolved as an executable and spawned directly with `args` as the
+// argument vector, with no shell involved"
+// (code.claude.com/docs/en/hooks, verified 2026-09-11). Without it every
+// hook we write is shell form, so a path carrying a space, apostrophe,
+// `$`, or backtick is tokenized and runs wrong (#732).
+func TestEmit_HookArgsPropagateAsExecForm(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{
+				"event":   "PreToolUse",
+				"matcher": "Bash",
+				"command": "node",
+				"args":    []any{"/opt/my scripts/check.js", "--fix"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Hooks []struct {
+				Command string   `json:"command"`
+				Args    []string `json:"args"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse: %v\n%s", err, raw)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+		t.Fatalf("expected 1 group with 1 hook, got: %s", raw)
+	}
+	h := groups[0].Hooks[0]
+	if h.Command != "node" {
+		t.Errorf("expected command node, got %q", h.Command)
+	}
+	want := []string{"/opt/my scripts/check.js", "--fix"}
+	if len(h.Args) != len(want) {
+		t.Fatalf("expected %d args, got %v in:\n%s", len(want), h.Args, raw)
+	}
+	for i, a := range want {
+		if h.Args[i] != a {
+			t.Errorf("args[%d] = %q, want %q", i, h.Args[i], a)
+		}
+	}
+}
+
+// A hook without `args` stays shell form: an empty array would flip the
+// hook to exec form and break every command that relies on a pipe.
+func TestEmit_HookOmitsArgsWhenUnset(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindHook,
+			Name: "h1",
+			Meta: map[string]any{"event": "PreToolUse", "command": "echo hi | cat"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"args"`) {
+		t.Errorf("expected no args key when unset:\n%s", raw)
+	}
+}
+
 // A hook spec authored against another tool's hooks directory must
 // rewrite the `.<sibling>/hooks/` prefix to `.claude/hooks/` so the
 // emitted settings.json points at the path inside the Claude tree.

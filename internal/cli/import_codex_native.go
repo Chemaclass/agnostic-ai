@@ -719,13 +719,18 @@ type codexMCPEntry struct {
 	// transport restriction documented; OAuth, Scopes, and
 	// OAuthResource authenticate to an MCP HTTP server. See #693.
 	//
-	// StartupTimeoutSec / ToolTimeoutSec are `any` rather than a
-	// numeric type: the vendor documents them as `number`, and TOML
-	// decodes `10` as int64 but `2.5` as float64, so a fixed numeric
-	// field would fail to decode whichever literal form the file
-	// doesn't use.
+	// StartupTimeoutSec / StartupTimeoutMS / ToolTimeoutSec are `any`
+	// rather than a numeric type: the vendor documents them as
+	// `number`, and TOML decodes `10` as int64 but `2.5` as float64,
+	// so a fixed numeric field would fail to decode whichever literal
+	// form the file doesn't use.
+	//
+	// StartupTimeoutMS is the vendor's millisecond alias for
+	// StartupTimeoutSec, captured as its own key so an import followed
+	// by a sync does not silently swap the user's unit. See #735.
 	Required                 bool          `toml:"required"`
 	StartupTimeoutSec        any           `toml:"startup_timeout_sec"`
+	StartupTimeoutMS         any           `toml:"startup_timeout_ms"`
 	ToolTimeoutSec           any           `toml:"tool_timeout_sec"`
 	DefaultToolsApprovalMode string        `toml:"default_tools_approval_mode"`
 	OAuth                    codexMCPOAuth `toml:"oauth"`
@@ -1132,6 +1137,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		}
 		if s.StartupTimeoutSec != nil {
 			doc["startup_timeout_sec"] = s.StartupTimeoutSec
+		}
+		if s.StartupTimeoutMS != nil {
+			doc["startup_timeout_ms"] = s.StartupTimeoutMS
 		}
 		if s.ToolTimeoutSec != nil {
 			doc["tool_timeout_sec"] = s.ToolTimeoutSec
