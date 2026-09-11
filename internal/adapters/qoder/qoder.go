@@ -106,14 +106,20 @@
 // adapter never touches.
 //
 // Hooks merge into that same `.qoder/settings.json` file under a
-// `hooks` key. docs.qoder.com/cli/hooks documents 23 events, PascalCase
-// (SessionStart, SessionEnd, UserPromptSubmit, PreToolUse, PostToolUse,
-// PostToolUseFailure, PermissionRequest, PermissionDenied, Stop,
+// `hooks` key. docs.qoder.com/cli/hooks-reference is the authoritative
+// event list and documents 27, PascalCase (SessionStart, SessionEnd,
+// UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure,
+// PermissionRequest, PermissionDenied, Stop,
 // StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact,
 // Notification, InstructionsLoaded, ConfigChange, CwdChanged,
 // FileChanged, WorktreeCreate, WorktreeRemove, Elicitation,
-// ElicitationResult; #629), and nests them the same way Claude Code
-// does: `{"hooks": {"<Event>": [{"matcher": ..., "hooks": [{"type":
+// ElicitationResult, TaskCreated, TaskCompleted, TeammateIdle, Setup;
+// the last four were missed by #629's count of 23 and confirmed by the
+// 2026-09-11 audit, #737). Every one of them emits, since `event:`
+// passes through verbatim; hooks.go's hookLifecycle still orders only
+// the first 23, so the other four sort after them. Qoder nests hooks
+// the same way Claude Code does:
+// `{"hooks": {"<Event>": [{"matcher": ..., "hooks": [{"type":
 // "command", "command": ..., ...}]}]}}`. The PreToolUse/PostToolUse
 // matcher is also Claude's own tool-name vocabulary ("e.g. Bash, Write,
 // Edit, Read, Glob, Grep; MCP tool names like mcp__server__tool"), so a

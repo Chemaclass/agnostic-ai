@@ -70,9 +70,15 @@
 // camelCase form answers only to Copilot's own lowercase tool names,
 // and a Claude-style matcher there earns a coverage note (see
 // hooks.go). The vendor's own table lists 14 events today, one more
-// than the 13 #629 recorded (`userPromptTransformed`, which has no
-// PascalCase pairing documented anywhere on the page), so both counts
-// are named here rather than only the newer one.
+// than the 13 #629 recorded, so both counts are named here rather than
+// only the newer one.
+//
+// Two of those 14 rows are camelCase-only, and the both-casings rule
+// does not reach them: `userPromptTransformed` and `subagentStart` ("A
+// subagent is spawned (before it runs)."). Neither has a PascalCase
+// pairing anywhere on the page, so a spec spelling either one in
+// PascalCase (`SubagentStart` is legal on claude and codex) emits a key
+// Copilot parses and never fires.
 package copilot
 
 import (

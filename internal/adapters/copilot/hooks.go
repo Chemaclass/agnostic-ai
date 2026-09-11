@@ -37,12 +37,25 @@ var claudeToolNames = map[string]bool{
 	"Task": true, "AskUserQuestion": true, "TodoWrite": true,
 }
 
-// hookLifecycle orders the PascalCase spelling of every event
-// docs.github.com/en/copilot/reference/hooks-reference's own "Hook
-// events" table lists, in that table's own row order. A spec authored
-// in Copilot's native camelCase form (or any other casing) is not in
-// this list and falls through to first-seen order in orderEvents,
-// same as every other event this adapter does not recognize.
+// hookLifecycle orders PascalCase events from session start to session
+// end. That is this repo's order, not the vendor's: the "Hook events"
+// table on docs.github.com/en/copilot/reference/hooks-reference is
+// alphabetical by camelCase name. A spec authored in Copilot's native
+// camelCase form (or any other casing) is not in this list and falls
+// through to first-seen order in orderEvents, same as every other event
+// this adapter does not recognize.
+//
+// The page documents 12 PascalCase spellings: ten as `camelCase /
+// PascalCase` headings under "Hook event input payloads", plus
+// `Notification` (in its own `hook_event_name: "Notification"` payload)
+// and `PermissionRequest` (in the Claude-format matchers note). Two of
+// the table's 14 rows have no PascalCase pairing anywhere on the page:
+// `userPromptTransformed` and `subagentStart` ("A subagent is spawned
+// (before it runs)."). `SubagentStart` is listed below anyway, as a
+// sort key only, because dropping it would reorder the emitted file for
+// a user who already writes one. It is not a documented Copilot event
+// name: a cross-target spec carrying it (legal on claude and codex)
+// emits a key Copilot parses and never fires.
 var hookLifecycle = []string{
 	"SessionStart", "UserPromptSubmit",
 	"PreToolUse", "PostToolUse", "PostToolUseFailure",

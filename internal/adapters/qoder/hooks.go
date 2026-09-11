@@ -13,6 +13,18 @@ import (
 // Context Compaction, Notifications, Context and Configuration Loading,
 // Working Directory and Files, Worktree Isolation, MCP Interaction.
 // Events outside this list follow in first-seen order.
+//
+// docs.qoder.com/cli/hooks-reference is the authoritative event list,
+// and it documents 27 today against the 23 below: `TaskCreated`,
+// `TaskCompleted`, `TeammateIdle`, and `Setup` ("During initial
+// installation") have no row here (target-audit 2026-09-11, #737).
+// `/cli/hooks` still lists 23, so count rows on the reference page. All
+// four emit correctly, since `event:` passes through verbatim; they
+// sort after the 23 instead of among them. Adding a name here reorders
+// the keys of an already-written settings.json, so the four land with a
+// golden test rather than as a comment fix, and the same four are
+// missing from `hookEventsByTarget["qoder"]` in
+// internal/cli/native_capabilities.go, where `validate` reads them.
 var hookLifecycle = []string{
 	"SessionStart", "SessionEnd",
 	"UserPromptSubmit",
