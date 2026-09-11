@@ -70,6 +70,18 @@
 // those three do. Factory's schema also documents `disabledTools`,
 // `timeout`, `connectTimeout`, and `oauth`, none of which the
 // cross-tool spec carries yet; they are not emitted.
+//
+// Hooks merge into `.factory/hooks.json` (override via
+// outputs.factory.hooks-file), keyed directly by event name with no
+// surrounding "hooks" wrapper: "Standalone `hooks.json` files are
+// keyed directly by event name" (docs.factory.ai/harness/hooks), the
+// one other divergence Windsurf/Devin CLI's own `.devin/hooks.v1.json`
+// also carries. Nine events: `PreToolUse`, `PostToolUse`,
+// `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`,
+// `PreCompact`, `SessionStart`, `SessionEnd`. `timeout` is seconds
+// (vendor default 60 when absent), not milliseconds. See hooks.go for
+// the field mapping, the matcher-vocabulary note, and the vendor
+// quote (#629).
 package factory
 
 import (
@@ -101,7 +113,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -115,9 +127,10 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
-// `.agents/skills/`, plus a merged `.factory/mcp.json` for MCP
-// servers. The project-root AGENTS.md (rules' single source of truth
-// for Droid CLI) is written by `sync`, not here.
+// `.agents/skills/`, a merged `.factory/mcp.json` for MCP servers,
+// and `.factory/hooks.json` for hook specs. The project-root
+// AGENTS.md (rules' single source of truth for Droid CLI) is written
+// by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -128,6 +141,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	// Factory's schema documents a working `disabled` key (unlike

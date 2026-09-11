@@ -77,8 +77,10 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the factory
-// adapter declares in caps.Supports (Rule, Agent, Skill, MCP) with
-// three specimens per kind. Rules are included even though this
+// adapter declares in caps.Supports (Rule, Agent, Skill, MCP, Hook)
+// with three specimens per kind (one for Hook, which has no per-event
+// grouping to exercise here; hooks.go's own tests cover multi-event
+// ordering and matcher grouping). Rules are included even though this
 // adapter never writes them itself (see factory.go). The gamma agent
 // declares one tool name that is already a Factory ID and one that is
 // not, so the golden pins the translation table in emitted bytes. The
@@ -111,6 +113,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
+		},
+		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w"},
 		},
 	}
 	return spec.NewBundle(entries)
