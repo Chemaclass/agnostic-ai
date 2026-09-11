@@ -14,6 +14,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Continue MCP servers with `type: ws` now emit no file and raise a coverage note. Continue documents no websocket transport, and the name-only server written before matched neither branch of its schema (#726).
 - Continue MCP `env` now emits on stdio servers only, with a coverage note when a remote server declares one. Continue puts `env` on its stdio schema alone, so the map was stripped on load and the server ran without it (#739).
 - Continue MCP entries missing `command` on a stdio server or `url` on a remote one now emit no file and raise a coverage note, matching trae, warp, antigravity and windsurf. Both fields are required, so the entry made Continue throw on the whole file (#739).
+- `sync -t amp` no longer writes Agent specs to `.agents/commands/`, the directory Amp's own migration steps tell users to delete. Files a previous sync left there are swept, agent bodies still reach Amp through `outputs.amp.rules-file`, and a coverage note fires when that is unset instead of a silent green sync (#727).
 - The skills emission list in `spec-format.md` no longer duplicates the target matrix. It named four native targets when 23 declare a skill surface, still filed Windsurf under rule-file flattening, and pointed Antigravity at `.agent/skills/` rather than `.agents/skills/`. It now describes the three emission shapes and defers the per-target list to `targets.md`, which is maintained per change.
 
 ### Added

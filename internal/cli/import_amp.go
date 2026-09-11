@@ -14,8 +14,8 @@ const (
 )
 
 // importFromAmp reads an existing Sourcegraph Amp project (AGENTS.md,
-// `.agents/commands/`, `.amp/settings.json`) under root and writes
-// specs into the configured source directories.
+// the pre-migration `.agents/commands/`, `.amp/settings.json`) under
+// root and writes specs into the configured source directories.
 func importFromAmp(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.MCPs); err != nil {
 		return err
@@ -48,6 +48,12 @@ func importAmpRules(root, dstDir string) (int, error) {
 
 // importAmpCommands copies `.agents/commands/*.md` byte-for-byte into
 // the agents source dir. Each command file becomes one agent.
+//
+// Amp removed custom commands and sync no longer writes this directory
+// (#727), so the read is a one-way rescue: a project that never
+// migrated still has those files on disk, and lifting them into the
+// specs is how they reach every other target. On a migrated project the
+// directory is absent and this is a no-op.
 func importAmpCommands(root, dstDir string) (int, error) {
 	src := filepath.Join(root, ampCommandsDir)
 	if !dirExists(src) {

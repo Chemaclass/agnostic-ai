@@ -80,7 +80,11 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	}
 }
 
-func TestEmit_Agent_WritesCommandFile(t *testing.T) {
+// Agent specs write no command file: Amp removed custom commands on
+// 2026-01-29 and its migration steps end with "Delete the original
+// command file", so `.agents/commands/` is a directory the vendor tells
+// users to delete. See #727.
+func TestEmit_Agent_WritesNoCommandFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -94,14 +98,84 @@ func TestEmit_Agent_WritesCommandFile(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	cmd := readFile(t, filepath.Join(dir, ".agents/commands/pr-reviewer.md"))
-	for _, want := range []string{
-		"description: Review PRs like an owner.",
-		"Open the PR. Read it. Comment.",
-	} {
-		if !strings.Contains(cmd, want) {
-			t.Errorf("missing %q in %s", want, cmd)
+	if _, err := os.Stat(filepath.Join(dir, ".agents/commands/pr-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("agent spec should not write into the retired commands dir, err=%v", err)
+	}
+}
+
+// The one place an agent body reaches Amp is the opted-in merged rules
+// document, which is why KindAgent stays in caps.Supports.
+func TestEmit_Agent_ReachesLegacyRulesFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"amp": {RulesFile: "AGENTS.md"}},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "pr-reviewer",
+			Path: "agents/pr-reviewer.md",
+			Meta: map[string]any{"description": "Review PRs like an owner."},
+			Body: "Open the PR. Read it. Comment.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	for _, want := range []string{"## Agents", "### pr-reviewer", "Open the PR. Read it. Comment."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in merged rules file:\n%s", want, got)
 		}
+	}
+}
+
+// Without outputs.amp.rules-file an agent reaches Amp through no
+// emitted file at all, so the user gets a coverage note rather than a
+// silent green sync (the failure mode #727 reported).
+func TestEmit_Agent_NotesCoverageGap_WhenNoRulesFile(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "pr-reviewer", Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := emit.PendingCoverageNotesCount(); got != 1 {
+		t.Errorf("expected 1 coverage note for an agent with no rules-file, got %d", got)
+	}
+}
+
+// A prior sync's `.agents/commands/<name>.md` is swept so upgrading
+// users do not keep a stale file Amp no longer reads. Hand-authored
+// files there carry no provenance header and survive.
+func TestEmit_SweepsRetiredCommandsDir(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	commands := filepath.Join(dir, ".agents", "commands")
+	if err := os.MkdirAll(commands, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	generated := emit.WithHeader("stale agent body\n", emit.FormatMarkdown)
+	if err := os.WriteFile(filepath.Join(commands, "pr-reviewer.md"), []byte(generated), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(commands, "mine.md"), []byte("my own notes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(commands, "pr-reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("generated command file should be swept, err=%v", err)
+	}
+	if got := readFile(t, filepath.Join(commands, "mine.md")); got != "my own notes\n" {
+		t.Errorf("user-authored file should survive the sweep, got %q", got)
 	}
 }
 
@@ -272,8 +346,21 @@ func TestEmit_KeepsLegacyAGENTMd_WhenUserAuthored(t *testing.T) {
 	}
 }
 
-func TestEmit_CommandsDirOverride(t *testing.T) {
+func swapAmpWarner(t *testing.T) *strings.Builder {
+	t.Helper()
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	return buf
+}
+
+// outputs.amp.commands-dir is inert now that Amp reads no command
+// directory: pointing it somewhere else must not resurrect the surface,
+// and the user hears why instead of finding an empty path.
+func TestEmit_CommandsDirOverride_WarnsAndWritesNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	buf := swapAmpWarner(t)
 
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
@@ -286,8 +373,27 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "vendor/amp/commands/ag.md")); err != nil {
-		t.Errorf("expected override path written: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "vendor/amp/commands/ag.md")); !os.IsNotExist(err) {
+		t.Errorf("commands-dir override should write nothing, err=%v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"outputs.amp.commands-dir", "vendor/amp/commands", "removed custom commands"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected warning to name %q, got: %q", want, out)
+		}
+	}
+}
+
+func TestEmit_NoCommandsDir_NoWarning(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapAmpWarner(t)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag", Body: "x"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if out := buf.String(); out != "" {
+		t.Errorf("expected no warning when commands-dir is unset, got: %q", out)
 	}
 }
 
@@ -352,8 +458,8 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 }
 
 // buildMCPEntry enumerated a fixed field set with no escape hatch, so
-// even an explicit `x-amp` key was dropped, unlike commandFile and the
-// skill renderer which both merge one. The field this unblocks is
+// even an explicit `x-amp` key was dropped, unlike the skill renderer
+// which merges one. The field this unblocks is
 // `includeTools`, "optional but recommended" per
 // ampcode.com/docs/customize/skills (#634).
 func TestEmit_MCP_XAmpPassthroughReachesIncludeTools(t *testing.T) {

@@ -182,9 +182,9 @@ outputs:
     rules-dir: .continue/rules        # default
     mcp-dir: .continue/mcpServers     # default. One YAML per MCP server.
   amp:
-    commands-dir: .agents/commands  # default. One .md per agent and per command.
     skills-dir: .agents/skills      # default. One folder per skill (<name>/SKILL.md).
     mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
+    # commands-dir:                 # no longer emits anything: Amp removed custom commands.
   zed:
     skills-dir: .agents/skills    # default. One folder per skill; shared tree with codex and amp.
     mcp-file: .zed/settings.json  # default. context_servers (stdio command/args/env, HTTP/SSE native url/headers).
@@ -346,7 +346,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `continue` | `rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill (`skill-<name>.md`). Scoped rules emit constrained `globs` and omit `alwaysApply`. `x-continue.regex` is supported only without `scope`. |
 | `continue` | `mcp-dir` | `.continue/mcpServers` | One YAML per MCP server. |
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
-| `amp` | `commands-dir` | `.agents/commands` | One `.md` per agent. |
+| `amp` | `commands-dir` | _empty_ | No longer emits anything: Amp [removed custom commands](https://ampcode.com/news/slashing-custom-commands) on 2026-01-29 and its migration steps end with "Delete the original command file". Setting this key only prints a sync-time warning. Agent bodies reach Amp through `rules-file` when set. |
 | `amp` | `skills-dir` | `.agents/skills` | One folder per skill with a `SKILL.md` (Amp's native skills layout). |
 | `amp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `amp`. |
 | `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
