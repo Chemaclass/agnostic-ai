@@ -693,6 +693,48 @@ func TestEmit_MCP_PreservesExistingSettingsKeys(t *testing.T) {
 	}
 }
 
+// Same guarantee, JSONC input. docs.augmentcode.com/cli/config: "The
+// files support JSON with Comments (JSONC), allowing comments and
+// trailing commas for better documentation." `encoding/json` rejects
+// both, and the parse error used to be swallowed into an empty
+// document, so one sync deleted every key here (#725).
+func TestEmit_MCP_PreservesExistingSettingsKeysInJSONC(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".augment"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{
+  // Local shell setup.
+  "shell": "/bin/zsh",
+  "startupScript": "~/.augmentrc",
+  "theme": "dark",
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, ".augment/settings.json"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/settings.json"))
+	for _, want := range []string{
+		`"shell": "/bin/zsh"`,
+		`"startupScript": "~/.augmentrc"`,
+		`"theme": "dark"`,
+		`"mcpServers"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 // No per-server disable key is documented in .augment/settings.json, so
 // `disabled: true` is stripped rather than written as a key Auggie
 // would silently ignore. Mirrors claude's and qoder's

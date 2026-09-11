@@ -207,6 +207,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // theme, plugin keys, tool permissions) survive the sync untouched;
 // only `mcpServers` and `hooks` are ever set here.
 //
+// That file is JSONC: "The files support JSON with Comments (JSONC),
+// allowing comments and trailing commas for better documentation"
+// (docs.augmentcode.com/cli/config). `encoding/json` rejects both, so
+// MergeJSONFile strips JSONC before parsing. Keys survive; comments do
+// not, since the document is re-rendered from parsed values, and the
+// sync that drops them says so (target-audit 2026-09-11, #725).
+//
 // Both keys merge in the same call rather than two separate ones.
 // MergeJSONFile reads the on-disk file fresh on every call, and during
 // sync's collision-detection capture pass writes never reach disk, so

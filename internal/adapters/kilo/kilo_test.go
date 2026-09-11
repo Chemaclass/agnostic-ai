@@ -733,6 +733,49 @@ func TestEmit_MCP_PreservesExistingUserKeys(t *testing.T) {
 	}
 }
 
+// Same guarantee, JSONC input, which is the form the vendor documents
+// for this exact file. kilo.ai/docs/customize/custom-rules: "Disable a
+// rule temporarily: Comment out the line in kilo.jsonc (JSONC supports
+// // comments)", and the page's own worked example carries a comment
+// plus two trailing commas. `encoding/json` rejects both, and the parse
+// error used to be swallowed into an empty document, so one sync
+// deleted every key here, `provider.apiKey` included (#725).
+func TestEmit_MCP_PreservesExistingUserKeysInJSONC(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	existing := `{
+  // Kilo provider credentials, hand-authored.
+  "provider": {
+    "name": "anthropic",
+    "apiKey": "sk-secret-value",
+  },
+  "experimental": { "autoApprove": false },
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	for _, want := range []string{
+		`"provider"`,
+		`"apiKey": "sk-secret-value"`,
+		`"autoApprove": false`,
+		`"mcp"`,
+		`"fs"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
 func TestEmit_MCP_FileOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
