@@ -12,19 +12,19 @@ import (
 // TestAmpRoundTrip_SyncImportSyncIsByteEqual is the amp audit's
 // byte-stability gate from #325 acceptance criterion C:
 //
-//	sync amp -> snapshot .agents/commands/* + .amp/settings.json
+//	sync amp -> snapshot .agents/skills/* + .amp/settings.json
 //	         -> wipe source specs
 //	         -> import amp
 //	         -> wipe emit
 //	         -> sync amp
 //	         -> assert byte-for-byte identical
 //
-// The fixture covers every amp-supported kind that lands in the
-// adapter's own emit footprint (agents + MCPs across stdio/http/
-// disabled-with-command). Rules flow through sync's project-root
-// AGENTS.md entry-point — same caveat the codex audit (#329) noted —
-// so they are intentionally excluded from this round-trip; the
-// entry-point round-trip needs its own harness.
+// MCPs are the round-trip surface. Agents left it when Amp removed
+// custom commands (#727): they now emit no adapter-owned file, so the
+// fixture keeps them only to pin that `.agents/commands/` stays empty.
+// Rules flow through sync's project-root AGENTS.md entry-point — same
+// caveat the codex audit (#329) noted — so they are intentionally
+// excluded; the entry-point round-trip needs its own harness.
 func TestAmpRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -36,11 +36,15 @@ func TestAmpRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	if len(first) == 0 {
 		t.Fatalf("first sync produced no amp output")
 	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents", "commands")); !os.IsNotExist(err) {
+		t.Errorf("sync wrote the retired commands dir Amp told users to delete, err=%v", err)
+	}
 
-	for _, sub := range []string{"agents", "mcps"} {
-		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
-			t.Fatal(err)
-		}
+	// Only the MCP specs are wiped: `import amp` can no longer recover
+	// agents now that nothing emits them, so wiping those would compare
+	// an empty set against an empty set and prove nothing.
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "mcps")); err != nil {
+		t.Fatal(err)
 	}
 
 	runCmd(t, "import", "amp")
@@ -77,6 +81,7 @@ func seedAmpRoundTripFixture(t *testing.T, dir string) {
 		[]byte(`version: 1
 sources:
   agents: .agnostic-ai/agents
+  skills: .agnostic-ai/skills
   mcps: .agnostic-ai/mcps
 targets:
   - amp
@@ -90,6 +95,10 @@ gitignore:
 			[]byte("---\nname: "+n+"\ndescription: agent "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
 
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills/uno"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/skills/uno/SKILL.md"),
+		[]byte("---\nname: uno\ndescription: skill uno\n---\n\nuno body\n"), 0o644))
+
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-server.yaml"),
 		[]byte("name: stdio-server\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
@@ -98,7 +107,7 @@ gitignore:
 }
 
 // snapshotAmpEmit reads every file the amp adapter actually owns
-// (.agents/commands/* + .amp/settings.json). The project-root
+// (.agents/skills/* + .amp/settings.json). The project-root
 // AGENTS.md is excluded because sync writes it centrally, not amp,
 // so it is not part of the adapter's round-trip surface.
 func snapshotAmpEmit(t *testing.T, root string) map[string]string {

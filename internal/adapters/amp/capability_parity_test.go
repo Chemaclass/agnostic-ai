@@ -1,6 +1,7 @@
 package amp
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,6 +18,10 @@ import (
 // drops support for, say, KindMCP would either need to remove the
 // kind from Supports (forcing the warning channel) or fix the emit
 // path.
+//
+// Agents match inside the merged rules document rather than at a path
+// of their own: Amp has no file-based agent surface, so the legacy
+// rules-file is the only place their bodies land (see the package doc).
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -31,15 +36,19 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 
 	paths := testutil.WalkRel(t, dir)
+	rulesDoc, _ := os.ReadFile(filepath.Join(dir, "AGENTS-rules.md"))
+	body := string(rulesDoc)
+
 	type expect struct {
 		kind     spec.Kind
 		matchers []string
+		inBody   []string
 	}
 	cases := []expect{
-		{spec.KindAgent, []string{".agents/commands/alpha.md", ".agents/commands/beta.md", ".agents/commands/gamma.md"}},
-		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
-		{spec.KindRule, []string{"AGENTS-rules.md"}},
-		{spec.KindMCP, []string{".amp/settings.json"}},
+		{spec.KindAgent, nil, []string{"<!-- source: agents/alpha.md -->", "<!-- source: agents/beta.md -->", "<!-- source: agents/gamma.md -->"}},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}, nil},
+		{spec.KindRule, []string{"AGENTS-rules.md"}, nil},
+		{spec.KindMCP, []string{".amp/settings.json"}, nil},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -49,6 +58,12 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 			}
 			for _, m := range c.matchers {
 				if pathSetContains(paths, m) {
+					found = true
+					break
+				}
+			}
+			for _, s := range c.inBody {
+				if strings.Contains(body, s) {
 					found = true
 					break
 				}
