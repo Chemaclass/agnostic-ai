@@ -813,3 +813,60 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// .kiroignore is Kiro's project ignore file, plain gitignore syntax
+// ("To exclude files in a specific project, create a `.kiroignore` file
+// in your project root", kiro.dev/docs/kiroignore/).
+func TestEmit_IgnoreFile_WritesKiroignore(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env\nsecrets/"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".kiroignore"))
+	if err != nil {
+		t.Fatalf("missing .kiroignore: %v", err)
+	}
+	body := string(got)
+	if !strings.Contains(body, "*.env") || !strings.Contains(body, "secrets/") {
+		t.Errorf("missing ignore patterns, got:\n%s", body)
+	}
+	if !strings.HasPrefix(body, "#") {
+		t.Errorf("expected shell-style (#) provenance header, got:\n%s", body)
+	}
+}
+
+func TestEmit_IgnoreFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"kiro": {IgnoreFile: ".kiro/ignore"}}}
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/ignore")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiroignore")); !os.IsNotExist(err) {
+		t.Errorf("override must not also write the default, err=%v", err)
+	}
+}
+
+// An empty bundle writes no ignore file at all: a stray empty
+// `.kiroignore` would read as "nothing is excluded" while looking
+// configured.
+func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiroignore")); !os.IsNotExist(err) {
+		t.Errorf("expected no .kiroignore for a bundle with no ignore specs, err=%v", err)
+	}
+}

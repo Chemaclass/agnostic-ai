@@ -20,6 +20,9 @@ import (
 // frontmatter block Kiro requires as the file's first bytes. JSON
 // output (`.kiro/settings/mcp.json`, `.kiro/hooks/<name>.json`) is
 // exempt: JSON has no comment syntax to carry the marker in.
+// `.kiroignore` still carries the marker, as a `#` comment, but is
+// exempt from the frontmatter rule: it is a gitignore-syntax file, not
+// one of Kiro's Markdown surfaces.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
@@ -61,7 +64,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if !header.Has(content) {
 			t.Errorf("missing provenance header in %s:\n%s", rel, headFor(t, data))
 		}
-		if !strings.HasPrefix(content, "---\n") {
+		if rel != defaultIgnoreFile && !strings.HasPrefix(content, "---\n") {
 			t.Errorf("%s must start with frontmatter, got:\n%s", rel, headFor(t, data))
 		}
 		checked++
@@ -126,6 +129,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
 		},
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)
 }

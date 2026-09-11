@@ -445,3 +445,61 @@ func TestEmit_AgentsWriteNativeSubagentFiles(t *testing.T) {
 		t.Errorf("expected no rule-form .trae/rules/agent-reviewer.md, err=%v", err)
 	}
 }
+
+// `.trae/.ignore` is the path Trae's own Settings > Indexing & Docs
+// flow creates ("TraeCode automatically creates the `.ignore` file in
+// the `.trae/` folder", docs.trae.ai/ide/ignore-files). The filename is
+// bare `.ignore`, scoped by the directory it lives in.
+func TestEmit_IgnoreFile_WritesTraeIgnore(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env\nsecrets/"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".trae", ".ignore"))
+	if err != nil {
+		t.Fatalf("missing .trae/.ignore: %v", err)
+	}
+	body := string(got)
+	if !strings.Contains(body, "*.env") || !strings.Contains(body, "secrets/") {
+		t.Errorf("missing ignore patterns, got:\n%s", body)
+	}
+	if !strings.HasPrefix(body, "#") {
+		t.Errorf("expected shell-style (#) provenance header, got:\n%s", body)
+	}
+}
+
+func TestEmit_IgnoreFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"trae": {IgnoreFile: ".traeignore"}}}
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".traeignore")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".trae", ".ignore")); !os.IsNotExist(err) {
+		t.Errorf("override must not also write the default, err=%v", err)
+	}
+}
+
+// An empty bundle writes no ignore file at all: a stray empty
+// `.trae/.ignore` would read as "nothing is excluded" while looking
+// configured.
+func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".trae", ".ignore")); !os.IsNotExist(err) {
+		t.Errorf("expected no .trae/.ignore for a bundle with no ignore specs, err=%v", err)
+	}
+}

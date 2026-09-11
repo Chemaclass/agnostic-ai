@@ -19,12 +19,18 @@ const (
 	geminiMainFile    = "GEMINI.md"
 	geminiCommandsDir = ".gemini/commands"
 	geminiSettings    = ".gemini/settings.json"
+	// geminiAgentsDir is Gemini CLI's native project-level subagent
+	// directory: "Project-level: `.gemini/agents/*.md` (Shared with your
+	// team)" (geminicli.com/docs/core/subagents, #733). A project synced
+	// before that fix has no such directory, so the reader falls back to
+	// the command TOMLs agents used to emit as.
+	geminiAgentsDir = ".gemini/agents"
 )
 
 // importFromGemini reads an existing Gemini CLI project (root GEMINI.md
-// plus any nested <dir>/GEMINI.md, `.gemini/commands/`,
-// `.gemini/settings.json`) under root and writes specs into the
-// configured source directories.
+// plus any nested <dir>/GEMINI.md, `.gemini/agents/`,
+// `.gemini/commands/`, `.gemini/settings.json`) under root and writes
+// specs into the configured source directories.
 func importFromGemini(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
@@ -33,7 +39,7 @@ func importFromGemini(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importGeminiCommands(root, filepath.Join(root, src.Agents))
+	agents, err := importGeminiAgents(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -97,6 +103,23 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+// importGeminiAgents reads Gemini's native subagent directory,
+// `.gemini/agents/*.md`, and copies each file into the agents source
+// dir with the agnostic-ai provenance header stripped. Every
+// frontmatter key round-trips verbatim, the same way the junie and
+// qoder agent readers handle their own native directories.
+//
+// A project synced before #733 has no such directory, since agents
+// emitted as slash-command TOMLs under `.gemini/commands/` instead;
+// that layout stays the fallback so those projects still import.
+func importGeminiAgents(root, dstDir string) (int, error) {
+	src := filepath.Join(root, geminiAgentsDir)
+	if dirExists(src) {
+		return copyMarkdownDir(src, dstDir)
+	}
+	return importGeminiCommands(root, dstDir)
 }
 
 // importGeminiCommands reads `.gemini/commands/*.toml` and writes one

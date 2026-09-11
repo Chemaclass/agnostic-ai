@@ -92,8 +92,10 @@ func TestEmit_LegacyRulesFile_WritesConcatenated(t *testing.T) {
 	}
 }
 
-// Agents emit as TOML slash commands under .gemini/commands/.
-func TestEmit_Agent_WritesCommandTOML(t *testing.T) {
+// Agents emit as native subagent Markdown under .gemini/agents/, the
+// directory `/agents reload` rescans. `name` and `description` are the
+// two required frontmatter fields; the body is the system prompt.
+func TestEmit_Agent_WritesNativeSubagent(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -107,16 +109,216 @@ func TestEmit_Agent_WritesCommandTOML(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
+	got := readFile(t, filepath.Join(dir, ".gemini/agents/pr-reviewer.md"))
+	for _, want := range []string{
+		"name: pr-reviewer",
+		"description: Review PRs like an owner.",
+		"Open the PR. Read it. Comment.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini/commands/pr-reviewer.toml")); !os.IsNotExist(err) {
+		t.Errorf("agents must not also write a command TOML by default, err=%v", err)
+	}
+}
+
+// The pre-#733 slash-command TOML stays reachable behind an opt-in key,
+// so a project that already types /pr-reviewer keeps it.
+func TestEmit_Agent_CommandTOMLOptIn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"gemini": {EmitAgentsAsCommands: true}},
+	}
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "pr-reviewer",
+			Meta: map[string]any{"description": "Review PRs like an owner."},
+			Body: "Open the PR. Read it. Comment.",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
 	toml := readFile(t, filepath.Join(dir, ".gemini/commands/pr-reviewer.toml"))
 	for _, want := range []string{
 		`description = "Review PRs like an owner."`,
 		`prompt = """`,
 		"Open the PR. Read it. Comment.",
-		`"""`,
 	} {
 		if !strings.Contains(toml, want) {
 			t.Errorf("missing %q in %s", want, toml)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini/agents/pr-reviewer.md")); err != nil {
+		t.Errorf("the native subagent must still emit alongside the TOML: %v", err)
+	}
+}
+
+// A managed TOML left at the old path by an earlier release is swept,
+// so an upgraded project does not keep a stale second copy of the agent.
+// A hand-authored file there (no provenance header) survives.
+func TestEmit_Agent_SweepsLegacyCommandTOML(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	managed := filepath.Join(dir, ".gemini/commands/pr-reviewer.toml")
+	mine := filepath.Join(dir, ".gemini/commands/hand-written.toml")
+	if err := os.MkdirAll(filepath.Dir(managed), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stale := emit.HeaderBlock(emit.FormatTOML) + "description = \"old\"\n"
+	if err := os.WriteFile(managed, []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mine, []byte("description = \"mine\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "pr-reviewer", Body: "body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(managed); !os.IsNotExist(err) {
+		t.Errorf("expected the managed legacy TOML to be swept, err=%v", err)
+	}
+	if _, err := os.Stat(mine); err != nil {
+		t.Errorf("a hand-authored file must survive the sweep: %v", err)
+	}
+}
+
+// An agent and a command sharing a name used to overwrite each other:
+// both wrote `<name>.toml` into `.gemini/commands/`. Each now has its
+// own file.
+func TestEmit_Agent_AndCommand_SameNameNoLongerCollide(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "deploy", Body: "agent body"},
+		{Kind: spec.KindCommand, Name: "deploy", Body: "command body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".gemini/agents/deploy.md")); !strings.Contains(got, "agent body") {
+		t.Errorf("expected the agent body in the subagent file, got %s", got)
+	}
+	if got := readFile(t, filepath.Join(dir, ".gemini/commands/deploy.toml")); !strings.Contains(got, "command body") {
+		t.Errorf("expected the command body in the command TOML, got %s", got)
+	}
+}
+
+// Gemini names its own tools, so agnostic-ai's generic Claude-style
+// names translate (`Bash` -> `run_shell_command`) and a name with no
+// documented counterpart drops with a coverage note rather than
+// restricting the subagent to a tool that does not exist.
+func TestEmit_Agent_TranslatesToolsOntoGeminiNames(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "auditor",
+			Meta: map[string]any{"tools": []any{"Read", "Grep", "Bash", "Telepathy"}},
+			Body: "audit",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/agents/auditor.md"))
+	for _, want := range []string{"read_file", "grep_search", "run_shell_command"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing translated tool %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, "Telepathy") {
+		t.Errorf("an unmapped tool name must not reach the file: %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "tools") {
+		t.Errorf("expected a coverage note for the unmapped tool, got: %s", buf.String())
+	}
+}
+
+// x-gemini.tools is the one channel already in Gemini's own vocabulary,
+// so it wins outright instead of being run through the table.
+func TestEmit_Agent_XGeminiToolsWinsOutright(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "auditor",
+			Meta: map[string]any{
+				"tools":    []any{"Read"},
+				"x-gemini": map[string]any{"tools": []any{"mcp_*"}},
+			},
+			Body: "audit",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/agents/auditor.md"))
+	if !strings.Contains(got, "mcp_*") {
+		t.Errorf("expected the x-gemini override in %s", got)
+	}
+	if strings.Contains(got, "read_file") {
+		t.Errorf("the override must replace the translated list, not merge with it: %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no coverage note for an explicit override, got: %s", buf.String())
+	}
+}
+
+// The optional numeric and string fields Gemini documents emit only
+// when the spec declares them.
+func TestEmit_Agent_PassesThroughDocumentedFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "auditor",
+			Meta: map[string]any{
+				"kind": "local", "model": "gemini-3-flash-preview",
+				"temperature": 0.2, "max_turns": 10, "timeout_mins": 5,
+			},
+			Body: "audit",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/agents/auditor.md"))
+	for _, want := range []string{
+		"kind: local", "model: gemini-3-flash-preview",
+		"temperature: 0.2", "max_turns: 10", "timeout_mins: 5",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_AgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"gemini": {AgentsDir: "vendor/agents"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "ag", Body: "x"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "vendor/agents/ag.md")); err != nil {
+		t.Errorf("expected override path written: %v", err)
 	}
 }
 
@@ -261,7 +463,7 @@ func TestEmit_CommandsDirOverride(t *testing.T) {
 		},
 	}
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "ag", Body: "x"},
+		{Kind: spec.KindCommand, Name: "ag", Body: "x"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
@@ -593,12 +795,12 @@ func TestEmit_EmptyBundle_WritesNothing(t *testing.T) {
 }
 
 // TOML escaping: bodies with quotes and backslashes round-trip safely.
-func TestEmit_Agent_TOMLEscapesQuotesAndBackslashes(t *testing.T) {
+func TestEmit_Command_TOMLEscapesQuotesAndBackslashes(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
 		{
-			Kind: spec.KindAgent,
+			Kind: spec.KindCommand,
 			Name: "tricky",
 			Body: `Body with "quotes" and a \ backslash.`,
 		},

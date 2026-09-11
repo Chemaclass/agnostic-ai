@@ -95,6 +95,22 @@
 //
 // MCP servers write to `.junie/mcp/mcp.json` using the standard
 // `mcpServers` map schema (the same shape Claude Code and Cursor use).
+//
+// Ignore specs emit as `.aiignore` (override via
+// outputs.junie.ignore-file), gitignore syntax under a `#` provenance
+// header: "You can restrict Junie from processing the contents of
+// specific files or folders by creating and configuring an `.aiignore`
+// file in the project root directory" and "The `.aiignore` file follows
+// the same syntax and pattern format as the `.gitignore` file"
+// (junie.jetbrains.com/docs/junie-ide-plugin.html, target-audit
+// 2026-09-11). The guarantee is weaker than a hard block: Junie "will
+// ask for explicit approval before viewing or editing" a listed file
+// rather than refuse it, only the contents are protected (file and
+// folder names stay visible), and Brave Mode or an allowlisted command
+// referencing the path bypasses the prompt entirely. Unlike every other
+// junie surface this adapter writes, `.aiignore` is documented on the
+// IDE-plugin page alone: no Junie CLI page names it, so an import-side
+// reader must tolerate its absence rather than treat it as required.
 package junie
 
 import (
@@ -121,6 +137,11 @@ const (
 	defaultSkillsDir   = ".junie/skills"
 	defaultCommandsDir = ".junie/commands"
 	defaultMCPFile     = ".junie/mcp/mcp.json"
+	// defaultIgnoreFile is Junie's project-root ignore file. It sits
+	// outside `.junie/` because the vendor puts it there: "creating and
+	// configuring an `.aiignore` file in the project root directory"
+	// (junie.jetbrains.com/docs/junie-ide-plugin.html).
+	defaultIgnoreFile = ".aiignore"
 	// defaultEntryFile is Junie's own preferred entry-point location,
 	// checked first in the lookup order (see the package doc). Fixed,
 	// not user-overridable: it exists purely to make the canonical
@@ -131,7 +152,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore},
 }
 
 // Adapter emits Junie configs.
@@ -147,8 +168,9 @@ func (Adapter) Name() string { return target }
 // inlined rules), one native file per agent under the agents directory,
 // one folder per skill under the skills directory (Junie's native
 // SKILL.md layout; a flat file there never loads as a skill), one
-// native file per command under the commands directory, then the MCP
-// server file when the bundle has any MCP entries. A stale managed
+// native file per command under the commands directory, `.aiignore`
+// when ignore entries exist, then the MCP server file when the bundle
+// has any MCP entries. A stale managed
 // tree at the pre-#552 `.junie/rules/` default (or its
 // outputs.junie.rules-dir override) is swept.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -171,6 +193,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,

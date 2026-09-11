@@ -1,6 +1,7 @@
 // Package trae emits .trae/rules/*.md, .trae/agents/<name>.md,
-// .trae/skills/<name>/SKILL.md, .trae/commands/<name>.md, and
-// .trae/mcp.json for Trae, ByteDance's AI IDE.
+// .trae/skills/<name>/SKILL.md, .trae/commands/<name>.md,
+// .trae/hooks.json, .trae/.ignore, and .trae/mcp.json for Trae,
+// ByteDance's AI IDE.
 //
 // Trae reads project rules from `.trae/rules/*.md` as persistent
 // behavioral constraints; it also applies `.trae/rules/` folders found
@@ -96,6 +97,57 @@
 // unhandled. `docs.trae.ai/ide/mcp`, the URL this repo pointed at
 // before, 302s to a marketing page; add-mcp-servers is the live one.
 //
+// Hooks emit to `.trae/hooks.json` (override via
+// outputs.trae.hooks-file): "Project Hook |
+// `$PROJECT_FOLDER/.trae/hooks.json` | Applies only to the current
+// project or workspace" (docs.trae.ai/ide/hook-configuration-reference,
+// target-audit 2026-09-11). The file is an integer `version` envelope
+// ("The default value is 1, and currently only 1 is supported") around
+// a `hooks` map keyed by event, each event holding the same
+// `{matcher, hooks: [{type, command, timeout}]}` groups claude, codex,
+// openhands, and qoder already emit, so this reuses both that grouping
+// and copilot's version wrapper rather than a third hand-rolled shape.
+// Trae documents six events (SessionStart, UserPromptSubmit,
+// PreToolUse, PostToolUse, Stop, Notification) and three fields per
+// hook entry: `type` ("currently only command is supported"),
+// `command`, and `timeout` (seconds, default 30). `loop_limit` is
+// Trae's own group-level field, read on Stop only, capping how often a
+// Stop hook may block the agent from stopping; it emits when a spec
+// sets it and is otherwise left out so the vendor default of 5 applies.
+//
+// The one real trap is that a hook `matcher` is not read against the
+// subagent `tools` vocabulary above. The hook reference tables its own
+// `tool_name` set: `Read`, `Write`, `Edit`, `Glob`, `Grep`, `LS`,
+// `RunCommand`, `WebSearch`, `WebFetch`, `AskUserQuestion`, `Skill`,
+// and `mcp__<serverName>__<toolName>`. The terminal tool is
+// `RunCommand`, not `Bash`, and there is no `TodoWrite`, so a
+// Claude-style `matcher: Bash` carried over from another target parses
+// as a valid regex and then matches nothing. That case earns a coverage
+// note rather than a guessed rename, the same line crush and openhands
+// hold for their own divergent vocabularies; see hooks.go. Trae also
+// reads a matcher on Notification, where it selects a
+// `notification_type` (`idle_prompt`, `permission_prompt`, ...) instead
+// of a tool, so that event is left out of the check.
+//
+// Project hooks are enabled through Settings > Hooks behind a security
+// consent panel ("In the pop-up security warning panel, read the
+// warning message. After confirming there is no risk, click the Enable
+// button"), the same shape as the project-level MCP toggle this adapter
+// already emits past. The file is inert until then.
+//
+// Ignore specs emit as `.trae/.ignore` (override via
+// outputs.trae.ignore-file), gitignore syntax under a `#` provenance
+// header: "TraeCode automatically creates the `.ignore` file in the
+// `.trae/` folder and opens this file in the editor"
+// (docs.trae.ai/ide/ignore-files, target-audit 2026-09-11). It
+// supplements `.gitignore`, which Trae already honors by default, and
+// governs codebase indexing plus `#Workspace` / `#Folder` context
+// ("any ignored files or folders will not be included as context").
+// Unlike every other ignore target, it does not apply on save: "The
+// `.ignore` file will take effect after re-indexing is complete", so a
+// freshly synced pattern needs a Build under Settings > Indexing & Docs
+// before it holds.
+//
 // Trae also reads the cross-tool root `AGENTS.md`, which is written
 // centrally by `sync`, not by this adapter.
 package trae
@@ -118,6 +170,12 @@ const (
 	defaultSkillsDir   = ".trae/skills"
 	defaultCommandsDir = ".trae/commands"
 	defaultMCPFile     = ".trae/mcp.json"
+	// defaultIgnoreFile is the path Trae's own Settings > Indexing &
+	// Docs flow creates: "TraeCode automatically creates the `.ignore`
+	// file in the `.trae/` folder" (docs.trae.ai/ide/ignore-files). The
+	// filename is bare `.ignore`, scoped by the directory rather than a
+	// tool-specific prefix.
+	defaultIgnoreFile = ".trae/.ignore"
 	// defaultAgentsDir is Trae's project subagent path:
 	// "`{project_folder}/.trae/agents/{my_agent}.md`"
 	// (docs.trae.ai/ide/subagents).
@@ -135,7 +193,7 @@ var commandFrontmatterKeys = []string{"name", "description"}
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindIgnore},
 }
 
 // Adapter emits Trae configs.
@@ -152,7 +210,9 @@ func (Adapter) Name() string { return target }
 // `.trae/agents`, Trae's native project-subagent path), one folder per
 // skill into the skills directory (default `.trae/skills`), one file
 // per command into the commands directory (default `.trae/commands`),
-// and the MCP server registry (default `.trae/mcp.json`).
+// the project hook file (default `.trae/hooks.json`), the ignore file
+// (default `.trae/.ignore`), and the MCP server registry (default
+// `.trae/mcp.json`).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -177,6 +237,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

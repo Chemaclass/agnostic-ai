@@ -239,3 +239,15 @@ func EmitSkillsAsCommands(cfg *config.Config, target string) bool {
 	}
 	return false
 }
+
+// EmitAgentsAsCommands reports whether the named target opts agents into
+// slash-command emission alongside their native agent surface. Off by
+// default: Gemini CLI is the only user, where agents write
+// `.gemini/agents/<name>.md` and this key additionally restores the
+// `.gemini/commands/<name>.toml` prompt earlier releases wrote instead.
+func EmitAgentsAsCommands(cfg *config.Config, target string) bool {
+	if o, ok := cfg.Outputs[target]; ok {
+		return o.EmitAgentsAsCommands
+	}
+	return false
+}

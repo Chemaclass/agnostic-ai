@@ -378,6 +378,9 @@
         "emit-skills-as-commands": {
           "type": "boolean"
         },
+        "emit-agents-as-commands": {
+          "type": "boolean"
+        },
         "shared-subagents": {
           "type": "boolean"
         },

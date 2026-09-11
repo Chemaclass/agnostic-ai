@@ -72,9 +72,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the junie
-// adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Command)
-// with three specimens per rule/agent/skill/command kind and one MCP
-// server.
+// adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Command,
+// Ignore) with three specimens per rule/agent/skill/command kind, one
+// MCP server, and one ignore spec.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -93,6 +93,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
 		},
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)
 }

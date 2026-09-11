@@ -31,7 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
-		{spec.KindAgent, []string{".gemini/commands/alpha.toml", ".gemini/commands/beta.toml", ".gemini/commands/gamma.toml"}},
+		{spec.KindAgent, []string{".gemini/agents/alpha.md", ".gemini/agents/beta.md", ".gemini/agents/gamma.md"}},
 		{spec.KindCommand, []string{".gemini/commands/deploy.toml"}},
 		{spec.KindSkill, []string{".gemini/commands/skill-uno.toml", ".gemini/commands/skill-dos.toml", ".gemini/commands/skill-tres.toml"}},
 		{spec.KindRule, []string{"GEMINI-rules.md"}},
