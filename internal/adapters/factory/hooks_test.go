@@ -163,6 +163,39 @@ func TestEmit_Hooks_NoHooksWritesNothing(t *testing.T) {
 	}
 }
 
+// TestEmit_Hooks_OverwritesUserEdits pins the write as a plain
+// overwrite, the claim the package doc and docs/user/targets.md now
+// make. The vendor sends users to hand-edit its sibling file
+// ("**Project servers cannot be removed** with `droid mcp remove` or
+// the `/mcp` manager. To remove them, edit `.factory/mcp.json`
+// directly", docs.factory.ai/harness/mcp), so the docs had to stop
+// promising a merge that never happened (#745).
+func TestEmit_Hooks_OverwritesUserEdits(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	path := filepath.Join(dir, ".factory/hooks.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"echo hand-written"}]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "on-pre", Meta: map[string]any{"event": "PreToolUse", "command": "echo pre"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, path)
+	if strings.Contains(got, "hand-written") {
+		t.Errorf("hooks.json is documented as overwritten whole; the hand edit survived:\n%s", got)
+	}
+	if !strings.Contains(got, "PreToolUse") {
+		t.Errorf("expected the emitted hook to replace the file:\n%s", got)
+	}
+}
+
 // TestEmit_Hooks_MultipleEventsPreserveVendorOrder confirms events
 // render in the vendor's own documented Event Reference order
 // regardless of spec authoring order, so sync --check stays stable.

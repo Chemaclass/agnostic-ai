@@ -220,7 +220,7 @@ func TestEmit_SkillsDirOverride(t *testing.T) {
 	}
 }
 
-// Stdio MCP merges into .factory/mcp.json under the standard
+// Stdio MCP is written to .factory/mcp.json under the standard
 // mcpServers map (target-audit 2026-08-01, MISSING: factory MCP).
 func TestEmit_MCP_StdioWritesFactoryMCPJSON(t *testing.T) {
 	dir := testutil.TempCwd(t)
