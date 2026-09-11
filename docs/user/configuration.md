@@ -236,6 +236,7 @@ outputs:
   factory:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush.
+    hooks-file: .factory/hooks.json     # default. Nine events, keyed directly by event, no wrapper key.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
     rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
@@ -391,6 +392,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `openhands` | `hooks-file` | `.openhands/hooks.json` | Per-event hook arrays. Six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Written in the Claude-shaped PascalCase form the vendor documents as interchangeable with its native snake_case keys. A `matcher` applies to the two ToolUse events only, and must use OpenHands' own tool names (`terminal`, not `Bash`). |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `factory` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
+| `factory` | `hooks-file` | `.factory/hooks.json` | Nine events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`). Keyed directly by event, no wrapper key, the same divergence Windsurf/Devin CLI carries. `type` is always `command`; `timeout` is seconds (vendor default 60). |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
 | `kilo` | `rules-dir` | `.kilo/rules` | Unscoped rules emit here and enter `kilo.jsonc.instructions`. Scoped rules use nested `AGENTS.md` without unconditional references; remove this override to use scoped rules. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |

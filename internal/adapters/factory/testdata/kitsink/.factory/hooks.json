@@ -1,0 +1,13 @@
+{
+  "PostToolUse": [
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "gofmt -w"
+        }
+      ]
+    }
+  ]
+}
