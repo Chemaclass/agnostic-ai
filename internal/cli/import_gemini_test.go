@@ -156,3 +156,44 @@ func TestImportFromGemini_NativeSkillFolders(t *testing.T) {
 		t.Errorf("skill assets should import: %v", err)
 	}
 }
+
+// Gemini's native subagent directory is the agent source once a project
+// has been synced past #733.
+func TestImportFromGemini_NativeAgents(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiAgentsDir, "security-auditor.md"),
+		"---\nname: security-auditor\ndescription: Finds vulnerabilities.\ntools:\n  - read_file\n---\n\nYou are a ruthless Security Auditor.\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "agents", "security-auditor.md"))
+	if err != nil {
+		t.Fatalf("missing agents/security-auditor.md: %v", err)
+	}
+	out := string(data)
+	for _, want := range []string{"name: security-auditor", "description: Finds vulnerabilities.", "read_file", "ruthless Security Auditor"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in agent file:\n%s", want, out)
+		}
+	}
+}
+
+// A project synced before #733 has only the command TOMLs agents used
+// to emit as, so that layout stays the fallback and still imports.
+func TestImportFromGemini_FallsBackToCommandTOMLForAgents(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiCommandsDir, "legacy.toml"),
+		"description = \"Old prompt\"\nprompt = \"\"\"\ndo the thing\n\"\"\"\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "agents", "legacy.md"))
+	if err != nil {
+		t.Fatalf("missing agents/legacy.md: %v", err)
+	}
+	if !strings.Contains(string(data), "do the thing") {
+		t.Errorf("expected the legacy prompt body, got:\n%s", data)
+	}
+}

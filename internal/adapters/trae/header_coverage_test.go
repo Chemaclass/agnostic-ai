@@ -71,9 +71,10 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the trae
-// adapter declares in caps.Supports (Agent, Skill, Rule, Command, MCP)
-// with three specimens per kind (two for MCP, covering stdio and
-// http).
+// adapter declares in caps.Supports (Agent, Skill, Rule, Command, MCP,
+// Hook, Ignore) with three specimens per kind (two for MCP, covering
+// stdio and http; two for hooks, covering a matcher group and a
+// matcher-less event; one ignore).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -104,6 +105,15 @@ func kitSinkBundle() spec.Bundle {
 				"headers": map[string]any{"Authorization": "Bearer token"},
 			},
 		},
+		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit|Write", "command": "gofmt -w", "timeout": 10},
+		},
+		{
+			Kind: spec.KindHook, Name: "session-start",
+			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
+		},
+		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)
 }

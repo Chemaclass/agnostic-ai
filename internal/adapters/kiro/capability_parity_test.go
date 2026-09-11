@@ -31,6 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".kiro/skills/uno/SKILL.md", ".kiro/skills/dos/SKILL.md", ".kiro/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".kiro/settings/mcp.json"}},
 		{spec.KindHook, []string{".kiro/hooks/fmt-go.json", ".kiro/hooks/lint-pre.json", ".kiro/hooks/session-start.json"}},
+		{spec.KindIgnore, []string{".kiroignore"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

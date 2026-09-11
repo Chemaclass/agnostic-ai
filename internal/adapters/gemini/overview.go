@@ -11,9 +11,12 @@ import (
 func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	arts := []emit.NativeArtifact{
-		{Label: "Agents", Location: commandsDir + "/", Note: "one TOML per agent"},
+		{Label: "Agents", Location: emit.OutputAgentsDir(cfg, target, defaultAgentsDir) + "/", Note: "one subagent per agent"},
 		{Label: "Commands", Location: commandsDir + "/", Note: "one TOML per command"},
 		{Label: "Skills", Location: emit.OutputSkillsDir(cfg, target, defaultSkillsDir) + "/", Note: "one folder per skill"},
+	}
+	if emit.EmitAgentsAsCommands(cfg, target) {
+		arts = append(arts, emit.NativeArtifact{Label: "Agent commands", Location: commandsDir + "/", Note: "one TOML per agent"})
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		arts = append(arts, emit.NativeArtifact{Label: "Skill commands", Location: commandsDir + "/", Note: skillFilenamePrefix + "* commands"})

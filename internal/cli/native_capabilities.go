@@ -110,6 +110,14 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreToolUse", "PostToolUse",
 		"Stop", "SessionStart", "SessionEnd",
 	),
+	// The six events docs.trae.ai/ide/automate-actions-with-hooks' own
+	// "Hook events" table lists for TraeCode's `.trae/hooks.json`
+	// (target-audit 2026-09-11, #729).
+	"trae": setOf(
+		"SessionStart", "UserPromptSubmit",
+		"PreToolUse", "PostToolUse",
+		"Stop", "Notification",
+	),
 	// "Crush currently supports just one hook, PreToolUse, with plans
 	// to support the full gamut" (docs/hooks/README.md, re-verified
 	// 2026-09-10 against both that doc and the vendor's schema.json,
@@ -209,13 +217,13 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder"),
 	spec.KindSettings:    setOf("claude"),
 	spec.KindReview:      setOf("cursor"),
 	spec.KindEnvironment: setOf("cursor", "openhands"),
-	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf"),
+	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie"),
 }
 
 func setOf(items ...string) map[string]struct{} {

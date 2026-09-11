@@ -142,6 +142,19 @@
 // since kiro.dev/docs/mcp/configuration/ makes that the documented
 // remedy for OAuth scope errors (target-audit 2026-08-27, #634).
 //
+// Ignore specs emit as `.kiroignore` (override via
+// outputs.kiro.ignore-file), gitignore syntax under a `#` provenance
+// header: "To exclude files in a specific project, create a
+// `.kiroignore` file in your project root (or any subdirectory) and add
+// patterns for files you want to exclude" and "`.kiroignore` uses
+// standard gitignore syntax" (kiro.dev/docs/kiroignore/, target-audit
+// 2026-09-11). Two vendor caveats gate how far the file reaches, and
+// neither is something an emitter can set: the IDE reads ignore
+// filenames from its own `kiroAgent.agentIgnoreFiles` setting, so
+// `.kiroignore` has to be in that array before the IDE honors it, and
+// CLI V3 applies it to content- and filename-search results only rather
+// than across every agent tool.
+//
 // The root `AGENTS.md` entry-point (which Kiro reads directly and
 // always includes) is written centrally by `sync`, not by this
 // adapter.
@@ -163,6 +176,7 @@ const (
 	defaultSkillsDir   = ".kiro/skills"
 	defaultHooksDir    = ".kiro/hooks"
 	defaultMCPFile     = ".kiro/settings/mcp.json"
+	defaultIgnoreFile  = ".kiroignore"
 	// legacyAgentPrefix names the flattened steering file this adapter
 	// used to write per agent before agents moved to their native
 	// `.kiro/agents/` surface (see the package doc). Kept only so
@@ -179,7 +193,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindIgnore},
 }
 
 // Adapter emits AWS Kiro configs.
@@ -193,7 +207,8 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one steering file per rule, one native agent profile per
 // agent, one native skill folder per skill, one hook definition file
-// per hook, plus `.kiro/settings/mcp.json` when MCP entries exist.
+// per hook, `.kiroignore` when ignore entries exist, plus
+// `.kiro/settings/mcp.json` when MCP entries exist.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -212,6 +227,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	hooksDir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
 	if err := emitHooks(sess, b.HooksFor(target), hooksDir, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,

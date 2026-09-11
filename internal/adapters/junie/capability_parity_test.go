@@ -49,6 +49,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{kind: spec.KindSkill, matchers: []string{".junie/skills/uno/SKILL.md", ".junie/skills/dos/SKILL.md", ".junie/skills/tres/SKILL.md"}},
 		{kind: spec.KindMCP, matchers: []string{".junie/mcp/mcp.json"}},
 		{kind: spec.KindCommand, matchers: []string{".junie/commands/cmd-one.md", ".junie/commands/cmd-two.md", ".junie/commands/cmd-three.md"}},
+		{kind: spec.KindIgnore, matchers: []string{".aiignore"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

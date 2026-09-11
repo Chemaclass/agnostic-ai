@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo edited"
+          }
+        ]
+      }
+    ]
+  }
+}

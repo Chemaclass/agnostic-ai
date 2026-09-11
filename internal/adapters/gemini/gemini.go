@@ -6,8 +6,48 @@
 // this adapter instead writes the legacy concatenated layout at that
 // path so users on older workflows keep their behavior.
 //
-// Agents emit as one TOML per agent under `.gemini/commands/`. Skills
-// emit natively as one folder per skill under `.gemini/skills/<name>/`
+// Agents emit as one native subagent Markdown file per agent under
+// `.gemini/agents/<name>.md`: "Custom agents are defined as Markdown
+// files (`.md`) with YAML frontmatter ... Project-level:
+// `.gemini/agents/*.md` (Shared with your team)"
+// (geminicli.com/docs/core/subagents, cross-confirmed by `/agents
+// reload`, which "Rescans agent directories (`~/.gemini/agents` and
+// `.gemini/agents`)"; target-audit 2026-09-11, #733). That surface is
+// what buys automatic delegation, an isolated context window, `@name`
+// invocation, and the `/agents` listing. Up to this release agents
+// emitted as a slash-command TOML instead, which made an agent a prompt
+// the user had to type rather than a subagent Gemini could delegate to,
+// and shared both a directory and a `<name>.toml` filename with
+// commands, so a same-named agent and command overwrote each other.
+// Set `outputs.gemini.emit-agents-as-commands: true` to keep writing
+// that TOML alongside the native file, the same opt-in shape
+// `emit-skills-as-commands` already has; off by default so the two
+// surfaces do not carry the same agent twice and the filename collision
+// stays closed. A managed TOML a prior sync left at the old path is
+// swept for every current agent name when the key is off.
+//
+// Frontmatter carries the two required fields, `name` and `description`
+// (the latter falling back to the spec name), plus `kind`, `model`,
+// `temperature`, `max_turns`, and `timeout_mins` when declared. The body
+// is the system prompt. `mcpServers` (inline per-agent MCP servers) is
+// documented too and has no agnostic-ai spec equivalent, so it reaches
+// the file through `x-gemini` like any other arbitrary key.
+//
+// `tools` is the one field that needs translating. Gemini names its own
+// tools (`read_file`, `write_file`, `replace`, `glob`, `grep_search`,
+// `run_shell_command`, `web_fetch`, `google_web_search`;
+// geminicli.com/docs/reference/tools), which shares no spelling with
+// agnostic-ai's Claude-style set, so this adapter maps the eight generic
+// names onto them (geminiToolName in agents.go). A name outside that set
+// is dropped rather than written unconfirmed and folds into one coverage
+// note per sync: an unknown entry here would restrict the subagent to a
+// tool that does not exist, while an absent `tools` key inherits every
+// tool from the parent session, which is the safer of the two. Set
+// `x-gemini.tools` to write Gemini's own vocabulary directly, including
+// the documented `*`, `mcp_*`, and `mcp_<server>_*` wildcards; that
+// override always wins outright over the translated form.
+//
+// Skills emit natively as one folder per skill under `.gemini/skills/<name>/`
 // (SKILL.md + bundled assets), the workspace tier Gemini CLI scans.
 // Gemini CLI also scans the cross-tool `.agents/skills/` alias at the
 // same tier, and within a tier that alias takes precedence over
@@ -47,8 +87,12 @@ import (
 )
 
 const (
-	target              = "gemini"
-	defaultCommandsDir  = ".gemini/commands"
+	target             = "gemini"
+	defaultCommandsDir = ".gemini/commands"
+	// defaultAgentsDir is Gemini CLI's project-level subagent
+	// directory: "Project-level: `.gemini/agents/*.md` (Shared with
+	// your team)" (geminicli.com/docs/core/subagents).
+	defaultAgentsDir    = ".gemini/agents"
 	defaultSkillsDir    = ".gemini/skills"
 	defaultSettingsFile = ".gemini/settings.json"
 	defaultIgnoreFile   = ".geminiignore"
@@ -77,9 +121,11 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// Emit writes one TOML per agent under `.gemini/commands/`, one native
-// skill folder per skill under `.gemini/skills/` (plus a TOML per skill
-// when opted in), `.gemini/settings.json`, and—when opted in via
+// Emit writes one native subagent per agent under `.gemini/agents/`
+// (plus a command TOML per agent when opted in), one TOML per command
+// under `.gemini/commands/`, one native skill folder per skill under
+// `.gemini/skills/` (plus a TOML per skill when opted in),
+// `.gemini/settings.json`, `.geminiignore`, and—when opted in via
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -89,7 +135,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
-	if err := emitAgentCommands(sess, b.Agents, commandsDir, dryRun); err != nil {
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitAgentCommands(sess, b.Agents, commandsDir, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
@@ -296,9 +346,24 @@ func hookCommands(raw any) []string {
 	}
 }
 
-func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+// emitAgentCommands writes the legacy `<dir>/<name>.toml` slash command
+// per agent, the only agent surface this adapter had before agents moved
+// to `.gemini/agents/` (#733). It is opt-in via
+// `outputs.gemini.emit-agents-as-commands`, for a project that wants to
+// keep typing `/name`; with the key off, a managed TOML a prior sync
+// left at that path is swept instead. The sweep runs before
+// emitCommands, so a command spec sharing the agent name still gets its
+// own file written in the same run.
+func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
+	asCommands := emit.EmitAgentsAsCommands(cfg, target)
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
+		if !asCommands {
+			if err := sess.RemoveGenerated(path, dryRun); err != nil {
+				return err
+			}
+			continue
+		}
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(a)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err

@@ -30,6 +30,13 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - Crush hooks emit to `crush.json` (merged alongside `mcp` in the same write), `PreToolUse` only, matching the vendor's own current support. Hook specs previously reached no Crush surface and skipped with a warning; `import crush` now reads them back too (#629).
 - Copilot hooks emit to `.github/hooks/agnostic-ai.json`, with an integer `{"version": 1, "hooks": {...}}` wrapper, `timeoutSec`, and 14 events. Hook specs previously reached no Copilot surface and skipped with a warning (#629).
 - Factory hooks emit to `.factory/hooks.json` across nine events, keyed directly by event with no wrapper key, matching Windsurf/Devin CLI's own divergence. `timeout` is seconds (vendor default 60). Hook specs previously reached no Factory surface and skipped with a warning (#629).
+- Ignore specs now reach Kiro (`.kiroignore`), Trae (`.trae/.ignore`), and Junie (`.aiignore`). All three document a native project ignore file; until now every ignore spec skipped on them with a warning, so paths a team declared off-limits stayed readable (#728).
+- Trae hooks emit to `.trae/hooks.json` across six events, in the same `{"version": 1, "hooks": {...}}` wrapper Copilot uses. A spec's `loop_limit` emits on `Stop`. A Claude-style matcher raises a coverage note, since Trae's hook tool names spell the terminal tool `RunCommand`, not `Bash` (#729).
+- Gemini agents emit as native subagents at `.gemini/agents/<name>.md`, so an agent is delegatable, invokable with `@name`, and listed by `/agents` instead of being a slash command the user types. `tools` translates onto Gemini's own tool names. `import gemini` reads the directory back (#733).
+
+### Changed
+
+- Gemini agents no longer write `.gemini/commands/<name>.toml` by default, and a managed file left at that path is swept. Set `outputs.gemini.emit-agents-as-commands: true` to keep the `/name` prompt. This also closes a collision where a same-named agent and command overwrote each other in that directory (#733).
 
 ## v0.55.0 - 2026-09-10
 

@@ -463,3 +463,60 @@ func TestEmit_DoesNotCreateAgnosticAIFile(t *testing.T) {
 		t.Errorf("adapter must not create AGNOSTIC_AI.md itself; sync's central write owns that bootstrap, err=%v", err)
 	}
 }
+
+// .aiignore is Junie's project ignore file, same syntax as .gitignore
+// ("creating and configuring an `.aiignore` file in the project root
+// directory", junie.jetbrains.com/docs/junie-ide-plugin.html).
+func TestEmit_IgnoreFile_WritesAiignore(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env\nsecrets/"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".aiignore"))
+	if err != nil {
+		t.Fatalf("missing .aiignore: %v", err)
+	}
+	body := string(got)
+	if !strings.Contains(body, "*.env") || !strings.Contains(body, "secrets/") {
+		t.Errorf("missing ignore patterns, got:\n%s", body)
+	}
+	if !strings.HasPrefix(body, "#") {
+		t.Errorf("expected shell-style (#) provenance header, got:\n%s", body)
+	}
+}
+
+func TestEmit_IgnoreFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"junie": {IgnoreFile: ".junie/aiignore"}}}
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".junie/aiignore")); err != nil {
+		t.Errorf("expected override path written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".aiignore")); !os.IsNotExist(err) {
+		t.Errorf("override must not also write the default, err=%v", err)
+	}
+}
+
+// An empty bundle writes no ignore file at all: a stray empty
+// `.aiignore` would read as "nothing is protected" while looking
+// configured.
+func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".aiignore")); !os.IsNotExist(err) {
+		t.Errorf("expected no .aiignore for a bundle with no ignore specs, err=%v", err)
+	}
+}
