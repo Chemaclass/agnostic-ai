@@ -72,19 +72,39 @@ var hookLifecycle = []string{
 // (docs.github.com/en/copilot/reference/hooks-reference, "postToolUse
 // output"), so this struct has no nested array.
 //
-// Only the vendor's documented cross-platform fallback field,
-// `command`, emits: "Copied to both bash and powershell when those
-// fields are absent". Nothing here sets `bash`/`powershell`/`exec`
-// since agnostic-ai's generic hook spec carries one OS-agnostic
-// command string, the same choice every other hook emitter in this
-// repo makes. `timeoutSec` is the vendor's field name; `timeout` is
-// documented only as a deprecated alias consumed when `timeoutSec` is
-// absent, so this adapter writes the current name.
+// A spec with no `args` emits the vendor's documented cross-platform
+// fallback field, `command`: "Copied to both bash and powershell when
+// those fields are absent". `bash` and `powershell` stay unset, since
+// agnostic-ai's generic hook spec carries one OS-agnostic command
+// string, the same choice every other hook emitter in this repo makes.
+// `timeoutSec` is the vendor's field name; `timeout` is documented only
+// as a deprecated alias consumed when `timeoutSec` is absent, so this
+// adapter writes the current name.
+//
+// A spec that sets `args` emits Exec/Args instead, never alongside
+// Command: the field table reads "`exec` | string | Instead of `bash`,
+// `powershell`, and `command` | Executable name or path. Runs the
+// executable directly without a shell." and the prose adds "Do not
+// combine `exec` with `bash`, `powershell`, or `command`" (#755). The
+// shape differs from Claude Code's, where the executable stays in
+// `command` and `args` alone switches the form.
+//
+// Exec costs one surface, so buildHooks raises a coverage note for it.
+// Both `exec` and `args` are marked "Only supported in Copilot CLI",
+// and the file this adapter writes is read by Copilot cloud agent too,
+// where "A subset of events fires, and only `bash` (or `command`)
+// entries are honored". An exec-form entry is therefore skipped whole
+// under cloud agent. Emitting it trades a shell-tokenizing defect
+// (#732's, still live here for any command carrying a space) for that
+// inertness, and writing what the spec asked for wins: dropping `args`
+// loses the field in silence, which is the state #755 found.
 type hookEntry struct {
-	Type       string `json:"type"`
-	Matcher    string `json:"matcher,omitempty"`
-	Command    string `json:"command,omitempty"`
-	TimeoutSec int    `json:"timeoutSec,omitempty"`
+	Type       string   `json:"type"`
+	Matcher    string   `json:"matcher,omitempty"`
+	Command    string   `json:"command,omitempty"`
+	Exec       string   `json:"exec,omitempty"`
+	Args       []string `json:"args,omitempty"`
+	TimeoutSec int      `json:"timeoutSec,omitempty"`
 }
 
 // hooksDoc is the `.github/hooks/*.json` shape: an integer `version`
@@ -152,7 +172,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 func buildHooks(hooks []spec.Entry) *hooksDoc {
 	byEvent := map[string][]hookEntry{}
 	var eventOrder []string
-	var camelMatcherTraps int
+	var camelMatcherTraps, execForm int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -167,21 +187,29 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		if isCamelCaseEvent(event) && claudeToolNames[matcher] {
 			camelMatcherTraps++
 		}
+		args := emit.StringSlice(h.Meta["args"])
+		if len(args) > 0 {
+			execForm++
+		}
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
 		if _, seen := byEvent[event]; !seen {
 			eventOrder = append(eventOrder, event)
 		}
 		for _, command := range commands {
-			byEvent[event] = append(byEvent[event], hookEntry{
-				Type:       "command",
-				Matcher:    matcher,
-				Command:    emit.RewriteHookPath(command, target),
-				TimeoutSec: timeout,
-			})
+			entry := hookEntry{Type: "command", Matcher: matcher, TimeoutSec: timeout}
+			if len(args) > 0 {
+				entry.Exec = emit.RewriteHookPath(command, target)
+				entry.Args = args
+			} else {
+				entry.Command = emit.RewriteHookPath(command, target)
+			}
+			byEvent[event] = append(byEvent[event], entry)
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", camelMatcherTraps,
 		"a PascalCase event (e.g. PreToolUse) applies Claude's own matcher semantics and tool names, but Copilot's native camelCase form (preToolUse) tests the matcher as a plain, case-sensitive regex against Copilot's own lowercase tool names, so a Claude-style matcher parses and then matches nothing there; use Copilot's own tool name, switch the event to its PascalCase form, or use a regex")
+	emit.NoteSurfaceGap(target, spec.KindHook, execForm, "Copilot cloud agent",
+		"`args` writes the exec form, which runs the executable directly with no shell and is Copilot CLI only; a cloud agent job reads the same .github/hooks file and honors `bash` or `command` entries only, so unset `args` for a hook that must run there")
 	if len(eventOrder) == 0 {
 		return nil
 	}

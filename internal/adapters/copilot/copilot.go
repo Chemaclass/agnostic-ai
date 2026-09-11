@@ -79,6 +79,23 @@
 // pairing anywhere on the page, so a spec spelling either one in
 // PascalCase (`SubagentStart` is legal on claude and codex) emits a key
 // Copilot parses and never fires.
+//
+// A hook spec that sets `args` emits `exec` plus `args` in place of
+// `command`, Copilot's own shell-free form, which is not Claude Code's
+// shape (see hookEntry in hooks.go). It carries a surface tradeoff the
+// vendor states on the same page, so it raises a coverage note (#755).
+//
+// The same page's "Hooks locations" section names a second file this
+// repo already writes: "Cross-tool `.claude/settings.json` and
+// `.claude/settings.local.json` files in the repository are also read."
+// Sources are "loaded ... and combined", and "When the same event
+// appears in multiple sources, all hook entries from all sources are
+// run." claude and copilot are both in config.DefaultTargets(), so one
+// hook spec targeting both runs twice under Copilot CLI out of the box.
+// The vendor names no toggle for that read. This adapter writes both
+// files anyway, since each target is asked for by name and declining
+// one silently would be the bigger surprise; docs/user/targets.md
+// carries the warning instead (#755).
 package copilot
 
 import (

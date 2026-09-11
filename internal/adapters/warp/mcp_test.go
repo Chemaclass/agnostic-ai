@@ -1,6 +1,7 @@
 package warp
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -148,5 +149,70 @@ func TestEmit_MCP_UndocumentedFieldsReachableViaXWarp(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
 	if !strings.Contains(got, `"description": "Filesystem access"`) {
 		t.Errorf("missing x-warp passthrough in %s", got)
+	}
+}
+
+// A stdio entry carrying `args` but no `command` has nothing to launch.
+// docs.warp.dev/agents/capabilities/mcp marks `command` required on the
+// CLI Server (Command) table, so the whole entry is dropped rather than
+// written without it. Until #753 the missing key was simply omitted and
+// the rest reached `.warp/.mcp.json` as a live server Warp cannot run.
+func TestEmit_MCP_StdioWithoutCommandIsSkipped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "broken-stdio",
+			Meta: map[string]any{"type": "stdio", "args": []any{"--flag"}},
+		},
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	if strings.Contains(got, "broken-stdio") || strings.Contains(got, "--flag") {
+		t.Errorf("entry with no command must be skipped, got:\n%s", got)
+	}
+	if !strings.Contains(got, `"command": "npx"`) {
+		t.Errorf("a complete sibling entry must still emit, got:\n%s", got)
+	}
+}
+
+// Same rule on the other table: the Streamable HTTP or SSE Server (URL)
+// table marks `url` required, so a remote entry carrying only `headers`
+// is dropped too.
+func TestEmit_MCP_RemoteWithoutURLIsSkipped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP, Name: "broken-remote",
+			Meta: map[string]any{"type": "http", "headers": map[string]any{"Authorization": "Bearer x"}},
+		},
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	if strings.Contains(got, "broken-remote") || strings.Contains(got, "Authorization") {
+		t.Errorf("entry with no url must be skipped, got:\n%s", got)
+	}
+}
+
+// An incomplete entry is dropped, not downgraded into an empty object,
+// so a bundle whose every MCP spec is incomplete writes no file at all.
+func TestEmit_MCP_NoFileWhenEveryEntryIsIncomplete(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "broken-stdio", Meta: map[string]any{"args": []any{"--flag"}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".warp/.mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("expected no .warp/.mcp.json when no entry is complete, err=%v", err)
 	}
 }
