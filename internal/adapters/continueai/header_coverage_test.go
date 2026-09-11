@@ -64,10 +64,12 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 
 // kitSinkBundle returns a Bundle exercising every kind the continue
 // adapter declares in caps.Supports (Agent, Skill, Rule, MCP) with
-// three specimens per kind. MCPs span stdio + http-with-headers +
-// disabled-with-command, plus a ws entry whose absence from the golden
-// tree is the guard against re-emitting a server shape Continue throws
-// on.
+// three specimens per kind. MCPs span stdio-with-env +
+// http-with-headers-and-env + disabled-with-command. The ws entry and
+// the url-less one are absent from the golden tree by design: that
+// absence is the guard against re-emitting a server shape Continue
+// throws on. So is the missing `env` on the http server, which belongs
+// to the stdio branch alone.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -93,7 +95,11 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{
+				"command": "npx",
+				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
+				"env":     map[string]any{"ALLOWED_PATHS": "."},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
@@ -101,6 +107,7 @@ func kitSinkBundle() spec.Bundle {
 				"type":    "http",
 				"url":     "https://example.test/mcp",
 				"headers": map[string]any{"Authorization": "Bearer x"},
+				"env":     map[string]any{"TOKEN": "abc"},
 			},
 		},
 		{
@@ -110,6 +117,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "ws-server",
 			Meta: map[string]any{"type": "ws", "url": "wss://example.test/ws"},
+		},
+		{
+			Kind: spec.KindMCP, Name: "urlless-server",
+			Meta: map[string]any{"type": "http"},
 		},
 	}
 	return spec.NewBundle(entries)

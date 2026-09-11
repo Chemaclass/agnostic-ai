@@ -98,8 +98,11 @@ gitignore:
 	}
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
+	// env rides the stdio branch only, so this entry is the one that
+	// proves it survives a round-trip rather than being dropped with the
+	// remote ones.
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-one.yaml"),
-		[]byte("name: stdio-one\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
+		[]byte("name: stdio-one\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\nenv:\n  ALLOWED_PATHS: \".\"\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-two.yaml"),
 		[]byte("name: stdio-two\ncommand: server\n"), 0o644))
 	// Headers and the `http` spelling both change shape on the way out

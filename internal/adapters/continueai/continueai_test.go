@@ -176,6 +176,108 @@ func TestEmit_MCP_WebsocketSkipsFileAndNotesCoverage(t *testing.T) {
 	}
 }
 
+// `env` is on stdioMcpServerSchema only, so a remote server carrying
+// one has it stripped on load. Dropping it at emit time with a note is
+// the same trade #730 made for a top-level headers map.
+func TestEmit_MCP_RemoteEnvDropsWithFieldNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "linear",
+			Meta: map[string]any{
+				"type": "http",
+				"url":  "https://mcp.linear.app",
+				"env":  map[string]any{"TOKEN": "abc"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	server := continueServer(t, filepath.Join(dir, ".continue/mcpServers/linear.yaml"))
+	if _, ok := server["env"]; ok {
+		t.Errorf("env written on a remote server, where Continue's schema strips it: %v", server)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`env`") || !strings.Contains(buf.String(), "continue") {
+		t.Errorf("expected an env field note, got: %s", buf.String())
+	}
+}
+
+// The same `env` map on a stdio server is valid and must survive.
+func TestEmit_MCP_StdioEnvStillEmits(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{"command": "npx", "env": map[string]any{"TOKEN": "abc"}},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	server := continueServer(t, filepath.Join(dir, ".continue/mcpServers/fs.yaml"))
+	env, ok := server["env"].(map[string]any)
+	if !ok || env["TOKEN"] != "abc" {
+		t.Errorf("stdio env = %v, want it carried through", server["env"])
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "`env`") {
+		t.Errorf("no env note belongs on a stdio server, got: %s", buf.String())
+	}
+}
+
+// `command` on the stdio branch and `url` on the url branch are both
+// `z.string()` with no `.optional()`, so an entry without one matches
+// neither member of the union and throws the whole file away. trae,
+// warp, antigravity and windsurf decline the same entries.
+func TestEmit_MCP_MissingRequiredFieldSkipsFileAndNotesCoverage(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "no-command", Meta: map[string]any{"args": []any{"-y"}}},
+		{Kind: spec.KindMCP, Name: "no-url", Meta: map[string]any{"type": "http"}},
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"no-command", "no-url"} {
+		if _, err := os.Stat(filepath.Join(dir, ".continue/mcpServers", name+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("expected no file for %s, err=%v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".continue/mcpServers/fs.yaml")); err != nil {
+		t.Errorf("a complete server alongside incomplete ones must still emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "2 mcps") || !strings.Contains(buf.String(), "continue") {
+		t.Errorf("expected a coverage note counting both incomplete entries, got: %s", buf.String())
+	}
+}
+
 // continueServer unmarshals an emitted block file and returns its single
 // `mcpServers` element, so a test can assert nesting rather than the
 // substring order yaml.Marshal happens to pick.

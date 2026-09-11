@@ -30,10 +30,14 @@
 // Both matter because `parseBlock` calls `blockSchema.parse`: an
 // unlisted `type` literal throws and the file never loads, while an
 // unknown top-level key is stripped, which connected the server
-// unauthenticated instead (target-audit 2026-09-11, #726 and #730). A
-// transport Continue documents nowhere, `ws` today, emits no file at
-// all and raises a coverage note, since a server matching neither
-// branch throws the same way.
+// unauthenticated instead (target-audit 2026-09-11, #726 and #730).
+// `env` belongs to the stdio branch alone and is stripped the same
+// silent way on a remote server, so it emits only there (#739).
+//
+// Two kinds of entry emit no file at all, each with a coverage note,
+// because both would match neither branch of the union and throw: a
+// transport Continue documents nowhere (`ws` today), and an entry
+// missing the field its branch requires (#726, #739).
 //
 // The package name is suffixed because `continue` is a Go keyword.
 package continueai
@@ -160,20 +164,35 @@ func assistantYAML(e spec.Entry) (string, error) {
 
 // emitMCPServers writes one YAML per MCP entry. Continue's loader picks
 // up each file as a single server config (per the Continue docs). A
-// transport outside Continue's two server shapes writes no file and
-// surfaces a coverage note: `mcpServerSchema` is a union of a stdio
-// branch (`command` required) and a url branch (`url` required), so a
-// server carrying neither throws on load and takes the whole file with
-// it rather than being skipped.
+// transport outside Continue's two server shapes writes no file, and so
+// does an entry missing its transport's required field, so a spec with
+// nothing to run or connect to never produces a dead entry. Both would
+// otherwise reach `mcpServerSchema`, a union of a stdio branch
+// (`command: z.string()`) and a url branch (`url: z.string()`), match
+// neither, and make `blockSchema.parse` throw, which fails the file
+// rather than skipping the server.
+//
+// trae, warp, antigravity and windsurf decline the same entries
+// silently. This one raises a coverage note because Continue takes one
+// file per server: a silent skip here loses a whole file, not a line in
+// a document that still loads.
 func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bool) error {
-	unmapped := 0
+	var unmapped, incomplete, remoteEnv int
 	for _, m := range mcps {
 		if m.Name == "" {
 			continue
 		}
-		if !mappedTransport(mcpTransport(m)) {
+		transport := mcpTransport(m)
+		if !mappedTransport(transport) {
 			unmapped++
 			continue
+		}
+		if !hasRequiredField(m, transport) {
+			incomplete++
+			continue
+		}
+		if transport != "stdio" && len(emit.StringMap(m.Meta["env"])) > 0 {
+			remoteEnv++
 		}
 		doc, err := mcpYAML(m)
 		if err != nil {
@@ -186,6 +205,10 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 	}
 	emit.NoteCoverageGap(target, spec.KindMCP, unmapped,
 		"no Continue MCP server shape for this transport")
+	emit.NoteCoverageGap(target, spec.KindMCP, incomplete,
+		"no command on a stdio server, or no url on a remote one, both required by Continue's schema")
+	emit.NoteFieldNoOp(target, spec.KindMCP, "env", remoteEnv,
+		"Continue declares env on its stdio server only; the url-based server schema has no env field")
 	return nil
 }
 
@@ -197,6 +220,19 @@ func mcpTransport(e spec.Entry) string {
 		return "stdio"
 	}
 	return transport
+}
+
+// hasRequiredField reports whether the entry carries the one field its
+// branch of the union marks required: `command` on stdio, `url` on the
+// url branch. Neither is `.optional()` in the vendor schema
+// (target-audit 2026-09-11, #739).
+func hasRequiredField(e spec.Entry, transport string) bool {
+	key := "url"
+	if transport == "stdio" {
+		key = "command"
+	}
+	value, _ := e.Meta[key].(string)
+	return value != ""
 }
 
 // mappedTransport reports whether Continue has a server shape for the
@@ -243,6 +279,12 @@ func mcpYAML(e spec.Entry) (string, error) {
 		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 			server["args"] = args
 		}
+		// `env` is on stdioMcpServerSchema only. The url branch has no
+		// such field, so writing it there is stripped the same silent way
+		// a top-level `headers` was (#739).
+		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+			server["env"] = env
+		}
 	case "http", "sse", "streamable-http":
 		server["type"] = continueTransport(transport)
 		if url, _ := e.Meta["url"].(string); url != "" {
@@ -254,10 +296,6 @@ func mcpYAML(e spec.Entry) (string, error) {
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			server["requestOptions"] = map[string]any{"headers": h}
 		}
-	}
-
-	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-		server["env"] = env
 	}
 
 	version, _ := emit.ResolveMeta(e.Meta, target)["version"].(string)
