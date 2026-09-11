@@ -79,10 +79,15 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the copilot
-// adapter declares in caps.Supports (Agent, Skill, Rule, MCP) with
-// three specimens per kind. MCPs cover stdio + http + disabled-with-
-// command, plus VS Code's cwd/envFile/dev/sandboxEnabled (stdio) and
-// oauth (http) extras (#692).
+// adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Hook)
+// with three specimens per kind. MCPs cover stdio + http + disabled-
+// with-command, plus VS Code's cwd/envFile/dev/sandboxEnabled (stdio)
+// and oauth (http) extras (#692). The one hook specimen sets `event:
+// PreToolUse` and `matcher: Bash`, this repo's dominant PascalCase
+// vocabulary: Copilot's own "VS Code compatible" payload format
+// applies Claude's matcher semantics to that spelling, so the matcher
+// reaches it unchanged with no coverage note, unlike a camelCase
+// `preToolUse` event paired with the same matcher (#629).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body", Meta: map[string]any{"globs": "**/*.go"}},
@@ -114,6 +119,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
+		},
+		{
+			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "hooks/guard.sh", "timeout": 10},
 		},
 	}
 	return spec.NewBundle(entries)

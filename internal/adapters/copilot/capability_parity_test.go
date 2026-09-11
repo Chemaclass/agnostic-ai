@@ -30,6 +30,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindAgent, []string{".github/agents/alpha.agent.md", ".github/agents/beta.agent.md", ".github/agents/gamma.agent.md"}},
 		{spec.KindSkill, []string{".github/skills/uno/SKILL.md", ".github/skills/dos/SKILL.md", ".github/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".vscode/mcp.json"}},
+		{spec.KindHook, []string{".github/hooks/agnostic-ai.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -67,22 +68,20 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind copilot does not declare in caps.Supports (Hook,
-// Command).
+// every kind copilot does not declare in caps.Supports (Command).
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (command), got %d", got)
 	}
 }
 

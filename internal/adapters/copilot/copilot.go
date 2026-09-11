@@ -47,6 +47,32 @@
 // (code.visualstudio.com/docs/agents/reference/mcp-configuration, #692).
 // `.github/mcp.json` and the root mirror stay on the plain schema, since
 // Copilot CLI's own docs never name any of the five.
+//
+// Hooks emit to `.github/hooks/agnostic-ai.json`, one of possibly
+// several `*.json` files Copilot loads from that directory and merges:
+// "Repository-level hook files — .github/hooks/*.json in the
+// repository root", read by both Copilot CLI and Copilot cloud agent
+// (docs.github.com/en/copilot/reference/hooks-reference, "Hooks
+// locations"). The wrapper is `{"version": 1, "hooks": {...}}` with
+// an integer version — confirmed from the vendor's own example,
+// `{ "version": 1, "hooks": { ... } }`, not the quoted string `"v1"`
+// Kiro's own wrapper needed a fix for (#626) — and each hook entry is
+// a flat object carrying `matcher` directly, not Claude's nested
+// `{matcher, hooks: [...]}` Group. `event:` passes through verbatim,
+// same as every other hook emitter in this repo: both the PascalCase
+// vocabulary Claude Code, Codex, OpenHands, Windsurf, and Qoder share
+// (`PreToolUse`) and Copilot's own camelCase form (`preToolUse`) are
+// independently valid, vendor-documented event-name spellings for
+// this same file, selecting between "VS Code compatible" and
+// "camelCase" hook payload formats respectively. The PascalCase form
+// also carries Claude's own matcher semantics and tool names, so a
+// spec written for Claude Code reaches Copilot unchanged; the
+// camelCase form answers only to Copilot's own lowercase tool names,
+// and a Claude-style matcher there earns a coverage note (see
+// hooks.go). The vendor's own table lists 14 events today, one more
+// than the 13 #629 recorded (`userPromptTransformed`, which has no
+// PascalCase pairing documented anywhere on the page), so both counts
+// are named here rather than only the newer one.
 package copilot
 
 import (
@@ -74,7 +100,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits GitHub Copilot configs.
@@ -89,9 +115,10 @@ func (Adapter) Name() string { return target }
 // Emit writes per-rule instructions, one native agent profile per
 // agent, one native skill folder per skill, the optional legacy
 // concatenated always-on rules file (only when
-// `outputs.copilot.rules-file` is set), and `.vscode/mcp.json` when MCP
-// entries exist. When `outputs.copilot.chatmodes-dir` is set, also
-// writes one Copilot Custom Chat Mode per agent at that directory. The
+// `outputs.copilot.rules-file` is set), `.github/hooks/agnostic-ai.json`
+// when hook entries exist, and `.vscode/mcp.json` when MCP entries
+// exist. When `outputs.copilot.chatmodes-dir` is set, also writes one
+// Copilot Custom Chat Mode per agent at that directory. The
 // `.github/copilot-instructions.md` entry-point is written by `sync`,
 // not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -112,6 +139,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitLegacyRulesFile(sess, b, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
 	}
 	return emitMCP(sess, b, cfg, dryRun)

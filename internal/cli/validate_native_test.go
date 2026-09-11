@@ -231,11 +231,13 @@ func TestValidate_AcceptsKiroAgentSpawnHookEvent(t *testing.T) {
 }
 
 func TestValidate_OrphanHookKindWarning(t *testing.T) {
-	// copilot + cline configured; neither emits hooks. The hook spec
-	// is dead weight and validate should say so.
+	// aider + cline configured; neither emits hooks. The hook spec
+	// is dead weight and validate should say so. (copilot gained
+	// native hooks support in #629, so it can no longer stand in for
+	// a hook-less target here.)
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
-		"version: 1\ntargets:\n  - copilot\n  - cline\n")
+		"version: 1\ntargets:\n  - aider\n  - cline\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)

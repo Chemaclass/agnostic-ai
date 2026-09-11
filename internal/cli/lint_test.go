@@ -83,8 +83,10 @@ func TestLintDeadSpecs_FlagsKindUnsupportedByAllTargets(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "h", Path: "hooks/h.yaml"},
 	}
-	// copilot does not support hooks
-	findings := lintDeadSpecs(entries, []string{"copilot"})
+	// aider does not support hooks (copilot gained native hooks
+	// support in #629, so it can no longer stand in for a hook-less
+	// target here)
+	findings := lintDeadSpecs(entries, []string{"aider"})
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 dead-spec finding, got %d", len(findings))
 	}
