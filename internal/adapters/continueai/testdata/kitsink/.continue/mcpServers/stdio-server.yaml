@@ -4,6 +4,8 @@ mcpServers:
         - -y
         - '@modelcontextprotocol/server-filesystem'
       command: npx
+      env:
+        ALLOWED_PATHS: .
       name: stdio-server
 name: stdio-server
 schema: v1

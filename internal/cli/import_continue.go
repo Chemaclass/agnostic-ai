@@ -97,9 +97,35 @@ func unwrapContinueMCP(body string) string {
 	if len(server) == 0 {
 		return body
 	}
+	unvendorContinueServer(server)
 	raw, err := yaml.Marshal(server)
 	if err != nil {
 		return body
 	}
 	return string(raw)
+}
+
+// unvendorContinueServer rewrites the two Continue-native spellings back
+// to the agnostic ones in place, so an imported spec stays portable to
+// every other target rather than carrying Continue's dialect. `type:
+// streamable-http` becomes `http`, the canonical spec spelling, which
+// adapters whose vendor accepts only `http` would otherwise skip; and
+// `requestOptions.headers` lifts back to a top-level `headers` map.
+// Other `requestOptions` keys stay put: nothing else in the spec format
+// has a home for them.
+func unvendorContinueServer(server map[string]any) {
+	if t, _ := server["type"].(string); t == "streamable-http" {
+		server["type"] = "http"
+	}
+	opts, ok := server["requestOptions"].(map[string]any)
+	if !ok {
+		return
+	}
+	if headers, ok := opts["headers"]; ok {
+		server["headers"] = headers
+		delete(opts, "headers")
+	}
+	if len(opts) == 0 {
+		delete(server, "requestOptions")
+	}
 }
