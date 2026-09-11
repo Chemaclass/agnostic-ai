@@ -19,9 +19,9 @@ import (
 //	              -> sync continue
 //	              -> assert byte-for-byte identical
 //
-// The fixture covers rules + agents + skills + MCPs (stdio + http)
-// so the rules-dir importer and the MCP yaml branch added in #347 are
-// both exercised.
+// The fixture covers rules + agents + skills + MCPs (stdio + http with
+// headers) so the rules-dir importer and the MCP yaml branch added in
+// #347 are both exercised.
 func TestContinueRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -102,8 +102,11 @@ gitignore:
 		[]byte("name: stdio-one\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-two.yaml"),
 		[]byte("name: stdio-two\ncommand: server\n"), 0o644))
+	// Headers and the `http` spelling both change shape on the way out
+	// (requestOptions nesting, streamable-http), so the fixture carries
+	// them: the importer has to undo both or the second sync differs.
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-one.yaml"),
-		[]byte("name: http-one\ntype: http\nurl: https://example.test/mcp\n"), 0o644))
+		[]byte("name: http-one\ntype: http\nurl: https://example.test/mcp\nheaders:\n  Authorization: Bearer x\n"), 0o644))
 }
 
 func snapshotContinueEmit(t *testing.T, root string) map[string]string {

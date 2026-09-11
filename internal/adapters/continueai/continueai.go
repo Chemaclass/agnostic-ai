@@ -18,6 +18,23 @@
 // frontmatter at all, so every scoped rule was always-on (target-audit
 // 2026-08-27, #639).
 //
+// Each MCP file speaks Continue's own dialect, not the spec's.
+// `mcpServerSchema` (packages/config-yaml/src/schemas/mcp/index.ts) is
+// a union of a stdio branch and a url branch, and the url branch reads
+// `type: z.union([z.literal("sse"), z.literal("streamable-http")])`
+// with no `http` member, so the canonical spec spelling `http` is
+// translated to `streamable-http` on the way out. That branch extends
+// the base fields with `url`, `type`, `apiKey` and `requestOptions`
+// only, so headers nest under `requestOptions.headers`
+// (`requestOptionsSchema`, packages/config-yaml/src/schemas/models.ts).
+// Both matter because `parseBlock` calls `blockSchema.parse`: an
+// unlisted `type` literal throws and the file never loads, while an
+// unknown top-level key is stripped, which connected the server
+// unauthenticated instead (target-audit 2026-09-11, #726 and #730). A
+// transport Continue documents nowhere, `ws` today, emits no file at
+// all and raises a coverage note, since a server matching neither
+// branch throws the same way.
+//
 // The package name is suffixed because `continue` is a Go keyword.
 package continueai
 
@@ -142,10 +159,20 @@ func assistantYAML(e spec.Entry) (string, error) {
 }
 
 // emitMCPServers writes one YAML per MCP entry. Continue's loader picks
-// up each file as a single server config (per the Continue docs).
+// up each file as a single server config (per the Continue docs). A
+// transport outside Continue's two server shapes writes no file and
+// surfaces a coverage note: `mcpServerSchema` is a union of a stdio
+// branch (`command` required) and a url branch (`url` required), so a
+// server carrying neither throws on load and takes the whole file with
+// it rather than being skipped.
 func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bool) error {
+	unmapped := 0
 	for _, m := range mcps {
 		if m.Name == "" {
+			continue
+		}
+		if !mappedTransport(mcpTransport(m)) {
+			unmapped++
 			continue
 		}
 		doc, err := mcpYAML(m)
@@ -157,7 +184,43 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 			return err
 		}
 	}
+	emit.NoteCoverageGap(target, spec.KindMCP, unmapped,
+		"no Continue MCP server shape for this transport")
 	return nil
+}
+
+// mcpTransport returns the spec transport, defaulting to stdio the same
+// way Continue's schema does: `type` is optional on both branches.
+func mcpTransport(e spec.Entry) string {
+	transport, _ := e.Meta["type"].(string)
+	if transport == "" {
+		return "stdio"
+	}
+	return transport
+}
+
+// mappedTransport reports whether Continue has a server shape for the
+// transport. `ws` is the one the spec format offers that Continue
+// documents nowhere, so it lands here (target-audit 2026-09-11, #726).
+func mappedTransport(transport string) bool {
+	switch transport {
+	case "stdio", "http", "sse", "streamable-http":
+		return true
+	}
+	return false
+}
+
+// continueTransport maps the agnostic transport spelling onto a literal
+// Continue's url-based server accepts. `http` is the canonical agnostic
+// name for Streamable HTTP, but the vendor union is
+// `z.union([z.literal("sse"), z.literal("streamable-http")])` and
+// `parseBlock` runs `blockSchema.parse`, so an unlisted literal throws
+// instead of degrading (target-audit 2026-09-11, #726).
+func continueTransport(transport string) string {
+	if transport == "http" {
+		return "streamable-http"
+	}
+	return transport
 }
 
 // mcpYAML renders one MCP server as a Continue block YAML document.
@@ -165,14 +228,12 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 // wrapper (`name` + `version` + `schema: v1`) with the server nested
 // under an `mcpServers:` list; a flat single-server file does not load.
 // See https://docs.continue.dev/customize/deep-dives/mcp.
-// Stdio servers emit command/args/env; HTTP/SSE emit type/url/headers.
+// Stdio servers emit command/args/env; remote servers emit
+// type/url/requestOptions.
 func mcpYAML(e spec.Entry) (string, error) {
 	server := map[string]any{"name": e.Name}
 
-	transport, _ := e.Meta["type"].(string)
-	if transport == "" {
-		transport = "stdio"
-	}
+	transport := mcpTransport(e)
 
 	switch transport {
 	case "stdio":
@@ -183,12 +244,15 @@ func mcpYAML(e spec.Entry) (string, error) {
 			server["args"] = args
 		}
 	case "http", "sse", "streamable-http":
-		server["type"] = transport
+		server["type"] = continueTransport(transport)
 		if url, _ := e.Meta["url"].(string); url != "" {
 			server["url"] = url
 		}
+		// Continue's url branch takes headers only under requestOptions;
+		// zod strips a top-level `headers` key, so the server used to
+		// connect unauthenticated with no sync-time signal (#730).
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
-			server["headers"] = h
+			server["requestOptions"] = map[string]any{"headers": h}
 		}
 	}
 

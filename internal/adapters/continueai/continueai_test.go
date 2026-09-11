@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -69,7 +71,12 @@ func TestEmit_MCP_StdioWritesPerServerYAML(t *testing.T) {
 	}
 }
 
-func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
+// Continue's URL branch takes `type: "sse" | "streamable-http"` and
+// nothing else, so the canonical agnostic spelling `http` has to be
+// translated on the way out or `blockSchema.parse` throws and the
+// whole file fails to load. Headers belong under `requestOptions`,
+// one level down.
+func TestEmit_MCP_HTTPWritesStreamableHTTPAndNestedHeaders(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -86,19 +93,104 @@ func TestEmit_MCP_HTTPWritesURL(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".continue/mcpServers/linear.yaml"))
-	for _, want := range []string{
-		"name: linear",
-		"schema: v1",
-		"mcpServers:",
-		"type: http",
-		"https://mcp.linear.app",
-		"Authorization",
-	} {
+	path := filepath.Join(dir, ".continue/mcpServers/linear.yaml")
+	got := readFile(t, path)
+	for _, want := range []string{"name: linear", "schema: v1", "mcpServers:", "https://mcp.linear.app"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
+
+	server := continueServer(t, path)
+	if server["type"] != "streamable-http" {
+		t.Errorf("type = %v, want %q (Continue's schema has no \"http\" literal)", server["type"], "streamable-http")
+	}
+	if _, ok := server["headers"]; ok {
+		t.Errorf("headers written at the top level, where Continue's schema strips them: %s", got)
+	}
+	opts, ok := server["requestOptions"].(map[string]any)
+	if !ok {
+		t.Fatalf("requestOptions = %v, want a map carrying headers", server["requestOptions"])
+	}
+	headers, ok := opts["headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("requestOptions.headers = %v, want a map", opts["headers"])
+	}
+	if headers["Authorization"] != "Bearer x" {
+		t.Errorf("requestOptions.headers.Authorization = %v, want %q", headers["Authorization"], "Bearer x")
+	}
+}
+
+// `sse` and `streamable-http` are literals Continue accepts verbatim,
+// so neither is rewritten on the way out.
+func TestEmit_MCP_VendorTransportSpellingsPassThrough(t *testing.T) {
+	for _, transport := range []string{"sse", "streamable-http"} {
+		t.Run(transport, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entries := []spec.Entry{
+				{
+					Kind: spec.KindMCP,
+					Name: "remote",
+					Meta: map[string]any{"type": transport, "url": "https://example.test/mcp"},
+				},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			server := continueServer(t, filepath.Join(dir, ".continue/mcpServers/remote.yaml"))
+			if server["type"] != transport {
+				t.Errorf("type = %v, want %q unchanged", server["type"], transport)
+			}
+		})
+	}
+}
+
+// Continue documents no websocket transport, so a `ws` entry has no
+// valid shape here. Writing it anyway produced a name-only server that
+// matched neither branch of `mcpServerSchema` and threw on load.
+func TestEmit_MCP_WebsocketSkipsFileAndNotesCoverage(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "socket", Meta: map[string]any{"type": "ws", "url": "wss://example.test/ws"}},
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".continue/mcpServers/socket.yaml")); !os.IsNotExist(err) {
+		t.Errorf("expected no file for a ws server, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".continue/mcpServers/fs.yaml")); err != nil {
+		t.Errorf("stdio server alongside a ws one must still emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "1 mcp") || !strings.Contains(buf.String(), "continue") {
+		t.Errorf("expected a coverage note naming the skipped ws entry, got: %s", buf.String())
+	}
+}
+
+// continueServer unmarshals an emitted block file and returns its single
+// `mcpServers` element, so a test can assert nesting rather than the
+// substring order yaml.Marshal happens to pick.
+func continueServer(t *testing.T, path string) map[string]any {
+	t.Helper()
+	var doc struct {
+		MCPServers []map[string]any `yaml:"mcpServers"`
+	}
+	if err := yaml.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
+		t.Fatalf("unmarshal %s: %v", path, err)
+	}
+	if len(doc.MCPServers) != 1 {
+		t.Fatalf("mcpServers has %d entries in %s, want 1", len(doc.MCPServers), path)
+	}
+	return doc.MCPServers[0]
 }
 
 func TestEmit_MCP_DirOverride(t *testing.T) {

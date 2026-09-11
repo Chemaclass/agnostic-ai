@@ -64,8 +64,10 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 
 // kitSinkBundle returns a Bundle exercising every kind the continue
 // adapter declares in caps.Supports (Agent, Skill, Rule, MCP) with
-// three specimens per kind. MCPs span stdio + http + disabled-with-
-// command.
+// three specimens per kind. MCPs span stdio + http-with-headers +
+// disabled-with-command, plus a ws entry whose absence from the golden
+// tree is the guard against re-emitting a server shape Continue throws
+// on.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -95,11 +97,19 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{
+				"type":    "http",
+				"url":     "https://example.test/mcp",
+				"headers": map[string]any{"Authorization": "Bearer x"},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
+		},
+		{
+			Kind: spec.KindMCP, Name: "ws-server",
+			Meta: map[string]any{"type": "ws", "url": "wss://example.test/ws"},
 		},
 	}
 	return spec.NewBundle(entries)

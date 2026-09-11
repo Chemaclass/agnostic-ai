@@ -9,6 +9,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - `sync` no longer deletes every user-authored key in a JSONC config file. `kilo.jsonc`, `.qoder/settings.json`, and `.augment/settings.json` are documented by their vendors as accepting `//` comments and trailing commas, which `encoding/json` rejects; the parse error was swallowed and only the managed keys were written back, taking credentials and permission settings with it. Every merged JSON file now reads JSONC, a file that still will not parse aborts the write instead of being replaced, and the sync that drops comments says so (#725).
+- Continue MCP servers with `type: http` now emit `type: streamable-http`, the only Streamable HTTP literal Continue's schema accepts. The previous value made Continue throw on the file, so the server never loaded (#726).
+- Continue MCP `headers` now emit under `requestOptions`, where Continue reads them. At the top level the schema stripped them and the server connected unauthenticated, failing later with a 401 and no sync-time warning (#730).
+- Continue MCP servers with `type: ws` now emit no file and raise a coverage note. Continue documents no websocket transport, and the name-only server written before matched neither branch of its schema (#726).
 - The skills emission list in `spec-format.md` no longer duplicates the target matrix. It named four native targets when 23 declare a skill surface, still filed Windsurf under rule-file flattening, and pointed Antigravity at `.agent/skills/` rather than `.agents/skills/`. It now describes the three emission shapes and defers the per-target list to `targets.md`, which is maintained per change.
 
 ### Added
