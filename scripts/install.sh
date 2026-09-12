@@ -13,6 +13,14 @@
 #
 # Windows has no tar.gz path here: use scripts/install.ps1.
 
+# `curl ... | sh` runs this under POSIX sh, where the bashisms below
+# half-execute and leave $version empty, so the script exits 0 having
+# installed nothing. Fail loudly instead.
+if [ -z "${BASH_VERSION:-}" ]; then
+  printf 'install.sh needs bash: run `curl -fsSL <url> | bash`, not `| sh`\n' >&2
+  exit 1
+fi
+
 set -euo pipefail
 
 REPO="Chemaclass/agnostic-ai"
@@ -47,8 +55,13 @@ download_url() {
 
 # Parsed with grep, not jq: jq is not installed by default on macOS.
 latest_version() {
-  local api="https://api.github.com/repos/$REPO/releases/latest" tag
-  tag="$(curl -fsSL "$api" | grep -m1 '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')"
+  local api="https://api.github.com/repos/$REPO/releases/latest" body tag
+  # Fetch first, then match. Piping curl straight into `grep -m1` makes grep
+  # exit on the first match, curl take EPIPE and exit 23, and `pipefail`
+  # propagate that: the tag resolves and the function still dies, depending
+  # on whether curl finished writing first.
+  body="$(curl -fsSL "$api")" || die "could not reach $api"
+  tag="$(printf '%s\n' "$body" | grep -m1 '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')"
   [[ -n "$tag" ]] || die "could not resolve the latest release from $api"
   printf '%s\n' "$tag"
 }
@@ -94,6 +107,7 @@ main() {
   os="$(detect_os)"
   arch="$(detect_arch)"
   version="${AGNOSTIC_AI_VERSION:-$(latest_version)}"
+  [[ -n "$version" ]] || die "could not resolve a version to install"
   asset="$(asset_name "$os" "$arch")"
   dir="$(resolve_install_dir)"
 

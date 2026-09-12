@@ -8,6 +8,11 @@
 # Pure helpers (os/arch detection, asset naming, URL building, install-dir
 # resolution) are tested by sourcing the script. The download path is not
 # exercised here: it needs the network and a published release.
+#
+# One gap worth naming: `curl` is stubbed as a shell function, so no test
+# here can reproduce curl taking EPIPE from a `grep -m1` further down the
+# pipe. That race broke `latest_version` under /bin/sh and was found by
+# running the real script, not by this suite. Only the parsing is covered.
 
 SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
 # shellcheck disable=SC1091
@@ -114,4 +119,18 @@ function test_verify_checksum_accepts_a_matching_digest() {
   unset -f curl
 
   rm -rf "$tmp"
+}
+
+function test_latest_version_parses_the_tag_from_the_api_body() {
+  function curl() {
+    printf '{\n  "url": "https://api.github.com/repos/o/r/releases/1",\n  "tag_name": "v0.56.0",\n  "name": "v0.56.0"\n}\n'
+  }
+  assert_equals "v0.56.0" "$(latest_version)"
+  unset -f curl
+}
+
+function test_latest_version_dies_when_the_body_carries_no_tag() {
+  function curl() { printf '{"message": "Not Found"}\n'; }
+  assert_contains "could not resolve the latest release" "$(latest_version 2>&1)"
+  unset -f curl
 }
