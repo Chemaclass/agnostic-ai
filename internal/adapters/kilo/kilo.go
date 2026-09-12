@@ -119,6 +119,12 @@
 // that redeclares `mcp` or `instructions` would still shadow this
 // adapter's output for those two keys specifically (target-audit
 // 2026-08-27, #644).
+//
+// Ignore specs emit project-root .kilocodeignore (outputs.kilo.ignore-file
+// overrides the path). Kilo migrates that compatibility input into read/edit
+// permission denials; this adapter does not translate patterns itself.
+// MCP entries preserve timeout in milliseconds, including zero, and remote
+// oauth:false, with x-kilo overrides. import kilo reads only the ignore file.
 package kilo
 
 import (
@@ -147,9 +153,11 @@ const (
 	defaultCommandsDir = ".kilo/commands"
 )
 
+const defaultIgnoreFile = ".kilocodeignore"
+
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore},
 }
 
 // Adapter emits Kilo Code configs.
@@ -171,6 +179,9 @@ func (Adapter) Name() string { return target }
 // is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
@@ -330,6 +341,7 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // own default (enabled) needs no explicit key, matching the codex
 // adapter's identical convention for its `enabled` field.
 func buildMCPEntry(e spec.Entry) map[string]any {
+	e.Meta = emit.ResolveMeta(e.Meta, target)
 	transport, _ := e.Meta["type"].(string)
 	if transport == "" {
 		transport = "stdio"
@@ -354,6 +366,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		}
 		out["type"] = "remote"
 		out["url"] = url
+		if oauth, ok := e.Meta["oauth"].(bool); ok && !oauth {
+			out["oauth"] = false
+		}
 		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
 			out["headers"] = h
 		}
@@ -363,6 +378,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		out["enabled"] = false
+	}
+	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {
+		out["timeout"] = timeout
 	}
 
 	return out

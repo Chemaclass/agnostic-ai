@@ -75,7 +75,11 @@ agnostic-ai import continue       # .continue/rules/
 - Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
 - When another target's entry-point exists with different hand-authored content (e.g. a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that it holds unique content the next `sync` would overwrite. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` before syncing to keep it.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, plus `all`. The newest targets `kilo`, `factory`, `openhands`, `jules`, `goose`, and `augment` are emit-only for now; every other emitted target can also be imported.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo` (ignore files only), plus `all`. The newest targets `factory`, `openhands`, `jules`, `goose`, and `augment` are emit-only for now; every other emitted target can also be imported.
+
+Native skill imports from Zed and Warp read `.agents/skills/<name>/SKILL.md` and all bundled assets. Antigravity prefers that same tree and falls back to `.agent/skills/` only when the preferred directory is absent. `import crush` also reads `.crushignore`; `import kilo` reads `.kilocodeignore` only.
+
+`import continue` reads `.continue/mcpServers/*.yaml` blocks containing exactly one server and `.json` files parsed as JSONC. A JSON file can hold an `mcpServers` map or a bare server named after its filename. Duplicate or unsafe server names fail before MCP specs are written. Connection options survive import and sync.
 
 `import claude`:
 
@@ -88,7 +92,7 @@ agnostic-ai import continue       # .continue/rules/
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
-| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (filename derived from event, matcher, and commands so re-imports converge on the same path) |
+| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks retain their command grouping; HTTP, MCP-tool, and prompt handlers retain their native fields in separate stable specs) |
 | `.claude/settings.json` non-hook keys | `.agnostic-ai/overlays/claude.settings.json` (captures statusLine, enabledPlugins, model overrides, and any other top-level keys so `sync -t claude` reproduces the full settings.json after `.claude/` is wiped) |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server; round-trips to every MCP-aware target on the next `sync`) |
 

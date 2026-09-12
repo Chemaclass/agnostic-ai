@@ -22,13 +22,17 @@ const (
 )
 
 // importFromZed reads an existing Zed project (`.rules`,
-// `.zed/tasks.json`, `.zed/settings.json`) under root and writes specs
+// `.zed/tasks.json`, `.zed/settings.json`, `.agents/skills/`) under root and writes specs
 // into the configured source directories.
 func importFromZed(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := sliceMainFileByH2(root, zedMainFile, filepath.Join(root, src.Rules))
+	if err != nil {
+		return err
+	}
+	skills, err := importSkillFolders(filepath.Join(root, ".agents", "skills"), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -43,7 +47,7 @@ func importFromZed(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, zedMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d hooks, %d mcps\n", rules, hooks, mcps)
+	summaryf("imported %d rules, %d skills, %d hooks, %d mcps\n", rules, skills, hooks, mcps)
 	printImportNextSteps(root, "zed")
 	return nil
 }

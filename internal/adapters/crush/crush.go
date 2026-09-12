@@ -72,6 +72,10 @@
 // directory, and logs a warning whenever a directory holds both. A
 // project that also hand-authors a `crushrc` gets that warning against
 // our crush.json on every launch; nothing on our side can suppress it.
+//
+// Ignore specs emit to project-root .crushignore through the shared protected
+// writer (outputs.crush.ignore-file overrides the path). Crush v0.94.1
+// documents gitignore syntax for this file; import crush reads it back.
 package crush
 
 import (
@@ -86,13 +90,15 @@ const (
 	defaultMCPFile   = "crush.json"
 )
 
+const defaultIgnoreFile = ".crushignore"
+
 var caps = emit.Capabilities{
 	Target: target,
 	// KindRule is declared even though this adapter never writes rules
 	// itself: they reach Crush through the shared AGENTS.md entry-point
 	// sync writes centrally. KindAgent is absent; Crush has no agent
 	// surface, so the unsupported warning is accurate.
-	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindIgnore},
 }
 
 // Adapter emits Crush configs.
@@ -110,6 +116,9 @@ func (Adapter) Name() string { return target }
 // `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

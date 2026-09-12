@@ -24,6 +24,10 @@
 // the other targets sharing this adapter's MCP builder, so both are
 // scoped to cursor.com/docs/mcp.md's own emission path (target-audit
 // 2026-09-03, #661).
+//
+// Prompt hooks emit type, prompt, optional model, and common native options.
+// Command hooks retain their existing shape. The dedicated MCP file is
+// managed as a whole document.
 package cursor
 
 import (
@@ -187,6 +191,20 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		if event == "" {
+			continue
+		}
+		if kind, _ := h.Meta["type"].(string); kind == "prompt" {
+			prompt, _ := h.Meta["prompt"].(string)
+			if prompt == "" {
+				continue
+			}
+			entry := map[string]any{"type": "prompt", "prompt": prompt}
+			for _, key := range []string{"model", "timeout", "loop_limit", "failClosed", "matcher"} {
+				if value, present := h.Meta[key]; present {
+					entry[key] = value
+				}
+			}
+			byEvent[event] = append(byEvent[event], entry)
 			continue
 		}
 		matcher, _ := h.Meta["matcher"].(string)

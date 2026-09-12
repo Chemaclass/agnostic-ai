@@ -100,11 +100,13 @@
 // object, an optional `timeout`, and the spec's generic `description`
 // field (docs/user/spec-format.md: "Free-form documentation"; the
 // vendor field reference lists the matching `hooks[].description` as
-// "Documentation only"). A spec's `command:` (string or list) always
+// "Documentation only"). A spec's `command:` (string or list)
 // renders `action: {"type": "command", "command": ...}`; a list
 // produces one entry per command in the same file, `name` suffixed
-// `-2`, `-3`, ... to stay unique. `disabled: true` on the spec writes
-// `"enabled": false` (the vendor default, enabled, needs no explicit
+// `-2`, `-3`, ... to stay unique. An explicit `timeout: 0` disables
+// command timeouts; omitting it keeps Kiro's 60-second default.
+// `disabled: true` on the spec writes `"enabled": false`
+// (the vendor default, enabled, needs no explicit
 // key), mirroring the `disabled`/`enabled` convention already used for
 // MCP entries. Every entry marshals from a `map[string]any`, not a
 // fixed struct, so arbitrary `x-kiro` keys pass through verbatim
@@ -112,10 +114,13 @@
 // confirmation block: "Ask for confirmation before a Stop command hook
 // runs", taking `question`, `options` (`id`/`label`/`run` each), and an
 // optional `confirmCommand`) has no agnostic-ai spec equivalent and so
-// is only reachable this way, and `x-kiro.action` can set the
-// documented `{"type": "agent", "prompt": ...}` shape this adapter
-// never emits by hand (agnostic-ai's hook spec has no generic prompt
-// field). Before #642, `hookEntry` was a fixed Go struct: `description`
+// is only reachable this way. `x-kiro.action` replaces the generic
+// command or command list with one native action. It accepts
+// `{"type": "agent", "prompt": ...}` without a dummy command, or
+// `{"type": "command", "command": ...}`. The type and its required
+// non-empty string are validated before emission; an invalid override
+// returns an error instead of running a fallback command.
+// Before #642, `hookEntry` was a fixed Go struct: `description`
 // and `confirm` were unreachable at any layer, including x-kiro,
 // because a struct cannot marshal a key it does not declare. Unlike
 // Claude Code, Codex, Gemini, and Cursor, this adapter does not

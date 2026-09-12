@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -124,8 +125,7 @@ func TestEmit_Hook_NoEventNoOutput(t *testing.T) {
 	}
 }
 
-// A hook spec with no `command` produces no file: there is nothing for
-// the action to run.
+// A hook spec with neither a command nor a native action produces no file.
 func TestEmit_Hook_NoCommandNoOutput(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -237,4 +237,177 @@ func TestEmit_Hook_TargetScopingExcludesKiro(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".kiro/hooks/codex-only.json")); !os.IsNotExist(err) {
 		t.Errorf("expected no output for a hook scoped to another target, err=%v", err)
 	}
+}
+
+func TestEmit_Hook_DistinguishesZeroTimeoutFromAbsent(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "unlimited", Meta: map[string]any{
+			"event": "Stop", "command": "echo done", "timeout": 0,
+		}},
+		{Kind: spec.KindHook, Name: "default", Meta: map[string]any{
+			"event": "Stop", "command": "echo done",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	unlimited := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/unlimited.json"))
+	if unlimited[0]["timeout"] != float64(0) {
+		t.Errorf("timeout = %v, want explicit zero", unlimited[0]["timeout"])
+	}
+	defaults := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/default.json"))
+	if _, ok := defaults[0]["timeout"]; ok {
+		t.Errorf("absent timeout emitted as %v", defaults[0]["timeout"])
+	}
+}
+
+func TestEmit_Hook_PreservesDecimalStringTimeout(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    float64
+		present bool
+	}{
+		{"30", 30, true},
+		{"0", 0, true},
+		{" 30 ", 30, true},
+		{"invalid", 0, false},
+		{"0seconds", 0, false},
+		{"", 0, false},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entry := spec.Entry{
+				Kind: spec.KindHook, Name: "verify",
+				Meta: map[string]any{
+					"event": "Stop", "command": "echo done", "timeout": tt.value,
+				},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			hooks := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/verify.json"))
+			got, present := hooks[0]["timeout"]
+			if present != tt.present || present && got != tt.want {
+				t.Errorf("timeout = %v (present %v), want %v (present %v)", got, present, tt.want, tt.present)
+			}
+		})
+	}
+}
+
+func TestEmit_Hook_AgentActionNeedsNoCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	action := map[string]any{"type": "agent", "prompt": "Check the result."}
+	entry := spec.Entry{
+		Kind: spec.KindHook, Name: "review",
+		Meta: map[string]any{
+			"event": "Stop", "description": "Review the completed work.",
+			"x-kiro": map[string]any{"action": action},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	hooks := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/review.json"))
+	if len(hooks) != 1 {
+		t.Fatalf("got %d hooks, want one native agent action", len(hooks))
+	}
+	if !reflect.DeepEqual(hooks[0]["action"], action) {
+		t.Errorf("action = %#v, want %#v", hooks[0]["action"], action)
+	}
+	if hooks[0]["description"] != "Review the completed work." {
+		t.Errorf("description = %v", hooks[0]["description"])
+	}
+}
+
+func TestEmit_Hook_NativeActionReplacesCommandList(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	action := map[string]any{"type": "agent", "prompt": "Check the result."}
+	entry := spec.Entry{
+		Kind: spec.KindHook, Name: "review",
+		Meta: map[string]any{
+			"event": "Stop", "command": []any{"echo one", "echo two"},
+			"x-kiro": map[string]any{"action": action},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	hooks := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/review.json"))
+	if len(hooks) != 1 {
+		t.Fatalf("got %d hooks, want one native action replacing the command list", len(hooks))
+	}
+	if !reflect.DeepEqual(hooks[0]["action"], action) {
+		t.Errorf("action = %#v, want %#v", hooks[0]["action"], action)
+	}
+}
+
+func TestEmit_Hook_NativeCommandActionNeedsNoGenericCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	action := map[string]any{"type": "command", "command": "./scripts/verify.sh"}
+	entry := spec.Entry{
+		Kind: spec.KindHook, Name: "verify",
+		Meta: map[string]any{
+			"event": "Stop", "timeout": 0,
+			"x-kiro": map[string]any{"action": action},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	hooks := readKiroHookEntries(t, filepath.Join(dir, ".kiro/hooks/verify.json"))
+	if len(hooks) != 1 {
+		t.Fatalf("got %d hooks, want one native command action", len(hooks))
+	}
+	if !reflect.DeepEqual(hooks[0]["action"], action) || hooks[0]["timeout"] != float64(0) {
+		t.Errorf("native command or zero timeout lost: %#v", hooks[0])
+	}
+}
+
+func TestEmit_Hook_RejectsInvalidNativeAction(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		action any
+	}{
+		{"not an object", "echo hi"},
+		{"null", nil},
+		{"missing type", map[string]any{"prompt": "Check the result."}},
+		{"unknown type", map[string]any{"type": "other", "prompt": "Check the result."}},
+		{"missing prompt", map[string]any{"type": "agent"}},
+		{"non-string prompt", map[string]any{"type": "agent", "prompt": 12}},
+		{"blank prompt", map[string]any{"type": "agent", "prompt": " \n"}},
+		{"missing command", map[string]any{"type": "command"}},
+		{"command list", map[string]any{"type": "command", "command": []any{"echo one", "echo two"}}},
+		{"blank command", map[string]any{"type": "command", "command": " \n"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entry := spec.Entry{
+				Kind: spec.KindHook, Name: "invalid",
+				Meta: map[string]any{
+					"event": "Stop", "command": "echo fallback",
+					"x-kiro": map[string]any{"action": tt.action},
+				},
+			}
+			err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false)
+			if err == nil || !strings.Contains(err.Error(), "x-kiro.action") || !strings.Contains(err.Error(), "invalid") {
+				t.Errorf("error = %v, want a native-action error identifying the hook", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".kiro/hooks/invalid.json")); !os.IsNotExist(err) {
+				t.Errorf("invalid native action emitted a fallback hook: %v", err)
+			}
+		})
+	}
+}
+
+func readKiroHookEntries(t *testing.T, path string) []map[string]any {
+	t.Helper()
+	var doc hooksFile
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	if len(doc.Hooks) == 0 {
+		t.Fatalf("%s contains no hooks", path)
+	}
+	return doc.Hooks
 }

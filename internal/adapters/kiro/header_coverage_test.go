@@ -79,8 +79,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kiro
-// adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Hook)
-// with three specimens per kind.
+// adapter declares in caps.Supports, including command hooks with an
+// explicit zero timeout and a native agent action without a command.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body", Meta: map[string]any{"globs": "**/*.go"}},
@@ -105,7 +105,16 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindHook, Name: "session-start",
-			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
+			Meta: map[string]any{"event": "SessionStart", "command": "echo session", "timeout": 0},
+		},
+		{
+			Kind: spec.KindHook, Name: "review-stop",
+			Meta: map[string]any{
+				"event": "Stop",
+				"x-kiro": map[string]any{
+					"action": map[string]any{"type": "agent", "prompt": "Check the result."},
+				},
+			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",

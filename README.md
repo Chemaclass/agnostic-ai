@@ -68,6 +68,8 @@ Create directory-specific instructions with `agnostic-ai new rule payments-conte
 
 Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 targets](docs/user/targets.md#capability-matrix). Support varies by spec kind. The target reference lists each tool's capabilities, output paths, and opt-in settings.
 
+Native output includes Claude and Cursor prompt hooks, Goose review instructions, and Crush/Kilo ignore files. VS Code MCP sync retains `inputs`, `sandbox`, and other sibling settings. MCP options preserve each target's documented connection settings; imports also cover Continue JSONC and shared skill folders for Zed, Warp, and Antigravity.
+
 Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructions shared across your own projects, see [global configuration](docs/user/configuration.md#global-configuration).
 
 ## Find your next step
