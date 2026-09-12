@@ -115,6 +115,8 @@ description: Validate YAML against a schema.
 
 # YAML Validator
 
+Zed skill names must use 1-64 lowercase letters or digits with single hyphens between segments. Zed sync rejects names such as `Deploy`, `my_skill`, and `my--skill` with an actionable error. Other targets retain their own naming rules.
+
 ## Steps
 1. Read target file
 2. Parse YAML
@@ -175,19 +177,22 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `description` | no | empty | Free-form documentation. |
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
-| `command` | yes, unless `type: mcp_tool` | none | Shell command to run when triggered. |
+| `command` | command handlers only | none | Shell command or list. Not needed for Claude HTTP/MCP/prompt hooks, Cursor prompt hooks, or a valid `x-kiro.action`. |
 | `args` | no | empty | Argument list. Claude Code, Qoder and Copilot. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. The targets spell the form differently. Claude Code and Qoder keep the executable in `command`, and Qoder ignores `shell` in exec form; Copilot moves it to `exec` and forbids carrying both, and its exec form runs under Copilot CLI only, so a hook that must also run under Copilot cloud agent leaves `args` unset. `sync` says so with a coverage note. |
-| `type` | no | `command` | Set to `mcp_tool` for a Codex hook that calls a tool on an already-connected MCP server instead of running a shell command, in place of `command`. Codex. |
-| `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
-| `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |
-| `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Codex. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment converts this value to **milliseconds** before writing it (vendor default 60000 when absent), the one target here whose native unit differs from the field's own seconds. |
+| `type` | no | `command` | Claude: `command`, `http`, `mcp_tool`, or `prompt`. Codex: `command` or `mcp_tool`. Cursor: `command` or `prompt`. |
+| `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Claude + Codex. |
+| `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Claude + Codex. |
+| `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Claude + Codex. |
+| `url` | HTTP handler only | none | Claude hook endpoint. Optional `headers` supplies HTTP headers and `allowedEnvVars` names variables allowed in header values. |
+| `prompt` | prompt handler only | none | Natural-language condition for Claude or Cursor. Optional `model` selects the evaluating model. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Cursor, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment converts this value to **milliseconds** before writing it (vendor default 60000 when absent), the one target here whose native unit differs from the field's own seconds. |
 | `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes, and Qoder. |
 | `async` | no | `false` | Run in the background without blocking. Claude + Codex, and Qoder. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude and Qoder. |
 | `shell` | no | empty | `bash` or `powershell`. Claude and Qoder. |
 | `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude and Qoder. |
-| `loop_limit` | no | none | How many times a `Stop` hook may block the agent from stopping before it is skipped. Trae only, `Stop` only (vendor default 5 when absent). |
+| `loop_limit` | no | `5` | Stop-blocking limit. Trae: `Stop` only. Cursor: `stop` and `subagentStop`, with `null` allowing unlimited runs. |
+| `failClosed` | no, Cursor | `false` | Block the action when the hook fails. Applies to command and prompt handlers. |
 | `commandWindows` | no | empty | Windows-specific command override. Codex. |
 | `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. Set `0` to pass the complete additional context. |
 | `target` | no | empty | Single target name. Emits only there. |
@@ -195,7 +200,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
 | `targets-exclude` | no | empty | List of target names to block. Emits to every other configured target. |
 
-Tool-specific fields emit only where that tool's schema defines them; other targets ignore them.
+Tool-specific fields emit only where that tool's schema defines them; other targets ignore them. Scope non-command hooks with `target` or `targets`. Claude's stable handlers preserve `timeout`, `statusMessage`, `if`, and `once`; `args`, `async`, `asyncRewake`, and `shell` stay command-only. Cursor prompt hooks preserve `matcher`, `timeout`, `loop_limit` (including `null`), and `failClosed`. Kiro accepts `x-kiro.action: {type: agent, prompt: ...}` or `{type: command, command: ...}` without a generic command; the explicit action replaces a fallback command list and invalid overrides fail sync.
 
 With none of the scoping fields set, the hook emits to every target that supports hooks. `target` takes precedence over `targets` when both appear. Exclude wins: a target in both an include and an exclude list is excluded.
 
@@ -363,13 +368,13 @@ env:
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables passed to the server. |
-| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder, Copilot/VS Code. Warp maps this to its own `working_directory` field. |
+| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder, Continue, Copilot/VS Code. Warp maps this to its own `working_directory` field. |
 | `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
 | `url` | http/sse/ws only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
 | `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
 | `envFile` | stdio only, Cursor + Copilot/VS Code | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
-| `dev` | stdio only, Copilot/VS Code | empty | Development-mode settings: `{watch, debug}`. `watch` is a glob pattern or array of glob patterns that restarts the server on change. `debug` is `{type: "node"\|"debugpy", debugpyPath}` for setting up a debugger. |
+| `dev` | no, Copilot/VS Code | empty | `watch` is a glob or glob array that restarts stdio, HTTP, or SSE servers on change. `debug: {type: "node"\|"debugpy", debugpyPath}` is stdio-only. Remote debugging produces a coverage note; watch patterns still emit. Neither field reaches Copilot CLI. |
 | `sandboxEnabled` | stdio only, Copilot/VS Code | `false` | Run the server in a sandboxed environment. macOS and Linux only. |
 | `auth` | no | empty | Two unrelated shapes by target. Codex HTTP authentication fallback, a string: `oauth` or `chatgpt`. Cursor static OAuth on a remote (`url`) entry, an object: `{CLIENT_ID, CLIENT_SECRET, scopes}` (`CLIENT_ID` required, the other two optional). |
 | `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
@@ -389,15 +394,20 @@ env:
 | `excludeTools` | no, Gemini + Qoder | empty | Denylist of tool names; takes precedence over `includeTools` on a name in both. |
 | `alwaysAllow` | no, Qoder | empty | Tool names always allowed without confirmation. |
 | `autoApprove` | no, Kiro | empty | Tool names to auto-approve without prompting. `"*"` auto-approves all of the server's tools. |
-| `disabledTools` | no, Kiro | empty | Tool names to omit when calling the agent. |
+| `disabledTools` | no, Kiro + Factory | empty | Tool names to omit when calling the agent. |
 | `alwaysLoad` | no, Claude Code | `false` | Load every tool from this server into context at session start instead of deferring it behind tool search. Available on all transports. |
 | `headersHelper` | http/sse/ws only, Claude Code | empty | Command run at connection time that prints headers to merge into the connection, for a server on Kerberos, short-lived tokens, or internal SSO. |
 | `oauthScopes` | http/sse only, Kiro | empty | OAuth scopes to request. Overridden by `oauth.oauthScopes` when both are set; an explicitly empty list emits as written, since Kiro documents `[]` as the remedy for scope errors. |
-| `oauth` | no | empty | Six unrelated shapes by target, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. Copilot/VS Code (http/sse): `{clientId, enterpriseManaged}`. Codex (http/sse): `{client_id, callback_url, callback_port}`, a nested `[mcp_servers.<id>.oauth]` table rather than a top-level object. |
+| `oauth` | no | empty | Target-specific shapes, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. Copilot/VS Code (http/sse): `{clientId, enterpriseManaged}`. Codex (http/sse): `{client_id, callback_url, callback_port}`, a nested `[mcp_servers.<id>.oauth]` table rather than a top-level object. |
+| `connectionTimeout` | no, Continue | empty | MCP connection timeout in milliseconds. Preserved on stdio and remote servers. |
+| `requestOptions` | remote, Continue | empty | Native HTTP options, including `timeout`, `verifySsl`, `caBundlePath`, `proxy`, `clientCertificate`, and `headers`. Portable headers fill this map; an explicitly supplied native header wins a duplicate key. |
+| `connectTimeout` | no, Factory | empty | MCP connection timeout in milliseconds, including explicit zero. |
 | `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
-| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, and Qoder: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
+| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, Qoder, Factory, and Kilo: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
 | `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
 | `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
+
+Factory HTTP/SSE servers accept `oauth: false` or an object containing `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`. Kilo remote servers accept `oauth: false`; OAuth objects are not emitted there. Factory and Kilo preserve explicit zero timeouts. Use `x-factory`, `x-kilo`, or `x-continue` to override the corresponding top-level options for that target.
 
 `command` and `url` are the two fields a server cannot work without, and `agnostic-ai lint` reports a missing one as an error (LINT008). Neither `validate` nor `sync` catches it: some targets drop the entry, the rest write a server object with no way to start or reach anything, and both do it silently. See [lint](cli-reference.md#lint).
 
@@ -564,7 +574,7 @@ Flag any handler that talks to the database directly instead of going through a 
 
 Review specs honor `scope` (and the source-directory layout) exactly like rules, so per-directory guidance is supported. Specs that share a scope concatenate into that scope's single review file.
 
-Native emission: Cursor [Bugbot](https://docs.cursor.com/bugbot) `BUGBOT.md`: the repo root for unscoped specs, `<scope>/BUGBOT.md` for scoped ones. Override the basename with `outputs.cursor.review-file`. Other targets have no equivalent review-rule file yet and report the spec as unsupported.
+Native emission: Cursor [Bugbot](https://cursor.com/docs/bugbot) uses `.cursor/BUGBOT.md` at the root and `<scope>/.cursor/BUGBOT.md` for scoped specs; `outputs.cursor.review-file` overrides the basename. Goose uses `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md`; `outputs.goose.review-file` overrides that scope-relative path. `goose review` combines instructions from changed-file directories and their ancestors. Both emit plain bodies without spec frontmatter. Other adapters report reviews as unsupported.
 
 ## Environments
 
@@ -594,7 +604,7 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`, Crush `.crushignore`, and Kilo `.kilocodeignore` (a compatibility input migrated into read/edit permission denials). Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ### Overwrite behaviour
 

@@ -13,15 +13,17 @@ import (
 )
 
 // ignoreFileByTarget maps an import source to the ignore file its
-// adapter emits. These seven are the targets with a documented
+// adapter emits. These are the targets with a documented
 // ignore-file convention; every other target reports ignore specs as
 // unsupported and has nothing to read back.
 var ignoreFileByTarget = map[string]string{
 	"aider":    ".aiderignore",
+	"crush":    ".crushignore",
 	"cursor":   ".cursorignore",
 	"gemini":   ".geminiignore",
 	"junie":    ".aiignore",
 	"kiro":     ".kiroignore",
+	"kilo":     ".kilocodeignore",
 	"trae":     ".trae/.ignore",
 	"windsurf": ".devinignore",
 }

@@ -33,6 +33,11 @@
 // unauthenticated instead (target-audit 2026-09-11, #726 and #730).
 // `env` belongs to the stdio branch alone and is stripped the same
 // silent way on a remote server, so it emits only there (#739).
+// `cwd` stays on stdio servers, `connectionTimeout` reaches both
+// transports, and remote `requestOptions` retain connection settings
+// such as a custom CA, proxy, and timeout. Portable headers merge into
+// that map, with native request headers taking precedence. All these
+// fields honor `x-continue` overrides before transport validation.
 //
 // Two kinds of entry emit no file at all, each with a coverage note,
 // because both would match neither branch of the union and throw: a
@@ -182,6 +187,7 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 		if m.Name == "" {
 			continue
 		}
+		m.Meta = emit.ResolveMeta(m.Meta, target)
 		transport := mcpTransport(m)
 		if !mappedTransport(transport) {
 			unmapped++
@@ -264,10 +270,13 @@ func continueTransport(transport string) string {
 // wrapper (`name` + `version` + `schema: v1`) with the server nested
 // under an `mcpServers:` list; a flat single-server file does not load.
 // See https://docs.continue.dev/customize/deep-dives/mcp.
-// Stdio servers emit command/args/env; remote servers emit
-// type/url/requestOptions.
+// Stdio servers emit command/args/env/cwd; remote servers emit
+// type/url/requestOptions. Both accept connectionTimeout.
 func mcpYAML(e spec.Entry) (string, error) {
 	server := map[string]any{"name": e.Name}
+	if timeout, ok := e.Meta["connectionTimeout"]; ok {
+		server["connectionTimeout"] = timeout
+	}
 
 	transport := mcpTransport(e)
 
@@ -285,6 +294,9 @@ func mcpYAML(e spec.Entry) (string, error) {
 		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
 			server["env"] = env
 		}
+		if cwd, ok := e.Meta["cwd"].(string); ok {
+			server["cwd"] = cwd
+		}
 	case "http", "sse", "streamable-http":
 		server["type"] = continueTransport(transport)
 		if url, _ := e.Meta["url"].(string); url != "" {
@@ -293,12 +305,12 @@ func mcpYAML(e spec.Entry) (string, error) {
 		// Continue's url branch takes headers only under requestOptions;
 		// zod strips a top-level `headers` key, so the server used to
 		// connect unauthenticated with no sync-time signal (#730).
-		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
-			server["requestOptions"] = map[string]any{"headers": h}
+		if opts := mcpRequestOptions(e.Meta); len(opts) > 0 {
+			server["requestOptions"] = opts
 		}
 	}
 
-	version, _ := emit.ResolveMeta(e.Meta, target)["version"].(string)
+	version, _ := e.Meta["version"].(string)
 	if version == "" {
 		version = "0.0.1"
 	}
@@ -314,4 +326,24 @@ func mcpYAML(e spec.Entry) (string, error) {
 		return "", fmt.Errorf("marshal mcp %s: %w", e.Name, err)
 	}
 	return string(raw), nil
+}
+
+func mcpRequestOptions(meta map[string]any) map[string]any {
+	opts := map[string]any{}
+	if native, ok := meta["requestOptions"].(map[string]any); ok {
+		for key, value := range native {
+			opts[key] = value
+		}
+	}
+	headers := emit.StringMap(meta["headers"])
+	if len(headers) == 0 {
+		return opts
+	}
+	// Native headers win on conflicts. Copying both maps keeps a
+	// Continue emission from changing metadata used by another target.
+	for key, value := range emit.StringMap(opts["headers"]) {
+		headers[key] = value
+	}
+	opts["headers"] = headers
+	return opts
 }

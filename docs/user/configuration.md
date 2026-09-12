@@ -157,7 +157,7 @@ outputs:
     instructions-dir: .github/instructions  # default. One .instructions.md per rule.
     agents-dir: .github/agents              # default. One <name>.agent.md profile per agent.
     skills-dir: .github/skills              # default. One folder per skill (<name>/SKILL.md + bundled assets).
-    mcp-file: .vscode/mcp.json              # default. VS Code's file, servers wrapper.
+    mcp-file: .vscode/mcp.json              # default. Owns servers; preserves inputs, sandbox, and other sibling keys.
     cli-mcp-file: .github/mcp.json          # default. Copilot CLI's file, mcpServers wrapper. The CLI does not read .vscode/mcp.json.
     # root-mcp-file: .mcp.json             # opt-in: also write the servers to a workspace-root .mcp.json under mcpServers, the key its reader accepts.
     # chatmodes-dir: .github/chatmodes      # opt-in: also emit each agent as a Copilot Custom Chat Mode.
@@ -221,6 +221,7 @@ outputs:
     mcp-file: .kiro/settings/mcp.json   # default. Standard mcpServers schema.
     ignore-file: .kiroignore            # default. Agent ignore patterns (gitignore syntax).
   crush:
+    ignore-file: .crushignore  # default. Project-root ignore patterns.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed; AGENTS.md pointer written by sync.
     mcp-file: crush.json                # default. mcp map and hooks map (PreToolUse only) merged; user keys preserved.
   trae:
@@ -245,12 +246,14 @@ outputs:
     hooks-file: .factory/hooks.json     # default. Nine events, keyed directly by event, no wrapper key.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
+    ignore-file: .kilocodeignore  # default. Project-root ignore patterns.
     rules-dir: .kilo/rules              # default. One .md per rule; each path also lands in kilo.jsonc's instructions array.
     agents-dir: .kilo/agents            # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf/augment.
     commands-dir: .kilo/commands        # default. One .md per command. Frontmatter filtered to description, agent, model, variant, subtask.
     mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
+    review-file: .agents/REVIEW.md  # default. Relative to each review scope.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
@@ -336,7 +339,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `copilot` | `skills-dir` | `.github/skills` | One folder per skill (`<name>/SKILL.md` + bundled assets). |
 | `copilot` | `chatmodes-dir` | _empty_ | When set, each agent also emits as a Copilot Custom Chat Mode at `<dir>/<name>.chatmode.md`. The native agent profile still emits. Opt-in. |
 | `copilot` | `rules-file` | _empty_ | When set, writes always-on rules concatenated at that path (legacy layout). `sync` skips the pointer-body write for `copilot`. |
-| `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: top-level `servers` with `type` field per entry. |
+| `copilot` | `mcp-file` | `.vscode/mcp.json` | VS Code schema: owns top-level `servers`, preserving sibling keys such as `inputs` and `sandbox`. JSONC accepted; invalid input fails without writing. |
 | `copilot` | `cli-mcp-file` | `.github/mcp.json` | Copilot CLI schema: top-level `mcpServers`. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so both files emit with the same servers under different wrappers. |
 | `aider` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path (typically `CONVENTIONS.md`). `sync` skips the pointer-body write for `aider`. |
 | `aider` | `conf-file` | _empty_ | When set, merges `.aider.conf.yml` so Aider auto-loads `CONVENTIONS.md`. Pre-existing keys preserved; `read:` list de-duplicates. Opt-in. |
@@ -386,6 +389,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kiro` | `skills-dir` | `.kiro/skills` | One folder per skill (`<name>/SKILL.md`), Kiro's own native skill tree (`skill://.kiro/skills/*/SKILL.md`); bundled `scripts/`, `references/`, and `assets/` copy byte-for-byte. Sweeps a stale flattened `.kiro/steering/skill-<name>.md` left by a pre-native sync. |
 | `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled, description}]}`). `disabled: true` writes `"enabled": false`; arbitrary `x-kiro` keys (e.g. `confirm`) pass through. |
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
+| `crush` | `ignore-file` | `.crushignore` | Agent ignore patterns, gitignore syntax. |
 | `crush` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed, identical bytes dedupe. |
 | `crush` | `mcp-file` | `crush.json` | `mcp` map (`type: stdio\|http\|sse`; a spec's `remote` type has no matching Crush value and defaults to `http`) and `hooks` map (`PreToolUse` only; a flat `{name, matcher, command, timeout}` array, no Claude-style grouping), merged in one write. User keys (`models`, `providers`, `lsp`) preserved. |
 | `trae` | `rules-dir` | `.trae/rules` | One `.md` per rule. |
@@ -403,11 +407,13 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `factory` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
 | `factory` | `hooks-file` | `.factory/hooks.json` | Nine events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`). Keyed directly by event, no wrapper key, the same divergence Windsurf/Devin CLI carries. `type` is always `command`; `timeout` is seconds (vendor default 60). |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
+| `kilo` | `ignore-file` | `.kilocodeignore` | Compatibility input for Kilo's read/edit permission migrator. |
 | `kilo` | `rules-dir` | `.kilo/rules` | Unscoped rules emit here and enter `kilo.jsonc.instructions`. Scoped rules use nested `AGENTS.md` without unconditional references; remove this override to use scoped rules. |
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
 | `kilo` | `commands-dir` | `.kilo/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `variant`, `subtask`, near-identical to OpenCode's own command frontmatter. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
+| `goose` | `review-file` | `.agents/REVIEW.md` | Plain review bodies, root and per scope. |
 | `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |

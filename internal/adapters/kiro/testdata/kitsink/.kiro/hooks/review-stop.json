@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "prompt": "Check the result.",
+        "type": "agent"
+      },
+      "name": "review-stop",
+      "trigger": "Stop"
+    }
+  ]
+}

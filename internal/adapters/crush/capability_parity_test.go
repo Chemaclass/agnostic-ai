@@ -32,6 +32,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindIgnore, []string{".crushignore"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"crush.json"}},
 		{spec.KindHook, []string{"crush.json"}},

@@ -113,7 +113,7 @@ function test_import_then_sync_leaves_no_drift() {
 }
 
 function test_import_rejects_an_emit_only_target() {
-  assert_contains "AAI-202" "$("$BIN" import kilo 2>&1)"
+  assert_contains "AAI-202" "$("$BIN" import factory 2>&1)"
 }
 
 # ---- malformed specs ---------------------------------------------------------

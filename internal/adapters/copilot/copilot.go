@@ -27,6 +27,9 @@
 // was written by default, so a Copilot CLI user with no VS Code in the
 // loop got no MCP server at all. Override either path with
 // outputs.copilot.mcp-file / outputs.copilot.cli-mcp-file.
+// VS Code's servers map merges into its file, preserving user-owned
+// inputs and sandbox settings. The CLI file and root mirror retain
+// full-file ownership.
 //
 // The table's other project-level entry is a `.mcp.json` anywhere from
 // the working directory up to the repository root. That one stays
@@ -42,8 +45,8 @@
 // buffers a coverage note so the drop is loud, not silent.
 //
 // `.vscode/mcp.json` also carries five fields the plain mcpServers map
-// does not: `cwd`, `envFile`, `dev`, and `sandboxEnabled` on a stdio
-// server, and `oauth` on an http/sse one
+// does not: `cwd`, `envFile`, and `sandboxEnabled` on a stdio server,
+// `dev.watch` on every server, `dev.debug` on stdio, and `oauth` on HTTP/SSE
 // (code.visualstudio.com/docs/agents/reference/mcp-configuration, #692).
 // `.github/mcp.json` and the root mirror stay on the plain schema, since
 // Copilot CLI's own docs never name any of the five.
@@ -185,9 +188,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // rename of that one key.
 func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
-	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaVSCodeServers,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithVSCodeMCPExtras()); err != nil {
-		return err
+	servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaVSCodeServers, emit.WithVSCodeMCPExtras())
+	if len(servers) > 0 {
+		if err := sess.MergeJSONFile(emit.OutputMCPFile(cfg, target, defaultMCPFile), map[string]any{"servers": servers}, dryRun); err != nil {
+			return err
+		}
 	}
 	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
 		emit.OutputCLIMCPFile(cfg, target, defaultCLIMCPFile), dryRun); err != nil {
