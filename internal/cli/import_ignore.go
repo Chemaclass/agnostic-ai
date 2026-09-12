@@ -37,9 +37,8 @@ var ignoreFileByTarget = map[string]string{
 // reading it back would emit every pattern twice on the next sync.
 // A missing or empty file imports nothing either.
 //
-// The imported spec is unscoped, so its patterns reach every
-// ignore-capable target rather than only the one they came from. That
-// widens what agents may not read, never what they may.
+// The imported spec is unscoped, so all ignore-capable targets receive
+// it. The overwrite guard still checks each target's existing patterns.
 func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	name, ok := ignoreFileByTarget[target]
 	if !ok || src.Ignore == "" {
@@ -56,8 +55,10 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	if header.Has(string(data)) {
 		return 0, nil
 	}
-	body := strings.TrimSpace(string(data))
-	if body == "" {
+	// A BOM must not move behind the generated header and into a pattern.
+	body := strings.TrimPrefix(string(data), "\uFEFF")
+	body = strings.Trim(strings.ReplaceAll(body, "\r\n", "\n"), "\n")
+	if strings.Trim(body, " \n") == "" {
 		return 0, nil
 	}
 	if err := importMkdirAll(filepath.Join(root, src.Ignore), 0o755); err != nil {

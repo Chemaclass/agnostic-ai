@@ -35,6 +35,8 @@ Choose your tools during setup. The demo creates sample specs under `.agnostic-a
 
 Already have tool configuration? Start with [importing an existing project](docs/user/migration.md) to preserve your instructions.
 
+Sync protects hand-authored ignore files with a conservative check of pattern order, negations, and whitespace. Run `agnostic-ai import <target>` to copy those patterns into specs, then review any conflicting patterns before syncing. See [ignore overwrite behavior](docs/user/spec-format.md#overwrite-behaviour).
+
 [Step-by-step tutorial](docs/user/getting-started.md) · [More install options](docs/user/installation.md) · [Try the playground](https://chemaclass.github.io/agnostic-ai/playground/)
 
 ## How it works

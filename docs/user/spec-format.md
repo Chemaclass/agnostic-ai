@@ -594,21 +594,22 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`. Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`. Each spec keeps its pattern order and whitespace. Outer line breaks are trimmed, CRLF becomes LF, and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ### Overwrite behaviour
 
-An ignore file you wrote by hand is never silently replaced. When the target's ignore file exists, carries no agnostic-ai provenance header, and holds a pattern the emitted body does not carry, `sync` fails, names the patterns at risk, and writes nothing:
+Sync replaces an ignore file without an agnostic-ai provenance header only when it can establish that existing exclusions survive. Every pattern must remain unchanged and in the same order. Extra exclusion patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The comparison is conservative: equivalent spellings or harmless reorderings can still fail.
 
 ```
-.kiroignore: hand-authored, and overwriting it would drop patterns that keep
-files out of agent context. Would be dropped: *.key, my-secrets/.
-Run `agnostic-ai import kiro` to copy them into an ignore spec, then sync again.
+.kiroignore: hand-authored ignore file cannot be safely overwritten: existing
+patterns are missing or reordered: "my-secrets/", "*.key". Run
+`agnostic-ai import kiro` to copy its patterns into an ignore spec, then keep
+their order and review any added negations before syncing again.
 ```
 
-`agnostic-ai import <target>` reads the file into `ignore/<target>.md`, comments and all. The next `sync` then emits a file holding both your patterns and the ones your other specs contribute, so no manual cleanup step sits in between. An overwrite that already reproduces every on-disk pattern is not a loss and goes ahead untouched.
+`agnostic-ai import <target>` reads the file into `ignore/<target>.md`, preserving comments, pattern order, and whitespace. Import removes a leading UTF-8 byte-order mark so the generated header does not turn it into a pattern character. Syncing unchanged imported patterns needs no manual cleanup. If other specs add negations or repeat the imported patterns in a different order, review the combined order before syncing. Already-generated files still regenerate from their specs, including intentional pattern removals.
 
-Two cases stand down deliberately. Comment and blank lines exclude nothing, so a file holding only those never blocks a sync. And `outputs.<target>.provenance-header: false` removes the marker the check reads to tell agnostic-ai's own output from yours, which disables the check along with it.
+Comment and blank lines exclude nothing, so a file holding only those never blocks a sync. A hash is a comment prefix only at the start of a line; leading spaces and tabs can be part of a pattern. `outputs.<target>.provenance-header: false` removes the marker used to recognize generated output and disables this check. Dry-run skips it because no file is written; `sync --check` still reports unsafe overwrites.
 
 ## Frontmatter rules
 

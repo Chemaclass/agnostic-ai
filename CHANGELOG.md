@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- `sync` protects hand-authored ignore files against reordered patterns, added negations, and changed whitespace. Import followed by sync preserves pattern order and whitespace across all seven ignore-capable targets (#761).
+
 ## v0.56.0 - 2026-09-12
 
 ### Upgrade notes
