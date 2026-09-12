@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.56.0 - 2026-09-12
+
 ### Upgrade notes
 
 Three changes make a previously green repo fail. All three are deliberate.
@@ -577,14 +579,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.27.0 - 2026-05-29
 
 ### Added
+
 - `import antigravity` and `import continue` (rules + MCP yaml) close the sync -> import -> sync round-trip for both targets.
 - `.agnostic-ai/AGNOSTIC_AI.md` is now the canonical entry-point body, tracked in git.
 - `sync` ledger at `.agnostic-ai/.sync-state` sweeps orphan generated files on the next run.
 
 ### Changed
+
 - Provenance header carries a "do not edit" hint and is now emitted on every generated file (aider conf, amp commands, copilot instructions + chatmodes, gemini TOMLs, opencode commands, warp workflows).
 
 ### Fixed
+
 - Per-target 10/10 audit landed for every adapter (aider, amp, antigravity, claude, cline, codex, continue, copilot, cursor, gemini, opencode, warp, windsurf, zed): kit-sink golden, capability parity, provenance coverage, and byte-equal sync -> import -> sync where the adapter supports it.
 - Cursor `.mdc` frontmatter double-quotes `globs:` so `**/*` parses as a YAML string instead of an anchor reference.
 - Shared `sliceMainFileByH2` importer unwraps `## Rules` / `## Agents` / `## Skills` H2 wrappers and strips provenance preamble + `<!-- source: ... -->` comments so legacy concatenated rules-file layouts (aider, amp, warp, zed, opencode, copilot) reach a byte-equal fixed point on round-trip.
@@ -595,14 +600,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.26.1 - 2026-05-27
 
 ### Changed
+
 - `agnostic-ai upgrade` (and the install/upgrade docs in `README.md` + `docs/user/getting-started.md`) now print `brew upgrade --cask Chemaclass/tap/agnostic-ai`. The explicit `--cask` flag avoids ambiguity with the formula namespace and matches how the tap publishes the binary.
 
 ### Fixed
+
 - `agnostic-ai upgrade --run` aborts pre-flight with a `rm + brew install --cask` hint when `<brew>/bin/agnostic-ai` is a regular file (or symlink outside the brew prefix), instead of letting `brew upgrade --cask` fail and revert into a half-broken install.
 
 ## v0.26.0 - 2026-05-25
 
 ### Added
+
 - `import.codex.shred: false` keeps each `AGENTS.md` as a single rule spec instead of splitting by `##` heading. Closes #248.
 - Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Closes #249.
 - `agnostic-ai doctor` flags divergent hook script bodies across tools and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Closes #251.
@@ -614,11 +622,13 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `import codex` auto-fences divergent agent/skill bodies: shared prose stays un-fenced, each tool's unique section gets wrapped in `::target` blocks. Closes #300.
 
 ### Changed
+
 - `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json`. Closes #257.
 - Codex `agents-dir` default changed from `.agents/agents` to `.codex/agents`. Override via `outputs.codex.agents-dir`. Closes #252.
 - Codex `skills-dir` default changed from `.agents/skills` to `.codex/skills`. `shared-subagents` now defaults to `true` regardless of whether claude is enabled. Closes #253.
 
 ### Fixed
+
 - Hook path rewriting now covers shell-expansion forms like `"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"`. Closes #250.
 - `import codex` captures `.codex/rules/default.rules` into an overlay so exec-policies survive import → sync round-trips. Closes #265.
 - `import claude/codex` captures helper files (CLAUDE.md, README.md, scripts) into overlays with file mode preserved. Closes #267.
@@ -639,18 +649,21 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.25.0 - 2026-05-23
 
 ### Added
+
 - `init --gitignore` flag, plus TTY prompt to enable the managed gitignore block.
 - `.agnostic-ai/scripts/<tool>/<basename>` stashes hook script bodies; sync rebuilds `.<target>/hooks/` on every run so `.<tool>/` can stay gitignored.
 - Codex import reads `.codex/hooks.json` alongside `config.toml`; previously skipped.
 - Sync warns before overwriting hand-authored entry-point files (no agnostic-ai header).
 
 ### Changed
+
 - `sync` footer counts only files that actually changed.
 - Hook command paths rewrite `.<sibling>/hooks/` → `.<target>/hooks/` per target.
 - Codex agent filenames canonicalise to dash-case; underscore form preserved via `x-codex.name`. Claude + codex variants merge onto one spec.
 - Codex overlay capture preserves multi-line TOML literals and key order (text-level strip instead of decode/encode).
 
 ### Fixed
+
 - Codex emit: multi-command hook arrays now emit one `[[hooks.<event>]]` block per command (was dropping `command` entirely).
 - Claude settings.json: `timeout` and `statusMessage` round-trip.
 - Claude import: spurious "AGNOSTIC_AI.md seeded" log only prints when the mirror actually wrote.
@@ -659,9 +672,11 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.24.0 - 2026-05-19
 
 ### Added
+
 - `sync` prints success footer: `✓ synced N targets · M files · Xms`. Suppressed by `--quiet` and `--json`.
 
 ### Changed
+
 - Capability warnings group by kind across all targets in one line: `! 5 hooks unsupported by cursor, copilot, aider, ...` replaces eight near-identical per-target lines. Suppression hint prints once per flush.
 - `sync -v` prints per-target `created / updated / unchanged` counts and a footer that counts only files that actually changed (skips unchanged content via detailed recording).
 - Status symbols are colorized on tty (`✓` green, `!` yellow, `✗` red). Honors `NO_COLOR=1`. Pipes and redirects stay plain.
@@ -689,16 +704,19 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.22.0 - 2026-05-17
 
 ### Added
+
 - Chained round-trip integration tests covering `claude → import → sync codex → wipe specs → import → sync claude` (and the inverse codex-first chain). Each kind that both adapters support (agents, skills, rules, hooks, MCPs, commands) must survive the full chain semantically. The codex chain additionally asserts that the captured overlay carries `model`, `[profiles.*]`, and other non-managed `.codex/config.toml` keys through both syncs.
 - `import codex` now reads `.codex/prompts/*.md` and writes them byte-for-byte into the commands source dir. Previously the directory was skipped, so any user-authored Codex slash prompts were silently dropped during import and overwritten on the next `sync --target codex`.
 - `import codex` captures every `.codex/config.toml` key outside `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. The codex emitter layers the overlay before the spec-derived sections on each sync, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any future Codex keys survive a wipe of `.codex/` between import and sync. Mirrors the existing claude settings overlay.
 - `import claude` now reads `.mcp.json` and writes one yaml per `mcpServers.<name>` entry into the mcps source dir. Previously the file was skipped, so MCP servers configured in a Claude Code project were silently dropped during import and never round-tripped to other adapters.
 
 ### Changed
+
 - Codex agent TOML now emits agent-scoped `[mcp_servers.<name>]` (and any other nested-table) keys carried under the spec's `x-codex` passthrough. Previously `writeXCodexExtras` only handled scalars, arrays, and inline string tables, so a `[mcp_servers.fs]` block inside an imported agent.toml would be silently lost on the next sync. Nested-table values emit last in the agent file so the document stays TOML-valid.
 - Claude `.claude/settings.json` always emits the hooks block via ordered JSON now, even on the first sync of a fresh project. Inner objects keep `{matcher, hooks}` and `{type, command}` in lifecycle order instead of the alpha-sorted `{command, type}` / `{hooks, matcher}` that the legacy `MergeJSONFile` path produced. Existing user-edited keys in `settings.json` continue to survive until the next `import claude` captures them into the overlay.
 
 ### Fixed
+
 - Frontmatter scalar styles now round-trip: a hand-authored plain `argument-hint: <ver>` stays plain on re-emit instead of being force-quoted to `"<ver>"`, and a hand-authored double-quoted scalar stays double-quoted. The spec loader captures per-key value styles into a new `Entry.MetaStyles` map and the emitter (`FrontmatterStyled` / `DocumentStyled`) replays them. The legacy angle-bracket auto-promotion in `preferDoubleQuotes` is dropped; explicit source-style preservation makes it unnecessary.
 
 ### Removed
@@ -706,27 +724,33 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.21.0 - 2026-05-16
 
 ### Changed
+
 - Goreleaser config migrated from deprecated `brews:` to `homebrew_casks:`. Releases now publish to the tap as casks (`Casks/agnostic-ai.rb`) with a post-install hook removing the macOS quarantine attribute. The legacy `Formula/agnostic-ai.rb` stops receiving updates on the next release. Closes #225.
 
 ### Removed
+
 - `autoSync` config field, `sync --auto-sync=yes|no` flag, first-run auto-sync prompt, and the generated `auto-sync` rule spec. The feature added a separate prompt, flag, and persisted config field for marginal value; agents already have the `docs-sync` rule and `run-sync-check` skill to decide when to re-sync. Existing `autoSync:` keys in user configs are silently ignored.
 
 ## v0.20.0 - 2026-05-16
 
 ### Fixed
+
 - Frontmatter emit no longer force-quotes plain `description:` scalars. yaml.v3 does not auto-wrap plain scalars, so long descriptions round-trip on one line without added quotes. Closes #226.
 
 ## v0.19.0 - 2026-05-16
 
 ### Added
+
 - `revert --force`: delete adapter-emitted files without a `.bak` (restores pre-#217 behavior). Closes #217.
 
 ### Changed
+
 - `cleanup` defaults to .bak removal; `--backups` kept as alias. Closes #219.
 - `revert` preserves files without a `.bak` (helpers next to `SKILL.md`, propagated templates). Pass `--force` to delete. Closes #217.
 - `outputs.codex.shared-subagents` defaults to `false` when `claude` is enabled (avoids duplicating `.claude/skills/`), `true` when codex is alone. Closes #216.
 
 ### Fixed
+
 - `doctor` reads the settings overlay in capture mode, matching real sync output. `--fix` no longer strips `enabledPlugins` / `statusLine` and no longer reports false drift after a clean sync. Import overlay also keeps source key order. Closes #215.
 - Frontmatter scalars containing `<`/`>` keep their quotes; long descriptions no longer wrap at 80 cols. Closes #218.
 
@@ -735,12 +759,14 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.18.0 - 2026-05-16
 
 ### Added
+
 - `doctor --check-globs`: opt-in flag rules whose `globs:` matches no path in the working tree. Closes #208.
 - `cleanup --backups`: removes `*.bak` left by `sync --backup`. Closes #197.
 - `outputs.codex.shared-subagents` (default `true`): set `false` in claude+codex setups to drop the duplicate `.agents/skills/` tree. Closes #194.
 - `spec.Entry.MetaKeys` exposes source frontmatter key order; external adapters receive it as `meta_keys` (additive, no protocol bump).
 
 ### Changed
+
 - Frontmatter emit preserves source key order, uses 2-space sequence indent, prefers double quotes. Closes #190, #191, #193.
 - `.claude/settings.json` keeps overlay key order, emits `{type, command}` / `{matcher, hooks}` in documented order, events in lifecycle sequence (`PreToolUse` before `PostToolUse`). `MergeJSONFile` (codex / opencode) inherits the same. Closes #192.
 - Capability warnings (`on-unsupported: warn`) collapse to one line per (target, kind) with a count + `on-unsupported: silent` hint. `sync --watch` resets between runs. Closes #204.
@@ -748,10 +774,12 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `doctor` drift splits into "missing" vs "stale — edited locally since last sync". Closes #207.
 
 ### Fixed
+
 - emit: normalize trailing newlines to exactly one `\n`. Closes #195.
 - `doctor` no longer false-positives drift on `.claude/settings.json` after sync (OrderedJSON round-trip is now byte-stable). Closes #200.
 
 ### Docs
+
 - README: rewrite "byte-identical" round-trip claim to match reality (content-preserving; marker + canonical formatting applied). Closes #201.
 - README: target table separates native from convention paths. Closes #202.
 - README + getting-started: recommended adoption workflow (split `import` and `sync` into two commits). Closes #196.
@@ -761,11 +789,13 @@ Three changes make a previously green repo fail. All three are deliberate.
 - getting-started: import scope boundary + `.agnostic-ai/.sync-state` reference. Closes #209, #210.
 
 ### Tests
+
 - claude import: provenance-marker round-trip stays marker-free across sync ↔ import cycles. Closes #198.
 
 ## v0.17.0 - 2026-05-15
 
 ### Added
+
 - `agnostic-ai lsp`: LSP server on stdio; pushes lint diagnostics on open/change/save. Closes #168.
 - `packs add` / `init`: auto-add `.agnostic-ai/packs/` to `.gitignore`. Closes #170.
 - `doctor` / `sync --check`: now detect drift in `AGNOSTIC_AI.md` and target entry-point files (`CLAUDE.md`, `AGENTS.md`, etc.).
@@ -779,6 +809,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.16.0 - 2026-05-15
 
 ### Changed
+
 - `sync`: uses `AGNOSTIC_AI.md` as the entry-point body source and distributes its content to `CLAUDE.md`, `AGENTS.md`, etc. Seeds the template when absent. Preserves content written by `import <target>`.
 - `AGNOSTIC_AI.md` is no longer auto-added to `.gitignore`; commit it as a source file.
 - `outputs` key in `agnostic-ai.yaml` is fully optional; omitted when empty in the JSON envelope sent to external adapters.
@@ -786,21 +817,25 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.15.1 - 2026-05-15
 
 ### Changed
+
 - `scripts/release.sh`: refuse to cut a release when no commits exist past the last tag or when `CHANGELOG [Unreleased]` has no entries. Prevents shipping an identical binary or empty release notes.
 
 ## v0.14.2 - 2026-05-15
 
 ### Added
+
 - `import`: accept multiple sources (`agnostic-ai import claude codex`). `AGNOSTIC_AI.md` mirrors last source (last-wins). `all` stays exclusive.
 
 ## v0.14.1 - 2026-05-15
 
 ### Added
+
 - `init`: scaffold `commands/` source folder and `sources.commands` entry.
 
 ## v0.14.0 - 2026-05-15
 
 ### Added
+
 - `sync --plan`: per-target diff summary without writing (#161).
 - `sync`: atomic transaction; partial writes roll back on failure (#162).
 - `sync.collision-policy`: `prompt`, `prefer-spec`, `fail` (#167).
@@ -819,12 +854,14 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.13.0 - 2026-05-15
 
 ### Added
+
 - `AAI-NNN` error codes; `agnostic-ai explain <code>` (#163).
 - `agnostic-ai why <file>` traces a file back to adapter/specs/config/timestamp, `--format json` (#164).
 - `agnostic-ai graph` spec → target → file. Formats: text, mermaid, dot, json. Filters: `--target`, `--spec`, `--kind` (#172).
 - `claude`: first-class `outputs.claude.settings.*` block (`model`, `outputStyle`, `apiKeyHelper`, etc.). Layers over captured overlay; spec hooks still win for `hooks` key (#177).
 
 ### Changed
+
 - **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point plus `.agnostic-ai/AGNOSTIC_AI.md`. Opt back into legacy concat via `outputs.<target>.rules-file` (#153).
 - `import` next-steps suggest `sync` + hint other detected CLIs.
 - `init` next-steps adapt to context.
@@ -834,14 +871,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.12.0 - 2026-05-14
 
 ### Added
+
 - `antigravity` adapter (Google Antigravity IDE). Supports `rule` + `agent`. Emits `.agent/rules/*.md` and `.agent/AGENTS.md`.
 
 ### Changed
+
 - `import` writes `AGNOSTIC_AI.md` to `.agnostic-ai/` instead of project root. Delete old root file after upgrading.
 - `init` two-step next-steps: `import <target>` then `sync`.
 - Adapter outputs now start with `Generated by agnostic-ai. Do not edit by hand.` header. Importers strip on round-trip. Closes #140.
 
 ### Fixed
+
 - `spec`: derive skill name from parent directory when frontmatter absent.
 - `claude`: no leading blank line when frontmatter empty (#137).
 - `claude`: per-file rules round-trip frontmatter, drop synthetic `# <name>` heading (#138).
@@ -849,6 +889,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.11.0 - 2026-05-14
 
 ### Added
+
 - New `command` spec kind. `commands/*.md` emits per-target slash commands.
 - `claude`: `.claude/commands/<name>.md`. Override via `outputs.claude.commands-dir`.
 - `codex`: `.codex/prompts/<name>.md`. Override via `outputs.codex.commands-dir`.
@@ -856,42 +897,51 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `emit.CopyTree` for mirroring file trees (honors capture/dry-run/recording/backup).
 
 ### Changed
+
 - Spec loader skips kinds whose `sources.<kind>` is empty rather than walking the layer root.
 - `init` pre-ticks targets whose marker exists (`.claude/`, `.codex/`, etc.).
 
 ### claude
+
 - `import claude` mirrors full skill dirs (helper scripts, fixtures, subdirs) byte-for-byte.
 - `sync` propagates skill sibling files into `.claude/skills/<name>/`. Mode bits preserved.
 
 ### codex
+
 - `import codex` mirrors full `.agents/skills/<name>/` (including `agents/openai.yaml` + assets).
 - `sync` propagates skill sibling files. `x-codex`-derived `agents/openai.yaml` wins over source copy at same path.
 
 ## v0.10.0 - 2026-05-14
 
 ### claude
+
 - Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` untouched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concat.
 - `.claude/settings.json` preserves user keys across sync. `import claude` captures into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top.
 - Hooks merge by `event` + `matcher`; `command:` accepts string or list.
 
 ### codex
+
 - Agents emit at `.agents/agents/<name>.toml` (was `.codex/agents/`). Override via `outputs.codex.agents-dir`.
 - `import codex` round-trips agents/skills/hooks/MCPs. Unknown TOML keys land under `x-codex`.
 
 ### gemini
+
 - `command:` accepts list; each entry emits as separate `{matcher, command}` pair.
 - Fix: emit no longer drops `command` when spec uses a list.
 
 ### all
+
 - Hook spec filenames derive from content hash (`<event>[-<matcher>]-<hash8>.yaml`). Re-imports converge.
 - JSON outputs no longer HTML-escape `&`, `<`, `>`.
 
 ### Dependencies
+
 - `github.com/BurntSushi/toml` v1.6.0 (codex TOML parsing).
 
 ## v0.9.0 - 2026-05-14
 
 ### Added
+
 - Playground UX: target chips, per-target file selector, theme toggle, mobile layout.
 - Source URL in `--help` / `--version`.
 - `import` for **aider, amp, warp, gemini, copilot, opencode, zed** (full kind coverage where supported).
@@ -900,10 +950,12 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `import copilot` lifts leading italic into `description:`; routes `agent-*` / `skill-*` files to matching source dir.
 
 ### Changed
+
 - `init` prompts for targets by default on TTY. Pipe a list, or `--all` / `-a` to skip. `-i` / `--interactive` removed.
 - `DefaultTargets()` no longer includes `amp` and `warp` (collide with codex on root `AGENTS.md`).
 
 ### Fixed
+
 - `import claude` keeps preamble before first `##`; ignores `##` inside fenced blocks.
 - `agnostic-ai.yaml`: only `version` required.
 - `sync` / `sync --check` fail fast with `output collision` when two targets write the same path.
@@ -911,14 +963,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.8.0 - 2026-05-13
 
 ### Added
+
 - `agnostic-ai.local.yaml` per-machine overrides; deep-merged over base. Auto-gitignored by `init` (#128).
 
 ### Changed
+
 - Renamed `agnostic.config.yaml` → `agnostic-ai.yaml`. Legacy still loads with deprecation warning (#128).
 
 ## v0.7.0 - 2026-05-13
 
 ### Added
+
 - `new <kind> <name>` scaffolds a single spec (#31).
 - `render <spec> [--target <t>...]` prints emission to stdout (#31).
 - `explain <spec>` lists every output a spec contributes to, `--json` (#40).
@@ -932,17 +987,20 @@ Three changes make a previously green repo fail. All three are deliberate.
 - Per-target opt-in native surfaces (existing rule emission preserved): Copilot Custom Chat Modes (#105), Cursor Custom Commands (#104), Cline Workflows (#106), Windsurf Workflows (#107), Continue Assistants (#108), Zed Tasks (#109), Warp Workflows (#110).
 
 ### Changed
+
 - `sync --watch`: fsnotify + 50 ms debounce (sub-100 ms re-sync, zero idle CPU). Polling kept as fallback (#36).
 - Code of Conduct contact: `conduct@chemaclass.dev` → `agnostic-ai@chemaclass.es`.
 
 ## v0.6.0 - 2026-05-12
 
 ### Changed
+
 - **BREAKING**: Amp default `AGENT.md` → `AGENTS.md` (per Sourcegraph spec). Legacy auto-renamed to `AGENT.md.bak` (#67).
 - **BREAKING**: Warp default `WARP.md` → `AGENTS.md` (per Warp Rules / AGENTS.md standard). Legacy auto-renamed to `WARP.md.bak` (#68).
 - Go toolchain bumped to 1.24 (#76).
 
 ### Added
+
 - Native multi-file emission for ◐ adapters:
   - **Copilot** (#64): `.github/instructions/<name>.instructions.md` per scoped rule.
   - **Gemini** (#65): hierarchical `GEMINI.md` + `.gemini/commands/<name>.toml`.
@@ -958,6 +1016,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.5.0 - 2026-05-07
 
 ### Added
+
 - `sync --only <targets>` / `sync --except <targets>` filters (mutually exclusive). `revert` gains same flags.
 - `agnostic-ai validate --fix`: rewrite specs for autofixable issues (backfills missing `name:` from filename / parent dir). Plain `validate` flags fixable issues with `*`.
 - Plugin protocol v1 for external adapters (`agnostic-ai-adapter-<target>` on PATH; JSON over stdin/stdout). Docs at `docs/internal/plugin-protocol.md`.
@@ -969,17 +1028,20 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `init` injects `yaml-language-server` schema hint into generated config.
 
 ### Changed
+
 - GitHub Release body built from `CHANGELOG.md` via `scripts/release-notes.sh`. No post-hoc `gh release edit`.
 - `promote_changelog` writes `## vX.Y.Z - YYYY-MM-DD` (no brackets). `## [Unreleased]` keeps brackets.
 - CI lint upgraded to `golangci-lint v2.6`.
 
 ### Fixed
+
 - Spec frontmatter parse errors report `path:line:col`. Malformed YAML no longer silently treated as body.
 - `extract_changelog_section` accepts both `## [vX.Y.Z]` and `## vX.Y.Z`.
 
 ## v0.4.0 - 2026-05-05
 
 ### Added
+
 - `sync --watch`: re-emit on changes (200 ms poll; Ctrl+C exits). Incompatible with `--check`.
 - `sync --auto-sync=yes|no`: first-sync TTY prompt; writes auto-sync rule spec; persists answer to config.
 - `init --demo`: seed one example spec per source folder.
@@ -990,17 +1052,20 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `--help` examples on every command.
 
 ### Changed
+
 - `init` scaffolds under `.agnostic-ai/` by default. `init .` for legacy root layout.
 - `sync` skips empty stub files.
 - `list` / `validate` print hint when no specs loaded.
 - Codex `AGENTS.md` lists agents as pointers, not inlined bodies.
 
 ### Removed
+
 - `init --from <source>` flag. Use `init` then `import <source>`.
 
 ## v0.3.0 - 2026-05-04
 
 ### Added
+
 - MCP servers as first-class spec kind (`mcps/*.yaml`). Propagates to Claude (`.mcp.json`), Cursor, Copilot (VS Code shape). Other targets warn.
 - `sync --backup`: copy each existing file to `<path>.bak`. Opt-in. Skipped on no-op writes.
 - `agnostic-ai revert`: restore `.bak` if present, otherwise remove. `--dry-run` to preview.
@@ -1014,6 +1079,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ## v0.2.0 - 2026-05-04
 
 ### Added
+
 - Skill emission: rules-dir adapters write per skill file; merged-doc adapters list under `## Skills`.
 - Generated-by header on merged-document outputs.
 - `internal/testutil` with `Chdir` / `TempCwd`.
@@ -1022,6 +1088,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - Roadmap doc.
 
 ### Changed
+
 - README simplified; details moved into `docs/`.
 - README aligned with AGENTS.md open standard.
 - `internal/cli/import_claude.go` split into per-concern files. No behavior change.
@@ -1030,11 +1097,13 @@ Three changes make a previously green repo fail. All three are deliberate.
 - Makefile gains `lint`, `fmt`, `vet`, `cover`.
 
 ### Fixed
+
 - CI Windows runner pinned to `bash`.
 
 ## v0.1.0 - 2026-05-04
 
 ### Added
+
 - Initial release: adapters for Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Aider, Cline, Windsurf, Continue.
 - Commands: `init`, `sync`, `validate`, `list`.
 - `init --from claude`: import existing `CLAUDE.md` + `.claude/` config.
