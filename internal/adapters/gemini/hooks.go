@@ -52,6 +52,9 @@ func hookHandlers(h spec.Entry) []map[string]any {
 		if name, _ := native["name"].(string); name != "" {
 			handler["name"] = name
 		}
+		if env, ok := native["env"].(map[string]any); ok {
+			handler["env"] = env
+		}
 		if timeout, ok := emit.IntField(h.Meta, "timeout"); ok {
 			handler["timeout"] = timeout * 1000
 		}
@@ -77,7 +80,7 @@ func nativeHookHandlers(raw any) []map[string]any {
 			continue
 		}
 		handler := map[string]any{"type": "command", "command": command}
-		for _, key := range []string{"name", "description", "timeout"} {
+		for _, key := range []string{"name", "description", "timeout", "env"} {
 			if value, exists := meta[key]; exists {
 				handler[key] = value
 			}

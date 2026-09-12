@@ -337,9 +337,9 @@ Renders to `.gemini/settings.json` (nested command handlers, event name passed t
 }
 ```
 
-When `command` is a list, each entry becomes a separate handler (Claude, Codex, Gemini). Gemini keeps the handlers in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler; `x-gemini.name` sets its native display name.
+When `command` is a list, each entry becomes a separate handler (Claude, Codex, Gemini). Gemini keeps the handlers in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler; `x-gemini.name` sets its native display name, and `x-gemini.env` supplies per-handler environment variables.
 
-Gemini hook imports preserve nested definitions and accept old flat files. A single handler imports with a timeout in seconds when exactly representable as a whole second; otherwise `x-gemini.timeout` retains the native milliseconds. A group with multiple handlers uses `x-gemini.hooks`, a native handler array that preserves each command, name, description, and millisecond timeout. This array replaces `command` emission for Gemini.
+Gemini hook imports preserve nested definitions and accept old flat files. A single handler imports with a timeout in seconds when exactly representable as a whole second; otherwise `x-gemini.timeout` retains the native milliseconds. A group with multiple handlers uses `x-gemini.hooks`, a native handler array that preserves each command, name, description, environment map, and millisecond timeout. This array replaces `command` emission for Gemini.
 
 ## MCP servers
 

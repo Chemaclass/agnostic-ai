@@ -289,6 +289,7 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 	}
 	sort.Strings(events)
 	count := 0
+	usedNames := map[string]bool{}
 	for _, event := range events {
 		entries, ok := hooks[event].([]any)
 		if !ok {
@@ -304,6 +305,12 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 				continue
 			}
 			name, _ := doc["name"].(string)
+			base := name
+			for suffix := 2; usedNames[name]; suffix++ {
+				name = fmt.Sprintf("%s-%d", base, suffix)
+			}
+			usedNames[name] = true
+			doc["name"] = name
 			raw, err := yaml.Marshal(doc)
 			if err != nil {
 				return count, fmt.Errorf("marshal hook %s: %w", name, err)
@@ -367,6 +374,9 @@ func geminiHookSpec(event string, definition map[string]any) map[string]any {
 		}
 		if name, _ := handler["name"].(string); name != "" {
 			native["name"] = name
+		}
+		if env, ok := handler["env"].(map[string]any); ok {
+			native["env"] = env
 		}
 		if timeout, ok := handler["timeout"].(float64); ok {
 			seconds := timeout / 1000
