@@ -10,12 +10,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// TestImportIgnore_ReadsHandAuthoredFileOnEverySevenTarget pins #754's
-// read side: each of the seven targets with an ignore-file convention
-// reconstructs a spec from the file the user wrote by hand. Before this
-// there was no importer at all, so patterns a sync destroyed could not
-// be recovered.
-func TestImportIgnore_ReadsHandAuthoredFileOnEverySevenTarget(t *testing.T) {
+// Import followed by sync must preserve ordered negations and pattern
+// whitespace on every target sharing the ignore-file writer (#761).
+func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 	for target, file := range ignoreFileByTarget {
 		t.Run(target, func(t *testing.T) {
 			dir := t.TempDir()
@@ -23,8 +20,9 @@ func TestImportIgnore_ReadsHandAuthoredFileOnEverySevenTarget(t *testing.T) {
 			silence(t)
 
 			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
-			writeFile(t, filepath.Join(dir, filepath.FromSlash(file)),
-				"# hand-authored by the team\nmy-secrets/\n*.key\n")
+			const handAuthored = " leading.key\n# hand-authored by the team\nmy-secrets/\n!example.key\n*.key\ntrailing.key\\ \n"
+			path := filepath.Join(dir, filepath.FromSlash(file))
+			writeFile(t, path, handAuthored)
 
 			execCLI(t, "import", target)
 
@@ -34,7 +32,34 @@ func TestImportIgnore_ReadsHandAuthoredFileOnEverySevenTarget(t *testing.T) {
 					t.Errorf("imported ignore spec missing %q:\n%s", want, spec)
 				}
 			}
+			if !strings.Contains(spec, "\n\n"+handAuthored) {
+				t.Errorf("import changed pattern order or whitespace: %q", spec)
+			}
+
+			execCLI(t, "sync", "-t", target)
+			if got := readFile(t, path); !strings.HasSuffix(got, handAuthored) {
+				t.Errorf("sync changed imported patterns: %q", got)
+			}
 		})
+	}
+}
+
+func TestImportIgnore_NormalizesBOMAndWindowsLineEndings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\n")
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, "\uFEFF leading.key\r\n!example.key\r\n*.key\r\ntrailing.key\\ \r\n")
+
+	execCLI(t, "import", "cursor")
+	execCLI(t, "sync", "-t", "cursor")
+
+	got := readFile(t, path)
+	const patterns = " leading.key\n!example.key\n*.key\ntrailing.key\\ \n"
+	if !strings.HasSuffix(got, patterns) || strings.Contains(got, "\uFEFF") {
+		t.Errorf("BOM or line ending normalization changed patterns: %q", got)
 	}
 }
 
