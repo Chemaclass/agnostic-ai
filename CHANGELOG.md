@@ -6,6 +6,12 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.56.1 - 2026-09-12
+
+### Fixed
+
+- `curl -fsSL ... | bash` installs again. `latest_version` piped curl into `grep -m1`, so grep exited on the first match, curl took EPIPE and exited 23, and `pipefail` propagated it: the tag resolved and the install died anyway. The script now fetches the release body before matching it, guards an empty version, and fails loudly under a shell without `BASH_VERSION`. Piped into `/bin/sh` it previously exited 0 having installed nothing.
+
 ## v0.56.0 - 2026-09-12
 
 ### Upgrade notes
