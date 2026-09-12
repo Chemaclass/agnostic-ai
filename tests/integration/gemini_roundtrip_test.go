@@ -1,9 +1,12 @@
 package integration
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -165,3 +168,52 @@ targets:
 gitignore:
   enabled: false
 `
+
+func TestGeminiImport_PreservesNativeHookGroups(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(geminiOnlyConfig), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".gemini"), 0o755))
+	native := `{"hooks":{"BeforeTool":[
+		{"matcher":"write_file","sequential":true,"hooks":[
+			{"type":"command","command":"echo first","name":"First check","timeout":1250,"description":"Validate","env":{"CHECK_MODE":"first"}},
+			{"type":"command","command":"echo second","timeout":5000}
+		]},
+		{"matcher":"read_file","hooks":[{"type":"command","command":"echo read","timeout":5000,"env":{"CHECK_MODE":"read"}}]},
+		{"matcher":"replace","hooks":[{"type":"command","command":"echo replace","timeout":1250,"name":"Replace check"}]},
+		{"matcher":"read_file","sequential":false,"hooks":[{"type":"command","command":"echo read","name":"Second reader","timeout":2500}]}
+	]}}`
+	settingsPath := filepath.Join(dir, ".gemini/settings.json")
+	must(t, os.WriteFile(settingsPath, []byte(native), 0o644))
+	runCmd(t, "import", "gemini")
+	// Re-import must reuse collision suffixes instead of creating more specs.
+	runCmd(t, "import", "gemini")
+	// Remove the native file so merge behavior cannot hide an import loss.
+	must(t, os.Remove(settingsPath))
+	runCmd(t, "sync", "-t", "gemini")
+	actual, err := os.ReadFile(settingsPath)
+	must(t, err)
+	if !reflect.DeepEqual(geminiHookDefinitions(t, []byte(native)), geminiHookDefinitions(t, actual)) {
+		t.Errorf("native hooks changed through import and sync:\nwant %s\ngot %s", native, actual)
+	}
+}
+
+func geminiHookDefinitions(t *testing.T, raw []byte) []string {
+	t.Helper()
+	var settings struct {
+		Hooks map[string][]map[string]any
+	}
+	must(t, json.Unmarshal(raw, &settings))
+	var definitions []string
+	for event, groups := range settings.Hooks {
+		for _, group := range groups {
+			encoded, err := json.Marshal(group)
+			must(t, err)
+			definitions = append(definitions, event+":"+string(encoded))
+		}
+	}
+	// Source filenames sort independently of the vendor's definition order.
+	// Preserve every definition, including ones with identical matchers.
+	sort.Strings(definitions)
+	return definitions
+}
