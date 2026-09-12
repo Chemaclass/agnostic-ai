@@ -1,9 +1,11 @@
 package integration
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -165,3 +167,41 @@ targets:
 gitignore:
   enabled: false
 `
+
+func TestGeminiImport_PreservesNativeHookGroups(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(geminiOnlyConfig), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".gemini"), 0o755))
+	native := `{"hooks":{"BeforeTool":[
+		{"matcher":"write_file","sequential":true,"hooks":[
+			{"type":"command","command":"echo first","name":"First check","timeout":1250,"description":"Validate"},
+			{"type":"command","command":"echo second","timeout":5000}
+		]},
+		{"matcher":"read_file","hooks":[{"type":"command","command":"echo read","timeout":5000}]},
+		{"matcher":"replace","hooks":[{"type":"command","command":"echo replace","timeout":1250,"name":"Replace check"}]}
+	]}}`
+	settingsPath := filepath.Join(dir, ".gemini/settings.json")
+	must(t, os.WriteFile(settingsPath, []byte(native), 0o644))
+	runCmd(t, "import", "gemini")
+	// Remove the native file so merge behavior cannot hide an import loss.
+	must(t, os.Remove(settingsPath))
+	runCmd(t, "sync", "-t", "gemini")
+	actual, err := os.ReadFile(settingsPath)
+	must(t, err)
+	var want, got map[string]any
+	must(t, json.Unmarshal([]byte(native), &want))
+	must(t, json.Unmarshal(actual, &got))
+	// Source filenames sort independently of the vendor's definition order.
+	byMatcher := func(doc map[string]any) map[string]any {
+		out := map[string]any{}
+		for _, raw := range doc["hooks"].(map[string]any)["BeforeTool"].([]any) {
+			group := raw.(map[string]any)
+			out[group["matcher"].(string)] = group
+		}
+		return out
+	}
+	if !reflect.DeepEqual(byMatcher(want), byMatcher(got)) {
+		t.Errorf("native hooks changed through import and sync:\nwant %s\ngot %s", native, actual)
+	}
+}

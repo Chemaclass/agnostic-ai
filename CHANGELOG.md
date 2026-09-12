@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- Gemini hooks use the nested command format its loader requires. Import preserves native handler groups and timeouts while accepting old flat hook files (#762).
+
 ## v0.56.0 - 2026-09-12
 
 ### Upgrade notes

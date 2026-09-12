@@ -68,6 +68,8 @@ Create directory-specific instructions with `agnostic-ai new rule payments-conte
 
 Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 targets](docs/user/targets.md#capability-matrix). Support varies by spec kind. The target reference lists each tool's capabilities, output paths, and opt-in settings.
 
+Gemini hook specs emit the native nested command format. Import preserves handler groups and millisecond timeouts. See [hook rendering](docs/user/spec-format.md#per-target-rendering).
+
 Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructions shared across your own projects, see [global configuration](docs/user/configuration.md#global-configuration).
 
 ## Find your next step
