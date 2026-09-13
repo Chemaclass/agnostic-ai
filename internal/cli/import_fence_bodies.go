@@ -49,7 +49,7 @@ func fenceDivergent(claudeBody, codexBody, claudeName, codexName string) string 
 	var b strings.Builder
 	// Tight stitch: ::end runs into the next ::target with no blank in
 	// between, and the common suffix attaches directly to the last ::end.
-	// `renderBodyForTarget` keeps every blank line outside a fence, so any
+	// `spec.FilterFences` keeps every blank line outside a fence, so any
 	// visual padding here would survive into the active target's emit as
 	// a stray blank between sections (#306). The fence markers are
 	// already on dedicated lines, so the spec stays readable.
