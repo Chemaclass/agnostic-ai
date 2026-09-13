@@ -307,6 +307,8 @@ agnostic-ai sync [flags]
 
 Paths listed under [`sync.unmanaged`](configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 
+**Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. On the next full run it removes files it no longer emits, such as a deleted skill's folder with its bundled `references/`, and prunes the empty directories left behind. A generated file is proven by its provenance header. A file copied verbatim (a skill asset, or any output of a target with `provenance_header: false`) is proven by the content hash recorded when sync wrote it. A leftover edited since sync is kept and reported as `~ kept orphan <path>`; it counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`. `--dry-run` does not preview the sweep.
+
 ### Profiling a slow sync
 
 Two opt-in hooks show where `sync` spends its time.
@@ -379,8 +381,8 @@ Exit codes are unchanged: zero when in sync, non-zero on drift, in every format.
 |-------|------|-------------|
 | `version` | string | Schema version. Currently `"1"`. |
 | `command` | string | Command that produced the output (`"sync"` or `"sync --check"`). |
-| `writes` | array | Files written (action `"create"` or `"update"`) or, for `--check`, files needing writing (action `"missing"` or `"stale"`). |
-| `skipped` | array | Files whose on-disk content already matched (action `"skip"`) or that are user-owned (action `"unmanaged"`). Empty for `--check`. |
+| `writes` | array | Files written (action `"create"` or `"update"`), orphans removed (action `"delete"`), or, for `--check`, files needing attention (action `"missing"`, `"stale"`, or `"orphan"`). |
+| `skipped` | array | Files whose on-disk content already matched (action `"skip"`), that are user-owned (action `"unmanaged"`), or orphans kept because they were edited since sync (action `"orphan"`). Empty for `--check`. |
 | `errors` | array | Per-target errors with `target` and `message` fields. |
 
 Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `action` (string), `bytes` (number).
@@ -420,7 +422,7 @@ Paths under [`sync.unmanaged`](configuration.md#syncunmanaged) are never restore
 
 ## doctor
 
-Diagnose drift between source specs and emitted artifacts. Reports missing files (never synced) and stale files (hand-edited or out of date). Exits non-zero on any drift.
+Diagnose drift between source specs and emitted artifacts. Reports missing files (never synced), stale files (hand-edited or out of date), and orphaned files (no longer generated, kept by sync because they were edited). Exits non-zero on any drift. `--fix` writes missing and stale files but leaves orphans for you to delete, so it still exits non-zero while any remain.
 
 ```bash
 agnostic-ai doctor                  # all targets in config (read-only)
