@@ -54,11 +54,13 @@ type WrittenFile struct {
 
 // Session holds the mutable mode flags for one emission pass: capture,
 // recording, counting, detailed recording, backup, and transaction
-// buffers, and the user-owned path set from sync.unmanaged. Each sync run owns its own Session (see NewSession) so two
-// runs in the same process — concurrent library use, parallel wasm
-// renders — never share capture/recording buffers or cross-talk. Every
-// read and write takes the same mutex so go test -race stays clean when
-// a single Session is shared across goroutines.
+// buffers, plus the user-owned path set from sync.unmanaged. Each sync
+// run owns its own Session (see NewSession) so two runs in the same
+// process — concurrent library use, parallel wasm renders — never share
+// capture/recording buffers or cross-talk. Every mode read and write
+// takes the same mutex (the unmanaged set is an atomic pointer) so go
+// test -race stays clean when a single Session is shared across
+// goroutines.
 type Session struct {
 	mu          sync.Mutex
 	capturing   bool
@@ -576,8 +578,8 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	// A missing or user-authored file is never removed, so only a
-	// generated file that is user-owned counts as a refused removal.
+	// A user-authored file is never removed anyway, so only a generated
+	// file that is user-owned counts as a refused removal.
 	if !header.Has(string(existing)) || s.skipUnmanaged(path) {
 		return nil
 	}

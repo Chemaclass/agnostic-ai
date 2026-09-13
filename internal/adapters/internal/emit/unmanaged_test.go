@@ -12,17 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// writeUnmanagedFixture creates path (and its parents) with content.
-func writeUnmanagedFixture(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func assertUnmanagedSkips(t *testing.T, sess *Session, want ...string) {
 	t.Helper()
 	if got := sess.UnmanagedSkips(); !reflect.DeepEqual(got, want) {
@@ -33,7 +22,7 @@ func assertUnmanagedSkips(t *testing.T, sess *Session, want ...string) {
 func TestWriteFile_SkipsUnmanagedPath(t *testing.T) {
 	testutil.TempCwd(t)
 	const path = ".cursor/rules/legacy.mdc"
-	writeUnmanagedFixture(t, path, "mine\n")
+	mustWrite(t, path, "mine\n")
 	sess := NewSession()
 	sess.SetUnmanaged([]string{path})
 
@@ -64,19 +53,19 @@ func TestWriteFile_UnmanagedIsNotCapturedRecordedOrDetailed(t *testing.T) {
 		t.Errorf("captured = %+v, want only %s", captured, sibling)
 	}
 
-	real := NewSession()
-	real.SetUnmanaged([]string{owned})
-	real.StartRecording()
-	real.StartDetailedRecording()
+	writer := NewSession()
+	writer.SetUnmanaged([]string{owned})
+	writer.StartRecording()
+	writer.StartDetailedRecording()
 	for _, p := range []string{owned, sibling} {
-		if err := real.WriteFile(p, "x\n", false); err != nil {
+		if err := writer.WriteFile(p, "x\n", false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got := real.StopRecording(); !reflect.DeepEqual(got, []string{sibling}) {
+	if got := writer.StopRecording(); !reflect.DeepEqual(got, []string{sibling}) {
 		t.Errorf("recorded = %q, want only %s", got, sibling)
 	}
-	detailed := real.StopDetailedRecording()
+	detailed := writer.StopDetailedRecording()
 	if len(detailed) != 1 || detailed[0].Path != sibling {
 		t.Errorf("detailed = %+v, want only %s", detailed, sibling)
 	}
@@ -121,7 +110,7 @@ func TestWriteFile_DryRunSkipsUnmanagedAndRecordsIt(t *testing.T) {
 func TestMergeJSONFile_SkipsUnmanaged(t *testing.T) {
 	testutil.TempCwd(t)
 	const path, mine = "opencode.json", "{\"mine\": true}\n"
-	writeUnmanagedFixture(t, path, mine)
+	mustWrite(t, path, mine)
 	sess := NewSession()
 	sess.SetUnmanaged([]string{path})
 
@@ -136,9 +125,9 @@ func TestMergeJSONFile_SkipsUnmanaged(t *testing.T) {
 
 func TestCopyTree_SkipsUnmanagedFileCopiesSiblings(t *testing.T) {
 	testutil.TempCwd(t)
-	writeUnmanagedFixture(t, "src/a.md", "a\n")
-	writeUnmanagedFixture(t, "src/b.md", "b\n")
-	writeUnmanagedFixture(t, "dst/b.md", "mine\n")
+	mustWrite(t, "src/a.md", "a\n")
+	mustWrite(t, "src/b.md", "b\n")
+	mustWrite(t, "dst/b.md", "mine\n")
 	sess := NewSession()
 	sess.SetUnmanaged([]string{"dst/b.md"})
 
@@ -158,7 +147,7 @@ func TestRemoveGenerated_KeepsUnmanagedGeneratedFile(t *testing.T) {
 	testutil.TempCwd(t)
 	const path = "AGENT.md"
 	body := header.Marker + "\nold\n"
-	writeUnmanagedFixture(t, path, body)
+	mustWrite(t, path, body)
 	sess := NewSession()
 	sess.SetUnmanaged([]string{path})
 
@@ -187,8 +176,8 @@ func TestRemoveGenerated_UnmanagedMissingFileIsNotReported(t *testing.T) {
 func TestRemoveGeneratedTree_KeepsUnmanagedFileAndItsDir(t *testing.T) {
 	testutil.TempCwd(t)
 	body := header.Marker + "\n"
-	writeUnmanagedFixture(t, "legacy/hand.md", body)
-	writeUnmanagedFixture(t, "legacy/gen.md", body)
+	mustWrite(t, "legacy/hand.md", body)
+	mustWrite(t, "legacy/gen.md", body)
 	sess := NewSession()
 	sess.SetUnmanaged([]string{"legacy/hand.md"})
 
@@ -207,7 +196,7 @@ func TestRemoveGeneratedTree_KeepsUnmanagedFileAndItsDir(t *testing.T) {
 func TestWriteIgnoreFile_SkipsUnmanagedWithoutRefusal(t *testing.T) {
 	testutil.TempCwd(t)
 	const path, mine = ".kiroignore", "# hand-authored\nmy-secrets/\n"
-	writeUnmanagedFixture(t, path, mine)
+	mustWrite(t, path, mine)
 	sess := NewSession()
 	sess.SetUnmanaged([]string{path})
 
@@ -224,7 +213,7 @@ func TestWriteIgnoreFile_SkipsUnmanagedWithoutRefusal(t *testing.T) {
 func TestMigrateLegacyFile_KeepsUnmanagedLegacyFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	body := header.Marker + "\nstale\n"
-	writeUnmanagedFixture(t, filepath.Join(dir, "LEGACY.md"), body)
+	mustWrite(t, filepath.Join(dir, "LEGACY.md"), body)
 	sess := NewSession()
 	sess.SetUnmanaged([]string{"LEGACY.md"})
 
