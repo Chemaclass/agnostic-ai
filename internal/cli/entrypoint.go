@@ -40,7 +40,11 @@ func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec
 		return err
 	}
 	for _, f := range files {
-		warnOnHandAuthoredEntryPoint(f.Path)
+		// A user-owned file is expected to be hand-authored. sess still
+		// receives the write so it records the skip for the summary.
+		if !cfg.IsUnmanaged(f.Path) {
+			warnOnHandAuthoredEntryPoint(f.Path)
+		}
 		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
 		}
@@ -188,6 +192,8 @@ func pathRulesImporter(cfg *config.Config, consumers []string) string {
 // Targets on the legacy concatenated rules-file layout are skipped because
 // the adapter owns that write. Mirrors writeAgnosticEntryPoints' path
 // selection so revert and check stay symmetric with sync (#389).
+// User-owned paths (sync.unmanaged) are excluded so revert and cleanup
+// never touch them.
 func entryPointPaths(cfg *config.Config, targets []string) []string {
 	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
 	paths := []string{adapters.AgnosticEntryPointPath}
@@ -196,7 +202,7 @@ func entryPointPaths(cfg *config.Config, targets []string) []string {
 			continue
 		}
 		path := adapters.EntryPointPath(cfg, t)
-		if path == "" || seen[path] {
+		if path == "" || seen[path] || cfg.IsUnmanaged(path) {
 			continue
 		}
 		seen[path] = true

@@ -103,6 +103,7 @@ const ProvenanceMarker = header.Marker
 //   - Skipped when the legacy file is missing or does not carry the
 //     agnostic-ai provenance marker (it is treated as user-authored
 //     and left untouched).
+//   - Skipped when the legacy path is user-owned (sync.unmanaged).
 //   - Looks for the legacy file alongside the configured output
 //     directory derived from cfg.Outputs[target].File (or the default
 //     output path), so a custom output location migrates correctly.
@@ -115,7 +116,7 @@ func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defa
 	}
 	legacyPath := legacyFilePath(cfg, target, legacyName, defaultNewPath)
 	data, err := os.ReadFile(legacyPath)
-	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) {
+	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) || s.skipUnmanaged(legacyPath) {
 		return
 	}
 	if err := os.Rename(legacyPath, legacyPath+".bak"); err != nil {

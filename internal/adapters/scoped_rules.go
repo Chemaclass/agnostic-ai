@@ -59,6 +59,9 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 				return fmt.Errorf("%s: incompatible target-specific scoped instructions; use identical content or separate worktrees", f.Path)
 			}
 			shared[f.Path] = f
+			if cfg.IsUnmanaged(f.Path) {
+				continue
+			}
 			if err := emit.CheckScopedDestination(f.Path); err != nil {
 				return err
 			}
@@ -80,6 +83,9 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			continue
 		}
 		sess := NewSession()
+		// User-owned destinations drop out of the capture, so sync never
+		// writes them and the ownership check below never sees them.
+		sess.SetUnmanaged(cfg.Sync.Unmanaged)
 		sess.StartCapture()
 		if err := a.Emit(sess, spec.Bundle{Rules: scoped}, cfg, false); err != nil {
 			sess.StopCapture()

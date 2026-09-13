@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // unmanagedConfigGlobs enumerates known agentic config files that
@@ -95,12 +96,19 @@ func findUnmanagedConfig(root string) ([]unmanagedFinding, error) {
 
 // reportUnmanagedConfig prints the doctor section listing agentic config
 // files present on disk but not single-sourced from `.agnostic-ai/`,
-// each with the `import` command that would adopt it. Returns the number
-// of findings so callers can fold the count into a summary.
-func reportUnmanagedConfig(cmd *cobra.Command, root string) int {
-	findings, err := findUnmanagedConfig(root)
+// each with the `import` command that would adopt it. Paths listed under
+// sync.unmanaged are user-owned by choice, so they are left out. Returns
+// the number of findings so callers can fold the count into a summary.
+func reportUnmanagedConfig(cmd *cobra.Command, root string, cfg *config.Config) int {
+	all, err := findUnmanagedConfig(root)
 	if err != nil {
 		return 0
+	}
+	var findings []unmanagedFinding
+	for _, f := range all {
+		if !cfg.IsUnmanaged(f.Path) {
+			findings = append(findings, f)
+		}
 	}
 	cmd.Println()
 	cmd.Println("Unmanaged config (on disk, not generated from .agnostic-ai/):")
@@ -124,4 +132,18 @@ func reportUnmanagedConfig(cmd *cobra.Command, root string) int {
 		cmd.Printf("    → adopt with: agnostic-ai import %s\n", target)
 	}
 	return len(findings)
+}
+
+// reportUserOwned prints the sync.unmanaged entries so a file that sync
+// keeps skipping is explained next to the drift report. Silent when the
+// list is empty: nothing to explain.
+func reportUserOwned(cmd *cobra.Command, cfg *config.Config) {
+	if len(cfg.Sync.Unmanaged) == 0 {
+		return
+	}
+	cmd.Println()
+	cmd.Println("User-owned (sync.unmanaged):")
+	for _, p := range cfg.Sync.Unmanaged {
+		cmd.Printf("  ~ %s\n", p)
+	}
 }

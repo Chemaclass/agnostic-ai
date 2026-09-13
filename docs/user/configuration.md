@@ -27,6 +27,7 @@ For directory-specific instructions, keep this one project config and add `scope
 | Change source or output paths | [Sources](#sources) and [Outputs](#outputs) |
 | Keep generated files out of Git | [Gitignore](#gitignore) |
 | Customize sync behavior | [Sync](#sync) |
+| Keep a hand-written file at a generated path | [`sync.unmanaged`](#syncunmanaged) |
 | Override settings on one machine | [Local overrides](#local-overrides) |
 | Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
 | Share personal instructions across projects | [Global configuration](#global-configuration) |
@@ -526,6 +527,28 @@ sync:
 - Links are per skill folder, not per skills directory, so hand-authored skills next to managed ones are never touched.
 - Turning the option off (or a skill starting to diverge) converts links back to real trees on the next sync. Removing a skill sweeps its canonical tree and every link.
 - On filesystems without symlink support (Windows without the privilege), sync warns once and keeps real copies.
+
+### `sync.unmanaged`
+
+Paths you own. `sync` never writes, merges, copies, or removes them.
+
+```yaml
+# In agnostic-ai.yaml
+sync:
+  unmanaged:
+    - .cursor/rules/legacy.mdc        # exact path
+    - .claude/agents/hand-*.md        # glob; `*` stays inside one path segment
+    - .claude/skills/legacy/          # trailing slash: everything under the directory
+```
+
+- Entries are project-relative. A leading `./` or `/` is ignored. Globs use Go `path.Match`; `**` is not supported. A malformed glob fails config load.
+- `sync` skips each matching output and prints `~ skip (unmanaged) <path>`. `--json` lists it under `skipped` with action `"unmanaged"`.
+- `sync --check`, `status`, and `doctor` never report it as drift. `doctor` lists the entries in a `User-owned` block and leaves them out of the `Unmanaged config` block.
+- The path stays out of the sync ledger, so removing the entry later deletes nothing. The next sync rewrites the file with the provenance header.
+- `revert` and `doctor --fix` never restore or delete it.
+- The managed `.gitignore` block does not collapse a directory that holds one of these files. That directory's generated files are listed one per line instead, so git sees your file.
+- The list is project-wide, not per target: one path such as `AGENTS.md` has many readers. `agnostic-ai.local.yaml` replaces the whole list, like every list in the local override.
+- Not covered yet: hook script bodies copied from `.agnostic-ai/scripts/` into `.<tool>/hooks/`.
 
 ### Parallel emission (`--jobs`)
 

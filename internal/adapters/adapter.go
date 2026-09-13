@@ -337,9 +337,14 @@ type Adapter interface {
 // installs the toggle for the duration of the emit so adapter calls to
 // emit.WithHeader honor it. CLI dispatch sites (sync, check, status,
 // revert, render, collision) should prefer this wrapper over a bare
-// adapter.Emit.
+// adapter.Emit. Installs the user-owned path set from `sync.unmanaged`
+// on sess so every adapter, current and future, honors it without
+// per-adapter code.
 func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	defer emit.ProvenanceFor(cfg, a.Name())()
+	if cfg != nil {
+		sess.SetUnmanaged(cfg.Sync.Unmanaged)
+	}
 	prepared, files, err := emit.PrepareScopedRules(expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, a.Name())
 	if err != nil {
 		return err

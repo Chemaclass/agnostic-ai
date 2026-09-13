@@ -340,6 +340,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	// own session; sessions collects every session with a rollback log in
 	// write order, so the deferred rollback undoes the latest phase first.
 	mainSess := adapters.NewSession()
+	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
 	}
@@ -434,7 +435,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries)
+		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
@@ -492,6 +493,10 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			}
 		}
 	}
+	// After the sweep, so refused orphan removals are reported too.
+	for _, p := range unmanagedSkips(sessions) {
+		summaryf("  ~ skip (unmanaged) %s\n", p)
+	}
 	if !dryRun {
 		if err := writeStateFile(root, filesChanged, digest, notesDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
@@ -499,6 +504,23 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
 	return nil
+}
+
+// unmanagedSkips merges the user-owned paths every session refused to
+// touch, deduplicated and sorted. A shared path reaches several target
+// sessions, so the per-session lists overlap. Nil sessions (a target that
+// never started under fail-fast) are skipped.
+func unmanagedSkips(sessions []*adapters.Session) []string {
+	seen := map[string]struct{}{}
+	for _, s := range sessions {
+		if s == nil {
+			continue
+		}
+		for _, p := range s.UnmanagedSkips() {
+			seen[filepath.ToSlash(p)] = struct{}{}
+		}
+	}
+	return sortedKeys(seen)
 }
 
 func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
@@ -582,6 +604,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	// target emits on its own session. The JSON path is not transactional:
 	// it reports per-target errors in the result rather than rolling back.
 	mainSess := adapters.NewSession()
+	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
 	}
@@ -594,7 +617,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, _, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, false, jobs)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, false, jobs)
+	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	for _, e := range emits {
 		if e.err != nil {
@@ -638,7 +662,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries)
+		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
@@ -651,6 +675,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	}
 	for _, p := range removed {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"})
+	}
+	for _, p := range unmanagedSkips(sessions) {
+		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
 	if !dryRun {
 		// JSON path does not print warnings or notes, so preserve the

@@ -118,18 +118,24 @@ func normalizeGitignorePath(p string) string {
 // `/.claude/rules/` instead of one line per emitted file. Collapsing stops at
 // the generated subdirectory rather than the tool's top-level dir, so a
 // hand-authored sibling (e.g. `.claude/settings.json`, `.claude/hooks/`) is
-// never swallowed by a `/.claude/` ignore (#414). Three kinds of entry are
+// never swallowed by a `/.claude/` ignore (#414). Four kinds of entry are
 // kept verbatim so collapsing never ignores a committed file:
 //   - root-level files (no directory segment, e.g. `/AGENTS.md`);
 //   - files sitting directly under a tool dir (e.g. `/.claude/CLAUDE.md`);
 //   - entries under a protected source directory, where tracked specs live
-//     alongside generated state (e.g. `/.agnostic-ai/.sync-state`).
+//     alongside generated state (e.g. `/.agnostic-ai/.sync-state`);
+//   - entries under a preciseDirs directory (`/top/sub/`), one that holds a
+//     user-owned file from sync.unmanaged.
 //
 // Input entries are already root-anchored and sorted (normalizeAndSort).
-func collapseManagedEntries(entries, protectedTopDirs []string) []string {
+func collapseManagedEntries(entries, protectedTopDirs, preciseDirs []string) []string {
 	protected := make(map[string]struct{}, len(protectedTopDirs))
 	for _, d := range protectedTopDirs {
 		protected[d] = struct{}{}
+	}
+	precise := make(map[string]struct{}, len(preciseDirs))
+	for _, d := range preciseDirs {
+		precise[d] = struct{}{}
 	}
 	seen := make(map[string]struct{}, len(entries))
 	out := make([]string, 0, len(entries))
@@ -153,7 +159,12 @@ func collapseManagedEntries(entries, protectedTopDirs []string) []string {
 				add(e) // source dir: keep the precise file
 				continue
 			}
-			add("/" + segs[0] + "/" + segs[1] + "/")
+			dir := "/" + segs[0] + "/" + segs[1] + "/"
+			if _, keep := precise[dir]; keep {
+				add(e) // holds a user-owned file: keep the precise file
+				continue
+			}
+			add(dir)
 		}
 	}
 	sort.Strings(out)
@@ -201,10 +212,27 @@ func gitignoreTopSegment(p string) string {
 // `!`-prefixed lines. Allows are emitted last so they override any broader
 // ignore above them, letting a project keep a tracked fixture (e.g.
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
-func buildManagedBlock(cfg *config.Config, entries []string) []string {
+//
+// unmanaged holds the user-owned paths sync refused to write this run. A
+// directory that holds one is never collapsed to a `/dir/sub/` rule: the
+// rule would hide the user's file, and no `!` line can re-include a file
+// under an excluded directory.
+func buildManagedBlock(cfg *config.Config, entries, unmanaged []string) []string {
 	entries = append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)
-	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg))
+	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg), collapsibleDirs(unmanaged))
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
+}
+
+// collapsibleDirs returns the `/top/sub/` directory collapseManagedEntries
+// would fold each path into. Paths too shallow to collapse yield nothing.
+func collapsibleDirs(paths []string) []string {
+	var out []string
+	for _, p := range normalizeAndSort(paths) {
+		if segs := strings.SplitN(strings.TrimPrefix(p, "/"), "/", 3); len(segs) == 3 {
+			out = append(out, "/"+segs[0]+"/"+segs[1]+"/")
+		}
+	}
+	return out
 }
 
 // dropSourceEntryPoint removes AGNOSTIC_AI.md from the recorded emissions.
@@ -266,7 +294,7 @@ func ensureManagedGitignore(root string) error {
 		return nil
 	}
 	cfg := &config.Config{}
-	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil))
+	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil, nil))
 }
 
 // updateGitignore rewrites the managed block in `<root>/.gitignore` (or
