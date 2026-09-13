@@ -17,6 +17,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `import` keeps a fenced `AGNOSTIC_AI.md` when the entry point matches the view sync renders for the enabled targets and `outputs.<target>.file` overrides; it no longer wipes `::target` blocks in projects that enable a subset of targets or move a target's entry point. `import claude` reports the kept source as unchanged (#781).
+- `validate` accepts `::target` fences for external adapters listed in `targets`, and flags fences for built-in targets that read no entry-point file, such as `cursor` or a target on the legacy rules-file layout (#781).
 - Turning `sync.shared-skills` off no longer aborts the orphan sweep with "is a directory", which left stale generated files behind (#781).
 - Deleting a skill removes its bundled reference files and empty folders from every target. Sync proves ownership of header-less outputs by content hash, keeps and reports an orphan edited since sync (`~ kept orphan`), and `sync --check` and `doctor` flag it as drift until it is gone. `sync --dry-run` no longer reports every prior output as an orphan (#785).
 - VS Code MCP sync preserves `inputs`, `sandbox`, and other sibling settings while replacing the managed `servers` map; remote servers retain `dev.watch` (#757, #769).

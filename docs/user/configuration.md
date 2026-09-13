@@ -816,7 +816,8 @@ Run `make preflight` before you stop.
 - A fenced block goes to a file when any target reading that file is listed. `AGENTS.md` has many readers (codex, amp, warp, cline, ...), so a `::target codex` block reaches all of them. A shared file is never split.
 - Marker lines never reach the output. `.agnostic-ai/AGNOSTIC_AI.md` keeps them; it is the source.
 - Markers must start at column 0. Indent a code sample that shows a marker.
-- `agnostic-ai validate` flags a fence naming an unknown target.
+- `agnostic-ai validate` flags a fence naming an unknown target, or a built-in target that reads no entry-point file.
+- `agnostic-ai import` keeps a fenced source when the imported entry point is exactly the view sync renders for the enabled targets, so re-importing an untouched file never erases other tools' blocks.
 - `agnostic-ai import <tool>` leaves a fenced source untouched when the imported entry point equals its rendered view (the default `sync.resolve-imports: passthrough`). Otherwise import overwrites the source, as before, and warns that the fences are gone.
 
 To opt back into the legacy concatenated layout for a target, set `outputs.<target>.rules-file: <path>`. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so the two do not collide.
