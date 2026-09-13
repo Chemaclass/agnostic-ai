@@ -71,7 +71,7 @@ func TestFenceDivergent_TotalDivergence(t *testing.T) {
 	}
 }
 
-// renderBodyForTarget keeps every blank line outside a fence, so any
+// spec.FilterFences keeps every blank line outside a fence, so any
 // stitching padding the auto-fencer adds between fences leaks into the
 // emit as a stray blank between sections (#306). Stack the fences and
 // confirm rendering for each target reads as if the fences were never
