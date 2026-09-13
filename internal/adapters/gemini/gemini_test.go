@@ -629,7 +629,7 @@ func TestEmit_MCP_PassesThroughTimeoutTrustDescriptionIncludeExcludeTools(t *tes
 	}
 }
 
-// Hooks emit under hooks.<event> = [{matcher, command}, ...].
+// Hook definitions group handlers under their native event.
 func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -671,7 +671,7 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 }
 
 // A spec's command: may be a list of strings; each entry emits as its
-// own {matcher, command} entry under the same event.
+// own command handler in the same definition.
 func TestEmit_Hook_CommandAsList(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

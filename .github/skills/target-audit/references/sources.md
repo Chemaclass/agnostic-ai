@@ -80,9 +80,9 @@ cost nobody again:
 
 ## gemini
 
-- docs: https://geminicli.com/docs/core/subagents.md · https://geminicli.com/docs/reference/tools.md · https://geminicli.com/docs/cli/skills/ · /docs/cli/custom-commands/ · /docs/reference/configuration · /docs/cli/gemini-ignore/ (the ignore file Gemini CLI actually reads is `.geminiignore`; `.aiexclude` belongs to Gemini Code Assist, a different product, target-audit 2026-08-27)
+- docs: https://geminicli.com/docs/hooks/reference/ · https://geminicli.com/docs/core/subagents.md · https://geminicli.com/docs/reference/tools.md · https://geminicli.com/docs/cli/skills/ · /docs/cli/custom-commands/ · /docs/reference/configuration · /docs/cli/gemini-ignore/ (the ignore file Gemini CLI actually reads is `.geminiignore`; `.aiexclude` belongs to Gemini Code Assist, a different product, target-audit 2026-08-27)
 - changelog: https://github.com/google-gemini/gemini-cli/releases
-- watch: `.gemini/skills/` vs the `.agents/skills` alias precedence, `settings.json` hooks + mcpServers schema. `/docs/core/subagents.md` documents the native project subagent directory `.gemini/agents/*.md` with a full frontmatter table (`name` and `description` required, then `kind`, `tools`, `mcpServers`, `model`, `temperature`, `max_turns`, `timeout_mins`), emitted since #733; watch that table for a new field and watch whether `kind: remote` ever needs more than a passthrough. Two vocabularies diverge here and must not be conflated: subagent `tools` takes **Gemini's own** snake_case tool names from `/docs/reference/tools.md` (`run_shell_command`, `replace`, `grep_search`, ...), not Claude's, so `geminiToolName` in `internal/adapters/gemini/agents.go` translates the eight generic names and drops the rest with a coverage note. Re-check that reference table whenever Gemini renames a tool (`grep_search` already carries `search_file_content` as a "legacy alias"). The pre-#733 slash-command TOML per agent survives behind `outputs.gemini.emit-agents-as-commands`.
+- watch: Hook definitions require a nested `hooks` array; the stable v0.59.0 loader discards flat entries (https://github.com/google-gemini/gemini-cli/blob/v0.59.0/packages/core/src/hooks/hookRegistry.ts#L244, #762). Handler timeouts are milliseconds; `sequential` belongs to the definition. `.gemini/skills/` vs the `.agents/skills` alias precedence, `settings.json` hooks + mcpServers schema. `/docs/core/subagents.md` documents the native project subagent directory `.gemini/agents/*.md` with a full frontmatter table (`name` and `description` required, then `kind`, `tools`, `mcpServers`, `model`, `temperature`, `max_turns`, `timeout_mins`), emitted since #733; watch that table for a new field and watch whether `kind: remote` ever needs more than a passthrough. Two vocabularies diverge here and must not be conflated: subagent `tools` takes **Gemini's own** snake_case tool names from `/docs/reference/tools.md` (`run_shell_command`, `replace`, `grep_search`, ...), not Claude's, so `geminiToolName` in `internal/adapters/gemini/agents.go` translates the eight generic names and drops the rest with a coverage note. Re-check that reference table whenever Gemini renames a tool (`grep_search` already carries `search_file_content` as a "legacy alias"). The pre-#733 slash-command TOML per agent survives behind `outputs.gemini.emit-agents-as-commands`.
 
 ## cursor
 
@@ -180,7 +180,7 @@ cost nobody again:
 ## trae
 
 - docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers · https://docs.trae.ai/ide/skills · https://docs.trae.ai/ide/subagents · https://docs.trae.ai/ide/slash-commands · https://docs.trae.ai/ide/hook-configuration-reference · https://docs.trae.ai/ide/automate-actions-with-hooks · https://docs.trae.ai/ide/ignore-files
-- changelog: https://www.trae.ai/api/changelog (returns JSON; the docs site publishes no changelog page)
+- changelog: https://www.trae.ai/api/changelog (primary JSON feed, latest entry 2026-09-01) · https://docs.trae.ai/ide/changelog (documentation alternative, latest entry 2026-08-19; checked 2026-09-12)
 - watch: `docs.trae.ai/ide/mcp`, the old URL for the MCP page, now 302s
   to a marketing page; model-context-protocol (the MCP overview) and
   add-mcp-servers (the config how-to) are the two live ones. Confirm
@@ -240,7 +240,7 @@ cost nobody again:
 ## jules
 
 - docs: https://jules.google/docs
-- changelog: https://jules.google/docs (changelog section)
+- changelog: https://jules.google/docs/changelog/
 - watch: today AGENTS.md only; any per-file surface is new.
 
 ## goose

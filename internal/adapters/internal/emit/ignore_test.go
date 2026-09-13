@@ -24,6 +24,19 @@ func TestIgnoreBody_ConcatenatesTrimmed(t *testing.T) {
 	}
 }
 
+func TestIgnoreBody_PreservesPatternWhitespace(t *testing.T) {
+	t.Parallel()
+	got := IgnoreBody([]spec.Entry{
+		{Body: "\n secret.key\n"},
+		{Body: "\t\n"},
+		{Body: "trailing.key\\ \n"},
+	})
+	const want = " secret.key\n\n\t\n\ntrailing.key\\ "
+	if got != want {
+		t.Errorf("IgnoreBody = %q, want %q", got, want)
+	}
+}
+
 func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
 	t.Parallel()
 	sess := NewSession()
@@ -89,24 +102,95 @@ func TestWriteIgnoreFile_RefusesHandAuthoredFile(t *testing.T) {
 	}
 }
 
-// An overwrite that reproduces every hand-authored pattern loses
-// nothing, so it proceeds. This is what makes `import <target>` then
-// `sync` a complete migration with no manual delete in between.
+func TestWriteIgnoreFile_RefusesUnprovenPatternPreservation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		existing string
+		body     string
+	}{
+		{
+			name:     "reordered negation",
+			existing: "!example.key\n*.key\n",
+			body:     "*.key\n!example.key\n",
+		},
+		{
+			name:     "appended negation",
+			existing: "*.key\n",
+			body:     "*.key\n!example.key\n",
+		},
+		{
+			name:     "duplicated negation",
+			existing: "!example.key\n*.key\n",
+			body:     "!example.key\n*.key\n!example.key\n",
+		},
+		{
+			name:     "removed repeated exclusion",
+			existing: "*.key\n!example.key\n*.key\n",
+			body:     "*.key\n!example.key\n",
+		},
+		{
+			name:     "changed leading space",
+			existing: " secret.key\n",
+			body:     "secret.key\n",
+		},
+		{
+			name:     "indented hash is a pattern",
+			existing: " #secret.key\n",
+			body:     "dist/\n",
+		},
+		{
+			name:     "changed escaped trailing space",
+			existing: "secret.key\\ \n",
+			body:     "secret.key\\\n",
+		},
+		{
+			name:     "tab is a pattern",
+			existing: "\t\n",
+			body:     "dist/\n",
+		},
+		{
+			name:     "BOM moves behind generated header",
+			existing: "\uFEFF*.key\n",
+			body:     "\uFEFF*.key\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), ".cursorignore")
+			if err := os.WriteFile(path, []byte(tt.existing), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			err := NewSession().WriteIgnoreFile([]spec.Entry{{Body: tt.body}}, "cursor", path, false)
+			if got := errs.CodeOf(err); got != errs.CodeIgnoreOverwrite {
+				t.Errorf("CodeOf(%v) = %q, want %q", err, got, errs.CodeIgnoreOverwrite)
+			}
+			if got := readFileString(t, path); got != tt.existing {
+				t.Errorf("hand-authored file changed: got %q, want %q", got, tt.existing)
+			}
+		})
+	}
+}
+
+// Extra exclusions before and after unchanged patterns are safe, even
+// when the hand-authored file already contains a negation.
 func TestWriteIgnoreFile_WritesWhenPatternsSurvive(t *testing.T) {
 	t.Parallel()
 	sess := NewSession()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".kiroignore")
-	if err := os.WriteFile(path, []byte("# team notes\nmy-secrets/\n*.key\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("# team notes\nmy-secrets/\n*.key\n!example.key\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	entries := []spec.Entry{{Body: "my-secrets/\n*.key"}, {Body: "dist/"}}
+	entries := []spec.Entry{{Body: "cache/"}, {Body: "my-secrets/\n*.key\n!example.key"}, {Body: "dist/"}}
 	if err := sess.WriteIgnoreFile(entries, "kiro", path, false); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	got := readFileString(t, path)
-	for _, want := range []string{header.Marker, "my-secrets/", "*.key", "dist/"} {
+	for _, want := range []string{header.Marker, "cache/", "my-secrets/\n*.key\n!example.key", "dist/"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in:\n%s", want, got)
 		}
@@ -184,11 +268,15 @@ func TestWriteIgnoreFile_RefusesWhileCapturing(t *testing.T) {
 	defer sess.StopCapture()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".kiroignore")
-	if err := os.WriteFile(path, []byte("my-secrets/\n"), 0o644); err != nil {
+	const existing = "!example.key\n*.key\n"
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := sess.WriteIgnoreFile([]spec.Entry{{Body: "dist/"}}, "kiro", path, false); err == nil {
+	if err := sess.WriteIgnoreFile([]spec.Entry{{Body: "*.key\n!example.key"}}, "kiro", path, false); err == nil {
 		t.Fatal("expected capture mode to report the refusal")
+	}
+	if got := readFileString(t, path); got != existing {
+		t.Errorf("capture changed hand-authored file: %q", got)
 	}
 }
 
@@ -207,11 +295,11 @@ func TestWriteIgnoreFile_IgnoresCommentOnlyFile(t *testing.T) {
 	}
 }
 
-func TestNamedLostPatterns_CapsTheList(t *testing.T) {
+func TestNamedIgnorePatterns_CapsTheList(t *testing.T) {
 	t.Parallel()
-	lost := []string{"a", "b", "c", "d", "e", "f", "g"}
-	got := namedLostPatterns(lost)
-	if want := "a, b, c, d, e and 2 more"; got != want {
-		t.Errorf("namedLostPatterns = %q, want %q", got, want)
+	patterns := []string{"a", "b", "c", "d", "e", "f", "g"}
+	got := namedIgnorePatterns(patterns)
+	if want := `"a", "b", "c", "d", "e" and 2 more`; got != want {
+		t.Errorf("namedIgnorePatterns = %q, want %q", got, want)
 	}
 }

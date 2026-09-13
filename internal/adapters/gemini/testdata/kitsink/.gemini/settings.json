@@ -2,19 +2,34 @@
   "hooks": {
     "PostToolUse": [
       {
-        "command": "gofmt -w",
+        "hooks": [
+          {
+            "command": "gofmt -w",
+            "type": "command"
+          }
+        ],
         "matcher": "Edit"
       }
     ],
     "PreToolUse": [
       {
-        "command": "echo pre",
+        "hooks": [
+          {
+            "command": "echo pre",
+            "type": "command"
+          }
+        ],
         "matcher": "Write"
       }
     ],
     "SessionStart": [
       {
-        "command": "echo session"
+        "hooks": [
+          {
+            "command": "echo session",
+            "type": "command"
+          }
+        ]
       }
     ]
   },

@@ -177,7 +177,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `description` | no | empty | Free-form documentation. |
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
-| `command` | command handlers only | none | Shell command or list. Not needed for Claude HTTP/MCP/prompt hooks, Cursor prompt hooks, or a valid `x-kiro.action`. |
+| `command` | command handlers only | none | Shell command or list. Not needed for Claude HTTP/MCP/prompt hooks, Cursor prompt hooks, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. |
 | `args` | no | empty | Argument list. Claude Code, Qoder and Copilot. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. The targets spell the form differently. Claude Code and Qoder keep the executable in `command`, and Qoder ignores `shell` in exec form; Copilot moves it to `exec` and forbids carrying both, and its exec form runs under Copilot CLI only, so a hook that must also run under Copilot cloud agent leaves `args` unset. `sync` says so with a coverage note. |
 | `type` | no | `command` | Claude: `command`, `http`, `mcp_tool`, or `prompt`. Codex: `command` or `mcp_tool`. Cursor: `command` or `prompt`. |
 | `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Claude + Codex. |
@@ -185,7 +185,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Claude + Codex. |
 | `url` | HTTP handler only | none | Claude hook endpoint. Optional `headers` supplies HTTP headers and `allowedEnvVars` names variables allowed in header values. |
 | `prompt` | prompt handler only | none | Natural-language condition for Claude or Cursor. Optional `model` selects the evaluating model. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Cursor, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment converts this value to **milliseconds** before writing it (vendor default 60000 when absent), the one target here whose native unit differs from the field's own seconds. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Cursor, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment and Gemini convert this value to **milliseconds** before writing it (vendor default 60000 when absent). |
 | `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes, and Qoder. |
 | `async` | no | `false` | Run in the background without blocking. Claude + Codex, and Qoder. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude and Qoder. |
@@ -326,23 +326,25 @@ Gemini uses different event names, so a Gemini hook sets `event:` to one of its 
 
 ```yaml
 event: AfterTool
-matcher: Bash(git commit*)
+matcher: run_shell_command
 command: echo "tests please"
 ```
 
-Renders to `.gemini/settings.json` (flat shape, event name passed through unchanged):
+Renders to `.gemini/settings.json` (nested command handlers, event name passed through unchanged):
 
 ```json
 {
   "hooks": {
     "AfterTool": [
-      {"matcher": "Bash(git commit*)", "command": "echo \"tests please\""}
+      {"matcher": "run_shell_command", "hooks": [{"type": "command", "command": "echo \"tests please\""}]}
     ]
   }
 }
 ```
 
-When `command` is a list, each entry becomes a separate hook entry (Claude, Codex).
+When `command` is a list, each entry becomes a separate handler (Claude, Codex, Gemini). Gemini keeps the handlers in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler; `x-gemini.name` sets its native display name, and `x-gemini.env` supplies per-handler environment variables.
+
+Gemini hook imports preserve nested definitions and accept old flat files. A single handler imports with a timeout in seconds when exactly representable as a whole second; otherwise `x-gemini.timeout` retains the native milliseconds. A group with multiple handlers uses `x-gemini.hooks`, a native handler array that preserves each command, name, description, environment map, and millisecond timeout. This array replaces `command` emission for Gemini.
 
 ## MCP servers
 
@@ -604,21 +606,22 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`, Crush `.crushignore`, and Kilo `.kilocodeignore` (a compatibility input migrated into read/edit permission denials). Each spec body is trimmed and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`, Crush `.crushignore`, and Kilo `.kilocodeignore` (a compatibility input migrated into read/edit permission denials). Each spec keeps its pattern order and whitespace. Outer line breaks are trimmed, CRLF becomes LF, and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
 
 ### Overwrite behaviour
 
-An ignore file you wrote by hand is never silently replaced. When the target's ignore file exists, carries no agnostic-ai provenance header, and holds a pattern the emitted body does not carry, `sync` fails, names the patterns at risk, and writes nothing:
+Sync replaces an ignore file without an agnostic-ai provenance header only when it can establish that existing exclusions survive. Every pattern must remain unchanged and in the same order. Extra exclusion patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The comparison is conservative: equivalent spellings or harmless reorderings can still fail.
 
 ```
-.kiroignore: hand-authored, and overwriting it would drop patterns that keep
-files out of agent context. Would be dropped: *.key, my-secrets/.
-Run `agnostic-ai import kiro` to copy them into an ignore spec, then sync again.
+.kiroignore: hand-authored ignore file cannot be safely overwritten: existing
+patterns are missing or reordered: "my-secrets/", "*.key". Run
+`agnostic-ai import kiro` to copy its patterns into an ignore spec, then keep
+their order and review any added negations before syncing again.
 ```
 
-`agnostic-ai import <target>` reads the file into `ignore/<target>.md`, comments and all. The next `sync` then emits a file holding both your patterns and the ones your other specs contribute, so no manual cleanup step sits in between. An overwrite that already reproduces every on-disk pattern is not a loss and goes ahead untouched.
+`agnostic-ai import <target>` reads the file into `ignore/<target>.md`, preserving comments, pattern order, and whitespace. Import removes a leading UTF-8 byte-order mark so the generated header does not turn it into a pattern character. Syncing unchanged imported patterns needs no manual cleanup. If other specs add negations or repeat the imported patterns in a different order, review the combined order before syncing. Already-generated files still regenerate from their specs, including intentional pattern removals.
 
-Two cases stand down deliberately. Comment and blank lines exclude nothing, so a file holding only those never blocks a sync. And `outputs.<target>.provenance-header: false` removes the marker the check reads to tell agnostic-ai's own output from yours, which disables the check along with it.
+Comment and blank lines exclude nothing, so a file holding only those never blocks a sync. A hash is a comment prefix only at the start of a line; leading spaces and tabs can be part of a pattern. `outputs.<target>.provenance-header: false` removes the marker used to recognize generated output and disables this check. Dry-run skips it because no file is written; `sync --check` still reports unsafe overwrites.
 
 ## Frontmatter rules
 

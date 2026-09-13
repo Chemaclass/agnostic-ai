@@ -67,6 +67,11 @@
 // (geminicli.com/docs/reference/configuration.md, target-audit
 // 2026-09-03, #661).
 //
+// Hooks use nested command handlers in `hooks.<event>[].hooks`. Portable
+// timeout values are seconds and become milliseconds. Native handler groups
+// under x-gemini.hooks preserve per-command metadata and sequential execution
+// through import (geminicli.com/docs/hooks/reference/, #762).
+//
 // Ignore specs emit as `.geminiignore` (override via
 // outputs.gemini.ignore-file), gitignore syntax under a `#` provenance
 // header: "Create a file named `.geminiignore` in the root of your
@@ -177,8 +182,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // settings.json has the actual script alongside the path it references.
 func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
-		cmds := hookCommands(h.Meta["command"])
-		for _, raw := range cmds {
+		for _, handler := range hookHandlers(h) {
+			raw, _ := handler["command"].(string)
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
 			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
@@ -282,68 +287,6 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		out["excludeTools"] = exclude
 	}
 	return out
-}
-
-// buildHooks groups hook specs by their `event` frontmatter into the
-// Gemini hooks shape: `hooks.<event> = [{matcher, command}, ...]`.
-// `matcher` is omitted when absent so the hook fires unconditionally.
-// A spec's `command:` field accepts a string or a list of strings; each
-// list entry becomes one `{matcher, command}` pair under the same event.
-func buildHooks(hooks []spec.Entry) map[string]any {
-	byEvent := map[string][]map[string]any{}
-	for _, h := range hooks {
-		event, _ := h.Meta["event"].(string)
-		if event == "" {
-			continue
-		}
-		matcher, _ := h.Meta["matcher"].(string)
-		cmds := hookCommands(h.Meta["command"])
-		if len(cmds) == 0 {
-			continue
-		}
-		for _, cmd := range cmds {
-			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
-			if matcher != "" {
-				entry["matcher"] = matcher
-			}
-			byEvent[event] = append(byEvent[event], entry)
-		}
-	}
-	out := map[string]any{}
-	for k, v := range byEvent {
-		out[k] = v
-	}
-	return out
-}
-
-// hookCommands normalizes a `command:` field that may be a string or a
-// list of strings into a single []string. Empty strings drop out.
-func hookCommands(raw any) []string {
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		out := make([]string, 0, len(v))
-		for _, s := range v {
-			if s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // emitAgentCommands writes the legacy `<dir>/<name>.toml` slash command

@@ -2,7 +2,13 @@
   "hooks": {
     "PostToolUse": [
       {
-        "command": "echo edited",
+        "hooks": [
+          {
+            "command": "echo edited",
+            "description": "A sample hook for golden snapshot tests.",
+            "type": "command"
+          }
+        ],
         "matcher": "Edit"
       }
     ]
