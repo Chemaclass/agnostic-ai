@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -95,6 +96,14 @@ type SyncConfig struct {
 	// overrides, target-only assets) keep real copies. Off by default; on
 	// filesystems without symlink support sync warns and keeps copies.
 	SharedSkills bool `yaml:"shared-skills,omitempty" json:"shared-skills,omitempty"`
+	// Unmanaged lists output paths the user owns. sync never writes, merges,
+	// copies, renames, or removes a matching path and reports each skip;
+	// check, doctor, the ledger, the .gitignore block, and revert leave it
+	// alone. Entries are project-relative: an exact path, a path.Match glob
+	// (`*` stays within one segment), or a directory when the entry ends
+	// with `/`. Project-wide rather than per target because one path
+	// (AGENTS.md) has many readers.
+	Unmanaged []string `yaml:"unmanaged,omitempty" json:"unmanaged,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write
@@ -359,6 +368,9 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	sources := []string{basePath}
 	if localExists {
 		sources = append(sources, localPath)
+	}
+	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
 	}
 	return cfg, sources, nil
 }

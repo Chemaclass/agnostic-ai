@@ -14,12 +14,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // File permissions for emitted artifacts.
@@ -52,11 +54,13 @@ type WrittenFile struct {
 
 // Session holds the mutable mode flags for one emission pass: capture,
 // recording, counting, detailed recording, backup, and transaction
-// buffers. Each sync run owns its own Session (see NewSession) so two
-// runs in the same process — concurrent library use, parallel wasm
-// renders — never share capture/recording buffers or cross-talk. Every
-// read and write takes the same mutex so go test -race stays clean when
-// a single Session is shared across goroutines.
+// buffers, plus the user-owned path set from sync.unmanaged. Each sync
+// run owns its own Session (see NewSession) so two runs in the same
+// process — concurrent library use, parallel wasm renders — never share
+// capture/recording buffers or cross-talk. Every mode read and write
+// takes the same mutex (the unmanaged set is an atomic pointer) so go
+// test -race stays clean when a single Session is shared across
+// goroutines.
 type Session struct {
 	mu          sync.Mutex
 	capturing   bool
@@ -70,12 +74,62 @@ type Session struct {
 	detailed    []WrittenFile
 	transacting bool
 	txLog       []txEntry
+	// unmanaged holds the sync.unmanaged patterns. An atomic pointer, not
+	// a field under mu, because skipUnmanaged runs first on every write
+	// and removal: with nothing user-owned (nil) the check is one atomic
+	// load and never contends on mu, while SetUnmanaged stays safe to call
+	// on a session other goroutines already write through.
+	unmanaged   atomic.Pointer[[]string]
+	skipped     []string // user-owned paths refused, first-seen order
+	skippedSeen map[string]struct{}
 }
 
 // NewSession returns a Session with every mode off, ready to be threaded
 // through one emission pass. Adapters and the CLI toggle modes on it and
 // pass it to WriteFile and friends; each sync run constructs its own.
 func NewSession() *Session { return &Session{} }
+
+// SetUnmanaged installs the sync.unmanaged patterns. A matching path is
+// never written, merged, copied, renamed, or removed by this session;
+// each refusal is recorded for UnmanagedSkips so sync can report it.
+// EmitWithProvenance calls this for every adapter emit; the serial
+// entry-point session and the scoped-rule validators call it directly.
+func (s *Session) SetUnmanaged(patterns []string) {
+	if len(patterns) == 0 {
+		s.unmanaged.Store(nil)
+		return
+	}
+	s.unmanaged.Store(&patterns)
+}
+
+// UnmanagedSkips returns every user-owned path this session refused to
+// touch, deduplicated in first-seen order. Recorded in every mode
+// (capture, dry-run, real) so the summary is the same whichever ran.
+func (s *Session) UnmanagedSkips() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.skipped...)
+}
+
+// skipUnmanaged reports whether path is user-owned, recording the first
+// hit. Callers return immediately when it is true, before capture,
+// recording, or any disk write, so the path is invisible to every mode.
+func (s *Session) skipUnmanaged(path string) bool {
+	patterns := s.unmanaged.Load()
+	if patterns == nil || !config.MatchUnmanaged(*patterns, path) {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, seen := s.skippedSeen[path]; !seen {
+		if s.skippedSeen == nil {
+			s.skippedSeen = map[string]struct{}{}
+		}
+		s.skippedSeen[path] = struct{}{}
+		s.skipped = append(s.skipped, path)
+	}
+	return true
+}
 
 // SetBackup toggles backup mode. When enabled, WriteFile copies an
 // existing file to `<path>.bak` before overwriting (only when the new
@@ -372,6 +426,9 @@ func writeFileAt(path, content string, mode os.FileMode) error {
 }
 
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
+	if s.skipUnmanaged(path) {
+		return nil
+	}
 	s.mu.Lock()
 	capturing := s.capturing
 	backup := s.backup
@@ -504,7 +561,8 @@ func IsAbsent(err error) bool {
 // when an adapter previously emitted a file but no longer has content
 // to write for it (for example a `.codex/config.toml` that lost its
 // last MCP, hook, and overlay between syncs). Files without the
-// provenance marker are user-authored and left untouched.
+// provenance marker are user-authored and left untouched, and so are
+// user-owned paths (sync.unmanaged).
 //
 // dryRun prints the intended removal instead of touching disk so
 // `sync --dry-run` previews stay side-effect-free. Capture mode is a
@@ -520,7 +578,9 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	if !header.Has(string(existing)) {
+	// A user-authored file is never removed anyway, so only a generated
+	// file that is user-owned counts as a refused removal.
+	if !header.Has(string(existing)) || s.skipUnmanaged(path) {
 		return nil
 	}
 

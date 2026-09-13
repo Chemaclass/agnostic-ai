@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `sync.unmanaged` lists user-owned output paths (exact, `path.Match` glob, or `dir/`) that sync never writes, merges, copies, or removes. Skips print as `~ skip (unmanaged)`, `sync --check` and `doctor` ignore them, the ledger and `.gitignore` block leave them alone, and `revert` never touches them (#781).
 - Claude emits and imports stable HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
 - Ignore specs reach Crush's `.crushignore` and Kilo's compatibility `.kilocodeignore`, with native ignore imports for both targets (#770, #773).
 - Review specs reach Goose's root and scoped `.agents/REVIEW.md` files (#771).
