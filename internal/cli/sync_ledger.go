@@ -104,7 +104,14 @@ func sweepLedgerOrphans(sess *adapters.Session, prior, current []string, dryRun 
 		// reading through them would either hit the canonical file (and
 		// delete it through the link) or dangle forever when the target
 		// is already gone.
-		if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		fi, err := os.Lstat(p)
+		// A ledgered link that is now a real directory (shared-skills
+		// turned off, or the folder holds a user-owned file) is not an
+		// orphan: its files carry their own ledger entries.
+		if err == nil && fi.IsDir() {
+			continue
+		}
+		if err == nil && fi.Mode()&os.ModeSymlink != 0 {
 			if dryRun {
 				removed = append(removed, p)
 				continue
