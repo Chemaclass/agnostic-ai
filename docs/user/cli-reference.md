@@ -304,6 +304,8 @@ agnostic-ai sync [flags]
 | `--jobs <n>` | Number of targets to emit in parallel. `0` (default) uses one worker per CPU; `1` forces serial emission. Output (files, summary, JSON, gitignore, warnings) is byte-identical regardless of the value, so lower it only to debug or pin ordering. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
+Paths listed under [`sync.unmanaged`](configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
+
 ### Profiling a slow sync
 
 Two opt-in hooks show where `sync` spends its time.
@@ -377,7 +379,7 @@ Exit codes are unchanged: zero when in sync, non-zero on drift, in every format.
 | `version` | string | Schema version. Currently `"1"`. |
 | `command` | string | Command that produced the output (`"sync"` or `"sync --check"`). |
 | `writes` | array | Files written (action `"create"` or `"update"`) or, for `--check`, files needing writing (action `"missing"` or `"stale"`). |
-| `skipped` | array | Files whose on-disk content already matched (action `"skip"`). Empty for `--check`. |
+| `skipped` | array | Files whose on-disk content already matched (action `"skip"`) or that are user-owned (action `"unmanaged"`). Empty for `--check`. |
 | `errors` | array | Per-target errors with `target` and `message` fields. |
 
 Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `action` (string), `bytes` (number).
@@ -413,6 +415,8 @@ agnostic-ai revert --json              # machine-readable output
 
 Without a prior `--backup`, `revert` is a no-op unless `--force` is passed. This protects helper files from accidental deletion.
 
+Paths under [`sync.unmanaged`](configuration.md#syncunmanaged) are never restored or removed.
+
 ## doctor
 
 Diagnose drift between source specs and emitted artifacts. Reports missing files (never synced) and stale files (hand-edited or out of date). Exits non-zero on any drift.
@@ -437,6 +441,8 @@ Use the no-flag form as a CI gate alongside `sync --check`, or after rebases to 
 After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `command:` and whether it resolves on PATH. Missing common commands (`npx`, `uvx`, `python`, `docker`) include an inline install hint. HTTP/SSE servers (no command, only `url:`) skip the check. Advisory only: a missing binary does not change doctor's exit code.
 
 doctor also prints an **Unmanaged config block**: agentic config files on disk that carry no provenance marker (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`, ...), grouped by the `import` source that adopts each. Only header-bearing formats (markdown, TOML) are scanned; JSON config is merge-managed and covered by the drift block. Advisory: does not change the exit code.
+
+doctor also prints a **User-owned block**: the [`sync.unmanaged`](configuration.md#syncunmanaged) entries. Those paths never count as drift and are absent from the Unmanaged config block.
 
 Subcommands run a single check in isolation: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
 
