@@ -4,6 +4,8 @@
 package emit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -46,10 +48,16 @@ type txEntry struct {
 // WrittenFile is one write event recorded during detailed recording mode.
 // Action is "create" (new file), "update" (existing file with changed
 // content), or "skip" (existing file with identical content, not rewritten).
+//
+// Sum is the ContentSum of the bytes when they carry no provenance header
+// (verbatim skill assets, targets with provenance_header: false) and empty
+// otherwise. The sync ledger stores it so a later orphan sweep can prove a
+// header-less file is still the one agnostic-ai wrote (#785).
 type WrittenFile struct {
 	Path   string
 	Bytes  int
 	Action string
+	Sum    string
 }
 
 // Session holds the mutable mode flags for one emission pass: capture,
@@ -111,12 +119,19 @@ func (s *Session) UnmanagedSkips() []string {
 	return append([]string(nil), s.skipped...)
 }
 
+// IsUnmanaged reports whether path matches sync.unmanaged, without
+// recording a refusal. Callers use it to tell a user-owned path from
+// one the session declined to touch for another reason.
+func (s *Session) IsUnmanaged(path string) bool {
+	patterns := s.unmanaged.Load()
+	return patterns != nil && config.MatchUnmanaged(*patterns, path)
+}
+
 // skipUnmanaged reports whether path is user-owned, recording the first
 // hit. Callers return immediately when it is true, before capture,
 // recording, or any disk write, so the path is invisible to every mode.
 func (s *Session) skipUnmanaged(path string) bool {
-	patterns := s.unmanaged.Load()
-	if patterns == nil || !config.MatchUnmanaged(*patterns, path) {
+	if !s.IsUnmanaged(path) {
 		return false
 	}
 	s.mu.Lock()
@@ -477,7 +492,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 		case err == nil && string(existing) == content:
 			// File is already up to date; skip the write.
 			s.mu.Lock()
-			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip"})
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: headerlessSum(content)})
 			s.mu.Unlock()
 			return nil
 		default:
@@ -502,7 +517,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		s.mu.Lock()
-		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action})
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action, Sum: headerlessSum(content)})
 		s.mu.Unlock()
 		return nil
 	}
@@ -571,17 +586,33 @@ func IsAbsent(err error) bool {
 // includes the cleaned-up file. Transaction logging captures the
 // pre-removal bytes so Rollback can restore the file.
 func (s *Session) RemoveGenerated(path string, dryRun bool) error {
+	_, err := s.RemoveOwned(path, "", dryRun)
+	return err
+}
+
+// RemoveOwned is RemoveGenerated that also accepts proof of ownership
+// for a file without the provenance header: sum is the ContentSum
+// recorded when agnostic-ai wrote the file, and a file whose bytes
+// still match it is removed. A header-less file edited since (or with
+// no recorded sum) is kept. Used by the sync orphan sweep, where the
+// prior ledger is the record of what sync wrote (#785).
+//
+// removed reports whether the file was deleted, or would be under
+// dryRun, so callers can tell a refusal from a removal without a
+// second stat.
+func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err error) {
 	existing, err := os.ReadFile(path)
 	if IsAbsent(err) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
+		return false, fmt.Errorf("read %s: %w", path, err)
 	}
+	owned := header.Has(string(existing)) || (sum != "" && ContentSum(string(existing)) == sum)
 	// A user-authored file is never removed anyway, so only a generated
 	// file that is user-owned counts as a refused removal.
-	if !header.Has(string(existing)) || s.skipUnmanaged(path) {
-		return nil
+	if !owned || s.skipUnmanaged(path) {
+		return false, nil
 	}
 
 	s.mu.Lock()
@@ -591,11 +622,11 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 	s.mu.Unlock()
 
 	if capturing {
-		return nil
+		return false, nil
 	}
 	if dryRun {
 		fmt.Printf("--- rm %s ---\n", path)
-		return nil
+		return true, nil
 	}
 
 	if transacting {
@@ -605,7 +636,7 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 	}
 
 	if err := os.Remove(path); err != nil && !IsAbsent(err) {
-		return fmt.Errorf("remove %s: %w", path, err)
+		return false, fmt.Errorf("remove %s: %w", path, err)
 	}
 
 	if detailing {
@@ -613,7 +644,23 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete"})
 		s.mu.Unlock()
 	}
-	return nil
+	return true, nil
+}
+
+// ContentSum returns the hex sha256 of content, the fingerprint the sync
+// ledger records for header-less outputs.
+func ContentSum(content string) string {
+	h := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(h[:])
+}
+
+// headerlessSum is ContentSum for content without the provenance header,
+// and empty for generated content the header already identifies.
+func headerlessSum(content string) string {
+	if header.Has(content) {
+		return ""
+	}
+	return ContentSum(content)
 }
 
 // RemoveGeneratedTree walks dir and removes every file that carries

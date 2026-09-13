@@ -16,15 +16,27 @@ import (
 
 // driftReport summarizes per-target drift between source specs and on-disk
 // emitted artifacts. Missing and Stale carry the full captured content so
-// `--fix` can reconcile without a second adapter pass.
+// `--fix` can reconcile without a second adapter pass. Orphaned lists
+// files a prior sync wrote, no longer emits, and could not remove; no
+// write fixes them, so `--fix` leaves them to the user.
 type driftReport struct {
-	Target  string
-	Missing []adapters.CapturedFile
-	Stale   []adapters.CapturedFile
+	Target   string
+	Missing  []adapters.CapturedFile
+	Stale    []adapters.CapturedFile
+	Orphaned []string
 }
 
 func (r driftReport) hasDrift() bool {
-	return len(r.Missing) > 0 || len(r.Stale) > 0
+	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Orphaned) > 0
+}
+
+// orphanedCount totals the orphaned files across reports.
+func orphanedCount(reports []driftReport) int {
+	n := 0
+	for _, r := range reports {
+		n += len(r.Orphaned)
+	}
+	return n
 }
 
 // collectDrift runs each target adapter in capture mode and compares each
@@ -122,7 +134,26 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 			rep.Stale = append(rep.Stale, adapters.CapturedFile{Path: f.Path, Content: f.Content})
 		}
 	}
+	rep.Orphaned = recordedOrphans(cfg)
 	return rep, nil
+}
+
+// recordedOrphans returns the orphans the last sync kept (see
+// syncStateFile.Orphans) that are still on disk and not user-owned. The
+// state file is the only record of them: once the source spec is gone,
+// no adapter render mentions the path again (#785).
+func recordedOrphans(cfg *config.Config) []string {
+	var out []string
+	for _, p := range readStateFile(".").Orphans {
+		if cfg.IsUnmanaged(p) {
+			continue
+		}
+		if _, err := os.Lstat(p); err != nil {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // printDrift prints a per-target summary. Splits drift into two named
@@ -152,6 +183,12 @@ func printDrift(reports []driftReport) bool {
 			summaryf("    %d file(s) edited locally since last sync (sync will overwrite — move edits into .agnostic-ai/ first):\n", len(r.Stale))
 			for _, f := range r.Stale {
 				summaryf("      - %s\n", f.Path)
+			}
+		}
+		if len(r.Orphaned) > 0 {
+			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
+			for _, p := range r.Orphaned {
+				summaryf("      - %s\n", p)
 			}
 		}
 	}
@@ -275,6 +312,9 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				summaryf("→ reconciled %d file(s)\n", fixed)
+				if n := orphanedCount(reports); n > 0 {
+					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
+				}
 			}
 			return nil
 		},
@@ -313,6 +353,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
 				Bytes:  len(f.Content),
 			})
 		}
+		out.Writes = appendOrphanRecords(out.Writes, r)
 	}
 	hasDrift := len(out.Writes) > 0
 	if err := emitJSON(cmd, out); err != nil {
@@ -322,6 +363,14 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
 		return fmt.Errorf("drift detected")
 	}
 	return nil
+}
+
+// appendOrphanRecords adds one "orphan" write record per orphaned file in r.
+func appendOrphanRecords(records []fileRecord, r driftReport) []fileRecord {
+	for _, p := range r.Orphaned {
+		records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
+	}
+	return records
 }
 
 // fixDrift writes the captured content for every missing or stale file in
