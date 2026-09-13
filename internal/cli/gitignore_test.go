@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -110,7 +111,7 @@ func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 }
 
 func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
-	block := buildManagedBlock(&config.Config{}, nil)
+	block := buildManagedBlock(&config.Config{}, nil, nil)
 	for _, want := range []string{
 		"/agnostic-ai.local.yaml",
 		"/.agnostic-ai/.sync-state",
@@ -133,7 +134,7 @@ func TestBuildManagedBlock_NeverIgnoresTheAgnosticEntryPoint(t *testing.T) {
 	// it as an emitted path; later syncs read it from disk and skip the
 	// write. Left alone that makes the first .gitignore differ from every
 	// later one, and worse, ignores a source file (#580).
-	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath})
+	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath}, nil)
 	for _, e := range block {
 		if strings.Contains(e, "AGNOSTIC_AI.md") {
 			t.Errorf("managed block ignores the source entry point %q, got %v", e, block)
@@ -156,7 +157,7 @@ func TestUpdateGitignore_StripsLooseFixedDuplicatesAndConsolidates(t *testing.T)
 	}
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
-	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"})
+	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"}, nil)
 	if err := updateGitignore(dir, cfg, block); err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +340,7 @@ func TestCollapseManagedEntries_FoldsOutputSubdirsKeepsRootAndSources(t *testing
 		"/.codex/agents/x.md",
 		"/AGENTS.md",
 	}
-	got := collapseManagedEntries(in, []string{".agnostic-ai"})
+	got := collapseManagedEntries(in, []string{".agnostic-ai"}, nil)
 	want := []string{
 		"/.agnostic-ai/.sync-state", // protected source dir: kept precise
 		"/.claude/CLAUDE.md",        // file under tool dir: kept precise
@@ -364,7 +365,7 @@ func TestCollapseManagedEntries_FoldsOutputSubdirsKeepsRootAndSources(t *testing
 func TestCollapseManagedEntries_DoesNotSwallowHandAuthoredSiblings(t *testing.T) {
 	// Only the generated rules subdir is emitted; settings.json is
 	// hand-authored and never appears in the entry list.
-	got := collapseManagedEntries([]string{"/.claude/rules/auth.md"}, nil)
+	got := collapseManagedEntries([]string{"/.claude/rules/auth.md"}, nil, nil)
 	want := []string{"/.claude/rules/"}
 	if len(got) != len(want) || got[0] != want[0] {
 		t.Fatalf("got %v, want %v", got, want)
@@ -380,7 +381,7 @@ func TestCollapseManagedEntries_NeverIgnoresSourceTree(t *testing.T) {
 	// A spec living under .agnostic-ai must never be collapsed into
 	// `/.agnostic-ai/`, which would ignore committed sources.
 	in := []string{"/.agnostic-ai/.sync-state", "/.agnostic-ai/agents/a.md"}
-	got := collapseManagedEntries(in, []string{".agnostic-ai"})
+	got := collapseManagedEntries(in, []string{".agnostic-ai"}, nil)
 	for _, e := range got {
 		if e == "/.agnostic-ai/" {
 			t.Fatalf("source dir was collapsed: %v", got)
@@ -416,7 +417,7 @@ func TestNormalizeAllowEntries_PrefixesDedupesSorts(t *testing.T) {
 func TestBuildManagedBlock_AppendsAllowExceptionsLast(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Gitignore.Allow = []string{"internal/adapters/**/testdata/**"}
-	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"})
+	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"}, nil)
 	if len(got) == 0 || got[len(got)-1] != "!internal/adapters/**/testdata/**" {
 		t.Fatalf("re-allow line not appended last: %v", got)
 	}
@@ -446,7 +447,7 @@ func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
 func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) {
 	cfg := &config.Config{}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
-	block := buildManagedBlock(cfg, hints)
+	block := buildManagedBlock(cfg, hints, nil)
 	for _, want := range []string{"/.claude/agent-memory/", "/.claude/settings.local.json"} {
 		found := false
 		for _, e := range block {
@@ -464,5 +465,38 @@ func TestGitignoreHintsForTargets_AbsentWhenClaudeNotEnabled(t *testing.T) {
 	hints := gitignoreHintsForTargets(&config.Config{}, []string{"codex", "gemini"})
 	if len(hints) != 0 {
 		t.Errorf("expected no hints without claude, got %v", hints)
+	}
+}
+
+func TestBuildManagedBlock_KeepsPreciseEntriesAroundUnmanagedFile(t *testing.T) {
+	entries := []string{".claude/agents/a.md", ".claude/rules/r.md"}
+
+	block := buildManagedBlock(&config.Config{}, entries, []string{".claude/agents/hand.md"})
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+		if strings.Contains(e, "hand.md") {
+			t.Errorf("user-owned file listed in the block: %v", block)
+		}
+	}
+	if has["/.claude/agents/"] {
+		t.Errorf("directory holding a user-owned file collapsed: %v", block)
+	}
+	for _, want := range []string{"/.claude/agents/a.md", "/.claude/rules/"} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+}
+
+func TestCollapseManagedEntries_PreciseDirsStayExpanded(t *testing.T) {
+	in := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/x.md"}
+
+	got := collapseManagedEntries(in, nil, []string{"/.claude/agents/"})
+
+	want := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
 	}
 }

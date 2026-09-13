@@ -107,6 +107,9 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		return rep, err
 	}
 	for _, f := range files {
+		if cfg.IsUnmanaged(f.Path) {
+			continue // user-owned: never drift
+		}
 		disk, err := os.ReadFile(f.Path)
 		if err != nil {
 			if os.IsNotExist(err) {
