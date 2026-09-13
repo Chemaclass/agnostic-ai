@@ -48,6 +48,9 @@ func MatchUnmanaged(patterns []string, p string) bool {
 // directory pattern (trailing `/`) counts at any depth, since it owns
 // everything under it and may itself sit under dir.
 func MatchUnmanagedDir(patterns []string, dir string) bool {
+	if len(patterns) == 0 {
+		return false // gitignore calls this per entry; skip the split
+	}
 	dirSegs := strings.Split(normalizeUnmanaged(strings.ReplaceAll(dir, `\`, "/")), "/")
 	for _, pattern := range patterns {
 		if pattern == "" {
