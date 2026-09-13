@@ -133,14 +133,9 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 			content = adapters.AppendTargetOverview(content, adapters.RenderTargetOverview(sections))
 		}
-		// entryPointFile.Content must match what sess.WriteFile actually
-		// puts on disk byte-for-byte, or the drift check false-positives on
-		// a freshly synced file. WriteFile always normalizes trailing
-		// newlines down to exactly one (normalizeTrailingNewline), whatever
-		// the assembled content ended with, so mirror that here on the
-		// fully rendered content rather than trusting each step above to
-		// leave the right count. This is not fence-specific: an unfenced
-		// AGNOSTIC_AI.md ending "Shared.\n\n\n" needs the same correction.
+		// Mirror sess.WriteFile's trailing-newline normalization so Content
+		// equals the bytes on disk and the drift check never false-positives
+		// (an AGNOSTIC_AI.md ending in several newlines, fenced or not).
 		rendered := header.With(content, header.FormatMarkdown)
 		if rendered != "" {
 			rendered = strings.TrimRight(rendered, "\n") + "\n"
