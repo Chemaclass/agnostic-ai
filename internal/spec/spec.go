@@ -228,14 +228,15 @@ func FilterFences(body string, readers []string) string {
 			out.WriteByte('\n')
 		}
 	}
-	// strings.Split appends an empty trailing element for the final '\n';
-	// the loop already wrote a '\n' for the line before it. Trim the
-	// stray newline so the rendered body matches the source ending.
-	s := out.String()
-	if strings.HasSuffix(body, "\n") {
-		s = strings.TrimSuffix(s, "\n")
-	} else {
-		s = strings.TrimSuffix(strings.TrimSuffix(s, "\n"), "\n")
+	// strings.Split appends an empty trailing element for the final '\n',
+	// and a kept blank connector line ahead of a dropped trailing fence
+	// can stack more onto that. Trim every trailing newline the render
+	// accumulated, then restore exactly one if the source itself ended in
+	// one, so the result never carries more trailing newlines than body
+	// had regardless of how many fences collapsed at the end.
+	s := strings.TrimRight(out.String(), "\n")
+	if s != "" && strings.HasSuffix(body, "\n") {
+		s += "\n"
 	}
 	// Dropped fences leave the surrounding blank lines stacked. Collapse
 	// any run of 3 or more newlines back down to a paragraph break so

@@ -64,8 +64,7 @@ func TestFilterFences_NoReaders_PreservesFences(t *testing.T) {
 	}
 }
 
-// An unterminated fence runs to end-of-body for every multi-reader call
-// too, not just the single-target path.
+// An unterminated fence runs to end-of-body for a multi-reader call.
 func TestFilterFences_UnterminatedFence_RunsToEnd(t *testing.T) {
 	t.Parallel()
 	body := "Intro.\n\n::target codex\nNo end marker.\n"
@@ -86,6 +85,19 @@ func TestFilterFences_OpenerInsideFence_ReplacesAllowList(t *testing.T) {
 	}
 	if got := FilterFences(body, []string{"cline"}); got != "Only cline sees this.\n" {
 		t.Errorf("replaced allow-list must keep cline:\ngot: %q", got)
+	}
+}
+
+// A dropped fence at the end of the body must not leave the result with
+// more trailing newlines than the source had. Before the fix, a kept
+// blank connector line ahead of the dropped fence survived alongside
+// the trailing newline strings.Split manufactures for the source's own
+// final '\n', stacking two newlines where the source had one.
+func TestFilterFences_DroppedTrailingFence_NoExtraTrailingNewline(t *testing.T) {
+	t.Parallel()
+	got := FilterFences("A\n\n::target x\nB\n::end\n", []string{"y"})
+	if want := "A\n"; got != want {
+		t.Errorf("FilterFences:\ngot:  %q\nwant: %q", got, want)
 	}
 }
 
