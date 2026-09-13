@@ -93,9 +93,14 @@ func normalizeUnmanaged(p string) string {
 }
 
 // validateUnmanaged rejects a malformed glob in sync.unmanaged at load
-// time, so a typo fails loudly instead of silently owning nothing.
+// time, so a typo fails loudly instead of silently owning nothing. An
+// entry that names no path (empty, `.`, `./`, `/`) is rejected too: it
+// reads like "the whole project" but would match nothing.
 func validateUnmanaged(patterns []string, source string) error {
 	for _, p := range patterns {
+		if n := normalizeUnmanaged(p); n == "" || n == "." {
+			return errs.Coded(errs.CodeConfigDecode, "%s: sync.unmanaged: entry %q names no path", source, p)
+		}
 		if _, err := path.Match(p, ""); err != nil {
 			return errs.Coded(errs.CodeConfigDecode, "%s: sync.unmanaged: bad pattern %q: %w", source, p, err)
 		}

@@ -81,6 +81,23 @@ func TestLoad_RejectsBadUnmanagedPattern(t *testing.T) {
 	}
 }
 
+func TestLoad_RejectsUnmanagedEntryThatNamesNothing(t *testing.T) {
+	for _, entry := range []string{"", ".", "./", "/"} {
+		t.Run(entry, func(t *testing.T) {
+			dir := t.TempDir()
+			body := "version: 1\nsync:\n  unmanaged:\n    - \"" + entry + "\"\n"
+			if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := Load(dir)
+			if got := errs.CodeOf(err); got != errs.CodeConfigDecode {
+				t.Errorf("entry %q: code = %q, want %q (err: %v)", entry, got, errs.CodeConfigDecode, err)
+			}
+		})
+	}
+}
+
 func TestLoad_ReadsUnmanagedList(t *testing.T) {
 	dir := t.TempDir()
 	body := "version: 1\nsync:\n  unmanaged:\n    - AGENTS.md\n    - .claude/skills/legacy/\n"
