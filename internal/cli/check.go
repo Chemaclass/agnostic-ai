@@ -221,8 +221,10 @@ func newDoctorCmd() *cobra.Command {
 			// 3. Unsupported kinds
 			reportUnsupportedKinds(cmd, cfg)
 
-			// 3b. Config present on disk but not single-sourced.
-			reportUnmanagedConfig(cmd, ".")
+			// 3b. Config present on disk but not single-sourced, then
+			// the paths the user owns through sync.unmanaged.
+			reportUnmanagedConfig(cmd, ".", cfg)
+			reportUserOwned(cmd, cfg)
 
 			// 4. Drift
 			cmd.Println()
