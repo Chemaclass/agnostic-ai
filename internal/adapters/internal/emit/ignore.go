@@ -1,10 +1,8 @@
 package emit
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -13,12 +11,14 @@ import (
 )
 
 // IgnoreBody concatenates the bodies of ignore specs into one
-// gitignore-syntax block: each spec's trimmed body, joined by a blank
-// line, in spec order. Returns "" when no spec contributes content.
+// gitignore-syntax block in spec order, separated by blank lines.
+// Only outer line breaks are trimmed: spaces and tabs can be patterns.
+// Returns "" when no spec contributes content.
 func IgnoreBody(ignores []spec.Entry) string {
 	parts := make([]string, 0, len(ignores))
 	for _, e := range ignores {
-		if body := strings.TrimSpace(e.Body); body != "" {
+		body := strings.Trim(strings.ReplaceAll(e.Body, "\r\n", "\n"), "\n")
+		if strings.Trim(body, " \n") != "" {
 			parts = append(parts, body)
 		}
 	}
@@ -33,19 +33,11 @@ func IgnoreBody(ignores []spec.Entry) string {
 // when the patterns are empty so a target never writes a surprise empty
 // ignore file.
 //
-// A hand-authored ignore file is never silently replaced. These files
-// exist to keep credentials out of agent context, so dropping a pattern
-// nobody asked to drop is the worst shape a lost-content bug takes
-// (#754). When path holds content without the agnostic-ai provenance
-// header and the new body would not reproduce every pattern already
-// there, the write is refused and the error names both the patterns at
-// risk and the `agnostic-ai import <target>` command that copies them
-// into a spec. Same stance MergeJSONFile takes on a JSON config it
-// cannot parse: when the content is not ours, write nothing.
-//
-// An overwrite that reproduces every on-disk pattern proceeds, so the
-// import-then-sync migration needs no manual cleanup step and a repo
-// whose hand-authored file the specs already cover never sees an error.
+// A hand-authored file is replaced only when every existing pattern
+// survives unchanged and in order, with no added negations (#761).
+// Extra exclusion patterns are safe. This keeps import-then-sync usable
+// without guessing which files a negation can make readable. If the
+// check cannot establish preservation, the file stays untouched.
 //
 // The check is skipped in dry-run (nothing is written, so nothing is at
 // risk) and when `outputs.<target>.provenance-header` is false, since
@@ -65,67 +57,80 @@ func (s *Session) WriteIgnoreFile(ignores []spec.Entry, target, path string, dry
 	return s.WriteFile(path, WithHeader(body+"\n", FormatShell), dryRun)
 }
 
-// maxNamedLostPatterns caps how many patterns the refusal error spells
+// maxNamedIgnorePatterns caps how many patterns the refusal error spells
 // out before it switches to a count, so a large hand-authored file
 // still produces a readable one-line message.
-const maxNamedLostPatterns = 5
+const maxNamedIgnorePatterns = 5
 
 // refuseIgnoreOverwrite returns an error when path holds hand-authored
-// ignore patterns that body would drop. A missing, empty, or
-// agnostic-ai-generated file returns nil, as does one whose every
-// pattern body already carries.
+// patterns whose exclusions body cannot be shown to preserve. A missing,
+// empty, or agnostic-ai-generated file returns nil.
 func refuseIgnoreOverwrite(target, path, body string) error {
 	data, err := os.ReadFile(path)
-	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+	if err != nil || len(data) == 0 {
 		return nil
 	}
 	if header.Has(string(data)) {
 		return nil
 	}
-	lost := lostIgnorePatterns(string(data), body)
-	if len(lost) == 0 {
+	reason := ignoreOverwriteRisk(string(data), body)
+	if reason == "" {
 		return nil
 	}
 	return errs.Coded(errs.CodeIgnoreOverwrite,
-		"%s: hand-authored, and overwriting it would drop patterns that keep files out of agent context. Would be dropped: %s. Run `agnostic-ai import %s` to copy them into an ignore spec, then sync again",
-		path, namedLostPatterns(lost), target)
+		"%s: hand-authored ignore file cannot be safely overwritten: %s. Run `agnostic-ai import %s` to copy its patterns into an ignore spec, then keep their order and review any added negations before syncing again",
+		path, reason, target)
 }
 
-// lostIgnorePatterns returns the patterns in existing that body does
-// not carry, sorted for a stable error message. Comment and blank lines
-// are ignored on both sides: they exclude nothing, so losing one costs
-// the user a note rather than a file left readable by the agent.
-func lostIgnorePatterns(existing, body string) []string {
-	kept := ignorePatternSet(body)
-	var lost []string
-	for pattern := range ignorePatternSet(existing) {
-		if !kept[pattern] {
-			lost = append(lost, pattern)
-		}
+// ignoreOverwriteRisk requires existing patterns to remain an ordered
+// subsequence, allowing only extra exclusions. An unmatched negation
+// can re-include excluded files even when no old pattern is missing.
+func ignoreOverwriteRisk(existing, body string) string {
+	// Git skips a BOM only at the start of the file. The generated body
+	// follows a provenance header, so a BOM there is a pattern character.
+	patterns := ignorePatterns(strings.TrimPrefix(existing, "\uFEFF"))
+	if len(patterns) == 0 {
+		return ""
 	}
-	sort.Strings(lost)
-	return lost
-}
-
-// ignorePatternSet splits gitignore-syntax text into its set of
-// meaningful patterns.
-func ignorePatternSet(text string) map[string]bool {
-	out := map[string]bool{}
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+	next := 0
+	for _, pattern := range ignorePatterns(body) {
+		if next < len(patterns) && pattern == patterns[next] {
+			next++
 			continue
 		}
-		out[line] = true
+		if strings.HasPrefix(pattern, "!") {
+			return fmt.Sprintf("new or reordered negation %q could re-include excluded files", pattern)
+		}
+	}
+	if next < len(patterns) {
+		return "existing patterns are missing or reordered: " + namedIgnorePatterns(patterns[next:])
+	}
+	return ""
+}
+
+// ignorePatterns drops only comments and blank lines, normalizing CRLF.
+// Spaces are compared verbatim to avoid changing escaped trailing spaces
+// or treating an indented hash or exclamation mark as a prefix.
+func ignorePatterns(text string) []string {
+	var out []string
+	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+		if strings.Trim(line, " ") == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		out = append(out, line)
 	}
 	return out
 }
 
-// namedLostPatterns renders up to maxNamedLostPatterns of lost, with a
-// trailing count for the rest.
-func namedLostPatterns(lost []string) string {
-	if len(lost) <= maxNamedLostPatterns {
-		return strings.Join(lost, ", ")
+// namedIgnorePatterns quotes whitespace and caps the list, with a
+// trailing count for any remaining patterns.
+func namedIgnorePatterns(patterns []string) string {
+	named := make([]string, 0, min(len(patterns), maxNamedIgnorePatterns))
+	for _, pattern := range patterns[:min(len(patterns), maxNamedIgnorePatterns)] {
+		named = append(named, fmt.Sprintf("%q", pattern))
 	}
-	return fmt.Sprintf("%s and %d more", strings.Join(lost[:maxNamedLostPatterns], ", "), len(lost)-maxNamedLostPatterns)
+	if len(patterns) <= maxNamedIgnorePatterns {
+		return strings.Join(named, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(named, ", "), len(patterns)-maxNamedIgnorePatterns)
 }
