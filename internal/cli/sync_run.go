@@ -381,7 +381,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 
-	shared.reconcile(prev.Outputs, dryRun)
+	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+		return err
+	}
 
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
@@ -457,7 +459,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
+		block := buildManagedBlock(cfg, gitignoreEntries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
@@ -628,7 +630,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		mainSess.SetBackup(true)
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
-	shared.reconcile(prev.Outputs, dryRun)
+	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+		return err
+	}
 
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string
@@ -682,7 +686,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
+		block := buildManagedBlock(cfg, gitignoreEntries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}

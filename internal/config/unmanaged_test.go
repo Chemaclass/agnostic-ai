@@ -37,6 +37,34 @@ func TestMatchUnmanaged(t *testing.T) {
 	}
 }
 
+func TestMatchUnmanagedDir(t *testing.T) {
+	cases := []struct {
+		name     string
+		patterns []string
+		dir      string
+		want     bool
+	}{
+		{"exact file inside", []string{".claude/agents/hand.md"}, ".claude/agents", true},
+		{"glob file inside", []string{".claude/agents/hand-*.md"}, ".claude/agents", true},
+		{"glob in a directory segment", []string{".claude/*/hand.md"}, ".claude/agents", true},
+		{"deeper directory pattern", []string{".claude/skills/legacy/"}, ".claude/skills", true},
+		{"directory pattern equal to dir", []string{".claude/skills/"}, ".claude/skills", true},
+		{"directory pattern above dir", []string{".claude/"}, ".claude/skills", true},
+		{"file in a sibling dir", []string{".claude/rules/hand.md"}, ".claude/agents", false},
+		{"file pattern naming the dir itself", []string{".claude/agents"}, ".claude/agents", false},
+		{"root file", []string{"AGENTS.md"}, ".claude/agents", false},
+		{"leading slash and dot", []string{"./.claude/agents/x.md"}, "/.claude/agents/", true},
+		{"no patterns", nil, ".claude/agents", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := MatchUnmanagedDir(tc.patterns, tc.dir); got != tc.want {
+				t.Errorf("MatchUnmanagedDir(%q, %q) = %v, want %v", tc.patterns, tc.dir, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestLoad_RejectsBadUnmanagedPattern(t *testing.T) {
 	dir := t.TempDir()
 	body := "version: 1\nsync:\n  unmanaged:\n    - \"[bad\"\n"
@@ -50,6 +78,23 @@ func TestLoad_RejectsBadUnmanagedPattern(t *testing.T) {
 	}
 	if got := errs.CodeOf(err); got != errs.CodeConfigDecode {
 		t.Errorf("code = %q, want %q (err: %v)", got, errs.CodeConfigDecode, err)
+	}
+}
+
+func TestLoad_RejectsUnmanagedEntryThatNamesNothing(t *testing.T) {
+	for _, entry := range []string{"", ".", "./", "/"} {
+		t.Run(entry, func(t *testing.T) {
+			dir := t.TempDir()
+			body := "version: 1\nsync:\n  unmanaged:\n    - \"" + entry + "\"\n"
+			if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := Load(dir)
+			if got := errs.CodeOf(err); got != errs.CodeConfigDecode {
+				t.Errorf("entry %q: code = %q, want %q (err: %v)", entry, got, errs.CodeConfigDecode, err)
+			}
+		})
 	}
 }
 

@@ -54,7 +54,7 @@ func importFromClaude(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "claude"); err != nil {
 		return err
 	}
-	mainSeeded, mainSrc, promotedNested, err := mirrorClaudeMainFile(root)
+	mainResult, mainSrc, promotedNested, err := mirrorClaudeMainFile(root)
 	if err != nil {
 		return err
 	}
@@ -81,9 +81,12 @@ func importFromClaude(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
-	if mainSeeded {
+	switch mainResult {
+	case mirrorWritten:
 		summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
 			agnosticMainFile, mainSrc)
+	case mirrorUnchanged:
+		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
 	}
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
@@ -115,24 +118,38 @@ var nestedClaudeMainFile = filepath.Join(claudeDir, claudeMainFile)
 // gemini, and the rest — without it, those targets receive only the
 // generic pointer template.
 //
-// Returns (wrote, srcName, promotedNested, err): wrote is false on a
-// project with no Claude instructions at all (callers suppress the
+// Returns (result, srcName, promotedNested, err): result is mirrorAbsent
+// on a project with no Claude instructions at all (callers suppress the
 // summary line); srcName names the file the body came from; promotedNested
-// is true when the nested file was used, signaling the caller to skip
-// capturing it as a claude-private helper overlay.
-func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNested bool, err error) {
+// is true when the nested file was used, written or kept unchanged,
+// signaling the caller to skip capturing it as a claude-private helper
+// overlay.
+func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, promotedNested bool, err error) {
 	if _, statErr := os.Stat(filepath.Join(root, claudeMainFile)); statErr == nil {
-		wrote, err = mirrorMainFile(root, claudeMainFile)
-		return wrote, claudeMainFile, false, err
+		result, err = mirrorMainFile(root, claudeMainFile)
+		return result, claudeMainFile, false, err
 	}
-	wrote, err = mirrorMainFile(root, nestedClaudeMainFile)
-	return wrote, nestedClaudeMainFile, wrote, err
+	result, err = mirrorMainFile(root, nestedClaudeMainFile)
+	return result, nestedClaudeMainFile, result != mirrorAbsent, err
 }
 
+// mirrorResult is what mirrorMainFile did with the imported entry point.
+type mirrorResult int
+
+const (
+	// mirrorAbsent: the source file does not exist; nothing to report.
+	mirrorAbsent mirrorResult = iota
+	// mirrorWritten: AGNOSTIC_AI.md was (re)seeded from the source.
+	mirrorWritten
+	// mirrorUnchanged: the source is exactly the view sync renders from a
+	// fenced AGNOSTIC_AI.md, which is kept as is.
+	mirrorUnchanged
+)
+
 // mirrorMainFile copies <root>/<srcName> to
-// <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns (false, nil) when the
+// <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns mirrorAbsent when the
 // source is absent so the caller can skip its "seeded from <src>"
-// summary line. Each importer calls this with the target's own
+// summary line, and mirrorUnchanged when a fenced source is kept. Each importer calls this with the target's own
 // top-level instructions filename so the project keeps a CLI-agnostic
 // copy under the managed directory. Later imports overwrite earlier
 // mirrors (last-import wins).
@@ -148,44 +165,61 @@ func mirrorClaudeMainFile(root string) (wrote bool, srcName string, promotedNest
 // AGENTS.md, ...) carries the header on line 1; carrying it back would
 // reseed the source you are meant to edit with a "Do not edit" banner
 // and break import->sync byte-stability (#429).
-func mirrorMainFile(root, srcName string) (bool, error) {
+func mirrorMainFile(root, srcName string) (mirrorResult, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+		return mirrorAbsent, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("mirror %s: %w", srcName, err)
+		return mirrorAbsent, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
 	body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
 
 	// A fenced source renders a per-file view; when the imported entry point
 	// is exactly that view there is nothing new to capture and overwriting
-	// would erase every other target's ::target block. Compare against the
-	// view for this file's readers (the same set renderEntryPointFiles uses).
+	// would erase every other target's ::target block.
 	if existing, readErr := os.ReadFile(dst); readErr == nil && strings.Contains(string(existing), "::target") {
-		source := header.Strip(string(existing))
-		var readers []string
-		for _, t := range adapters.Names() {
-			if adapters.EntryPointPath(nil, t) == srcName {
-				readers = append(readers, t)
-			}
-		}
-		if strings.TrimRight(spec.FilterFences(source, readers), "\n") == strings.TrimRight(body, "\n") {
-			return true, nil
+		if matchesRenderedView(root, srcName, header.Strip(string(existing)), body) {
+			return mirrorUnchanged, nil
 		}
 		summaryf("  ! %s replaced a fenced %s; ::target blocks for other tools are gone. Restore them from git if needed.\n", srcName, agnosticMainFile)
 	}
 
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return mirrorAbsent, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", dst, err)
+		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 	}
 	warnUncapturedEntryPoints(root, srcName, body)
-	return true, nil
+	return mirrorWritten, nil
+}
+
+// matchesRenderedView reports whether body is the view sync renders for
+// srcName from the fenced source. It renders with the project's config,
+// so the readers are the enabled targets with their outputs.<t>.file
+// overrides, exactly as sync computes them. Without a loadable config
+// there is no view to trust, so it reports false.
+func matchesRenderedView(root, srcName, source, body string) bool {
+	cfg, err := config.Load(root)
+	if err != nil {
+		return false
+	}
+	files, err := renderEntryPointFiles(cfg, spec.Bundle{}, cfg.Targets, source)
+	if err != nil {
+		return false
+	}
+	want := filepath.ToSlash(srcName)
+	for _, f := range files {
+		if filepath.ToSlash(f.Path) != want {
+			continue
+		}
+		view := header.Strip(adapters.StripGeneratedAppendices(f.Content))
+		return strings.TrimRight(view, "\n") == strings.TrimRight(body, "\n")
+	}
+	return false
 }
 
 // copyMarkdownDir copies every top-level *.md file from srcDir into

@@ -225,10 +225,16 @@ func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // of sync's own central entry-point resolution without creating
 // AGNOSTIC_AI.md itself; that bootstrap stays sync's responsibility so
 // this adapter never races it for the first write.
+//
+// .junie/AGENTS.md is a file only junie itself ever reads (unlike the
+// shared root AGENTS.md, which the central entry-point renderer already
+// fence-filters per its several readers), so the body is filtered here
+// for the single reader "junie": a ::target fence for another tool must
+// not leak its paragraph, or its marker lines, into this file.
 func entryPointBody(cfg *config.Config) (string, error) {
 	data, err := os.ReadFile(emit.AgnosticEntryPointPath)
 	if err == nil {
-		return emit.StripHeader(string(data)), nil
+		return spec.FilterFences(emit.StripHeader(string(data)), []string{target}), nil
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", emit.AgnosticEntryPointPath, err)

@@ -541,12 +541,13 @@ sync:
     - .claude/skills/legacy/          # trailing slash: everything under the directory
 ```
 
-- Entries are project-relative. A leading `./` or `/` is ignored. Globs use Go `path.Match`; `**` is not supported. A malformed glob fails config load.
+- Entries are project-relative and use forward slashes; `\` is a glob escape, not a separator. A leading `./` or `/` is ignored. Globs use Go `path.Match`; `**` is not supported. A malformed glob or an entry that names no path (`.`, `./`, `/`, empty) fails config load.
 - `sync` skips each matching output and prints `~ skip (unmanaged) <path>`. `--json` lists it under `skipped` with action `"unmanaged"`.
 - `sync --check`, `status`, and `doctor` never report it as drift. `doctor` lists the entries in a `User-owned` block and leaves them out of the `Unmanaged config` block.
 - The path stays out of the sync ledger, so removing the entry later deletes nothing. The next sync rewrites the file with the provenance header.
 - `revert` and `doctor --fix` never restore or delete it.
-- The managed `.gitignore` block does not collapse a directory that holds one of these files. That directory's generated files are listed one per line instead, so git sees your file.
+- The managed `.gitignore` block does not collapse a directory that could hold a matching file, even one no spec renders. That directory's generated files are listed one per line instead, so git sees your file.
+- With `sync.shared-skills`, a skill folder that could hold a matching file is never linked. An existing link there becomes a real copy of its current files on the next sync, so a file you edited through the link survives.
 - The list is project-wide, not per target: one path such as `AGENTS.md` has many readers. `agnostic-ai.local.yaml` replaces the whole list, like every list in the local override.
 - Not covered yet: hook script bodies copied from `.agnostic-ai/scripts/` into `.<tool>/hooks/`.
 
@@ -815,7 +816,8 @@ Run `make preflight` before you stop.
 - A fenced block goes to a file when any target reading that file is listed. `AGENTS.md` has many readers (codex, amp, warp, cline, ...), so a `::target codex` block reaches all of them. A shared file is never split.
 - Marker lines never reach the output. `.agnostic-ai/AGNOSTIC_AI.md` keeps them; it is the source.
 - Markers must start at column 0. Indent a code sample that shows a marker.
-- `agnostic-ai validate` flags a fence naming an unknown target.
+- `agnostic-ai validate` flags a fence naming an unknown target, or a built-in target that reads no entry-point file.
+- `agnostic-ai import` keeps a fenced source when the imported entry point is exactly the view sync renders for the enabled targets, so re-importing an untouched file never erases other tools' blocks.
 - `agnostic-ai import <tool>` leaves a fenced source untouched when the imported entry point equals its rendered view (the default `sync.resolve-imports: passthrough`). Otherwise import overwrites the source, as before, and warns that the fences are gone.
 
 To opt back into the legacy concatenated layout for a target, set `outputs.<target>.rules-file: <path>`. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so the two do not collide.

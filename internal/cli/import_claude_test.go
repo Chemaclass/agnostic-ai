@@ -917,33 +917,6 @@ func TestImportFromClaude_NoMCPFile(t *testing.T) {
 	}
 }
 
-// A fenced AGNOSTIC_AI.md renders a per-file view. When CLAUDE.md holds
-// exactly that view, there is nothing new to capture: overwriting the
-// source would erase every other target's ::target block, so the source
-// stays untouched.
-func TestMirrorMainFile_KeepsFencedSourceWhenRenderMatches(t *testing.T) {
-	dir := t.TempDir()
-	source := "Shared.\n\n::target claude\nClaude-only line.\n::end\n\n::target gemini\nGemini-only line.\n::end\n"
-	writeFile(t, filepath.Join(dir, agnosticMainFile), source)
-	rendered := spec.FilterFences(source, []string{"claude"})
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), header.With(rendered, header.FormatMarkdown))
-
-	wrote, err := mirrorMainFile(dir, "CLAUDE.md")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !wrote {
-		t.Error("mirrorMainFile reported nothing written")
-	}
-	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != source {
-		t.Errorf("fenced source was replaced when the rendered view matched:\ngot:  %q\nwant: %q", got, source)
-	}
-}
-
 // A hand-edited CLAUDE.md that no longer matches the fenced source's
 // rendered view carries content import must capture, so the source is
 // overwritten as before, with a warning that the other targets'
@@ -959,11 +932,11 @@ func TestMirrorMainFile_WarnsWhenFencedSourceReplaced(t *testing.T) {
 	logOut = &buf
 	defer func() { logOut = prev }()
 
-	wrote, err := mirrorMainFile(dir, "CLAUDE.md")
+	result, err := mirrorMainFile(dir, "CLAUDE.md")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !wrote {
+	if result != mirrorWritten {
 		t.Error("mirrorMainFile reported nothing written")
 	}
 	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))

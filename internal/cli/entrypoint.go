@@ -102,13 +102,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
-		// A fence can leave a blank connector line as the last kept line
-		// (its neighboring fence dropped), so the filtered body may end in
-		// more than one newline. Normalize to exactly one now: sess.WriteFile
-		// does the same at write time, and entryPointFile.Content must match
-		// what lands on disk byte-for-byte so the drift check never
-		// false-positives on a freshly synced fenced body.
-		content := strings.TrimRight(spec.FilterFences(body, consumers[path]), "\n") + "\n"
+		content := spec.FilterFences(body, consumers[path])
 		if !pathSupportsFileImports(consumers[path]) {
 			resolved, err := adapters.ApplyImportMode(content, cfg.Sync.ResolveImports)
 			if err != nil {
@@ -139,9 +133,16 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 			content = adapters.AppendTargetOverview(content, adapters.RenderTargetOverview(sections))
 		}
+		// Mirror sess.WriteFile's trailing-newline normalization so Content
+		// equals the bytes on disk and the drift check never false-positives
+		// (an AGNOSTIC_AI.md ending in several newlines, fenced or not).
+		rendered := header.With(content, header.FormatMarkdown)
+		if rendered != "" {
+			rendered = strings.TrimRight(rendered, "\n") + "\n"
+		}
 		files = append(files, entryPointFile{
 			Path:    path,
-			Content: header.With(content, header.FormatMarkdown),
+			Content: rendered,
 		})
 	}
 	return files, nil

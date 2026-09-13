@@ -41,6 +41,48 @@ func MatchUnmanaged(patterns []string, p string) bool {
 	return false
 }
 
+// MatchUnmanagedDir reports whether dir holds, or could hold, a path
+// matching one of patterns. Unlike MatchUnmanaged it needs no concrete
+// file: it compares dir's segments against each pattern's leading
+// segments with path.Match. A file pattern must reach below dir; a
+// directory pattern (trailing `/`) counts at any depth, since it owns
+// everything under it and may itself sit under dir.
+func MatchUnmanagedDir(patterns []string, dir string) bool {
+	if len(patterns) == 0 {
+		return false // gitignore calls this per entry; skip the split
+	}
+	dirSegs := strings.Split(normalizeUnmanaged(strings.ReplaceAll(dir, `\`, "/")), "/")
+	for _, pattern := range patterns {
+		if pattern == "" {
+			continue
+		}
+		isDir := strings.HasSuffix(pattern, "/")
+		patSegs := strings.Split(normalizeUnmanaged(pattern), "/")
+		n := len(dirSegs)
+		if len(patSegs) <= n {
+			if !isDir {
+				continue // a file pattern this shallow cannot sit under dir
+			}
+			n = len(patSegs)
+		}
+		if segmentsMatch(patSegs[:n], dirSegs[:n]) {
+			return true
+		}
+	}
+	return false
+}
+
+// segmentsMatch reports whether every name matches the glob at the same
+// position. Both slices have the same length.
+func segmentsMatch(globs, names []string) bool {
+	for i, g := range globs {
+		if ok, _ := path.Match(g, names[i]); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // IsUnmanaged is MatchUnmanaged over c.Sync.Unmanaged. Nil-safe so
 // callers holding a possibly-nil config need no guard.
 func (c *Config) IsUnmanaged(p string) bool {
@@ -54,9 +96,14 @@ func normalizeUnmanaged(p string) string {
 }
 
 // validateUnmanaged rejects a malformed glob in sync.unmanaged at load
-// time, so a typo fails loudly instead of silently owning nothing.
+// time, so a typo fails loudly instead of silently owning nothing. An
+// entry that names no path (empty, `.`, `./`, `/`) is rejected too: it
+// reads like "the whole project" but would match nothing.
 func validateUnmanaged(patterns []string, source string) error {
 	for _, p := range patterns {
+		if n := normalizeUnmanaged(p); n == "" || n == "." {
+			return errs.Coded(errs.CodeConfigDecode, "%s: sync.unmanaged: entry %q names no path", source, p)
+		}
 		if _, err := path.Match(p, ""); err != nil {
 			return errs.Coded(errs.CodeConfigDecode, "%s: sync.unmanaged: bad pattern %q: %w", source, p, err)
 		}

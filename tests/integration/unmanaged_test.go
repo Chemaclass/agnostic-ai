@@ -91,6 +91,29 @@ func TestUnmanaged_GitignoreKeepsPreciseEntries(t *testing.T) {
 	}
 }
 
+// A glob that matches only a hand-written file (no spec renders there)
+// never reaches the session, so the config pattern alone has to keep the
+// directory out of the collapsed ignore.
+func TestUnmanaged_GitignoreKeepsHandOnlyGlobMatch(t *testing.T) {
+	dir := setupUnmanagedProject(t)
+	writeUnmanagedConfig(t, dir, ".claude/agents/hand-*.md")
+	must(t, os.MkdirAll(".claude/agents", 0o755))
+	must(t, os.WriteFile(".claude/agents/hand-foo.md", []byte("mine\n"), 0o644))
+
+	runCmd(t, "sync")
+
+	gitignore := readString(t, ".gitignore")
+	if strings.Contains(gitignore, "\n/.claude/agents/\n") {
+		t.Errorf(".gitignore hides the hand-written agent:\n%s", gitignore)
+	}
+	if !strings.Contains(gitignore, "\n/.claude/agents/sample-agent.md\n") {
+		t.Errorf(".gitignore should list the generated agent precisely:\n%s", gitignore)
+	}
+	if got := readString(t, ".claude/agents/hand-foo.md"); got != "mine\n" {
+		t.Errorf("hand-written agent changed: %q", got)
+	}
+}
+
 func TestUnmanaged_RemovingEntryRestoresManagement(t *testing.T) {
 	dir := setupUnmanagedProject(t)
 	handOwnRule(t, dir)

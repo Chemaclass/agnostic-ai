@@ -38,6 +38,20 @@ func TestEmitWithProvenance_SkipsUnmanagedPaths(t *testing.T) {
 	}
 }
 
+// sync never writes a user-owned shared AGENTS.md, so readers that would
+// disagree about its content are not a conflict.
+func TestValidateScopedRules_UnmanagedSharedPathSkipsReaderConflicts(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "payments", Body: "new",
+		Meta: map[string]any{"scope": "payments", "target": "codex"}}})
+	cfg := &config.Config{Targets: []string{"codex", "amp"}}
+	cfg.Sync.Unmanaged = []string{"payments/AGENTS.md"}
+
+	if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+		t.Fatalf("user-owned shared path must not raise a reader conflict: %v", err)
+	}
+}
+
 func TestValidateScopedRules_IgnoresUnmanagedDestination(t *testing.T) {
 	for _, tc := range []struct{ target, destination string }{
 		{"codex", "payments/AGENTS.md"},

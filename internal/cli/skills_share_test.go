@@ -297,7 +297,7 @@ func TestPlanSkillLinks_GroupsByFingerprintAndPrefersAgentsSkills(t *testing.T) 
 		}},
 	}
 
-	links := planSkillLinks(captures)
+	links := planSkillLinks(captures, nil)
 	if len(links) != 1 {
 		t.Fatalf("expected exactly one link (cursor -> agents), got %+v", links)
 	}
@@ -318,7 +318,7 @@ func TestPlanSkillLinks_NoLinkForSingleOrDivergentFolders(t *testing.T) {
 			{Path: filepath.Join(".cursor", "skills", "solo", "SKILL.md"), Content: "b"},
 		}},
 	}
-	if links := planSkillLinks(captures); len(links) != 0 {
+	if links := planSkillLinks(captures, nil); len(links) != 0 {
 		t.Errorf("divergent folders must not link, got %+v", links)
 	}
 }

@@ -133,11 +133,11 @@ func TestMirrorMainFile_StripsTargetOverview(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wrote, err := mirrorMainFile(dir, "CLAUDE.md")
+	result, err := mirrorMainFile(dir, "CLAUDE.md")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !wrote {
+	if result != mirrorWritten {
 		t.Fatal("mirrorMainFile reported nothing written")
 	}
 	data, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))

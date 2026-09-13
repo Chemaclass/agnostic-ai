@@ -111,7 +111,7 @@ func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 }
 
 func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
-	block := buildManagedBlock(&config.Config{}, nil, nil)
+	block := buildManagedBlock(&config.Config{}, nil)
 	for _, want := range []string{
 		"/agnostic-ai.local.yaml",
 		"/.agnostic-ai/.sync-state",
@@ -134,7 +134,7 @@ func TestBuildManagedBlock_NeverIgnoresTheAgnosticEntryPoint(t *testing.T) {
 	// it as an emitted path; later syncs read it from disk and skip the
 	// write. Left alone that makes the first .gitignore differ from every
 	// later one, and worse, ignores a source file (#580).
-	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath}, nil)
+	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath})
 	for _, e := range block {
 		if strings.Contains(e, "AGNOSTIC_AI.md") {
 			t.Errorf("managed block ignores the source entry point %q, got %v", e, block)
@@ -157,7 +157,7 @@ func TestUpdateGitignore_StripsLooseFixedDuplicatesAndConsolidates(t *testing.T)
 	}
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
-	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"}, nil)
+	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"})
 	if err := updateGitignore(dir, cfg, block); err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestNormalizeAllowEntries_PrefixesDedupesSorts(t *testing.T) {
 func TestBuildManagedBlock_AppendsAllowExceptionsLast(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Gitignore.Allow = []string{"internal/adapters/**/testdata/**"}
-	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"}, nil)
+	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"})
 	if len(got) == 0 || got[len(got)-1] != "!internal/adapters/**/testdata/**" {
 		t.Fatalf("re-allow line not appended last: %v", got)
 	}
@@ -447,7 +447,7 @@ func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
 func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) {
 	cfg := &config.Config{}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
-	block := buildManagedBlock(cfg, hints, nil)
+	block := buildManagedBlock(cfg, hints)
 	for _, want := range []string{"/.claude/agent-memory/", "/.claude/settings.local.json"} {
 		found := false
 		for _, e := range block {
@@ -469,14 +469,18 @@ func TestGitignoreHintsForTargets_AbsentWhenClaudeNotEnabled(t *testing.T) {
 }
 
 func TestBuildManagedBlock_KeepsPreciseEntriesAroundUnmanagedFile(t *testing.T) {
+	// hand-x.md matches no spec, so sync never tries to write it: the
+	// config pattern alone must keep /.claude/agents/ from collapsing.
 	entries := []string{".claude/agents/a.md", ".claude/rules/r.md"}
+	cfg := &config.Config{}
+	cfg.Sync.Unmanaged = []string{".claude/agents/hand-*.md"}
 
-	block := buildManagedBlock(&config.Config{}, entries, []string{".claude/agents/hand.md"})
+	block := buildManagedBlock(cfg, entries)
 
 	has := map[string]bool{}
 	for _, e := range block {
 		has[e] = true
-		if strings.Contains(e, "hand.md") {
+		if strings.Contains(e, "hand-") {
 			t.Errorf("user-owned file listed in the block: %v", block)
 		}
 	}
@@ -490,10 +494,10 @@ func TestBuildManagedBlock_KeepsPreciseEntriesAroundUnmanagedFile(t *testing.T) 
 	}
 }
 
-func TestCollapseManagedEntries_PreciseDirsStayExpanded(t *testing.T) {
+func TestCollapseManagedEntries_UnmanagedDirsStayExpanded(t *testing.T) {
 	in := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/x.md"}
 
-	got := collapseManagedEntries(in, nil, []string{"/.claude/agents/"})
+	got := collapseManagedEntries(in, nil, []string{".claude/agents/hand-*.md"})
 
 	want := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/"}
 	if !reflect.DeepEqual(got, want) {
