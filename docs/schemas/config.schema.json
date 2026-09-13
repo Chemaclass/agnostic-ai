@@ -467,6 +467,12 @@
         },
         "shared-skills": {
           "type": "boolean"
+        },
+        "unmanaged": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
