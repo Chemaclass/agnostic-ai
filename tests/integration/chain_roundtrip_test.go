@@ -171,6 +171,17 @@ func runCmd(t *testing.T, args ...string) {
 	}
 }
 
+// runCmdExpectErr runs args and fails the test unless the command
+// returns a non-nil error (e.g. `sync --check` reporting drift).
+func runCmdExpectErr(t *testing.T, args ...string) {
+	t.Helper()
+	root := cli.NewRootCmd("test")
+	root.SetArgs(args)
+	if err := root.Execute(); err == nil {
+		t.Fatalf("%v: expected an error, got nil", args)
+	}
+}
+
 func assertContains(t *testing.T, path string, wants ...string) {
 	t.Helper()
 	data, err := os.ReadFile(path)

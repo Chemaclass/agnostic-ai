@@ -36,6 +36,7 @@ func newValidateCmd() *cobra.Command {
 			// specs loaded: an all-missing-sources config is exactly the
 			// case where the warning matters most (#444).
 			sourceIssues := lintMissingSources(".")
+			sourceIssues = append(sourceIssues, lintEntryPointFences(".")...)
 			if len(entries) == 0 {
 				reportIssues(cmd, sourceIssues)
 				cmd.PrintErrln(emptySpecsHint)

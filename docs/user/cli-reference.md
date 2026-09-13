@@ -72,7 +72,7 @@ agnostic-ai import continue       # .continue/rules/
 
 - Touches only spec files under `sources:`. Never modifies `targets:` or other config.
 - Re-running overwrites by filename. Run after `init`, in the same project root.
-- Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins.
+- Multiple sources import in order. Each mirrors its target's top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`; with multiple sources, the last argument wins. A fenced `AGNOSTIC_AI.md` is left untouched when the imported entry point equals its rendered view; otherwise import overwrites it and warns that the fences were replaced.
 - When another target's entry-point exists with different hand-authored content (e.g. a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that it holds unique content the next `sync` would overwrite. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` before syncing to keep it.
 - `all` cannot combine with other sources. It auto-detects every CLI present in the project.
 - Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo` (ignore files only), plus `all`. The newest targets `factory`, `openhands`, `jules`, `goose`, and `augment` are emit-only for now; every other emitted target can also be imported.
@@ -202,6 +202,7 @@ Once specs load, `validate` runs three native-support checks:
 - **Missing fields.** Hook specs missing `event:` are flagged.
 - **Orphaned kinds.** When a project has hook or MCP specs but no enabled target consumes them, validate prints one summary line per orphaned kind with the targets that would unblock it.
 - **Declared sources.** Each `sources.<kind>` path set in `agnostic-ai.yaml` whose directory is missing is flagged, so a config cannot advertise coverage it never delivers. Undeclared kinds (using the default) are not flagged. Warning only. (#444)
+- **Entry-point fences.** Each `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` must be a known target. A typo would silently drop the paragraph from every entry-point file.
 
 ## list
 

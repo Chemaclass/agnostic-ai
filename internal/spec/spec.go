@@ -186,22 +186,38 @@ func (e Entry) BodyFor(target string) string {
 	if target == "" || !strings.Contains(e.Body, targetFenceOpen) {
 		return e.Body
 	}
-	return renderBodyForTarget(e.Body, target)
+	return FilterFences(e.Body, []string{target})
 }
 
-// renderBodyForTarget walks the body line-by-line, keeping every line
-// outside a fence and every line inside a matching fence. Marker lines
-// are dropped. See BodyFor for the documented semantics.
-func renderBodyForTarget(body, target string) string {
+// FilterFences materializes body for readers, processing
+// `::target <name>` / `::targets <a> <b>` / `::end` fences:
+//
+//   - Lines outside any fence stay for every reader.
+//   - A fenced block stays when any reader is in its allow-list; the
+//     marker lines themselves never emit.
+//   - Fences do not nest: a second opener before ::end replaces the
+//     allow-list, and ::end always closes.
+//   - An unterminated fence runs to end-of-body so a missing ::end does
+//     not silently drop the tail of the file.
+//   - An empty readers list returns body unchanged (the source view).
+//
+// Entry.BodyFor is the one-reader form. The entry-point body
+// (.agnostic-ai/AGNOSTIC_AI.md) passes every target reading one file as
+// readers, so a shared AGENTS.md keeps a block when any of its readers is
+// listed. Bodies without fences pass through unchanged.
+func FilterFences(body string, readers []string) string {
+	if len(readers) == 0 || !strings.Contains(body, targetFenceOpen) {
+		return body
+	}
 	lines := strings.Split(body, "\n")
 	var out strings.Builder
 	out.Grow(len(body))
-	keep := true // outside a fence: every target sees the line
+	keep := true // outside a fence: every reader sees the line
 	for _, line := range lines {
 		marker, allow := parseFenceMarker(line)
 		switch marker {
 		case fenceTargetOpen:
-			keep = inAllowList(allow, target)
+			keep = anyInAllowList(allow, readers)
 			continue
 		case fenceTargetClose:
 			keep = true
@@ -223,8 +239,30 @@ func renderBodyForTarget(body, target string) string {
 	}
 	// Dropped fences leave the surrounding blank lines stacked. Collapse
 	// any run of 3 or more newlines back down to a paragraph break so
-	// the rendered body reads cleanly for the active target.
+	// the rendered body reads cleanly for the active readers.
 	return collapseBlankRuns(s)
+}
+
+// FenceTargets returns every name used by a `::target` / `::targets`
+// opener in body, deduplicated in first-seen order. validate uses this
+// to flag a name that matches no known target.
+func FenceTargets(body string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, line := range strings.Split(body, "\n") {
+		marker, allow := parseFenceMarker(line)
+		if marker != fenceTargetOpen {
+			continue
+		}
+		for _, name := range allow {
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // collapseBlankRuns rewrites runs of 3+ consecutive '\n' bytes as
@@ -273,6 +311,16 @@ func parseFenceMarker(line string) (int, []string) {
 func inAllowList(names []string, target string) bool {
 	for _, n := range names {
 		if n == target {
+			return true
+		}
+	}
+	return false
+}
+
+// anyInAllowList reports whether any reader appears in names.
+func anyInAllowList(names, readers []string) bool {
+	for _, r := range readers {
+		if inAllowList(names, r) {
 			return true
 		}
 	}
