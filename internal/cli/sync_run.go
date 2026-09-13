@@ -435,7 +435,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
+		block := buildManagedBlock(cfg, gitignoreEntries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
@@ -662,7 +662,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
-		block := buildManagedBlock(cfg, gitignoreEntries, unmanagedSkips(sessions))
+		block := buildManagedBlock(cfg, gitignoreEntries)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}

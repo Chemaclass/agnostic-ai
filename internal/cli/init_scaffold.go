@@ -149,7 +149,7 @@ func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
 	// even when sync will not manage the generated-output lines. sync
 	// later refreshes the same block with the emitted artifact paths.
 	gicfg := &config.Config{}
-	if err := updateGitignore(opts.Root, gicfg, buildManagedBlock(gicfg, nil, nil)); err != nil {
+	if err := updateGitignore(opts.Root, gicfg, buildManagedBlock(gicfg, nil)); err != nil {
 		return err
 	}
 	if opts.Demo {
