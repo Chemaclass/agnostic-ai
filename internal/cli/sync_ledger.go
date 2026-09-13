@@ -12,17 +12,17 @@ import (
 
 // recordLedgerWrites appends every create/update/skip path from writes
 // into session in the order they were emitted, and records each path's
-// content sum in sums (an empty sum still marks the path as written this
-// run). Delete actions are skipped because the file no longer belongs to
-// this sync's output set. Callers feed session and sums to
+// content sum in written (an empty sum still marks the path as written
+// this run). Delete actions are skipped because the file no longer belongs to
+// this sync's output set. Callers feed session and written to
 // writeStateFile at end-of-sync so the next run knows the full prior
 // output footprint and can prove ownership of header-less files.
-func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, sums map[string]string) {
+func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, written map[string]string) {
 	for _, w := range writes {
 		switch w.Action {
 		case "create", "update", "skip":
 			*session = append(*session, w.Path)
-			sums[w.Path] = w.Sum
+			written[w.Path] = w.Sum
 		}
 	}
 }

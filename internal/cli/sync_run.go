@@ -733,26 +733,7 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 // to be written appear in writes (action: "missing" or "stale"); files that
 // are already in sync appear in skipped (action: "ok").
 func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport) error {
-	out := jsonOutput{Version: "1", Command: "sync --check"}
-	for _, r := range reports {
-		for _, f := range r.Missing {
-			out.Writes = append(out.Writes, fileRecord{
-				Target: r.Target,
-				Path:   f.Path,
-				Action: "missing",
-				Bytes:  len(f.Content),
-			})
-		}
-		for _, f := range r.Stale {
-			out.Writes = append(out.Writes, fileRecord{
-				Target: r.Target,
-				Path:   f.Path,
-				Action: "stale",
-				Bytes:  len(f.Content),
-			})
-		}
-		out.Writes = appendOrphanRecords(out.Writes, r)
-	}
+	out := jsonOutput{Version: "1", Command: "sync --check", Writes: driftRecords(reports)}
 	hasDrift := len(out.Writes) > 0
 	if err := emitJSON(cmd, out); err != nil {
 		return err

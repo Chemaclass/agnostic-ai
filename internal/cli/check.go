@@ -332,29 +332,10 @@ func newDoctorCmd() *cobra.Command {
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
-// used by `sync --check --json`: missing/stale files appear in writes,
-// up-to-date files appear in skipped.
+// used by `sync --check --json`: missing, stale, and orphaned files appear
+// in writes.
 func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
-	out := jsonOutput{Version: "1", Command: "doctor"}
-	for _, r := range reports {
-		for _, f := range r.Missing {
-			out.Writes = append(out.Writes, fileRecord{
-				Target: r.Target,
-				Path:   f.Path,
-				Action: "missing",
-				Bytes:  len(f.Content),
-			})
-		}
-		for _, f := range r.Stale {
-			out.Writes = append(out.Writes, fileRecord{
-				Target: r.Target,
-				Path:   f.Path,
-				Action: "stale",
-				Bytes:  len(f.Content),
-			})
-		}
-		out.Writes = appendOrphanRecords(out.Writes, r)
-	}
+	out := jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}
 	hasDrift := len(out.Writes) > 0
 	if err := emitJSON(cmd, out); err != nil {
 		return err
@@ -365,10 +346,21 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
 	return nil
 }
 
-// appendOrphanRecords adds one "orphan" write record per orphaned file in r.
-func appendOrphanRecords(records []fileRecord, r driftReport) []fileRecord {
-	for _, p := range r.Orphaned {
-		records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
+// driftRecords flattens reports into the JSON write records shared by
+// `sync --check --json` and `doctor --json`: one per missing, stale, or
+// orphaned file.
+func driftRecords(reports []driftReport) []fileRecord {
+	var records []fileRecord
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "missing", Bytes: len(f.Content)})
+		}
+		for _, f := range r.Stale {
+			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "stale", Bytes: len(f.Content)})
+		}
+		for _, p := range r.Orphaned {
+			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
+		}
 	}
 	return records
 }
