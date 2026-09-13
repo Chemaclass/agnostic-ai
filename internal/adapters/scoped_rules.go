@@ -55,13 +55,15 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			return err
 		}
 		for _, f := range files {
+			// sync never writes a user-owned path, so neither content
+			// conflicts nor the reader checks on shared files apply to it.
+			if cfg.IsUnmanaged(f.Path) {
+				continue
+			}
 			if prior, ok := shared[f.Path]; ok && prior.Content != f.Content {
 				return fmt.Errorf("%s: incompatible target-specific scoped instructions; use identical content or separate worktrees", f.Path)
 			}
 			shared[f.Path] = f
-			if cfg.IsUnmanaged(f.Path) {
-				continue
-			}
 			if err := emit.CheckScopedDestination(f.Path); err != nil {
 				return err
 			}
