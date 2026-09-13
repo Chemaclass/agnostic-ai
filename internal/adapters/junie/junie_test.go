@@ -284,6 +284,37 @@ func TestEmit_JunieAGENTSMd_MirrorsHandEditedAgnosticFile(t *testing.T) {
 	}
 }
 
+// A fenced AGNOSTIC_AI.md must be filtered for junie before it lands in
+// .junie/AGENTS.md, the same as every other entry-point file: marker
+// lines never reach the output, and a paragraph fenced for a different
+// target never leaks in.
+func TestEmit_JunieAGENTSMd_FiltersFences(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	source := "Shared line.\n\n::target junie\nJunie-only line.\n::end\n\n::target claude\nClaude-only line.\n::end\n"
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".junie/AGENTS.md"))
+	if !strings.Contains(got, "Shared line.") || !strings.Contains(got, "Junie-only line.") {
+		t.Errorf(".junie/AGENTS.md missing its own content:\n%s", got)
+	}
+	if strings.Contains(got, "Claude-only line.") {
+		t.Errorf(".junie/AGENTS.md leaked a paragraph fenced for a different target:\n%s", got)
+	}
+	if strings.Contains(got, "::target") || strings.Contains(got, "::end") {
+		t.Errorf(".junie/AGENTS.md leaked a fence marker line:\n%s", got)
+	}
+}
+
 // TestEmit_StaleAgentsAppendix_DroppedOnNextSync covers a project last
 // synced by the pre-#604 adapter: `.junie/AGENTS.md` on disk still
 // carries the old sentinel-marked `## Agents` block. `.junie/AGENTS.md`
