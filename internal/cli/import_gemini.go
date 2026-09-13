@@ -289,6 +289,7 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 	}
 	sort.Strings(events)
 	count := 0
+	usedNames := map[string]bool{}
 	for _, event := range events {
 		entries, ok := hooks[event].([]any)
 		if !ok {
@@ -299,24 +300,17 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 			if !ok {
 				continue
 			}
-			cmd, _ := entry["command"].(string)
-			matcher, _ := entry["matcher"].(string)
-			var cmds []string
-			if cmd != "" {
-				cmds = []string{cmd}
+			doc := geminiHookSpec(event, entry)
+			if doc == nil {
+				continue
 			}
-			name := hookSpecName(event, matcher, cmds)
-			doc := map[string]any{
-				"name":   name,
-				"event":  event,
-				"target": "gemini",
+			name, _ := doc["name"].(string)
+			base := name
+			for suffix := 2; usedNames[name]; suffix++ {
+				name = fmt.Sprintf("%s-%d", base, suffix)
 			}
-			if cmd != "" {
-				doc["command"] = cmd
-			}
-			if matcher != "" {
-				doc["matcher"] = matcher
-			}
+			usedNames[name] = true
+			doc["name"] = name
 			raw, err := yaml.Marshal(doc)
 			if err != nil {
 				return count, fmt.Errorf("marshal hook %s: %w", name, err)
@@ -329,4 +323,72 @@ func writeGeminiHooks(hooks map[string]any, dstDir string) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+func geminiHookSpec(event string, definition map[string]any) map[string]any {
+	matcher, _ := definition["matcher"].(string)
+	var handlers []any
+	var commands []string
+	if raw, nested := definition["hooks"]; nested {
+		entries, _ := raw.([]any)
+		for _, entry := range entries {
+			handler, ok := entry.(map[string]any)
+			if !ok || handler["type"] != "command" {
+				continue
+			}
+			command, _ := handler["command"].(string)
+			if command != "" {
+				handlers = append(handlers, handler)
+				commands = append(commands, command)
+			}
+		}
+		if len(handlers) == 0 {
+			return nil
+		}
+	} else {
+		// Older agnostic-ai versions emitted flat command entries.
+		handlers = []any{definition}
+		if command, _ := definition["command"].(string); command != "" {
+			commands = append(commands, command)
+		}
+	}
+	doc := map[string]any{
+		"name": hookSpecName(event, matcher, commands), "event": event, "target": "gemini",
+	}
+	if matcher != "" {
+		doc["matcher"] = matcher
+	}
+	native := map[string]any{}
+	if sequential, ok := definition["sequential"].(bool); ok {
+		native["sequential"] = sequential
+	}
+	if len(handlers) > 1 {
+		// Flattening a group would lose per-handler metadata and ordering.
+		native["hooks"] = handlers
+	} else {
+		handler, _ := handlers[0].(map[string]any)
+		for _, key := range []string{"command", "description"} {
+			if value, _ := handler[key].(string); value != "" {
+				doc[key] = value
+			}
+		}
+		if name, _ := handler["name"].(string); name != "" {
+			native["name"] = name
+		}
+		if env, ok := handler["env"].(map[string]any); ok {
+			native["env"] = env
+		}
+		if timeout, ok := handler["timeout"].(float64); ok {
+			seconds := timeout / 1000
+			if seconds == float64(int(seconds)) {
+				doc["timeout"] = int(seconds)
+			} else {
+				native["timeout"] = timeout
+			}
+		}
+	}
+	if len(native) > 0 {
+		doc["x-gemini"] = native
+	}
+	return doc
 }

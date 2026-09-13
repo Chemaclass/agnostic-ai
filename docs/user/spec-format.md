@@ -175,13 +175,13 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `description` | no | empty | Free-form documentation. |
 | `event` | yes | none | Hook event. See list below. |
 | `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
-| `command` | yes, unless `type: mcp_tool` | none | Shell command to run when triggered. |
+| `command` | yes, unless `type: mcp_tool` or `x-gemini.hooks` is set | none | Shell command to run when triggered. |
 | `args` | no | empty | Argument list. Claude Code, Qoder and Copilot. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. The targets spell the form differently. Claude Code and Qoder keep the executable in `command`, and Qoder ignores `shell` in exec form; Copilot moves it to `exec` and forbids carrying both, and its exec form runs under Copilot CLI only, so a hook that must also run under Copilot cloud agent leaves `args` unset. `sync` says so with a coverage note. |
 | `type` | no | `command` | Set to `mcp_tool` for a Codex hook that calls a tool on an already-connected MCP server instead of running a shell command, in place of `command`. Codex. |
 | `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Codex. |
 | `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Codex. |
 | `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Codex. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment converts this value to **milliseconds** before writing it (vendor default 60000 when absent), the one target here whose native unit differs from the field's own seconds. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), and Factory (default 60 when absent). Augment and Gemini convert this value to **milliseconds** before writing it (vendor default 60000 when absent). |
 | `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes, and Qoder. |
 | `async` | no | `false` | Run in the background without blocking. Claude + Codex, and Qoder. |
 | `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude and Qoder. |
@@ -321,23 +321,25 @@ Gemini uses different event names, so a Gemini hook sets `event:` to one of its 
 
 ```yaml
 event: AfterTool
-matcher: Bash(git commit*)
+matcher: run_shell_command
 command: echo "tests please"
 ```
 
-Renders to `.gemini/settings.json` (flat shape, event name passed through unchanged):
+Renders to `.gemini/settings.json` (nested command handlers, event name passed through unchanged):
 
 ```json
 {
   "hooks": {
     "AfterTool": [
-      {"matcher": "Bash(git commit*)", "command": "echo \"tests please\""}
+      {"matcher": "run_shell_command", "hooks": [{"type": "command", "command": "echo \"tests please\""}]}
     ]
   }
 }
 ```
 
-When `command` is a list, each entry becomes a separate hook entry (Claude, Codex).
+When `command` is a list, each entry becomes a separate handler (Claude, Codex, Gemini). Gemini keeps the handlers in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler; `x-gemini.name` sets its native display name, and `x-gemini.env` supplies per-handler environment variables.
+
+Gemini hook imports preserve nested definitions and accept old flat files. A single handler imports with a timeout in seconds when exactly representable as a whole second; otherwise `x-gemini.timeout` retains the native milliseconds. A group with multiple handlers uses `x-gemini.hooks`, a native handler array that preserves each command, name, description, environment map, and millisecond timeout. This array replaces `command` emission for Gemini.
 
 ## MCP servers
 

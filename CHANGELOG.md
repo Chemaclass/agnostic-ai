@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Gemini hooks use the nested command format its loader requires. Import preserves distinct native handler groups, environment variables, and timeouts while accepting old flat hook files (#762).
 - `sync` protects hand-authored ignore files against reordered patterns, added negations, and changed whitespace. Import followed by sync preserves pattern order and whitespace across all seven ignore-capable targets (#761).
 
 ## v0.56.1 - 2026-09-12
