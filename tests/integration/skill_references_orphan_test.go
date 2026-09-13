@@ -28,7 +28,7 @@ func setupSkillReferencesProject(t *testing.T, target string) {
 }
 
 // goneOutputs lists every emitted path outside the source tree that
-// belongs to the `gone` skill.
+// belongs to the `gone` skill, slash-separated on every OS.
 func goneOutputs(t *testing.T) []string {
 	t.Helper()
 	var out []string
@@ -39,8 +39,8 @@ func goneOutputs(t *testing.T) []string {
 		if d.IsDir() && (p == ".agnostic-ai" || p == ".git") {
 			return filepath.SkipDir
 		}
-		if strings.Contains(filepath.ToSlash(p), "/gone") {
-			out = append(out, p)
+		if slashed := filepath.ToSlash(p); strings.Contains(slashed, "/gone") {
+			out = append(out, slashed)
 		}
 		return nil
 	})
@@ -51,6 +51,8 @@ func goneOutputs(t *testing.T) []string {
 	return out
 }
 
+// syncStateForTest mirrors the ledger fields of .agnostic-ai/.sync-state.
+// Paths are OS-native, so assertions compare them through filepath.ToSlash.
 type syncStateForTest struct {
 	Outputs []string `json:"outputs"`
 	Orphans []string `json:"orphans"`
@@ -81,7 +83,7 @@ func TestSync_DeletedSkillRemovesBundledReferencesInEveryTarget(t *testing.T) {
 				t.Errorf("deleted skill left files behind: %v", left)
 			}
 			for _, p := range readSyncState(t).Outputs {
-				if strings.Contains(p, "/gone/") {
+				if strings.Contains(filepath.ToSlash(p), "/gone/") {
 					t.Errorf("ledger still lists %s", p)
 				}
 			}
@@ -109,7 +111,7 @@ func TestSync_EditedReferenceOfDeletedSkillIsKeptAndFailsCheck(t *testing.T) {
 		t.Errorf("left behind %v, want only the edited reference and its folders %v", left, want)
 	}
 	state := readSyncState(t)
-	if len(state.Orphans) != 1 || state.Orphans[0] != edited {
+	if len(state.Orphans) != 1 || filepath.ToSlash(state.Orphans[0]) != edited {
 		t.Errorf("orphans=%v, want [%s]", state.Orphans, edited)
 	}
 	runCmdExpectErr(t, "sync", "--check")
