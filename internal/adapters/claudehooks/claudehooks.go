@@ -8,7 +8,7 @@
 // whichever side was not updated.
 package claudehooks
 
-// CommandEntry mirrors one `{type, command, ...}` object inside a matcher
+// CommandEntry mirrors one native handler object inside a matcher
 // group's `hooks` array. A struct (not a map) makes `encoding/json` emit
 // the fields in declaration order rather than the alpha-sorted order map
 // iteration would produce.
@@ -32,28 +32,30 @@ package claudehooks
 // own round-trip rule, and stay absent from claude's own emit because
 // internal/adapters/claude never sets it on the struct it builds.
 //
-// Server, Tool, and Input are also Codex-only: an `mcp_tool` hook
-// (learn.chatgpt.com/docs/hooks) calls a tool on an already-connected
-// MCP server instead of running a shell command, so it carries these
-// three in place of Command. Kept on this shared struct rather than a
-// second type for the same round-trip reason as CommandWindows; the
-// codex importer is the only reader that branches on Type == "mcp_tool".
+// Server, Tool, and Input are shared by Claude and Codex MCP-tool hooks.
+// URL, Headers, AllowedEnvVars, Prompt, and Model serve Claude's stable
+// HTTP and prompt handlers. Other renderers leave these fields unset.
 type CommandEntry struct {
-	Type                   string         `json:"type"`
-	Command                string         `json:"command"`
-	Args                   []string       `json:"args,omitempty"`
-	Timeout                int            `json:"timeout,omitempty"`
-	StatusMessage          string         `json:"statusMessage,omitempty"`
-	Async                  bool           `json:"async,omitempty"`
-	AsyncRewake            bool           `json:"asyncRewake,omitempty"`
-	Shell                  string         `json:"shell,omitempty"`
-	If                     string         `json:"if,omitempty"`
-	Once                   bool           `json:"once,omitempty"`
-	CommandWindows         string         `json:"commandWindows,omitempty"`
-	AdditionalContextLimit *int           `json:"additionalContextLimit,omitempty"`
-	Server                 string         `json:"server,omitempty"`
-	Tool                   string         `json:"tool,omitempty"`
-	Input                  map[string]any `json:"input,omitempty"`
+	Type                   string            `json:"type"`
+	Command                string            `json:"command,omitempty"`
+	Args                   []string          `json:"args,omitempty"`
+	Timeout                int               `json:"timeout,omitempty"`
+	StatusMessage          string            `json:"statusMessage,omitempty"`
+	Async                  bool              `json:"async,omitempty"`
+	AsyncRewake            bool              `json:"asyncRewake,omitempty"`
+	Shell                  string            `json:"shell,omitempty"`
+	If                     string            `json:"if,omitempty"`
+	Once                   bool              `json:"once,omitempty"`
+	CommandWindows         string            `json:"commandWindows,omitempty"`
+	AdditionalContextLimit *int              `json:"additionalContextLimit,omitempty"`
+	Server                 string            `json:"server,omitempty"`
+	Tool                   string            `json:"tool,omitempty"`
+	Input                  map[string]any    `json:"input,omitempty"`
+	URL                    string            `json:"url,omitempty"`
+	Headers                map[string]string `json:"headers,omitempty"`
+	AllowedEnvVars         []string          `json:"allowedEnvVars,omitempty"`
+	Prompt                 string            `json:"prompt,omitempty"`
+	Model                  string            `json:"model,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

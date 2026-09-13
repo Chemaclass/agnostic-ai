@@ -96,6 +96,15 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		return err
 	}
 	c.agents += nativeAgents
+	skillsDir := filepath.Join(root, ".agents", "skills")
+	if !dirExists(skillsDir) {
+		skillsDir = filepath.Join(root, ".agent", "skills")
+	}
+	nativeSkills, err := importSkillFolders(skillsDir, filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	c.skills += nativeSkills
 
 	rulesFileCount := 0
 	if rulesFile := antigravityRulesFileFromCfg(cfg); rulesFile != "" {

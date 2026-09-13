@@ -225,9 +225,9 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder"),
 	spec.KindSettings:    setOf("claude"),
-	spec.KindReview:      setOf("cursor"),
+	spec.KindReview:      setOf("cursor", "goose"),
 	spec.KindEnvironment: setOf("cursor", "openhands"),
-	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie"),
+	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo"),
 }
 
 func setOf(items ...string) map[string]struct{} {

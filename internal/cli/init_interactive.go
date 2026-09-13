@@ -205,7 +205,7 @@ var targetMarkers = map[string][]string{
 	"qoder":       {".qoder"},
 	"openhands":   {".openhands"},
 	"factory":     {".factory"},
-	"kilo":        {".kilo", "kilo.jsonc", ".kilocode"},
+	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
 	"goose":       {".goosehints"},
 	"augment":     {".augment", ".augment-guidelines"},
 }

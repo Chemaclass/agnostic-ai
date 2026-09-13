@@ -16,7 +16,8 @@ import (
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the kilo adapter's
 // header-coverage contract: a sync that exercises every kind this
-// adapter emits directly (rules, agents, skills, MCP) must land an
+// adapter emits directly (rules, agents, skills, commands, MCP, ignore)
+// must land an
 // agnostic-ai provenance header on each resulting non-JSONC file. `kilo.jsonc`
 // legitimately skips the header (JSON has no comment syntax agnostic-ai
 // emits into) but the test still asserts the file is non-empty so a
@@ -68,7 +69,11 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if !header.Has(content) {
 			t.Errorf("missing provenance header in %s:\n%s", rel, headFor(t, data))
 		}
-		if !frontmatterExempt(rel) && !strings.HasPrefix(content, "---\n") {
+		if rel == defaultIgnoreFile {
+			if !strings.HasPrefix(content, "# "+header.Marker) {
+				t.Errorf("%s must start with a comment header, got:\n%s", rel, headFor(t, data))
+			}
+		} else if !frontmatterExempt(rel) && !strings.HasPrefix(content, "---\n") {
 			t.Errorf("%s must start with frontmatter, got:\n%s", rel, headFor(t, data))
 		}
 		checked++
@@ -83,8 +88,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
-// adapter declares in caps.Supports (Rule, Agent, Skill, Command, MCP)
-// with three specimens per kind (except MCP). "disabled-server"
+// adapter declares in caps.Supports (Rule, Agent, Skill, Command, MCP,
+// Ignore), with three specimens per kind except Ignore. "disabled-server"
 // actually sets `disabled: true` (B9, target-audit 2026-08-01
 // follow-up: the fixture was named for a server that never carried the
 // flag, so the kit sink emitted with no disable state at all before
@@ -94,6 +99,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // diff byte-for-byte against theirs (target-audit 2026-08-01).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
+		{Kind: spec.KindIgnore, Name: "exclusions", Body: "private/"},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},

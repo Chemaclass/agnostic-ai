@@ -6,10 +6,21 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Claude emits and imports stable HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
+- Ignore specs reach Crush's `.crushignore` and Kilo's compatibility `.kilocodeignore`, with native ignore imports for both targets (#770, #773).
+- Review specs reach Goose's root and scoped `.agents/REVIEW.md` files (#771).
+- Continue imports JSONC MCP maps and bare server files; Zed, Warp, and Antigravity import native skill folders with bundled assets (#764, #765).
+
 ### Fixed
 
+- VS Code MCP sync preserves `inputs`, `sandbox`, and other sibling settings while replacing the managed `servers` map; remote servers retain `dev.watch` (#757, #769).
+- Continue MCP connection options survive import and sync; Factory and Kilo preserve their documented timeout and OAuth controls (#763, #774, #775).
+- Zed sync rejects invalid native skill names with an actionable error (#766).
+- Kiro preserves zero timeouts and emits validated native actions without a fallback command (#772).
 - Gemini hooks use the nested command format its loader requires. Import preserves distinct native handler groups, environment variables, and timeouts while accepting old flat hook files (#762).
-- `sync` protects hand-authored ignore files against reordered patterns, added negations, and changed whitespace. Import followed by sync preserves pattern order and whitespace across all seven ignore-capable targets (#761).
+- `sync` protects hand-authored ignore files against reordered patterns, added negations, and changed whitespace. Import followed by sync preserves pattern order and whitespace across every ignore-capable target (#761).
 
 ## v0.56.1 - 2026-09-12
 

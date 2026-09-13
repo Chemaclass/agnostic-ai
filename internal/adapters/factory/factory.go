@@ -67,9 +67,7 @@
 // than confirmed here. Unlike Claude Code, Cursor, and Copilot,
 // Factory's own schema documents a working per-server `disabled`
 // boolean (default false), so this adapter does not strip it the way
-// those three do. Factory's schema also documents `disabledTools`,
-// `timeout`, `connectTimeout`, and `oauth`, none of which the
-// cross-tool spec carries yet; they are not emitted.
+// those three do.
 //
 // "Written to", not "merged into": emit.WriteMCPFile is a plain
 // WriteFile, so this adapter owns the whole file, the same as claude,
@@ -92,6 +90,10 @@
 // quote (#629). "Written to", not "merged into", for the same reason
 // as `.factory/mcp.json` above: this is a plain WriteFile, so a hand
 // edit to the file is lost on the next sync (#745).
+//
+// Factory MCP options preserve disabledTools, timeout and connectTimeout
+// (milliseconds, including zero). HTTP/SSE oauth accepts false or Factory
+// metadata fields. x-factory overrides corresponding top-level options.
 package factory
 
 import (
@@ -159,7 +161,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	// Factory's schema documents a working `disabled` key (unlike
 	// Claude Code, Cursor, and Copilot), so the shared builder's
 	// existing `disabled` output is correct here as-is; no strip.
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithFactoryMCPExtras())
 }
 
 // emitDroids writes one `<dir>/<name>.md` per agent spec whose body is

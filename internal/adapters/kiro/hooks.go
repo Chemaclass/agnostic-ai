@@ -3,6 +3,8 @@ package kiro
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -28,13 +30,9 @@ type hooksFile struct {
 	Hooks   []map[string]any `json:"hooks"`
 }
 
-// hookAction is always the `{"type": "command", "command": ...}` shape:
-// Kiro also documents a `{"type": "agent", "prompt": ...}` action that
-// invokes an agent instead of a shell command, but agnostic-ai's hook
-// spec has no generic prompt field, so this adapter never emits it by
-// hand. `x-kiro.action` is not excluded from the passthrough merge
-// below, so an author who wants that shape can still set it directly.
-type hookAction struct {
+// commandHookAction renders portable commands. Native x-kiro.action
+// objects use maps after validating the action type and required field.
+type commandHookAction struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 }
@@ -42,14 +40,17 @@ type hookAction struct {
 // emitHooks writes one `<dir>/<name>.json` per hook spec. A spec's
 // `command:` field (string or list) becomes one `hooks[]` entry per
 // command in that same file, `name` suffixed `-2`, `-3`, ... past the
-// first so entries sharing a file stay unique. Hooks without an `event`
-// or a `command` produce no output, the same skip-silently rule every
-// other adapter's hook builder uses. No file materializes for a hook
-// scoped away from kiro by `target:` / `targets:` (b.HooksFor already
-// filters those out before this function sees them).
+// first so entries sharing a file stay unique. A native x-kiro.action
+// replaces the command list with one action. Hooks without an event or
+// action produce no output; invalid native actions return an error.
+// No file materializes for a hook scoped away from kiro by `target:` /
+// `targets:` (b.HooksFor filters those out before this function sees them).
 func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
 	for _, h := range hooks {
-		entries := buildHookEntries(h)
+		entries, err := buildHookEntries(h)
+		if err != nil {
+			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
+		}
 		if len(entries) == 0 {
 			continue
 		}
@@ -65,32 +66,35 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 	return nil
 }
 
-// buildHookEntries renders one hooks[] entry per command on h as a
+// buildHookEntries renders one hooks[] entry per action on h as a
 // map[string]any: `name`, `trigger`, `action`, and the optional
 // `matcher`/`timeout`/`enabled`/`description` fields agnostic-ai's spec
-// already carries, plus every key under `x-kiro` (e.g. `confirm`, the
+// already carries, plus additional native keys under `x-kiro` (e.g. `confirm`, the
 // vendor's Stop-hook confirmation block, which has no agnostic-ai spec
 // equivalent and so is only reachable this way). Every entry sharing
 // this hook spec's command list also shares its `description` and
 // `x-kiro` passthrough, since both live on the spec, not per-command.
-// Returns nil when h has no event or no usable command, so the caller
-// skips writing a file for it entirely.
-func buildHookEntries(h spec.Entry) []map[string]any {
+// A native action needs no generic command and replaces the command
+// list. Returns no entries when h has no event or no usable action.
+func buildHookEntries(h spec.Entry) ([]map[string]any, error) {
 	trigger, _ := h.Meta["event"].(string)
 	if trigger == "" {
-		return nil
+		return nil, nil
 	}
-	cmds := hookCommands(h.Meta["command"])
-	if len(cmds) == 0 {
-		return nil
+	actions, err := hookActions(h)
+	if err != nil {
+		return nil, err
+	}
+	if len(actions) == 0 {
+		return nil, nil
 	}
 	matcher, _ := h.Meta["matcher"].(string)
-	timeout := hookIntMeta(h.Meta, "timeout")
+	timeout, hasTimeout := hookTimeout(h.Meta)
 	description, _ := h.Meta["description"].(string)
 	disabled, _ := h.Meta["disabled"].(bool)
 
-	entries := make([]map[string]any, 0, len(cmds))
-	for i, cmd := range cmds {
+	entries := make([]map[string]any, 0, len(actions))
+	for i, action := range actions {
 		name := h.Name
 		if i > 0 {
 			name = fmt.Sprintf("%s-%d", h.Name, i+1)
@@ -98,13 +102,13 @@ func buildHookEntries(h spec.Entry) []map[string]any {
 		entry := map[string]any{
 			"name":    name,
 			"trigger": trigger,
-			"action":  hookAction{Type: "command", Command: emit.RewriteHookPath(cmd, target)},
+			"action":  action,
 		}
 		var keys []string
 		if matcher != "" {
 			entry["matcher"] = matcher
 		}
-		if timeout != 0 {
+		if hasTimeout {
 			entry["timeout"] = timeout
 		}
 		if disabled {
@@ -120,7 +124,49 @@ func buildHookEntries(h spec.Entry) []map[string]any {
 			"name", "trigger", "matcher", "action", "timeout", "enabled", "description")
 		entries = append(entries, entry)
 	}
-	return entries
+	return entries, nil
+}
+
+// Zero disables Kiro's timeout, so invalid or absent values must stay
+// distinguishable from a successfully parsed numeric or quoted zero.
+func hookTimeout(meta map[string]any) (int, bool) {
+	if value, ok := meta["timeout"].(string); ok {
+		timeout, err := strconv.Atoi(strings.TrimSpace(value))
+		return timeout, err == nil
+	}
+	return emit.IntField(meta, "timeout")
+}
+
+func hookActions(h spec.Entry) ([]any, error) {
+	if native, ok := h.Meta["x-kiro"].(map[string]any); ok {
+		if raw, exists := native["action"]; exists {
+			action, ok := raw.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("x-kiro.action must be an object")
+			}
+			actionType, _ := action["type"].(string)
+			var field string
+			switch actionType {
+			case "command":
+				field = "command"
+			case "agent":
+				field = "prompt"
+			default:
+				return nil, fmt.Errorf("x-kiro.action.type %q must be command or agent", actionType)
+			}
+			value, ok := action[field].(string)
+			if !ok || strings.TrimSpace(value) == "" {
+				return nil, fmt.Errorf("x-kiro.action.%s must be a non-empty string for type %q", field, actionType)
+			}
+			return []any{action}, nil
+		}
+	}
+	commands := hookCommands(h.Meta["command"])
+	actions := make([]any, 0, len(commands))
+	for _, command := range commands {
+		actions = append(actions, commandHookAction{Type: "command", Command: emit.RewriteHookPath(command, target)})
+	}
+	return actions, nil
 }
 
 // hookCommands normalizes a `command:` field that may be a string or a
@@ -151,19 +197,4 @@ func hookCommands(raw any) []string {
 	default:
 		return nil
 	}
-}
-
-// hookIntMeta reads an int-typed meta key, accepting int / int64 /
-// float64 (yaml.v3 decodes numerics as int). Returns 0 when missing or
-// the wrong type.
-func hookIntMeta(meta map[string]any, key string) int {
-	switch v := meta[key].(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	}
-	return 0
 }

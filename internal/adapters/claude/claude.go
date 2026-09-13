@@ -37,6 +37,11 @@
 // body) predates native rules loading and stays only for users pinned to
 // older Claude Code versions. Set `outputs.claude.rules-file: CLAUDE.md`
 // to fall back to the legacy concatenated single-file layout instead.
+//
+// Hooks support command, http, mcp_tool, and prompt handlers. Non-command
+// payloads retain common filters and timeouts without command-only options.
+// Import preserves these stable handlers; experimental agent hooks are excluded.
+// The dedicated .mcp.json is managed as a whole document.
 package claude
 
 import (
@@ -555,36 +560,15 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		if event == "" {
 			continue
 		}
-		cmds := hookCommands(h.Meta["command"])
-		if len(cmds) == 0 {
+		handlers := hookHandlers(h)
+		if len(handlers) == 0 {
 			continue
 		}
-		timeout := hookIntMeta(h.Meta, "timeout")
-		statusMessage, _ := h.Meta["statusMessage"].(string)
-		async := hookBoolMeta(h.Meta, "async")
-		asyncRewake := hookBoolMeta(h.Meta, "asyncRewake")
-		shell, _ := h.Meta["shell"].(string)
-		ifRule, _ := h.Meta["if"].(string)
-		once := hookBoolMeta(h.Meta, "once")
-		args := emit.StringSlice(h.Meta["args"])
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
-		for _, cmd := range cmds {
-			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
-				Type:          "command",
-				Command:       emit.RewriteHookPath(cmd, target),
-				Args:          args,
-				Timeout:       timeout,
-				StatusMessage: statusMessage,
-				Async:         async,
-				AsyncRewake:   asyncRewake,
-				Shell:         shell,
-				If:            ifRule,
-				Once:          once,
-			})
-		}
+		byKey[k] = append(byKey[k], handlers...)
 	}
 	byEvent := map[string][]claudehooks.Group{}
 	eventOrder := []string{}

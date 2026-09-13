@@ -31,6 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindIgnore, []string{".kilocodeignore"}},
 		{spec.KindRule, []string{".kilo/rules/r1.md", ".kilo/rules/r2.md", ".kilo/rules/r3.md"}},
 		{spec.KindAgent, []string{".kilo/agents/alpha.md", ".kilo/agents/beta.md", ".kilo/agents/gamma.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},

@@ -1,10 +1,20 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/continueai"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportFromContinue_RulesAndMCPs(t *testing.T) {
@@ -112,4 +122,193 @@ func TestImportFromContinue_MCPDirMissingNoOp(t *testing.T) {
 	if len(entries) != 0 {
 		t.Errorf("expected empty mcps dir, got %d", len(entries))
 	}
+}
+
+func TestImportFromContinue_MCPConnectionOptionsRoundTrip(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	servers := map[string]map[string]any{
+		"workspace": {
+			"name": "workspace", "command": "./server", "args": []any{"--verbose"},
+			"cwd": "./tools", "connectionTimeout": 15000,
+		},
+		"remote": {
+			"name": "remote", "type": "streamable-http", "url": "https://example.test/mcp",
+			"connectionTimeout": 12000,
+			"requestOptions": map[string]any{
+				"caBundlePath": []any{"/etc/company-ca.pem"},
+				"proxy":        "http://proxy.test:8080",
+				"timeout":      30000,
+				"headers":      map[string]any{"Authorization": "Bearer token"},
+			},
+		},
+	}
+	for name, server := range servers {
+		raw, err := yaml.Marshal(map[string]any{
+			"name": name, "version": "0.0.1", "schema": "v1", "mcpServers": []any{server},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(dir, continueMCPServersDir, name+".yaml"), string(raw))
+	}
+	if err := importFromContinue(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Sources: rootSources()}
+	entries, err := spec.LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := continueai.New().Emit(adapters.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range servers {
+		doc := readContinueImportedMCP(t, filepath.Join(dir, continueMCPServersDir, name+".yaml"))
+		got, ok := doc["mcpServers"].([]any)
+		if !ok || len(got) != 1 {
+			t.Fatalf("mcpServers = %#v, want one server", doc["mcpServers"])
+		}
+		if !reflect.DeepEqual(got[0], want) {
+			t.Errorf("%s changed after import and sync: got %#v, want %#v", name, got[0], want)
+		}
+	}
+}
+
+func TestImportFromContinue_MCPJSONCImportsEveryNamedServer(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, continueMCPServersDir, "mcp.json"), `{
+		// Continue accepts JSONC in .json files.
+		"mcpServers": {
+			"workspace": {"command": "./server", "cwd": "./tools", "connectionTimeout": 15000,},
+			"remote": {
+				"url": "https://example.test/mcp?value=/*literal*/",
+				/* Keep comments out of the canonical spec. */
+				"headers": {"Authorization": "Bearer token"},
+			},
+		},
+	}`)
+	count, err := importContinueMCPs(dir, filepath.Join(dir, "mcps"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Errorf("imported %d MCP servers, want 2", count)
+	}
+	workspace := readContinueImportedMCP(t, filepath.Join(dir, "mcps/workspace.yaml"))
+	if workspace["name"] != "workspace" || workspace["command"] != "./server" ||
+		workspace["cwd"] != "./tools" || workspace["connectionTimeout"] != 15000 {
+		t.Errorf("workspace server lost fields: %#v", workspace)
+	}
+	remote := readContinueImportedMCP(t, filepath.Join(dir, "mcps/remote.yaml"))
+	if remote["name"] != "remote" || remote["type"] != "http" ||
+		remote["url"] != "https://example.test/mcp?value=/*literal*/" {
+		t.Errorf("remote server lost fields: %#v", remote)
+	}
+}
+
+func TestImportFromContinue_MCPJSONBareServerUsesFilename(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, continueMCPServersDir, "search.json"),
+		`{"name":"ignored","command":"search-server","args":["--local"],"env":{"CACHE":"./cache"}}`)
+	if err := importFromContinue(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readContinueImportedMCP(t, filepath.Join(dir, "mcps/search.yaml"))
+	want := map[string]any{
+		"name": "search", "command": "search-server", "args": []any{"--local"},
+		"env": map[string]any{"CACHE": "./cache"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("bare server = %#v, want %#v", got, want)
+	}
+}
+
+func TestImportFromContinue_MCPJSONRejectsMalformedInput(t *testing.T) {
+	for _, body := range []string{
+		`{"mcpServers":`,
+		`[]`,
+		`null`,
+		`{"mcpServers":[]}`,
+		`{"mcpServers":{"broken":null}}`,
+		`{"mcpServers":{"broken":"server"}}`,
+		`{"mcpServers":{"broken":{}}}`,
+		`{}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			dir := t.TempDir()
+			src := filepath.Join(dir, continueMCPServersDir, "broken.json")
+			writeFile(t, src, body)
+			_, err := importContinueMCPs(dir, filepath.Join(dir, "mcps"))
+			if err == nil || !strings.Contains(err.Error(), src) {
+				t.Errorf("error = %v, want a parse failure naming %s", err, src)
+			}
+			entries, _ := os.ReadDir(filepath.Join(dir, "mcps"))
+			if len(entries) != 0 {
+				t.Errorf("malformed input wrote %d specs", len(entries))
+			}
+		})
+	}
+}
+
+func TestImportFromContinue_MCPJSONRejectsUnsafeNames(t *testing.T) {
+	for _, name := range []string{"../escape", "nested/server", `nested\server`, ".", "..", "", "bad\x00name"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			src := filepath.Join(dir, continueMCPServersDir, "unsafe.json")
+			body, err := json.Marshal(map[string]any{
+				"mcpServers": map[string]any{name: map[string]any{"command": "server"}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, src, string(body))
+			_, err = importContinueMCPs(dir, filepath.Join(dir, "mcps"))
+			if err == nil || !strings.Contains(err.Error(), src) {
+				t.Errorf("error = %v, want an unsafe-name failure naming %s", err, src)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "escape.yaml")); !os.IsNotExist(err) {
+				t.Errorf("unsafe name escaped the destination: %v", err)
+			}
+		})
+	}
+}
+
+func TestImportFromContinue_MCPJSONRejectsDestinationCollisions(t *testing.T) {
+	for _, tt := range []struct {
+		name, filename, body string
+	}{
+		{"another map", "second.json", `{"mcpServers":{"shared":{"command":"second-server"}}}`},
+		{"bare object", "shared.json", `{"command":"second-server"}`},
+		{"YAML file", "shared.yaml", "name: shared\ncommand: second-server\n"},
+		{"case difference", "second.json", `{"mcpServers":{"Shared":{"command":"second-server"}}}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			first := filepath.Join(dir, continueMCPServersDir, "first.json")
+			second := filepath.Join(dir, continueMCPServersDir, tt.filename)
+			writeFile(t, first, `{"mcpServers":{"shared":{"command":"first-server"}}}`)
+			writeFile(t, second, tt.body)
+			_, err := importContinueMCPs(dir, filepath.Join(dir, "mcps"))
+			if err == nil || !strings.Contains(err.Error(), first) || !strings.Contains(err.Error(), second) {
+				t.Errorf("error = %v, want a collision naming both source files", err)
+			}
+			entries, _ := os.ReadDir(filepath.Join(dir, "mcps"))
+			if len(entries) != 0 {
+				t.Errorf("conflicting input wrote %d specs", len(entries))
+			}
+		})
+	}
+}
+
+func readContinueImportedMCP(t *testing.T, path string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	return doc
 }

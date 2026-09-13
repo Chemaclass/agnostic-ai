@@ -81,6 +81,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // them itself (see crush.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
+		{Kind: spec.KindIgnore, Name: "exclusions", Body: "private/"},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},

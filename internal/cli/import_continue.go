@@ -1,15 +1,18 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -28,6 +31,8 @@ const (
 //     stripped).
 //   - `.continue/mcpServers/*.yaml` copies one MCP spec per file with
 //     the provenance header stripped on the way back in.
+//   - `.continue/mcpServers/*.json` accepts JSONC with a named
+//     `mcpServers` map or a single server named after its source file.
 func importFromContinue(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
@@ -46,9 +51,15 @@ func importFromContinue(root string, src config.Sources) error {
 	return nil
 }
 
-// importContinueMCPs copies each `.continue/mcpServers/<name>.yaml`
-// file into <dstDir>/<name>.yaml with the provenance header stripped
-// so the spec lands clean for the next sync.
+type continueMCPFile struct {
+	name string
+	body []byte
+}
+
+// importContinueMCPs imports YAML blocks and JSONC server definitions.
+// It prepares every destination before writing so colliding names
+// cannot overwrite another imported server, even on case-insensitive
+// filesystems.
 func importContinueMCPs(root, dstDir string) (int, error) {
 	srcDir := filepath.Join(root, continueMCPServersDir)
 	entries, err := os.ReadDir(srcDir)
@@ -58,27 +69,102 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", srcDir, err)
 	}
-	count := 0
+	var files []continueMCPFile
+	sources := map[string]string{}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+		ext := filepath.Ext(e.Name())
+		if e.IsDir() || (ext != ".yaml" && ext != ".json") {
 			continue
 		}
 		src := filepath.Join(srcDir, e.Name())
 		data, err := os.ReadFile(src)
 		if err != nil {
-			return count, fmt.Errorf("read %s: %w", src, err)
+			return 0, fmt.Errorf("read %s: %w", src, err)
 		}
-		body := unwrapContinueMCP(strings.TrimLeft(header.Strip(string(data)), "\n"))
-		dst := filepath.Join(dstDir, e.Name())
-		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		var imported []continueMCPFile
+		if ext == ".json" {
+			imported, err = parseContinueJSONMCPs(src, data)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			body := unwrapContinueMCP(strings.TrimLeft(header.Strip(string(data)), "\n"))
+			imported = []continueMCPFile{{name: e.Name(), body: []byte(body)}}
 		}
-		if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
+		for _, file := range imported {
+			key := strings.ToLower(file.name)
+			if previous, exists := sources[key]; exists {
+				return 0, fmt.Errorf("%s: MCP destination %q conflicts with %s", src, file.name, previous)
+			}
+			sources[key] = src
+			files = append(files, file)
+		}
+	}
+	if len(files) == 0 {
+		return 0, nil
+	}
+	if err := importMkdirAll(dstDir, 0o755); err != nil {
+		return 0, fmt.Errorf("mkdir %s: %w", dstDir, err)
+	}
+	count := 0
+	for _, file := range files {
+		dst := filepath.Join(dstDir, file.name)
+		if err := importWriteFile(dst, file.body, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
 	}
 	return count, nil
+}
+
+func parseContinueJSONMCPs(src string, data []byte) ([]continueMCPFile, error) {
+	data, _ = adapters.StripJSONC(data)
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", src, err)
+	}
+	servers := map[string]any{}
+	if value, exists := doc["mcpServers"]; exists {
+		var ok bool
+		servers, ok = value.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("parse %s: mcpServers must be an object keyed by server name", src)
+		}
+	} else {
+		name := strings.TrimSuffix(filepath.Base(src), ".json")
+		servers[name] = doc
+	}
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	files := make([]continueMCPFile, 0, len(names))
+	for _, name := range names {
+		if !filepath.IsLocal(name) || name == "." || strings.ContainsAny(name, "/\\\x00") {
+			return nil, fmt.Errorf("parse %s: invalid MCP server name %q: must be a single safe path segment", src, name)
+		}
+		server, ok := servers[name].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("parse %s: MCP server %q must be an object", src, name)
+		}
+		command, _ := server["command"].(string)
+		url, _ := server["url"].(string)
+		if command == "" && url == "" {
+			return nil, fmt.Errorf("parse %s: MCP server %q requires a command or url", src, name)
+		}
+		server["name"] = name
+		unvendorContinueServer(server)
+		if _, hasType := server["type"]; !hasType && command == "" && url != "" {
+			server["type"] = "http"
+		}
+		raw, err := yaml.Marshal(server)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: marshal MCP server %q: %w", src, name, err)
+		}
+		files = append(files, continueMCPFile{name: name + ".yaml", body: raw})
+	}
+	return files, nil
 }
 
 // unwrapContinueMCP converts a Continue block file (`name`/`version`/

@@ -53,6 +53,14 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			async, asyncRewake, once := false, false, false
 			var args []string
 			for _, h := range g.Hooks {
+				if h.Type != "" && h.Type != "command" {
+					n, err := importClaudeNonCommandHook(dstDir, event, g.Matcher, h)
+					if err != nil {
+						return count, err
+					}
+					count += n
+					continue
+				}
 				if h.Command == "" {
 					continue
 				}
@@ -127,4 +135,44 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+// Non-command handlers need separate specs because each has a distinct
+// payload. Command groups retain their existing command-list format.
+func importClaudeNonCommandHook(dstDir, event, matcher string, h claudehooks.CommandEntry) (int, error) {
+	switch h.Type {
+	case "http":
+		if h.URL == "" {
+			return 0, nil
+		}
+	case "mcp_tool":
+		if h.Server == "" || h.Tool == "" {
+			return 0, nil
+		}
+	case "prompt":
+		if h.Prompt == "" {
+			return 0, nil
+		}
+	default:
+		return 0, nil
+	}
+	payload, err := json.Marshal(h)
+	if err != nil {
+		return 0, fmt.Errorf("marshal %s hook: %w", event, err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(payload, &doc); err != nil {
+		return 0, fmt.Errorf("parse %s hook: %w", event, err)
+	}
+	name := hookSpecName(event, matcher, []string{string(payload)})
+	doc["name"], doc["event"], doc["matcher"], doc["target"] = name, event, matcher, "claude"
+	raw, err := yaml.Marshal(doc)
+	if err != nil {
+		return 0, fmt.Errorf("marshal hook %s: %w", name, err)
+	}
+	path := filepath.Join(dstDir, name+".yaml")
+	if err := importWriteFile(path, raw, 0o644); err != nil {
+		return 0, fmt.Errorf("write %s: %w", path, err)
+	}
+	return 1, nil
 }

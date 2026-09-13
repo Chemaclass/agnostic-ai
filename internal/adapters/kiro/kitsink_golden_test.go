@@ -11,8 +11,8 @@ import (
 )
 
 // TestKitSink_GoldenSnapshot pins the byte-exact emit footprint for a
-// kiro sync over the canonical kit-sink bundle (3 rules + 3 agents + 3
-// skills + 3 MCPs).
+// kiro sync over rules, agents, skills, MCP servers, hooks, and ignore
+// patterns in the canonical kit-sink bundle.
 //
 //	UPDATE_GOLDEN=1 go test ./internal/adapters/kiro/ -run TestKitSink_GoldenSnapshot
 func TestKitSink_GoldenSnapshot(t *testing.T) {

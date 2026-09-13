@@ -21,10 +21,10 @@ const (
 )
 
 // importFromWarp reads an existing Warp project (AGENTS.md,
-// `.warp/workflows/`, `.warp/.mcp.json`) under root and writes specs
+// `.warp/workflows/`, `.warp/.mcp.json`, `.agents/skills/`) under root and writes specs
 // into the configured source directories.
 func importFromWarp(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := sliceMainFileByH2(root, warpMainFile, filepath.Join(root, src.Rules))
@@ -35,6 +35,10 @@ func importFromWarp(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	skills, err := importSkillFolders(filepath.Join(root, ".agents", "skills"), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
 	mcps, err := importWarpMCP(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
@@ -42,7 +46,7 @@ func importFromWarp(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, warpMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d mcps\n", rules, agents, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n", rules, agents, skills, mcps)
 	printImportNextSteps(root, "warp")
 	return nil
 }

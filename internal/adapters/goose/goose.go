@@ -34,8 +34,13 @@
 // recommended standard" (github.com/aaif-goose/goose, using-skills.md):
 // ".agents/skills/ — Project-level skills, scoped to the current
 // project"; a legacy `.goose/skills/`, `.claude/skills/`, and others
-// are also discovered but not written here. Goose has no per-agent file
-// surface (tracked separately), so caps.Supports omits KindAgent.
+// are also discovered but not written here. Agent specs are unsupported
+// by this adapter (tracked separately), so caps.Supports omits KindAgent.
+//
+// Reviews emit plain bodies to .agents/REVIEW.md at the root and in each
+// scope, with same-scope specs concatenated. goose review composes changed-
+// file directories and their ancestors. outputs.goose.review-file overrides
+// the path relative to each scope.
 package goose
 
 import (
@@ -54,7 +59,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindSkill},
+	Supports: []spec.Kind{spec.KindRule, spec.KindSkill, spec.KindReview},
 }
 
 // Adapter emits Goose configs.
@@ -69,7 +74,7 @@ func (Adapter) Name() string { return target }
 // Emit writes one skill folder per skill spec under `.agents/skills/`,
 // plus the legacy concatenated `.goosehints`-style document only when
 // `outputs.goose.rules-file` is set, scoped to rules so an agent spec
-// targeted at goose (which has no native surface) never leaks into the
+// targeted at goose (unsupported by this adapter) never leaks into the
 // document. Root-scoped rules concatenate into that path unchanged; a
 // rule carrying a source-layout or frontmatter scope concatenates into
 // a sibling `<scope>/<basename>` file instead, matching Goose's own
@@ -90,7 +95,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	return emitScopedRulesFiles(sess, scoped, cfg, dryRun)
+	if err := emitScopedRulesFiles(sess, scoped, cfg, dryRun); err != nil {
+		return err
+	}
+	return emitReviews(sess, b.Reviews, cfg, dryRun)
 }
 
 // splitRulesByScope buckets rules into root-scoped (EffectiveScope() ==
