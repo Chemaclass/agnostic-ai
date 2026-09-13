@@ -72,6 +72,11 @@ type entryPointFile struct {
 // only always-on context surface. The block is identical across the
 // consumers of a shared path (rules are global), so the deduplicated
 // write stays collision-free.
+//
+// The body may carry ::target fences (see spec.FilterFences). A fenced
+// block reaches a path when any of that path's consumers is listed, so a
+// shared AGENTS.md keeps a codex-only block for every AGENTS.md reader; a
+// shared file is never split. AGNOSTIC_AI.md itself keeps the fences.
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
 	body = adapters.StripGeneratedAppendices(body)
 
@@ -93,7 +98,13 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
-		content := body
+		// A fence can leave a blank connector line as the last kept line
+		// (its neighboring fence dropped), so the filtered body may end in
+		// more than one newline. Normalize to exactly one now: sess.WriteFile
+		// does the same at write time, and entryPointFile.Content must match
+		// what lands on disk byte-for-byte so the drift check never
+		// false-positives on a freshly synced fenced body.
+		content := strings.TrimRight(spec.FilterFences(body, consumers[path]), "\n") + "\n"
 		if !pathSupportsFileImports(consumers[path]) {
 			resolved, err := adapters.ApplyImportMode(content, cfg.Sync.ResolveImports)
 			if err != nil {
