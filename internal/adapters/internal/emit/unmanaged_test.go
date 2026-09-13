@@ -228,20 +228,6 @@ func TestMigrateLegacyFile_KeepsUnmanagedLegacyFile(t *testing.T) {
 	assertUnmanagedSkips(t, sess, "LEGACY.md")
 }
 
-func TestUnmanagedSkips_DedupesInFirstSeenOrder(t *testing.T) {
-	testutil.TempCwd(t)
-	sess := NewSession()
-	sess.SetUnmanaged([]string{"b.md", "a.md"})
-
-	for _, p := range []string{"b.md", "a.md", "b.md"} {
-		if err := sess.WriteFile(p, "x\n", false); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	assertUnmanagedSkips(t, sess, "b.md", "a.md")
-}
-
 func TestUnmanagedSkips_EmptyWhenNothingIsOwned(t *testing.T) {
 	testutil.TempCwd(t)
 	sess := NewSession()

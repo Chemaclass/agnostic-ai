@@ -79,9 +79,8 @@ type Session struct {
 	// and removal: with nothing user-owned (nil) the check is one atomic
 	// load and never contends on mu, while SetUnmanaged stays safe to call
 	// on a session other goroutines already write through.
-	unmanaged   atomic.Pointer[[]string]
-	skipped     []string // user-owned paths refused, first-seen order
-	skippedSeen map[string]struct{}
+	unmanaged atomic.Pointer[[]string]
+	skipped   []string // user-owned paths refused; may repeat a path
 }
 
 // NewSession returns a Session with every mode off, ready to be threaded
@@ -103,7 +102,8 @@ func (s *Session) SetUnmanaged(patterns []string) {
 }
 
 // UnmanagedSkips returns every user-owned path this session refused to
-// touch, deduplicated in first-seen order. Recorded in every mode
+// touch, in refusal order. A path refused twice appears twice: sync
+// merges sessions and dedupes there anyway. Recorded in every mode
 // (capture, dry-run, real) so the summary is the same whichever ran.
 func (s *Session) UnmanagedSkips() []string {
 	s.mu.Lock()
@@ -111,23 +111,17 @@ func (s *Session) UnmanagedSkips() []string {
 	return append([]string(nil), s.skipped...)
 }
 
-// skipUnmanaged reports whether path is user-owned, recording the first
-// hit. Callers return immediately when it is true, before capture,
-// recording, or any disk write, so the path is invisible to every mode.
+// skipUnmanaged reports whether path is user-owned, recording the hit.
+// Callers return immediately when it is true, before capture, recording,
+// or any disk write, so the path is invisible to every mode.
 func (s *Session) skipUnmanaged(path string) bool {
 	patterns := s.unmanaged.Load()
 	if patterns == nil || !config.MatchUnmanaged(*patterns, path) {
 		return false
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, seen := s.skippedSeen[path]; !seen {
-		if s.skippedSeen == nil {
-			s.skippedSeen = map[string]struct{}{}
-		}
-		s.skippedSeen[path] = struct{}{}
-		s.skipped = append(s.skipped, path)
-	}
+	s.skipped = append(s.skipped, path)
+	s.mu.Unlock()
 	return true
 }
 
