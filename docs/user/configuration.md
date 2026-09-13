@@ -772,6 +772,29 @@ See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounc
 
 `sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](targets.md#entry-point-files) for which file each target uses.
 
+### Per-target paragraphs
+
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the same `::target` / `::targets` / `::end` fences as spec bodies (see [Per-target body fences](spec-format.md#per-target-body-fences)).
+
+```md
+Shared conventions for every tool.
+
+::target gemini
+Gemini reads `GEMINI.md` only. Load rules from `.gemini/rules/`.
+::end
+
+::targets codex amp
+Run `make preflight` before you stop.
+::end
+```
+
+- Content outside a fence goes to every entry-point file.
+- A fenced block goes to a file when any target reading that file is listed. `AGENTS.md` has many readers (codex, amp, warp, cline, ...), so a `::target codex` block reaches all of them. A shared file is never split.
+- Marker lines never reach the output. `.agnostic-ai/AGNOSTIC_AI.md` keeps them; it is the source.
+- Markers must start at column 0. Indent a code sample that shows a marker.
+- `agnostic-ai validate` flags a fence naming an unknown target.
+- `agnostic-ai import <tool>` leaves a fenced source untouched when the imported entry point equals its rendered view (the default `sync.resolve-imports: passthrough`). Otherwise import overwrites the source, as before, and warns that the fences are gone.
+
 To opt back into the legacy concatenated layout for a target, set `outputs.<target>.rules-file: <path>`. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so the two do not collide.
 
 Real collisions where two adapters write different content to the same path (e.g. both `outputs.codex.rules-file: AGENTS.md` and `outputs.amp.rules-file: AGENTS.md`) fail fast with an `output collision` error by default. Set `sync.collision-policy: prefer-spec` to skip the check and let the last adapter win, useful in CI. See [`sync.collision-policy`](#synccollision-policy).

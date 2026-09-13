@@ -243,6 +243,7 @@ Shared outro.
 - An unterminated fence runs to end-of-body, so a missing `::end` keeps the tail of the file.
 - The empty target (the source view used by `import` round-trips) returns the body with fences intact, so a re-emit stays byte-stable.
 - `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced, and each tool's unique middle gets its own `::target` block.
+- The same fences work in `.agnostic-ai/AGNOSTIC_AI.md`. A fenced block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is read by the whole AGENTS.md family (codex, amp, warp, cline, ...), so `::target codex` lands there and every reader of that file sees it. A shared file is never split. See [Entry-point files](configuration.md#entry-point-files).
 
 ### Import auto-scoping
 

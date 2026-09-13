@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `::target` / `::targets` fences work in `.agnostic-ai/AGNOSTIC_AI.md`: a fenced paragraph reaches only the entry-point files a listed target reads. `validate` flags a fence naming an unknown target, and `import` keeps a fenced source when the imported entry point matches its rendered view (#781).
 - Claude emits and imports stable HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
 - Ignore specs reach Crush's `.crushignore` and Kilo's compatibility `.kilocodeignore`, with native ignore imports for both targets (#770, #773).
 - Review specs reach Goose's root and scoped `.agents/REVIEW.md` files (#771).
