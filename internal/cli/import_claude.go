@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -158,6 +159,25 @@ func mirrorMainFile(root, srcName string) (bool, error) {
 		return false, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
 	body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
+
+	// A fenced source renders a per-file view; when the imported entry point
+	// is exactly that view there is nothing new to capture and overwriting
+	// would erase every other target's ::target block. Compare against the
+	// view for this file's readers (the same set renderEntryPointFiles uses).
+	if existing, readErr := os.ReadFile(dst); readErr == nil && strings.Contains(string(existing), "::target") {
+		source := header.Strip(string(existing))
+		var readers []string
+		for _, t := range adapters.Names() {
+			if adapters.EntryPointPath(nil, t) == srcName {
+				readers = append(readers, t)
+			}
+		}
+		if strings.TrimRight(spec.FilterFences(source, readers), "\n") == strings.TrimRight(body, "\n") {
+			return true, nil
+		}
+		summaryf("  ! %s replaced a fenced %s; ::target blocks for other tools are gone. Restore them from git if needed.\n", srcName, agnosticMainFile)
+	}
+
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
