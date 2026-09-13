@@ -102,13 +102,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
-		// A fence can leave a blank connector line as the last kept line
-		// (its neighboring fence dropped), so the filtered body may end in
-		// more than one newline. Normalize to exactly one now: sess.WriteFile
-		// does the same at write time, and entryPointFile.Content must match
-		// what lands on disk byte-for-byte so the drift check never
-		// false-positives on a freshly synced fenced body.
-		content := strings.TrimRight(spec.FilterFences(body, consumers[path]), "\n") + "\n"
+		content := spec.FilterFences(body, consumers[path])
 		if !pathSupportsFileImports(consumers[path]) {
 			resolved, err := adapters.ApplyImportMode(content, cfg.Sync.ResolveImports)
 			if err != nil {
@@ -139,9 +133,21 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 			content = adapters.AppendTargetOverview(content, adapters.RenderTargetOverview(sections))
 		}
+		// entryPointFile.Content must match what sess.WriteFile actually
+		// puts on disk byte-for-byte, or the drift check false-positives on
+		// a freshly synced file. WriteFile always normalizes trailing
+		// newlines down to exactly one (normalizeTrailingNewline), whatever
+		// the assembled content ended with, so mirror that here on the
+		// fully rendered content rather than trusting each step above to
+		// leave the right count. This is not fence-specific: an unfenced
+		// AGNOSTIC_AI.md ending "Shared.\n\n\n" needs the same correction.
+		rendered := header.With(content, header.FormatMarkdown)
+		if rendered != "" {
+			rendered = strings.TrimRight(rendered, "\n") + "\n"
+		}
 		files = append(files, entryPointFile{
 			Path:    path,
-			Content: header.With(content, header.FormatMarkdown),
+			Content: rendered,
 		})
 	}
 	return files, nil
