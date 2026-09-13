@@ -171,7 +171,7 @@ cost nobody again:
 ## trae
 
 - docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers · https://docs.trae.ai/ide/skills · https://docs.trae.ai/ide/subagents · https://docs.trae.ai/ide/slash-commands · https://docs.trae.ai/ide/hook-configuration-reference · https://docs.trae.ai/ide/automate-actions-with-hooks · https://docs.trae.ai/ide/ignore-files
-- changelog: https://www.trae.ai/api/changelog (returns JSON; the docs site publishes no changelog page)
+- changelog: https://www.trae.ai/api/changelog (primary JSON feed, latest entry 2026-09-01) · https://docs.trae.ai/ide/changelog (documentation alternative, latest entry 2026-08-19; checked 2026-09-12)
 - watch: `docs.trae.ai/ide/mcp`, the old URL for the MCP page, now 302s
   to a marketing page; model-context-protocol (the MCP overview) and
   add-mcp-servers (the config how-to) are the two live ones. Confirm
@@ -231,7 +231,7 @@ cost nobody again:
 ## jules
 
 - docs: https://jules.google/docs
-- changelog: https://jules.google/docs (changelog section)
+- changelog: https://jules.google/docs/changelog/
 - watch: today AGENTS.md only; any per-file surface is new.
 
 ## goose
