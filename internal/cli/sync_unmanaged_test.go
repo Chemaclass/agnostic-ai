@@ -54,7 +54,10 @@ func TestRunSyncOnce_UnmanagedPathAbsentFromLedger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outputs := readStateFile(".").Outputs
+	var outputs []string
+	for _, p := range readStateFile(".").Outputs {
+		outputs = append(outputs, filepath.ToSlash(p)) // ledger keeps OS separators
+	}
 	if slices.Contains(outputs, unmanagedAgentPath) {
 		t.Errorf("user-owned path in the ledger: %v", outputs)
 	}
