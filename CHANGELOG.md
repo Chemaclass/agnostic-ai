@@ -17,6 +17,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Turning `sync.shared-skills` off no longer aborts the orphan sweep with "is a directory", which left stale generated files behind (#781).
 - VS Code MCP sync preserves `inputs`, `sandbox`, and other sibling settings while replacing the managed `servers` map; remote servers retain `dev.watch` (#757, #769).
 - Continue MCP connection options survive import and sync; Factory and Kilo preserve their documented timeout and OAuth controls (#763, #774, #775).
 - Zed sync rejects invalid native skill names with an actionable error (#766).

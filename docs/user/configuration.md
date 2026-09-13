@@ -541,12 +541,13 @@ sync:
     - .claude/skills/legacy/          # trailing slash: everything under the directory
 ```
 
-- Entries are project-relative. A leading `./` or `/` is ignored. Globs use Go `path.Match`; `**` is not supported. A malformed glob fails config load.
+- Entries are project-relative and use forward slashes; `\` is a glob escape, not a separator. A leading `./` or `/` is ignored. Globs use Go `path.Match`; `**` is not supported. A malformed glob or an entry that names no path (`.`, `./`, `/`, empty) fails config load.
 - `sync` skips each matching output and prints `~ skip (unmanaged) <path>`. `--json` lists it under `skipped` with action `"unmanaged"`.
 - `sync --check`, `status`, and `doctor` never report it as drift. `doctor` lists the entries in a `User-owned` block and leaves them out of the `Unmanaged config` block.
 - The path stays out of the sync ledger, so removing the entry later deletes nothing. The next sync rewrites the file with the provenance header.
 - `revert` and `doctor --fix` never restore or delete it.
-- The managed `.gitignore` block does not collapse a directory that holds one of these files. That directory's generated files are listed one per line instead, so git sees your file.
+- The managed `.gitignore` block does not collapse a directory that could hold a matching file, even one no spec renders. That directory's generated files are listed one per line instead, so git sees your file.
+- With `sync.shared-skills`, a skill folder that could hold a matching file is never linked. An existing link there becomes a real copy of its current files on the next sync, so a file you edited through the link survives.
 - The list is project-wide, not per target: one path such as `AGENTS.md` has many readers. `agnostic-ai.local.yaml` replaces the whole list, like every list in the local override.
 - Not covered yet: hook script bodies copied from `.agnostic-ai/scripts/` into `.<tool>/hooks/`.
 
