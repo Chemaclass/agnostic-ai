@@ -49,6 +49,10 @@ func (s *Session) WriteIgnoreFile(ignores []spec.Entry, target, path string, dry
 	if body == "" {
 		return nil
 	}
+	// Ownership first: a user-owned ignore file is skipped, not refused.
+	if s.skipUnmanaged(path) {
+		return nil
+	}
 	if !dryRun && ProvenanceEnabled() {
 		if err := refuseIgnoreOverwrite(target, path, body); err != nil {
 			return err
