@@ -112,3 +112,27 @@ func TestWriteAgnosticEntryPoints_SourceKeepsFences(t *testing.T) {
 		t.Errorf("AGNOSTIC_AI.md source lost its fence markers:\n%s", source)
 	}
 }
+
+// An AGNOSTIC_AI.md with no fences at all can still end in more than one
+// newline (a hand-typed trailing blank line or two). sess.WriteFile
+// normalizes every entry-point file to exactly one trailing newline, so
+// entryPointFile.Content must match that regardless of fences, or a
+// freshly synced tree reports drift against itself.
+func TestCollectEntryPointDrift_UnfencedTripleTrailingNewline_NoDrift(t *testing.T) {
+	testutil.TempCwd(t)
+	writeAgnosticFile(t, "Shared.\n\n\n")
+	cfg := &config.Config{Targets: []string{"claude"}}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	rep, err := collectEntryPointDrift(cfg, spec.Bundle{}, cfg.Targets)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rep.hasDrift() {
+		t.Errorf("freshly synced unfenced tree reports drift: missing=%v stale=%v",
+			paths(rep.Missing), paths(rep.Stale))
+	}
+}
