@@ -360,7 +360,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 
-	shared.reconcile(prev.Outputs, dryRun)
+	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+		return err
+	}
 
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
@@ -609,7 +611,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		mainSess.SetBackup(true)
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
-	shared.reconcile(prev.Outputs, dryRun)
+	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+		return err
+	}
 
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string

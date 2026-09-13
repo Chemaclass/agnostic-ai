@@ -39,6 +39,10 @@ type sharedSkillsState struct {
 	// reconciliation to detect writes that would diverge through an
 	// existing link.
 	captured map[string]map[string]bool
+	// unmanaged holds the sync.unmanaged patterns. A skill folder that
+	// could hold a user-owned file is never linked, and an existing link
+	// there becomes a real copy before emission.
+	unmanaged []string
 }
 
 // planSharedSkills renders every effective target in capture mode and
@@ -50,6 +54,7 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 	st := &sharedSkillsState{
 		enabled:   cfg.Sync.SharedSkills,
 		coversAll: coversAllConfiguredTargets(targets, cfg.Targets),
+		unmanaged: cfg.Sync.Unmanaged,
 	}
 	if !st.enabled {
 		return st, nil
@@ -59,7 +64,7 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 		return nil, err
 	}
 	if st.coversAll {
-		st.links = planSkillLinks(captures)
+		st.links = planSkillLinks(captures, cfg.Sync.Unmanaged)
 	}
 	st.captured = map[string]map[string]bool{}
 	for _, tc := range captures {
@@ -98,8 +103,11 @@ func captureRenders(cfg *config.Config, b spec.Bundle, targets []string) ([]targ
 // rendered bytes, and plans one canonical + N links for every group of
 // byte-identical folders. Divergent folders keep real copies. The
 // `.agents/skills` tree is preferred as canonical because several tools
-// scan it natively; otherwise the first-emitted folder wins.
-func planSkillLinks(captures []targetCapture) []skillLink {
+// scan it natively; otherwise the first-emitted folder wins. A folder
+// that could hold a path matching unmanaged is left out entirely: as a
+// link it would send the user's writes into another target's canonical
+// copy, and as a canonical it would expose the user's file through links.
+func planSkillLinks(captures []targetCapture, unmanaged []string) []skillLink {
 	type folder struct {
 		path  string
 		order int
@@ -111,7 +119,7 @@ func planSkillLinks(captures []targetCapture) []skillLink {
 		roots := skillFolderRoots(tc.files)
 		for _, f := range tc.files {
 			for _, r := range roots {
-				if !underDir(f.Path, r) {
+				if !underDir(f.Path, r) || config.MatchUnmanagedDir(unmanaged, r) {
 					continue
 				}
 				fo := folders[r]
@@ -225,9 +233,16 @@ func folderFingerprint(files map[string]string) string {
 // link survives unless this run would write different bytes through it:
 // tearing it down without re-emitting the owner would leave that target
 // with no skills at all.
-func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) {
+//
+// A link at a folder that could hold a user-owned file (sync.unmanaged)
+// is replaced by a real copy of the bytes it resolves to, on every run.
+// Removing it instead would let the canonical target overwrite a file
+// the user edited through the link. The copy keeps that file in place;
+// emission then regenerates the siblings. A failed copy aborts the sync
+// rather than risk the user's file.
+func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) error {
 	if dryRun {
-		return
+		return nil
 	}
 	keep := map[string]string{}
 	for _, l := range st.links {
@@ -237,6 +252,12 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) {
 	for _, p := range prior {
 		fi, err := os.Lstat(p)
 		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+		if config.MatchUnmanagedDir(st.unmanaged, p) {
+			if err := materializeLink(p); err != nil {
+				return fmt.Errorf("shared-skills: %w", err)
+			}
 			continue
 		}
 		if canonical, ok := keep[p]; ok {
@@ -251,6 +272,70 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) {
 			pruneAncestorDirs(p, pruned)
 		}
 	}
+	return nil
+}
+
+// materializeLink replaces the symlink at p with a real directory holding
+// a copy of every regular file it resolves to. The copy is built in a
+// fresh temporary sibling and swapped in only when complete, so a failed
+// copy leaves the link untouched.
+func materializeLink(p string) error {
+	src, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return fmt.Errorf("%s: %w", p, err)
+	}
+	tmp, err := os.MkdirTemp(filepath.Dir(p), filepath.Base(p)+".agnostic-copy-")
+	if err != nil {
+		return fmt.Errorf("%s: %w", p, err)
+	}
+	if err := copyRegularTree(src, tmp); err != nil {
+		_ = os.RemoveAll(tmp) // fresh MkdirTemp dir, holds only the partial copy
+		return err
+	}
+	if err := os.Remove(p); err != nil {
+		_ = os.RemoveAll(tmp)
+		return fmt.Errorf("%s: %w", p, err)
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		return fmt.Errorf("%s: link removed, copy left at %s: %w", p, tmp, err)
+	}
+	return nil
+}
+
+// copyRegularTree copies every regular file under src into dst, keeping
+// relative paths and permission bits. dst must exist.
+func copyRegularTree(src, dst string) error {
+	if err := os.Chmod(dst, 0o755); err != nil {
+		return fmt.Errorf("%s: %w", dst, err)
+	}
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		out := filepath.Join(dst, rel)
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
+		}
+		if err := os.WriteFile(out, data, info.Mode().Perm()); err != nil {
+			return fmt.Errorf("write %s: %w", out, err)
+		}
+		return nil
+	})
 }
 
 // capturedDiffersUnder reports whether this run's rendered bytes for any
