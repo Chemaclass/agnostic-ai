@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- The `agent-context` skill guides root agent setup and context reviews with a shared inventory checklist (#793).
+
 ## v0.57.0 - 2026-09-14
 
 ### Added

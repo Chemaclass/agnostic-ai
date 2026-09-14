@@ -83,6 +83,7 @@ Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructi
 | Sync my first rule | [Getting started](docs/user/getting-started.md) |
 | Bring existing tool config into one source | [Migration](docs/user/migration.md) |
 | Write a skill, agent, hook, or MCP spec | [Spec format](docs/user/spec-format.md) |
+| Set up or review this repository's agent context | [.agnostic-ai/skills/agent-context/SKILL.md](.agnostic-ai/skills/agent-context/SKILL.md) |
 | Change targets or output paths | [Configuration](docs/user/configuration.md) |
 | Automate sync for a team | [CI](docs/user/ci.md) and [Git hooks](docs/user/git-hooks.md) |
 | Share specs across repositories | [Packs](docs/user/packs.md) |
