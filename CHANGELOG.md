@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- Hook specs reach Antigravity's `.agents/hooks.json`. The file is keyed by hook definition name rather than by event, so each spec becomes its own definition and `disabled: true` writes that definition's `enabled: false`; `validate` now checks Antigravity's five event names (#629).
+
 ### Changed
 
 - `make tools` installs the golangci-lint version CI runs, and `make lint` stops with a named message when the installed binary is missing or stale instead of failing with an export-data decode error against untouched files (#749).

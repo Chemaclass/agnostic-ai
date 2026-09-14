@@ -38,6 +38,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindAgent, []string{".agents/agents/alpha.md", ".agents/agents/beta.md", ".agents/agents/gamma.md"}},
 		{spec.KindSkill, []string{".agents/skills/s1/SKILL.md", ".agents/skills/s2/SKILL.md", ".agents/skills/s3/SKILL.md"}},
 		{spec.KindMCP, []string{".agents/mcp_config.json"}},
+		{spec.KindHook, []string{".agents/hooks.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -78,9 +79,10 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind antigravity does not declare in caps.Supports (Hook,
-// Command). Skill (`.agents/skills/<name>/SKILL.md`) and MCP
-// (`.agents/mcp_config.json`) are both native, so neither must warn. A
+// every kind antigravity does not declare in caps.Supports (Command
+// alone). Skill (`.agents/skills/<name>/SKILL.md`), MCP
+// (`.agents/mcp_config.json`) and Hook (`.agents/hooks.json`) are all
+// native, so none must warn. A
 // future caps.Supports expansion needs to delete the matching row here
 // and demonstrate the emit path that backs it.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -97,8 +99,8 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (command), got %d", got)
 	}
 }
 

@@ -104,6 +104,14 @@ func kitSinkBundle() spec.Bundle {
 			},
 		},
 		{
+			Kind: spec.KindHook, Name: "fmt-go",
+			Meta: map[string]any{
+				"event":   "PostToolUse",
+				"matcher": "replace_file_content",
+				"command": "gofmt -w",
+			},
+		},
+		{
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{
 				"type":     "http",

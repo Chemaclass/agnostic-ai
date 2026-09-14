@@ -1,0 +1,15 @@
+{
+  "sample-hook": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo edited"
+          }
+        ]
+      }
+    ]
+  }
+}

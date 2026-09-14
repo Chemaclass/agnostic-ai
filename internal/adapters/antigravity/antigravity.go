@@ -58,16 +58,21 @@
 // next reaches the file through an entry's `x-antigravity` block
 // (emit.MergeCustomTargetMeta), the same escape hatch zed and warp give
 // their own unmapped fields (#588); `import antigravity` captures it
-// back the same way. Hooks now have a documented schema
-// (antigravity.google/docs/ide/hooks: `.agents/hooks.json`, five
-// events, PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop).
-// The hook payload's `transcriptPath` resolves under
-// `~/.gemini/antigravity-ide`, the IDE's own app-data directory,
-// confirming the IDE itself runs them (target-audit 2026-08-27, #563);
-// that question no longer blocks adding the surface, tracked in #629.
-// This adapter still skips hooks with a warning until #629 lands;
-// commands remain fully unconfirmed in the public-preview docs and
-// skip the same way.
+// back the same way.
+//
+// Hooks merge into `.agents/hooks.json`, keyed by hook definition name
+// rather than by event (antigravity.google/docs/ide/hooks). Each spec
+// becomes its own named definition holding the one event it names, so
+// `enabled: false` (the definition's own field, the inverse of the
+// portable `disabled: true`) disables that spec alone. Five events run:
+// PreToolUse and PostToolUse hold `{matcher, hooks}` groups, while
+// PreInvocation, PostInvocation and Stop hold a handler list directly
+// and ignore the matcher, so this adapter writes each shape where the
+// vendor documents it. The hook payload's `transcriptPath` resolves
+// under `~/.gemini/antigravity-ide`, the IDE's own app-data directory,
+// confirming the IDE itself runs them (target-audit 2026-08-27, #563).
+// Commands remain fully unconfirmed in the public-preview docs and skip
+// with a warning.
 package antigravity
 
 import (
@@ -101,7 +106,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
 // Adapter emits Antigravity configs.
@@ -116,7 +121,8 @@ func (Adapter) Name() string { return target }
 // Emit writes per-rule files under .agents/rules/, one subagent file
 // per agent under .agents/agents/<name>.md, a folder per skill under
 // .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
-// servers, and, when opted in via outputs.antigravity.rules-file, a
+// servers, .agents/hooks.json for hooks, and, when opted in via
+// outputs.antigravity.rules-file, a
 // legacy merged document at that path. A stale managed tree at the
 // pre-plural `.agent/rules` / `.agent/skills` defaults is swept unless
 // the user explicitly opted into that legacy path. The `.agent/AGENTS.md`
@@ -158,6 +164,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
+	}
+
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 
