@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Fixed
+
+- `agnostic-ai upgrade` and `update` now install the latest release by default. Standalone macOS and Linux binaries are checksum-verified and replaced in place; `--check` remains read-only.
+
 ### Added
 
 - The `agent-context` skill works globally without project agents and guides root setup and context reviews (#793).

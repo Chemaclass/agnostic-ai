@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 func TestDetectInstallMethod_Homebrew(t *testing.T) {
@@ -238,11 +241,69 @@ func TestPrintUpgradeInfo_RendersAllFields(t *testing.T) {
 
 func TestRunUpgrade_CheckOnlyPrintsAndReturns(t *testing.T) {
 	var buf bytes.Buffer
-	if err := runUpgrade(&buf, false, true, "0.22.0"); err != nil {
+	if err := runUpgrade(&buf, true, "0.22.0"); err != nil {
 		t.Fatalf("check-only: %v", err)
 	}
 	if !strings.Contains(buf.String(), "Install method:") {
 		t.Errorf("expected install method line, got:\n%s", buf.String())
+	}
+}
+
+func TestUpgradeCommand_ExecutesAndChecksBothInstallPaths(t *testing.T) {
+	for _, method := range []installMethod{installGoInstall, installBinary} {
+		for _, tc := range []struct {
+			name, command string
+			wantRuns      int
+		}{
+			{"upgrade defaults to run", "upgrade", 1},
+			{"update alias defaults to run", "update", 1},
+			{"legacy run flag executes", "upgrade --run", 1},
+			{"check suppresses update", "upgrade --check", 0},
+			{"check overrides run", "update --run --check", 0},
+		} {
+			t.Run(method.String()+"/"+tc.name, func(t *testing.T) {
+				var runs int
+				deps := upgradeDeps{
+					detect: func(version string) (upgradeInfo, error) {
+						if version != "1.0.0" {
+							t.Errorf("version = %q, want 1.0.0", version)
+						}
+						return upgradeInfo{Path: "/tmp/agnostic-ai", Method: method, Version: version, Latest: "2.0.0", Command: upgradeCommandFor(method)}, nil
+					},
+					run: func(_ io.Writer, command string) error {
+						runs++
+						if command != upgradeCommandFor(method) {
+							t.Errorf("command = %q", command)
+						}
+						return nil
+					},
+					install: func(path, version, baseURL string, _ *http.Client) error {
+						runs++
+						if path != "/tmp/agnostic-ai" || version != "2.0.0" || baseURL != releasesBaseURL {
+							t.Errorf("install arguments = %q, %q, %q", path, version, baseURL)
+						}
+						return nil
+					},
+				}
+				root := &cobra.Command{Use: "agnostic-ai", Version: "1.0.0", SilenceUsage: true}
+				root.AddCommand(newUpgradeCmdWithDeps(deps))
+				root.SetArgs(strings.Fields(tc.command))
+				root.SetOut(&bytes.Buffer{})
+				if err := root.Execute(); err != nil {
+					t.Fatalf("execute %q: %v", tc.command, err)
+				}
+				if runs != tc.wantRuns {
+					t.Errorf("update calls = %d, want %d", runs, tc.wantRuns)
+				}
+			})
+		}
+	}
+}
+
+func TestStandalonePlatformError_WindowsInstallerGuidance(t *testing.T) {
+	err := standalonePlatformError("windows")
+	if err == nil || !strings.Contains(err.Error(), "irm "+windowsInstallerURL+" | iex") {
+		t.Errorf("Windows guidance = %v, want runnable installer command", err)
 	}
 }
 

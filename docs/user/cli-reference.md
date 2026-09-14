@@ -516,14 +516,13 @@ Run `agnostic-ai completion <shell> --help` for shell-specific setup instruction
 
 ## upgrade
 
-Detect how the running binary was installed and report (or run) the matching upgrade command. Does not self-replace the binary: package managers stay in charge of installed versions.
+Detect how the running binary was installed and upgrade it to the latest release. Package-manager installs use their package manager. Standalone binaries on macOS and Linux are verified against the release checksums and replaced in place.
 
-`update` is an alias for `upgrade`. Both names accept the same flags.
+`update` is an alias for `upgrade`. Both commands run by default. `--check` prints install details without changing anything. The old `--run` flag remains accepted for compatibility.
 
 ```bash
-agnostic-ai upgrade           # print the upgrade command for the current install
+agnostic-ai upgrade           # upgrade the current install
 agnostic-ai upgrade --check   # diagnose install location + PATH shadowing, exit
-agnostic-ai upgrade --run     # exec the detected upgrade command
 agnostic-ai update            # same as agnostic-ai upgrade
 ```
 
@@ -534,7 +533,8 @@ Detection:
 - `*\scoop\apps\*`, `*\scoop\shims\*` → `scoop update agnostic-ai`
 - `*\Microsoft\WinGet\*` → `winget upgrade Chemaclass.agnostic-ai`
 - `*/node_modules/*` → `npm install -g agnostic-ai@latest`
-- Anything else → manual download from the [releases page](https://github.com/Chemaclass/agnostic-ai/releases), or re-run the [install script](getting-started.md#install), which overwrites in place.
+- Standalone binary on macOS or Linux → download the matching release archive, verify its checksum and version, then replace the running binary atomically.
+- Standalone binary on Windows → use the [PowerShell install script](installation.md#windows) to update it; Windows cannot replace a running executable.
 
 The three Windows-and-Node markers match case-insensitively, since those path segments carry whatever casing the user's profile uses.
 
