@@ -50,6 +50,25 @@ func TestRenderEntryPointFiles_FencesPerPath(t *testing.T) {
 	}
 }
 
+// A fence dropped from the top of AGNOSTIC_AI.md renders the same file
+// as a body that never had it: no blank line under the header (#790).
+func TestRenderEntryPointFiles_DroppedLeadingFenceMatchesUnfencedBody(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+
+	fenced, err := renderEntryPointFiles(cfg, spec.Bundle{}, cfg.Targets, "::target gemini\nGemini-only.\n::end\n\nShared.\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := renderEntryPointFiles(cfg, spec.Bundle{}, cfg.Targets, "Shared.\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(fenced) != 1 || len(plain) != 1 || fenced[0].Content != plain[0].Content {
+		t.Errorf("fenced render differs from unfenced:\ngot:  %q\nwant: %q", fenced, plain)
+	}
+}
+
 // AGENTS.md is shared by several targets (codex and cline here). A
 // block naming only one of its readers must still reach the file.
 func TestRenderEntryPointFiles_SharedPathTakesAnyConsumerFence(t *testing.T) {
