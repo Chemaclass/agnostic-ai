@@ -193,6 +193,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude and Qoder. |
 | `loop_limit` | no | `5` | Stop-blocking limit. Trae: `Stop` only. Cursor: `stop` and `subagentStop`, with `null` allowing unlimited runs. |
 | `failClosed` | no, Cursor | `false` | Block the action when the hook fails. Applies to command and prompt handlers. |
+| `disabled` | no | `false` | Keep the hook in the file but stop it running. Antigravity only, where it writes the definition's own `enabled: false`. Every other target emits the hook unchanged. |
 | `commandWindows` | no | empty | Windows-specific command override. Codex. |
 | `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. Set `0` to pass the complete additional context. |
 | `target` | no | empty | Single target name. Emits only there. |
