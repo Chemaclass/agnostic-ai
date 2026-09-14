@@ -85,10 +85,17 @@ Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructi
 | Sync my first rule | [Getting started](docs/user/getting-started.md) |
 | Bring existing tool config into one source | [Migration](docs/user/migration.md) |
 | Write a skill, agent, hook, or MCP spec | [Spec format](docs/user/spec-format.md) |
+| Set up or review agent context in any project | [Agent context skill](.agnostic-ai/skills/agent-context/SKILL.md) |
 | Change targets or output paths | [Configuration](docs/user/configuration.md) |
 | Automate sync for a team | [CI](docs/user/ci.md) and [Git hooks](docs/user/git-hooks.md) |
 | Share specs across repositories | [Packs](docs/user/packs.md) |
 | Diagnose missing or stale output | [Troubleshooting](docs/user/troubleshooting.md) |
 | Work on agnostic-ai | [Contributing](CONTRIBUTING.md) |
+
+To use the agent context skill across projects, copy the
+`.agnostic-ai/skills/agent-context/` directory to
+`~/.agnostic-ai/skills/agent-context/` (or the equivalent under
+`$AGNOSTIC_AI_HOME`), then run `agnostic-ai sync --global`. The skill works
+without the project-local specialist agents, which global sync does not emit.
 
 [All documentation](docs/README.md) · [CLI reference](docs/user/cli-reference.md) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [Changelog](CHANGELOG.md)

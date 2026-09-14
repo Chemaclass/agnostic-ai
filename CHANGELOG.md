@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- The `agent-context` skill works globally without project agents and guides root setup and context reviews (#793).
 - `agnostic-ai update` is an alias for `upgrade`, with the same `--run` and `--check` flags.
 
 ## v0.57.0 - 2026-09-14
