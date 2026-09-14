@@ -181,20 +181,20 @@ func runUpgrade(out io.Writer, checkOnly bool, currentVersion string) error {
 	return runUpgradeWithDeps(out, checkOnly, "", currentVersion, defaultUpgradeDeps())
 }
 
-// runUpgradeWithDeps upgrades to the latest release, or to wantVersion
+// runUpgradeWithDeps upgrades to the latest release, or to requestedVersion
 // when the caller named one. A named version is already normalized and
 // validated by normalizeReleaseVersion.
-func runUpgradeWithDeps(out io.Writer, checkOnly bool, wantVersion, currentVersion string, deps upgradeDeps) error {
+func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, currentVersion string, deps upgradeDeps) error {
 	info, err := deps.detect(currentVersion)
 	if err != nil {
 		return err
 	}
-	printUpgradeInfo(out, info, wantVersion)
+	printUpgradeInfo(out, info, requestedVersion)
 	if checkOnly {
 		return nil
 	}
-	if wantVersion != "" {
-		return installRequestedVersion(out, info, wantVersion, deps)
+	if requestedVersion != "" {
+		return installRequestedVersion(out, info, requestedVersion, deps)
 	}
 	if info.Latest != "" && info.Version != "" && versionsEqual(info.Version, info.Latest) {
 		_, _ = fmt.Fprintf(out, "\nAlready on latest (%s). Nothing to do.\n", info.Latest)
@@ -207,9 +207,8 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, wantVersion, currentVersi
 			}
 			return fmt.Errorf("upgrade: latest release tag unavailable")
 		}
-		_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", info.Latest)
-		if err := deps.install(info.Path, info.Latest, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
-			return fmt.Errorf("upgrade: %w", err)
+		if err := downloadRelease(out, info.Path, info.Latest, deps); err != nil {
+			return err
 		}
 		_, _ = fmt.Fprintf(out, "Upgraded %s to %s.\n", info.Path, info.Latest)
 		return nil
@@ -233,20 +232,30 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, wantVersion, currentVersi
 // path it allows a downgrade, which is the case that motivated the flag:
 // a project pinned behind the installed CLI had no way back other than
 // re-running the installer by hand.
-func installRequestedVersion(out io.Writer, info upgradeInfo, wantVersion string, deps upgradeDeps) error {
-	if info.Version != "" && versionsEqual(info.Version, wantVersion) {
-		_, _ = fmt.Fprintf(out, "\nAlready on %s. Nothing to do.\n", wantVersion)
+func installRequestedVersion(out io.Writer, info upgradeInfo, requestedVersion string, deps upgradeDeps) error {
+	if info.Version != "" && versionsEqual(info.Version, requestedVersion) {
+		_, _ = fmt.Fprintf(out, "\nAlready on %s. Nothing to do.\n", requestedVersion)
 		return nil
 	}
 	if info.Method != installBinary {
 		return fmt.Errorf("upgrade: --version needs a standalone binary install, and this one is %s; pin the version through %s itself, or install a standalone binary from %s",
 			info.Method, info.Method, releasesHTMLURL)
 	}
-	_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", wantVersion)
-	if err := deps.install(info.Path, wantVersion, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
+	if err := downloadRelease(out, info.Path, requestedVersion, deps); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "Installed %s at %s.\n", requestedVersion, info.Path)
+	return nil
+}
+
+// downloadRelease fetches one release archive and replaces the binary at
+// path with it. The caller reports the outcome, since upgrading to latest
+// and installing a named version say different things about the same work.
+func downloadRelease(out io.Writer, path, version string, deps upgradeDeps) error {
+	_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", version)
+	if err := deps.install(path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
 	}
-	_, _ = fmt.Fprintf(out, "Installed %s at %s.\n", wantVersion, info.Path)
 	return nil
 }
 
