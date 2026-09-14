@@ -11,12 +11,12 @@ import (
 
 const defaultHooksFile = ".agents/hooks.json"
 
-// hookLifecycle is the event order antigravity.google/docs/ide/hooks's
-// own Hook Event Names list uses, and the closed set this adapter
-// writes. A spec naming anything else earns a coverage note rather than
-// a key the vendor documents no handler for.
-var hookLifecycle = []string{
-	"PreToolUse", "PostToolUse", "PreInvocation", "PostInvocation", "Stop",
+// hookEvents is the closed set from antigravity.google/docs/ide/hooks'
+// own Hook Event Names list. A spec naming anything else earns a
+// coverage note rather than a key the vendor documents no handler for.
+var hookEvents = map[string]bool{
+	"PreToolUse": true, "PostToolUse": true,
+	"PreInvocation": true, "PostInvocation": true, "Stop": true,
 }
 
 // matcherEvents are the two events whose array holds `{matcher, hooks}`
@@ -74,19 +74,16 @@ type hookDefinition struct {
 	// takes `disabled` literally.
 	disabled bool
 	event    string
-	groups   []hookGroup
-	handlers []hookHandler
+	// payload is the event's array: `[]hookGroup` for the two events
+	// that read a matcher, `[]hookHandler` for the three that do not.
+	payload any
 }
 
 // MarshalJSON writes `enabled` ahead of the event key so a disabled
 // definition reads as disabled before the reader reaches its handlers,
 // matching the vendor's own `safety-gate` example.
 func (d *hookDefinition) MarshalJSON() ([]byte, error) {
-	var payload any = d.handlers
-	if matcherEvents[d.event] {
-		payload = d.groups
-	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(d.payload)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +163,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
-		if !isHookEvent(event) {
+		if !hookEvents[event] {
 			if event != "" {
 				otherEvents++
 			}
@@ -196,12 +193,12 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			if claudeToolNames[matcher] {
 				claudeMatchers++
 			}
-			def.groups = []hookGroup{{Matcher: matcher, Hooks: handlers}}
+			def.payload = []hookGroup{{Matcher: matcher, Hooks: handlers}}
 		} else {
 			if matcher != "" {
 				ignoredMatchers++
 			}
-			def.handlers = handlers
+			def.payload = handlers
 		}
 
 		if _, seen := doc.defs[def.name]; !seen {
@@ -221,14 +218,4 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		return nil
 	}
 	return doc
-}
-
-// isHookEvent reports whether event is one of the five Antigravity runs.
-func isHookEvent(event string) bool {
-	for _, e := range hookLifecycle {
-		if e == event {
-			return true
-		}
-	}
-	return false
 }
