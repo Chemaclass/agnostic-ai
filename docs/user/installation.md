@@ -48,6 +48,8 @@ agnostic-ai upgrade
 
 This prints the command for your detected install method. Add `--run` to execute it. Use `agnostic-ai upgrade --check` to diagnose an older binary shadowing the new one on `PATH`. See the [upgrade reference](cli-reference.md#upgrade).
 
+`agnostic-ai update` is an alias. It accepts the same `--run` and `--check` flags.
+
 ## Shell completion
 
 See [completion](cli-reference.md#completion) for Bash, Zsh, Fish, and PowerShell setup.

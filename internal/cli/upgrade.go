@@ -103,8 +103,9 @@ func newUpgradeCmd() *cobra.Command {
 		checkOnly bool
 	)
 	cmd := &cobra.Command{
-		Use:   "upgrade",
-		Short: "Report (or run) the right command to upgrade agnostic-ai.",
+		Use:     "upgrade",
+		Aliases: []string{"update"},
+		Short:   "Report (or run) the right command to upgrade agnostic-ai.",
 		Long: `upgrade detects how the running agnostic-ai binary was installed
 (Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
 binary) and prints the matching upgrade command. It does not replace its

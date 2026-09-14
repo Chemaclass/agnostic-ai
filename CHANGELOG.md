@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- `agnostic-ai update` is an alias for `upgrade`, with the same `--run` and `--check` flags.
+
 ## v0.57.0 - 2026-09-14
 
 ### Added
