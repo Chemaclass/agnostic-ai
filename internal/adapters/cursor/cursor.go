@@ -175,7 +175,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
 		return err
 	}
-	return materializeHookScripts(hooks, dryRun)
+	return materializeHookScripts(sess, hooks, dryRun)
 }
 
 // buildHooks groups hook specs by their `event` frontmatter into Cursor's
@@ -236,12 +236,12 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 // `.agnostic-ai/scripts/` into `.cursor/hooks/` so the emitted
 // hooks.json references a script that exists. Hooks whose command is a
 // free-form shell expression carry no stashed body and skip silently.
-func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
-			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}
 		}

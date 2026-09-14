@@ -17,6 +17,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Hook scripts materialized from `.agnostic-ai/scripts/` go through the sync session: `sync.unmanaged` protects them, a failed sync rolls them back, `--backup` covers them, `sync --check` reports hand edits, and deleting the hook sweeps its script (#789).
 - A `::target` fence dropped from the start of a spec body or `AGNOSTIC_AI.md` no longer leaves a leading blank line in the output (#790).
 - `import` keeps a fenced `AGNOSTIC_AI.md` when the entry point matches the view sync renders for the enabled targets and `outputs.<target>.file` overrides; it no longer wipes `::target` blocks in projects that enable a subset of targets or move a target's entry point. `import claude` reports the kept source as unchanged (#781).
 - `validate` accepts `::target` fences for external adapters listed in `targets`, and flags fences for built-in targets that read no entry-point file, such as `cursor` or a target on the legacy rules-file layout (#781).

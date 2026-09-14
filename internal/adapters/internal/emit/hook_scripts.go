@@ -38,11 +38,17 @@ const agnosticScriptsDir = ".agnostic-ai/scripts"
 // stashed; surfaces every other read/write error so callers can fail
 // loudly on permission problems.
 //
+// The write goes through the session like every other output, so a
+// script listed under sync.unmanaged is skipped and reported, and the
+// write honors capture, dry-run, backup, transaction rollback, and
+// detailed recording (which puts the script in the sync ledger) (#789).
+// The body is copied byte for byte with the stash's permission bits.
+//
 // `cmd` is the rewritten command path (post-RewriteHookPath), pointing
 // at `.<target>/hooks/<basename>`. `sourceTool` carries the spec
 // origin so the lookup falls back to that tool's stashed body when no
 // target-specific variant exists.
-func MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
+func (s *Session) MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
 	basename, ok := hookBasename(cmd, target)
 	if !ok {
 		return nil
@@ -54,17 +60,7 @@ func MaterializeHookScript(cmd, target, sourceTool string, dryRun bool) error {
 	if !ok {
 		return nil
 	}
-	dst := "." + target + "/hooks/" + basename
-	if dryRun {
-		return nil
-	}
-	if err := mkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
-	}
-	if err := os.WriteFile(dst, body, mode); err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
-	}
-	return nil
+	return s.writeFileWithMode("."+target+"/hooks/"+basename, string(body), mode, dryRun)
 }
 
 // SourceToolFromHookCommand extracts the `.<tool>/hooks/` segment from
