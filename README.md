@@ -35,7 +35,7 @@ Choose your tools during setup. The demo creates sample specs under `.agnostic-a
 
 Already have tool configuration? Start with [importing an existing project](docs/user/migration.md) to preserve your instructions.
 
-Run `agnostic-ai update` to see how to upgrade your install. Add `--run` to execute the detected upgrade command.
+Run `agnostic-ai update` to upgrade to the latest release. Use `--check` to see the detected install method without changing anything.
 
 Sync protects hand-authored ignore files with a conservative check of pattern order, negations, and whitespace. Run `agnostic-ai import <target>` to copy those patterns into specs, then review any conflicting patterns before syncing. See [ignore overwrite behavior](docs/user/spec-format.md#overwrite-behaviour).
 

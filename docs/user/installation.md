@@ -46,9 +46,9 @@ Then follow [Getting started](getting-started.md), or [Migration](migration.md) 
 agnostic-ai upgrade
 ```
 
-This prints the command for your detected install method. Add `--run` to execute it. Use `agnostic-ai upgrade --check` to diagnose an older binary shadowing the new one on `PATH`. See the [upgrade reference](cli-reference.md#upgrade).
+This upgrades the detected install to the latest release. Package-manager installs use their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. Use `agnostic-ai upgrade --check` to inspect the install and find older binaries on `PATH` without changing anything. See the [upgrade reference](cli-reference.md#upgrade).
 
-`agnostic-ai update` is an alias. It accepts the same `--run` and `--check` flags.
+`agnostic-ai update` is an alias. The old `--run` flag still works, but is no longer needed.
 
 ## Shell completion
 
