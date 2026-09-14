@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -115,7 +116,8 @@ func defaultUpgradeDeps() upgradeDeps {
 
 func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 	var (
-		checkOnly bool
+		checkOnly     bool
+		targetVersion string
 	)
 	cmd := &cobra.Command{
 		Use:     "upgrade",
@@ -127,34 +129,72 @@ binary) and upgrades it to the latest release. Package-manager installs
 use their package manager. Standalone binaries on macOS and Linux are
 downloaded, verified against release checksums, and replaced in place.
 
+Pass --version to install one specific release instead of the latest,
+which is how a project pinned to an older version gets there in one
+command. Downgrades are allowed, and standalone binary installs only: a
+package-manager install pins through its own package manager.
+
 Pass --check to show install details without changing anything. --run
 is still accepted for compatibility.`,
 		Example: `  # Upgrade to the latest release
   agnostic-ai upgrade
 
+  # Install the release this project pins, even an older one
+  agnostic-ai upgrade --version v0.56.1
+
   # Diagnose install location + PATH shadowing
   agnostic-ai upgrade --check`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runUpgradeWithDeps(cmd.OutOrStdout(), checkOnly, cmd.Root().Version, deps)
+			want := ""
+			if cmd.Flags().Changed("version") {
+				v, err := normalizeReleaseVersion(targetVersion)
+				if err != nil {
+					return err
+				}
+				want = v
+			}
+			return runUpgradeWithDeps(cmd.OutOrStdout(), checkOnly, want, cmd.Root().Version, deps)
 		},
 	}
 	cmd.Flags().Bool("run", false, "Run upgrade (now the default)")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
+	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
 	return cmd
 }
 
-func runUpgrade(out io.Writer, checkOnly bool, currentVersion string) error {
-	return runUpgradeWithDeps(out, checkOnly, currentVersion, defaultUpgradeDeps())
+// releaseVersionRE matches the release tags this repo publishes. The
+// value is interpolated into a release asset URL, so anything else is
+// refused here rather than downloaded as a 404 the user has to decode.
+var releaseVersionRE = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`)
+
+// normalizeReleaseVersion validates a --version tag and returns it in the
+// prefix-less form the release URL builder and version comparisons use.
+func normalizeReleaseVersion(tag string) (string, error) {
+	trimmed := strings.TrimSpace(tag)
+	if !releaseVersionRE.MatchString(trimmed) {
+		return "", fmt.Errorf("upgrade: %q is not a release version; pass one like v0.56.1 (see %s)", tag, releasesHTMLURL)
+	}
+	return strings.TrimPrefix(trimmed, "v"), nil
 }
 
-func runUpgradeWithDeps(out io.Writer, checkOnly bool, currentVersion string, deps upgradeDeps) error {
+func runUpgrade(out io.Writer, checkOnly bool, currentVersion string) error {
+	return runUpgradeWithDeps(out, checkOnly, "", currentVersion, defaultUpgradeDeps())
+}
+
+// runUpgradeWithDeps upgrades to the latest release, or to requestedVersion
+// when the caller named one. A named version is already normalized and
+// validated by normalizeReleaseVersion.
+func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, currentVersion string, deps upgradeDeps) error {
 	info, err := deps.detect(currentVersion)
 	if err != nil {
 		return err
 	}
-	printUpgradeInfo(out, info)
+	printUpgradeInfo(out, info, requestedVersion)
 	if checkOnly {
 		return nil
+	}
+	if requestedVersion != "" {
+		return installRequestedVersion(out, info, requestedVersion, deps)
 	}
 	if info.Latest != "" && info.Version != "" && versionsEqual(info.Version, info.Latest) {
 		_, _ = fmt.Fprintf(out, "\nAlready on latest (%s). Nothing to do.\n", info.Latest)
@@ -167,9 +207,8 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, currentVersion string, de
 			}
 			return fmt.Errorf("upgrade: latest release tag unavailable")
 		}
-		_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", info.Latest)
-		if err := deps.install(info.Path, info.Latest, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
-			return fmt.Errorf("upgrade: %w", err)
+		if err := downloadRelease(out, info.Path, info.Latest, deps); err != nil {
+			return err
 		}
 		_, _ = fmt.Fprintf(out, "Upgraded %s to %s.\n", info.Path, info.Latest)
 		return nil
@@ -185,6 +224,37 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, currentVersion string, de
 	_, _ = fmt.Fprintf(out, "\n→ %s\n", info.Command)
 	if err := deps.run(out, info.Command); err != nil {
 		return fmt.Errorf("upgrade: run %s: %w", info.Command, err)
+	}
+	return nil
+}
+
+// installRequestedVersion installs one named release. Unlike the latest
+// path it allows a downgrade, which is the case that motivated the flag:
+// a project pinned behind the installed CLI had no way back other than
+// re-running the installer by hand.
+func installRequestedVersion(out io.Writer, info upgradeInfo, requestedVersion string, deps upgradeDeps) error {
+	if info.Version != "" && versionsEqual(info.Version, requestedVersion) {
+		_, _ = fmt.Fprintf(out, "\nAlready on %s. Nothing to do.\n", requestedVersion)
+		return nil
+	}
+	if info.Method != installBinary {
+		return fmt.Errorf("upgrade: --version needs a standalone binary install, and this one is %s; pin the version through %s itself, or install a standalone binary from %s",
+			info.Method, info.Method, releasesHTMLURL)
+	}
+	if err := downloadRelease(out, info.Path, requestedVersion, deps); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "Installed %s at %s.\n", requestedVersion, info.Path)
+	return nil
+}
+
+// downloadRelease fetches one release archive and replaces the binary at
+// path with it. The caller reports the outcome, since upgrading to latest
+// and installing a named version say different things about the same work.
+func downloadRelease(out io.Writer, path, version string, deps upgradeDeps) error {
+	_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", version)
+	if err := deps.install(path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
+		return fmt.Errorf("upgrade: %w", err)
 	}
 	return nil
 }
@@ -440,7 +510,10 @@ func execShell(out io.Writer, command string) error {
 	return cmd.Run()
 }
 
-func printUpgradeInfo(out io.Writer, info upgradeInfo) {
+// printUpgradeInfo renders the install summary. requested is the version
+// named by --version, printed next to the detected ones so the three
+// read together, and empty on the plain latest path.
+func printUpgradeInfo(out io.Writer, info upgradeInfo, requested string) {
 	_, _ = fmt.Fprintf(out, "Install method: %s\n", info.Method)
 	_, _ = fmt.Fprintf(out, "Binary:         %s\n", info.Path)
 	if info.Version != "" {
@@ -448,6 +521,9 @@ func printUpgradeInfo(out io.Writer, info upgradeInfo) {
 	}
 	if info.Latest != "" {
 		_, _ = fmt.Fprintf(out, "Latest:         %s\n", info.Latest)
+	}
+	if requested != "" {
+		_, _ = fmt.Fprintf(out, "Requested:      %s\n", requested)
 	}
 	if len(info.Shadows) > 0 {
 		_, _ = fmt.Fprintf(out, "PATH shadows:\n")

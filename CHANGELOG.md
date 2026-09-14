@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `agnostic-ai upgrade --version v0.56.1` installs one named release instead of the latest, downgrades included, so a project pinned to an older version no longer needs the install script re-run by hand. Standalone binary installs only; the tag is validated before it reaches a release URL (#800).
 - Hook specs reach Antigravity's `.agents/hooks.json`. The file is keyed by hook definition name rather than by event, so each spec becomes its own definition and `disabled: true` writes that definition's `enabled: false`; `validate` now checks Antigravity's five event names (#629).
 
 ### Changed

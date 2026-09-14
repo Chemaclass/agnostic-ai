@@ -222,7 +222,7 @@ func TestPrintUpgradeInfo_RendersAllFields(t *testing.T) {
 		Latest:  "0.22.0",
 		Shadows: []string{"/usr/local/bin/agnostic-ai"},
 		Notes:   []string{"shadow detected"},
-	})
+	}, "")
 	out := buf.String()
 	for _, want := range []string{
 		"Install method: homebrew",
