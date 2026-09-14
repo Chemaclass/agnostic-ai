@@ -238,10 +238,21 @@ func FilterFences(body string, readers []string) string {
 	if s != "" && strings.HasSuffix(body, "\n") {
 		s += "\n"
 	}
+	// The same stacking happens at the top: a dropped fence that opens the
+	// body leaves the blank line after it as a leading one. Keep only the
+	// leading newlines the source itself had (#790).
+	if lead := leadingNewlines(body); leadingNewlines(s) > lead {
+		s = strings.Repeat("\n", lead) + strings.TrimLeft(s, "\n")
+	}
 	// Dropped fences leave the surrounding blank lines stacked. Collapse
 	// any run of 3 or more newlines back down to a paragraph break so
 	// the rendered body reads cleanly for the active readers.
 	return collapseBlankRuns(s)
+}
+
+// leadingNewlines counts the '\n' bytes s starts with.
+func leadingNewlines(s string) int {
+	return len(s) - len(strings.TrimLeft(s, "\n"))
 }
 
 // FenceTargets returns every name used by a `::target` / `::targets`

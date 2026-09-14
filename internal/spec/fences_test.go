@@ -101,6 +101,26 @@ func TestFilterFences_DroppedTrailingFence_NoExtraTrailingNewline(t *testing.T) 
 	}
 }
 
+// A dropped fence that opens the body must not leave the blank line that
+// followed it as a leading blank line in the result (#790).
+func TestFilterFences_DroppedLeadingFence_NoLeadingBlankLine(t *testing.T) {
+	t.Parallel()
+	got := FilterFences("::target gemini\nG.\n::end\n\nShared.\n", []string{"claude"})
+	if want := "Shared.\n"; got != want {
+		t.Errorf("FilterFences:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
+// Leading blank lines the source itself carries survive: only the ones a
+// dropped fence exposed are trimmed.
+func TestFilterFences_KeptLeadingFence_KeepsSourceLeadingBlankLines(t *testing.T) {
+	t.Parallel()
+	got := FilterFences("\n::target claude\nC.\n::end\n\nShared.\n", []string{"claude"})
+	if want := "\nC.\n\nShared.\n"; got != want {
+		t.Errorf("FilterFences:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
 // FenceTargets collects every name used by a fence opener, deduplicated
 // in first-seen order, ignoring markers that are not at column 0.
 func TestFenceTargets_CollectsNamesInOrder(t *testing.T) {
