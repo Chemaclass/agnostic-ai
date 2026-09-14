@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Changed
+
+- `make tools` installs the golangci-lint version CI runs, and `make lint` stops with a named message when the installed binary is missing or stale instead of failing with an export-data decode error against untouched files (#749).
+
 ### Fixed
 
 - `agnostic-ai upgrade` and `update` now install the latest release by default. Standalone macOS and Linux binaries are checksum-verified and replaced in place; `--check` remains read-only.

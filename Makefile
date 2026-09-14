@@ -3,8 +3,10 @@
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
 
-# Pinned to match .github/workflows/ci.yml (golangci-lint-action@v9 with version: v2.6).
-GOLANGCI_LINT_VERSION := v2.6.2
+# Pinned to match the golangci-lint-action version in
+# .github/workflows/ci.yml. Bump both together;
+# tests/integration/toolchain_pins_test.go holds them level.
+GOLANGCI_LINT_VERSION := v2.13.2
 LEFTHOOK_VERSION := v1.10.10
 
 build:
@@ -27,7 +29,20 @@ test-shell: build
 bench:
 	go test -run '^$$' -bench . -benchmem ./...
 
+# The version check runs first because a stale golangci-lint reports the
+# mismatch as "export data version N is greater than maximum supported
+# version M" against arbitrary untouched files, which costs a contributor
+# a diff review before they reach the real cause.
 lint:
+	@have=$$(golangci-lint version --short 2>/dev/null); \
+	want=$(GOLANGCI_LINT_VERSION); want=$${want#v}; \
+	if [ -z "$$have" ]; then \
+		echo "golangci-lint not found. run 'make tools'."; \
+		exit 1; \
+	elif [ "$$have" != "$$want" ]; then \
+		echo "golangci-lint $$have installed, $$want pinned. run 'make tools'."; \
+		exit 1; \
+	fi
 	golangci-lint run
 
 fmt:
