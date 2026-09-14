@@ -360,3 +360,19 @@ func TestUpgradeCmd_RegistersOnRoot(t *testing.T) {
 		t.Fatal("upgrade command not registered on root")
 	}
 }
+
+func TestUpdateAlias_ResolvesToUpgrade(t *testing.T) {
+	root := NewRootCmd("test")
+	cmd, _, err := root.Find([]string{"update"})
+	if err != nil {
+		t.Fatalf("find update command: %v", err)
+	}
+	if cmd.Name() != "upgrade" {
+		t.Errorf("update resolves to %q, want upgrade", cmd.Name())
+	}
+	for _, name := range []string{"run", "check"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("update missing --%s flag", name)
+		}
+	}
+}
