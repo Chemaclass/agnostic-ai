@@ -3,6 +3,8 @@ name: agent-config-bootstrapper
 description: Set up or reshape project root agent instructions from current source and official model guidance.
 tools:
   - Read
+  - Write
+  - Edit
   - Grep
   - Glob
   - Bash

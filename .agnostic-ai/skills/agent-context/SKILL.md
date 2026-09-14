@@ -6,22 +6,26 @@ description: Set up or review project agent instructions using a concise, eviden
 # Agent Context
 
 Use this skill when setting up a root agent file or reviewing the context
-that reaches coding agents. Work from the project source of truth. Do not
-edit generated entry points directly.
+that reaches coding agents. It works in any project, with or without the
+specialist agents below. Work from the project source of truth. Do not edit
+generated entry points directly.
 
 ## Delegate deliberately
 
-Use the shared [context checklist](references/context-checklist.md) for every
-task. Then choose the smallest specialist that fits:
+Read the shared [context checklist](references/context-checklist.md) for every
+task. If the specialist agents are available and delegation helps, use them:
 
 | Need | Delegate to |
 |---|---|
 | Create or replace a root agent setup | `agent-config-bootstrapper` |
-| Audit and improve existing agent context | `agent-context-reviewer` |
-| Do both | Review first, then pass its findings to the bootstrapper |
+| Review existing agent context without edits | `agent-context-reviewer` |
+| Review and edit existing agent context | Reviewer, then bootstrapper with its findings |
 
-The reviewer reports evidence and a focused edit. The bootstrapper owns source
-changes and validation. Do not duplicate the checklist in either agent.
+If either agent is unavailable, do its part yourself using the steps below.
+Global sync installs skills but not agents, so this fallback is required for
+global use. The reviewer reports evidence; the bootstrapper makes source
+changes and validates them when delegated. Do not duplicate the checklist in
+either agent.
 
 ## Setup
 
@@ -50,8 +54,10 @@ changes and validation. Do not duplicate the checklist in either agent.
 4. Preserve user-owned and security-sensitive configuration. Never copy
    credentials, tokens, private URLs, or machine-specific paths into shared
    instructions.
-5. Propose a focused edit. Explain which source file changes, which generated
-   outputs follow, and how to validate the result.
+5. For a review-only request, propose a focused edit. For a review-and-edit
+   request, make focused source changes, regenerate outputs where applicable,
+   and validate.
+   Report which source files changed and which generated outputs followed.
 
 ## Decision guide
 

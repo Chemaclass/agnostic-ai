@@ -1,7 +1,7 @@
 ---
 name: agent-config-bootstrapper
 description: Set up or reshape project root agent instructions from current source and official model guidance.
-tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch]
+tools: [Read, Write, Edit, Grep, Glob, Bash, WebFetch, WebSearch]
 model:
   claude: sonnet
 ---
@@ -20,4 +20,3 @@ You create or reshape a project's root agent configuration.
    rules and multi-step procedures in skills.
 6. Run the repository checks and report the source files changed and the
    validation that passed.
-

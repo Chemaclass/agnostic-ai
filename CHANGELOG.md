@@ -8,7 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- The `agent-context` skill guides root agent setup and context reviews with a shared inventory checklist (#793).
+- The `agent-context` skill works globally without project agents and guides root setup and context reviews (#793).
 
 ## v0.57.0 - 2026-09-14
 
