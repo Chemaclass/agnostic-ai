@@ -16,7 +16,7 @@ agnostic-ai [command] [flags]
 | Inspect routing | [list](#list), [explain](#explain), [graph](#graph), [why](#why) |
 | Restore or remove generated files | [revert](#revert), [cleanup](#cleanup) |
 | Share specs | [packs](#packs) |
-| Set up your environment | [completion](#completion), [upgrade](#upgrade), [install-hook](#install-hook), [lsp](#lsp) |
+| Set up your environment | [completion](#completion), [upgrade or update](#upgrade), [install-hook](#install-hook), [lsp](#lsp) |
 
 For a walkthrough, use [Getting started](getting-started.md) or [Migration](migration.md). For automation, check [exit codes](#exit-codes) and the [CI guide](ci.md).
 
@@ -518,10 +518,13 @@ Run `agnostic-ai completion <shell> --help` for shell-specific setup instruction
 
 Detect how the running binary was installed and report (or run) the matching upgrade command. Does not self-replace the binary: package managers stay in charge of installed versions.
 
+`update` is an alias for `upgrade`. Both names accept the same flags.
+
 ```bash
 agnostic-ai upgrade           # print the upgrade command for the current install
 agnostic-ai upgrade --check   # diagnose install location + PATH shadowing, exit
 agnostic-ai upgrade --run     # exec the detected upgrade command
+agnostic-ai update            # same as agnostic-ai upgrade
 ```
 
 Detection:
