@@ -56,7 +56,7 @@ make preflight
 
 This runs formatting checks, vet, lint, and Go tests. CI also runs race tests and separate build, schema, shell, and extension jobs. See [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change).
 
-`make lint` stops with a named message when the installed `golangci-lint` is missing or is not the pinned version. Rerun `make tools` after a pin bump: a binary older than your Go toolchain fails with an export-data decode error that looks like a real lint break in files you never touched.
+`make lint` stops with a named message when the installed `golangci-lint` is missing or is not the pinned version. Rerun `make tools` after a pin bump. A linter older than your Go toolchain cannot decode its export data, and reports that as a typecheck failure in files you never touched.
 
 `make hooks` optionally installs the [repository hooks](lefthook.yml), including pre-push preflight.
 

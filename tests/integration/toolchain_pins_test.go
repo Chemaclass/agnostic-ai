@@ -7,15 +7,11 @@ import (
 	"testing"
 )
 
-// The Makefile pin is what `make tools` installs and what a contributor
-// ends up running locally; the workflow pin is what gates the PR. When
-// they drift, the local binary can be too old to decode the export data
-// of a newer Go toolchain, and golangci-lint reports that as a typecheck
-// failure in files the branch never touched. The pins are compared here
-// so the drift fails a test instead of a contributor's afternoon.
+// The two files that pin golangci-lint: the Makefile pin is what
+// `make tools` installs locally, the workflow pin is what gates the PR.
 const (
-	makefilePath = "../../Makefile"
-	ciWorkflow   = "../../.github/workflows/ci.yml"
+	makefilePath   = "../../Makefile"
+	ciWorkflowPath = "../../.github/workflows/ci.yml"
 )
 
 var (
@@ -36,11 +32,16 @@ func pinFrom(t *testing.T, path string, re *regexp.Regexp) string {
 	return string(m[1])
 }
 
+// TestGolangciLintPin_MatchesCI keeps the local linter and the PR gate on
+// one version. A Makefile pin older than the contributor's Go toolchain
+// cannot decode its export data, and golangci-lint reports that as a
+// typecheck failure in files the branch never touched, so the drift reads
+// as a real lint break. Failing here names it instead.
 func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	local := pinFrom(t, makefilePath, makefilePinRE)
-	ci := pinFrom(t, ciWorkflow, workflowPinRE)
+	ci := pinFrom(t, ciWorkflowPath, workflowPinRE)
 	if local != ci {
 		t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
-			local, ciWorkflow, ci)
+			local, ciWorkflowPath, ci)
 	}
 }

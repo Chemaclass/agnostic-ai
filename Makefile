@@ -4,10 +4,8 @@ BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
 
 # Pinned to match the golangci-lint-action version in
-# .github/workflows/ci.yml. Bump both together; a pin older than the
-# local Go toolchain fails with an export-data decode error that reads
-# like a real lint break. tests/integration/toolchain_pins_test.go holds
-# them level.
+# .github/workflows/ci.yml. Bump both together;
+# tests/integration/toolchain_pins_test.go holds them level.
 GOLANGCI_LINT_VERSION := v2.13.2
 LEFTHOOK_VERSION := v1.10.10
 
