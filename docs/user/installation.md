@@ -46,7 +46,7 @@ Then follow [Getting started](getting-started.md), or [Migration](migration.md) 
 agnostic-ai upgrade
 ```
 
-This upgrades the detected install to the latest release. Package-manager installs use their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. Use `agnostic-ai upgrade --check` to inspect the install and find older binaries on `PATH` without changing anything. See the [upgrade reference](cli-reference.md#upgrade).
+This upgrades the detected install to the latest release. Package-manager installs use their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. Use `agnostic-ai upgrade --check` to inspect the install and find older binaries on `PATH` without changing anything. To install one specific release rather than the latest, including going back to an older one a project pins, pass `agnostic-ai upgrade --version v0.56.1`. See the [upgrade reference](cli-reference.md#upgrade).
 
 `agnostic-ai update` is an alias. The old `--run` flag still works, but is no longer needed.
 

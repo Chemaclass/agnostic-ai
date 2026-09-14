@@ -520,11 +520,16 @@ Detect how the running binary was installed and upgrade it to the latest release
 
 `update` is an alias for `upgrade`. Both commands run by default. `--check` prints install details without changing anything. The old `--run` flag remains accepted for compatibility.
 
+`--version` installs one named release instead of the latest, so a project pinned to an older version gets there in one command instead of re-running the installer by hand. Downgrades are allowed. The tag is accepted with or without its leading `v`, and anything that is not a release version is refused before it reaches a release URL. Standalone binary installs only: a package-manager install pins through its own package manager, and `--version` says so rather than running that manager's latest-only command.
+
 ```bash
-agnostic-ai upgrade           # upgrade the current install
-agnostic-ai upgrade --check   # diagnose install location + PATH shadowing, exit
-agnostic-ai update            # same as agnostic-ai upgrade
+agnostic-ai upgrade                      # upgrade the current install
+agnostic-ai upgrade --version v0.56.1    # install one release, downgrades included
+agnostic-ai upgrade --check              # diagnose install location + PATH shadowing, exit
+agnostic-ai update                       # same as agnostic-ai upgrade
 ```
+
+`--check` combines with `--version`: it adds a `Requested:` line to the install summary and exits without downloading anything.
 
 Detection:
 
