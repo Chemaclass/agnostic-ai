@@ -9,6 +9,20 @@ Use this skill when setting up a root agent file or reviewing the context
 that reaches coding agents. Work from the project source of truth. Do not
 edit generated entry points directly.
 
+## Delegate deliberately
+
+Use the shared [context checklist](references/context-checklist.md) for every
+task. Then choose the smallest specialist that fits:
+
+| Need | Delegate to |
+|---|---|
+| Create or replace a root agent setup | `agent-config-bootstrapper` |
+| Audit and improve existing agent context | `agent-context-reviewer` |
+| Do both | Review first, then pass its findings to the bootstrapper |
+
+The reviewer reports evidence and a focused edit. The bootstrapper owns source
+changes and validation. Do not duplicate the checklist in either agent.
+
 ## Setup
 
 1. Inspect the repository before writing instructions. Read its existing
