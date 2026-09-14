@@ -174,19 +174,19 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 			return err
 		}
 	}
-	return materializeHookScripts(b.HooksFor(target), dryRun)
+	return materializeHookScripts(sess, b.HooksFor(target), dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.gemini/hooks/` so the emitted
 // settings.json has the actual script alongside the path it references.
-func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
 		for _, handler := range hookHandlers(h) {
 			raw, _ := handler["command"].(string)
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
-			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}
 		}

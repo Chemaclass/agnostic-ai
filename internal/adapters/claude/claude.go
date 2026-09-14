@@ -151,7 +151,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := materializeHookScripts(hooks, dryRun); err != nil {
+	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {
 		return err
 	}
 
@@ -177,13 +177,13 @@ const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped
 //
 // Hooks whose command field is a free-form shell expression carry no
 // stashed body and skip silently — there is nothing to copy.
-func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
 		cmds := hookCommands(h.Meta["command"])
 		for _, raw := range cmds {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
-			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}
 		}

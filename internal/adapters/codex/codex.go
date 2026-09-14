@@ -203,7 +203,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitExecPolicies(sess, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := materializeHookScripts(hooks, dryRun); err != nil {
+	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {
 		return err
 	}
 	return sess.RestoreHelperFiles(target, dryRun)
@@ -251,13 +251,13 @@ func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir stri
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.codex/hooks/` so the emitted
 // config.toml has the actual script alongside the path it references.
-func materializeHookScripts(hooks []spec.Entry, dryRun bool) error {
+func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
 		cmds := hookCommands(h.Meta["command"])
 		for _, raw := range cmds {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
-			if err := emit.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}
 		}
