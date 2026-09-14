@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.57.0 - 2026-09-14
+
 ### Added
 
 - `::target` / `::targets` fences work in `.agnostic-ai/AGNOSTIC_AI.md`: a fenced paragraph reaches only the entry-point files a listed target reads. `validate` flags a fence naming an unknown target, and `import` keeps a fenced source when the imported entry point matches its rendered view (#781).
