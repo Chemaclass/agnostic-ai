@@ -1,0 +1,237 @@
+[hero]
+title = "One spec."
+accent_title = "Every AI CLI."
+body = "You write `CLAUDE.md`, then `.cursor/rules`, then `GEMINI.md`, then `AGENTS.md`. The same content in four formats. Switch tools and you rewrite everything. agnostic-ai keeps **one source of truth** and emits each tool's native config, byte-stable across runs."
+primary_label = "Try the playground"
+secondary_label = "See how it works"
+facts = "25 supported targets. 20 enabled by default. One source of truth."
+
+[hero.diagram]
+source_name = ".agnostic-ai/rules/commits.md"
+source = """---
+name: conventional-commits
+globs: \"**/*\"
+---
+Use Conventional Commits."""
+outputs = [
+  "CLAUDE.md",
+  ".cursor/rules/commits.mdc",
+  "GEMINI.md · AGENTS.md",
+  ".junie/AGENTS.md · .kiro/steering · +13",
+]
+
+[problem]
+title = "Same content,"
+muted_title = "N formats, endless drift."
+body = "Every AI coding tool invented its own config file. The instructions are identical. Only the wrapper differs. Copy and paste keeps them in sync until it doesn't, and a stale `GEMINI.md` is a silent bug."
+
+[[problem.columns]]
+title = "Without agnostic-ai"
+tone = "bad"
+items = [
+  "Write the same rule into `CLAUDE.md`, `.cursor/rules`, `GEMINI.md`, and `AGENTS.md`.",
+  "Edit one, forget the others. They drift apart.",
+  "Onboard a new tool and hand-port everything again.",
+  "No review check tells you which files fell behind.",
+]
+
+[[problem.columns]]
+title = "With agnostic-ai"
+tone = "good"
+items = [
+  "Write it **once** in plain Markdown and YAML frontmatter.",
+  "Run `sync`. Every tool gets its native format.",
+  "Add a tool with one line in `targets`.",
+  "`sync --check` fails CI when output drifts.",
+]
+
+[targets]
+title = "One source of truth,"
+muted_title = "25 tools, each native."
+body = "Author agents, skills, rules, hooks, commands, and MCP servers under `.agnostic-ai/`. Stateless adapters translate them into every target's documented location and shape, aligned with the [AGENTS.md](https://agents.md) open standard. 20 targets emit by default. Amp, Warp, Jules, Goose, and Augment are opt-in."
+
+[[targets.items]]
+name = "Claude Code"
+path = ".claude/ · CLAUDE.md"
+default = true
+[[targets.items]]
+name = "Codex CLI"
+path = "AGENTS.md · .codex/"
+default = true
+[[targets.items]]
+name = "Gemini CLI"
+path = "GEMINI.md · .gemini/"
+default = true
+[[targets.items]]
+name = "Cursor"
+path = ".cursor/rules"
+default = true
+[[targets.items]]
+name = "GitHub Copilot"
+path = ".github/"
+default = true
+[[targets.items]]
+name = "Aider"
+path = "CONVENTIONS.md"
+default = true
+[[targets.items]]
+name = "Cline"
+path = ".cline/"
+default = true
+[[targets.items]]
+name = "Windsurf / Devin"
+path = ".devin/"
+default = true
+[[targets.items]]
+name = "Continue"
+path = ".continue/rules"
+default = true
+[[targets.items]]
+name = "Zed"
+path = ".agents/skills"
+default = true
+[[targets.items]]
+name = "OpenCode"
+path = ".opencode/"
+default = true
+[[targets.items]]
+name = "Antigravity"
+path = ".agent/"
+default = true
+[[targets.items]]
+name = "Junie"
+path = ".junie/AGENTS.md"
+default = true
+[[targets.items]]
+name = "Kiro"
+path = ".kiro/steering"
+default = true
+[[targets.items]]
+name = "Crush"
+path = ".agents/skills · crush.json"
+default = true
+[[targets.items]]
+name = "Trae"
+path = ".trae/rules"
+default = true
+[[targets.items]]
+name = "Qoder"
+path = ".qoder/rules"
+default = true
+[[targets.items]]
+name = "OpenHands"
+path = ".agents/skills"
+default = true
+[[targets.items]]
+name = "Factory Droid"
+path = ".factory/droids"
+default = true
+[[targets.items]]
+name = "Kilo Code"
+path = ".kilo/agents · kilo.jsonc"
+default = true
+[[targets.items]]
+name = "Amp"
+path = "AGENTS.md · .agents/"
+default = false
+[[targets.items]]
+name = "Warp"
+path = "AGENTS.md · .warp/"
+default = false
+[[targets.items]]
+name = "Jules"
+path = "AGENTS.md (cloud)"
+default = false
+[[targets.items]]
+name = "Goose"
+path = ".agents/"
+default = false
+[[targets.items]]
+name = "Augment"
+path = ".augment/"
+default = false
+
+[workflow]
+title = "Two layers,"
+muted_title = "one command."
+body = "Drop a file in `.agnostic-ai/`, then run `agnostic-ai sync`. Each target gets a slim shared entry point and the real spec rendered into that tool's native location."
+
+[[workflow.steps]]
+title = "Write once"
+body = "Add one Markdown file with YAML frontmatter under `.agnostic-ai/rules/`, `agents/`, `skills/`, `hooks/`, or `mcps/`."
+[[workflow.steps]]
+title = "Emit native"
+body = "Stateless adapters write each target's format at the path it loads. Same input, same bytes. Run targets in parallel with `--jobs`."
+[[workflow.steps]]
+title = "Never drift"
+body = "`sync --check` re-emits in memory and fails CI on any difference. `import` pulls existing configuration back into specs."
+
+[[workflow.installers]]
+id = "brew"
+label = "Homebrew"
+prompt = "$"
+command = "brew install --cask Chemaclass/tap/agnostic-ai"
+note = "macOS. Upgrade with `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`."
+[[workflow.installers]]
+id = "windows"
+label = "Windows"
+prompt = ">"
+command = "irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex"
+note = "Windows 10 and 11, in PowerShell. The script selects your CPU archive, checks it, and adds the binary to `PATH`."
+[[workflow.installers]]
+id = "script"
+label = "Script"
+prompt = "$"
+command = "curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash"
+note = "No package manager or Go required. The script selects the archive for your OS and CPU, verifies it, and installs the binary."
+[[workflow.installers]]
+id = "go"
+label = "Go"
+prompt = "$"
+command = "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest"
+note = "Any platform with Go 1.24+. Make sure `$(go env GOPATH)/bin` is on your `PATH`."
+[[workflow.installers]]
+id = "binary"
+label = "Binary"
+prompt = "$"
+command = "curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz"
+note = "Swap `darwin_arm64` for your release archive. Windows builds and `checksums.txt` are on the releases page."
+
+[workflow.example]
+source_name = ".agnostic-ai/rules/conventional-commits.md"
+source = """---
+name: conventional-commits
+description: Always use Conventional Commits.
+globs: \"**/*\"
+alwaysApply: true
+---
+
+Use Conventional Commits. Subject under
+72 chars. Body explains why, not what."""
+output_name = ".cursor/rules/conventional-commits.mdc"
+output = """---
+description: Always use Conventional Commits.
+globs: \"**/*\"
+---
+<!-- Generated by agnostic-ai -->
+Use Conventional Commits. Subject under 72 chars."""
+
+[[workflow.features]]
+title = "Byte-stable, reviewable"
+body = "Stateless adapters mean the same input produces the same output. Generated files diff cleanly."
+[[workflow.features]]
+title = "Round-trip safe"
+body = "A provenance marker and style preservation keep `import` then `sync` byte-stable."
+[[workflow.features]]
+title = "Scoped rules"
+body = "`rules/backend/auth.md` routes to each target's native directory and scope syntax."
+[[workflow.features]]
+title = "CI gate in one line"
+body = "The check action fails a pull request when generated configuration drifts from source."
+
+[closing]
+title = "Write the rule once."
+second_line = "Every AI tool obeys it."
+command = "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest"
+primary_label = "Open the playground"
+secondary_label = "Read the docs"

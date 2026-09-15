@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }}{% endblock title %}
+{% block description %}{{ section.description }}{% endblock description %}
+{% block og_title %}{{ section.title }}{% endblock og_title %}
+{% block og_description %}{{ section.description }}{% endblock og_description %}
+{% block twitter_title %}{{ section.title }}{% endblock twitter_title %}
+{% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/landing.css', trailing_slash=false) }}">{% endblock styles %}
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "{{ config.base_url }}/#website",
+      "url": "{{ config.base_url }}/",
+      "name": "agnostic-ai",
+      "description": {{ section.description | json_encode | safe }},
+      "inLanguage": "en"
+    },
+    {
+      "@type": ["SoftwareApplication", "SoftwareSourceCode"],
+      "@id": "{{ config.base_url }}/#software",
+      "name": "agnostic-ai",
+      "url": "{{ config.base_url }}/",
+      "codeRepository": "{{ config.extra.repository_url }}",
+      "downloadUrl": "{{ config.extra.repository_url }}/releases",
+      "installUrl": "{{ config.base_url }}/#how",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Command Line Tool",
+      "operatingSystem": "macOS, Linux, Windows",
+      "programmingLanguage": "Go",
+      "license": "{{ config.extra.repository_url }}/blob/main/LICENSE",
+      "isAccessibleForFree": true,
+      "image": "{{ config.extra.image_url }}",
+      "description": {{ config.description | json_encode | safe }},
+      "featureList": [
+        "One spec emitted to 25 AI coding targets",
+        "20 safe targets enabled by default",
+        "Byte-stable, reviewable generated output",
+        "Round-trip safe import then sync",
+        "sync --check CI drift detection"
+      ]
+    }
+  ]
+}
+</script>
+{% endblock structured_data %}
+
+{% block content %}
+{% set landing = load_data(path="data/landing.toml") %}
+<main id="content">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <h1>{{ landing.hero.title }}<br><span>{{ landing.hero.accent_title }}</span></h1>
+        <div class="lead">{{ landing.hero.body | markdown | safe }}</div>
+        <div class="button-row">
+          <a class="button button-primary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="button button-secondary" href="#how">{{ landing.hero.secondary_label }}</a>
+        </div>
+        <p class="hero-facts">{{ landing.hero.facts }}</p>
+      </div>
+
+      <div class="transform" aria-label="One portable rule becomes native configuration files">
+        <div class="transform-caption"><span>one spec</span><span>native output</span></div>
+        <div class="spec-card">
+          <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.hero.diagram.source_name }}</div>
+          <pre><code>{{ landing.hero.diagram.source }}</code></pre>
+        </div>
+        <svg class="transform-arrow" viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg>
+        <div class="output-files">
+          {% for output in landing.hero.diagram.outputs %}
+          <div class="output-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>{{ output }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-band" id="why">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.problem.title }} <span>{{ landing.problem.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.problem.body | markdown | safe }}</div>
+      <div class="comparison reveal-group">
+        {% for column in landing.problem.columns %}
+        <article class="comparison-panel comparison-panel-{{ column.tone }}">
+          <h3>{{ column.title }}</h3>
+          <ul>
+            {% for item in column.items %}
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{% if column.tone == 'good' %}<path d="M20 6 9 17l-5-5"/>{% else %}<path d="m6 6 12 12M18 6 6 18"/>{% endif %}</svg><span>{{ item | markdown(inline=true) | safe }}</span></li>
+            {% endfor %}
+          </ul>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section id="targets">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.targets.body | markdown | safe }}</div>
+      <div class="target-grid reveal-group">
+        {% for target in landing.targets.items %}
+        <div class="target-row">
+          <span class="target-signal" aria-hidden="true"></span>
+          <span class="target-copy"><strong>{{ target.name }}</strong><span>{{ target.path }}</span></span>
+          <span class="target-state{% if target.default %} is-default{% endif %}">{% if target.default %}default{% else %}opt-in{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="section-band" id="how">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.workflow.body | markdown | safe }}</div>
+
+      <div class="workflow-steps reveal-group">
+        {% for step in landing.workflow.steps %}
+        <article>
+          <h3>{{ step.title }}</h3>
+          <div>{{ step.body | markdown | safe }}</div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <div class="installer reveal-group">
+        <div class="install-tabs" role="tablist" aria-label="Installation method">
+          {% for installer in landing.workflow.installers %}
+          <button type="button" role="tab" id="tab-{{ installer.id }}" aria-controls="panel-{{ installer.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ installer.label }}</button>
+          {% endfor %}
+        </div>
+        {% for installer in landing.workflow.installers %}
+        <div class="install-panel" role="tabpanel" id="panel-{{ installer.id }}" aria-labelledby="tab-{{ installer.id }}">
+          <div class="command"><span aria-hidden="true">{{ installer.prompt }}</span><code>{{ installer.command }}</code><button type="button" data-copy aria-label="Copy {{ installer.label }} install command">Copy</button></div>
+          <div class="install-note">{{ installer.note | markdown | safe }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="code-example reveal-group">
+        <div class="code-block">
+          <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.workflow.example.source_name }}</div>
+          <pre><code>{{ landing.workflow.example.source }}</code></pre>
+        </div>
+        <div class="sync-arrow"><span>agnostic-ai sync</span><svg viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg></div>
+        <div class="code-block">
+          <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.workflow.example.output_name }}</div>
+          <pre><code>{{ landing.workflow.example.output }}</code></pre>
+        </div>
+      </div>
+
+      <div class="feature-list reveal-group">
+        {% for feature in landing.workflow.features %}
+        <article><h3>{{ feature.title }}</h3><div>{{ feature.body | markdown | safe }}</div></article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap closing-inner">
+      <h2>{{ landing.closing.title }}<br>{{ landing.closing.second_line }}</h2>
+      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy Go install command">Copy</button></div>
+      <div class="button-row">
+        <a class="button button-primary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.closing.primary_label }}</a>
+        <a class="button button-secondary" href="{{ config.extra.docs_url }}">{{ landing.closing.secondary_label }}</a>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock content %}
+
+{% block scripts %}<script src="{{ get_url(path='assets/scripts/landing.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}

@@ -20,15 +20,15 @@ agnostic-ai combines native multi-target configuration emission with evidence-ba
 
 ## Operating Context
 
-Developers author canonical specs in a repository, run `agnostic-ai sync`, review generated native files, and use `sync --check` in CI. Maintainers audit vendor documentation and releases, file confirmed implementation work, and publish a weekly developer briefing on the repository's GitHub Pages site.
+Developers author canonical specs in a repository, run `agnostic-ai sync`, review generated native files, and use `sync --check` in CI. Maintainers audit vendor documentation and releases, file confirmed implementation work, and publish one developer briefing with each release on the repository's GitHub Pages site.
 
 ## Capabilities and Constraints
 
 - The Go CLI supports 25 registered AI coding targets with different native formats and capability coverage.
-- GitHub Pages is a static site assembled from `docs/site/` plus the browser playground.
-- `CHANGELOG.md` records released agnostic-ai behavior. Weekly target updates record upstream ecosystem changes, including changes agnostic-ai does not support yet.
+- GitHub Pages is a Zola static site built from `docs/site/` and assembled with the browser playground.
+- `CHANGELOG.md` records released agnostic-ai behavior. Release briefings reproduce that record and separately cover verified upstream ecosystem changes, including changes agnostic-ai does not support yet.
 - Public claims need direct vendor evidence. Proposed shared capabilities are not presented as shipped support.
-- The first updates surface is static HTML with an RSS feed. It does not require a CMS or client-side framework.
+- Updates are dated Markdown files with a generated archive and RSS feed. The site does not require a CMS or client-side framework.
 
 ## Brand Commitments
 
@@ -50,7 +50,7 @@ Do not invent customer names, adoption figures, benchmarks, or commercial claims
 - Explain the few upstream changes that affect developers now.
 - Separate observations, current support, proposed work, and released behavior.
 - Link every consequential claim to evidence and an actionable next step.
-- Prefer a small dependable weekly publishing flow over a broad content system.
+- Prefer a small dependable release publishing flow over a broad content system.
 
 ## Accessibility & Inclusion
 

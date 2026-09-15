@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release playground-build playground-serve playground-clean
+.PHONY: build test test-race test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -8,6 +8,7 @@ PKG := ./cmd/agnostic-ai
 # tests/integration/toolchain_pins_test.go holds them level.
 GOLANGCI_LINT_VERSION := v2.13.2
 LEFTHOOK_VERSION := v1.10.10
+ZOLA_VERSION := 0.22.0
 
 build:
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
@@ -103,6 +104,45 @@ release:
 	GOOS=linux   GOARCH=arm64 go build -o dist/$(BIN)-linux-arm64   $(PKG)
 	GOOS=linux   GOARCH=amd64 go build -o dist/$(BIN)-linux-amd64   $(PKG)
 	GOOS=windows GOARCH=amd64 go build -o dist/$(BIN)-windows-amd64.exe $(PKG)
+
+# Static site (docs/site/). Zola owns templates, content, feeds, and aliases.
+# The sitemap is written after Zola so its lastmod values can come from Git.
+SITE_DIR := docs/site
+SITE_OUTPUT_DIR := _site
+
+site-check:
+	@have=$$(zola --version 2>/dev/null); \
+	want="zola $(ZOLA_VERSION)"; \
+	if [ "$$have" != "$$want" ]; then \
+		echo "$$want required, found $${have:-nothing}."; \
+		exit 1; \
+	fi
+	zola --root $(SITE_DIR) check --skip-external-links
+
+site-build:
+	@have=$$(zola --version 2>/dev/null); \
+	want="zola $(ZOLA_VERSION)"; \
+	if [ "$$have" != "$$want" ]; then \
+		echo "$$want required, found $${have:-nothing}."; \
+		exit 1; \
+	fi
+	zola --root $(SITE_DIR) build --force --minify --output-dir $(abspath $(SITE_OUTPUT_DIR))
+	./scripts/build-site-sitemap.sh $(SITE_OUTPUT_DIR)/sitemap.xml
+
+site-test:
+	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestZolaPin_)'
+
+site-serve:
+	@have=$$(zola --version 2>/dev/null); \
+	want="zola $(ZOLA_VERSION)"; \
+	if [ "$$have" != "$$want" ]; then \
+		echo "$$want required, found $${have:-nothing}."; \
+		exit 1; \
+	fi
+	zola --root $(SITE_DIR) serve
+
+site-clean:
+	rm -rf _site
 
 # WASM playground (docs/playground/). Bundles the WebAssembly entry
 # point plus the Go-toolchain wasm_exec.js shim into the static page so

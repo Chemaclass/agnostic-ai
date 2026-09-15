@@ -1,21 +1,19 @@
-# AI tooling updates
+# Release and AI tooling updates
 
 [All docs](../README.md) · [Read the updates](https://chemaclass.github.io/agnostic-ai/updates/) · [Targets](targets.md) · [Changelog](../../CHANGELOG.md)
 
-AI coding tools change their project configuration every week. agnostic-ai publishes a short briefing for developers who need to understand which changes affect project setup, safety, and portability.
+AI coding tools change their project configuration often. Each agnostic-ai release includes a briefing that explains what the project shipped and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
-Each edition lives on the repository's GitHub Pages site. An [RSS feed](https://chemaclass.github.io/agnostic-ai/updates/feed.xml) announces new editions without turning an issue into a newsletter.
+Each edition starts as one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the RSS item. An [RSS feed](https://chemaclass.github.io/agnostic-ai/updates/feed.xml) announces new editions without turning an issue into a newsletter.
 
-## What each edition tells you
+## What each release briefing tells you
 
-Every update answers four questions:
+Every release briefing has two explicit records:
 
-- **What changed?** The documented vendor behavior and affected targets.
-- **Why does it matter?** The workflow, safety, or compatibility impact.
-- **Where is agnostic-ai now?** Shipped support, a target extension, a lossy workaround, or no representation yet.
-- **What happens next?** The smallest adapter fix, design decision, target extension, or research check.
+- **Shipped in agnostic-ai.** This section reproduces the release's dated `CHANGELOG.md` section exactly.
+- **Upstream CLI and model news.** This section contains selected external changes with primary sources, user impact, and the current agnostic-ai support state.
 
-The lead section contains only consequential changes. Source evidence, target comparisons, clean targets, and research limits remain available lower in the article.
+Breaking behavior, default changes, removals, and deprecations come first. Safety changes and substantial additions follow. Upstream availability never implies that agnostic-ai supports the feature.
 
 Target names do not prove shared behavior. The audit checks each target's project scope, lifecycle, defaults, and native file shape before it calls two features equivalent.
 
@@ -32,7 +30,7 @@ A proposed improvement is not shipped support. Design candidates stay out of aut
 
 ## Know which record to trust
 
-The [weekly updates](https://chemaclass.github.io/agnostic-ai/updates/) record vendor observations and proposed work. They can describe a feature before agnostic-ai supports it.
+The [release updates](https://chemaclass.github.io/agnostic-ai/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
 
 [`targets.md`](targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
 
@@ -40,6 +38,23 @@ The [weekly updates](https://chemaclass.github.io/agnostic-ai/updates/) record v
 
 Observation, support, release. Keep those three states separate.
 
+Target audit reports and issues are research inputs. They retain the detailed vendor evidence, target comparison, representation tests, and next actions. The `target-audit` skill does not publish articles or open publication PRs.
+
 ## Publishing workflow
 
-The `target-audit` skill writes a dated static article, updates the archive and RSS feed, and opens a documentation PR. Merging that PR publishes the edition through the existing Pages workflow. Confirmed drift and design decisions keep their own GitHub issues because they are actionable work, not editorial delivery.
+The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article immediately before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, and `.html` compatibility alias. It does not need audit counts, an audit marker, or a report digest.
+
+To prepare a release briefing:
+
+1. Finalize the dated release section in `CHANGELOG.md`.
+2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release briefing contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
+3. Copy the dated changelog section exactly into `Shipped in agnostic-ai vX.Y.Z`. Add only verified upstream news to its separate section.
+4. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.22.0.
+5. Review `_site/updates/`, `_site/updates/feed.xml`, and `_site/sitemap.xml`. Do not commit `_site/`.
+6. Include the article in the release commit and tag.
+
+Pushing the release commit to `main` automatically runs the Pages workflow. The same workflow supports `workflow_dispatch` on `main` for a manual recovery run. The release process watches both the Release and Pages workflows.
+
+Legacy audit articles keep their original directory URL, `.html` alias, RSS GUID, audit marker, report digest, counts, and capability markers. Do not migrate their metadata to the release schema.
+
+The landing copy lives in `docs/site/data/landing.toml`. Shared navigation and page structure live in `docs/site/templates/`. CSS and JavaScript live in `docs/site/static/assets/`. A normal release changes only one Markdown article.

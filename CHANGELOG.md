@@ -8,7 +8,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-- `target-audit` now publishes a blog-style weekly briefing through the repository's GitHub Pages site, with an archive and RSS feed. Each edition explains consequential project capability changes, verified target differences, workarounds, and proposed improvements. `--compare-models <model>` adds a bounded challenge pass for breaking findings, spec candidates, and conflicting evidence without treating model agreement as proof. Vendor observations live in the updates archive, while this changelog records shipped agnostic-ai changes.
+- Release briefings now ship in the same commit and tag as each release. They reproduce the exact release changelog and separately cover verified upstream CLI and model news, with high-impact changes first and clear agnostic-ai support states. `target-audit` supplies evidence-backed reports and issues instead of opening weekly publication PRs. Its `--compare-models <model>` option remains a bounded challenge pass and never treats model agreement as proof.
+
+### Changed
+
+- The GitHub Pages site now builds with Zola 0.22.0 from shared templates, structured landing data, and dated Markdown briefings. One navbar spans the landing page and updates, all five primary destinations stay visible on mobile, and adding a release briefing now updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without editing page design. Legacy audit URLs, RSS GUIDs, markers, and counts remain stable.
 
 ## v0.58.0 - 2026-09-14
 

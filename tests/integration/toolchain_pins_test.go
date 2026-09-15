@@ -7,16 +7,18 @@ import (
 	"testing"
 )
 
-// The two files that pin golangci-lint: the Makefile pin is what
-// `make tools` installs locally, the workflow pin is what gates the PR.
+// Local tool pins must match the workflow that uses each tool.
 const (
-	makefilePath   = "../../Makefile"
-	ciWorkflowPath = "../../.github/workflows/ci.yml"
+	makefilePath      = "../../Makefile"
+	ciWorkflowPath    = "../../.github/workflows/ci.yml"
+	pagesWorkflowPath = "../../.github/workflows/playground.yml"
 )
 
 var (
-	makefilePinRE = regexp.MustCompile(`(?m)^GOLANGCI_LINT_VERSION := (\S+)$`)
-	workflowPinRE = regexp.MustCompile(`(?s)golangci-lint-action@v\d+.*?version:\s*(\S+)`)
+	makefilePinRE     = regexp.MustCompile(`(?m)^GOLANGCI_LINT_VERSION := (\S+)$`)
+	workflowPinRE     = regexp.MustCompile(`(?s)golangci-lint-action@v\d+.*?version:\s*(\S+)`)
+	zolaMakefilePinRE = regexp.MustCompile(`(?m)^ZOLA_VERSION := (\S+)$`)
+	zolaWorkflowPinRE = regexp.MustCompile(`(?m)^\s+ZOLA_VERSION:\s+(\S+)$`)
 )
 
 func pinFrom(t *testing.T, path string, re *regexp.Regexp) string {
@@ -27,7 +29,7 @@ func pinFrom(t *testing.T, path string, re *regexp.Regexp) string {
 	}
 	m := re.FindSubmatch(data)
 	if m == nil {
-		t.Fatalf("no golangci-lint version pin found in %s", path)
+		t.Fatalf("no matching version pin found in %s", path)
 	}
 	return string(m[1])
 }
@@ -43,5 +45,14 @@ func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	if local != ci {
 		t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
 			local, ciWorkflowPath, ci)
+	}
+}
+
+func TestZolaPin_MatchesPagesWorkflow(t *testing.T) {
+	local := pinFrom(t, makefilePath, zolaMakefilePinRE)
+	workflow := pinFrom(t, pagesWorkflowPath, zolaWorkflowPinRE)
+	if local != workflow {
+		t.Errorf("Makefile pins Zola %s but %s pins %s; bump both together so local and Pages builds match",
+			local, pagesWorkflowPath, workflow)
 	}
 }

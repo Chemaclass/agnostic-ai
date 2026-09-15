@@ -1,8 +1,9 @@
 # Capability intelligence
 
 Use this procedure for capability signals, optional model comparison, and
-the public GitHub Pages updates. Confirmed drift keeps the evidence and issue
-flow defined in `.agnostic-ai/skills/target-audit/SKILL.md`.
+evidence that can inform a later release briefing. Confirmed drift keeps the
+evidence and issue flow defined in
+`.agnostic-ai/skills/target-audit/SKILL.md`.
 
 ## Capability signal contract
 
@@ -137,139 +138,42 @@ meet the normal source rules. A dispute with new evidence must be resolved by
 the orchestrator. If it cannot be resolved, move the claim to `Needs a human`
 or leave the signal at `watch` with the settling question.
 
-## GitHub Pages target updates
+## Release briefing inputs
 
-The public developer digest lives under `docs/site/updates/`, not in a
-rolling GitHub issue. `docs/site/updates/index.html` is the archive,
-`docs/site/updates/feed.xml` is the RSS feed, and every audit gets a dated
-static article. Merging the documentation PR publishes it through the
-existing Pages workflow.
+The target audit produces evidence, not a publication. Its local report and
+filed issues are inputs to the next release. The audit must not create or edit
+an article under `docs/site/content/updates/`, change site templates, or open a
+publication PR.
 
-Use the current article and `docs/site/updates/styles.css` as the structural
-and visual template. Keep the article useful without JavaScript. The first
-viewport and opening paragraphs are editorial: they explain the few changes
-developers should understand now. Full evidence, target coverage, and
-research limits follow lower in the article or inside at most two disclosure
-blocks per major signal.
+For each item that could matter to release readers, keep these facts together:
 
-### Durable paths and markers
+- stable signal ID, affected targets, disposition, and confidence;
+- direct vendor URL and short exact quote;
+- observed or released date and availability state;
+- independently verified per-target semantics;
+- current agnostic-ai support state and repository evidence;
+- representation-test command and result;
+- linked drift or design issue when one exists;
+- specific user consequence and next decision.
 
-For a full audit, prefer `docs/site/updates/<YYYY-MM-DD>.html`. For a scoped
-audit, use
-`docs/site/updates/<YYYY-MM-DD>-<sorted-target-scope>.html`. Normalize scope
-as sorted lowercase target names joined by commas, or `all` for a full audit.
+The `cut-release` skill reopens the primary sources and verifies that the news
+is still current before selecting it. An audit result is a research lead, not
+proof that an upstream change belongs in a public briefing. Release selection
+favors breaking behavior, changed defaults, removals, and deprecations, then
+safety boundaries and substantial project-scoped additions.
 
-Put this exact marker immediately inside the article body:
+Keep shipped support and upstream news distinct. An adapter fix can appear in
+the exact release changelog section. A vendor capability the project has not
+shipped can appear only in the upstream section with an explicit support
+status. Model output and challenger agreement never count as vendor evidence.
 
-```html
-<!-- target-capability-audit:<YYYY-MM-DD>:<sorted-target-scope>:<report-digest> -->
-```
+Legacy audit articles remain immutable. Never change their canonical path,
+`.html` compatibility alias, `rss_guid`, `audit_marker`, report digest, counts,
+or capability markers. Their published signal IDs remain part of the dedupe
+history even though future audits do not publish articles.
 
-Set `<report-digest>` to the first 12 lowercase hex characters of the
-completed local report's SHA-256 digest. Mark each capability section with
-its stable signal ID so future audits can recover decision history:
-
-```html
-<!-- target-capability:cap-example:start -->
-<section>
-  ...
-</section>
-<!-- target-capability:cap-example:end -->
-```
-
-Never rename a published signal ID. A later article can update its evidence,
-disposition, or action while the earlier edition stays immutable.
-
-`docs/site/updates/index.html` and `docs/site/updates/feed.xml` contain
-managed envelopes:
-
-```html
-<!-- target-updates:index:start -->
-... newest archive entry first ...
-<!-- target-updates:index:end -->
-```
-
-```xml
-<!-- target-updates:feed:start -->
-... newest RSS item first ...
-<!-- target-updates:feed:end -->
-```
-
-If either envelope is missing, duplicated, or malformed, stop publication,
-keep the local report, and put the problem under `Needs a human`. Never
-regenerate the surrounding page or feed from the current run alone.
-
-### Article contract
-
-The title should describe the week's developer consequence, not the audit
-process. The article must answer these questions in visible prose:
-
-- **What changed?** The documented upstream behavior and affected targets.
-- **Why does it matter?** The workflow, safety, or compatibility impact.
-- **Where is agnostic-ai now?** Shipped support, target extension,
-  workaround, adapter gap, or design candidate.
-- **What happens next?** The linked implementation issue, design decision,
-  target extension, research check, or next audit.
-
-The article must also include:
-
-- the audit date, target count, finding count, and clean count;
-- direct vendor sources and exact short quotes for each conclusion;
-- repository evidence as full GitHub permalinks pinned to the audited commit;
-- independently verified differences for cross-target capability claims;
-- the challenger request, actual model, result, and disputes, or `Not
-  requested`;
-- clean targets and specific research limits;
-- a clear statement that observations are not shipped support.
-
-The gitignored local report cannot carry the only detailed explanation.
-Article evidence must stand alone for a reader outside the checkout. Keep the
-release changelog separate: it records what agnostic-ai shipped, while the
-updates archive records what changed upstream and what the project may do.
-
-### Idempotency and preservation
-
-Before writing, search all published articles for the exact audit marker. If
-it exists, make no publication change and report the run as already
-persisted. This makes an exact retry safe without hiding a distinct same-day
-run.
-
-If the preferred article path exists with a different digest, preserve it and
-append the new digest to the filename. Never overwrite a published edition.
-Before changing the archive or feed, read their latest bytes again and
-replace only the content inside the managed envelope. Preserve navigation,
-introductory copy, prior editions, and every entry outside the current audit.
-
-The sitemap needs no weekly edit. `scripts/build-site-sitemap.sh` discovers
-dated article files and assigns each page its own commit date during the Pages
-build.
-
-### Publication PR
-
-File confirmed drift and design issues first so the article can link to the
-work. Then:
-
-1. Create the dated article and prepend its archive and RSS entries.
-2. Validate HTML, XML, links, markers, responsive rendering, and the Pages
-   assembly path.
-3. Stage only the update article, archive, and feed, plus a source-index fix
-   when the audit confirmed one.
-4. Commit with `docs: publish target update for <YYYY-MM-DD>`.
-5. Push a dedicated branch and open a PR titled
-   `docs: publish target update for <YYYY-MM-DD>`. Never merge it.
-
-Use an isolated worktree from fresh `main` when the current checkout contains
-unrelated changes or belongs to another task. A scoped run includes its scope
-in the branch, commit, and PR title. Do not open a second PR when the exact
-marker already exists in an open publication PR.
-
-If article, archive, feed, push, or PR creation fails, keep the local report,
-disclose the failed persistence step, and continue the ordinary confirmed
-drift issue flow where possible. Do not fall back to a digest issue or issue
-comment.
-
-`spec-candidate` signals may also receive a separate design issue. Link it
-from the article. The issue must carry the vendor evidence, representation
-reproduction, independently verified per-target semantics, and explicit
-decision question. It must not enter `--fix` until a later implementation
-decision confirms the generic schema and scope.
+`spec-candidate` signals can receive a separate design issue. The issue must
+carry the vendor evidence, representation reproduction, independently verified
+per-target semantics, and explicit decision question. It must not enter
+`--fix` until a later implementation decision confirms the generic schema and
+scope.

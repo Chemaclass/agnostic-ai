@@ -1,8 +1,8 @@
 name: Pages
 
-# Builds the WebAssembly playground, assembles the site (landing page at
-# the root, playground under /playground/), and publishes it to GitHub
-# Pages on every push to main and on demand. Tag pushes are intentionally
+# Builds the Zola site and WebAssembly playground, assembles the playground
+# under /playground/, and publishes everything to GitHub Pages on every push
+# to main and on demand. Tag pushes are intentionally
 # excluded: the release commit lands on main first and triggers a deploy
 # through that path. The github-pages environment is branch-restricted to
 # main, so a tag-triggered deploy would fail the protection rule.
@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  attestations: read
   pages: write
   id-token: write
 
@@ -23,7 +24,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build WASM
+    name: Build site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,6 +38,25 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install Zola 0.22.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZOLA_VERSION: 0.22.0
+        run: |
+          set -euo pipefail
+          archive="zola-v${ZOLA_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLo "$archive" "https://github.com/getzola/zola/releases/download/v${ZOLA_VERSION}/${archive}"
+          gh attestation verify "$archive" --repo getzola/zola
+          tar -xzf "$archive" zola
+          sudo install -m 0755 zola /usr/local/bin/zola
+          test "$(zola --version)" = "zola ${ZOLA_VERSION}"
+
+      - name: Test site publishing
+        run: make site-test
+
+      - name: Build site
+        run: make site-build
+
       - name: Build playground
         run: make playground-build
 
@@ -45,21 +65,14 @@ jobs:
           ls -lh docs/playground/
           gzip -c docs/playground/agnostic-ai.wasm | wc -c | awk '{printf "wasm gzipped: %d bytes\n", $1}'
 
-      - name: Assemble site
+      - name: Assemble playground
         run: |
-          rm -rf _site
-          mkdir -p _site
-          cp -R docs/site/. _site/
           mkdir -p _site/playground
           cp -R docs/playground/. _site/playground/
 
-      - name: Build sitemap and llms-full.txt
+      - name: Build llms-full.txt
         run: |
           set -euo pipefail
-
-          # Each page keeps its own commit date, and new update articles are
-          # discovered automatically instead of extending this workflow.
-          ./scripts/build-site-sitemap.sh _site/sitemap.xml
 
           # One fetch that gives an agent every user doc, in reading order.
           {
