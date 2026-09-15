@@ -44,28 +44,28 @@ scripts/target-facts.sh --list                                  # registered tar
 gh issue list --label target-audit --state all --limit 100 --json number,title,state,createdAt
 ```
 
-Unless `--no-file-issues` is set, also search open and closed issues for the
-rolling `Target capability radar` issue and its
-`<!-- target-capability-radar:v1 -->` marker. Read its full body, comments,
-state, and closure reason. It is the durable capability dedupe set. Do not
-write to GitHub yet, create a duplicate when a closed radar exists, or assume
-that a closed radar should be reopened.
+Unless `--no-file-issues` is set, also inspect `docs/site/updates/`. Read the
+archive, feed, and every published capability signal relevant to the audit
+scope. The tracked articles are the durable capability dedupe set. Do not
+rewrite a prior edition or infer that absence from one weekly window resolves
+an older signal.
 
 **Dedupe set.** A finding already filed and open is not a new finding.
 Note it as `still-open #N` and move on. A finding already filed and
 **closed** that reappears is a regression. Say so loudly: it means a fix
 was reverted or the vendor moved back.
 
-The radar is not a drift finding. Exclude it from the finding dedupe set and
-from the issue `createdAt` values used to choose the changelog window.
+The update archive is not a drift finding. Exclude its publication PRs from
+the issue `createdAt` values used to choose the changelog window.
 
 **Since when.** Auditors need a date to bound their changelog reading.
-Take the newest of: the most recent report under `local/target-audit/`,
-the newest `target-audit` issue's `createdAt`, or the last commit touching
-`.agnostic-ai/skills/target-audit/references/sources.md`. All three
-under-report, because a clean run leaves no trace anywhere, so the window
-is always a little wide. That is the safe direction. Re-reading a
-changelog entry costs nothing, missing one costs a release.
+Take the newest of: the most recent report under `local/target-audit/`, the
+newest published update under `docs/site/updates/`, the newest `target-audit`
+issue's `createdAt`, or the last commit touching
+`.agnostic-ai/skills/target-audit/references/sources.md`. These can
+under-report while a publication PR is open, so the window is always a little
+wide. That is the safe direction. Re-reading a changelog entry costs nothing,
+missing one costs a release.
 
 ## Phase 2: Fan out
 
@@ -96,8 +96,8 @@ vendors (claude, codex, gemini, cursor, copilot) and the last batch holds
 the newest, thinnest-documented entrants. Both ends need the most
 attention, for opposite reasons.
 
-Give each agent its target list, the dedupe set from Phase 1, the current
-radar entries for those targets, and the "since when" date. The agent
+Give each agent its target list, the dedupe set from Phase 1, the published
+capability entries for those targets, and the "since when" date. The agent
 already knows its method. Do not restate it.
 
 When the run is scoped to fewer than six targets, skip the fan-out and
@@ -123,7 +123,7 @@ Capability signals arrive separately. Before merging or publishing them,
 read
 `.agnostic-ai/skills/target-audit/references/capability-intelligence.md`.
 It defines the signal schema, dispositions, bounded challenger contract,
-and durable radar update procedure. Apply its representation test and
+and durable update procedure. Apply its representation test and
 independent per-target verification before assigning `adapter-gap`,
 `spec-candidate`, `target-extension`, or `watch`.
 
@@ -176,28 +176,26 @@ file this skill edits without being asked.
 
 Then print the top findings to the user with a recommended next action
 each. Keep the terminal summary short. The local report holds the full
-working record. When filing is enabled, the public radar must also carry
-the evidence and explanation a developer needs.
+working record. When filing is enabled, the public update must also carry the
+evidence and explanation a developer needs.
 
-## Phase 5: File issues (skipped only with `--no-file-issues`)
+## Phase 5: File issues and publish the update (skipped only with `--no-file-issues`)
 
-First update the rolling `Target capability radar` issue as the public
-developer digest described in `docs/user/target-radar.md`, using the stable
-markers and retry rules in
+File confirmed drift and design issues first, so the public article can link
+to the resulting work. Then publish the blog-style developer briefing
+described in `docs/user/target-updates.md`, using the paths, markers, and
+retry rules in
 `.agnostic-ai/skills/target-audit/references/capability-intelligence.md`.
-Create it if it does not exist. Preserve decisions and entries outside a
-scoped audit. Add one deduplicated dated comment summarizing this run.
-If creating or updating the radar fails, keep the local report, disclose
-the failure to the user, and continue the ordinary confirmed-drift issue
-flow where possible.
+Publication means a dated static article, archive entry, RSS item, and a
+documentation PR. Never use a rolling issue or issue comment as the digest.
 
 The gitignored local report cannot carry the only detailed explanation.
 Publish what changed, why it matters, the current agnostic-ai position, the
-next action, and source evidence in the radar. Use full GitHub source
+next action, and source evidence in the article. Use full GitHub source
 permalinks pinned to the audited commit for repository evidence.
 
-`--no-file-issues` prohibits all GitHub writes, including radar creation or
-updates, dated comments, drift issues, and design issues.
+`--no-file-issues` prohibits all GitHub writes and tracked publication edits,
+including the update PR, drift issues, and design issues.
 
 Per confirmed finding, most severe first:
 
@@ -255,8 +253,8 @@ under `Needs a human` with the question that would settle it.
 A `spec-candidate` may get a separate design issue with its evidence,
 representation test, independently verified target semantics, and the
 decision needed. A capability signal in any other disposition stays in the
-radar unless it also qualifies as a confirmed drift finding. A design issue
-is not approval to implement a generic schema.
+published update unless it also qualifies as a confirmed drift finding. A
+design issue is not approval to implement a generic schema.
 
 **Before filing anything as a design or schema question, try it.** The
 2026-08-09 run filed "amp: skill-bundled MCP needs a spec-level
@@ -267,6 +265,19 @@ the existing `x-amp` passthrough already emitted them there verbatim. One
 `sync` would have shown that. Two of us reasoned from the schema instead
 of running it, and nearly booked a schema change for a documentation gap.
 Check whether an existing escape hatch already covers the case first.
+
+### Publish the briefing
+
+After issue filing, turn the report into one dated article under
+`docs/site/updates/`. Prepend its entry inside the managed archive and RSS
+envelopes. Preserve prior editions and published signal IDs. The capability
+intelligence reference defines the article contract and exact retry marker.
+
+Validate the static page and Pages assembly, then commit only the publication
+files on a dedicated documentation branch and open a PR. Never merge it. If
+the current checkout contains unrelated changes, use an isolated worktree from
+fresh `main`. Do not fall back to a digest issue or comment when publication
+fails.
 
 ## Phase 6: Fix (only with `--fix`)
 
