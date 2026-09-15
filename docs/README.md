@@ -10,7 +10,7 @@ Start with the guide for your task. Reference pages are for lookup; you do not n
 | Share service or monorepo instructions across tools | [Directory-specific instructions](user/scoped-context.md) |
 | Find a command, field, or output path | [User documentation](user/README.md) |
 | Fix a setup or sync problem | [Troubleshooting](user/troubleshooting.md) |
-| Track upstream target changes and proposed support | [Target capability radar](user/target-radar.md) |
+| Track upstream target changes and proposed support | [AI tooling updates](https://chemaclass.github.io/agnostic-ai/updates/) |
 | Build and contribute to the project | [Contributor setup](../CONTRIBUTING.md) |
 | Understand or extend the implementation | [Contributor documentation](internal/README.md) |
 

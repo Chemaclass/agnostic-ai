@@ -1,8 +1,8 @@
 # Capability intelligence
 
 Use this procedure for capability signals, optional model comparison, and
-the rolling GitHub radar. Confirmed drift keeps the evidence and issue flow
-defined in `.agnostic-ai/skills/target-audit/SKILL.md`.
+the public GitHub Pages updates. Confirmed drift keeps the evidence and issue
+flow defined in `.agnostic-ai/skills/target-audit/SKILL.md`.
 
 ## Capability signal contract
 
@@ -33,8 +33,8 @@ Use this schema:
 
 Assign `signal-id` from the capability's user-facing semantic concept, not
 the vendor's feature name or current disposition. Once published, never
-rename or reuse it. This keeps retries and later disposition changes tied to
-the same decision history.
+rename or reuse it. This keeps repeated audits tied to the same decision
+history.
 
 Exclude user-tier-only behavior, waitlists, unreleased beta features,
 marketing claims without usable documentation, cosmetic changes, and
@@ -50,8 +50,7 @@ Before recommending any disposition:
    renderer or import path, config outputs, and `x-<target>` passthroughs.
 2. If an existing representation could cover the capability, create the
    smallest temporary project that exercises it. Run sync and inspect the
-   emitted native file. Import it too when the capability has an import
-   side.
+   emitted native file. Import it too when the capability has an import side.
 3. Record the exact reproduction, emitted result, and any loss of semantics.
    If execution is not meaningful, name the repository paths checked and
    explain why.
@@ -101,8 +100,8 @@ in this order:
 
 For each item, state the affected targets, user impact, meaningful semantic
 differences, disposition, confidence, and next decision. Keep lower-value
-signals in `Cross-target opportunities` or the radar. Never rank products or
-equate release-note prominence with user impact.
+signals in `Cross-target opportunities` or the detailed update sections.
+Never rank products or equate release-note prominence with user impact.
 
 ## Bounded challenger pass
 
@@ -138,154 +137,139 @@ meet the normal source rules. A dispute with new evidence must be resolved by
 the orchestrator. If it cannot be resolved, move the claim to `Needs a human`
 or leave the signal at `watch` with the settling question.
 
-## Rolling Target capability radar
+## GitHub Pages target updates
 
-The GitHub issue titled `Target capability radar`, identified by the stable
-`<!-- target-capability-radar:v1 -->` marker, preserves product decisions
-across full, scoped, repeated, and failed runs. Search open and closed issues
-before creating one. Prefer the open marked issue. If only a closed one
-exists, read its closure reason and comments, carry its evidence and decisions
-forward, and do not create or reopen anything until the recorded lifecycle
-decision supports it. Put an ambiguous lifecycle under `Needs a human`. Use
-the `target-audit` label. Never write it when `--no-file-issues` is set.
+The public developer digest lives under `docs/site/updates/`, not in a
+rolling GitHub issue. `docs/site/updates/index.html` is the archive,
+`docs/site/updates/feed.xml` is the RSS feed, and every audit gets a dated
+static article. Merging the documentation PR publishes it through the
+existing Pages workflow.
 
-The issue is the public developer digest described in
-`docs/user/target-radar.md`. The body has one managed envelope and one
-stable envelope per signal:
+Use the current article and `docs/site/updates/styles.css` as the structural
+and visual template. Keep the article useful without JavaScript. The first
+viewport and opening paragraphs are editorial: they explain the few changes
+developers should understand now. Full evidence, target coverage, and
+research limits follow lower in the article or inside at most two disclosure
+blocks per major signal.
 
-```markdown
-<!-- target-capability-radar:v1 -->
-<!-- target-capability-radar:start -->
-# Target capability radar
+### Durable paths and markers
 
-This issue tracks consequential upstream changes, current agnostic-ai
-support, and proposed improvements. Subscribe to receive each audit digest.
+For a full audit, prefer `docs/site/updates/<YYYY-MM-DD>.html`. For a scoped
+audit, use
+`docs/site/updates/<YYYY-MM-DD>-<sorted-target-scope>.html`. Normalize scope
+as sorted lowercase target names joined by commas, or `all` for a full audit.
 
-Radar observations are not shipped support. Use
-[Targets](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/user/targets.md)
-for current support and
-[CHANGELOG](https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md)
-for released agnostic-ai changes.
+Put this exact marker immediately inside the article body:
 
-<!-- target-capability:cap-example:start -->
-## Example capability
-
-**What changed:** <documented upstream behavior and affected targets>
-
-**Why it matters:** <specific workflow, safety, or compatibility impact>
-
-**Current agnostic-ai position:** <disposition, shipped support, workaround,
-or missing representation>
-
-**Next action:** <one adapter fix, design decision, target extension, or
-research check>
-
-<details>
-<summary>Target comparison and evidence</summary>
-
-- Targets: <independently verified targets>
-- Observed: <release date or source-check date>
-- Availability: <stable, preview, or experimental, plus access gate>
-- Vendor evidence: <direct vendor URL and exact quote for each target>
-- Repository evidence: <full GitHub source permalink pinned to a commit SHA>
-- Representation test: <reproduction and observed result>
-- Semantics: <verified common behavior and target differences>
-
-</details>
-
-<details>
-<summary>Research review</summary>
-
-- Confidence: <confirmed or conflicting>
-- Research disagreement: <source or model conflict, or None>
-- Decision history: <preserved decision, linked design issue, or open question>
-
-</details>
-<!-- target-capability:cap-example:end -->
-<!-- target-capability-radar:end -->
-```
-
-Keep the four developer questions outside `<details>`. They are the digest,
-not metadata. Use at most two balanced disclosure blocks per signal when the
-supporting material needs them. Never hide the impact, current position, or
-next action inside a disclosure block.
-
-Issue evidence must work for a reader outside the checkout. Keep each vendor
-link direct. Convert every repository `file:line` citation into a full
-`https://github.com/Chemaclass/agnostic-ai/blob/<commit-sha>/<path>#L<line>`
-permalink pinned to the audited commit. Do not publish a `main` branch link
-as evidence because its lines move.
-
-Keep prose outside the radar markers byte-for-byte. For a scoped audit, only
-add or update signals supported by the audited targets. Preserve every other
-signal, prior decision, and target's coverage inside the managed envelope.
-Absence from a bounded changelog window is not evidence that a capability
-disappeared. Remove or resolve an entry only from explicit current vendor
-evidence, and record the reason in its decision history.
-
-Before each mutation, fetch the latest issue body again. Replace individual
-signal envelopes by `signal-id`; append new envelopes before the radar end
-marker. If markers are missing, duplicated, or malformed, do not rewrite the
-body. Keep the local report and put the issue under `Needs a human` in the
-run summary.
-
-Merge research into the latest envelope instead of regenerating it from the
-current run alone. Never replace recorded decision text, a linked design
-issue, or evidence for an out-of-scope target with an inferred outcome. Add
-new evidence and disposition history alongside them. Before creating a
-design issue, check the radar entry and the normal issue dedupe set for an
-existing issue that asks the same decision.
-
-After the body update, add one dated summary comment containing:
-
-```markdown
+```html
 <!-- target-capability-audit:<YYYY-MM-DD>:<sorted-target-scope>:<report-digest> -->
-## Target audit, <YYYY-MM-DD>
-
-**What changed:** <critical changes and changed signal ids, or No consequential changes>
-
-**Why it matters:** <developer impact, or No current user impact>
-
-**Current agnostic-ai position:** <support, workaround, and disposition summary>
-
-**Next action:** <recommended fix, design decision, or next audit>
-
-<details>
-<summary>Target comparison and evidence</summary>
-
-<independently verified target differences, direct vendor sources, exact
-quotes, full commit-pinned GitHub source permalinks, and representation tests>
-
-</details>
-
-<details>
-<summary>Research disagreements and audit coverage</summary>
-
-- Audited: <targets and changelog window>
-- Challenger: <requested model, actual model, result, and disputes, or Not requested>
-- Preserved: <out-of-scope or unchanged coverage summary>
-- Local working report: `local/target-audit/<YYYY-MM-DD>.md`
-
-</details>
 ```
 
-The body and dated comment must stand alone for a GitHub reader. Publish the
-evidence and explanation that support every conclusion. The gitignored local
-report is a working artifact and must never carry the only detailed account.
+Set `<report-digest>` to the first 12 lowercase hex characters of the
+completed local report's SHA-256 digest. Mark each capability section with
+its stable signal ID so future audits can recover decision history:
 
-Normalize `<sorted-target-scope>` as sorted lowercase target names joined by
-commas, or `all`. Set `<report-digest>` to the first 12 lowercase hex
-characters of the completed local report's SHA-256 digest. Before posting,
-search all issue comments for that exact marker. If it exists, update nothing
-and report the run as already persisted. This makes an exact retry safe after
-an ambiguous API response without hiding a distinct same-day run. If body
-update or comment creation fails, do not retry blindly. Re-fetch once, check
-both the signal envelopes and comment marker, then either complete the
-missing step or report the persistence failure. The local report remains the
-full record.
+```html
+<!-- target-capability:cap-example:start -->
+<section>
+  ...
+</section>
+<!-- target-capability:cap-example:end -->
+```
+
+Never rename a published signal ID. A later article can update its evidence,
+disposition, or action while the earlier edition stays immutable.
+
+`docs/site/updates/index.html` and `docs/site/updates/feed.xml` contain
+managed envelopes:
+
+```html
+<!-- target-updates:index:start -->
+... newest archive entry first ...
+<!-- target-updates:index:end -->
+```
+
+```xml
+<!-- target-updates:feed:start -->
+... newest RSS item first ...
+<!-- target-updates:feed:end -->
+```
+
+If either envelope is missing, duplicated, or malformed, stop publication,
+keep the local report, and put the problem under `Needs a human`. Never
+regenerate the surrounding page or feed from the current run alone.
+
+### Article contract
+
+The title should describe the week's developer consequence, not the audit
+process. The article must answer these questions in visible prose:
+
+- **What changed?** The documented upstream behavior and affected targets.
+- **Why does it matter?** The workflow, safety, or compatibility impact.
+- **Where is agnostic-ai now?** Shipped support, target extension,
+  workaround, adapter gap, or design candidate.
+- **What happens next?** The linked implementation issue, design decision,
+  target extension, research check, or next audit.
+
+The article must also include:
+
+- the audit date, target count, finding count, and clean count;
+- direct vendor sources and exact short quotes for each conclusion;
+- repository evidence as full GitHub permalinks pinned to the audited commit;
+- independently verified differences for cross-target capability claims;
+- the challenger request, actual model, result, and disputes, or `Not
+  requested`;
+- clean targets and specific research limits;
+- a clear statement that observations are not shipped support.
+
+The gitignored local report cannot carry the only detailed explanation.
+Article evidence must stand alone for a reader outside the checkout. Keep the
+release changelog separate: it records what agnostic-ai shipped, while the
+updates archive records what changed upstream and what the project may do.
+
+### Idempotency and preservation
+
+Before writing, search all published articles for the exact audit marker. If
+it exists, make no publication change and report the run as already
+persisted. This makes an exact retry safe without hiding a distinct same-day
+run.
+
+If the preferred article path exists with a different digest, preserve it and
+append the new digest to the filename. Never overwrite a published edition.
+Before changing the archive or feed, read their latest bytes again and
+replace only the content inside the managed envelope. Preserve navigation,
+introductory copy, prior editions, and every entry outside the current audit.
+
+The sitemap needs no weekly edit. `scripts/build-site-sitemap.sh` discovers
+dated article files and assigns each page its own commit date during the Pages
+build.
+
+### Publication PR
+
+File confirmed drift and design issues first so the article can link to the
+work. Then:
+
+1. Create the dated article and prepend its archive and RSS entries.
+2. Validate HTML, XML, links, markers, responsive rendering, and the Pages
+   assembly path.
+3. Stage only the update article, archive, and feed, plus a source-index fix
+   when the audit confirmed one.
+4. Commit with `docs: publish target update for <YYYY-MM-DD>`.
+5. Push a dedicated branch and open a PR titled
+   `docs: publish target update for <YYYY-MM-DD>`. Never merge it.
+
+Use an isolated worktree from fresh `main` when the current checkout contains
+unrelated changes or belongs to another task. A scoped run includes its scope
+in the branch, commit, and PR title. Do not open a second PR when the exact
+marker already exists in an open publication PR.
+
+If article, archive, feed, push, or PR creation fails, keep the local report,
+disclose the failed persistence step, and continue the ordinary confirmed
+drift issue flow where possible. Do not fall back to a digest issue or issue
+comment.
 
 `spec-candidate` signals may also receive a separate design issue. Link it
-from the radar entry. The issue must carry the vendor evidence,
-representation reproduction, independently verified per-target semantics,
-and explicit decision question. It must not enter `--fix` until a later
-implementation decision confirms the generic schema and scope.
+from the article. The issue must carry the vendor evidence, representation
+reproduction, independently verified per-target semantics, and explicit
+decision question. It must not enter `--fix` until a later implementation
+decision confirms the generic schema and scope.

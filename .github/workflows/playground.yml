@@ -48,23 +48,18 @@ jobs:
       - name: Assemble site
         run: |
           rm -rf _site
+          mkdir -p _site
+          cp -R docs/site/. _site/
           mkdir -p _site/playground
-          cp docs/site/index.html _site/index.html
-          cp docs/site/og.png docs/site/robots.txt docs/site/llms.txt _site/
           cp -R docs/playground/. _site/playground/
 
       - name: Build sitemap and llms-full.txt
         run: |
           set -euo pipefail
 
-          # lastmod must reflect the page's own last change, not the deploy
-          # date; a sitemap that claims everything changed today gets ignored.
-          index_mod=$(git log -1 --format=%cs -- docs/site/index.html)
-          play_mod=$(git log -1 --format=%cs -- docs/playground/)
-          sed -e "s|__LASTMOD_INDEX__|${index_mod}|" \
-              -e "s|__LASTMOD_PLAYGROUND__|${play_mod}|" \
-              docs/site/sitemap.xml > _site/sitemap.xml
-          grep -q '__LASTMOD' _site/sitemap.xml && { echo "sitemap token left unsubstituted"; exit 1; } || true
+          # Each page keeps its own commit date, and new update articles are
+          # discovered automatically instead of extending this workflow.
+          ./scripts/build-site-sitemap.sh _site/sitemap.xml
 
           # One fetch that gives an agent every user doc, in reading order.
           {
@@ -73,7 +68,7 @@ jobs:
             echo "Generated from docs/user/ at ${GITHUB_SHA}. Source of truth:"
             echo "https://github.com/Chemaclass/agnostic-ai"
             for doc in README installation getting-started migration troubleshooting \
-                       why spec-format targets target-radar configuration \
+                       why spec-format targets target-updates configuration \
                        cli-reference ci packs git-hooks graph errors \
                        alternatives-why-not-symlinks; do
               echo

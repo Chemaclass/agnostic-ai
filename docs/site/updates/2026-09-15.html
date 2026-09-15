@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New safety boundaries are becoming project configuration | agnostic-ai</title>
+  <meta name="description" content="The 15 September 2026 agnostic-ai briefing: manual-only skills, agent-scoped MCP, directory-scoped skills, project plugins, and ten confirmed target gaps.">
+  <link rel="canonical" href="https://chemaclass.github.io/agnostic-ai/updates/2026-09-15.html">
+  <link rel="alternate" type="application/rss+xml" title="agnostic-ai target updates" href="feed.xml">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#f7f7f6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14120f" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="agnostic-ai">
+  <meta property="og:title" content="New safety boundaries are becoming project configuration">
+  <meta property="og:description" content="The AI CLI changes developers should understand this week, and how agnostic-ai responds.">
+  <meta property="og:url" content="https://chemaclass.github.io/agnostic-ai/updates/2026-09-15.html">
+  <meta property="og:image" content="https://chemaclass.github.io/agnostic-ai/og.png">
+  <meta property="article:published_time" content="2026-09-15">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <!-- target-capability-audit:2026-09-15:all:dde3c448dc49 -->
+  <a class="skip-link" href="#article">Skip to briefing</a>
+  <header class="site-header">
+    <div class="wrap bar">
+      <a class="brand" href="../"><span class="brand-mark" aria-hidden="true">a</span>agnostic-ai</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="./" aria-current="page">Updates</a>
+        <a href="../playground/">Playground</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user">Docs</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="signal-rule" aria-hidden="true"></div>
+
+  <main id="article" class="article-shell">
+    <a class="back-link" href="./">← All updates</a>
+    <article>
+      <header class="article-header">
+        <div class="edition"><strong>Target update</strong><time datetime="2026-09-15">15 September 2026</time><span>Weekly briefing</span></div>
+        <h1>New safety boundaries are becoming project configuration.</h1>
+        <p class="dek">AI coding tools are no longer changing only their prompts and model lists. They are adding controls for who can invoke a skill, which servers an agent can reach, and where project context applies. Those differences now belong in the weekly setup conversation.</p>
+        <div class="audit-strip" aria-label="Audit summary">
+          <div class="audit-stat"><strong>25</strong><span>targets checked</span></div>
+          <div class="audit-stat"><strong>10</strong><span>confirmed findings</span></div>
+          <div class="audit-stat"><strong>15</strong><span>clean targets</span></div>
+        </div>
+      </header>
+
+      <div class="article-body">
+        <section aria-labelledby="changed">
+          <h2 id="changed">What changed</h2>
+
+          <!-- target-capability:cap-manual-only-skill-invocation:start -->
+          <div class="briefing-item">
+            <div class="change-meta"><span class="status">safety</span><span class="tag">Claude</span><span class="tag">Crush</span></div>
+            <h3>Sensitive skills can be manual-only</h3>
+            <p>Claude and Crush now share the same <code>disable-model-invocation: true</code> contract. It prevents the model from choosing a skill while keeping explicit user invocation available. agnostic-ai can preserve it through target extensions today, but cannot state the safety intent once.</p>
+            <p class="evidence"><strong>Vendor evidence.</strong> Claude says, <q>Only you can invoke the skill.</q> <a href="https://code.claude.com/docs/en/skills">Claude skills</a>. Crush says these skills <q>can still be invoked manually by users.</q> <a href="https://github.com/charmbracelet/crush">Crush repository</a>.</p>
+            <p class="evidence"><strong>Repository evidence.</strong> The shared <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/spec/spec.go#L44-L79">spec entry has no portable invocation field</a>. Target extensions carry the value instead.</p>
+          </div>
+          <!-- target-capability:cap-manual-only-skill-invocation:end -->
+
+          <!-- target-capability:cap-agent-mcp-scoping:start -->
+          <div class="briefing-item">
+            <div class="change-meta"><span class="status">least privilege</span><span class="tag">Qoder</span><span class="tag">Factory</span><span class="tag">OpenHands</span></div>
+            <h3>MCP access is moving inside the agent boundary</h3>
+            <p>Three tools can narrow MCP access for an individual agent. Qoder accepts names or inline definitions, Factory uses a server-name allowlist, and OpenHands uses an inline server map. The shared goal is clear, but the portable shape is not.</p>
+            <p class="evidence"><strong>Vendor evidence.</strong> Qoder supports <q>MCP servers</q> inside task-specific agent configuration. <a href="https://docs.qoder.com/cli/subagent">Qoder subagents</a>. Factory says, <q>Use <code>mcpServers</code> to limit which MCP servers a droid can reach.</q> <a href="https://docs.factory.ai/harness/subagents">Factory subagents</a>. OpenHands says file-based agents can define <q>MCP server configurations inline</q>. <a href="https://docs.openhands.dev/sdk/guides/agent-file-based">OpenHands agents</a>.</p>
+            <p class="evidence"><strong>Repository evidence.</strong> agnostic-ai models agents through the same <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/spec/spec.go#L44-L79">generic entry</a>. Qoder has a native mapping, Factory accepts target-specific metadata, and <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/adapters/openhands/openhands.go#L105-L128">OpenHands has no agent emitter</a>. There is no shared agent-to-MCP contract.</p>
+          </div>
+          <!-- target-capability:cap-agent-mcp-scoping:end -->
+
+          <!-- target-capability:cap-directory-scoped-skills:start -->
+          <div class="briefing-item">
+            <div class="change-meta"><span class="status">context</span><span class="tag">Codex</span><span class="tag">Cursor</span></div>
+            <h3>A skill's directory now changes where it applies</h3>
+            <p><a href="https://developers.openai.com/codex/skills/">Codex scans nested skill directories</a> from the working directory to the repository root. <a href="https://cursor.com/docs/context/skills">Cursor says nested skills are scoped</a> to files inside their directory. Both agnostic-ai adapters flatten scoped skills to the root today.</p>
+            <p class="evidence"><strong>Vendor evidence.</strong> Codex scans <q>every directory from your current working directory up to the repository root.</q> <a href="https://developers.openai.com/codex/skills/">Codex skills</a>. Cursor says nested skills are <q>automatically scoped to files inside that directory.</q> <a href="https://cursor.com/docs/context/skills">Cursor skills</a>.</p>
+            <p class="evidence"><strong>Repository evidence.</strong> Both <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/adapters/codex/skill.go#L35-L42">Codex</a> and <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/adapters/cursor/skill.go#L24-L30">Cursor</a> build the destination from the root skills directory and the skill name, without the source scope.</p>
+          </div>
+          <!-- target-capability:cap-directory-scoped-skills:end -->
+
+          <!-- target-capability:cap-project-extension-bundles:start -->
+          <div class="briefing-item">
+            <div class="change-meta"><span class="status">ecosystem</span><span class="tag">Cline</span><span class="tag">Amp</span><span class="tag">Windsurf</span><span class="tag">OpenCode</span><span class="tag">Junie</span></div>
+            <h3>Project plugins are becoming normal, not portable</h3>
+            <p>Five tools now expose project extensions or plugins. Some copy executable code, some install package references, and some apply repository policy. agnostic-ai should represent the shared workflow only after it defines ownership and trust.</p>
+            <p class="evidence"><strong>Vendor evidence.</strong> Cline supports plugins <q>per-project</q>. <a href="https://docs.cline.bot/customization/plugins">Cline plugins</a>. Amp says project plugins <q>apply when you run Amp in that project.</q> <a href="https://ampcode.com/docs/customize/plugins">Amp plugins</a>. Windsurf stores required and optional plugin policy in repository configuration. <a href="https://docs.devin.ai/cli/extensibility/plugins/overview">Windsurf plugins</a>. OpenCode calls <code>.opencode/plugins/</code> its <q>Project-level plugins</q> directory. <a href="https://opencode.ai/docs/plugins/">OpenCode plugins</a>. Junie describes extensions as <q>reusable bundles</q> for project-specific capabilities. <a href="https://junie.jetbrains.com/docs/junie-cli-extensions.html">Junie extensions</a>.</p>
+            <p class="evidence"><strong>Repository evidence.</strong> The <a href="https://github.com/Chemaclass/agnostic-ai/blob/8b4832a9494914bbfc0a13d7b0c8ae7aed6f5eb6/internal/spec/spec.go#L27-L38">ten shared spec kinds</a> do not include a plugin or extension bundle. Adding one before the trust model is clear would hide meaningful differences.</p>
+          </div>
+          <!-- target-capability:cap-project-extension-bundles:end -->
+        </section>
+
+        <section aria-labelledby="matters">
+          <h2 id="matters">Why it matters</h2>
+          <p>These are not cosmetic additions. A manual-only flag controls whether a model can start sensitive work. Agent-scoped MCP controls which systems and data a delegated agent can reach. Directory scope decides whether local instructions stay local.</p>
+          <p>The same pattern appears across the ecosystem: vendors are moving more team policy into project files, but each uses a different path, schema, default, and trust boundary. A portable setup needs to keep the common intent while making native differences visible.</p>
+          <aside class="callout">
+            <strong>The useful separation</strong>
+            <p>This briefing records upstream observations. The <a href="https://github.com/Chemaclass/agnostic-ai/blob/main/docs/user/targets.md">target reference</a> records current support. The <a href="https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md">changelog</a> records what agnostic-ai has released.</p>
+          </aside>
+        </section>
+
+        <section aria-labelledby="position">
+          <h2 id="position">Where agnostic-ai is now</h2>
+          <p>Manual-only skills work through target extensions. Qoder can preserve agent-scoped MCP through native agent metadata, Factory needs a target-specific field, and OpenHands has no file-agent emitter. Codex and Cursor currently lose directory scope when emitting skills. Project plugins have no shared spec kind.</p>
+          <p>These are audit observations, not shipped support. The target reference and release changelog remain the source of truth for what works today.</p>
+        </section>
+
+        <section aria-labelledby="response">
+          <h2 id="response">What happens next</h2>
+
+          <h3>Fix confirmed loss</h3>
+          <div class="decision-line"><strong>Factory transport</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/809">Stop emitting undocumented <code>ws</code> MCP configuration.</a></p></div>
+          <div class="decision-line"><strong>Scoped skills</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/805">Preserve directory scope in Codex and Cursor.</a></p></div>
+          <div class="decision-line"><strong>Claude hooks</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/804">Keep <code>continueOnBlock</code> on prompt hooks.</a></p></div>
+          <div class="decision-line"><strong>Index exclusions</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/808">Emit <code>.augmentignore</code> for Augment.</a></p></div>
+          <div class="decision-line"><strong>Model settings</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/806">Extend project defaults to OpenCode and Junie.</a></p></div>
+          <div class="decision-line"><strong>Kiro names</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/807">Preserve explicit custom-agent display names.</a></p></div>
+
+          <h3>Decide the portable contract</h3>
+          <div class="decision-line"><strong>Manual-only skills</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/811">Decide whether one shared field should preserve the invocation boundary.</a></p></div>
+          <div class="decision-line"><strong>Agent MCP scope</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/812">Choose between a server allowlist, inline definitions, or both.</a></p></div>
+          <div class="decision-line"><strong>Project extensions</strong><p><a href="https://github.com/Chemaclass/agnostic-ai/issues/810">Define the smallest safe shared outcome before adding a spec kind.</a></p></div>
+        </section>
+
+        <section aria-labelledby="details">
+          <h2 id="details">Audit details</h2>
+
+          <details>
+            <summary>All confirmed target gaps</summary>
+            <div class="details-body">
+              <ul>
+                <li>Claude drops <code>continueOnBlock</code> from prompt hooks.</li>
+                <li>Codex and Cursor flatten directory-scoped skills.</li>
+                <li>Copilot drops HTTP hook handlers. This stays in <a href="https://github.com/Chemaclass/agnostic-ai/issues/629">the shared hooks issue</a>.</li>
+                <li>Amp orb setup, resume, and services still need <a href="https://github.com/Chemaclass/agnostic-ai/issues/637">a lifecycle mapping</a>.</li>
+                <li>OpenCode and Junie omit project default model settings.</li>
+                <li>Kiro strips explicit custom-agent display names.</li>
+                <li>Augment omits project indexing exclusions.</li>
+                <li>Factory emits an undocumented <code>ws</code> MCP transport.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details>
+            <summary>Clean targets and research limits</summary>
+            <div class="details-body">
+              <p>No confirmed emitter or importer drift was found for Gemini, Aider, Cline, Windsurf, Continue, Zed, Warp, Antigravity, Crush, Trae, Jules, Goose, Qoder, OpenHands, or Kilo in this pass.</p>
+              <p>Scheduled agents in Cline and Amp remain a watch item because schedules persist outside the repository. Augment's project trust behavior also needs runtime or vendor confirmation before it becomes implementation work. Kilo's shared agent board remains experimental.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Method and evidence standard</summary>
+            <div class="details-body">
+              <p>Every confirmed finding requires a direct vendor source, an exact documented behavior, and the repository line that contradicts it. Cross-target proposals require independent evidence for every target and a representation check against the current spec and target extensions.</p>
+              <p>This audit covered all 25 registered targets using changes since 13 September 2026 as the initial window. The audit also checked current contracts when a new surface exposed an older gap. A separate model challenge was not requested.</p>
+              <p>Challenger: not requested. No secondary model result influenced these conclusions.</p>
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <footer class="article-end">
+        <span>Report digest <code>dde3c448dc49</code></span>
+        <a href="./">Browse all updates</a>
+      </footer>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <span>agnostic-ai keeps your setup portable and the differences visible.</span>
+      <nav aria-label="Footer">
+        <a href="feed.xml">RSS</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai/issues?q=is%3Aissue%20label%3Atarget-audit">Implementation issues</a>
+        <a href="https://github.com/Chemaclass/agnostic-ai">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
