@@ -73,7 +73,7 @@ jobs:
             echo "Generated from docs/user/ at ${GITHUB_SHA}. Source of truth:"
             echo "https://github.com/Chemaclass/agnostic-ai"
             for doc in README installation getting-started migration troubleshooting \
-                       why spec-format targets configuration \
+                       why spec-format targets target-radar configuration \
                        cli-reference ci packs git-hooks graph errors \
                        alternatives-why-not-symlinks; do
               echo
