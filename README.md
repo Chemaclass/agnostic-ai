@@ -90,6 +90,7 @@ Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructi
 | Automate sync for a team | [CI](docs/user/ci.md) and [Git hooks](docs/user/git-hooks.md) |
 | Share specs across repositories | [Packs](docs/user/packs.md) |
 | Diagnose missing or stale output | [Troubleshooting](docs/user/troubleshooting.md) |
+| Track upstream target changes and proposed support | [Target capability radar](docs/user/target-radar.md) |
 | Work on agnostic-ai | [Contributing](CONTRIBUTING.md) |
 
 To use the agent context skill across projects, copy the

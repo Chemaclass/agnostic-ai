@@ -19,6 +19,7 @@ The working loop is **edit `.agnostic-ai/` → run `agnostic-ai sync` → use yo
 | Share your own instructions across projects | [Global configuration](configuration.md#global-configuration) |
 | See where a spec goes | [Graph](graph.md) |
 | Trace an output to its source | [Why](why.md) |
+| Track upstream target changes and proposed support | [Target capability radar](target-radar.md) |
 | Resolve a failure or missing output | [Troubleshooting](troubleshooting.md) |
 | Compare with symlinks or manual copies | [Alternatives](alternatives-why-not-symlinks.md) |
 

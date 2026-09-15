@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- `target-audit` now publishes a developer digest of consequential project capability changes, verified target differences, workarounds, and proposed improvements to a rolling GitHub radar issue. `--compare-models <model>` adds a bounded challenge pass for breaking findings, spec candidates, and conflicting evidence without treating model agreement as proof. Future vendor observations live in the radar, while this changelog records shipped agnostic-ai changes.
+
 ## v0.58.0 - 2026-09-14
 
 ### Added

@@ -35,6 +35,7 @@ stop duplicating prompt files per tool.
 - [Why](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/why.md): trace an output file to its source specs.
 - [Spec format](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/spec-format.md): the frontmatter and body of every spec kind.
 - [Targets](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/targets.md): all 25 tools, their capability matrix, and the exact paths written per tool.
+- [Target capability radar](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/target-radar.md): consequential vendor changes, target differences, workarounds, and proposed support.
 - [Configuration](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/configuration.md): `agnostic-ai.yaml` reference.
 - [CLI reference](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/cli-reference.md): every command and flag.
 - [CI](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/user/ci.md): the `sync --check` drift gate.
