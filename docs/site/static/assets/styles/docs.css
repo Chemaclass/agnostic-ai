@@ -207,7 +207,7 @@
 }
 
 .docs-mobile-nav {
-  width: min(calc(100% - 2rem), var(--reading));
+  width: min(calc(100% - 2rem), 86rem);
   margin: 1.25rem auto 0;
 }
 
@@ -298,7 +298,19 @@
 
 .docs-content {
   min-width: 0;
+}
+
+/* Prose keeps a readable measure; wide components below use the whole column. */
+.docs-content > * {
   max-width: var(--reading);
+}
+
+.docs-content > table,
+.docs-content > pre,
+.docs-content > .capability-browser,
+.docs-content > .agent-prompt-guide,
+.docs-content > .docs-index-list {
+  max-width: none;
 }
 
 .docs-breadcrumb {
@@ -853,8 +865,7 @@
   }
 
   .docs-page-layout {
-    grid-template-columns: 13rem minmax(0, var(--reading));
-    justify-content: center;
+    grid-template-columns: 13rem minmax(0, 1fr);
     gap: 3rem;
   }
 
@@ -871,7 +882,7 @@
 
 @media (min-width: 1240px) {
   .docs-page-layout {
-    grid-template-columns: 13rem minmax(0, var(--reading)) 12rem;
+    grid-template-columns: 13rem minmax(0, 1fr) 12rem;
   }
 
   .docs-toc {
