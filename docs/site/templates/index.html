@@ -142,7 +142,6 @@
           <thead>
             <tr>
               <th scope="col">Tool</th>
-              <th scope="col">Coverage</th>
               {% for feature in landing.targets.features %}<th scope="col">{{ feature }}</th>{% endfor %}
             </tr>
           </thead>
@@ -150,7 +149,6 @@
             {% for target in landing.targets.matrix %}
             <tr>
               <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.name }}</a></th>
-              <td class="capability-score"><span class="capability-mobile-label">Coverage</span>{{ target.coverage }}/10</td>
               {% for supported in target.support %}<td class="capability-{% if supported %}yes{% else %}no{% endif %}"><span class="capability-mobile-label">{{ landing.targets.features[loop.index0] }}</span>{% if supported %}Yes{% else %}No{% endif %}</td>{% endfor %}
             </tr>
             {% endfor %}

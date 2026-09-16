@@ -286,11 +286,6 @@ main > section[id] {
   border-bottom: 0;
 }
 
-.capability-score {
-  color: var(--muted);
-  font-family: var(--mono);
-}
-
 .capability-yes {
   color: var(--good);
   font-weight: 700;

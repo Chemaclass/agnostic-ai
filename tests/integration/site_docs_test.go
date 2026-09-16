@@ -45,10 +45,9 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 		Targets struct {
 			Features []string `toml:"features"`
 			Matrix   []struct {
-				ID       string `toml:"id"`
-				Href     string `toml:"href"`
-				Coverage int    `toml:"coverage"`
-				Support  []bool `toml:"support"`
+				ID      string `toml:"id"`
+				Href    string `toml:"href"`
+				Support []bool `toml:"support"`
 			} `toml:"matrix"`
 		} `toml:"targets"`
 	}
@@ -102,10 +101,6 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 			t.Fatalf("find declared capabilities for %s", target.ID)
 		}
 		declared := match[1]
-		coverage := strings.Count(declared, "spec.Kind")
-		if target.Coverage != coverage {
-			t.Errorf("%s coverage = %d, adapter declares %d kinds", target.ID, target.Coverage, coverage)
-		}
 
 		for index, kind := range kinds {
 			want := strings.Contains(declared, "spec.Kind"+kind)
