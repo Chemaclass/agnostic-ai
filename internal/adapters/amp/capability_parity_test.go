@@ -49,6 +49,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}, nil},
 		{spec.KindRule, []string{"AGENTS-rules.md"}, nil},
 		{spec.KindMCP, []string{".amp/settings.json"}, nil},
+		{spec.KindEnvironment, []string{".agents/setup", ".amp/services.yaml"}, nil},
 	}
 	for _, k := range caps.Supports {
 		found := false

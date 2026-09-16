@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -99,6 +100,51 @@ func TestWriteFile_NormalizesTrailingNewlines(t *testing.T) {
 				t.Errorf("in=%q want=%q got=%q", tc.in, tc.want, got)
 			}
 		})
+	}
+}
+
+func TestWriteExecutableFile_SetsExecutableMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support Unix executable mode bits")
+	}
+	t.Parallel()
+	sess := NewSession()
+	path := filepath.Join(t.TempDir(), "setup")
+
+	if err := sess.WriteExecutableFile(path, "#!/bin/sh\nexit 0", false); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("mode = %o, want 755", info.Mode().Perm())
+	}
+}
+
+func TestWriteExecutableFile_CorrectsExistingMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support Unix executable mode bits")
+	}
+	t.Parallel()
+	sess := NewSession()
+	path := filepath.Join(t.TempDir(), "setup")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess.StartDetailedRecording()
+	if err := sess.WriteExecutableFile(path, "#!/bin/sh", false); err != nil {
+		t.Fatal(err)
+	}
+	sess.StopDetailedRecording()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("mode = %o, want 755", info.Mode().Perm())
 	}
 }
 

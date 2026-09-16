@@ -9,6 +9,11 @@
 // Skills emit as a folder per skill under `.agents/skills/<name>/SKILL.md`
 // (Amp's native skills layout).
 //
+// Environments split by lifecycle: dependency installation emits as the
+// executable `.agents/setup`, while long-running terminals emit as supervised
+// services in `.amp/services.yaml`. `.agents/resume` is not equivalent to
+// either field and is intentionally left alone.
+//
 // Agents emit no file of their own. They used to land in
 // `.agents/commands/<name>.md`, but Amp removed custom commands on
 // 2026-01-29 (https://ampcode.com/news/slashing-custom-commands) and its
@@ -71,6 +76,8 @@ const (
 	defaultOutFile   = "AGENTS.md"
 	defaultSkillsDir = ".agents/skills"
 	defaultMCPFile   = ".amp/settings.json"
+	defaultSetupFile = ".agents/setup"
+	defaultEnvFile   = ".amp/services.yaml"
 	legacyOutFile    = "AGENT.md"
 	ampMCPKey        = "amp.mcpServers"
 	// retiredCommandsDir is where agents landed before Amp removed
@@ -80,7 +87,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindEnvironment},
 }
 
 // Adapter emits Amp configs.
@@ -93,11 +100,10 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes a folder per skill under `.agents/skills/<name>/SKILL.md`,
-// `.amp/settings.json` for MCP servers, and—when opted in via
-// outputs.amp.rules-file—a legacy concatenated rules document that also
-// carries the agent bodies. Agents get no file of their own; see the
-// package doc. The project-root AGENTS.md is written by `sync`, not
-// here.
+// `.amp/settings.json` for MCP servers, Amp's two environment files, and, when
+// opted in via outputs.amp.rules-file, a legacy concatenated rules document
+// that also carries the agent bodies. Agents get no file of their own; see the
+// package doc. The project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -119,7 +125,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitMCPSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	if err := emitMCPSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+		return err
+	}
+	return emitEnvironment(sess, b.Environments, cfg, dryRun)
 }
 
 // warnCommandsDirRemoved fires once per real sync when

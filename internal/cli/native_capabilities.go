@@ -247,7 +247,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder", "augment", "factory"),
 	spec.KindSettings:    setOf("claude", "codex", "copilot", "opencode", "junie", "qoder", "kilo"),
 	spec.KindReview:      setOf("cursor", "goose"),
-	spec.KindEnvironment: setOf("cursor", "openhands"),
+	spec.KindEnvironment: setOf("cursor", "openhands", "amp"),
 	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }
 

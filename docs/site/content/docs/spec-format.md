@@ -609,6 +609,8 @@ Native emission: Cursor background-agent [environment.json](https://docs.cursor.
 
 Also native on OpenHands: the `install` field writes [`.openhands/setup.sh`](https://docs.openhands.dev/openhands/usage/customization/repository), the vendor's documented repository bootstrap script that "will run every time OpenHands begins working with your repository". The script body is `install` verbatim under a `#!/bin/bash` shebang. `terminals` has no OpenHands equivalent (the script runs once, synchronously; there is no long-running process surface) and surfaces a coverage note instead. Multiple environment specs merge the same way as Cursor's (last `install` wins). Override the path with `outputs.openhands.setup-file`.
 
+Also native on Amp orbs: `install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing) script, while each named terminal becomes a supervised service in [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals). Terminal fields after `name` pass through to the service, including Amp-specific fields supplied through `x-amp.terminals`. Service names must match Amp's lowercase, number, and hyphen rules, and each service requires `command`. Multiple environment specs merge by top-level key, last value wins. Override the paths with `outputs.amp.setup-file` and `outputs.amp.environment-file`. Amp's `.agents/resume` is not emitted: it runs after activation and every wake with thread credentials, which is distinct from dependency installation and supervised services.
+
 Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
 
 ## Ignore

@@ -28,8 +28,9 @@ import (
 
 // File permissions for emitted artifacts.
 const (
-	dirPerm  os.FileMode = 0o755
-	filePerm os.FileMode = 0o644
+	dirPerm        os.FileMode = 0o755
+	filePerm       os.FileMode = 0o644
+	executablePerm os.FileMode = 0o755
 )
 
 // CapturedFile is one (path, content) pair recorded during capture mode.
@@ -43,6 +44,7 @@ type CapturedFile struct {
 type txEntry struct {
 	path    string
 	content []byte
+	mode    os.FileMode
 }
 
 // WrittenFile is one write event recorded during detailed recording mode.
@@ -281,8 +283,14 @@ func (s *Session) Rollback() error {
 				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 			}
 		} else {
-			if err := os.WriteFile(e.path, e.content, filePerm); err != nil {
+			mode := e.mode
+			if mode == 0 {
+				mode = filePerm
+			}
+			if err := os.WriteFile(e.path, e.content, mode); err != nil {
 				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+			} else if err := os.Chmod(e.path, mode); err != nil {
+				errs = append(errs, fmt.Errorf("rollback %s mode: %w", e.path, err))
 			}
 		}
 	}
@@ -298,6 +306,13 @@ func (s *Session) Rollback() error {
 // content; unchanged files are skipped and not rewritten.
 func (s *Session) WriteFile(path, content string, dryRun bool) error {
 	return s.writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, dryRun)
+}
+
+// WriteExecutableFile writes a generated script with executable permissions.
+// It follows the same capture, unmanaged, backup, transaction, and detailed
+// recording behavior as WriteFile.
+func (s *Session) WriteExecutableFile(path, content string, dryRun bool) error {
+	return s.writeFileWithMode(path, normalizeTrailingNewline(content), executablePerm, dryRun)
 }
 
 // normalizeTrailingNewline collapses any run of trailing newlines into
@@ -426,13 +441,19 @@ func parentGone(err error) bool {
 // cheap half of that fix. See removeEmptyDirs for the other half.
 func writeFileAt(path, content string, mode os.FileMode) error {
 	err := os.WriteFile(path, []byte(content), mode)
-	if err == nil || !parentGone(err) {
+	if err == nil {
+		return os.Chmod(path, mode)
+	}
+	if !parentGone(err) {
 		return err
 	}
 	if mkErr := mkdirAll(filepath.Dir(path), dirPerm); mkErr != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), mode)
+	if err := os.WriteFile(path, []byte(content), mode); err != nil {
+		return err
+	}
+	return os.Chmod(path, mode)
 }
 
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
@@ -480,11 +501,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 	// Detailed recording: inspect existing content to classify the action.
 	if detailing {
 		existing, err := os.ReadFile(path)
+		info, statErr := os.Stat(path)
 		var action string
 		switch {
 		case os.IsNotExist(err):
 			action = "create"
-		case err == nil && string(existing) == content:
+		case err == nil && statErr == nil && string(existing) == content && info.Mode().Perm() == mode.Perm():
 			// File is already up to date; skip the write.
 			s.mu.Lock()
 			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: headerlessSum(content)})
@@ -496,11 +518,15 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 		// Log pre-write state for rollback (only for actual writes, not skips).
 		if transacting {
 			var pre []byte
+			var preMode os.FileMode
 			if action == "update" {
 				pre = existing
+				if statErr == nil {
+					preMode = info.Mode().Perm()
+				}
 			}
 			s.mu.Lock()
-			s.txLog = append(s.txLog, txEntry{path: path, content: pre})
+			s.txLog = append(s.txLog, txEntry{path: path, content: pre, mode: preMode})
 			s.mu.Unlock()
 		}
 		if backup && action == "update" {
@@ -520,10 +546,15 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 	// Log pre-write state for rollback.
 	if transacting {
 		pre, readErr := os.ReadFile(path)
+		info, statErr := os.Stat(path)
 		s.mu.Lock()
 		switch {
 		case readErr == nil:
-			s.txLog = append(s.txLog, txEntry{path: path, content: pre})
+			preMode := filePerm
+			if statErr == nil {
+				preMode = info.Mode().Perm()
+			}
+			s.txLog = append(s.txLog, txEntry{path: path, content: pre, mode: preMode})
 		case os.IsNotExist(readErr):
 			s.txLog = append(s.txLog, txEntry{path: path, content: nil})
 		}
@@ -625,8 +656,12 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	}
 
 	if transacting {
+		mode := filePerm
+		if info, statErr := os.Stat(path); statErr == nil {
+			mode = info.Mode().Perm()
+		}
 		s.mu.Lock()
-		s.txLog = append(s.txLog, txEntry{path: path, content: existing})
+		s.txLog = append(s.txLog, txEntry{path: path, content: existing, mode: mode})
 		s.mu.Unlock()
 	}
 
