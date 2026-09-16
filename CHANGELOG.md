@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.59.0 - 2026-09-16
+
 ### Added
 
 - `agnostic-ai verify` blocks stale generated output, fingerprints the selected harness, and sends versioned JSON with the configured model and detectable CLI identity to a project-owned verifier. Output and non-zero exit codes pass through to CI (#834).
