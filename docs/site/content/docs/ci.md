@@ -52,3 +52,23 @@ For ignored outputs, use `command: sync` instead. Set the action's `version` inp
 ## Diagnose drift
 
 Use `agnostic-ai sync --check --diff` to inspect changes. The [CLI reference](@/docs/cli-reference.md#reading-a-failing---check) explains output formats and failure categories.
+
+## Gate model and CLI changes
+
+`sync --check` proves that generated files match their specs. It does not prove that a model or CLI still produces acceptable results for your project.
+
+Configure a project-owned verifier:
+
+```yaml
+verify:
+  command: [./scripts/verify-harness]
+```
+
+Then add the gate after installing the required AI CLI:
+
+```yaml
+- name: Verify Codex harness behavior
+  run: agnostic-ai verify --target codex
+```
+
+agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, and sends versioned JSON to the script through stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference.md#verify) for the JSON contract.

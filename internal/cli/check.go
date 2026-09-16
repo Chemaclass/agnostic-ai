@@ -43,6 +43,14 @@ func orphanedCount(reports []driftReport) int {
 // would-be file against disk. Also checks entry-point files (CLAUDE.md,
 // AGENTS.md, AGNOSTIC_AI.md). No files are written.
 func collectDrift(targets []string) ([]driftReport, error) {
+	return collectDriftWithEntryPointTargets(targets, nil)
+}
+
+// collectDriftWithEntryPointTargets keeps native adapter verification scoped
+// to targets while allowing shared entry points to be rendered with their
+// complete configured consumer set. A nil entryPointTargets slice preserves
+// the normal check/doctor behavior by using targets for both concerns.
+func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]driftReport, error) {
 	reports := make([]driftReport, 0, len(targets)+1)
 	cfg, b, err := loadProject(".")
 	if err != nil {
@@ -50,6 +58,9 @@ func collectDrift(targets []string) ([]driftReport, error) {
 	}
 	if len(targets) == 0 {
 		targets = cfg.Targets
+	}
+	if entryPointTargets == nil {
+		entryPointTargets = targets
 	}
 	if err := detectCollisions(cfg, b, targets); err != nil {
 		return nil, err
@@ -61,12 +72,10 @@ func collectDrift(targets []string) ([]driftReport, error) {
 			fmt.Fprintf(os.Stderr, "! %v\n", err)
 			continue
 		}
-		sess.StartCapture()
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
-			sess.StopCapture()
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		files := sess.StopCapture()
 
 		rep := driftReport{Target: t}
 		for _, f := range files {
@@ -84,12 +93,25 @@ func collectDrift(targets []string) ([]driftReport, error) {
 		}
 		reports = append(reports, rep)
 	}
-	epRep, err := collectEntryPointDrift(cfg, b, targets)
+	epRep, err := collectEntryPointDrift(cfg, b, entryPointTargets)
 	if err != nil {
 		return nil, err
 	}
 	reports = append(reports, epRep)
 	return reports, nil
+}
+
+// captureAdapterFiles renders one target into memory without touching disk.
+// Drift checks and verification fingerprints share this path so they always
+// identify the same native output bytes.
+func captureAdapterFiles(sess *adapters.Session, adapter adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
+	sess.StartCapture()
+	err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false)
+	files := sess.StopCapture()
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // collectEntryPointDrift checks whether AGNOSTIC_AI.md and every enabled

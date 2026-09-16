@@ -79,6 +79,25 @@ on-unsupported: error
 	}
 }
 
+func TestLoad_VerifyCommandPreservesArgv(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(`version: 1
+verify:
+  command: [./scripts/verify-harness, --strict]
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"./scripts/verify-harness", "--strict"}
+	if !reflect.DeepEqual(cfg.Verify.Command, want) {
+		t.Errorf("verify command = %v, want %v", cfg.Verify.Command, want)
+	}
+}
+
 func TestDefaultTargets(t *testing.T) {
 	// amp, warp, jules, goose, and augment are intentionally absent:
 	// each only contributes to the shared root AGENTS.md and has no

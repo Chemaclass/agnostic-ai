@@ -40,6 +40,15 @@ type Config struct {
 	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
 	Import        ImportConfig      `yaml:"import,omitempty"         json:"import,omitempty"`
+	Verify        VerifyConfig      `yaml:"verify,omitempty"         json:"verify,omitempty"`
+}
+
+// VerifyConfig defines the external command that re-clears generated AI
+// harness behavior. Command is an argv list and runs directly, without a
+// shell. The verifier receives one versioned JSON document per target on
+// stdin and decides whether that harness remains acceptable.
+type VerifyConfig struct {
+	Command []string `yaml:"command,omitempty" json:"command,omitempty"`
 }
 
 // ImportConfig holds per-source knobs for the `import` command. Empty
