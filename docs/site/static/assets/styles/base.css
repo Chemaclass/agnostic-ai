@@ -404,6 +404,32 @@ code {
   height: 1rem;
 }
 
+.footer-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.25rem;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease-out, border-color 160ms ease-out, transform 160ms ease-out;
+}
+
+.footer-sponsor:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.footer-sponsor svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 .footer-nav {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
