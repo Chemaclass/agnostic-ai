@@ -31,6 +31,12 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 		if !strings.Contains(page, cronitorRUMClientKey) {
 			t.Errorf("%s does not configure the Cronitor RUM client key", path)
 		}
+		if !strings.Contains(page, `class="brand-mark" aria-hidden="true">aⁱ</span>`) {
+			t.Errorf("%s does not use the aⁱ brand mark", path)
+		}
+		if !strings.Contains(page, `a%E2%81%B1%3C/text%3E`) {
+			t.Errorf("%s favicon does not use the aⁱ brand mark", path)
+		}
 	}
 }
 
@@ -243,11 +249,19 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	for _, required := range []string{
 		"window.agnosticAICapabilities()",
 		"updateCapabilityState()",
+		"sampleKind(els.source.value)",
+		"buildSampleAction()",
 		"Unsupported selections have dashed outlines and are skipped.",
 	} {
 		if !strings.Contains(script, required) {
 			t.Errorf("playground capability UI is missing %q", required)
 		}
+	}
+	if !strings.Contains(page, `class="kind-control"`) || !strings.Contains(page, `id="sample" class="ghost sample-action"`) {
+		t.Error("playground does not group the contextual sample action with the kind selector")
+	}
+	if strings.Contains(page, `<select id="sample"`) {
+		t.Error("playground still exposes an independent sample selector")
 	}
 }
 
@@ -379,6 +393,10 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, required := range []string{
 		"Set up agnostic-ai with a coding agent",
 		"Install and start",
+		"Recommended installer",
+		`data-installer-os="macos"`,
+		`data-installer-os="windows"`,
+		`data-installer-os="linux"`,
 		"brew install --cask Chemaclass/tap/agnostic-ai",
 		"agnostic-ai init --from all",
 		"agnostic-ai sync --dry-run",
@@ -397,7 +415,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	targetsIndex := strings.Index(home, `id="targets"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || !(quickstartIndex < targetsIndex && targetsIndex < updatesIndex) {
+	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
 		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{

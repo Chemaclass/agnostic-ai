@@ -285,6 +285,17 @@ a:focus-visible {
   letter-spacing: 0;
 }
 
+.kind-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sample-action {
+  white-space: nowrap;
+}
+
 select {
   appearance: none;
   background: var(--bg-elev);

@@ -5,7 +5,7 @@ body = "Keep agents, skills, rules, hooks, and MCP servers in **one portable sou
 primary_label = "Install and start"
 secondary_label = "Try in the browser"
 facts = "25 targets. 10 portable spec kinds. Byte-stable output."
-install_label = "Recommended on macOS"
+install_label = "Recommended installer"
 install_link_label = "All install options"
 
 [hero.diagram]
@@ -123,18 +123,24 @@ body = "Write the files, then use the same check in CI to catch drift."
 [[workflow.installers]]
 id = "brew"
 label = "Homebrew"
+recommend_for = "macos"
+recommend_label = "Recommended for macOS"
 prompt = "$"
 command = "brew install --cask Chemaclass/tap/agnostic-ai"
 note = "macOS. Upgrade with `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`."
 [[workflow.installers]]
 id = "windows"
 label = "Windows"
+recommend_for = "windows"
+recommend_label = "Recommended for Windows"
 prompt = ">"
 command = "irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex"
 note = "Windows 10 and 11, in PowerShell. The script selects your CPU archive, checks it, and adds the binary to `PATH`."
 [[workflow.installers]]
 id = "script"
 label = "Script"
+recommend_for = "linux"
+recommend_label = "Recommended for Linux"
 prompt = "$"
 command = "curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash"
 note = "No package manager or Go required. The script selects the archive for your OS and CPU, verifies it, and installs the binary."

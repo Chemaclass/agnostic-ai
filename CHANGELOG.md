@@ -35,9 +35,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 #### Website, docs, and playground
 
-- The site landing page now leads with a copy-ready install command, a three-step activation path, linked target details, and the latest ecosystem briefing. The README keeps installation and core task guides one click away.
+- The site landing page now leads with a platform-matched, copy-ready install command, a three-step activation path, linked target details, and the latest ecosystem briefing. The README keeps installation and core task guides one click away. The site shell, playground, and favicons share the `aⁱ` brand mark.
 - The target capability matrix now shows clear support states, filters by target name or selection, preserves comparisons in shareable URLs, keeps target and capability context visible on desktop, and switches to a vertical target summary on mobile. CI checks every status against adapter capability declarations.
 - The playground exposes all ten portable spec kinds, starts fresh sessions with an agent spec targeting Claude, Codex, and Gemini, marks unsupported targets before rendering, and reads capability support directly from adapter declarations so target-audit fixes reach the next Pages build automatically.
+- The playground now groups kind selection with one contextual sample action. Changing kind swaps an untouched built-in sample to the matching kind, while preserving user-edited source.
 - The landing page compares ten broad target integrations across rules, agents, skills, MCP, hooks, commands, and portable permissions, with coverage values checked against adapter capabilities.
 - The playground now uses the website's shared navigation, theme control, and responsive header instead of maintaining a separate navbar.
 - The site now builds with Zola 0.22.0 from shared templates and Markdown content. One responsive navbar spans every page, and a new briefing updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without design edits. Legacy URLs and feed identifiers remain stable.

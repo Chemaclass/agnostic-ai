@@ -1,24 +1,88 @@
-(function () {
+(function (root, factory) {
   "use strict";
 
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  var api = factory();
+  if (typeof module === "object" && module.exports) {
+    module.exports = api;
+  }
+  root.AgnosticAILanding = api;
 
-  function selectTab(index, moveFocus) {
-    tabs.forEach(function (tab, tabIndex) {
-      var selected = tabIndex === index;
-      var panel = document.getElementById(tab.getAttribute("aria-controls"));
-      tab.setAttribute("aria-selected", selected ? "true" : "false");
-      tab.tabIndex = selected ? 0 : -1;
-      if (panel) {
-        panel.hidden = !selected;
-      }
-    });
-    if (moveFocus) {
-      tabs[index].focus();
+  if (root.document) {
+    api.init(root.document, root);
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  function detectOS(platform, userAgent, maxTouchPoints) {
+    var value = (String(platform || "") + " " + String(userAgent || "")).toLowerCase();
+    if (/android|iphone|ipad|ipod|cros/.test(value)) {
+      return "other";
     }
+    if (/windows|win32|win64/.test(value)) {
+      return "windows";
+    }
+    if (/mac|darwin/.test(value)) {
+      return Number(maxTouchPoints || 0) > 1 ? "other" : "macos";
+    }
+    if (/linux|x11/.test(value)) {
+      return "linux";
+    }
+    return "other";
   }
 
-  if (tabs.length) {
+  function initHeroInstaller(document, browser) {
+    var root = document.querySelector("[data-hero-installer]");
+    if (!root) {
+      return false;
+    }
+
+    var navigator = browser.navigator || {};
+    var userAgentData = navigator.userAgentData || {};
+    var os = detectOS(userAgentData.platform || navigator.platform, navigator.userAgent, navigator.maxTouchPoints);
+    var option = root.querySelector('[data-installer-os="' + os + '"]');
+    if (!option) {
+      root.dataset.detectedOs = "other";
+      return false;
+    }
+
+    var label = root.querySelector("[data-hero-installer-label]");
+    var command = root.querySelector(".command");
+    var prompt = command && command.querySelector("span[aria-hidden]");
+    var code = command && command.querySelector("code");
+    var copy = command && command.querySelector("[data-copy]");
+    if (!label || !prompt || !code || !copy) {
+      return false;
+    }
+
+    label.textContent = option.dataset.installerLabel;
+    prompt.textContent = option.dataset.installerPrompt;
+    code.textContent = option.dataset.installerCommand;
+    copy.setAttribute("aria-label", "Copy " + option.dataset.installerName + " install command");
+    root.dataset.detectedOs = os;
+    return true;
+  }
+
+  function initTabs(document) {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+
+    function selectTab(index, moveFocus) {
+      tabs.forEach(function (tab, tabIndex) {
+        var selected = tabIndex === index;
+        var panel = document.getElementById(tab.getAttribute("aria-controls"));
+        tab.setAttribute("aria-selected", selected ? "true" : "false");
+        tab.tabIndex = selected ? 0 : -1;
+        if (panel) {
+          panel.hidden = !selected;
+        }
+      });
+      if (moveFocus) {
+        tabs[index].focus();
+      }
+    }
+
+    if (!tabs.length) {
+      return;
+    }
     tabs.forEach(function (tab, index) {
       tab.addEventListener("click", function () {
         selectTab(index, false);
@@ -43,10 +107,13 @@
     selectTab(0, false);
   }
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var revealGroups = document.querySelectorAll(".reveal-group");
-  if (!reduceMotion && "IntersectionObserver" in window) {
-    var observer = new IntersectionObserver(function (entries) {
+  function initReveal(document, browser) {
+    var reduceMotion = typeof browser.matchMedia === "function" && browser.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revealGroups = document.querySelectorAll(".reveal-group");
+    if (reduceMotion || !("IntersectionObserver" in browser)) {
+      return;
+    }
+    var observer = new browser.IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (!entry.isIntersecting) {
           return;
@@ -62,4 +129,16 @@
       observer.observe(group);
     });
   }
-})();
+
+  function init(document, browser) {
+    initHeroInstaller(document, browser);
+    initTabs(document);
+    initReveal(document, browser);
+  }
+
+  return {
+    detectOS: detectOS,
+    init: init,
+    initHeroInstaller: initHeroInstaller
+  };
+});

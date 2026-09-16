@@ -32,7 +32,7 @@
   <link rel="alternate" type="application/rss+xml" title="agnostic-ai target updates" href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">
   <link rel="alternate" type="text/plain" href="{{ get_url(path='llms.txt', trailing_slash=false) }}" title="llms.txt">
   <link rel="alternate" type="text/plain" href="{{ get_url(path='agent-setup.txt', trailing_slash=false) }}" title="agnostic-ai agent setup">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='30' font-weight='700'%3Ea%E2%81%B1%3C/text%3E%3C/svg%3E">
   <script src="{{ get_url(path='assets/scripts/theme.js', trailing_slash=false) }}"></script>
   <!-- Cronitor RUM -->
   <script async src="https://rum.cronitor.io/script.js"></script>
@@ -48,7 +48,7 @@
   <a class="skip-link" href="{% block skip_target %}#content{% endblock skip_target %}">{% block skip_label %}Skip to content{% endblock skip_label %}</a>
   <header class="site-header">
     <div class="wrap site-bar">
-      <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">a</span><span>agnostic-ai</span></a>
+      <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
       <nav class="site-nav" aria-label="Primary">
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with('/updates') %} aria-current="page"{% endif %}>Updates</a>
@@ -69,7 +69,7 @@
   <footer class="site-footer">
     <div class="wrap footer-grid">
       <div>
-        <a class="brand footer-brand" href="{{ get_url(path='@/_index.md') }}"><span class="brand-mark" aria-hidden="true">a</span><span>agnostic-ai</span></a>
+        <a class="brand footer-brand" href="{{ get_url(path='@/_index.md') }}"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
         <p>Write the rule once. Keep the differences visible.</p>
       </div>
       <nav aria-label="Footer">

@@ -218,23 +218,25 @@ function updateCapabilityState() {
   els.capabilitySummary.textContent = `${supportedCount} of ${capabilityByTarget.size} targets support ${kind} specs. Unsupported selections have dashed outlines and are skipped.`;
 }
 
-/* ─── Samples ─── */
+/* ─── Sample ─── */
 
-function buildSamplePicker() {
-  Object.keys(SAMPLES).forEach((kind) => {
-    const opt = document.createElement("option");
-    opt.value = kind;
-    opt.textContent = `${kind} sample`;
-    els.sample.append(opt);
-  });
-  els.sample.addEventListener("change", () => {
-    const k = els.sample.value;
-    if (!k) return;
-    els.kind.value = k;
-    els.source.value = SAMPLES[k];
-    els.sample.value = "";
-    updateCapabilityState();
-    savePrefs();
+function sampleKind(source) {
+  return Object.keys(SAMPLES).find((kind) => SAMPLES[kind] === source) || null;
+}
+
+function updateSampleAction() {
+  const kind = els.kind.value;
+  const verb = sampleKind(els.source.value) === kind ? "Reset" : "Load";
+  const label = `${verb} ${kind} sample`;
+  els.sample.textContent = label;
+  els.sample.setAttribute("aria-label", label);
+}
+
+function buildSampleAction() {
+  updateSampleAction();
+  els.sample.addEventListener("click", () => {
+    els.source.value = SAMPLES[els.kind.value];
+    updateSampleAction();
     scheduleRender();
   });
 }
@@ -422,12 +424,18 @@ async function init() {
   const capabilities = window.agnosticAICapabilities()
     .sort((a, b) => a.name.localeCompare(b.name));
   buildTargetChips(capabilities, prefs.targets);
-  buildSamplePicker();
-
   els.source.value = SAMPLES[els.kind.value] || SAMPLES.agent;
+  buildSampleAction();
 
-  els.source.addEventListener("input", scheduleRender);
+  els.source.addEventListener("input", () => {
+    updateSampleAction();
+    scheduleRender();
+  });
   els.kind.addEventListener("change", () => {
+    if (sampleKind(els.source.value)) {
+      els.source.value = SAMPLES[els.kind.value];
+    }
+    updateSampleAction();
     updateCapabilityState();
     savePrefs();
     scheduleRender();

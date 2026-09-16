@@ -40,7 +40,7 @@
     />
     <meta name="twitter:image" content="https://agnostic-ai.org/og.png" />
 
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-sans-serif,system-ui' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='30' font-weight='700'%3Ea%E2%81%B1%3C/text%3E%3C/svg%3E" />
     <script src="../assets/scripts/theme.js"></script>
     <!-- Cronitor RUM -->
     <script async src="https://rum.cronitor.io/script.js"></script>
@@ -56,7 +56,7 @@
     <a class="skip-link" href="#app">Skip to playground</a>
     <header class="site-header">
       <div class="wrap site-bar">
-        <a class="brand" href="../" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">a</span><span>agnostic-ai</span></a>
+        <a class="brand" href="../" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
         <nav class="site-nav" aria-label="Primary">
           <a href="../">Home</a>
           <a href="../updates/">Updates</a>
@@ -90,31 +90,26 @@
             <span class="dot dot-in" aria-hidden="true"></span>
             <h2>Spec source</h2>
           </div>
-          <div class="panel-actions">
-            <label class="select-wrap">
-              <span class="sr-only">Load sample</span>
-              <select id="sample" aria-label="Load sample spec">
-                <option value="">Load sample…</option>
-              </select>
-            </label>
-          </div>
         </header>
         <div class="controls">
-          <label class="field">
-            <span>Kind</span>
-            <select id="kind">
-              <option value="agent" selected>agent</option>
-              <option value="skill">skill</option>
-              <option value="rule">rule</option>
-              <option value="hook">hook</option>
-              <option value="mcp">mcp</option>
-              <option value="command">command</option>
-              <option value="settings">settings</option>
-              <option value="review">review</option>
-              <option value="environment">environment</option>
-              <option value="ignore">ignore</option>
-            </select>
-          </label>
+          <div class="kind-control">
+            <label class="field">
+              <span>Kind</span>
+              <select id="kind">
+                <option value="agent" selected>agent</option>
+                <option value="skill">skill</option>
+                <option value="rule">rule</option>
+                <option value="hook">hook</option>
+                <option value="mcp">mcp</option>
+                <option value="command">command</option>
+                <option value="settings">settings</option>
+                <option value="review">review</option>
+                <option value="environment">environment</option>
+                <option value="ignore">ignore</option>
+              </select>
+            </label>
+            <button id="sample" class="ghost sample-action" type="button">Reset agent sample</button>
+          </div>
           <fieldset id="targets" class="chips" aria-describedby="capability-summary">
             <legend>Targets</legend>
           </fieldset>
@@ -124,7 +119,7 @@
           id="source"
           spellcheck="false"
           aria-label="Spec source"
-          placeholder="Paste a spec here or pick a sample above…"
+          placeholder="Paste a spec here or load the sample for this kind…"
         ></textarea>
       </section>
 

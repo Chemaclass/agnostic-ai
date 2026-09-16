@@ -249,6 +249,9 @@ code {
   background: var(--accent);
   color: var(--accent-ink);
   font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.08em;
 }
 
 .site-nav {

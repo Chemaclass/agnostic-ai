@@ -52,7 +52,7 @@
 {% block content %}
 {% set landing = load_data(path="data/landing.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
-{% set default_installer = landing.workflow.installers | first %}
+{% set default_installer = landing.workflow.installers | filter(attribute="id", value="script") | first %}
 {% set updates_section = get_section(path="updates/_index.md") %}
 {% set latest_update = updates_section.pages | first %}
 <main id="content">
@@ -65,9 +65,10 @@
           <a class="button button-primary" href="#quickstart">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <a class="button button-secondary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.secondary_label }}</a>
         </div>
-        <div class="hero-install">
-          <p><span>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
+        <div class="hero-install" data-hero-installer>
+          <p><span data-hero-installer-label>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
           <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
+          {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
         <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
