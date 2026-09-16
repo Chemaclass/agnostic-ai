@@ -12,16 +12,19 @@
   <meta name="theme-color" content="#f7f7f6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14120f" media="(prefers-color-scheme: dark)">
   <meta property="og:type" content="{% block og_type %}website{% endblock og_type %}">
-  <meta property="og:site_name" content="agnostic-ai">
+  <meta property="og:site_name" content="agnostic-ai.org">
   <meta property="og:url" content="{{ current_url }}">
   <meta property="og:title" content="{% block og_title %}{{ config.title }}{% endblock og_title %}">
   <meta property="og:description" content="{% block og_description %}{{ config.description }}{% endblock og_description %}">
   <meta property="og:image" content="{{ config.extra.image_url }}">
+  <meta property="og:image:secure_url" content="{{ config.extra.image_url }}">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="agnostic-ai: one spec, every AI CLI">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:domain" content="agnostic-ai.org">
+  <meta name="twitter:url" content="{{ current_url }}">
   <meta name="twitter:title" content="{% block twitter_title %}{{ config.title }}{% endblock twitter_title %}">
   <meta name="twitter:description" content="{% block twitter_description %}{{ config.description }}{% endblock twitter_description %}">
   <meta name="twitter:image" content="{{ config.extra.image_url }}">

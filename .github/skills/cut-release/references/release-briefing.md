@@ -62,7 +62,7 @@ aliases = ["updates/YYYY-MM-DD-vX.Y.Z.html"]
 kind = "release"
 version = "vX.Y.Z"
 dek = "<one-paragraph editorial summary>"
-rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/YYYY-MM-DD-vX.Y.Z.html"
+rss_guid = "https://agnostic-ai.org/updates/YYYY-MM-DD-vX.Y.Z.html"
 archive_stats = "<short release summary>"
 targets = ["claude", "codex"]
 

@@ -98,6 +98,10 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	for _, required := range []string{
 		`href="../assets/styles/base.css"`,
 		`src="../assets/scripts/theme.js"`,
+		`property="og:url" content="https://agnostic-ai.org/playground/"`,
+		`property="og:site_name" content="agnostic-ai.org"`,
+		`name="twitter:domain" content="agnostic-ai.org"`,
+		`name="twitter:url" content="https://agnostic-ai.org/playground/"`,
 		`class="site-header"`,
 		`class="site-nav"`,
 		`class="theme-toggle"`,
@@ -115,6 +119,9 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	}
 	if strings.Contains(page, `class="topbar"`) || strings.Contains(page, `class="topbar-links"`) {
 		t.Error("playground still carries its separate navigation implementation")
+	}
+	if strings.Contains(page, "chemaclass.github.io/agnostic-ai") {
+		t.Error("playground still references the legacy GitHub Pages project URL")
 	}
 }
 
@@ -276,6 +283,18 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	if strings.Contains(home, "chemaclass.github.io/agnostic-ai") {
 		t.Error("home page still references the legacy GitHub Pages project URL")
+	}
+	sharingHome := strings.ReplaceAll(home, "&#x2F;", "/")
+	for _, metadata := range []string{
+		`property="og:site_name" content="agnostic-ai.org"`,
+		`property="og:url" content="https://agnostic-ai.org/"`,
+		`property="og:image:secure_url" content="https://agnostic-ai.org/og.png"`,
+		`name="twitter:domain" content="agnostic-ai.org"`,
+		`name="twitter:url" content="https://agnostic-ai.org/"`,
+	} {
+		if !strings.Contains(sharingHome, metadata) {
+			t.Errorf("home page is missing sharing metadata %q", metadata)
+		}
 	}
 }
 

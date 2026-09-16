@@ -199,7 +199,7 @@ aliases = ["updates/2026-09-22-v0.59.0.html"]
 kind = "release"
 version = "v0.59.0"
 dek = "This release article exists only inside the site build test."
-rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/2026-09-22-v0.59.0.html"
+rss_guid = "https://agnostic-ai.org/updates/2026-09-22-v0.59.0.html"
 archive_stats = "1 shipped change · 1 upstream note"
 targets = ["claude", "codex"]
 
@@ -249,7 +249,7 @@ aliases = ["updates/` + fixture.slug + `.html"]
 kind = "release"
 version = "v0.59.0-fixture"
 dek = "Fixture edition for archive filtering."
-rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/` + fixture.slug + `.html"
+rss_guid = "https://agnostic-ai.org/updates/` + fixture.slug + `.html"
 archive_stats = "1 fixture change"
 ` + fixture.targets + `
 
@@ -317,7 +317,7 @@ This temporary article exercises archive metadata.
 		}
 		lastIndex = index
 	}
-	if !strings.Contains(feed, "A temporary release briefing") || !strings.Contains(feed, "https://chemaclass.github.io/agnostic-ai/updates/2026-09-22-v0.59.0.html") {
+	if !strings.Contains(feed, "A temporary release briefing") || !strings.Contains(feed, "https://agnostic-ai.org/updates/2026-09-22-v0.59.0.html") {
 		t.Error("second post did not reach the RSS feed with its stable GUID")
 	}
 	if !strings.Contains(feed, "https://chemaclass.github.io/agnostic-ai/updates/2026-09-15.html") {
