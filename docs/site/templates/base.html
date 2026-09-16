@@ -31,6 +31,12 @@
   <link rel="alternate" type="text/plain" href="{{ get_url(path='agent-setup.txt', trailing_slash=false) }}" title="agnostic-ai agent setup">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23a8481a'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23faf8f4' font-family='ui-monospace,monospace' font-size='34' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
   <script src="{{ get_url(path='assets/scripts/theme.js', trailing_slash=false) }}"></script>
+  <!-- Cronitor RUM -->
+  <script async src="https://rum.cronitor.io/script.js"></script>
+  <script>
+    window.cronitor = window.cronitor || function() { (window.cronitor.q = window.cronitor.q || []).push(arguments); };
+    cronitor('config', { clientKey: '329b6c9d061abda36830327a5baa667a' });
+  </script>
   <link rel="stylesheet" href="{{ get_url(path='assets/styles/base.css', trailing_slash=false) }}">
   {% block styles %}{% endblock styles %}
   {% block structured_data %}{% endblock structured_data %}

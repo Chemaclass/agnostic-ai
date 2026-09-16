@@ -13,6 +13,24 @@ import (
 
 const siteDocsContentDir = "../../docs/site/content/docs"
 
+const cronitorRUMSnippet = `https://rum.cronitor.io/script.js`
+const cronitorRUMClientKey = `329b6c9d061abda36830327a5baa667a`
+
+func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
+	for _, path := range []string{
+		"../../docs/site/templates/base.html",
+		"../../docs/playground/index.html",
+	} {
+		page := readBuiltFile(t, path)
+		if !strings.Contains(page, cronitorRUMSnippet) {
+			t.Errorf("%s does not load Cronitor RUM", path)
+		}
+		if !strings.Contains(page, cronitorRUMClientKey) {
+			t.Errorf("%s does not configure the Cronitor RUM client key", path)
+		}
+	}
+}
+
 func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 	var landing struct {
 		Targets struct {
