@@ -1,6 +1,6 @@
 [hero]
-title = "One setup."
-accent_title = "Every AI CLI."
+title = "One setup"
+accent_title = "Every AI CLI"
 body = "Keep agents, skills, rules, hooks, and MCP servers in **one portable source**. agnostic-ai writes each tool's native files and checks them for drift."
 primary_label = "Install and start"
 secondary_label = "Try in the browser"
@@ -25,70 +25,10 @@ outputs = [
 [targets]
 title = "One source of truth,"
 muted_title = "25 tools, each native."
-body = "Compare ten of the broadest integrations across the configuration surfaces teams use most. **Yes** means an adapter path exists. Open a tool for defaults, opt-ins, and caveats."
-features = ["Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"]
-caption = "Permissions means portable allow, deny, and ask settings."
+body = "Seven of the most complete integrations across the surfaces teams use most. **Native** means the adapter writes that spec kind by default, **opt-in** means you turn it on."
+features = ["agent", "skill", "rule", "hook", "mcp", "command"]
+ids = ["claude", "codex", "cursor", "gemini", "junie", "augment", "copilot"]
 link_label = "See paths and all 25 targets"
-
-[[targets.matrix]]
-id = "cursor"
-name = "Cursor"
-href = "#cursor-cursor"
-support = [true, true, true, true, true, true, false]
-
-[[targets.matrix]]
-id = "claude"
-name = "Claude Code"
-href = "#claude-code-claude"
-support = [true, true, true, true, true, true, true]
-
-[[targets.matrix]]
-id = "codex"
-name = "Codex CLI"
-href = "#codex-codex"
-support = [true, true, true, true, true, true, false]
-
-[[targets.matrix]]
-id = "gemini"
-name = "Gemini CLI"
-href = "#gemini-cli-gemini"
-support = [true, true, true, true, true, true, false]
-
-[[targets.matrix]]
-id = "qoder"
-name = "Qoder"
-href = "#qoder-qoder"
-support = [true, true, true, true, true, true, true]
-
-[[targets.matrix]]
-id = "trae"
-name = "Trae"
-href = "#trae-trae"
-support = [true, true, true, true, true, true, false]
-
-[[targets.matrix]]
-id = "junie"
-name = "Junie"
-href = "#junie-junie"
-support = [true, true, true, true, false, true, false]
-
-[[targets.matrix]]
-id = "kilo"
-name = "Kilo Code"
-href = "#kilo-kilo"
-support = [true, true, true, true, false, true, false]
-
-[[targets.matrix]]
-id = "augment"
-name = "Augment Code"
-href = "#augment-augment"
-support = [true, true, true, true, true, true, false]
-
-[[targets.matrix]]
-id = "copilot"
-name = "GitHub Copilot"
-href = "#github-copilot-copilot"
-support = [true, true, true, true, true, false, false]
 
 [workflow]
 title = "Install, then sync."

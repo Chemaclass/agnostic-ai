@@ -136,26 +136,28 @@
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.targets.body | markdown | safe }}</div>
+      {% set capabilities = load_data(path="data/capabilities.toml") %}
+      {% set_global capability_columns = [] %}
+      {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set_global capability_columns = capability_columns | concat(with=loop.index0) %}{% endif %}{% endfor %}
       <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">
         <table class="capability-table">
-          <caption>{{ landing.targets.caption }}</caption>
           <thead>
             <tr>
-              <th scope="col">Tool</th>
-              {% for feature in landing.targets.features %}<th scope="col">{{ feature }}</th>{% endfor %}
+              <th scope="col">Target</th>
+              {% for column in capability_columns %}<th scope="col">{{ capabilities.features[column].label }}</th>{% endfor %}
             </tr>
           </thead>
           <tbody>
-            {% for target in landing.targets.matrix %}
+            {% for id in landing.targets.ids %}{% for target in capabilities.targets %}{% if target.id == id %}
             <tr>
-              <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.name }}</a></th>
-              {% for supported in target.support %}<td class="capability-{% if supported %}yes{% else %}no{% endif %}"><span class="capability-mobile-label">{{ landing.targets.features[loop.index0] }}</span>{% if supported %}Yes{% else %}No{% endif %}</td>{% endfor %}
+              <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.name }}<code>{{ target.id }}</code></a></th>
+              {% for column in capability_columns %}{% set status = target.statuses[column] %}<td><span class="capability-mobile-label">{{ capabilities.features[column].label }}</span><span class="capability-state capability-state-{{ status }}">{% for state in capabilities.states %}{% if state.id == status %}{{ state.label }}{% endif %}{% endfor %}</span></td>{% endfor %}
             </tr>
-            {% endfor %}
+            {% endif %}{% endfor %}{% endfor %}
           </tbody>
         </table>
       </div>
-      <p class="target-reference"><a href="{{ get_url(path='@/docs/targets.md') }}">{{ landing.targets.link_label }}</a></p>
+      <p class="target-reference"><a href="{{ get_url(path='@/docs/targets.md') }}#capability-matrix">{{ landing.targets.link_label }}</a></p>
     </div>
   </section>
 

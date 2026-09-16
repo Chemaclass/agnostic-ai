@@ -67,20 +67,52 @@
   {% block content %}{% endblock content %}
 
   <footer class="site-footer">
-    <div class="wrap footer-grid">
-      <div>
+    <div class="wrap footer-top">
+      <div class="footer-brand-col">
         <a class="brand footer-brand" href="{{ get_url(path='@/_index.md') }}"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
-        <p>Write the rule once. Keep the differences visible.</p>
-        <p class="footer-version">Latest stable release <a href="{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}">{{ config.extra.version }}</a></p>
+        <p class="footer-tagline">Write the rule once. Keep the differences visible.</p>
+        <div class="footer-social">
+          <a class="footer-social-link" href="{{ config.extra.repository_url }}" aria-label="agnostic-ai on GitHub">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
+          </a>
+          <a class="footer-social-link" href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}" aria-label="Target updates RSS feed">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 11.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5ZM1 6.6a8.4 8.4 0 0 1 8.4 8.4h2.3A10.7 10.7 0 0 0 1 4.3v2.3ZM1 2a13 13 0 0 1 13 13h2.3C16.3 6.6 10.4 0 1 0v2Z"/></svg>
+          </a>
+        </div>
       </div>
-      <nav aria-label="Footer">
-        <a href="{{ get_url(path='@/_index.md') }}">Home</a>
-        <a href="{{ get_url(path='@/updates/_index.md') }}">Updates</a>
-        <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
-        <a href="{{ get_url(path='@/docs/_index.md') }}">Docs</a>
-        <a href="{{ config.extra.repository_url }}">GitHub</a>
-        <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">RSS</a>
+      <nav class="footer-nav" aria-label="Footer">
+        <div class="footer-col">
+          <h2 class="footer-col-title">Explore</h2>
+          <ul>
+            <li><a href="{{ get_url(path='@/docs/_index.md') }}">Docs</a></li>
+            <li><a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a></li>
+            <li><a href="{{ get_url(path='@/updates/_index.md') }}">Updates</a></li>
+            <li><a href="{{ get_url(path='@/docs/why.md') }}">Why agnostic-ai</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h2 class="footer-col-title">Start</h2>
+          <ul>
+            <li><a href="{{ get_url(path='@/docs/installation.md') }}">Installation</a></li>
+            <li><a href="{{ get_url(path='@/docs/getting-started.md') }}">Getting started</a></li>
+            <li><a href="{{ get_url(path='@/docs/configuration.md') }}">Configuration</a></li>
+            <li><a href="{{ get_url(path='@/docs/targets.md') }}">Targets</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h2 class="footer-col-title">Project</h2>
+          <ul>
+            <li><a href="{{ config.extra.repository_url }}">GitHub</a></li>
+            <li><a href="{{ config.extra.repository_url }}/releases">Releases</a></li>
+            <li><a href="{{ config.extra.repository_url }}/issues">Issues</a></li>
+            <li><a href="{{ config.extra.repository_url }}/blob/main/LICENSE">MIT License</a></li>
+          </ul>
+        </div>
       </nav>
+    </div>
+    <div class="wrap footer-bottom">
+      <p class="footer-credit">Built by <a href="{{ config.extra.author_url }}" rel="me">{{ config.author }}</a></p>
+      <p class="footer-version">Latest stable release <a href="{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}">{{ config.extra.version }}</a></p>
     </div>
   </footer>
   <script src="{{ get_url(path='assets/scripts/copy.js', trailing_slash=false) }}" defer></script>

@@ -40,76 +40,58 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 	}
 }
 
-func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
+func TestSiteDocs_LandingCapabilityMatrixSelectsKnownTargets(t *testing.T) {
 	var landing struct {
 		Targets struct {
 			Features []string `toml:"features"`
-			Matrix   []struct {
-				ID      string `toml:"id"`
-				Href    string `toml:"href"`
-				Support []bool `toml:"support"`
-			} `toml:"matrix"`
+			IDs      []string `toml:"ids"`
 		} `toml:"targets"`
 	}
 	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
 		t.Fatalf("decode landing data: %v", err)
 	}
-	var targetReference struct {
+	var reference struct {
+		Features []struct {
+			ID string `toml:"id"`
+		} `toml:"features"`
 		Targets []struct {
-			ID   string `toml:"id"`
-			Href string `toml:"href"`
+			ID string `toml:"id"`
 		} `toml:"targets"`
 	}
-	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &targetReference); err != nil {
+	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &reference); err != nil {
 		t.Fatalf("decode target capability data: %v", err)
 	}
-	targetHrefs := make(map[string]string, len(targetReference.Targets))
-	for _, target := range targetReference.Targets {
-		targetHrefs[target.ID] = target.Href
+
+	knownFeatures := make(map[string]bool, len(reference.Features))
+	for _, feature := range reference.Features {
+		knownFeatures[feature.ID] = true
+	}
+	knownTargets := make(map[string]bool, len(reference.Targets))
+	for _, target := range reference.Targets {
+		knownTargets[target.ID] = true
 	}
 
-	wantFeatures := []string{"Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"}
+	wantFeatures := []string{"agent", "skill", "rule", "hook", "mcp", "command"}
 	if strings.Join(landing.Targets.Features, ",") != strings.Join(wantFeatures, ",") {
-		t.Fatalf("capability features = %v, want %v", landing.Targets.Features, wantFeatures)
+		t.Fatalf("landing capability features = %v, want %v", landing.Targets.Features, wantFeatures)
 	}
-	if len(landing.Targets.Matrix) != 10 {
-		t.Fatalf("capability matrix has %d targets, want 10", len(landing.Targets.Matrix))
+	for _, feature := range landing.Targets.Features {
+		if !knownFeatures[feature] {
+			t.Errorf("landing capability feature %q is not in the target reference", feature)
+		}
 	}
 
-	capabilitiesRE := regexp.MustCompile(`Supports:\s*\[\]spec\.Kind\{([^}]*)\}`)
-	kinds := []string{"Rule", "Agent", "Skill", "MCP", "Hook", "Command"}
-	// Permissions are a Settings field, not a spec kind. These adapters map the portable allow, deny, and ask lists.
-	permissionTargets := map[string]bool{"claude": true, "qoder": true}
-	selected := make(map[string]bool, len(landing.Targets.Matrix))
-
-	for _, target := range landing.Targets.Matrix {
-		if selected[target.ID] {
-			t.Errorf("capability matrix repeats %s", target.ID)
+	if len(landing.Targets.IDs) != 7 {
+		t.Fatalf("landing capability matrix has %d targets, want 7", len(landing.Targets.IDs))
+	}
+	selected := make(map[string]bool, len(landing.Targets.IDs))
+	for _, id := range landing.Targets.IDs {
+		if selected[id] {
+			t.Errorf("landing capability matrix repeats %s", id)
 		}
-		selected[target.ID] = true
-		if want := targetHrefs[target.ID]; target.Href != want {
-			t.Errorf("%s detail href = %q, target reference uses %q", target.ID, target.Href, want)
-		}
-		if len(target.Support) != len(wantFeatures) {
-			t.Errorf("%s has %d feature cells, want %d", target.ID, len(target.Support), len(wantFeatures))
-			continue
-		}
-
-		source := readBuiltFile(t, filepath.Join("../../internal/adapters", target.ID, target.ID+".go"))
-		match := capabilitiesRE.FindStringSubmatch(source)
-		if len(match) != 2 {
-			t.Fatalf("find declared capabilities for %s", target.ID)
-		}
-		declared := match[1]
-
-		for index, kind := range kinds {
-			want := strings.Contains(declared, "spec.Kind"+kind)
-			if target.Support[index] != want {
-				t.Errorf("%s %s support = %t, adapter says %t", target.ID, wantFeatures[index], target.Support[index], want)
-			}
-		}
-		if target.Support[len(target.Support)-1] != permissionTargets[target.ID] {
-			t.Errorf("%s portable permissions support = %t, want %t", target.ID, target.Support[len(target.Support)-1], permissionTargets[target.ID])
+		selected[id] = true
+		if !knownTargets[id] {
+			t.Errorf("landing capability matrix contains unknown target %s", id)
 		}
 	}
 }

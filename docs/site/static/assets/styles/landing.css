@@ -27,7 +27,7 @@ main > section[id] {
 }
 
 .hero h1 {
-  max-width: 12ch;
+  max-width: 14ch;
   font-family: var(--mono);
   font-size: clamp(2.6rem, 7vw, 5.25rem);
   font-weight: 760;
@@ -229,52 +229,108 @@ main > section[id] {
 .capability-table-wrap {
   overflow-x: auto;
   margin-top: 2.25rem;
-  border-block: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
   scrollbar-color: var(--muted) var(--surface);
 }
 
 .capability-table {
   width: 100%;
-  min-width: 50rem;
+  min-width: 46rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
 .capability-table th,
 .capability-table td {
-  padding: 0.62rem 0.7rem;
+  padding: 0.7rem;
   border-bottom: 1px solid var(--line-soft);
-  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .capability-table thead th {
-  color: var(--muted);
+  padding-block: 0.85rem;
+  border-bottom-color: var(--line);
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 0.69rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .capability-table th:first-child {
+  width: 12rem;
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--surface);
   text-align: left;
 }
 
-.capability-table th:first-child a {
-  color: var(--ink);
-  text-decoration-color: transparent;
+.capability-table tbody tr:hover th,
+.capability-table tbody tr:hover td {
+  background: var(--surface-quiet);
 }
 
-.capability-table th:first-child a:hover {
+.capability-table th[scope="row"] a {
+  display: grid;
+  gap: 0.1rem;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.capability-table th[scope="row"] a:hover {
   color: var(--accent);
-  text-decoration-color: currentColor;
+}
+
+.capability-table th[scope="row"] code {
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+
+.capability-state {
+  min-height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-quiet);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.capability-state-opt-in {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.capability-state-mapped {
+  border-style: dashed;
+}
+
+.capability-state-source,
+.capability-state-no {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.capability-state-no {
+  border-color: transparent;
 }
 
 .capability-mobile-label {
@@ -284,23 +340,6 @@ main > section[id] {
 .capability-table tbody tr:last-child th,
 .capability-table tbody tr:last-child td {
   border-bottom: 0;
-}
-
-.capability-yes {
-  color: var(--good);
-  font-weight: 700;
-}
-
-.capability-no {
-  color: var(--muted);
-}
-
-.capability-table caption {
-  caption-side: bottom;
-  padding-top: 0.8rem;
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-align: left;
 }
 
 .target-reference {
@@ -587,10 +626,14 @@ main > section[id] {
   .command {
     font-size: 0.72rem;
   }
+}
 
+@media (max-width: 760px) {
   .capability-table-wrap {
     overflow: visible;
-    border-block: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .capability-table,
@@ -613,16 +656,25 @@ main > section[id] {
   }
 
   .capability-table tr {
-    padding-block: 0.65rem;
-    border-top: 1px solid var(--line);
+    margin-bottom: 0.75rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+  }
+
+  .capability-table tbody tr:hover th,
+  .capability-table tbody tr:hover td {
+    background: transparent;
   }
 
   .capability-table th:first-child {
     position: static;
-    padding: 0.55rem 0;
-    border: 0;
+    width: auto;
+    padding: 0 0 0.6rem;
+    border-bottom: 1px solid var(--line-soft);
     background: transparent;
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .capability-table td {
@@ -630,8 +682,12 @@ main > section[id] {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.35rem 0;
+    padding: 0.32rem 0;
     border: 0;
+  }
+
+  .capability-table tbody tr:last-child th {
+    border-bottom: 1px solid var(--line-soft);
   }
 
   .capability-mobile-label {
@@ -640,10 +696,8 @@ main > section[id] {
     font-family: var(--mono);
     font-size: 0.68rem;
     font-weight: 700;
-  }
-
-  .capability-table caption {
-    display: block;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 }
 
