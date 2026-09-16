@@ -29,7 +29,7 @@ main > section[id] {
 .hero h1 {
   max-width: 14ch;
   font-family: var(--mono);
-  font-size: clamp(2.6rem, 7vw, 5.25rem);
+  font-size: clamp(2.6rem, 6.2vw, 5rem);
   font-weight: 760;
   letter-spacing: -0.035em;
 }
