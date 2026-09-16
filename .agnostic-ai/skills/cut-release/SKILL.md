@@ -23,7 +23,10 @@ The user asks to release, tag, ship, or cut a new version.
    - minor: additive features
    - major: breaking changes
 4. Update `CHANGELOG.md`: drop empty `### ` subsections from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
-5. Bump `version` in `cmd/agnostic-ai/main.go`.
+5. Bump `version` in `cmd/agnostic-ai/main.go` and `extra.version` in
+   `docs/site/config.toml`. The site footer publishes that value, and
+   `make site-test` fails when either disagrees with the latest dated
+   changelog section.
 6. Immediately before the release commit, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
    follow [references/release-briefing.md](references/release-briefing.md).

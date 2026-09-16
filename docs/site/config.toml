@@ -23,5 +23,6 @@ anchors = "on"
 
 [extra]
 repository_url = "https://github.com/Chemaclass/agnostic-ai"
+version = "v0.59.0"
 image_url = "https://agnostic-ai.org/og.png"
 agent_setup_prompt = "Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed."

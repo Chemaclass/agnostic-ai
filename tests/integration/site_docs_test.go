@@ -489,3 +489,41 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 		}
 	}
 }
+
+func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
+	t.Parallel()
+
+	var config struct {
+		Extra struct {
+			Version string `toml:"version"`
+		} `toml:"extra"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/config.toml", &config); err != nil {
+		t.Fatalf("parse site config: %v", err)
+	}
+	published := config.Extra.Version
+	if published == "" {
+		t.Fatal("the site config publishes no version")
+	}
+
+	binary := regexp.MustCompile(`var version = "([^"]+)"`).FindStringSubmatch(readBuiltFile(t, "../../cmd/agnostic-ai/main.go"))
+	if binary == nil {
+		t.Fatal("cmd/agnostic-ai/main.go declares no version")
+	}
+	if want := "v" + binary[1]; published != want {
+		t.Errorf("footer version = %q, binary version = %q", published, want)
+	}
+
+	released := regexp.MustCompile(`(?m)^## (v\S+) - \d{4}-\d{2}-\d{2}$`).FindStringSubmatch(readBuiltFile(t, "../../CHANGELOG.md"))
+	if released == nil {
+		t.Fatal("CHANGELOG.md has no dated release section")
+	}
+	if published != released[1] {
+		t.Errorf("footer version = %q, latest changelog section = %q", published, released[1])
+	}
+
+	footer := readBuiltFile(t, "../../docs/site/templates/base.html")
+	if !strings.Contains(footer, `{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}`) {
+		t.Error("the footer does not link its version to the matching GitHub release")
+	}
+}
