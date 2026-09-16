@@ -1060,12 +1060,12 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	if err := validateMCPNames(names); err != nil {
+		return 0, err
+	}
 
 	count := 0
 	for _, name := range names {
-		if err := spec.ValidateName(spec.KindMCP, name); err != nil {
-			return count, err
-		}
 		s := servers[name]
 		doc := map[string]any{"name": name}
 		switch {

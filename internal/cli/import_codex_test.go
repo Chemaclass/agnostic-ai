@@ -691,7 +691,7 @@ auth = "oauth"
 	}
 }
 
-func TestImportFromCodex_MCPPackageNameRoundTrips(t *testing.T) {
+func TestImportFromCodex_MCPPackageNameImportsAndLoads(t *testing.T) {
 	dir := t.TempDir()
 	want := "npm:@modelcontextprotocol/server-sequential.thinking"
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking"]
