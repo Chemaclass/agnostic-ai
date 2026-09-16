@@ -64,3 +64,32 @@ func (s *Session) WriteSkillFolders(skills []spec.Entry, target, skillsDir strin
 	}
 	return nil
 }
+
+// ScopedSkillsDir places a target's native skills directory below the
+// canonical source scope. A skill at `skills/backend/review/SKILL.md`
+// therefore reaches `backend/<native-skills-dir>/review/SKILL.md`.
+func ScopedSkillsDir(scope, skillsDir string) (string, error) {
+	if scope == "" {
+		return skillsDir, nil
+	}
+	dir := filepath.Join(filepath.FromSlash(scope), skillsDir)
+	if err := CheckScopePath(dir); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// WriteScopedSkillFolders writes every skill into the native skills tree
+// rooted at its canonical scope.
+func (s *Session) WriteScopedSkillFolders(skills []spec.Entry, target, skillsDir string, dryRun bool) error {
+	for _, skill := range skills {
+		dir, err := ScopedSkillsDir(skill.Scope, skillsDir)
+		if err != nil {
+			return err
+		}
+		if err := s.WriteSkillFolder(skill, target, dir, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -165,7 +165,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	if codexEmitsSkills(cfg) {
 		for _, s := range b.Skills {
-			if err := emitSkill(sess, s, skillsDir, dryRun); err != nil {
+			dir, err := emit.ScopedSkillsDir(s.Scope, skillsDir)
+			if err != nil {
+				return err
+			}
+			if err := emitSkill(sess, s, dir, dryRun); err != nil {
 				return err
 			}
 		}

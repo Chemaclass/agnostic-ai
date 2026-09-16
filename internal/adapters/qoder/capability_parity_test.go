@@ -34,6 +34,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindCommand, []string{".qoder/commands/cmd-one.md", ".qoder/commands/cmd-two.md", ".qoder/commands/cmd-three.md"}},
 		{spec.KindMCP, []string{".qoder/settings.json"}},
 		{spec.KindHook, []string{".qoder/settings.json"}},
+		{spec.KindSettings, []string{".qoder/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -70,8 +71,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind qoder does not declare in caps.Supports (Settings): Command
-// moved out of this set once `.qoder/commands/` landed (#630); a future
+// every kind qoder does not declare in caps.Supports (Review): Command
+// and Settings moved out of this set once their native surfaces landed; a future
 // caps.Supports expansion needs to delete the matching row here and
 // demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -80,13 +81,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
+		{Kind: spec.KindReview, Name: "review", Path: "reviews/review.md", Body: "Review changes."},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (settings), got %d", got)
+		t.Errorf("expected 1 capability warning (review), got %d", got)
 	}
 }
 

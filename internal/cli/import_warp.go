@@ -35,7 +35,7 @@ func importFromWarp(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(filepath.Join(root, ".agents", "skills"), filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFolders(root, filepath.Join(".agents", "skills"), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

@@ -82,7 +82,7 @@ Create directory-specific instructions with `agnostic-ai new rule payments-conte
 
 Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 targets](https://chemaclass.github.io/agnostic-ai/docs/targets/#capability-matrix). Support varies by spec kind. The target reference lists each tool's capabilities, output paths, and opt-in settings.
 
-Native output includes Claude and Cursor prompt hooks, Goose review instructions, and Crush/Kilo ignore files. VS Code MCP sync retains `inputs`, `sandbox`, and other sibling settings. MCP options preserve each target's documented connection settings; imports also cover Continue JSONC and shared skill folders for Zed, Warp, and Antigravity.
+Native output includes Claude and Cursor prompt hooks, Goose hook plugins and review instructions, and ignore files for ten targets. Settings can share a default model across Claude, OpenCode, Junie, Qoder, and Kilo, with Qoder also receiving shared permissions. Directory-scoped skills stay scoped on Codex, Cursor, Warp, and OpenCode. VS Code MCP sync retains `inputs`, `sandbox`, and other sibling settings.
 
 The [AI tooling updates](https://chemaclass.github.io/agnostic-ai/updates/) archive filters complete release briefings by target and search terms. Filter state stays in the URL for bookmarks and sharing, while the full archive remains readable without JavaScript.
 

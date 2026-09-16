@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "developer__shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "gofmt -w",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

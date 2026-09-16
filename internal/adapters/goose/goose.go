@@ -37,6 +37,11 @@
 // are also discovered but not written here. Agent specs are unsupported
 // by this adapter (tracked separately), so caps.Supports omits KindAgent.
 //
+// Hooks emit as an Open Plugins package under
+// `.agents/plugins/agnostic-ai/`: a required `plugin.json` manifest plus
+// `hooks/hooks.json`. `outputs.goose.hooks-file` can move the hook file;
+// the manifest follows at the parent plugin root.
+//
 // Reviews emit plain bodies to .agents/REVIEW.md at the root and in each
 // scope, with same-scope specs concatenated. goose review composes changed-
 // file directories and their ancestors. outputs.goose.review-file overrides
@@ -59,7 +64,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindSkill, spec.KindReview},
+	Supports: []spec.Kind{spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindReview},
 }
 
 // Adapter emits Goose configs.
@@ -96,6 +101,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitScopedRulesFiles(sess, scoped, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	return emitReviews(sess, b.Reviews, cfg, dryRun)

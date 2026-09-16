@@ -33,6 +33,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindHook, []string{".agents/plugins/agnostic-ai/hooks/hooks.json", ".agents/plugins/agnostic-ai/plugin.json"}},
 		{spec.KindReview, []string{".agents/REVIEW.md"}},
 		{spec.KindRule, []string{".goosehints"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
@@ -72,8 +73,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind goose does not declare in caps.Supports (Agent, Hook,
-// MCP). A future caps.Supports expansion needs to delete the matching
+// every kind goose does not declare in caps.Supports (Agent and MCP).
+// A future caps.Supports expansion needs to delete the matching
 // row here and demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
@@ -82,14 +83,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "helper body"},
-		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
 		{Kind: spec.KindMCP, Name: "stdio-server", Meta: map[string]any{"command": "npx"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (agent/hook/mcp), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (agent/mcp), got %d", got)
 	}
 }
 

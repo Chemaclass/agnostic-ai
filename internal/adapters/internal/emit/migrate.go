@@ -31,6 +31,22 @@ import (
 // values, so a JSONC input keeps every key and loses every comment.
 // The user hears about that once, on the sync that drops them (#725).
 func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
+	return s.mergeJSONFile(path, keys, nil, dryRun)
+}
+
+// MergeJSONFileNested merges the named object keys one level deep while
+// replacing every other managed key. It is for settings objects where the
+// adapter owns a portable child such as model.name but must preserve native
+// sibling fields in the same object.
+func (s *Session) MergeJSONFileNested(path string, keys map[string]any, nestedKeys []string, dryRun bool) error {
+	nested := make(map[string]bool, len(nestedKeys))
+	for _, key := range nestedKeys {
+		nested[key] = true
+	}
+	return s.mergeJSONFile(path, keys, nested, dryRun)
+}
+
+func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[string]bool, dryRun bool) error {
 	doc, err := s.readExistingJSON(path, dryRun)
 	if err != nil {
 		return err
@@ -41,7 +57,11 @@ func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) e
 	}
 	sort.Strings(names)
 	for _, k := range names {
-		if err := doc.Set(k, keys[k]); err != nil {
+		value := keys[k]
+		if nested[k] {
+			value = mergeJSONObject(doc, k, value)
+		}
+		if err := doc.Set(k, value); err != nil {
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
 		}
 	}
@@ -50,6 +70,21 @@ func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) e
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
 	return s.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
+	incoming, ok := value.(map[string]any)
+	if !ok {
+		return value
+	}
+	existing := map[string]any{}
+	if raw, found := doc.Get(key); found {
+		_ = json.Unmarshal(raw, &existing)
+	}
+	for child, childValue := range incoming {
+		existing[child] = childValue
+	}
+	return existing
 }
 
 // readExistingJSON parses path as an OrderedJSON, accepting JSONC.

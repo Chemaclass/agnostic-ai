@@ -6,9 +6,66 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
+
+// importScopedSkillFolders discovers the target's native skill directory at
+// the repository root and below every project subdirectory. The prefix before
+// the native directory becomes the canonical skill scope.
+type scopedSkillDir struct {
+	path  string
+	scope string
+}
+
+func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
+	nativeDir = filepath.ToSlash(filepath.Clean(nativeDir))
+	var found []scopedSkillDir
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() {
+			return nil
+		}
+		if path != root && (entry.Name() == ".git" || entry.Name() == ".agnostic-ai") {
+			return filepath.SkipDir
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if rel != nativeDir && !strings.HasSuffix(rel, "/"+nativeDir) {
+			return nil
+		}
+		scope := strings.TrimSuffix(rel, nativeDir)
+		scope = strings.TrimSuffix(scope, "/")
+		found = append(found, scopedSkillDir{path: path, scope: scope})
+		return filepath.SkipDir
+	})
+	if err != nil {
+		return nil, fmt.Errorf("discover scoped skills under %s: %w", root, err)
+	}
+	return found, nil
+}
+
+func importScopedSkillFolders(root, nativeDir, dstDir string) (int, error) {
+	dirs, err := findScopedSkillDirs(root, nativeDir)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, dir := range dirs {
+		imported, err := importSkillFolders(dir.path, filepath.Join(dstDir, filepath.FromSlash(dir.scope)))
+		if err != nil {
+			return count, err
+		}
+		count += imported
+	}
+	return count, nil
+}
 
 // importSkillFolders copies each `<srcDir>/<name>/` directory tree that
 // contains a SKILL.md into `<dstDir>/<name>/` byte-for-byte, so a

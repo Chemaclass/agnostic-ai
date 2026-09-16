@@ -86,7 +86,7 @@ var targetVarPaths = map[string]map[string]string{
 	},
 	"augment": {
 		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".augment/agents",
-		emit.VarRulesDir: ".augment/rules",
+		emit.VarCommandsDir: ".augment/commands", emit.VarRulesDir: ".augment/rules",
 	},
 	"qoder": {
 		emit.VarSkillsDir: ".qoder/skills", emit.VarAgentsDir: ".qoder/agents",
@@ -96,7 +96,8 @@ var targetVarPaths = map[string]map[string]string{
 		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: "config.toml",
 	},
 	"factory": {
-		emit.VarAgentsDir: ".factory/droids", emit.VarMCPFile: ".factory/mcp.json",
+		emit.VarAgentsDir: ".factory/droids", emit.VarCommandsDir: ".factory/commands",
+		emit.VarMCPFile: ".factory/mcp.json",
 	},
 	"kilo": {
 		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".kilo/agents",

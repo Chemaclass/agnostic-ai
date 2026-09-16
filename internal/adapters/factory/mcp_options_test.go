@@ -2,7 +2,10 @@ package factory
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -10,6 +13,33 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestEmit_MCPRejectsWebSocketTransport(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "socket", Meta: map[string]any{"type": "ws", "url": "wss://example.test/mcp"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory/mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("WebSocket-only input must not write Factory MCP config, err=%v", err)
+	}
+	if emit.PendingCoverageNotesCount() != 1 {
+		t.Fatalf("expected one coverage note for WebSocket transport")
+	}
+	buf := &strings.Builder{}
+	previous := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = previous })
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "WebSocket transport is not supported") {
+		t.Errorf("coverage note does not explain the rejected transport: %s", buf.String())
+	}
+}
 
 func TestEmit_MCPPreservesFactoryControls(t *testing.T) {
 	testutil.TempCwd(t)

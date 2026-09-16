@@ -68,6 +68,38 @@ func TestEmit_Rule_WritesNativeRulesDirByDefault(t *testing.T) {
 	}
 }
 
+func TestEmit_CommandPreservesNamespaceAndFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{
+		Kind: spec.KindCommand, Name: "review", Scope: "git",
+		Meta: map[string]any{"description": "Review changes", "argument-hint": "[base]", "model": "example", "x-augment": map[string]any{"color": "blue"}},
+		Body: "Review $ARGUMENTS.",
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augment/commands/git/review.md"))
+	for _, want := range []string{"description: Review changes", `argument-hint: "[base]"`, "model: example", "color: blue", "Review $ARGUMENTS."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_IgnoreWritesAugmentIgnore(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "private", Body: "private/\n*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".augmentignore"))
+	for _, want := range []string{"private/", "*.env"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 // A description is optional at the always_apply default (the vendor
 // only requires one for agent_requested), but still passes through
 // when the author sets it.

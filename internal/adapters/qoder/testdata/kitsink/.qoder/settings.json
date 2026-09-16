@@ -68,5 +68,13 @@
       "timeout": 4500,
       "trust": true
     }
+  },
+  "model": {
+    "name": "example"
+  },
+  "permissions": {
+    "allow": [
+      "Read(**)"
+    ]
   }
 }

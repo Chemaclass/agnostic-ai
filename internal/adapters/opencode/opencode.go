@@ -24,6 +24,8 @@
 // assets; `outputs.opencode.emit-skills-as-commands: true` additionally
 // writes the command form. Command specs emit at
 // `.opencode/commands/<name>.md`.
+// Settings specs merge their last non-empty `model` into the project
+// `opencode.json` file without replacing unrelated native keys.
 package opencode
 
 import (
@@ -58,7 +60,7 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings},
 }
 
 // Adapter emits OpenCode configs.
@@ -93,7 +95,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteScopedSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -104,7 +106,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitProjectConfig(sess, b.MCPs, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -127,16 +129,20 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 
 // emitMCPConfig writes (or merges into) opencode.json with the `mcp`
 // map and a `$schema` link. Routes through emit.MergeJSONFile so any
-// pre-existing user-managed keys (theme, model, ...) survive the sync;
-// only `$schema` and `mcp` are overwritten.
-func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	if len(mcps) == 0 {
+// pre-existing user-managed keys (theme, small_model, ...) survive the
+// sync; only `$schema`, `mcp`, and the portable `model` field are owned.
+func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path string, dryRun bool) error {
+	if len(mcps) == 0 && emit.LastSettingsModel(settings) == "" {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{
-		"$schema": opencodeSchemaURL,
-		"mcp":     buildMCPMap(mcps),
-	}, dryRun)
+	keys := map[string]any{"$schema": opencodeSchemaURL}
+	if len(mcps) > 0 {
+		keys["mcp"] = buildMCPMap(mcps)
+	}
+	if model := emit.LastSettingsModel(settings); model != "" {
+		keys["model"] = model
+	}
+	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
 // buildMCPMap maps spec MCP entries to OpenCode's `mcp` schema:

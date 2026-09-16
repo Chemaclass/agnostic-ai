@@ -93,7 +93,7 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r-always.md"),
 		"---\nname: r-always\n---\n\nAlways rule body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "my-agent.md"),
-		"---\nname: my-agent\n---\n\nAgent body here.\n")
+		"---\nname: my-agent\nx-kiro:\n  name: Display Agent\n---\n\nAgent body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"),
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"),
@@ -130,13 +130,10 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	if strings.Contains(rAlways, "globs:") {
 		t.Errorf("always rule should be unscoped (no globs):\n%s", rAlways)
 	}
-	// Agent round-trips through the native `.kiro/agents/` surface.
-	// Kiro's agent frontmatter carries no `name:` key, so the file must
-	// land at the exact `my-agent.md` path for spec loading's filename
-	// fallback to recover the identity; readFile itself fails the test
-	// if the path is wrong.
+	// Agent round-trips through the native `.kiro/agents/` surface. The
+	// filename remains the canonical identity.
 	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "my-agent.md"))
-	if !strings.Contains(agent, "Agent body here.") {
+	if !strings.Contains(agent, "Agent body here.") || !strings.Contains(agent, "x-kiro:") || !strings.Contains(agent, "name: Display Agent") {
 		t.Errorf("agent not reconstructed:\n%s", agent)
 	}
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
@@ -156,6 +153,31 @@ func TestImportKiro_RoundTripFixedPoint(t *testing.T) {
 	execCLI(t, "sync", "-t", "kiro")
 	second := snapshotEmitted(t, dir)
 	assertEmittedEqual(t, first, second)
+}
+
+func TestImportKiroAgent_PreservesDisplayNameSeparatelyFromPath(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "safe-id.md"), "---\nname: Display Name\ndescription: Reviews code.\n---\n\nReview changes.\n")
+	dst := filepath.Join(dir, ".agnostic-ai/agents")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	count, err := importKiroAgents(dir, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("count = %d, want 1", count)
+	}
+	got := readFile(t, filepath.Join(dst, "safe-id.md"))
+	for _, want := range []string{"x-kiro:", "name: Display Name", "description: Reviews code.", "Review changes."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in imported agent:\n%s", want, got)
+		}
+	}
+	if strings.HasPrefix(got, "---\nname: Display Name") {
+		t.Errorf("display name replaced the canonical filename identity:\n%s", got)
+	}
 }
 
 // TestImportKiro_NativeSkillFolderWinsOverLegacySteeringFile covers a

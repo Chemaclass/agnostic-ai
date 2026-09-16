@@ -130,7 +130,7 @@ func EntryPointBody(cfg *config.Config) string {
 	writeSourceBulletWithSuffix(&b, "Hooks", s.Hooks, " (rendered into the target-native location)")
 	writeSourceBullet(&b, "MCP servers", s.MCPs)
 	writeSourceBullet(&b, "Commands", s.Commands)
-	writeSourceBulletWithSuffix(&b, "Settings", s.Settings, " (permissions, model; Claude only today)")
+	writeSourceBulletWithSuffix(&b, "Settings", s.Settings, " (portable model and permission defaults where targets support them)")
 	writeSourceBulletWithSuffix(&b, "Reviews", s.Reviews, " (code-review bot guidance; Cursor BUGBOT.md today)")
 	writeSourceBulletWithSuffix(&b, "Environments", s.Environments, " (dev-env bootstrap; Cursor environment.json today)")
 	writeSourceBulletWithSuffix(&b, "Ignore", s.Ignore, " (agent ignore patterns; .cursorignore, .geminiignore, .aiderignore)")

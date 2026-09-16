@@ -49,7 +49,7 @@ const (
 // `opencode.json`) under root and writes specs into the configured
 // source directories.
 func importFromOpencode(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Settings); err != nil {
 		return err
 	}
 	rules, err := importOpencodeRules(root, filepath.Join(root, src.Rules))
@@ -60,7 +60,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(filepath.Join(root, opencodeSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFolders(root, opencodeSkillsDir, filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -72,10 +72,14 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	settings, err := importPortableSettings(root, opencodeMCPFile, filepath.Join(root, src.Settings), false, false)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, opencodeMainFile(root)); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps\n", rules, agents, skills, commands, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d settings\n", rules, agents, skills, commands, mcps, settings)
 	printImportNextSteps(root, "opencode")
 	return nil
 }

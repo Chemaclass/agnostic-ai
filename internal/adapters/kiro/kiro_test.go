@@ -127,7 +127,7 @@ func TestEmit_Agent_WritesNativeAgentFile(t *testing.T) {
 		}
 	}
 	if strings.Contains(body, "name:") {
-		t.Errorf("kiro's agent schema has no name key; identity comes from the filename, got:\n%s", body)
+		t.Errorf("generic spec name must stay filename-based unless x-kiro.name sets a display name, got:\n%s", body)
 	}
 }
 
@@ -330,11 +330,9 @@ func TestEmit_Agent_XKiroToolsOverridePassesThrough(t *testing.T) {
 	}
 }
 
-// x-kiro cannot resurrect name: Kiro's agent schema has no such key, so
-// identity must stay tied to the filename even through the escape
-// hatch. x-kiro.model, which is a documented field, still passes
-// through.
-func TestEmit_Agent_XKiroCannotReintroduceName(t *testing.T) {
+// Kiro derives a default display name from the filename, but an explicit
+// native name remains distinct from the canonical spec identifier.
+func TestEmit_Agent_XKiroPreservesDisplayName(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -351,8 +349,8 @@ func TestEmit_Agent_XKiroCannotReintroduceName(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".kiro/agents/alpha.md"))
-	if strings.Contains(got, "name:") {
-		t.Errorf("x-kiro must not reintroduce name, got:\n%s", got)
+	if !strings.Contains(got, "name: override") {
+		t.Errorf("expected x-kiro display name to pass through, got:\n%s", got)
 	}
 	if !strings.Contains(got, "model: opus") {
 		t.Errorf("expected x-kiro.model to pass through, got:\n%s", got)

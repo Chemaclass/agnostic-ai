@@ -36,6 +36,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".opencode/skills/uno/SKILL.md", ".opencode/skills/dos/SKILL.md", ".opencode/skills/tres/SKILL.md"}},
 		{spec.KindRule, []string{"AGENTS-rules.md"}},
 		{spec.KindMCP, []string{"opencode.json"}},
+		{spec.KindSettings, []string{"opencode.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -84,13 +85,12 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
-		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
-		t.Errorf("expected 2 capability warnings (hook/settings), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
+		t.Errorf("expected 1 capability warning (hook), got %d", got)
 	}
 }
 

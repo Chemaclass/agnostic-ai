@@ -220,6 +220,24 @@ func TestEmit_SkillsDirOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_CommandWritesSupportedMarkdown(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{
+		Kind: spec.KindCommand, Name: "review",
+		Meta: map[string]any{"description": "Review changes", "argument-hint": "[base]"},
+		Body: "Review $ARGUMENTS.",
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/commands/review.md"))
+	for _, want := range []string{"description: Review changes", `argument-hint: "[base]"`, "Review $ARGUMENTS."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 // Stdio MCP is written to .factory/mcp.json under the standard
 // mcpServers map (target-audit 2026-08-01, MISSING: factory MCP).
 func TestEmit_MCP_StdioWritesFactoryMCPJSON(t *testing.T) {

@@ -56,6 +56,9 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"beforeTabFileRead", "afterTabFileEdit",
 		"workspaceOpen",
 	),
+	"zed": setOf(
+		"WorktreeCreate",
+	),
 	"kiro": setOf(
 		"SessionStart", "Stop",
 		"PreToolUse", "PostToolUse",
@@ -180,6 +183,11 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Notification", "notification",
 		"PermissionRequest", "permissionRequest",
 	),
+	"goose": setOf(
+		"SessionStart", "SessionEnd", "Stop", "UserPromptSubmit",
+		"PreToolUse", "PreToolUseResult", "PostToolUse", "PostToolUseFailure",
+		"BeforeReadFile", "AfterFileEdit", "BeforeShellExecution", "AfterShellExecution",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -219,6 +227,11 @@ var matcherAcceptingEvents = setOf(
 	// verbatim pass-through accepts (#629).
 	"Notification", "notification",
 	"permissionRequest", "preCompact", "subagentStart",
+	// goose: prompt, tool, file, and shell events expose a regex matcher
+	// target. SessionStart, SessionEnd, and Stop do not.
+	"UserPromptSubmit", "PreToolUseResult",
+	"BeforeReadFile", "AfterFileEdit",
+	"BeforeShellExecution", "AfterShellExecution",
 )
 
 // targetsSupportingKind lists the targets whose adapter actually
@@ -229,13 +242,13 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
-	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder"),
-	spec.KindSettings:    setOf("claude"),
+	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder", "augment", "factory"),
+	spec.KindSettings:    setOf("claude", "opencode", "junie", "qoder", "kilo"),
 	spec.KindReview:      setOf("cursor", "goose"),
 	spec.KindEnvironment: setOf("cursor", "openhands"),
-	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo"),
+	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }
 
 func setOf(items ...string) map[string]struct{} {

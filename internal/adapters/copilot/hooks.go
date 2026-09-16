@@ -99,12 +99,16 @@ var hookLifecycle = []string{
 // inertness, and writing what the spec asked for wins: dropping `args`
 // loses the field in silence, which is the state #755 found.
 type hookEntry struct {
-	Type       string   `json:"type"`
-	Matcher    string   `json:"matcher,omitempty"`
-	Command    string   `json:"command,omitempty"`
-	Exec       string   `json:"exec,omitempty"`
-	Args       []string `json:"args,omitempty"`
-	TimeoutSec int      `json:"timeoutSec,omitempty"`
+	Type           string            `json:"type"`
+	Matcher        string            `json:"matcher,omitempty"`
+	Command        string            `json:"command,omitempty"`
+	Exec           string            `json:"exec,omitempty"`
+	Args           []string          `json:"args,omitempty"`
+	URL            string            `json:"url,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	AllowedEnvVars []string          `json:"allowedEnvVars,omitempty"`
+	Prompt         string            `json:"prompt,omitempty"`
+	TimeoutSec     int               `json:"timeoutSec,omitempty"`
 }
 
 // hooksDoc is the `.github/hooks/*.json` shape: an integer `version`
@@ -172,44 +176,70 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 func buildHooks(hooks []spec.Entry) *hooksDoc {
 	byEvent := map[string][]hookEntry{}
 	var eventOrder []string
-	var camelMatcherTraps, execForm int
+	var camelMatcherTraps, execForm, promptWrongEvent int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		if event == "" {
 			continue
 		}
-		commands := emit.HookCommands(h.Meta["command"])
-		if len(commands) == 0 {
-			continue
+		kind, _ := h.Meta["type"].(string)
+		if kind == "" {
+			kind = "command"
 		}
 		matcher, _ := h.Meta["matcher"].(string)
 		if isCamelCaseEvent(event) && claudeToolNames[matcher] {
 			camelMatcherTraps++
 		}
-		args := emit.StringSlice(h.Meta["args"])
-		if len(args) > 0 {
-			execForm++
-		}
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
-		if _, seen := byEvent[event]; !seen {
-			eventOrder = append(eventOrder, event)
-		}
-		for _, command := range commands {
-			entry := hookEntry{Type: "command", Matcher: matcher, TimeoutSec: timeout}
+		before := len(byEvent[event])
+		switch kind {
+		case "command":
+			commands := emit.HookCommands(h.Meta["command"])
+			args := emit.StringSlice(h.Meta["args"])
 			if len(args) > 0 {
-				entry.Exec = emit.RewriteHookPath(command, target)
-				entry.Args = args
-			} else {
-				entry.Command = emit.RewriteHookPath(command, target)
+				execForm++
 			}
-			byEvent[event] = append(byEvent[event], entry)
+			for _, command := range commands {
+				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout}
+				if len(args) > 0 {
+					entry.Exec = emit.RewriteHookPath(command, target)
+					entry.Args = args
+				} else {
+					entry.Command = emit.RewriteHookPath(command, target)
+				}
+				byEvent[event] = append(byEvent[event], entry)
+			}
+		case "http":
+			url, _ := h.Meta["url"].(string)
+			if url == "" {
+				continue
+			}
+			byEvent[event] = append(byEvent[event], hookEntry{
+				Type: kind, Matcher: matcher, URL: url,
+				Headers: emit.StringMap(h.Meta["headers"]), AllowedEnvVars: emit.StringSlice(h.Meta["allowedEnvVars"]), TimeoutSec: timeout,
+			})
+		case "prompt":
+			prompt, _ := h.Meta["prompt"].(string)
+			if prompt == "" {
+				continue
+			}
+			if event != "SessionStart" && event != "sessionStart" {
+				promptWrongEvent++
+				continue
+			}
+			byEvent[event] = append(byEvent[event], hookEntry{Type: kind, Matcher: matcher, Prompt: prompt, TimeoutSec: timeout})
+		}
+		if before == 0 && len(byEvent[event]) > 0 {
+			eventOrder = append(eventOrder, event)
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", camelMatcherTraps,
 		"a PascalCase event (e.g. PreToolUse) applies Claude's own matcher semantics and tool names, but Copilot's native camelCase form (preToolUse) tests the matcher as a plain, case-sensitive regex against Copilot's own lowercase tool names, so a Claude-style matcher parses and then matches nothing there; use Copilot's own tool name, switch the event to its PascalCase form, or use a regex")
 	emit.NoteSurfaceGap(target, spec.KindHook, execForm, "Copilot cloud agent",
 		"`args` writes the exec form, which runs the executable directly with no shell and is Copilot CLI only; a cloud agent job reads the same .github/hooks file and honors `bash` or `command` entries only, so unset `args` for a hook that must run there")
+	emit.NoteFieldNoOp(target, spec.KindHook, "prompt", promptWrongEvent,
+		"Copilot supports prompt handlers only on sessionStart")
 	if len(eventOrder) == 0 {
 		return nil
 	}

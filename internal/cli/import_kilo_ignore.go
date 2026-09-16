@@ -1,15 +1,24 @@
 package cli
 
-import "github.com/chemaclass/agnostic-ai/internal/config"
+import (
+	"path/filepath"
 
-// Kilo import currently covers only the compatibility ignore file, so
-// sync's hand-authored-file refusal has a working recovery command.
+	"github.com/chemaclass/agnostic-ai/internal/config"
+)
+
 func importKiloIgnore(root string, src config.Sources) error {
+	if err := mkdirAllSources(root, src.Settings); err != nil {
+		return err
+	}
 	ignores, err := importIgnoreFile(root, "kilo", src)
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d ignores (other Kilo configuration is not imported)\n", ignores)
+	settings, err := importPortableSettings(root, "kilo.jsonc", filepath.Join(root, src.Settings), false, false)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d ignores, %d settings (other Kilo configuration is not imported)\n", ignores, settings)
 	printImportNextSteps(root, "kilo")
 	return nil
 }

@@ -77,9 +77,9 @@
 // folds into one coverage note per sync, while any name in the same
 // list that does translate still emits.
 //
-// `name` is never written: it is absent from Kiro's own field list, so
-// identity comes from the filename, the same convention every
-// per-agent surface with no documented `name` key uses. Arbitrary
+// The portable spec name remains the filename identity. Kiro also supports
+// a separate display `name`, exposed through `x-kiro.name` so changing the
+// label never changes the canonical spec or output filename. Arbitrary
 // `x-kiro` keys pass through verbatim, and `x-kiro.tools` always wins
 // outright over the translated form (never merged alongside it), so an
 // author who already knows Kiro's own vocabulary can bypass the table
@@ -385,11 +385,11 @@ func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 // translateTools and the package doc), plus arbitrary x-kiro passthrough
 // (mcpServers, permissions, hooks, keyboardShortcut, welcomeMessage, or
 // an explicit tools override already in Kiro's own vocabulary), followed
-// by the spec body as the agent's system prompt. Kiro's agent schema has
-// no `name` key, so identity comes from the filename; `name` and `model`
-// are excluded from the x-kiro passthrough merge below only because they
-// are already handled by hand above (excluding them here just prevents
-// emitting the same key twice, not a ban on x-kiro overriding model:
+// by the spec body as the agent's system prompt. The spec name remains the
+// filename identity; `x-kiro.name` supplies Kiro's separate display name.
+// `name` and `model` are excluded from the x-kiro passthrough merge below
+// only because they are already handled by hand above (excluding them here
+// just prevents emitting the same key twice, not a ban on x-kiro overriding model:
 // ResolveMeta already flattens x-kiro.model onto the value this function
 // reads). `tools` is deliberately read from the raw, unresolved meta
 // rather than the resolved map: ResolveMeta would already have flattened
@@ -412,6 +412,12 @@ func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools bool) {
 	}
 	meta := map[string]any{"description": desc}
 	keys := []string{"description"}
+	if x, _ := emit.CustomTargetMeta(a.Meta, target); x != nil {
+		if displayName, _ := x["name"].(string); displayName != "" {
+			meta["name"] = displayName
+			keys = append(keys, "name")
+		}
+	}
 	if model, _ := resolved["model"].(string); model != "" {
 		meta["model"] = model
 		keys = append(keys, "model")

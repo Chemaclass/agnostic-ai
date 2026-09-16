@@ -15,7 +15,7 @@ func TestImportClaude_PreservesMixedNativeHookHandlers(t *testing.T) {
 	const native = `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
 {"type":"http","url":"https://example.test/check","headers":{"Authorization":"Bearer $TOKEN"},"allowedEnvVars":["TOKEN"],"timeout":20,"statusMessage":"Checking request","if":"Bash(git *)"},
 {"type":"mcp_tool","server":"checks","tool":"verify","input":{"path":"${tool_input.file_path}"}},
-{"type":"prompt","prompt":"Allow read-only commands.","model":"example-model","once":true},
+{"type":"prompt","prompt":"Allow read-only commands.","model":"example-model","once":true,"continueOnBlock":true},
 {"type":"command","command":"echo","args":["checked"],"async":true}
 ]}]}}`
 	writeFile(t, ".claude/settings.json", native)

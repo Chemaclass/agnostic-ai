@@ -28,8 +28,14 @@ func emitMCP(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) er
 // spec with nothing to run or connect to never produces a dead entry.
 func buildMCPDocument(mcps []spec.Entry) (string, error) {
 	servers := map[string]map[string]any{}
+	dropped := 0
 	for _, e := range mcps {
 		if e.Name == "" {
+			continue
+		}
+		transport, _ := e.Meta["type"].(string)
+		if transport == "ws" {
+			dropped++
 			continue
 		}
 		entry := buildMCPServer(e)
@@ -38,6 +44,8 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 		}
 		servers[e.Name] = entry
 	}
+	emit.NoteCoverageGap(target, spec.KindMCP, dropped,
+		"WebSocket transport is not supported; Devin documents only http and legacy sse for URL servers")
 	if len(servers) == 0 {
 		return "", nil
 	}
@@ -73,7 +81,7 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	}
 	out := map[string]any{}
 	switch transport {
-	case "http", "sse", "ws":
+	case "http", "sse":
 		url, _ := e.Meta["url"].(string)
 		if url == "" {
 			return nil

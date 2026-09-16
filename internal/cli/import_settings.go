@@ -1,0 +1,72 @@
+package cli
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+)
+
+// importPortableSettings reads the portable settings fields exposed by a
+// target and writes one settings spec. Other native keys stay in place and
+// are not promoted into a cross-target source.
+func importPortableSettings(root, nativePath, dstDir string, nestedModel, permissions bool) (int, error) {
+	path := filepath.Join(root, nativePath)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	data, _ = adapters.StripJSONC(data)
+	var native map[string]any
+	if err := json.Unmarshal(data, &native); err != nil {
+		return 0, fmt.Errorf("parse %s: %w", path, err)
+	}
+
+	doc := map[string]any{}
+	if nestedModel {
+		if model, ok := native["model"].(map[string]any); ok {
+			if name, _ := model["name"].(string); name != "" {
+				doc["model"] = name
+			}
+		}
+	} else if model, _ := native["model"].(string); model != "" {
+		doc["model"] = model
+	}
+	if permissions {
+		if value, ok := native["permissions"].(map[string]any); ok {
+			portable := map[string]any{}
+			for _, key := range []string{"allow", "deny", "ask"} {
+				if entries, ok := value[key].([]any); ok && len(entries) > 0 {
+					portable[key] = entries
+				}
+			}
+			if len(portable) > 0 {
+				doc["permissions"] = portable
+			}
+		}
+	}
+	if len(doc) == 0 {
+		return 0, nil
+	}
+	raw, err := yaml.Marshal(doc)
+	if err != nil {
+		return 0, fmt.Errorf("marshal settings from %s: %w", path, err)
+	}
+	if err := importMkdirAll(dstDir, 0o755); err != nil {
+		return 0, fmt.Errorf("create %s: %w", dstDir, err)
+	}
+	dst := filepath.Join(dstDir, "imported.yaml")
+	if err := importWriteFile(dst, raw, 0o644); err != nil {
+		return 0, fmt.Errorf("write %s: %w", dst, err)
+	}
+	return 1, nil
+}

@@ -1,11 +1,55 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestImportCopilotHooks_RoundTripsHandlerForms(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	const native = `{"version":1,"hooks":{"sessionStart":[
+{"type":"prompt","prompt":"Read project notes."},
+{"type":"http","url":"https://example.test/check","headers":{"Authorization":"Bearer $TOKEN"},"allowedEnvVars":["TOKEN"],"timeoutSec":20}
+],"PreToolUse":[{"type":"command","matcher":"Bash","exec":"./scripts/check","args":["--strict"],"timeoutSec":10}]}}`
+	writeFile(t, filepath.Join(copilotHooksDir, "custom.json"), native)
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+
+	data := readFile(t, filepath.Join(copilotHooksDir, "agnostic-ai.json"))
+	var got struct {
+		Hooks map[string][]map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(data), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Hooks["sessionStart"]) != 2 || len(got.Hooks["PreToolUse"]) != 1 {
+		t.Fatalf("round-trip handlers = %#v", got.Hooks)
+	}
+	byType := map[string]map[string]any{}
+	for _, handler := range got.Hooks["sessionStart"] {
+		kind, _ := handler["type"].(string)
+		byType[kind] = handler
+	}
+	prompt, http := byType["prompt"], byType["http"]
+	if prompt["type"] != "prompt" || prompt["prompt"] != "Read project notes." {
+		t.Errorf("prompt = %#v", prompt)
+	}
+	if http["type"] != "http" || http["url"] != "https://example.test/check" || http["timeoutSec"] != float64(20) {
+		t.Errorf("http = %#v", http)
+	}
+	command := got.Hooks["PreToolUse"][0]
+	if command["exec"] != "./scripts/check" || command["timeoutSec"] != float64(10) {
+		t.Errorf("command = %#v", command)
+	}
+}
 
 func TestImportFromCopilot_NoSources(t *testing.T) {
 	dir := t.TempDir()

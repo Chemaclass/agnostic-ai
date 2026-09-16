@@ -103,6 +103,25 @@ func TestEmit_MCP_SSETransportPassesThrough(t *testing.T) {
 	}
 }
 
+func TestEmit_MCP_WebSocketTransportIsRejected(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "socket", Meta: map[string]any{"type": "ws", "url": "wss://example.test/mcp"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".devin/mcp_config.json")); !os.IsNotExist(err) {
+		t.Errorf("WebSocket-only input must not write Devin MCP config, err=%v", err)
+	}
+	if emit.PendingCoverageNotesCount() != 1 {
+		t.Fatalf("expected one coverage note for WebSocket transport")
+	}
+}
+
 // TestEmit_MCP_OAuthFieldsPassThrough confirms the three OAuth fields
 // docs.devin.ai/cli/extensibility/mcp/configuration documents for a
 // remote server (oauthClientId, oauthClientSecret, oauthResource) pass

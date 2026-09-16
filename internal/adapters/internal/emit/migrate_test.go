@@ -2,6 +2,7 @@ package emit
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,31 @@ func TestMergeJSONFile_CaptureReadsExistingUserKeys(t *testing.T) {
 	}
 	if string(disk) != existing {
 		t.Errorf("capture mutated disk: %s", disk)
+	}
+}
+
+func TestMergeJSONFileNested_PreservesNativeObjectSiblings(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte(`{"model":{"name":"old","temperature":0.2},"theme":"dark"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewSession().MergeJSONFileNested(path, map[string]any{
+		"model": map[string]any{"name": "new"},
+	}, []string{"model"}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	model := got["model"].(map[string]any)
+	if model["name"] != "new" || model["temperature"] != 0.2 || got["theme"] != "dark" {
+		t.Errorf("nested merge lost native settings: %#v", got)
 	}
 }
 

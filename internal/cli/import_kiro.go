@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -25,10 +27,9 @@ const (
 // the configured source directories, reversing the kiro emit:
 //
 //   - `.kiro/agents/*.md` native agent profiles carry a frontmatter-first
-//     `description`/`model` block (no `name:`; identity comes from the
-//     filename, same as spec loading's own fallback). Copied verbatim
-//     minus the provenance header, so `model` and any `x-kiro` keys
-//     round-trip untouched.
+//     block. The filename remains the canonical spec name; an explicit
+//     native `name` display value imports as `x-kiro.name` so the two
+//     identities survive a round-trip.
 //   - `.kiro/skills/<name>/SKILL.md` native skill folders copy
 //     byte-for-byte via importSkillFolders, so bundled sibling assets
 //     (`scripts/`, `references/`, `assets/`) round-trip along with
@@ -96,11 +97,9 @@ func importFromKiro(root string, src config.Sources) error {
 }
 
 // importKiroAgents copies every native agent profile under
-// `.kiro/agents/` into the agents source dir verbatim, stripping the
-// agnostic-ai provenance header when present. Kiro's agent frontmatter
-// carries no `name:` key, so spec loading's own filename fallback
-// recovers the identity; `description`, `model`, and any `x-kiro` keys
-// pass through unchanged. A missing directory imports nothing.
+// `.kiro/agents/` into the agents source dir. An explicit native `name`
+// becomes `x-kiro.name`, leaving the filename as the canonical spec name.
+// A missing directory imports nothing.
 func importKiroAgents(root, dstDir string) (int, error) {
 	src := filepath.Join(root, kiroAgentsDir)
 	entries, err := os.ReadDir(src)
@@ -120,13 +119,44 @@ func importKiroAgents(root, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		canonicalName := strings.TrimSuffix(e.Name(), ".md")
+		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName)
+		if err != nil {
+			return count, fmt.Errorf("translate %s: %w", srcPath, err)
+		}
 		dst := filepath.Join(dstDir, e.Name())
-		if err := importWriteFile(dst, []byte(header.Strip(string(data))), 0o644); err != nil {
+		if err := importWriteFile(dst, translated, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
 	}
 	return count, nil
+}
+
+func importKiroAgentDocument(data []byte, canonicalName string) ([]byte, error) {
+	meta, body := splitMdcFrontmatter(data)
+	displayName, _ := meta["name"].(string)
+	if displayName == "" {
+		return data, nil
+	}
+	delete(meta, "name")
+	native, _ := meta["x-kiro"].(map[string]any)
+	if native == nil {
+		native = map[string]any{}
+	}
+	native["name"] = displayName
+	meta["x-kiro"] = native
+	front, err := yaml.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s frontmatter: %w", canonicalName, err)
+	}
+	var out strings.Builder
+	out.WriteString("---\n")
+	out.Write(front)
+	out.WriteString("---\n\n")
+	out.WriteString(strings.TrimRight(body, "\n"))
+	out.WriteString("\n")
+	return []byte(out.String()), nil
 }
 
 // importKiroSteering walks the flat `.kiro/steering/` directory and
