@@ -8,63 +8,38 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
-#### Verification and CI
-
 - `agnostic-ai verify` blocks stale generated output, fingerprints the selected harness, and sends versioned JSON with the configured model and detectable CLI identity to a project-owned verifier. Output and non-zero exit codes pass through to CI (#834).
-
-#### Target support
-
-- Amp environment specs emit dependency setup as executable `.agents/setup` scripts and long-running terminals as supervised `.amp/services.yaml` services. Amp's wake-time `.agents/resume` lifecycle remains intentionally unmapped (#637).
-- Goose and OpenHands emit project agents to their shared `.agents/agents/<name>.md` path with portable name, description, model, and prompt content. Generic tool lists surface coverage notes instead of silently using the wrong vocabulary (#631).
-- Portable model settings now round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo. Qoder also supports shared allow, deny, and ask permissions. Target-specific settings, unrelated keys, and Codex overlay precedence remain intact (#806, #827).
-- Goose hook specs emit a complete Open Plugins package with its manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#629).
+- Amp environment specs emit dependency setup as executable `.agents/setup` scripts and long-running terminals as supervised `.amp/services.yaml` services. Amp's wake-time `.agents/resume` lifecycle stays intentionally unmapped (#637).
+- Goose and OpenHands emit project agents to their shared `.agents/agents/<name>.md` path with portable name, description, model, and prompt content. Generic tool lists raise a coverage note instead of silently using the wrong vocabulary (#631).
+- Goose hook specs emit a complete Open Plugins package: manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#629).
+- Portable model settings round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo. Qoder also supports shared allow, deny, and ask permissions. Target-specific settings, unrelated keys, and Codex overlay precedence remain intact (#806, #827).
 - Augment and Factory emit native Markdown commands, preserving documented frontmatter and `$ARGUMENTS`; Augment also preserves nested command namespaces (#630).
 - Augment ignore specs emit to `.augmentignore`, and `import augment` preserves existing pattern order and negations (#808).
-- Directory-scoped skills remain scoped when emitted to and imported from Codex, Cursor, Warp, and OpenCode (#805).
-
-#### Website and developer experience
-
+- Directory-scoped skills stay scoped through emit and import on Codex, Cursor, Warp, and OpenCode (#805).
 - `agnostic-ai.org` is the canonical GitHub Pages site, with consistent assets, social previews, release links, discovery files, and Cronitor RUM coverage for the site and playground.
-- Coding agents can follow `/agent-setup.txt` to install, import, configure, sync, and verify agnostic-ai safely. The website and README expose the same ready-to-paste prompt, while the plain-text endpoint and `llms-full.txt` are generated from canonical user guides.
-- User guides now live at `/docs/` with task-based navigation, page outlines, mobile browsing, and source links. The website, repository, and `llms-full.txt` share the same Markdown source.
-- The updates archive filters whole editions by one or more targets and search terms, keeps applied filters in shareable URLs, and preserves the complete date-ordered archive when JavaScript is unavailable.
-- Release briefings now ship with each release and separate the exact project changelog from verified upstream CLI and model news. High-impact changes lead, and each item states agnostic-ai support.
-- `target-audit` now produces evidence-backed reports and issues for release briefings instead of weekly publication PRs. `--compare-models <model>` adds a bounded challenge pass without treating model agreement as proof.
+- Coding agents can follow `/agent-setup.txt` to install, import, configure, sync, and verify agnostic-ai safely. The website and README expose the same ready-to-paste prompt, and the plain-text endpoint and `llms-full.txt` are generated from canonical user guides.
+- User guides live at `/docs/` with task-based navigation, page outlines, mobile browsing, and source links. Website, repository, and `llms-full.txt` share one Markdown source.
+- The updates archive filters whole editions by one or more targets and search terms, keeps applied filters in shareable URLs, and serves the complete date-ordered archive when JavaScript is unavailable.
+- Release briefings ship with each release and keep the exact project changelog separate from verified upstream CLI and model news, high-impact changes first, each item stating agnostic-ai support. `target-audit` produces the evidence-backed reports and issues behind them, and `--compare-models <model>` adds a bounded challenge pass without treating model agreement as proof.
 
 ### Changed
 
-#### Website, docs, and playground
-
-- The coding-agent setup guide now opens with a copy-ready TL;DR prompt while keeping the full safety and validation workflow below it.
-- The site landing page now leads with a platform-matched, copy-ready install command, a three-step activation path, linked target details, and the latest ecosystem briefing. The README keeps installation and core task guides one click away. The site shell, playground, and favicons share the `aⁱ` brand mark.
-- The target capability matrix now shows clear support states, filters by target name or selection, preserves comparisons in shareable URLs, keeps target and capability context visible on desktop, and switches to a vertical target summary on mobile. CI checks every status against adapter capability declarations.
-- The playground exposes all ten portable spec kinds, starts fresh sessions with an agent spec targeting Claude, Codex, and Gemini, marks unsupported targets before rendering, and reads capability support directly from adapter declarations so target-audit fixes reach the next Pages build automatically.
-- The playground now groups kind selection with one contextual sample action. Changing kind swaps an untouched built-in sample to the matching kind, while preserving user-edited source.
-- The landing page compares ten broad target integrations across rules, agents, skills, MCP, hooks, commands, and portable permissions, with coverage values checked against adapter capabilities.
-- The playground now uses the website's shared navigation, theme control, and responsive header instead of maintaining a separate navbar.
-- The site now builds with Zola 0.22.0 from shared templates and Markdown content. One responsive navbar spans every page, and a new briefing updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without design edits. Legacy URLs and feed identifiers remain stable.
-
-#### Target behavior
-
-- Antigravity agents use the documented `.agents/agents/<name>/agent.md` layout, avoiding model collisions with Goose and OpenHands. Import prefers nested profiles, and sync migrates managed legacy flat files (#717).
+- The site builds with Zola 0.22.0 from shared templates and Markdown content. One responsive navbar, theme control, and header span every page including the playground, and a new briefing updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without design edits. Legacy URLs and feed identifiers remain stable.
+- The landing page leads with a platform-matched, copy-ready install command, a three-step activation path, a ten-target integration comparison across rules, agents, skills, MCP, hooks, commands, and portable permissions, and the latest ecosystem briefing. The README keeps installation and core task guides one click away. The site shell, playground, and favicons share the `aⁱ` brand mark.
+- The target capability matrix shows clear support states, filters by target name or selection, preserves comparisons in shareable URLs, keeps target and capability context visible on desktop, and switches to a vertical target summary on mobile. CI checks every status against adapter capability declarations.
+- The playground exposes all ten portable spec kinds, opens on an agent spec targeting Claude, Codex, and Gemini, marks unsupported targets before rendering, and reads capability support directly from adapter declarations so target-audit fixes reach the next Pages build automatically. Changing kind swaps an untouched built-in sample to the matching kind and preserves user-edited source.
+- The coding-agent setup guide opens with a copy-ready TL;DR prompt, keeping the full safety and validation workflow below it.
+- Antigravity agents use the documented `.agents/agents/<name>/agent.md` layout, avoiding collisions with Goose and OpenHands. Import prefers nested profiles, and sync migrates managed legacy flat files (#717).
 
 ### Fixed
-
-#### Import and sync safety
 
 - Codex imports package-style MCP server names containing `/` into one safe source file and preserves the exact name through sync; shared MCP importers and Continue per-server output use the same filename rule (#711).
 - Amp, Cline, and Windsurf import every documented project skill path with explicit collision precedence, bundled assets, and file modes. Windsurf also preserves native `triggers` invocation policy through import and sync (#821, #823).
 - Kiro preserves an explicit `x-kiro.name` display name while keeping the canonical spec name as the filename (#807).
-
-#### Hooks and target accuracy
-
-- Amp verification uses the current installer and npm package, and Copilot audits track its canonical repository settings and model policy reference (#822).
 - Claude prompt hooks preserve `continueOnBlock`; Copilot preserves HTTP and `sessionStart` prompt handlers through emit and import (#804, #629).
 - Zed maps `WorktreeCreate` hooks to native `create_worktree` task hooks and restores the event on import (#817).
-
-#### MCP compatibility
-
 - Factory and Windsurf skip unsupported WebSocket MCP entries with a coverage note instead of writing invalid native configuration (#809, #816).
+- Amp verification uses the current installer and npm package, and Copilot audits track its canonical repository settings and model policy reference (#822).
 
 ## v0.58.0 - 2026-09-14
 
