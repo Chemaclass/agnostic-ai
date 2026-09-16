@@ -84,6 +84,7 @@ func NewRootCmd(version string) *cobra.Command {
 
 	root.AddCommand(
 		newSyncCmd(),
+		newVerifyCmd(),
 		newValidateCmd(),
 		newLintCmd(),
 		newListCmd(),

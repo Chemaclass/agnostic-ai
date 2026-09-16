@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- `agnostic-ai verify` checks selected targets for sync drift, fingerprints their canonical specs and rendered files, then passes versioned JSON with configured model and detectable CLI identity to a project-owned verifier. Verifier output and non-zero exit codes pass through to CI (#834).
 - The GitHub Pages site publishes canonical pages, styles, scripts, social previews, release links, and discovery files directly from `agnostic-ai.org`, and loads Cronitor RUM across the site and browser playground for production traffic, performance, and client-side errors.
 - Amp environment specs emit dependency setup as executable `.agents/setup` scripts and long-running terminals as supervised `.amp/services.yaml` services. Amp's wake-time `.agents/resume` lifecycle remains intentionally unmapped (#637).
 - Goose and OpenHands emit project agents to their shared `.agents/agents/<name>.md` path with portable name, description, model, and prompt content. Generic tool lists surface coverage notes instead of silently using the wrong vocabulary (#631).

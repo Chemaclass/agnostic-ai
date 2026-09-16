@@ -47,6 +47,15 @@ Already have tool configuration? Start with [importing an existing project](http
 
 Run `agnostic-ai update` to upgrade to the latest release. Use `--check` to see the detected install method without changing anything.
 
+Model and CLI changes need more than a file diff. Configure your own test command, then let agnostic-ai pass it a stable identity for each harness:
+
+```yaml
+verify:
+  command: [./scripts/verify-harness]
+```
+
+Run `agnostic-ai verify --target codex`. It first rejects stale generated files, then sends versioned JSON to the verifier through stdin. Your script owns the task, scoring, and pass or fail decision. See the [verification gate](https://agnostic-ai.org/docs/cli-reference/#verify).
+
 Sync protects hand-authored ignore files with a conservative check of pattern order, negations, and whitespace. Run `agnostic-ai import <target>` to copy those patterns into specs, then review any conflicting patterns before syncing. See [ignore overwrite behavior](https://agnostic-ai.org/docs/spec-format/#overwrite-behaviour).
 
 [Step-by-step tutorial](https://agnostic-ai.org/docs/getting-started/) · [More install options](https://agnostic-ai.org/docs/installation/) · [Try the playground](https://agnostic-ai.org/playground/)

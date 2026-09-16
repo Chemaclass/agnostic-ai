@@ -35,6 +35,7 @@ For directory-specific instructions, keep this one project config and add `scope
 | Change source or output paths | [Sources](#sources) and [Outputs](#outputs) |
 | Keep generated files out of Git | [Gitignore](#gitignore) |
 | Customize sync behavior | [Sync](#sync) |
+| Run project behavior checks after model or CLI changes | [Verify](#verify) |
 | Keep a hand-written file at a generated path | [`sync.unmanaged`](#syncunmanaged) |
 | Override settings on one machine | [Local overrides](#local-overrides) |
 | Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
@@ -112,6 +113,11 @@ targets:
   - openhands
   - factory
   - kilo
+
+# External behavior gate. Each item is one argv entry. No shell runs.
+verify:
+  command:
+    - ./scripts/verify-harness
 
 # Per-target output overrides. Each target accepts only the fields
 # relevant to it. Defaults shown in comments. The root entry-point file
@@ -305,6 +311,7 @@ gitignore:
 | `on-unsupported` | string | `warn` | How to react when a kind is unsupported by a target. One of `warn`, `error`, `silent`. |
 | `gitignore` | map | `enabled: false` | Auto-manage a block in `.gitignore` listing generated paths. See [`gitignore`](#gitignore). |
 | `sync` | map | see below | Sync-level knobs. See [`sync`](#sync). |
+| `verify` | map | disabled | External behavior gate. See [`verify`](#verify). |
 
 ## `sources`
 
@@ -596,6 +603,25 @@ A failing `--check` prints the reconcile command (`agnostic-ai sync`) on stderr 
 agnostic-ai sync --check --diff            # unified diff of every drifted file
 agnostic-ai sync --check --format=github   # inline PR annotations in CI
 ```
+
+## `verify`
+
+`verify.command` is the external behavior gate run by `agnostic-ai verify`. Write it as an argv list. agnostic-ai starts the executable directly, without a shell, so pipes and redirects belong inside your script.
+
+```yaml
+verify:
+  command:
+    - ./scripts/verify-harness
+    - --strict
+```
+
+The command runs once per selected target. Each run receives one JSON document through stdin. agnostic-ai preserves its stdout and stderr, then returns the same non-zero exit code when the verifier rejects the harness.
+
+Before invoking the command, agnostic-ai runs the same drift check as `sync --check` for the selected targets. A missing or stale generated file stops verification. The verifier never sees an identity for files that do not match the specs.
+
+The JSON names a `configured_model` only when agnostic-ai can resolve one from portable Settings or first-class target config. That value describes configuration. It does not claim which model the CLI used at runtime. When a known CLI binary is present, `cli` includes its command, resolved path, and `--version` output. Missing or unreadable CLI identities are omitted.
+
+The `harness_fingerprint` is a stable SHA-256 digest of target-relevant canonical specs and rendered target files. It identifies the harness under test. It is not an approval record, result cache, or score.
 
 ## `import`
 

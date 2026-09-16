@@ -20,7 +20,7 @@ agnostic-ai [command] [flags]
 |---|---|
 | Set up a project | [init](#init), [import](#import), [new](#new) |
 | Generate or preview output | [sync](#sync), [render](#render) |
-| Check source and output | [validate](#validate), [lint](#lint), [doctor](#doctor), [status](#status) |
+| Check source, output, and behavior | [validate](#validate), [lint](#lint), [doctor](#doctor), [status](#status), [verify](#verify) |
 | Inspect routing | [list](#list), [explain](#explain), [graph](#graph), [why](#why) |
 | Restore or remove generated files | [revert](#revert), [cleanup](#cleanup) |
 | Share specs | [packs](#packs) |
@@ -399,6 +399,48 @@ Exit codes are unchanged: zero when in sync, non-zero on drift, in every format.
 
 Each entry in `writes` and `skipped` has: `target` (string), `path` (string), `action` (string), `bytes` (number).
 
+## verify
+
+Run a project-owned behavior check against each selected AI harness. The command first performs the target-scoped `sync --check`. It never invokes the verifier while generated files are stale.
+
+```bash
+agnostic-ai verify                  # every configured target
+agnostic-ai verify --target codex   # one configured target
+```
+
+Configure the executable and its fixed arguments in `agnostic-ai.yaml`:
+
+```yaml
+verify:
+  command: [./scripts/verify-harness, --strict]
+```
+
+The command runs directly, without a shell, once per target. It receives one compact JSON document through stdin. Stdout and stderr pass through unchanged. A non-zero verifier exit stops the run and becomes the `agnostic-ai` exit code.
+
+```json
+{
+  "version": 1,
+  "target": "codex",
+  "configured_model": "gpt-5.4-codex",
+  "cli": {
+    "command": "codex",
+    "path": "/usr/local/bin/codex",
+    "version": "codex-cli 1.2.3"
+  },
+  "harness_fingerprint": "sha256:7b2c..."
+}
+```
+
+| Field | Meaning |
+|------|---------|
+| `version` | JSON contract version. Currently `1`. |
+| `target` | Configured agnostic-ai target being verified. |
+| `configured_model` | Optional model selected by portable Settings or first-class target config. This is not proof of the runtime model. |
+| `cli` | Optional detected CLI command, resolved path, and `--version` output. Omitted when agnostic-ai cannot prove the identity. `version` is omitted when the command does not report one. |
+| `harness_fingerprint` | Stable SHA-256 digest of target-relevant canonical specs and rendered files. |
+
+agnostic-ai does not run datasets, judge model output, store results, or update baselines. The verifier owns those decisions.
+
 ## revert
 
 Undo a previous sync. For every file an adapter would emit, plus the entry-point files sync distributes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restores `<path>.bak` when present (and removes the .bak). With no `.bak`, the file is left in place by default so user-authored content sharing a path with adapter output (helper scripts next to `SKILL.md`, templates inside a propagated skill folder) is not deleted. Pass `--force` to delete those unbacked files, including the generated entry-point files.
@@ -654,6 +696,7 @@ agnostic-ai lsp
 |------|---------|
 | 0 | Success |
 | 1 | Any error (parse failure, IO error, missing config) |
+| verifier exit code | `verify` returns the external verifier's non-zero code unchanged. |
 
 ## Environment variables
 
