@@ -239,6 +239,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"Paste into your coding agent",
 		"/agent-setup.txt",
 		"/docs/agent-setup/",
+		"/docs/installation/",
 		"/docs/getting-started/",
 		"/docs/cli-reference/",
 		"/docs/troubleshooting/",
