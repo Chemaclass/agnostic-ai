@@ -113,11 +113,17 @@ func TestEmit_Environment_RejectsInvalidServices(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testutil.TempCwd(t)
+			dir := testutil.TempCwd(t)
+			if _, exists := tc.meta["install"]; !exists {
+				tc.meta["install"] = "echo setup"
+			}
 			entry := spec.Entry{Kind: spec.KindEnvironment, Name: "development", Meta: tc.meta}
 			err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want text %q", err, tc.want)
+			}
+			if _, statErr := os.Stat(filepath.Join(dir, ".agents", "setup")); !os.IsNotExist(statErr) {
+				t.Errorf("invalid environment wrote setup before validation, err=%v", statErr)
 			}
 		})
 	}

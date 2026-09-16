@@ -23,6 +23,10 @@ func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 	if err != nil {
 		return err
 	}
+	services, err := buildServices(terminals)
+	if err != nil {
+		return err
+	}
 	if install != "" {
 		path := emit.OutputSetupFile(cfg, target, defaultSetupFile)
 		if err := sess.WriteExecutableFile(path, renderSetupScript(install), dryRun); err != nil {
@@ -30,10 +34,6 @@ func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 		}
 	}
 
-	services, err := buildServices(terminals)
-	if err != nil {
-		return err
-	}
 	if len(services) == 0 {
 		return nil
 	}
