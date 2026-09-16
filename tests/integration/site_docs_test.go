@@ -276,7 +276,6 @@ func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 
 	allowedGroups := map[string]bool{"Start": true, "Workflows": true, "Reference": true}
 	weights := make(map[int]string, len(pages))
-	agentSetupPrompt := ""
 	for _, path := range pages {
 		source := readBuiltFile(t, path)
 		if !strings.HasPrefix(source, "+++\n") {
@@ -294,8 +293,7 @@ func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 			Description string `toml:"description"`
 			Weight      int    `toml:"weight"`
 			Extra       struct {
-				Group  string `toml:"group"`
-				Prompt string `toml:"prompt"`
+				Group string `toml:"group"`
 			} `toml:"extra"`
 		}
 		if _, err := toml.Decode(source[4:4+frontmatterEnd], &metadata); err != nil {
@@ -312,12 +310,18 @@ func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 			t.Errorf("%s and %s share weight %d", previous, filepath.Base(path), metadata.Weight)
 		}
 		weights[metadata.Weight] = filepath.Base(path)
-		if filepath.Base(path) == "agent-setup.md" {
-			agentSetupPrompt = metadata.Extra.Prompt
-		}
 	}
+	var siteConfig struct {
+		Extra struct {
+			AgentSetupPrompt string `toml:"agent_setup_prompt"`
+		} `toml:"extra"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/config.toml", &siteConfig); err != nil {
+		t.Fatalf("parse site config: %v", err)
+	}
+	agentSetupPrompt := siteConfig.Extra.AgentSetupPrompt
 	if agentSetupPrompt == "" {
-		t.Fatal("agent-setup.md needs an extra.prompt value")
+		t.Fatal("site config needs an extra.agent_setup_prompt value")
 	}
 	if readme := readBuiltFile(t, "../../README.md"); !strings.Contains(readme, agentSetupPrompt) {
 		t.Error("README agent setup prompt differs from the canonical guide prompt")
@@ -342,9 +346,11 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 
 	index := readBuiltFile(t, filepath.Join(outputDir, "docs", "index.html"))
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
+	agentSetupGuide := readBuiltFile(t, filepath.Join(outputDir, "docs", "agent-setup", "index.html"))
 	targets := readBuiltFile(t, filepath.Join(outputDir, "docs", "targets", "index.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
 	normalizedHome := strings.ReplaceAll(home, "&#x2F;", "/")
+	normalizedAgentSetupGuide := strings.ReplaceAll(agentSetupGuide, "&#x2F;", "/")
 	if domain := strings.TrimSpace(readBuiltFile(t, filepath.Join(outputDir, "CNAME"))); domain != "agnostic-ai.org" {
 		t.Errorf("built CNAME = %q, want agnostic-ai.org", domain)
 	}
@@ -430,6 +436,15 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if strings.Contains(home, "chemaclass.github.io/agnostic-ai") {
 		t.Error("home page still references the legacy GitHub Pages project URL")
 	}
+	for _, required := range []string{
+		"TL;DR · Paste into your coding agent",
+		`data-copy aria-label="Copy agent setup prompt"`,
+		"Follow https://agnostic-ai.org/agent-setup.txt exactly.",
+	} {
+		if !strings.Contains(normalizedAgentSetupGuide, required) {
+			t.Errorf("agent setup guide is missing quick handoff %q", required)
+		}
+	}
 	sharingHome := normalizedHome
 	for _, metadata := range []string{
 		`property="og:site_name" content="agnostic-ai.org"`,
@@ -469,7 +484,7 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 		t.Error("llms-full.txt does not include the agent setup guide")
 	}
 	for name, content := range map[string]string{"agent-setup.txt": agentSetup, "llms-full.txt": fullDocs} {
-		if strings.Contains(content, "@/docs/") || strings.Contains(content, "\n+++\n") {
+		if strings.Contains(content, "@/docs/") || strings.Contains(content, "\n+++\n") || strings.Contains(content, "agent_setup_prompt") {
 			t.Errorf("%s exposes Zola-only source syntax", name)
 		}
 	}

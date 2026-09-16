@@ -35,6 +35,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 #### Website, docs, and playground
 
+- The coding-agent setup guide now opens with a copy-ready TL;DR prompt while keeping the full safety and validation workflow below it.
 - The site landing page now leads with a platform-matched, copy-ready install command, a three-step activation path, linked target details, and the latest ecosystem briefing. The README keeps installation and core task guides one click away. The site shell, playground, and favicons share the `aⁱ` brand mark.
 - The target capability matrix now shows clear support states, filters by target name or selection, preserves comparisons in shareable URLs, keeps target and capability context visible on desktop, and switches to a vertical target summary on mobile. CI checks every status against adapter capability declarations.
 - The playground exposes all ten portable spec kinds, starts fresh sessions with an agent spec targeting Claude, Codex, and Gemini, marks unsupported targets before rendering, and reads capability support directly from adapter declarations so target-audit fixes reach the next Pages build automatically.

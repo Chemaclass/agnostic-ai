@@ -5,12 +5,13 @@ weight = 15
 
 [extra]
 group = "Start"
-prompt = """Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed."""
 +++
 
 # Set up agnostic-ai with a coding agent
 
 Use this guide when a user asks you to install or configure agnostic-ai in a repository. Your job is to preserve existing AI tool behavior, establish `.agnostic-ai/` as the source of truth, and leave the project with a clean validation result.
+
+{{ agent_setup_prompt() }}
 
 ## Safety contract
 

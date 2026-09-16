@@ -380,6 +380,21 @@
   background: transparent;
 }
 
+.docs-content .agent-prompt-guide {
+  margin-block: 2rem 0;
+}
+
+.docs-content .agent-prompt-guide pre {
+  max-width: none;
+  margin: 0;
+  padding: 1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .docs-content table {
   width: 100%;
   display: block;
