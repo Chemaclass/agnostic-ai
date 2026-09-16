@@ -619,7 +619,7 @@ The command runs once per selected target. Each run receives one JSON document t
 
 Before invoking the command, agnostic-ai runs the same drift check as `sync --check` for the selected targets. A missing or stale generated file stops verification. The verifier never sees an identity for files that do not match the specs.
 
-The JSON names a `configured_model` only when agnostic-ai can resolve one from portable Settings or first-class target config. That value describes configuration. It does not claim which model the CLI used at runtime. When a known CLI binary is present, `cli` includes its command, resolved path, and `--version` output. Missing or unreadable CLI identities are omitted.
+The JSON names a `configured_model` only when agnostic-ai can read one from the rendered native target config. The value can come from portable Settings, first-class target config, or an imported native overlay. It describes configuration. It does not claim which model the CLI used at runtime. When a known CLI binary is present, `cli` includes its command, resolved path, and `--version` output. Missing or unreadable CLI identities are omitted.
 
 The `harness_fingerprint` is a stable SHA-256 digest of target-relevant canonical specs and rendered target files. It identifies the harness under test. It is not an approval record, result cache, or score.
 

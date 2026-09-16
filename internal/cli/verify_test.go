@@ -11,6 +11,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -37,6 +41,7 @@ outputs:
       model: gpt-test
 `, verifierPath, contextPath))
 	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/review.md"), "---\nname: review\n---\nReview changes.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), "model = \"overlay-model\"\n")
 
 	binDir := filepath.Join(dir, "bin")
 	writeFile(t, filepath.Join(binDir, "codex"), "#!/bin/sh\necho codex-cli 9.9.9\n")
@@ -88,8 +93,8 @@ outputs:
 	if got.Version != 1 || got.Target != "codex" {
 		t.Errorf("unexpected contract identity: %+v", got)
 	}
-	if got.ConfiguredModel != "gpt-test" {
-		t.Errorf("configured_model = %q, want gpt-test", got.ConfiguredModel)
+	if got.ConfiguredModel != "overlay-model" {
+		t.Errorf("configured_model = %q, want overlay-model", got.ConfiguredModel)
 	}
 	if got.RuntimeModel != "" || bytes.Contains(data, []byte(`"runtime_model"`)) {
 		t.Errorf("verify must not claim an actual runtime model: %s", data)
@@ -99,6 +104,152 @@ outputs:
 	}
 	if got.CLI == nil || got.CLI.Command != "codex" || got.CLI.Path != filepath.Join(binDir, "codex") || got.CLI.Version != "codex-cli 9.9.9" {
 		t.Errorf("unexpected CLI identity: %+v", got.CLI)
+	}
+}
+
+func TestVerify_SelectedTargetUsesAllConfiguredSharedEntryPointConsumers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture requires a POSIX shell")
+	}
+	dir := testutil.TempCwd(t)
+	silence(t)
+
+	contextPath := filepath.Join(dir, "verify-context.json")
+	verifierPath := filepath.Join(dir, "verify.sh")
+	writeFile(t, verifierPath, "#!/bin/sh\ncat > \"$1\"\n")
+	if err := os.Chmod(verifierPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), fmt.Sprintf(`version: 1
+targets: [codex, amp]
+sync:
+  target-overview: true
+verify:
+  command: [%q, %q]
+`, verifierPath, contextPath))
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/review.md"), "Review changes.\n")
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"verify", "-t", "codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("verify selected codex target: %v", err)
+	}
+
+	data, err := os.ReadFile(contextPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got verifyContext
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := adapters.Resolve("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeFiles, err := captureAdapterFiles(adapters.NewSession(), adapter, bundle, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agnosticBody, err := os.ReadFile(adapters.AgnosticEntryPointPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withEntryPoints := func(targets []string) []adapters.CapturedFile {
+		files := append([]adapters.CapturedFile(nil), nativeFiles...)
+		files = append(files, adapters.CapturedFile{Path: adapters.AgnosticEntryPointPath, Content: string(agnosticBody)})
+		entryPoints, renderErr := renderEntryPointFiles(cfg, bundle, targets, header.Strip(string(agnosticBody)))
+		if renderErr != nil {
+			t.Fatal(renderErr)
+		}
+		for _, file := range entryPoints {
+			files = append(files, adapters.CapturedFile{Path: file.Path, Content: file.Content})
+		}
+		return files
+	}
+	want, err := fingerprintHarness(bundle.For("codex").All(), withEntryPoints(cfg.Targets))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HarnessFingerprint != want {
+		t.Errorf("fingerprint = %q, want full shared-consumer fingerprint %q", got.HarnessFingerprint, want)
+	}
+	singleton, err := fingerprintHarness(bundle.For("codex").All(), withEntryPoints([]string{"codex"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HarnessFingerprint == singleton {
+		t.Errorf("fingerprint used fictitious codex-only AGENTS.md bytes: %q", singleton)
+	}
+}
+
+func TestVerify_DoesNotReportPortableModelForTargetsWithoutSettings(t *testing.T) {
+	bundle := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindSettings,
+		Name: "defaults",
+		Meta: map[string]any{"model": "portable-model"},
+	}})
+	cfg := &config.Config{Outputs: map[string]config.Output{}}
+	for _, target := range []string{"gemini", "aider"} {
+		t.Run(target, func(t *testing.T) {
+			adapter, err := adapters.Resolve(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			files, err := captureAdapterFiles(adapters.NewSession(), adapter, bundle, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := configuredModel(cfg, target, files); got != "" {
+				t.Errorf("configuredModel() = %q, want empty", got)
+			}
+		})
+	}
+}
+
+func TestVerify_FingerprintNormalizesPathsAcrossOperatingSystems(t *testing.T) {
+	unixEntries := []spec.Entry{{
+		Kind:  spec.KindSettings,
+		Name:  "defaults",
+		Path:  "settings/team/defaults.yaml",
+		Scope: "team/blue",
+		Meta:  map[string]any{"model": "example"},
+	}}
+	windowsEntries := append([]spec.Entry(nil), unixEntries...)
+	windowsEntries[0].Path = `settings\team\defaults.yaml`
+	windowsEntries[0].Scope = `team\blue`
+
+	unixFiles := []adapters.CapturedFile{
+		{Path: ".codex/config.toml", Content: "model = \"example\"\n"},
+		{Path: "AGENTS.md", Content: "instructions\n"},
+	}
+	windowsFiles := []adapters.CapturedFile{
+		{Path: `AGENTS.md`, Content: "instructions\n"},
+		{Path: `.codex\config.toml`, Content: "model = \"example\"\n"},
+	}
+
+	unixFingerprint, err := fingerprintHarness(unixEntries, unixFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	windowsFingerprint, err := fingerprintHarness(windowsEntries, windowsFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if windowsFingerprint != unixFingerprint {
+		t.Errorf("fingerprints differ by path separator: windows %q, unix %q", windowsFingerprint, unixFingerprint)
+	}
+	if got := normalizeFingerprintPath(`rules\nested/review.md`); got != "rules/nested/review.md" {
+		t.Errorf("normalizeFingerprintPath() = %q", got)
 	}
 }
 

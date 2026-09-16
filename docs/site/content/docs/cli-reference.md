@@ -435,7 +435,7 @@ The command runs directly, without a shell, once per target. It receives one com
 |------|---------|
 | `version` | JSON contract version. Currently `1`. |
 | `target` | Configured agnostic-ai target being verified. |
-| `configured_model` | Optional model selected by portable Settings or first-class target config. This is not proof of the runtime model. |
+| `configured_model` | Optional model read from the rendered native target config, including imported overlay precedence. This is not proof of the runtime model. |
 | `cli` | Optional detected CLI command, resolved path, and `--version` output. Omitted when agnostic-ai cannot prove the identity. `version` is omitted when the command does not report one. |
 | `harness_fingerprint` | Stable SHA-256 digest of target-relevant canonical specs and rendered files. |
 

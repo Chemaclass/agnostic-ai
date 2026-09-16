@@ -43,6 +43,14 @@ func orphanedCount(reports []driftReport) int {
 // would-be file against disk. Also checks entry-point files (CLAUDE.md,
 // AGENTS.md, AGNOSTIC_AI.md). No files are written.
 func collectDrift(targets []string) ([]driftReport, error) {
+	return collectDriftWithEntryPointTargets(targets, nil)
+}
+
+// collectDriftWithEntryPointTargets keeps native adapter verification scoped
+// to targets while allowing shared entry points to be rendered with their
+// complete configured consumer set. A nil entryPointTargets slice preserves
+// the normal check/doctor behavior by using targets for both concerns.
+func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]driftReport, error) {
 	reports := make([]driftReport, 0, len(targets)+1)
 	cfg, b, err := loadProject(".")
 	if err != nil {
@@ -50,6 +58,9 @@ func collectDrift(targets []string) ([]driftReport, error) {
 	}
 	if len(targets) == 0 {
 		targets = cfg.Targets
+	}
+	if entryPointTargets == nil {
+		entryPointTargets = targets
 	}
 	if err := detectCollisions(cfg, b, targets); err != nil {
 		return nil, err
@@ -82,7 +93,7 @@ func collectDrift(targets []string) ([]driftReport, error) {
 		}
 		reports = append(reports, rep)
 	}
-	epRep, err := collectEntryPointDrift(cfg, b, targets)
+	epRep, err := collectEntryPointDrift(cfg, b, entryPointTargets)
 	if err != nil {
 		return nil, err
 	}
