@@ -100,6 +100,28 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	}
 }
 
+func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
+	page := readBuiltFile(t, "../../docs/playground/index.html")
+	script := readBuiltFile(t, "../../docs/playground/playground.js")
+	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
+		if !strings.Contains(page, `value="`+kind+`"`) {
+			t.Errorf("playground kind picker is missing %s", kind)
+		}
+		if !strings.Contains(script, kind+": `") {
+			t.Errorf("playground samples are missing %s", kind)
+		}
+	}
+	for _, required := range []string{
+		"window.agnosticAICapabilities()",
+		"updateCapabilityState()",
+		"Unsupported selections have dashed outlines and are skipped.",
+	} {
+		if !strings.Contains(script, required) {
+			t.Errorf("playground capability UI is missing %q", required)
+		}
+	}
+}
+
 func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 	pages, err := filepath.Glob(filepath.Join(siteDocsContentDir, "[^_]*.md"))
 	if err != nil {

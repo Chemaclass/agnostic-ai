@@ -23,6 +23,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- The playground exposes all ten portable spec kinds, marks unsupported targets before rendering, and reads capability support directly from adapter declarations so target-audit fixes reach the next Pages build automatically.
 - Antigravity agents use its documented nested `.agents/agents/<name>/agent.md` layout, avoiding model collisions with Goose and OpenHands. Import prefers nested profiles, while the sync ledger safely migrates managed legacy flat files (#717).
 - The landing page compares ten broad target integrations across rules, agents, skills, MCP, hooks, commands, and portable permissions, with coverage values checked against adapter capabilities.
 - The playground now uses the website's shared navigation, theme control, and responsive header instead of maintaining a separate navbar.

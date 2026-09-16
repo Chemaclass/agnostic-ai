@@ -40,6 +40,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit reports any spec kind Jules cannot carry and writes nothing:
 // rules reach Jules through the shared AGENTS.md entry-point that
 // `sync` writes centrally, and Jules has no other native file surface

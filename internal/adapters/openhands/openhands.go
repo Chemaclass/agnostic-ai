@@ -107,6 +107,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one native skill folder per skill under .agents/skills/,
 // one path-triggered-rule skill folder per scoped rule under the same
 // directory, plus a merged `./config.toml` for MCP servers and

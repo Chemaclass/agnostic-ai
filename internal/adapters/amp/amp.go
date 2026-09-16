@@ -99,6 +99,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes a folder per skill under `.agents/skills/<name>/SKILL.md`,
 // `.amp/settings.json` for MCP servers, Amp's two environment files, and, when
 // opted in via outputs.amp.rules-file, a legacy concatenated rules document

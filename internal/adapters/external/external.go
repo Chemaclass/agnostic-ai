@@ -126,6 +126,10 @@ func NewWithCommand(name string, cmd func() *exec.Cmd) *Adapter {
 // Name returns the target identifier.
 func (a *Adapter) Name() string { return a.name }
 
+// Capabilities returns nil because protocol v1 does not expose discovery.
+// External adapters still receive every configured spec kind at emit time.
+func (a *Adapter) Capabilities() []spec.Kind { return nil }
+
 // Emit serializes the bundle and config, runs the external binary, and
 // writes any files the adapter returns through the shared emit layer.
 // Adapter-reported warnings go to the package warner; adapter errors

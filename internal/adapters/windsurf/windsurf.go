@@ -197,6 +197,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one .md per rule into the rules directory (default
 // `.devin/rules`, the path Devin Desktop prefers), or into
 // `<scope>/<rules-dir>` for a scoped one, one .md per agent into the

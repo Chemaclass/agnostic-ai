@@ -143,6 +143,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes per-rule instructions, one native agent profile per
 // agent, one native skill folder per skill, the optional legacy
 // concatenated always-on rules file (only when

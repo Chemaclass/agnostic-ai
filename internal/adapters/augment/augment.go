@@ -166,6 +166,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one `.augment/rules/<name>.md` per rule, one
 // `.augment/agents/<name>.md` per agent, one shared
 // `.agents/skills/<name>/SKILL.md` folder per skill, one native command

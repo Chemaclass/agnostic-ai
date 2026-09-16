@@ -172,6 +172,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one Markdown file per rule under `.kilo/rules/`, one
 // agent Markdown file per agent spec under `.kilo/agents/`, one shared
 // `.agents/skills/<name>/SKILL.md` folder per skill, one command

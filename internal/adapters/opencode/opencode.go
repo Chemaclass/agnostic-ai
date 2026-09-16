@@ -72,6 +72,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one native agent definition per agent, one native skill
 // folder per skill (plus the command form when opted in), one command
 // file per command spec, `opencode.json` for MCP servers, and—when

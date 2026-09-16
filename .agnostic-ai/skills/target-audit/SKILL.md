@@ -230,6 +230,8 @@ must touch:
 - [ ] the `import` side, if the moved path is one we read back
 - [ ] adapter package doc comment
 - [ ] `docs/site/content/docs/targets.md`: capability matrix row and per-target section
+- [ ] browser playground: when `caps.Supports` changes, verify the capability-aware
+      target picker with `make playground-build`; do not add a separate capability list
 - [ ] `.agnostic-ai/skills/target-audit/references/sources.md`, if a URL
       moved
 - [ ] tests: `capability_parity_test.go`, `kitsink_golden_test.go`, the
@@ -289,6 +291,11 @@ Bucket by severity, not by target:
 Every adapter fix touches `docs/site/content/docs/targets.md` and `CHANGELOG.md`. One
 PR per target would put every open PR in conflict on those two files for
 no review benefit. Bucketing keeps the conflicts to the count of buckets.
+
+The playground reads `caps.Supports` through the compiled adapter registry.
+A capability declaration changed by a fix is therefore published on the next
+Pages build. Run `make playground-build` in that bucket to catch a broken WASM
+capability export. Never maintain a second playground capability matrix.
 
 Hand each fixer the finding text verbatim, including the evidence. Do not
 re-summarize it: the vendor quote and the `file:line` are what the PR body

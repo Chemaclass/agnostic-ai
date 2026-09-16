@@ -120,6 +120,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes per-rule files under .agents/rules/, one subagent file
 // per agent under .agents/agents/<name>/agent.md, a folder per skill under
 // .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP

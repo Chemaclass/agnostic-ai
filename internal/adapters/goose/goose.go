@@ -81,6 +81,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one skill folder per skill spec under `.agents/skills/`,
 // plus the legacy concatenated `.goosehints`-style document only when
 // `outputs.goose.rules-file` is set, scoped to rules so native agent

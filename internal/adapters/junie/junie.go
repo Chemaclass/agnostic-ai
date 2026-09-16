@@ -167,6 +167,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes the `.junie/AGENTS.md` entry-point (pointer body plus
 // inlined rules), one native file per agent under the agents directory,
 // one folder per skill under the skills directory (Junie's native

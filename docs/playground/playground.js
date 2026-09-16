@@ -69,6 +69,38 @@ Review the diff since the last commit:
 
 Cite \`file:line\` for every finding. Lead with highest-impact issues.
 `,
+  settings: `name: defaults
+permissions:
+  allow:
+    - Bash(go test:*)
+  deny:
+    - Bash(rm:*)
+  ask:
+    - Bash(git push:*)
+model: claude-opus-4-8
+`,
+  review: `---
+name: backend-review
+scope: backend
+---
+
+Flag handlers that access the database without going through a repository.
+`,
+  environment: `name: development
+install: go mod download
+terminals:
+  - name: dev
+    command: go run ./cmd/agnostic-ai
+`,
+  ignore: `---
+name: private-files
+---
+
+# Secrets and build artifacts the agent should never read
+*.env
+secrets/
+dist/
+`,
 };
 
 const DEFAULT_TARGETS = ["claude", "codex", "cursor", "gemini"];
@@ -82,6 +114,7 @@ const els = {
   kind: $("kind"),
   sample: $("sample"),
   targets: $("targets"),
+  capabilitySummary: $("capability-summary"),
   tabs: $("tabs"),
   files: $("files"),
   fileSelectWrap: document.querySelector(".file-select"),
@@ -94,6 +127,7 @@ const els = {
 let renderResults = [];
 let currentTarget = null;
 let currentFile = null;
+let capabilityByTarget = new Map();
 
 /* ─── Status ─── */
 
@@ -129,10 +163,11 @@ function loadPrefs() {
 
 /* ─── Targets ─── */
 
-function buildTargetChips(allTargets, preselected) {
+function buildTargetChips(capabilities, preselected) {
   els.targets.querySelectorAll("label").forEach((n) => n.remove());
   const wanted = preselected && preselected.length ? preselected : DEFAULT_TARGETS;
-  allTargets.forEach((name) => {
+  capabilities.forEach(({ name, supports }) => {
+    capabilityByTarget.set(name, new Set(supports));
     const id = `target-${name}`;
     const label = document.createElement("label");
     label.htmlFor = id;
@@ -147,15 +182,40 @@ function buildTargetChips(allTargets, preselected) {
     });
     const span = document.createElement("span");
     span.textContent = name;
-    label.append(cb, span);
+    const supportStatus = document.createElement("span");
+    supportStatus.className = "sr-only support-status";
+    label.append(cb, span, supportStatus);
     els.targets.append(label);
   });
+  updateCapabilityState();
 }
 
 function selectedTargets() {
   return Array.from(
     els.targets.querySelectorAll('input[type="checkbox"]:checked'),
   ).map((cb) => cb.value);
+}
+
+function supportsKind(target, kind) {
+  return capabilityByTarget.get(target)?.has(kind) || false;
+}
+
+function updateCapabilityState() {
+  const kind = els.kind.value;
+  let supportedCount = 0;
+  els.targets.querySelectorAll("label").forEach((label) => {
+    const input = label.querySelector('input[type="checkbox"]');
+    const supported = supportsKind(input.value, kind);
+    if (supported) supportedCount += 1;
+    label.classList.toggle("unsupported", !supported);
+    label.title = supported
+      ? `${input.value} supports ${kind} specs`
+      : `${input.value} does not support ${kind} specs and will be skipped`;
+    label.querySelector(".support-status").textContent = supported
+      ? `, supports ${kind}`
+      : `, does not support ${kind}`;
+  });
+  els.capabilitySummary.textContent = `${supportedCount} of ${capabilityByTarget.size} targets support ${kind} specs. Unsupported selections have dashed outlines and are skipped.`;
 }
 
 /* ─── Samples ─── */
@@ -173,6 +233,7 @@ function buildSamplePicker() {
     els.kind.value = k;
     els.source.value = SAMPLES[k];
     els.sample.value = "";
+    updateCapabilityState();
     savePrefs();
     scheduleRender();
   });
@@ -257,10 +318,19 @@ function scheduleRender() {
 }
 
 function runRender() {
-  const targets = selectedTargets();
-  if (targets.length === 0) {
+  const selected = selectedTargets();
+  if (selected.length === 0) {
     renderResults = [];
     setStatus("Pick at least one target.");
+    renderTabs();
+    return;
+  }
+  const kind = els.kind.value;
+  const targets = selected.filter((target) => supportsKind(target, kind));
+  const skipped = selected.filter((target) => !supportsKind(target, kind));
+  if (targets.length === 0) {
+    renderResults = [];
+    setStatus(`None of the selected targets support ${kind}. Pick a target shown at full contrast.`);
     renderTabs();
     return;
   }
@@ -271,14 +341,16 @@ function runRender() {
     setStatus(`render failed: ${e.message || e}`, true);
     return;
   }
+  const messages = [];
   if (result.errors && result.errors.length) {
-    const lines = result.errors
+    messages.push(result.errors
       .map((e) => `${e.target || "(input)"}: ${e.message}`)
-      .join(" · ");
-    setStatus(lines, true);
-  } else {
-    setStatus(null);
+      .join(" · "));
   }
+  if (skipped.length) {
+    messages.push(`Skipped for ${kind}: ${skipped.join(", ")}.`);
+  }
+  setStatus(messages.length ? messages.join(" ") : null, !!result.errors?.length);
   renderResults = result.files || [];
   renderTabs();
 }
@@ -346,15 +418,17 @@ async function init() {
   go.run(module.instance);
 
   const prefs = loadPrefs();
-  const allTargets = window.agnosticAITargets().sort();
-  buildTargetChips(allTargets, prefs.targets);
+  if (prefs.kind && SAMPLES[prefs.kind]) els.kind.value = prefs.kind;
+  const capabilities = window.agnosticAICapabilities()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  buildTargetChips(capabilities, prefs.targets);
   buildSamplePicker();
 
-  if (prefs.kind && SAMPLES[prefs.kind]) els.kind.value = prefs.kind;
   els.source.value = SAMPLES[els.kind.value] || SAMPLES.rule;
 
   els.source.addEventListener("input", scheduleRender);
   els.kind.addEventListener("change", () => {
+    updateCapabilityState();
     savePrefs();
     scheduleRender();
   });

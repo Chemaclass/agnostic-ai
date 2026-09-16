@@ -1,7 +1,9 @@
 // Command agnostic-ai-wasm is the WebAssembly entry point used by the
-// in-browser playground. It exposes a single global function,
+// in-browser playground. It exposes global functions including
 // `agnosticAIRender`, that takes one spec body plus a list of targets
 // and returns each adapter's emitted output as a JSON-friendly object.
+// It also exposes `agnosticAICapabilities`, backed by the same declarations
+// adapters use to report unsupported spec kinds.
 //
 // The binary is built with `GOOS=js GOARCH=wasm` and shipped alongside
 // the static playground at docs/playground/. The full adapter registry
@@ -25,6 +27,7 @@ import (
 func main() {
 	js.Global().Set("agnosticAIRender", js.FuncOf(render))
 	js.Global().Set("agnosticAITargets", js.FuncOf(listTargets))
+	js.Global().Set("agnosticAICapabilities", js.FuncOf(listCapabilities))
 	// Park the goroutine; closing it would invalidate the exported
 	// JS callbacks and break the playground after the first call.
 	select {}
@@ -140,6 +143,22 @@ func listTargets(_ js.Value, _ []js.Value) any {
 	out := make([]any, 0, len(names))
 	for _, n := range names {
 		out = append(out, n)
+	}
+	return js.ValueOf(out)
+}
+
+func listCapabilities(_ js.Value, _ []js.Value) any {
+	matrix := adapters.CapabilityMatrix()
+	out := make([]any, 0, len(matrix))
+	for _, target := range matrix {
+		supports := make([]any, 0, len(target.Supports))
+		for _, kind := range target.Supports {
+			supports = append(supports, string(kind))
+		}
+		out = append(out, map[string]any{
+			"name":     target.Name,
+			"supports": supports,
+		})
 	}
 	return js.ValueOf(out)
 }

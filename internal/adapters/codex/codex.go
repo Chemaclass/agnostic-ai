@@ -139,6 +139,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one TOML per agent, one folder per skill,
 // .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when opted
 // in via outputs.codex.rules-file—a legacy concatenated rules document.

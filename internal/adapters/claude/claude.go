@@ -88,6 +88,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // GitignoreHints returns local Claude Code artifacts that agnostic-ai
 // never emits but that must stay out of version control: the agent
 // memory store and the per-user local settings file. Both are

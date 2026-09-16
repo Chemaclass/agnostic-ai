@@ -139,6 +139,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
 // `.agents/skills/`, a managed `.factory/mcp.json` for MCP servers,

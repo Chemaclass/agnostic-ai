@@ -126,6 +126,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one native subagent per agent under `.gemini/agents/`
 // (plus a command TOML per agent when opted in), one TOML per command
 // under `.gemini/commands/`, one native skill folder per skill under

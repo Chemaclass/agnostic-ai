@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
@@ -326,10 +327,37 @@ func ApplyImportMode(body, mode string) (string, error) {
 type Adapter interface {
 	// Name returns the target identifier used in config and CLI flags.
 	Name() string
+	// Capabilities returns the portable spec kinds the target emits natively.
+	// The playground and documentation use this declaration directly, so a
+	// target-audit fix has one capability source to update.
+	Capabilities() []spec.Kind
 	// Emit renders the bundle as files for this target, routing every
 	// write through sess so the caller owns the capture / recording /
 	// backup / transaction buffers. dryRun prints rather than writing.
 	Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error
+}
+
+// TargetCapabilities is the public, read-only capability view for one
+// registered target.
+type TargetCapabilities struct {
+	Name     string
+	Supports []spec.Kind
+}
+
+// CapabilityMatrix returns every built-in target and its declared native
+// spec kinds sorted by target name. Returned slices are copies so callers cannot
+// mutate adapter declarations.
+func CapabilityMatrix() []TargetCapabilities {
+	names := Names()
+	matrix := make([]TargetCapabilities, 0, len(names))
+	for _, name := range names {
+		a := registry[name]
+		matrix = append(matrix, TargetCapabilities{
+			Name:     name,
+			Supports: append([]spec.Kind(nil), a.Capabilities()...),
+		})
+	}
+	return matrix
 }
 
 // EmitWithProvenance wraps adapter.Emit with the per-target provenance
@@ -427,5 +455,6 @@ func Names() []string {
 	for k := range registry {
 		out = append(out, k)
 	}
+	sort.Strings(out)
 	return out
 }

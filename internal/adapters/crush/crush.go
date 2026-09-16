@@ -110,6 +110,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one native skill folder per skill under .agents/skills/
 // and a merged crush.json for MCP servers and PreToolUse hooks. The
 // project-root AGENTS.md (with rule bodies inlined) is written by

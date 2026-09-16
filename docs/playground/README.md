@@ -3,7 +3,9 @@
 [All docs](../README.md) · [Contributor setup](../../CONTRIBUTING.md)
 
 In-browser playground for agnostic-ai. Paste a spec, pick targets, see
-each adapter's emission live. Runs entirely client-side via WebAssembly,
+each adapter's emission live. Target support comes from each adapter's
+declared capabilities, so unsupported choices are clear before rendering.
+Runs entirely client-side via WebAssembly,
 so the page costs zero server resources and works on any static host.
 
 ## Try it
@@ -27,18 +29,21 @@ http://127.0.0.1:8080/playground/.
 |------|---------|
 | `index.html` | Two-pane UI: spec input on the left, emitted outputs on the right. |
 | `style.css` | Layout + dark/light theme. |
-| `playground.js` | Wires up the textarea, target checkboxes, tabs; debounces input. |
+| `playground.js` | Wires up all ten spec kinds, capability-aware target choices, output tabs, and debounced rendering. |
 | `wasm_exec.js` | Go toolchain shim. Generated; gitignored. |
 | `agnostic-ai.wasm` | Built from `cmd/agnostic-ai-wasm`. Generated; gitignored. |
 
 ## How it works
 
-`cmd/agnostic-ai-wasm/main.go` exposes two globals to JavaScript:
+`cmd/agnostic-ai-wasm/main.go` exposes three globals to JavaScript:
 
 - `agnosticAIRender(kind, body, targets)` returns
   `{ files: [{target, path, content}], errors: [{target, message}] }`.
 - `agnosticAITargets()` returns the list of every adapter linked into
   the binary, so the UI can build the target picker dynamically.
+- `agnosticAICapabilities()` returns each target's supported spec kinds
+  from its adapter declaration. The Pages build therefore picks up a
+  `caps.Supports` change without a separate playground data edit.
 
 Adapters use an emission session in capture mode, recording output in memory for the browser.
 

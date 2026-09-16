@@ -103,6 +103,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one .md per rule under the rules directory (default
 // `.cline/rules`), one .md per agent under the agents directory
 // (default `.cline/agents`), and one folder per skill under the skills

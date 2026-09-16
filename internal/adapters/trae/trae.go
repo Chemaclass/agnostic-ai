@@ -205,6 +205,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one .md per rule into the rules directory (default
 // `.trae/rules`), one .md per agent into the agents directory (default
 // `.trae/agents`, Trae's native project-subagent path), one folder per

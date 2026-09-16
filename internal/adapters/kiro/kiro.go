@@ -210,6 +210,8 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
+
 // Emit writes one steering file per rule, one native agent profile per
 // agent, one native skill folder per skill, one hook definition file
 // per hook, `.kiroignore` when ignore entries exist, plus
