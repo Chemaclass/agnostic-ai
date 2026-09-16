@@ -10,6 +10,8 @@ import (
 	"sort"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importJSONMCPMap reads a JSON file at srcPath, extracts the
@@ -73,6 +75,9 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		names = append(names, k)
 	}
 	sort.Strings(names)
+	if err := spec.ValidateMCPNames(names); err != nil {
+		return 0, err
+	}
 	count := 0
 	for _, name := range names {
 		entry, _ := servers[name].(map[string]any)
@@ -89,7 +94,7 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
 		}
-		path := filepath.Join(dstDir, name+".yaml")
+		path := filepath.Join(dstDir, spec.MCPFileName(name))
 		if err := importWriteFile(path, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", path, err)
 		}

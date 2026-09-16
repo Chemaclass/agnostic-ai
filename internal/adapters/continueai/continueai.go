@@ -182,6 +182,9 @@ func assistantYAML(e spec.Entry) (string, error) {
 // file per server: a silent skip here loses a whole file, not a line in
 // a document that still loads.
 func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bool) error {
+	if err := spec.ValidateMCPNames(continueMCPNames(mcps)); err != nil {
+		return err
+	}
 	var unmapped, incomplete, remoteEnv int
 	for _, m := range mcps {
 		if m.Name == "" {
@@ -204,7 +207,7 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 		if err != nil {
 			return err
 		}
-		path := filepath.Join(dir, m.Name+".yaml")
+		path := filepath.Join(dir, spec.MCPFileName(m.Name))
 		if err := sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
@@ -216,6 +219,21 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 	emit.NoteFieldNoOp(target, spec.KindMCP, "env", remoteEnv,
 		"Continue declares env on its stdio server only; the url-based server schema has no env field")
 	return nil
+}
+
+func continueMCPNames(mcps []spec.Entry) []string {
+	names := make([]string, 0, len(mcps))
+	for _, m := range mcps {
+		if m.Name == "" {
+			continue
+		}
+		m.Meta = emit.ResolveMeta(m.Meta, target)
+		transport := mcpTransport(m)
+		if mappedTransport(transport) && hasRequiredField(m, transport) {
+			names = append(names, m.Name)
+		}
+	}
+	return names
 }
 
 // mcpTransport returns the spec transport, defaulting to stdio the same

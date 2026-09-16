@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -687,6 +688,51 @@ auth = "oauth"
 	}
 	if !strings.Contains(string(github), "auth: oauth") {
 		t.Errorf("github.yaml missing auth:\n%s", github)
+	}
+}
+
+func TestImportFromCodex_MCPPackageNameImportsAndLoads(t *testing.T) {
+	dir := t.TempDir()
+	want := "npm:@modelcontextprotocol/server-sequential.thinking"
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking"]
+command = "npx"
+`)
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "mcps", "npm%3A%40modelcontextprotocol%2Fserver-sequential.thinking.yaml")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected encoded MCP spec filename: %v", err)
+	}
+	bundle, err := spec.LoadBundle(dir, &config.Config{Sources: rootSources()})
+	if err != nil {
+		t.Fatalf("load imported MCP: %v", err)
+	}
+	if len(bundle.MCPs) != 1 || bundle.MCPs[0].Name != want {
+		t.Fatalf("MCP names = %+v, want %q", bundle.MCPs, want)
+	}
+}
+
+func TestWriteCodexMCPs_InvalidNameWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	count, err := writeCodexMCPs(map[string]codexMCPEntry{
+		"a-valid":      {Command: "first"},
+		"z/../invalid": {Command: "second"},
+	}, dir)
+	if err == nil {
+		t.Fatal("expected invalid MCP name error")
+	}
+	if count != 0 {
+		t.Errorf("wrote %d specs before validation failed", count)
+	}
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if len(entries) != 0 {
+		t.Errorf("invalid import wrote %d specs", len(entries))
 	}
 }
 

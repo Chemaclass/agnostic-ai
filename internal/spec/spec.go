@@ -679,19 +679,31 @@ func insideFolderSkill(path, root string) bool {
 	}
 }
 
-// checkSpecName rejects a spec name that is not a single safe path
-// segment. Every adapter uses the name as a filename or directory segment
-// in its output, so a value carrying path separators or `..` could make
-// sync write outside the target directory (path traversal). Rejecting it
-// at load fails the run with a clear message instead of emitting an
-// escaping file. A name derived from a filename stem is always safe; the
-// guard matters for an author-supplied `name:` frontmatter value.
-func checkSpecName(name string) error {
+// ValidateName rejects names that could escape an adapter's output tree.
+// MCP names may contain forward slashes because vendor identifiers use
+// them and MCPFileName encodes per-server filenames. Other spec kinds use
+// the name directly as a filename or directory segment.
+func ValidateName(kind Kind, name string) error {
+	if kind == KindMCP {
+		if name == "" || hasDotPathSegment(name) || strings.ContainsRune(name, '\\') || strings.ContainsRune(name, '\x00') {
+			return fmt.Errorf("invalid MCP name %q: must not be empty, contain dot path segments, a backslash, or a NUL byte", name)
+		}
+		return nil
+	}
 	if name != filepath.Base(name) || name == "." || name == ".." ||
 		strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') {
 		return fmt.Errorf("invalid spec name %q: must be a single path segment (no %q, %q, or path separators)", name, "/", "..")
 	}
 	return nil
+}
+
+func hasDotPathSegment(name string) bool {
+	for _, segment := range strings.Split(name, "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]Entry, error) {
@@ -727,7 +739,7 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 				entry.Name = strings.TrimSuffix(d.Name(), ext)
 			}
 		}
-		if err := checkSpecName(entry.Name); err != nil {
+		if err := ValidateName(kind, entry.Name); err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		entries = append(entries, entry)

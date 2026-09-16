@@ -15,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -139,11 +140,11 @@ func parseContinueJSONMCPs(src string, data []byte) ([]continueMCPFile, error) {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	if err := spec.ValidateMCPNames(names); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", src, err)
+	}
 	files := make([]continueMCPFile, 0, len(names))
 	for _, name := range names {
-		if !filepath.IsLocal(name) || name == "." || strings.ContainsAny(name, "/\\\x00") {
-			return nil, fmt.Errorf("parse %s: invalid MCP server name %q: must be a single safe path segment", src, name)
-		}
 		server, ok := servers[name].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("parse %s: MCP server %q must be an object", src, name)
@@ -162,7 +163,7 @@ func parseContinueJSONMCPs(src string, data []byte) ([]continueMCPFile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: marshal MCP server %q: %w", src, name, err)
 		}
-		files = append(files, continueMCPFile{name: name + ".yaml", body: raw})
+		files = append(files, continueMCPFile{name: spec.MCPFileName(name), body: raw})
 	}
 	return files, nil
 }
