@@ -99,6 +99,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "gpt-5.4"}},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{

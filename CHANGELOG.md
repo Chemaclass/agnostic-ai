@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Codex and Copilot apply the portable Settings model to their repository config. Copilot import restores it, while existing target-specific settings and Codex overlay precedence stay intact (#827).
 - Settings specs now select the project default model for OpenCode, Junie, Qoder, and Kilo; Qoder also receives shared allow, deny, and ask permissions. Native imports restore the portable fields and preserve unrelated settings (#806).
 - Goose hook specs emit a complete Open Plugins package with its manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#629).
 - Augment and Factory emit native Markdown commands, preserving documented frontmatter and `$ARGUMENTS`; Augment also preserves nested command namespaces (#630).
@@ -24,6 +25,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- Amp, Cline, and Windsurf import every documented project skill path with explicit collision precedence, bundled assets, and file modes. Windsurf also preserves native `triggers` invocation policy through import and sync (#821, #823).
 - Claude prompt hooks preserve `continueOnBlock`; Copilot preserves HTTP and `sessionStart` prompt handlers through emit and import (#804, #629).
 - Kiro preserves an explicit `x-kiro.name` display name while keeping the canonical spec name as the filename (#807).
 - Factory and Windsurf skip unsupported WebSocket MCP entries with a coverage note instead of writing invalid native configuration (#809, #816).

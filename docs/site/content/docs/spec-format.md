@@ -568,11 +568,11 @@ model: claude-opus-4-8
 
 Multiple settings files merge: permission lists concatenate (de-duped, source order preserved); the last non-empty `model` wins.
 
-Native emission: Claude Code (`.claude/settings.json`, `permissions` + `model`), Qoder (`.qoder/settings.json`, `permissions` + nested `model.name`), OpenCode (`opencode.json`, `model`), Junie (`.junie/config.json`, `model`), and Kilo Code (`kilo.jsonc`, `model`). Unrepresentable settings fields produce the normal coverage summary while supported fields still emit. Import for the four new targets creates `settings/imported.yaml` from portable fields and leaves target-only native keys in place.
+Native emission: Claude Code (`.claude/settings.json`, `permissions` + `model`), Codex (`.codex/config.toml`, `model`), Copilot (`.github/copilot/settings.json`, `model`), Qoder (`.qoder/settings.json`, `permissions` + nested `model.name`), OpenCode (`opencode.json`, `model`), Junie (`.junie/config.json`, `model`), and Kilo Code (`kilo.jsonc`, `model`). Unrepresentable settings fields produce the normal coverage summary while supported fields still emit. Import for Copilot, OpenCode, Junie, Qoder, and Kilo creates `settings/imported.yaml` from portable fields and leaves target-only native keys in place.
 
 When the Claude-specific `outputs.claude.settings` config in `agnostic-ai.yaml` also sets these fields, scalars like `model` take the config value (it is the more specific source), while `permissions` lists are unioned across the captured overlay, the settings spec, and the config so no layer silently drops another's allow/deny/ask rules.
 
-`import claude` keeps `permissions` and `model` in the Claude-only overlay (`.agnostic-ai/overlays/claude.settings.json`), since a Claude model id does not necessarily port to other tools. Imports from OpenCode, Junie, Qoder, and Kilo write their portable fields to `settings/imported.yaml`, ready for cross-target sync. Review imported model identifiers before enabling more targets because vendors use different naming schemes. A settings spec's permissions still union with the imported Claude overlay on sync.
+`import claude` keeps `permissions` and `model` in the Claude-only overlay (`.agnostic-ai/overlays/claude.settings.json`), since a Claude model id does not necessarily port to other tools. Codex does the same through its config overlay. Imports from Copilot, OpenCode, Junie, Qoder, and Kilo write their portable fields to `settings/imported.yaml`, ready for cross-target sync. Review imported model identifiers before enabling more targets because vendors use different naming schemes. A settings spec's permissions still union with the imported Claude overlay on sync.
 
 ## Reviews
 

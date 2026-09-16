@@ -19,9 +19,9 @@ import (
 //	         -> sync amp
 //	         -> assert byte-for-byte identical
 //
-// MCPs are the round-trip surface. Agents left it when Amp removed
-// custom commands (#727): they now emit no adapter-owned file, so the
-// fixture keeps them only to pin that `.agents/commands/` stays empty.
+// Skills and MCPs are the round-trip surfaces. Agents left it when Amp
+// removed custom commands (#727): they now emit no adapter-owned file, so
+// the fixture keeps them only to pin that `.agents/commands/` stays empty.
 // Rules flow through sync's project-root AGENTS.md entry-point — same
 // caveat the codex audit (#329) noted — so they are intentionally
 // excluded; the entry-point round-trip needs its own harness.
@@ -40,11 +40,10 @@ func TestAmpRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 		t.Errorf("sync wrote the retired commands dir Amp told users to delete, err=%v", err)
 	}
 
-	// Only the MCP specs are wiped: `import amp` can no longer recover
-	// agents now that nothing emits them, so wiping those would compare
-	// an empty set against an empty set and prove nothing.
-	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "mcps")); err != nil {
-		t.Fatal(err)
+	for _, sub := range []string{"skills", "mcps"} {
+		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	runCmd(t, "import", "amp")
@@ -98,6 +97,9 @@ gitignore:
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills/uno"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/skills/uno/SKILL.md"),
 		[]byte("---\nname: uno\ndescription: skill uno\n---\n\nuno body\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills/uno/scripts"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/skills/uno/scripts/check.sh"),
+		[]byte("#!/bin/sh\nexit 0\n"), 0o755))
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/stdio-server.yaml"),

@@ -36,6 +36,7 @@ func rootSources() config.Sources {
 		Hooks:    "hooks",
 		MCPs:     "mcps",
 		Commands: "commands",
+		Settings: "settings",
 	}
 }
 

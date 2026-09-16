@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -80,6 +81,41 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 			t.Errorf("byte mismatch at %s (first=%d bytes, second=%d bytes)\n%s",
 				p, len(first[p]), len(second[p]), unifiedDiffLines(first[p], second[p]))
 		}
+	}
+}
+
+func TestWindsurfRoundTrip_EveryNativeSkillPathPreservesTriggers(t *testing.T) {
+	for _, skillsDir := range []string{".agents/skills", ".devin/skills", ".windsurf/skills"} {
+		t.Run(strings.ReplaceAll(skillsDir, "/", "_"), func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			must(t, os.WriteFile("agnostic-ai.yaml", []byte("version: 1\nsources:\n  skills: .agnostic-ai/skills\ntargets: [windsurf]\noutputs:\n  windsurf:\n    skills-dir: "+skillsDir+"\ngitignore:\n  enabled: false\n"), 0o644))
+			must(t, os.MkdirAll(".agnostic-ai/skills/security/scripts", 0o755))
+			must(t, os.WriteFile(".agnostic-ai/skills/security/SKILL.md", []byte("---\nname: security\ndescription: Security review\nx-windsurf:\n  triggers: [user, model]\n---\n\nReview security.\n"), 0o644))
+			must(t, os.WriteFile(".agnostic-ai/skills/security/scripts/check.sh", []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+			runCmd(t, "sync", "-t", "windsurf")
+			firstSkill := readBytes(t, filepath.Join(skillsDir, "security", "SKILL.md"))
+			firstAsset := readBytes(t, filepath.Join(skillsDir, "security", "scripts", "check.sh"))
+			must(t, os.RemoveAll(".agnostic-ai/skills"))
+			runCmd(t, "import", "windsurf")
+			must(t, os.RemoveAll(strings.Split(skillsDir, "/")[0]))
+			runCmd(t, "sync", "-t", "windsurf")
+
+			if got := readBytes(t, filepath.Join(skillsDir, "security", "SKILL.md")); string(got) != string(firstSkill) {
+				t.Errorf("SKILL.md changed across %s round-trip:\n%s", skillsDir, unifiedDiffLines(string(firstSkill), string(got)))
+			}
+			if got := readBytes(t, filepath.Join(skillsDir, "security", "scripts", "check.sh")); string(got) != string(firstAsset) {
+				t.Errorf("asset changed across %s round-trip", skillsDir)
+			}
+			info, err := os.Stat(filepath.Join(skillsDir, "security", "scripts", "check.sh"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+				t.Errorf("asset lost executable mode: %o", info.Mode().Perm())
+			}
+		})
 	}
 }
 

@@ -23,7 +23,7 @@ import (
 //
 // The fixture covers every codex-supported spec kind (agents, skills,
 // rules via the legacy rules-file opt-in, hooks across multiple
-// events, commands, MCPs across stdio + http + disabled) so a future
+// events, commands, settings, MCPs across stdio + http + disabled) so a future
 // regression in any byte-stable round-trip path (frontmatter key
 // order, hook event order, agent TOML keys, MCP table layout, overlay
 // capture) trips here instead of silently shipping.
@@ -41,7 +41,7 @@ func TestCodexRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	// Wipe the source specs so the importer is the only thing that
 	// can rebuild them from the emitted .codex/* tree.
-	for _, sub := range []string{"agents", "skills", "hooks", "mcps", "commands"} {
+	for _, sub := range []string{"agents", "skills", "hooks", "mcps", "commands", "settings"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -87,6 +87,7 @@ sources:
   hooks: .agnostic-ai/hooks
   mcps: .agnostic-ai/mcps
   commands: .agnostic-ai/commands
+  settings: .agnostic-ai/settings
 targets:
   - codex
 gitignore:
@@ -123,6 +124,10 @@ gitignore:
 		must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/commands", n+".md"),
 			[]byte("---\ndescription: "+n+"\n---\n\n"+n+" body\n"), 0o644))
 	}
+
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/settings"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/settings/defaults.yaml"),
+		[]byte("model: gpt-5.4-codex\n"), 0o644))
 
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/mcps"), 0o755))
 	// required/startup_timeout_sec/tool_timeout_sec/default_tools_approval_mode

@@ -37,7 +37,7 @@ func TestCopilotRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 		t.Fatalf("first sync produced no copilot output")
 	}
 
-	for _, sub := range []string{"agents", "skills", "rules", "mcps"} {
+	for _, sub := range []string{"agents", "skills", "rules", "mcps", "settings"} {
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +45,7 @@ func TestCopilotRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "copilot")
 
-	for _, p := range []string{".github/instructions", ".vscode"} {
+	for _, p := range []string{".github/instructions", ".github/copilot", ".vscode"} {
 		if err := os.RemoveAll(filepath.Join(dir, p)); err != nil {
 			t.Fatal(err)
 		}
@@ -77,6 +77,7 @@ sources:
   skills: .agnostic-ai/skills
   rules: .agnostic-ai/rules
   mcps: .agnostic-ai/mcps
+  settings: .agnostic-ai/settings
 targets:
   - copilot
 gitignore:
@@ -113,12 +114,15 @@ gitignore:
 			"dev:\n  watch: \"src/**/*.ts\"\n  debug:\n    type: node\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/http-server.yaml"),
 		[]byte("name: http-server\ntype: http\nurl: https://example.test/mcp\noauth:\n  clientId: example-client-id\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/settings"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/settings/defaults.yaml"),
+		[]byte("model: gpt-5.4\n"), 0o644))
 }
 
 func snapshotCopilotEmit(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	for _, r := range []string{".github/instructions", ".vscode/mcp.json"} {
+	for _, r := range []string{".github/instructions", ".github/copilot/settings.json", ".vscode/mcp.json"} {
 		full := filepath.Join(root, r)
 		info, err := os.Stat(full)
 		if os.IsNotExist(err) {

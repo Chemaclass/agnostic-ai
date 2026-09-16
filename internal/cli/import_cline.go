@@ -28,11 +28,16 @@ const (
 	// (docs.cline.bot/getting-started/config); files there are flat
 	// `<name>.md`, not the pre-migration `agent-<name>.md` rule-form.
 	clineAgentsDir = ".cline/agents"
-	// clineSkillsDir is Cline's recommended skills path
-	// (docs.cline.bot/customization/skills): a folder per skill holding
-	// a SKILL.md, the layout `sync` writes today.
-	clineSkillsDir = ".cline/skills"
 )
+
+// clineSkillsDirs lists every documented project skill path in precedence
+// order. `.cline/skills/` is the recommended location, followed by the
+// legacy `.clinerules/skills/` tree and Claude-compatible skills.
+var clineSkillsDirs = []string{
+	filepath.Join(".cline", "skills"),
+	filepath.Join(".clinerules", "skills"),
+	filepath.Join(".claude", "skills"),
+}
 
 // clineImportDir returns the first existing candidate rules dir under
 // root, defaulting to the preferred `.cline/rules` when neither exists
@@ -57,13 +62,19 @@ func clineImportDir(root string) string {
 //     agents moved to their own directory (#534).
 //   - `.cline/agents/*.md` (the native agents directory) reconstructs
 //     agents, byte-for-byte minus the provenance header.
-//   - `.cline/skills/<name>/SKILL.md` folders reconstruct skills
-//     natively, with bundled sibling assets copied byte-for-byte.
+//   - `.cline/skills/`, `.clinerules/skills/`, and `.claude/skills/`
+//     reconstruct native skill folders with bundled assets. Earlier paths
+//     win same-name collisions.
 func importFromCline(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, clineImportDir(root), src)
+	rulesDir := clineImportDir(root)
+	opts := rulesDirImportOpts{}
+	if rulesDir == ".clinerules" {
+		opts.SkipDirs = map[string]bool{"skills": true}
+	}
+	c, err := importRulesDirectoryWith(root, rulesDir, src, opts)
 	if err != nil {
 		return err
 	}
@@ -72,11 +83,14 @@ func importFromCline(root string, src config.Sources) error {
 		return err
 	}
 	c.agents += nativeAgents
-	folderSkills, err := importSkillFolders(filepath.Join(root, clineSkillsDir), filepath.Join(root, src.Skills))
-	if err != nil {
-		return err
+	seenSkills := map[string]bool{}
+	for _, skillsDir := range clineSkillsDirs {
+		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		if err != nil {
+			return err
+		}
+		c.skills += folderSkills
 	}
-	c.skills += folderSkills
 	summaryf("imported %d rules, %d agents, %d skills (from cline)\n", c.rules, c.agents, c.skills)
 	printImportNextSteps(root, "cline")
 	return nil

@@ -74,6 +74,19 @@ func importScopedSkillFolders(root, nativeDir, dstDir string) (int, error) {
 // nothing. Shared by every importer whose tool uses the Agent Skills
 // folder layout (cursor, gemini, opencode, copilot).
 func importSkillFolders(srcDir, dstDir string) (int, error) {
+	return importSkillFoldersWith(srcDir, dstDir, skillFolderImportOpts{})
+}
+
+type skillFolderImportOpts struct {
+	SkipNames      map[string]bool
+	TransformSkill func([]byte) ([]byte, error)
+}
+
+// importSkillFoldersWith imports a native skill tree with optional
+// collision handling and SKILL.md normalization. Candidate lists share a
+// SkipNames map so the documented path order becomes explicit precedence
+// without treating a pre-existing destination spec as a native collision.
+func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (int, error) {
 	entries, err := os.ReadDir(srcDir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -87,13 +100,20 @@ func importSkillFolders(srcDir, dstDir string) (int, error) {
 			continue
 		}
 		skillSrc := filepath.Join(srcDir, e.Name())
+		skillDst := filepath.Join(dstDir, e.Name())
 		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 			continue
 		} else if err != nil {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
-		if err := copyDirTree(skillSrc, filepath.Join(dstDir, e.Name())); err != nil {
+		if opts.SkipNames[e.Name()] {
+			continue
+		}
+		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+		}
+		if opts.SkipNames != nil {
+			opts.SkipNames[e.Name()] = true
 		}
 		count++
 	}
@@ -108,6 +128,10 @@ func importSkillFolders(srcDir, dstDir string) (int, error) {
 // silently skipped (skills are documented to be plain files +
 // directories — symlinks would not survive a tar/zip release anyway).
 func copyDirTree(srcDir, dstDir string) error {
+	return copyDirTreeWith(srcDir, dstDir, nil)
+}
+
+func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error)) error {
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -137,6 +161,12 @@ func copyDirTree(srcDir, dstDir string) error {
 		// byte-for-byte because they are user-authored.
 		if filepath.Base(path) == "SKILL.md" {
 			data = []byte(header.Strip(string(data)))
+			if transformSkill != nil {
+				data, err = transformSkill(data)
+				if err != nil {
+					return fmt.Errorf("transform %s: %w", path, err)
+				}
+			}
 		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)

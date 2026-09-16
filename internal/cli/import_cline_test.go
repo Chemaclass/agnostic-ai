@@ -188,3 +188,39 @@ func TestImportFromCline_ReadsNativeAgentsDir(t *testing.T) {
 		t.Errorf("provenance header not stripped: %s", got)
 	}
 }
+
+func TestImportFromCline_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	paths := []struct {
+		dir  string
+		name string
+	}{
+		{filepath.Join(".cline", "skills"), "preferred"},
+		{filepath.Join(".clinerules", "skills"), "legacy"},
+		{filepath.Join(".claude", "skills"), "compatible"},
+	}
+	for _, path := range paths {
+		writeFile(t, filepath.Join(dir, path.dir, path.name, "SKILL.md"),
+			"---\nname: "+path.name+"\n---\n\n"+path.name+" body\n")
+		writeFile(t, filepath.Join(dir, path.dir, "shared", "SKILL.md"),
+			"---\nname: shared\n---\n\nfrom "+path.name+"\n")
+	}
+
+	if err := importFromCline(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range paths {
+		got := readFile(t, filepath.Join(dir, "skills", path.name, "SKILL.md"))
+		if !strings.Contains(got, path.name+" body") {
+			t.Errorf("%s skill not imported:\n%s", path.name, got)
+		}
+	}
+	shared := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))
+	if !strings.Contains(shared, "from preferred") {
+		t.Errorf(".cline/skills should win a same-name collision:\n%s", shared)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "skills")); !os.IsNotExist(err) {
+		t.Errorf(".clinerules/skills must not import as rules: %v", err)
+	}
+}

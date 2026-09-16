@@ -17,6 +17,10 @@
 // at `.github/skills/<name>/SKILL.md` with bundled assets, the two
 // surfaces Copilot discovers directly.
 //
+// Portable Settings model values merge into
+// `.github/copilot/settings.json`, Copilot CLI's trusted-repository config.
+// Unrelated repository settings remain untouched.
+//
 // MCP servers emit twice, because Copilot has two readers that
 // disagree on the file. `.vscode/mcp.json` is VS Code's, and VS Code
 // forwards its non-interactive servers to the Agent Host.
@@ -119,6 +123,7 @@ const (
 	defaultSkillsDir       = ".github/skills"
 	defaultMCPFile         = ".vscode/mcp.json"
 	defaultCLIMCPFile      = ".github/mcp.json"
+	defaultSettingsFile    = ".github/copilot/settings.json"
 	instructionFileSuffix  = ".instructions.md"
 	agentFileSuffix        = ".agent.md"
 	catchAllApplyTo        = "**"
@@ -126,7 +131,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindSettings},
 }
 
 // Adapter emits GitHub Copilot configs.
@@ -168,6 +173,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitSettings(sess, b.Settings, dryRun); err != nil {
 		return err
 	}
 	return emitMCP(sess, b, cfg, dryRun)
