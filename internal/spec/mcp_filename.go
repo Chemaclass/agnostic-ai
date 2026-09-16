@@ -1,6 +1,9 @@
 package spec
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const upperHex = "0123456789ABCDEF"
 
@@ -21,6 +24,24 @@ func MCPFileName(name string) string {
 		encoded.WriteByte(upperHex[char&0x0f])
 	}
 	return encoded.String() + ".yaml"
+}
+
+// ValidateMCPNames validates logical names and rejects destination filenames
+// that alias on case-insensitive filesystems.
+func ValidateMCPNames(names []string) error {
+	seen := make(map[string]string, len(names))
+	for _, name := range names {
+		if err := ValidateName(KindMCP, name); err != nil {
+			return err
+		}
+		filename := MCPFileName(name)
+		key := strings.ToLower(filename)
+		if previous, exists := seen[key]; exists {
+			return fmt.Errorf("MCP names %q and %q map to the same filename %q on a case-insensitive filesystem", previous, name, filename)
+		}
+		seen[key] = name
+	}
+	return nil
 }
 
 func isPortableFilenameByte(char byte) bool {

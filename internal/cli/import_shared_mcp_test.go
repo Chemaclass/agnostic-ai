@@ -28,3 +28,24 @@ func TestWriteMCPYAMLs_PackageNameUsesFlatFilename(t *testing.T) {
 		t.Errorf("logical MCP name changed:\n%s", data)
 	}
 }
+
+func TestWriteMCPYAMLs_InvalidNameWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	count, err := writeMCPYAMLs(map[string]any{
+		"a-valid":      map[string]any{"command": "first"},
+		"z/../invalid": map[string]any{"command": "second"},
+	}, dir)
+	if err == nil {
+		t.Fatal("expected invalid MCP name error")
+	}
+	if count != 0 {
+		t.Errorf("wrote %d specs before validation failed", count)
+	}
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if len(entries) != 0 {
+		t.Errorf("invalid import wrote %d specs", len(entries))
+	}
+}

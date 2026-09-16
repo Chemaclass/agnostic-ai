@@ -140,7 +140,7 @@ func parseContinueJSONMCPs(src string, data []byte) ([]continueMCPFile, error) {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	if err := validateMCPNames(names); err != nil {
+	if err := spec.ValidateMCPNames(names); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", src, err)
 	}
 	files := make([]continueMCPFile, 0, len(names))

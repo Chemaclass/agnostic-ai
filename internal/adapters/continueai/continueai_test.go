@@ -90,6 +90,22 @@ func TestEmit_MCP_PackageNameUsesSafeFilename(t *testing.T) {
 	}
 }
 
+func TestEmit_MCP_RejectsCaseFoldedFilenameCollision(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "Foo/Bar", Meta: map[string]any{"command": "first"}},
+		{Kind: spec.KindMCP, Name: "foo/bar", Meta: map[string]any{"command": "second"}},
+	}
+
+	err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false)
+	if err == nil {
+		t.Fatal("expected case-folded MCP filename collision")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".continue/mcpServers")); !os.IsNotExist(statErr) {
+		t.Errorf("collision wrote MCP output: %v", statErr)
+	}
+}
+
 // Continue's URL branch takes `type: "sse" | "streamable-http"` and
 // nothing else, so the canonical agnostic spelling `http` has to be
 // translated on the way out or `blockSchema.parse` throws and the

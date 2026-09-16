@@ -75,7 +75,7 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		names = append(names, k)
 	}
 	sort.Strings(names)
-	if err := validateMCPNames(names); err != nil {
+	if err := spec.ValidateMCPNames(names); err != nil {
 		return 0, err
 	}
 	count := 0
@@ -101,13 +101,4 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
-}
-
-func validateMCPNames(names []string) error {
-	for _, name := range names {
-		if err := spec.ValidateName(spec.KindMCP, name); err != nil {
-			return err
-		}
-	}
-	return nil
 }

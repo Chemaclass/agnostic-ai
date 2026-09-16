@@ -715,6 +715,27 @@ command = "npx"
 	}
 }
 
+func TestWriteCodexMCPs_InvalidNameWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	count, err := writeCodexMCPs(map[string]codexMCPEntry{
+		"a-valid":      {Command: "first"},
+		"z/../invalid": {Command: "second"},
+	}, dir)
+	if err == nil {
+		t.Fatal("expected invalid MCP name error")
+	}
+	if count != 0 {
+		t.Errorf("wrote %d specs before validation failed", count)
+	}
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if len(entries) != 0 {
+		t.Errorf("invalid import wrote %d specs", len(entries))
+	}
+}
+
 // Regression for the target-audit fix: the codex emitter now writes
 // Codex's own `enabled = false` key instead of the never-recognized
 // `disabled = true`. The importer must translate that key back to the

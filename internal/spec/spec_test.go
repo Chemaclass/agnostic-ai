@@ -3,6 +3,7 @@ package spec
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -312,6 +313,19 @@ func TestValidateName_MCPAllowsVendorPathsWithoutTraversal(t *testing.T) {
 	for _, bad := range []string{"", ".", "..", "../escape", "scope/../escape", `scope\server`, "bad\x00name"} {
 		if err := ValidateName(KindMCP, bad); err == nil {
 			t.Errorf("MCP name %q: expected validation error", bad)
+		}
+	}
+}
+
+func TestValidateMCPNames_RejectsCaseFoldedFilenameCollision(t *testing.T) {
+	t.Parallel()
+	err := ValidateMCPNames([]string{"Foo/Bar", "foo/bar"})
+	if err == nil {
+		t.Fatal("expected case-folded MCP filename collision")
+	}
+	for _, want := range []string{"Foo/Bar", "foo/bar"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %q", err, want)
 		}
 	}
 }
