@@ -27,6 +27,7 @@ Developers author canonical specs in a repository, run `agnostic-ai sync`, revie
 - The Go CLI supports 25 registered AI coding targets with different native formats and capability coverage.
 - GitHub Pages is a Zola static site built from `docs/site/` and assembled with the browser playground.
 - User guides are canonical Markdown under `docs/site/content/docs/`. Zola publishes them at `/docs/`, and repository links point readers to the same public pages.
+- `/agent-setup.txt` gives coding agents one plain-text setup and migration contract generated from the canonical user guide. The public site and README expose the same ready-to-paste prompt.
 - `CHANGELOG.md` records released agnostic-ai behavior. Release briefings reproduce that record and separately cover verified upstream ecosystem changes, including changes agnostic-ai does not support yet.
 - Public claims need direct vendor evidence. Proposed shared capabilities are not presented as shipped support.
 - Updates are dated Markdown files with a generated archive and RSS feed. Readers can filter complete editions by target and search terms, with shareable URL state and a complete no-JavaScript archive. The site does not require a CMS or client-side framework.

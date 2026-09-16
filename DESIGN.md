@@ -159,6 +159,12 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 - **Mobile:** a native disclosure keeps every guide reachable before the article without requiring JavaScript.
 - **Source:** each guide links to its canonical Markdown file for quick edits and review.
 
+### Agent handoff
+
+- **Discovery:** the landing first viewport links to agent setup, while the docs index pairs a ready-to-paste prompt with the plain-text instructions.
+- **Content:** the prompt and safety contract live in the canonical agent setup guide. Generated text endpoints never become another source to maintain.
+- **Presentation:** use one flat bordered prompt field, shared copy behavior, and direct links. Keep the full operational workflow in the guide rather than expanding the landing page.
+
 ### Signal tags
 
 - **Style:** 999px pill, 1px Hairline border, Muted Ink monospace text, and 0.5rem inline padding.

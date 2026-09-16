@@ -4,6 +4,7 @@ Start with the guide for your task. Reference pages are for lookup; you do not n
 
 | Your goal | Start here |
 |---|---|
+| Let a coding agent install and configure agnostic-ai | [Agent setup](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/) |
 | Use agnostic-ai in a project | [Getting started](https://chemaclass.github.io/agnostic-ai/docs/getting-started/) |
 | Install or upgrade the CLI | [Installation](https://chemaclass.github.io/agnostic-ai/docs/installation/) |
 | Adopt it without losing existing instructions | [Migration](https://chemaclass.github.io/agnostic-ai/docs/migration/) |

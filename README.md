@@ -10,6 +10,16 @@ Write shared instructions, rules, skills, agents, hooks, and MCP configuration o
 [![Go](https://img.shields.io/github/go-mod/go-version/Chemaclass/agnostic-ai)](go.mod)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+## Set up with a coding agent
+
+Paste this into Claude Code, Codex CLI, Cursor, or another coding agent:
+
+```text
+Set up agnostic-ai in this repository. Follow https://chemaclass.github.io/agnostic-ai/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
+```
+
+The [agent setup guide](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/) explains the safety contract and each command. It keeps existing native configuration intact by importing before the first sync.
+
 ## Quickstart
 
 Install on macOS or Linux:
@@ -84,6 +94,7 @@ Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructi
 
 | I want to... | Read |
 |---|---|
+| Let a coding agent install and configure agnostic-ai | [Agent setup](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/) |
 | Sync my first rule | [Getting started](https://chemaclass.github.io/agnostic-ai/docs/getting-started/) |
 | Bring existing tool config into one source | [Migration](https://chemaclass.github.io/agnostic-ai/docs/migration/) |
 | Write a skill, agent, hook, or MCP spec | [Spec format](https://chemaclass.github.io/agnostic-ai/docs/spec-format/) |

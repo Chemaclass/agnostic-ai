@@ -19,6 +19,8 @@ stop duplicating prompt files per tool.
 
 ## Start here
 
+- [Agent setup instructions](https://chemaclass.github.io/agnostic-ai/agent-setup.txt): one plain-text workflow an agent can follow to install, import, configure, sync, and verify agnostic-ai safely.
+- [Agent setup guide](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/): the human-readable version, including a ready-to-paste prompt.
 - [Landing page](https://chemaclass.github.io/agnostic-ai/): what it does and why, with a worked example.
 - [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, pick targets, see each CLI's output. Runs in-browser via WebAssembly.
 - [AI tooling updates](https://chemaclass.github.io/agnostic-ai/updates/): release briefings on consequential vendor changes, developer impact, and the agnostic-ai response.
@@ -30,6 +32,7 @@ stop duplicating prompt files per tool.
 
 - [Documentation index](https://chemaclass.github.io/agnostic-ai/docs/): choose a guide by task.
 - [Installation](https://chemaclass.github.io/agnostic-ai/docs/installation/): install, upgrade, and shell setup.
+- [Coding-agent setup](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/): delegate a safe setup or migration to a coding agent.
 - [Migration](https://chemaclass.github.io/agnostic-ai/docs/migration/): import existing tool configuration and review the first sync.
 - [Troubleshooting](https://chemaclass.github.io/agnostic-ai/docs/troubleshooting/): diagnose setup, sync, and CI problems.
 

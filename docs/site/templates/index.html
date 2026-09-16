@@ -51,6 +51,7 @@
 
 {% block content %}
 {% set landing = load_data(path="data/landing.toml") %}
+{% set agent_setup = get_page(path="docs/agent-setup.md") %}
 <main id="content">
   <section class="hero">
     <div class="wrap hero-grid">
@@ -62,6 +63,7 @@
           <a class="button button-secondary" href="#how">{{ landing.hero.secondary_label }}</a>
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
+        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
       </div>
 
       <div class="transform" aria-label="One portable rule becomes native configuration files">

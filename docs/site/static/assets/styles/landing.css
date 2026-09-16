@@ -65,6 +65,26 @@ main > section:not(.hero) {
   font-variant-numeric: tabular-nums;
 }
 
+.agent-shortcut {
+  display: grid;
+  gap: 0.15rem;
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.agent-shortcut a {
+  width: fit-content;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.agent-shortcut span {
+  max-width: 38rem;
+  color: var(--muted);
+}
+
 .transform {
   padding: 1.2rem;
   border: 1px solid var(--line);

@@ -10,6 +10,7 @@
 {% block skip_label %}Skip to documentation{% endblock skip_label %}
 
 {% block content %}
+{% set agent_setup = get_page(path="docs/agent-setup.md") %}
 <main id="content">
   <section class="docs-hero">
     <div class="wrap docs-hero-grid">
@@ -20,6 +21,23 @@
           <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Start with one rule</a>
           <a href="{{ get_url(path='@/docs/migration.md') }}">Bring an existing setup</a>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="agent-handoff" aria-labelledby="agent-handoff-title">
+    <div class="wrap agent-handoff-grid">
+      <div class="agent-handoff-copy">
+        <h2 id="agent-handoff-title">{{ agent_setup.title }}</h2>
+        <p>{{ agent_setup.description }}</p>
+        <div class="agent-handoff-actions">
+          <a class="button button-primary" href="{{ get_url(path='agent-setup.txt', trailing_slash=false) }}">Open the agent instructions</a>
+          <a href="{{ agent_setup.permalink | safe }}">Read the setup guide</a>
+        </div>
+      </div>
+      <div class="agent-prompt" data-copy-container>
+        <div class="agent-prompt-head"><span>Paste into your coding agent</span><button type="button" data-copy aria-label="Copy agent setup prompt">Copy</button></div>
+        <pre><code>{{ agent_setup.extra.prompt }}</code></pre>
       </div>
     </div>
   </section>
