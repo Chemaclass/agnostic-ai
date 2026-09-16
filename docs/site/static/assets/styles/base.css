@@ -370,6 +370,10 @@ code {
   margin: 0.8rem 0 0;
 }
 
+.footer-version {
+  font-variant-numeric: tabular-nums;
+}
+
 .site-footer nav {
   display: flex;
   flex-wrap: wrap;
