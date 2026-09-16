@@ -27,7 +27,7 @@
       "url": "{{ config.base_url }}/",
       "codeRepository": "{{ config.extra.repository_url }}",
       "downloadUrl": "{{ config.extra.repository_url }}/releases",
-      "installUrl": "{{ config.base_url }}/#how",
+      "installUrl": "{{ config.base_url }}/#quickstart",
       "applicationCategory": "DeveloperApplication",
       "applicationSubCategory": "Command Line Tool",
       "operatingSystem": "macOS, Linux, Windows",
@@ -52,6 +52,9 @@
 {% block content %}
 {% set landing = load_data(path="data/landing.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
+{% set default_installer = landing.workflow.installers | first %}
+{% set updates_section = get_section(path="updates/_index.md") %}
+{% set latest_update = updates_section.pages | first %}
 <main id="content">
   <section class="hero">
     <div class="wrap hero-grid">
@@ -59,8 +62,12 @@
         <h1>{{ landing.hero.title }}<br><span>{{ landing.hero.accent_title }}</span></h1>
         <div class="lead">{{ landing.hero.body | markdown | safe }}</div>
         <div class="button-row">
-          <a class="button button-primary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="button button-secondary" href="#how">{{ landing.hero.secondary_label }}</a>
+          <a class="button button-primary" href="#quickstart">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="button button-secondary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.secondary_label }}</a>
+        </div>
+        <div class="hero-install">
+          <p><span>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
+          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
         <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
@@ -82,20 +89,43 @@
     </div>
   </section>
 
-  <section class="section-band" id="why">
+  <section class="section-band" id="quickstart">
     <div class="wrap">
-      <h2 class="section-title">{{ landing.problem.title }} <span>{{ landing.problem.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.problem.body | markdown | safe }}</div>
-      <div class="comparison reveal-group">
-        {% for column in landing.problem.columns %}
-        <article class="comparison-panel comparison-panel-{{ column.tone }}">
-          <h3>{{ column.title }}</h3>
-          <ul>
-            {% for item in column.items %}
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{% if column.tone == 'good' %}<path d="M20 6 9 17l-5-5"/>{% else %}<path d="m6 6 12 12M18 6 6 18"/>{% endif %}</svg><span>{{ item | markdown(inline=true) | safe }}</span></li>
-            {% endfor %}
-          </ul>
+      <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.workflow.body | markdown | safe }}</div>
+
+      <div class="installer reveal-group">
+        <div class="install-tabs" role="tablist" aria-label="Installation method">
+          {% for installer in landing.workflow.installers %}
+          <button type="button" role="tab" id="tab-{{ installer.id }}" aria-controls="panel-{{ installer.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ installer.label }}</button>
+          {% endfor %}
+        </div>
+        {% for installer in landing.workflow.installers %}
+        <div class="install-panel" role="tabpanel" id="panel-{{ installer.id }}" aria-labelledby="tab-{{ installer.id }}">
+          <div class="command"><span aria-hidden="true">{{ installer.prompt }}</span><code>{{ installer.command }}</code><button type="button" data-copy aria-label="Copy {{ installer.label }} install command">Copy</button></div>
+          <div class="install-note">{{ installer.note | markdown | safe }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="workflow-steps reveal-group">
+        {% for step in landing.workflow.steps %}
+        <article>
+          <h3>{{ step.title }}</h3>
+          <div class="command workflow-command"><span aria-hidden="true">$</span><code>{{ step.command }}</code><button type="button" data-copy aria-label="Copy {{ step.title | lower }} command">Copy</button></div>
+          <div>{{ step.body | markdown | safe }}</div>
         </article>
+        {% endfor %}
+      </div>
+
+      <div class="quickstart-links">
+        <a href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.workflow.guide_label }}</a>
+        <a href="{{ get_url(path='@/docs/migration.md') }}">{{ landing.workflow.migration_label }}</a>
+      </div>
+
+      <div class="feature-list reveal-group">
+        {% for feature in landing.workflow.features %}
+        <article><h3>{{ feature.title }}</h3><div>{{ feature.body | markdown | safe }}</div></article>
         {% endfor %}
       </div>
     </div>
@@ -118,9 +148,9 @@
           <tbody>
             {% for target in landing.targets.matrix %}
             <tr>
-              <th scope="row">{{ target.name }}</th>
-              <td class="capability-score">{{ target.coverage }}/10</td>
-              {% for supported in target.support %}<td class="capability-{% if supported %}yes{% else %}no{% endif %}">{% if supported %}Yes{% else %}No{% endif %}</td>{% endfor %}
+              <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.name }}</a></th>
+              <td class="capability-score"><span class="capability-mobile-label">Coverage</span>{{ target.coverage }}/10</td>
+              {% for supported in target.support %}<td class="capability-{% if supported %}yes{% else %}no{% endif %}"><span class="capability-mobile-label">{{ landing.targets.features[loop.index0] }}</span>{% if supported %}Yes{% else %}No{% endif %}</td>{% endfor %}
             </tr>
             {% endfor %}
           </tbody>
@@ -130,61 +160,39 @@
     </div>
   </section>
 
-  <section class="section-band" id="how">
+  {% if latest_update %}
+  <section class="section-band update-brief" id="updates">
     <div class="wrap">
-      <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.workflow.body | markdown | safe }}</div>
-
-      <div class="workflow-steps reveal-group">
-        {% for step in landing.workflow.steps %}
-        <article>
-          <h3>{{ step.title }}</h3>
-          <div>{{ step.body | markdown | safe }}</div>
+      <div class="update-brief-grid reveal-group">
+        <div>
+          <h2 class="section-title">{{ landing.updates.title }} <span>{{ landing.updates.muted_title }}</span></h2>
+          <div class="section-lead">{{ landing.updates.body | markdown | safe }}</div>
+          <div class="update-brief-links">
+            <a class="button button-primary" href="{{ latest_update.permalink }}">{{ landing.updates.primary_label }}</a>
+            <a href="{{ updates_section.permalink }}">{{ landing.updates.archive_label }}</a>
+            <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">{{ landing.updates.rss_label }}</a>
+          </div>
+        </div>
+        <article class="latest-update">
+          <p class="latest-update-meta"><span>{{ landing.updates.latest_label }}</span><time datetime="{{ latest_update.date | date(format='%Y-%m-%d') }}">{{ latest_update.date | date(format='%d %B %Y') }}</time></p>
+          <h3><a href="{{ latest_update.permalink }}">{{ latest_update.title }}</a></h3>
+          <p>{{ latest_update.description }}</p>
+          <ul>
+            {% for signal in latest_update.extra.signals %}{% if loop.index <= 3 %}<li>{{ signal.title }}</li>{% endif %}{% endfor %}
+          </ul>
         </article>
-        {% endfor %}
-      </div>
-
-      <div class="installer reveal-group">
-        <div class="install-tabs" role="tablist" aria-label="Installation method">
-          {% for installer in landing.workflow.installers %}
-          <button type="button" role="tab" id="tab-{{ installer.id }}" aria-controls="panel-{{ installer.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ installer.label }}</button>
-          {% endfor %}
-        </div>
-        {% for installer in landing.workflow.installers %}
-        <div class="install-panel" role="tabpanel" id="panel-{{ installer.id }}" aria-labelledby="tab-{{ installer.id }}">
-          <div class="command"><span aria-hidden="true">{{ installer.prompt }}</span><code>{{ installer.command }}</code><button type="button" data-copy aria-label="Copy {{ installer.label }} install command">Copy</button></div>
-          <div class="install-note">{{ installer.note | markdown | safe }}</div>
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="code-example reveal-group">
-        <div class="code-block">
-          <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.workflow.example.source_name }}</div>
-          <pre><code>{{ landing.workflow.example.source }}</code></pre>
-        </div>
-        <div class="sync-arrow"><span>agnostic-ai sync</span><svg viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg></div>
-        <div class="code-block">
-          <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.workflow.example.output_name }}</div>
-          <pre><code>{{ landing.workflow.example.output }}</code></pre>
-        </div>
-      </div>
-
-      <div class="feature-list reveal-group">
-        {% for feature in landing.workflow.features %}
-        <article><h3>{{ feature.title }}</h3><div>{{ feature.body | markdown | safe }}</div></article>
-        {% endfor %}
       </div>
     </div>
   </section>
+  {% endif %}
 
   <section class="closing">
     <div class="wrap closing-inner">
       <h2>{{ landing.closing.title }}<br>{{ landing.closing.second_line }}</h2>
-      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy Go install command">Copy</button></div>
+      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy import command">Copy</button></div>
       <div class="button-row">
-        <a class="button button-primary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.closing.primary_label }}</a>
-        <a class="button button-secondary" href="{{ get_url(path='@/docs/_index.md') }}">{{ landing.closing.secondary_label }}</a>
+        <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.closing.primary_label }}</a>
+        <a class="button button-secondary" href="{{ agent_setup.permalink | safe }}">{{ landing.closing.secondary_label }}</a>
       </div>
     </div>
   </section>

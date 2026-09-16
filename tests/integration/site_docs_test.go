@@ -40,6 +40,7 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 			Features []string `toml:"features"`
 			Matrix   []struct {
 				ID       string `toml:"id"`
+				Href     string `toml:"href"`
 				Coverage int    `toml:"coverage"`
 				Support  []bool `toml:"support"`
 			} `toml:"matrix"`
@@ -47,6 +48,19 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 	}
 	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
 		t.Fatalf("decode landing data: %v", err)
+	}
+	var targetReference struct {
+		Targets []struct {
+			ID   string `toml:"id"`
+			Href string `toml:"href"`
+		} `toml:"targets"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &targetReference); err != nil {
+		t.Fatalf("decode target capability data: %v", err)
+	}
+	targetHrefs := make(map[string]string, len(targetReference.Targets))
+	for _, target := range targetReference.Targets {
+		targetHrefs[target.ID] = target.Href
 	}
 
 	wantFeatures := []string{"Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"}
@@ -68,6 +82,9 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 			t.Errorf("capability matrix repeats %s", target.ID)
 		}
 		selected[target.ID] = true
+		if want := targetHrefs[target.ID]; target.Href != want {
+			t.Errorf("%s detail href = %q, target reference uses %q", target.ID, target.Href, want)
+		}
 		if len(target.Support) != len(wantFeatures) {
 			t.Errorf("%s has %d feature cells, want %d", target.ID, len(target.Support), len(wantFeatures))
 			continue
@@ -313,6 +330,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
 	targets := readBuiltFile(t, filepath.Join(outputDir, "docs", "targets", "index.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
+	normalizedHome := strings.ReplaceAll(home, "&#x2F;", "/")
 	if domain := strings.TrimSpace(readBuiltFile(t, filepath.Join(outputDir, "CNAME"))); domain != "agnostic-ai.org" {
 		t.Errorf("built CNAME = %q, want agnostic-ai.org", domain)
 	}
@@ -360,13 +378,27 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	for _, required := range []string{
 		"Set up agnostic-ai with a coding agent",
+		"Install and start",
+		"brew install --cask Chemaclass/tap/agnostic-ai",
+		"agnostic-ai init --from all",
+		"agnostic-ai sync --dry-run",
+		"Keep the setup current.",
+		"Read the latest briefing",
+		`href="https://agnostic-ai.org/docs/targets/#codex-codex"`,
+		`"installUrl": "https://agnostic-ai.org/#quickstart"`,
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
 		"/agent-setup.txt",
 	} {
-		if !strings.Contains(home, required) {
+		if !strings.Contains(normalizedHome, required) {
 			t.Errorf("home page is missing %q", required)
 		}
+	}
+	quickstartIndex := strings.Index(home, `id="quickstart"`)
+	targetsIndex := strings.Index(home, `id="targets"`)
+	updatesIndex := strings.Index(home, `id="updates"`)
+	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || !(quickstartIndex < targetsIndex && targetsIndex < updatesIndex) {
+		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
@@ -380,7 +412,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if strings.Contains(home, "chemaclass.github.io/agnostic-ai") {
 		t.Error("home page still references the legacy GitHub Pages project URL")
 	}
-	sharingHome := strings.ReplaceAll(home, "&#x2F;", "/")
+	sharingHome := normalizedHome
 	for _, metadata := range []string{
 		`property="og:site_name" content="agnostic-ai.org"`,
 		`property="og:url" content="https://agnostic-ai.org/"`,

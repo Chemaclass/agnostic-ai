@@ -1,10 +1,12 @@
 [hero]
-title = "One spec."
+title = "One setup."
 accent_title = "Every AI CLI."
-body = "You write `CLAUDE.md`, then `.cursor/rules`, then `GEMINI.md`, then `AGENTS.md`. The same content in four formats. Switch tools and you rewrite everything. agnostic-ai keeps **one source of truth** and emits each tool's native config, byte-stable across runs."
-primary_label = "Try the playground"
-secondary_label = "See how it works"
-facts = "25 supported targets. 20 enabled by default. One source of truth."
+body = "Keep agents, skills, rules, hooks, and MCP servers in **one portable source**. agnostic-ai writes each tool's native files and checks them for drift."
+primary_label = "Install and start"
+secondary_label = "Try in the browser"
+facts = "25 targets. 10 portable spec kinds. Byte-stable output."
+install_label = "Recommended on macOS"
+install_link_label = "All install options"
 
 [hero.diagram]
 source_name = ".agnostic-ai/rules/commits.md"
@@ -20,35 +22,10 @@ outputs = [
   ".junie/AGENTS.md · .kiro/steering · +13",
 ]
 
-[problem]
-title = "Same content,"
-muted_title = "N formats, endless drift."
-body = "Every AI coding tool invented its own config file. The instructions are identical. Only the wrapper differs. Copy and paste keeps them in sync until it doesn't, and a stale `GEMINI.md` is a silent bug."
-
-[[problem.columns]]
-title = "Without agnostic-ai"
-tone = "bad"
-items = [
-  "Write the same rule into `CLAUDE.md`, `.cursor/rules`, `GEMINI.md`, and `AGENTS.md`.",
-  "Edit one, forget the others. They drift apart.",
-  "Onboard a new tool and hand-port everything again.",
-  "No review check tells you which files fell behind.",
-]
-
-[[problem.columns]]
-title = "With agnostic-ai"
-tone = "good"
-items = [
-  "Write it **once** in plain Markdown and YAML frontmatter.",
-  "Run `sync`. Every tool gets its native format.",
-  "Add a tool with one line in `targets`.",
-  "`sync --check` fails CI when output drifts.",
-]
-
 [targets]
 title = "One source of truth,"
 muted_title = "25 tools, each native."
-body = "Compare ten of the broadest integrations across the configuration surfaces teams use most. **Yes** means one portable agnostic-ai spec reaches a native target surface."
+body = "Compare ten of the broadest integrations across the configuration surfaces teams use most. **Yes** means an adapter path exists. Open a tool for defaults, opt-ins, and caveats."
 features = ["Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"]
 caption = "Coverage counts all 10 portable spec kinds. Permissions means portable allow, deny, and ask settings."
 link_label = "See paths and all 25 targets"
@@ -56,77 +33,92 @@ link_label = "See paths and all 25 targets"
 [[targets.matrix]]
 id = "cursor"
 name = "Cursor"
+href = "#cursor-cursor"
 coverage = 9
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "claude"
 name = "Claude Code"
+href = "#claude-code-claude"
 coverage = 7
 support = [true, true, true, true, true, true, true]
 
 [[targets.matrix]]
 id = "codex"
 name = "Codex CLI"
+href = "#codex-codex"
 coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "gemini"
 name = "Gemini CLI"
+href = "#gemini-cli-gemini"
 coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "qoder"
 name = "Qoder"
+href = "#qoder-qoder"
 coverage = 7
 support = [true, true, true, true, true, true, true]
 
 [[targets.matrix]]
 id = "trae"
 name = "Trae"
+href = "#trae-trae"
 coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "junie"
 name = "Junie"
+href = "#junie-junie"
 coverage = 7
 support = [true, true, true, true, false, true, false]
 
 [[targets.matrix]]
 id = "kilo"
 name = "Kilo Code"
+href = "#kilo-kilo"
 coverage = 7
 support = [true, true, true, true, false, true, false]
 
 [[targets.matrix]]
 id = "augment"
 name = "Augment Code"
+href = "#augment-augment"
 coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "copilot"
 name = "GitHub Copilot"
+href = "#github-copilot-copilot"
 coverage = 6
 support = [true, true, true, true, true, false, false]
 
 [workflow]
-title = "Two layers,"
-muted_title = "one command."
-body = "Drop a file in `.agnostic-ai/`, then run `agnostic-ai sync`. Each target gets a slim shared entry point and the real spec rendered into that tool's native location."
+title = "Install, then sync."
+muted_title = "Your first portable setup."
+body = "Choose an installer, initialize the repository, and verify the generated files. Existing AI configuration can be imported before the first sync."
+guide_label = "Open the getting started guide"
+migration_label = "Migrate an existing setup"
 
 [[workflow.steps]]
-title = "Write once"
-body = "Add one Markdown file with YAML frontmatter under `.agnostic-ai/rules/`, `agents/`, `skills/`, `hooks/`, or `mcps/`."
+title = "Start or import"
+command = "agnostic-ai init --from all"
+body = "Detect existing AI tool files and import them before generating anything. For a fresh repository, run `agnostic-ai init`."
 [[workflow.steps]]
-title = "Emit native"
-body = "Stateless adapters write each target's format at the path it loads. Same input, same bytes. Run targets in parallel with `--jobs`."
+title = "Review the output"
+command = "agnostic-ai sync --dry-run"
+body = "Preview every native file before writing it. Choose only the targets this repository uses."
 [[workflow.steps]]
-title = "Never drift"
-body = "`sync --check` re-emits in memory and fails CI on any difference. `import` pulls existing configuration back into specs."
+title = "Sync and enforce"
+command = "agnostic-ai sync && agnostic-ai sync --check"
+body = "Write the files, then use the same check in CI to catch drift."
 
 [[workflow.installers]]
 id = "brew"
@@ -159,25 +151,6 @@ prompt = "$"
 command = "curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz"
 note = "Swap `darwin_arm64` for your release archive. Windows builds and `checksums.txt` are on the releases page."
 
-[workflow.example]
-source_name = ".agnostic-ai/rules/conventional-commits.md"
-source = """---
-name: conventional-commits
-description: Always use Conventional Commits.
-globs: \"**/*\"
-alwaysApply: true
----
-
-Use Conventional Commits. Subject under
-72 chars. Body explains why, not what."""
-output_name = ".cursor/rules/conventional-commits.mdc"
-output = """---
-description: Always use Conventional Commits.
-globs: \"**/*\"
----
-<!-- Generated by agnostic-ai -->
-Use Conventional Commits. Subject under 72 chars."""
-
 [[workflow.features]]
 title = "Byte-stable, reviewable"
 body = "Stateless adapters mean the same input produces the same output. Generated files diff cleanly."
@@ -191,9 +164,18 @@ body = "`rules/backend/auth.md` routes to each target's native directory and sco
 title = "CI gate in one line"
 body = "The check action fails a pull request when generated configuration drifts from source."
 
+[updates]
+title = "Keep the setup current."
+muted_title = "Know what changed."
+body = "Release briefings separate shipped agnostic-ai support from verified upstream CLI and model changes, so teams can act on the changes that affect their tools."
+latest_label = "Latest briefing"
+primary_label = "Read the latest briefing"
+archive_label = "Browse all updates"
+rss_label = "Subscribe by RSS"
+
 [closing]
-title = "Write the rule once."
-second_line = "Every AI tool obeys it."
-command = "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest"
-primary_label = "Open the playground"
-secondary_label = "Read the docs"
+title = "Bring your existing setup."
+second_line = "Keep every target in sync."
+command = "agnostic-ai init --from all"
+primary_label = "Read getting started"
+secondary_label = "Set up with an agent"

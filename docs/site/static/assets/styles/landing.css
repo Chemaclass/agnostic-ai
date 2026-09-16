@@ -7,13 +7,17 @@ main > section:not(.hero) {
   contain-intrinsic-size: auto 42rem;
 }
 
+main > section[id] {
+  scroll-margin-top: 5rem;
+}
+
 .section-band {
   border-block: 1px solid var(--line-soft);
   background: var(--surface);
 }
 
 .hero {
-  padding-block: clamp(3.5rem, 8vw, 6.5rem);
+  padding-block: clamp(3.25rem, 7vw, 5.5rem);
 }
 
 .hero-grid {
@@ -58,11 +62,30 @@ main > section:not(.hero) {
 }
 
 .hero-facts {
-  margin: 1.8rem 0 0;
+  margin: 1rem 0 0;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+}
+
+.hero-install {
+  margin-top: 1.35rem;
+}
+
+.hero-install > p {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+}
+
+.hero-install a {
+  color: var(--accent);
 }
 
 .agent-shortcut {
@@ -103,8 +126,7 @@ main > section:not(.hero) {
   text-transform: uppercase;
 }
 
-.spec-card,
-.code-block {
+.spec-card {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -130,8 +152,7 @@ main > section:not(.hero) {
   background: var(--accent);
 }
 
-.transform pre,
-.code-block pre {
+.transform pre {
   margin: 0;
   overflow-x: auto;
   padding: 0.75rem;
@@ -140,8 +161,7 @@ main > section:not(.hero) {
   line-height: 1.55;
 }
 
-.transform pre code,
-.code-block pre code {
+.transform pre code {
   padding: 0;
   background: none;
   color: inherit;
@@ -206,60 +226,6 @@ main > section:not(.hero) {
   color: var(--accent);
 }
 
-.comparison {
-  display: grid;
-  gap: 1rem;
-  margin-top: 2.25rem;
-}
-
-.comparison-panel {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--paper);
-}
-
-.comparison-panel h3 {
-  padding: 0.7rem 1rem;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.01em;
-}
-
-.comparison-panel-bad h3,
-.comparison-panel-bad li svg {
-  color: var(--danger);
-}
-
-.comparison-panel-good h3,
-.comparison-panel-good li svg {
-  color: var(--good);
-}
-
-.comparison-panel ul {
-  display: grid;
-  gap: 0.7rem;
-  margin: 0;
-  padding: 1rem;
-  list-style: none;
-}
-
-.comparison-panel li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-}
-
-.comparison-panel li svg {
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.25rem;
-  flex: none;
-}
-
 .capability-table-wrap {
   overflow-x: auto;
   margin-top: 2.25rem;
@@ -299,6 +265,20 @@ main > section:not(.hero) {
   background: var(--paper);
   color: var(--ink);
   text-align: left;
+}
+
+.capability-table th:first-child a {
+  color: var(--ink);
+  text-decoration-color: transparent;
+}
+
+.capability-table th:first-child a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.capability-mobile-label {
+  display: none;
 }
 
 .capability-table tbody tr:last-child th,
@@ -362,6 +342,23 @@ main > section:not(.hero) {
   margin: 0;
   color: var(--ink-soft);
   font-size: 0.92rem;
+}
+
+.workflow-command {
+  margin-block: 0.85rem 0.75rem;
+}
+
+.quickstart-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin-top: 1.2rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.quickstart-links a {
+  color: var(--accent);
 }
 
 .installer {
@@ -428,6 +425,7 @@ main > section:not(.hero) {
 }
 
 .command code {
+  min-width: 0;
   flex: 1;
   overflow-x: auto;
   padding: 0;
@@ -438,6 +436,7 @@ main > section:not(.hero) {
 }
 
 .command button {
+  flex: none;
   padding: 0.3rem 0.5rem;
   border: 0;
   border-radius: 6px;
@@ -462,27 +461,72 @@ main > section:not(.hero) {
   margin: 0;
 }
 
-.code-example {
+.update-brief-grid {
   display: grid;
-  align-items: stretch;
-  gap: 1rem;
-  margin-top: 2.5rem;
+  gap: 2.5rem;
 }
 
-.sync-arrow {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 0.35rem;
+.update-brief-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.6rem;
+  font-size: 0.84rem;
+}
+
+.update-brief-links > a:not(.button) {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.latest-update {
+  padding-block: 1.2rem;
+  border-block: 1px solid var(--line);
+}
+
+.latest-update-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.69rem;
 }
 
-.sync-arrow svg {
-  width: 2.75rem;
+.latest-update-meta span {
   color: var(--accent);
-  transform: rotate(90deg);
+  font-weight: 700;
+}
+
+.latest-update h3 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+}
+
+.latest-update h3 a {
+  text-decoration-color: transparent;
+}
+
+.latest-update > p:not(.latest-update-meta) {
+  margin-top: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.latest-update ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  list-style: none;
+}
+
+.latest-update li {
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line-soft);
 }
 
 .closing {
@@ -523,7 +567,6 @@ main > section:not(.hero) {
 }
 
 @media (min-width: 760px) {
-  .comparison,
   .workflow-steps,
   .feature-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -533,12 +576,9 @@ main > section:not(.hero) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .code-example {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  }
-
-  .sync-arrow svg {
-    transform: none;
+  .update-brief-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 1.1fr);
+    align-items: start;
   }
 }
 
@@ -551,6 +591,64 @@ main > section:not(.hero) {
 @media (max-width: 560px) {
   .command {
     font-size: 0.72rem;
+  }
+
+  .capability-table-wrap {
+    overflow: visible;
+    border-block: 0;
+  }
+
+  .capability-table,
+  .capability-table tbody,
+  .capability-table tr {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .capability-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .capability-table tr {
+    padding-block: 0.65rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .capability-table th:first-child {
+    position: static;
+    padding: 0.55rem 0;
+    border: 0;
+    background: transparent;
+    font-size: 1rem;
+  }
+
+  .capability-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    border: 0;
+  }
+
+  .capability-mobile-label {
+    display: inline;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .capability-table caption {
+    display: block;
   }
 }
 
