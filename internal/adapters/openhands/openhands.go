@@ -5,6 +5,12 @@
 // codex, amp, zed, and crush already emit into; the renderer matches
 // that output byte-for-byte so the shared tree dedupes.
 //
+// Local conversations discover project agents from flat files at
+// `.agents/agents/<name>.md`. Goose reads the same primary path, so
+// both adapters share one renderer for name, description, model, and
+// prompt body. Portable tool names are omitted with a coverage note
+// because OpenHands uses its own file_editor/terminal vocabulary.
+//
 // The project-root AGENTS.md is written centrally by `sync` as a slim
 // pointer to the source specs (one body shared with every other
 // target's entry-point file). OpenHands reads that file natively for
@@ -77,6 +83,7 @@ import (
 
 const (
 	target           = "openhands"
+	defaultAgentsDir = ".agents/agents"
 	defaultSkillsDir = ".agents/skills"
 	defaultMCPFile   = "config.toml"
 	defaultSetupFile = ".openhands/setup.sh"
@@ -87,10 +94,8 @@ var caps = emit.Capabilities{
 	// KindRule covers two paths: an always-on rule reaches OpenHands
 	// only through the shared AGENTS.md entry-point sync writes
 	// centrally, while a path-triggered rule (paths/globs/scope) writes
-	// its own skill folder directly (see path_rules.go). KindAgent is
-	// absent; OpenHands has no agent surface, so the unsupported
-	// warning is accurate.
-	Supports: []spec.Kind{spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
+	// its own skill folder directly (see path_rules.go).
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
 }
 
 // Adapter emits OpenHands configs.
@@ -112,6 +117,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	if err := sess.WriteSharedAgentFiles(b.Agents, target, agentsDir, dryRun); err != nil {
+		return err
+	}
+	noteDroppedAgentTools(b.Agents)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -126,6 +136,17 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+}
+
+func noteDroppedAgentTools(agents []spec.Entry) {
+	dropped := 0
+	for _, agent := range agents {
+		if emit.SharedAgentToolsDropped(agent, target) {
+			dropped++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", dropped,
+		"OpenHands project agents use the file_editor and terminal tool vocabulary")
 }
 
 // emitMCPConfig sorts mcps into OpenHands' three [mcp] arrays, surfaces

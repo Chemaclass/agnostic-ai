@@ -418,7 +418,8 @@ func parentGone(err error) bool {
 // `sync --jobs` runs one target's empty-directory prune alongside
 // another target's write into the same shared directory. Codex sweeps
 // its legacy `.agents/agents/*.toml` and prunes the directory once the
-// last one is gone, while antigravity writes `.agents/agents/<name>.md`
+// last one is gone, while Antigravity writes nested
+// `.agents/agents/<name>/agent.md`
 // into it. Observed as both `no such file or directory` and `invalid
 // argument` on macOS. The prune is correct and the write is correct;
 // only their interleaving is wrong, and recreating the parent is the
@@ -679,7 +680,7 @@ func (s *Session) RemoveGeneratedTree(dir string, dryRun bool) error {
 // a whole-tree sweep would delete that target's current output, since
 // both carry the provenance header and neither adapter can see the
 // other. Codex's pre-v0.26 `.agents/agents/*.toml` is the one such
-// sweep today, sharing the directory with antigravity's `<name>.md`
+// sweep today, sharing the directory with Antigravity's nested profiles
 // subagents (#638).
 func (s *Session) RemoveGeneratedTreeExt(dir, ext string, dryRun bool) error {
 	return s.removeGeneratedTree(dir, ext, dryRun)

@@ -63,7 +63,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the openhands
-// adapter emits directly: three skills, with names, paths, and bodies
+// adapter emits directly: three agents and three skills, with names,
+// paths, and bodies
 // matching crush's and codex's kit-sink fixtures so their SKILL.md
 // renders stay byte-identical (see skill_render_parity_test.go), three
 // MCP specimens covering all three OpenHands [mcp] arrays (stdio, sse,
@@ -75,6 +76,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // `.agents/skills/r4/SKILL.md` (see path_rules.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},

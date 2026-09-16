@@ -239,7 +239,7 @@ var matcherAcceptingEvents = setOf(
 // validator: if a project has hook specs but no enabled target maps
 // to a hook surface, the specs are dead weight.
 var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
-	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder"),
+	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder", "goose", "openhands"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
 	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose"),

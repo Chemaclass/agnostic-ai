@@ -21,8 +21,7 @@ func TestName(t *testing.T) {
 }
 
 // The project-root AGENTS.md is written centrally by sync, never by
-// this adapter: OpenHands has no per-rule or per-agent surface of its
-// own.
+// this adapter. Always-on rules have no direct per-rule file here.
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -73,6 +72,60 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "custom/skills/yaml-validator/SKILL.md")); err != nil {
 		t.Errorf("expected custom/skills/yaml-validator/SKILL.md: %v", err)
+	}
+}
+
+func TestEmit_Agent_WritesSharedFlatProfile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent,
+		Name: "reviewer",
+		Meta: map[string]any{
+			"description": "Reviews code changes.",
+			"model":       "anthropic/claude-sonnet-4",
+			"tools":       []any{"Read"},
+		},
+		Body: "Review the diff.",
+	}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/agents/reviewer.md"))
+	for _, want := range []string{"name: reviewer", "description: Reviews code changes.", "model: anthropic/claude-sonnet-4", "Review the diff."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in agent profile:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "tools:") {
+		t.Errorf("portable tools leaked into OpenHands agent profile:\n%s", got)
+	}
+}
+
+func TestEmit_AgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"openhands": {AgentsDir: "custom/agents"}}}
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Body: "Review."}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/agents/reviewer.md")); err != nil {
+		t.Errorf("expected override dir to hold the agent file: %v", err)
+	}
+}
+
+func TestEmit_AgentToolsSurfaceCoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"tools": []any{"Read"}}}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := emit.PendingCoverageNotesCount(); got != 1 {
+		t.Errorf("expected one tools coverage note, got %d", got)
 	}
 }
 

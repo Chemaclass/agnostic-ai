@@ -95,6 +95,42 @@ outputs:
 	}
 }
 
+func TestSync_AgentProfilesSeparateAntigravityFromSharedFlatTargets(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+		[]byte("---\nname: reviewer\ndescription: Reviews changes.\nmodel: sonnet\n---\nReview the diff.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),
+		[]byte("version: 1\ntargets: [antigravity, goose, openhands]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runSync(t); err != nil {
+		t.Fatalf("three agent targets should sync without a shared-path collision: %v", err)
+	}
+	flat, err := os.ReadFile(filepath.Join(dir, ".agents/agents/reviewer.md"))
+	if err != nil {
+		t.Fatalf("missing Goose/OpenHands shared agent: %v", err)
+	}
+	if !strings.Contains(string(flat), "model: sonnet") {
+		t.Errorf("shared flat agent should preserve the free-form model:\n%s", flat)
+	}
+	nested, err := os.ReadFile(filepath.Join(dir, ".agents/agents/reviewer/agent.md"))
+	if err != nil {
+		t.Fatalf("missing nested Antigravity agent: %v", err)
+	}
+	if strings.Contains(string(nested), "model:") {
+		t.Errorf("Antigravity agent should drop an invalid model tier:\n%s", nested)
+	}
+}
+
 func TestSync_NoCollisionForDisjointTargets(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

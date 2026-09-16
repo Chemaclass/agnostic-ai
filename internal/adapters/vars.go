@@ -9,8 +9,8 @@ import (
 // targetVarPaths declares, per target, the directory or file each spec
 // variable resolves to. A kind is listed only when the target has a
 // dedicated surface for it. Several targets flatten agents into their
-// rules directory with a filename prefix (antigravity, continue, trae,
-// windsurf) or render them as commands (gemini); naming those
+// rules directory with a filename prefix (continue, trae, windsurf) or
+// render them as commands (gemini); naming those
 // AGENTS_DIR would point users at a directory that is not an agents
 // directory, so they are left out and the variable stays unresolved.
 //
@@ -66,7 +66,7 @@ var targetVarPaths = map[string]map[string]string{
 		emit.VarCommandsDir: ".opencode/commands", emit.VarMCPFile: "opencode.json",
 	},
 	"antigravity": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarRulesDir: ".agents/rules",
+		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".agents/agents", emit.VarRulesDir: ".agents/rules",
 		emit.VarMCPFile: ".agents/mcp_config.json",
 	},
 	"junie": {
@@ -93,7 +93,7 @@ var targetVarPaths = map[string]map[string]string{
 		emit.VarRulesDir: ".qoder/rules", emit.VarMCPFile: ".qoder/settings.json",
 	},
 	"openhands": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: "config.toml",
+		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".agents/agents", emit.VarMCPFile: "config.toml",
 	},
 	"factory": {
 		emit.VarAgentsDir: ".factory/droids", emit.VarCommandsDir: ".factory/commands",
@@ -103,11 +103,11 @@ var targetVarPaths = map[string]map[string]string{
 		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".kilo/agents",
 		emit.VarRulesDir: ".kilo/rules", emit.VarMCPFile: "kilo.jsonc",
 	},
-	// aider, jules, and goose carry every spec kind in one entry-point
-	// document and have no per-kind directory to point at.
+	// aider and jules carry every spec kind in one entry-point document
+	// and have no per-kind directory to point at.
 	"aider": {},
 	"jules": {},
-	"goose": {},
+	"goose": {emit.VarAgentsDir: ".agents/agents"},
 }
 
 // varsFor resolves the variable table for target, letting an

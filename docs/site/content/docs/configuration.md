@@ -213,7 +213,7 @@ outputs:
     mcp-file: opencode.json              # default. mcp map with type: local|remote.
   antigravity:
     rules-dir: .agents/rules            # default. One .md per rule. Legacy .agent/rules still reads.
-    agents-dir: .agents/agents          # default. One custom-subagent .md per agent.
+    agents-dir: .agents/agents          # default. One nested <name>/agent.md profile per agent.
     skills-dir: .agents/skills          # default. One folder per skill (<name>/SKILL.md). Shared tree with codex/amp/zed.
     mcp-file: .agents/mcp_config.json   # default. mcpServers map; remote entries use serverUrl, not url.
     # rules-file: .agent/AGENTS.md      # opt-in: legacy merged doc; skips the pointer-body write.
@@ -246,6 +246,7 @@ outputs:
     skills-dir: .qoder/skills           # default. One folder per skill (<name>/SKILL.md), Qoder's own tree (not the shared .agents/skills/).
     mcp-file: .qoder/settings.json      # default. Standard mcpServers schema, merged; user keys preserved.
   openhands:
+    agents-dir: .agents/agents          # default. Flat project agents shared byte-identically with Goose.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; also where a path-triggered rule (globs/paths/scope) lands, as <name>/SKILL.md; AGENTS.md pointer written by sync.
     mcp-file: config.toml               # default. [mcp] table: stdio_servers / sse_servers / shttp_servers.
     setup-file: .openhands/setup.sh     # default. Repository bootstrap script; an environment spec's `install` field.
@@ -263,6 +264,7 @@ outputs:
     commands-dir: .kilo/commands        # default. One .md per command. Frontmatter filtered to description, agent, model, variant, subtask.
     mcp-file: kilo.jsonc                # default. instructions array + mcp map merged; user keys preserved.
   goose:
+    agents-dir: .agents/agents          # default. Flat project agents shared byte-identically with OpenHands.
     review-file: .agents/REVIEW.md  # default. Relative to each review scope.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
     hooks-file: .agents/plugins/agnostic-ai/hooks/hooks.json # default. Open Plugins hook package; plugin.json is written beside hooks/.
@@ -390,7 +392,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
 | `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"` plus the portable default `model`. Other user keys are preserved. |
 | `antigravity` | `rules-dir` | `.agents/rules` | One `.md` per rule. The legacy `.agent/rules` singular form still reads for backward compatibility; a stale managed copy there is swept on sync. |
-| `antigravity` | `agents-dir` | `.agents/agents` | One custom-subagent `.md` per agent (`name` + `description`; `model` only when it names a documented tier, `inherit`/`flash`/`pro`). A generic `tools` list never emits: Antigravity's vocabulary shares no name with agnostic-ai's and an unmapped one can hang the subagent, so set `x-antigravity.tools`. Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
+| `antigravity` | `agents-dir` | `.agents/agents` | One nested `<name>/agent.md` profile per agent (`name` + `description`; `model` only for `inherit`/`flash`/`pro`). This vendor-supported form avoids the flat Goose/OpenHands path. Generic `tools` never emit; set `x-antigravity.tools`. The sync ledger safely removes managed legacy flat profiles when no current target owns them (#717). |
 | `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
 | `antigravity` | `mcp-file` | `.agents/mcp_config.json` | `mcpServers` map. Remote entries use `serverUrl`; Antigravity's doc says the legacy `url` / `httpUrl` names are not supported. |
 | `antigravity` | `rules-file` | _empty_ | When set, writes a legacy merged document at that path. `sync` skips the pointer-body write for `antigravity`. |
@@ -414,6 +416,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `qoder` | `skills-dir` | `.qoder/skills` | One folder per skill (`<name>/SKILL.md`, Qoder's native Agent Skills layout). Qoder's own tree, not the `.agents/skills/` compatibility path Kilo Code, Augment, and OpenHands share: the vendor doc does not list it as a compatible location. |
 | `qoder` | `mcp-file` | `.qoder/settings.json` | Standard `mcpServers`, hooks, portable `model.name`, and shared permission lists merge into Qoder's settings file. Unrelated top-level and nested settings survive. Moved off the project-root `.mcp.json` in #641: that path is Claude Code's, and Qoder's documented per-server fields (`trust`, `includeTools`, `alwaysAllow`, a working `disabled`) diverge from Claude Code's. Delete a leftover `.mcp.json` by hand in a Qoder-only project; it still loads and outranks this file. |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. A rule carrying `globs`/`paths` or a scope also lands here as `<name>/SKILL.md` (a path-triggered rule), sharing this key rather than a separate rules-dir. |
+| `openhands` | `agents-dir` | `.agents/agents` | Flat `<name>.md` project agents, shared byte-identically with Goose (`name`, `description`, optional free-form `model`, body). Generic `tools` drop with a coverage note; use `x-openhands.tools` plus a distinct directory when native customization makes the file differ. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL strings, or `{ url, api_key }` objects when the entry sets `api_key`). No `type` field; transport is implied by the array. `headers` has no equivalent and surfaces a coverage note instead of reaching OpenHands silently. |
 | `openhands` | `hooks-file` | `.openhands/hooks.json` | Per-event hook arrays. Six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Written in the Claude-shaped PascalCase form the vendor documents as interchangeable with its native snake_case keys. A `matcher` applies to the two ToolUse events only, and must use OpenHands' own tool names (`terminal`, not `Bash`). |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
@@ -428,6 +431,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kilo` | `commands-dir` | `.kilo/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `variant`, `subtask`, near-identical to OpenCode's own command frontmatter. |
 | `kilo` | `mcp-file` | `kilo.jsonc` | `instructions`, `mcp`, and the portable default `model` merge together (not `mcpServers`, the deprecated form); unrelated user keys are preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `review-file` | `.agents/REVIEW.md` | Plain review bodies, root and per scope. |
+| `goose` | `agents-dir` | `.agents/agents` | Flat `<name>.md` project agents, shared byte-identically with OpenHands (`name`, `description`, optional free-form `model`, body). Generic `tools` drop with a coverage note because Goose does not document that field. |
 | `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
 | `goose` | `hooks-file` | `.agents/plugins/agnostic-ai/hooks/hooks.json` | Goose Open Plugins hook configuration. A required `plugin.json` manifest is written at the containing plugin root. Overrides must keep the `<plugin>/hooks/hooks.json` suffix so Goose can discover the package. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |

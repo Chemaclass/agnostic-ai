@@ -95,7 +95,7 @@ func TestEmit_StaleAgentRuleFileIsSwept(t *testing.T) {
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Errorf("expected the rule-form agent file to be swept, err=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/agents/deployer.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".agents/agents/deployer/agent.md")); err != nil {
 		t.Errorf("expected the native subagent file: %v", err)
 	}
 }
