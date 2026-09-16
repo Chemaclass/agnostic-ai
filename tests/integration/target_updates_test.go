@@ -350,8 +350,13 @@ This temporary article exercises archive metadata.
 	if err := xml.Unmarshal([]byte(feed), &rss); err != nil {
 		t.Fatalf("feed.xml is not valid XML: %v", err)
 	}
-	if len(rss.Channel.Items) != 7 || rss.Channel.Items[0].Title != "agnostic-ai v0.59.0: A temporary release briefing" {
-		t.Errorf("feed order = %+v, want the temporary post first", rss.Channel.Items)
+	published, err := filepath.Glob(filepath.Join(updatesContentDir, "[0-9]*.md"))
+	if err != nil {
+		t.Fatalf("find target update articles: %v", err)
+	}
+	wantItems := len(published) + len(fixtures) + 1
+	if len(rss.Channel.Items) != wantItems || rss.Channel.Items[0].Title != "agnostic-ai v0.59.0: A temporary release briefing" {
+		t.Errorf("feed order = %+v, want %d items with the temporary post first", rss.Channel.Items, wantItems)
 	}
 }
 
