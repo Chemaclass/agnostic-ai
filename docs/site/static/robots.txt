@@ -1,4 +1,4 @@
-# agnostic-ai — https://chemaclass.github.io/agnostic-ai/
+# agnostic-ai: https://chemaclass.github.io/agnostic-ai/
 #
 # Served from a project path, so most crawlers will not read this file:
 # robots.txt is only honoured at the host root, which belongs to the

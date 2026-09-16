@@ -5,7 +5,10 @@ description: Cut a new agnostic-ai release end to end. Use when the user wants t
 
 # cut-release
 
-Cuts a new release of agnostic-ai. GoReleaser publishes artifacts and the GitHub Release once the tag is pushed.
+Cuts a new release of agnostic-ai. The release commit carries the version,
+exact changelog, and one public release briefing. GoReleaser publishes
+artifacts and the GitHub Release once the tag is pushed. Pages publishes the
+briefing from the same commit on `main`.
 
 ## When to run
 
@@ -21,13 +24,29 @@ The user asks to release, tag, ship, or cut a new version.
    - major: breaking changes
 4. Update `CHANGELOG.md`: drop empty `### ` subsections from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
 5. Bump `version` in `cmd/agnostic-ai/main.go`.
-6. Commit: `chore(release): vX.Y.Z`. GPG-signed.
-7. Tag: `git tag -s vX.Y.Z -m "vX.Y.Z"`.
-8. Push branch and tag: `git push && git push origin vX.Y.Z`.
-9. Watch the GoReleaser workflow. If it fails, fix root cause. Do not delete and retag without clear reason.
+6. Immediately before the release commit, create exactly one
+   `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
+   follow [references/release-briefing.md](references/release-briefing.md).
+   Copy the release changelog section exactly, add only verified upstream CLI
+   and model news, and keep those two sections visibly separate. Run
+   `make site-build site-test`.
+7. Confirm the version file, dated changelog section, and briefing are all
+   staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
+8. Tag that commit with `git tag -s vX.Y.Z -m "vX.Y.Z"`.
+9. Push branch and tag: `git push && git push origin vX.Y.Z`.
+10. Watch the `Release` workflow for the tag and the `Pages` workflow for the
+    release commit on `main`. If either fails, fix the root cause. Do not delete
+    and retag without clear reason. If the automatic Pages run is absent, use
+    its documented `workflow_dispatch` path on `main`, then watch that run.
 
 ## Conventions
 
 - Release notes pipeline reads the latest dated section from `CHANGELOG.md`. Never skip step 4.
+- A release briefing is release material, not a follow-up docs change. It must
+  be created after the changelog is finalized and included in the tagged
+  release commit.
+- The briefing orders breaking behavior, default changes, removals, and
+  deprecations before additions. It never presents upstream news as shipped
+  agnostic-ai support.
 - Tag format `vX.Y.Z` (lowercase `v`). GoReleaser matches this prefix.
 - Commit message follows Conventional Commits. Never mention AI in the message.

@@ -12,7 +12,7 @@ emits, and what newly documented project capabilities deserve a product
 decision?**
 
 Adapters encode a snapshot of every vendor's config format. Those vendors
-ship weekly. Drift is silent. A moved skills directory keeps syncing
+ship often. Drift is silent. A moved skills directory keeps syncing
 cleanly, keeps `sync --check` green, and stops reaching the tool. This
 skill finds that drift on a schedule instead of via a user bug report.
 
@@ -44,28 +44,24 @@ scripts/target-facts.sh --list                                  # registered tar
 gh issue list --label target-audit --state all --limit 100 --json number,title,state,createdAt
 ```
 
-Unless `--no-file-issues` is set, also inspect `docs/site/updates/`. Read the
-archive, feed, and every published capability signal relevant to the audit
-scope. The tracked articles are the durable capability dedupe set. Do not
-rewrite a prior edition or infer that absence from one weekly window resolves
-an older signal.
+Also inspect the legacy audit articles under `docs/site/content/updates/`.
+Read every published capability signal relevant to the audit scope. These
+articles are immutable history and part of the durable capability dedupe set.
+Do not rewrite a prior edition or infer that an older signal has been resolved
+because it does not appear in a later release briefing.
 
 **Dedupe set.** A finding already filed and open is not a new finding.
 Note it as `still-open #N` and move on. A finding already filed and
 **closed** that reappears is a regression. Say so loudly: it means a fix
 was reverted or the vendor moved back.
 
-The update archive is not a drift finding. Exclude its publication PRs from
-the issue `createdAt` values used to choose the changelog window.
-
 **Since when.** Auditors need a date to bound their changelog reading.
 Take the newest of: the most recent report under `local/target-audit/`, the
-newest published update under `docs/site/updates/`, the newest `target-audit`
+newest legacy article carrying `extra.audit_marker`, the newest `target-audit`
 issue's `createdAt`, or the last commit touching
-`.agnostic-ai/skills/target-audit/references/sources.md`. These can
-under-report while a publication PR is open, so the window is always a little
-wide. That is the safe direction. Re-reading a changelog entry costs nothing,
-missing one costs a release.
+`.agnostic-ai/skills/target-audit/references/sources.md`. Keep the window a
+little wide. Re-reading a changelog entry costs nothing, while missing one can
+leave a release briefing incomplete.
 
 ## Phase 2: Fan out
 
@@ -96,7 +92,7 @@ vendors (claude, codex, gemini, cursor, copilot) and the last batch holds
 the newest, thinnest-documented entrants. Both ends need the most
 attention, for opposite reasons.
 
-Give each agent its target list, the dedupe set from Phase 1, the published
+Give each agent its target list, the dedupe set from Phase 1, the legacy published
 capability entries for those targets, and the "since when" date. The agent
 already knows its method. Do not restate it.
 
@@ -119,11 +115,11 @@ Findings arrive per agent. Merge them yourself:
 4. Sort: `breaking`, then `missing-feature`, then `degraded`, then
    `cosmetic`.
 
-Capability signals arrive separately. Before merging or publishing them,
+Capability signals arrive separately. Before merging them,
 read
 `.agnostic-ai/skills/target-audit/references/capability-intelligence.md`.
 It defines the signal schema, dispositions, bounded challenger contract,
-and durable update procedure. Apply its representation test and
+and release-input procedure. Apply its representation test and
 independent per-target verification before assigning `adapter-gap`,
 `spec-candidate`, `target-extension`, or `watch`.
 
@@ -176,26 +172,24 @@ file this skill edits without being asked.
 
 Then print the top findings to the user with a recommended next action
 each. Keep the terminal summary short. The local report holds the full
-working record. When filing is enabled, the public update must also carry the
-evidence and explanation a developer needs.
+working record. When filing is enabled, issues must carry the evidence and
+explanation needed to act on the finding. Release briefings can then cite
+those durable records.
 
-## Phase 5: File issues and publish the update (skipped only with `--no-file-issues`)
+## Phase 5: File issues and prepare release inputs (skipped only with `--no-file-issues`)
 
-File confirmed drift and design issues first, so the public article can link
-to the resulting work. Then publish the blog-style developer briefing
-described in `docs/user/target-updates.md`, using the paths, markers, and
-retry rules in
-`.agnostic-ai/skills/target-audit/references/capability-intelligence.md`.
-Publication means a dated static article, archive entry, RSS item, and a
-documentation PR. Never use a rolling issue or issue comment as the digest.
+File confirmed drift and design issues so the release process has durable,
+evidence-backed inputs. The local report and resulting issues are the audit's
+publication boundary. `target-audit` never creates or edits a site article and
+never opens a publication PR. The `cut-release` skill selects verified upstream
+news from these inputs when it prepares a release briefing.
 
 The gitignored local report cannot carry the only detailed explanation.
-Publish what changed, why it matters, the current agnostic-ai position, the
-next action, and source evidence in the article. Use full GitHub source
+Issues must explain what changed, why it matters, the current agnostic-ai
+position, the next action, and source evidence. Use full GitHub source
 permalinks pinned to the audited commit for repository evidence.
 
-`--no-file-issues` prohibits all GitHub writes and tracked publication edits,
-including the update PR, drift issues, and design issues.
+`--no-file-issues` prohibits GitHub writes, including drift and design issues.
 
 Per confirmed finding, most severe first:
 
@@ -253,8 +247,9 @@ under `Needs a human` with the question that would settle it.
 A `spec-candidate` may get a separate design issue with its evidence,
 representation test, independently verified target semantics, and the
 decision needed. A capability signal in any other disposition stays in the
-published update unless it also qualifies as a confirmed drift finding. A
-design issue is not approval to implement a generic schema.
+local report unless it also qualifies as a confirmed drift finding. It can be
+selected for a later release briefing only after its evidence remains current.
+A design issue is not approval to implement a generic schema.
 
 **Before filing anything as a design or schema question, try it.** The
 2026-08-09 run filed "amp: skill-bundled MCP needs a spec-level
@@ -265,19 +260,6 @@ the existing `x-amp` passthrough already emitted them there verbatim. One
 `sync` would have shown that. Two of us reasoned from the schema instead
 of running it, and nearly booked a schema change for a documentation gap.
 Check whether an existing escape hatch already covers the case first.
-
-### Publish the briefing
-
-After issue filing, turn the report into one dated article under
-`docs/site/updates/`. Prepend its entry inside the managed archive and RSS
-envelopes. Preserve prior editions and published signal IDs. The capability
-intelligence reference defines the article contract and exact retry marker.
-
-Validate the static page and Pages assembly, then commit only the publication
-files on a dedicated documentation branch and open a PR. Never merge it. If
-the current checkout contains unrelated changes, use an isolated worktree from
-fresh `main`. Do not fall back to a digest issue or comment when publication
-fails.
 
 ## Phase 6: Fix (only with `--fix`)
 

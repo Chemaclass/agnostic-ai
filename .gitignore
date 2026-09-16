@@ -6,6 +6,8 @@
 /dist/
 /build/
 /bin/
+/_site/
+/docs/site/public/
 
 # Go binaries and test outputs anywhere
 *.test

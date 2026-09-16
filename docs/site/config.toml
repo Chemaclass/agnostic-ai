@@ -1,0 +1,27 @@
+base_url = "https://chemaclass.github.io/agnostic-ai"
+title = "agnostic-ai"
+description = "One source of truth for AI coding agents, skills, rules, hooks, commands, and MCP servers."
+default_language = "en"
+author = "Chemaclass"
+compile_sass = false
+build_search_index = false
+generate_feeds = false
+feed_filenames = ["feed.xml"]
+generate_sitemap = false
+generate_robots_txt = false
+minify_html = false
+
+[markdown]
+external_links_target_blank = false
+external_links_no_follow = false
+external_links_no_referrer = false
+smart_punctuation = false
+
+[slugify]
+paths = "safe"
+anchors = "safe"
+
+[extra]
+repository_url = "https://github.com/Chemaclass/agnostic-ai"
+docs_url = "https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user"
+image_url = "https://chemaclass.github.io/agnostic-ai/og.png"

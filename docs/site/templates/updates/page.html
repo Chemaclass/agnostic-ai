@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | agnostic-ai{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+{% block og_type %}article{% endblock og_type %}
+{% block og_title %}{{ page.title }}{% endblock og_title %}
+{% block og_description %}{{ page.description }}{% endblock og_description %}
+{% block twitter_title %}{{ page.title }}{% endblock twitter_title %}
+{% block twitter_description %}{{ page.description }}{% endblock twitter_description %}
+{% block article_meta %}<meta property="article:published_time" content="{{ page.date | date(format='%Y-%m-%d') }}">{% endblock article_meta %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/updates.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_target %}#article{% endblock skip_target %}
+{% block skip_label %}Skip to briefing{% endblock skip_label %}
+
+{% block content %}
+<main id="article" class="article-shell">
+  <a class="back-link" href="{{ get_url(path='@/updates/_index.md') }}">All updates</a>
+  <article>
+    {% if page.extra.kind == "audit" %}<!-- {{ page.extra.audit_marker }} -->{% endif %}
+    <header class="article-header">
+      <div class="edition"><strong>{% if page.extra.kind == "release" %}Release briefing{% else %}Target update{% endif %}</strong><time datetime="{{ page.date | date(format='%Y-%m-%d') }}">{{ page.date | date(format='%d %B %Y') }}</time><span>{% if page.extra.kind == "release" %}{{ page.extra.version }}{% else %}Audit briefing{% endif %}</span></div>
+      <h1>{{ page.title }}</h1>
+      <p class="dek">{{ page.extra.dek }}</p>
+      {% if page.extra.kind == "audit" %}
+      <div class="audit-strip" aria-label="Audit summary">
+        <div class="audit-stat"><strong>{{ page.extra.targets_checked }}</strong><span>targets checked</span></div>
+        <div class="audit-stat"><strong>{{ page.extra.finding_count }}</strong><span>confirmed findings</span></div>
+        <div class="audit-stat"><strong>{{ page.extra.clean_count }}</strong><span>clean targets</span></div>
+      </div>
+      {% endif %}
+    </header>
+
+    <div class="article-body">
+      {{ page.content | safe }}
+    </div>
+
+    <footer class="article-end">
+      {% if page.extra.kind == "audit" %}<span>Report digest <code>{{ page.extra.report_digest }}</code></span>{% else %}<span>{{ page.extra.version }} release briefing</span>{% endif %}
+      <a href="{{ get_url(path='@/updates/_index.md') }}">Browse all updates</a>
+    </footer>
+  </article>
+</main>
+{% endblock content %}

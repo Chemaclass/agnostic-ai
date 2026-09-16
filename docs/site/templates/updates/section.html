@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }} | agnostic-ai{% endblock title %}
+{% block description %}{{ section.description }}{% endblock description %}
+{% block og_title %}{{ section.title }} | agnostic-ai{% endblock og_title %}
+{% block og_description %}{{ section.description }}{% endblock og_description %}
+{% block twitter_title %}{{ section.title }} | agnostic-ai{% endblock twitter_title %}
+{% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/updates.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_label %}Skip to updates{% endblock skip_label %}
+
+{% block content %}
+{% set latest = section.pages | first %}
+<main id="content">
+  <section class="masthead">
+    <div class="wrap masthead-grid">
+      <h1>{{ section.extra.masthead }}</h1>
+      <div>
+        <p class="lede">{{ section.extra.lede }}</p>
+        {% if latest %}<div class="edition"><strong>Current edition</strong><time datetime="{{ latest.date | date(format='%Y-%m-%d') }}">{{ latest.date | date(format='%d %B %Y') }}</time></div>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if latest %}
+  <section class="latest" aria-labelledby="latest-title">
+    <div class="wrap latest-grid">
+      <div class="latest-copy">
+        <div class="edition">
+          {% if latest.extra.kind == "release" %}<span>{{ latest.extra.version }}</span><span>Release briefing</span>{% else %}<span>Week of {{ latest.date | date(format='%d %B %Y') }}</span><span>{{ latest.extra.targets_checked }} targets checked</span>{% endif %}
+        </div>
+        <h2 id="latest-title">{{ latest.title }}</h2>
+        <p class="summary">{{ latest.description }}</p>
+        <a class="read-link" href="{{ latest.permalink }}">Read the briefing<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+
+      <div class="change-list" aria-label="Critical changes in this edition">
+        {% for signal in latest.extra.signals %}
+        <article class="change">
+          <div class="change-meta"><span class="status">{{ signal.status }}</span>{% for target in signal.targets %}<span class="tag">{{ target }}</span>{% endfor %}</div>
+          <h3>{{ signal.title }}</h3>
+          <p>{{ signal.summary }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="archive" aria-labelledby="archive-title">
+    <div class="wrap">
+      <div class="archive-head">
+        <h2 id="archive-title">All editions</h2>
+        <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">Subscribe by RSS</a>
+      </div>
+      <div class="archive-list">
+        {% for article in section.pages %}
+        <a class="archive-row" href="{{ article.permalink }}">
+          <time datetime="{{ article.date | date(format='%Y-%m-%d') }}">{{ article.date | date(format='%d %b %Y') }}</time>
+          <h3>{{ article.title }}</h3>
+          <span class="count">{{ article.extra.archive_stats }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock content %}

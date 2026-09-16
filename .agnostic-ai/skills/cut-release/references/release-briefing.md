@@ -1,0 +1,108 @@
+# Release briefing
+
+Create one release briefing immediately before the release commit. The file,
+version bump, and final dated changelog section must land in the same commit
+and receive the same signed tag.
+
+## Research inputs
+
+Start with the exact `CHANGELOG.md` section being released. Then inspect target
+audit reports and issues created since the previous release. Treat them as
+research leads. Reopen every cited primary vendor source and verify its date,
+availability, affected CLI or model, and current wording before publication.
+Use vendor documentation, release notes, or model-provider announcements. Do
+not use model output, summaries, social posts, or another vendor's behavior as
+evidence.
+
+Select upstream news that changes project setup, safety, portability, model
+availability, or a workflow users depend on. Order the article by consequence:
+
+1. breaking behavior;
+2. changed defaults;
+3. removals;
+4. deprecations;
+5. safety or permission changes;
+6. substantial additions;
+7. routine improvements.
+
+If no verified upstream item meets that bar, say so in the upstream section.
+Do not invent filler.
+
+## Separation contract
+
+Use two visible top-level sections:
+
+1. `Shipped in agnostic-ai vX.Y.Z`
+2. `Upstream CLI and model news`
+
+The shipped section must reproduce the final dated release changelog content
+exactly, including its subsection order and bullets. Do not paraphrase, merge,
+or omit entries. The upstream section describes external changes only. For
+every item, state the affected product, source date, user consequence, source
+link, and agnostic-ai support state. Use `supported`, `target extension`,
+`workaround`, `adapter gap`, `design candidate`, or `watch` as appropriate.
+
+Never imply that upstream availability means agnostic-ai support. If a shipped
+changelog entry responds to the upstream change, link the two in prose without
+duplicating it as shipped work.
+
+## File and metadata contract
+
+Use `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md`:
+
+```toml
++++
+title = "agnostic-ai vX.Y.Z: <reader consequence>"
+description = "<plain summary of shipped work and selected upstream news>"
+date = YYYY-MM-DDT00:00:00+HH:MM
+slug = "YYYY-MM-DD-vX.Y.Z"
+aliases = ["updates/YYYY-MM-DD-vX.Y.Z.html"]
+
+[extra]
+kind = "release"
+version = "vX.Y.Z"
+dek = "<one-paragraph editorial summary>"
+rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/YYYY-MM-DD-vX.Y.Z.html"
+archive_stats = "<short release summary>"
+
+[[extra.signals]]
+status = "shipped"
+targets = ["agnostic-ai"]
+title = "<highest-consequence shipped change>"
+summary = "<specific reader outcome>"
++++
+```
+
+Add two or three signals that summarize the highest-consequence items. Signals
+can point to shipped work or upstream news, but their status and summary must
+make the distinction explicit. Release posts do not use `audit_marker`,
+`report_digest`, `targets_checked`, `finding_count`, or `clean_count`.
+
+The canonical URL is `/updates/YYYY-MM-DD-vX.Y.Z/`. The `.html` alias is the
+permanent RSS GUID. Never reuse or change a published GUID. Zola generates the
+article, archive row, RSS item, alias, and sitemap route from this one Markdown
+file.
+
+Legacy audit articles have a different contract. Never change their paths,
+aliases, GUIDs, audit markers, report digests, counts, or capability markers.
+
+## Pre-commit checks
+
+Before committing:
+
+1. Compare the shipped section against the new dated changelog section and
+   resolve any difference.
+2. Open every upstream source and confirm that the article makes no broader
+   claim than the source.
+3. Confirm high-impact changes appear before additions in both the changelog
+   and article narrative.
+4. Run `make site-build site-test`.
+5. Check that the new canonical article, `.html` alias, archive entry, and RSS
+   GUID exist in the built output.
+6. Stage the briefing with the version and changelog. Confirm the release tag
+   will point at that exact commit.
+
+After pushing, watch both the `Release` and `Pages` workflows. Pages runs
+automatically when the release commit reaches `main`. The workflow also keeps
+`workflow_dispatch` for a manual recovery run on `main` if the automatic run
+is absent or needs a safe retry.

@@ -1,0 +1,4 @@
+<section class="briefing-item">
+  <div class="change-meta"><span class="status">{{ status }}</span>{% for target in targets %}<span class="tag">{{ target }}</span>{% endfor %}</div>
+  {{ body | markdown | safe }}
+</section>

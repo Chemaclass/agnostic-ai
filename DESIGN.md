@@ -73,7 +73,7 @@ components:
 
 The site feels like a calm technical publication covering an unstable ecosystem. Large, direct headlines establish the editorial point. Monospace metadata, fine rules, and sparse rust signals make evidence and state easy to scan without turning the page into a dashboard.
 
-The system stays visually close to the CLI and documentation: practical, restrained, and explicit. It uses density where evidence needs it, open space around the weekly thesis, and no decorative material that competes with the content.
+The system stays visually close to the CLI and documentation: practical, restrained, and explicit. It uses density where evidence needs it, open space around each release thesis, and no decorative material that competes with the content. Release articles use the same shared navigation and editorial components as legacy audit articles, while their content schema omits audit-only counts and markers.
 
 **Key Characteristics:**
 
@@ -126,7 +126,7 @@ The palette is warm, low-saturation, and built around one rare rust signal.
 
 ## Layout
 
-The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. The article uses a 46rem reading column. Below 600px, navigation reduces to Updates and GitHub, grids become one column, and audit stats stack.
+The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids become one column, and audit stats stack.
 
 Vertical rhythm expands between editorial sections and tightens inside evidence rows. Content order does not change across breakpoints.
 
@@ -147,7 +147,7 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 ### Navigation
 
 - **Style:** compact system-sans links beside a monospace wordmark; the current page uses Rust Signal and 700 weight.
-- **Mobile:** keep Updates and GitHub, hide secondary destinations below 600px.
+- **Mobile:** keep Home, Updates, Playground, Docs, and GitHub visible in a compact wrapped row.
 - **Focus:** a 2px Rust Signal outline with 4px offset.
 
 ### Signal tags
