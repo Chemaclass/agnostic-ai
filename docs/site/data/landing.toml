@@ -48,108 +48,70 @@ items = [
 [targets]
 title = "One source of truth,"
 muted_title = "25 tools, each native."
-body = "Author agents, skills, rules, hooks, commands, and MCP servers under `.agnostic-ai/`. Stateless adapters translate them into every target's documented location and shape, aligned with the [AGENTS.md](https://agents.md) open standard. 20 targets emit by default. Amp, Warp, Jules, Goose, and Augment are opt-in."
+body = "Compare ten of the broadest integrations across the configuration surfaces teams use most. **Yes** means one portable agnostic-ai spec reaches a native target surface."
+features = ["Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"]
+caption = "Coverage counts all 10 portable spec kinds. Permissions means portable allow, deny, and ask settings."
+link_label = "See paths and all 25 targets"
 
-[[targets.items]]
-name = "Claude Code"
-path = ".claude/ · CLAUDE.md"
-default = true
-[[targets.items]]
-name = "Codex CLI"
-path = "AGENTS.md · .codex/"
-default = true
-[[targets.items]]
-name = "Gemini CLI"
-path = "GEMINI.md · .gemini/"
-default = true
-[[targets.items]]
+[[targets.matrix]]
+id = "cursor"
 name = "Cursor"
-path = ".cursor/rules"
-default = true
-[[targets.items]]
-name = "GitHub Copilot"
-path = ".github/"
-default = true
-[[targets.items]]
-name = "Aider"
-path = "CONVENTIONS.md"
-default = true
-[[targets.items]]
-name = "Cline"
-path = ".cline/"
-default = true
-[[targets.items]]
-name = "Windsurf / Devin"
-path = ".devin/"
-default = true
-[[targets.items]]
-name = "Continue"
-path = ".continue/rules"
-default = true
-[[targets.items]]
-name = "Zed"
-path = ".agents/skills"
-default = true
-[[targets.items]]
-name = "OpenCode"
-path = ".opencode/"
-default = true
-[[targets.items]]
-name = "Antigravity"
-path = ".agent/"
-default = true
-[[targets.items]]
-name = "Junie"
-path = ".junie/AGENTS.md"
-default = true
-[[targets.items]]
-name = "Kiro"
-path = ".kiro/steering"
-default = true
-[[targets.items]]
-name = "Crush"
-path = ".agents/skills · crush.json"
-default = true
-[[targets.items]]
-name = "Trae"
-path = ".trae/rules"
-default = true
-[[targets.items]]
+coverage = 9
+support = [true, true, true, true, true, true, false]
+
+[[targets.matrix]]
+id = "claude"
+name = "Claude Code"
+coverage = 7
+support = [true, true, true, true, true, true, true]
+
+[[targets.matrix]]
+id = "codex"
+name = "Codex CLI"
+coverage = 7
+support = [true, true, true, true, true, true, false]
+
+[[targets.matrix]]
+id = "gemini"
+name = "Gemini CLI"
+coverage = 7
+support = [true, true, true, true, true, true, false]
+
+[[targets.matrix]]
+id = "qoder"
 name = "Qoder"
-path = ".qoder/rules"
-default = true
-[[targets.items]]
-name = "OpenHands"
-path = ".agents/skills"
-default = true
-[[targets.items]]
-name = "Factory Droid"
-path = ".factory/droids"
-default = true
-[[targets.items]]
+coverage = 7
+support = [true, true, true, true, true, true, true]
+
+[[targets.matrix]]
+id = "trae"
+name = "Trae"
+coverage = 7
+support = [true, true, true, true, true, true, false]
+
+[[targets.matrix]]
+id = "junie"
+name = "Junie"
+coverage = 7
+support = [true, true, true, true, false, true, false]
+
+[[targets.matrix]]
+id = "kilo"
 name = "Kilo Code"
-path = ".kilo/agents · kilo.jsonc"
-default = true
-[[targets.items]]
-name = "Amp"
-path = "AGENTS.md · .agents/"
-default = false
-[[targets.items]]
-name = "Warp"
-path = "AGENTS.md · .warp/"
-default = false
-[[targets.items]]
-name = "Jules"
-path = "AGENTS.md (cloud)"
-default = false
-[[targets.items]]
-name = "Goose"
-path = ".agents/"
-default = false
-[[targets.items]]
-name = "Augment"
-path = ".augment/"
-default = false
+coverage = 7
+support = [true, true, true, true, false, true, false]
+
+[[targets.matrix]]
+id = "augment"
+name = "Augment Code"
+coverage = 7
+support = [true, true, true, true, true, true, false]
+
+[[targets.matrix]]
+id = "copilot"
+name = "GitHub Copilot"
+coverage = 6
+support = [true, true, true, true, true, false, false]
 
 [workflow]
 title = "Two layers,"

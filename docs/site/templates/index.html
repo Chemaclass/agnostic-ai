@@ -105,15 +105,28 @@
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.targets.body | markdown | safe }}</div>
-      <div class="target-grid reveal-group">
-        {% for target in landing.targets.items %}
-        <div class="target-row">
-          <span class="target-signal" aria-hidden="true"></span>
-          <span class="target-copy"><strong>{{ target.name }}</strong><span>{{ target.path }}</span></span>
-          <span class="target-state{% if target.default %} is-default{% endif %}">{% if target.default %}default{% else %}opt-in{% endif %}</span>
-        </div>
-        {% endfor %}
+      <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">
+        <table class="capability-table">
+          <caption>{{ landing.targets.caption }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Tool</th>
+              <th scope="col">Coverage</th>
+              {% for feature in landing.targets.features %}<th scope="col">{{ feature }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for target in landing.targets.matrix %}
+            <tr>
+              <th scope="row">{{ target.name }}</th>
+              <td class="capability-score">{{ target.coverage }}/10</td>
+              {% for supported in target.support %}<td class="capability-{% if supported %}yes{% else %}no{% endif %}">{% if supported %}Yes{% else %}No{% endif %}</td>{% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+      <p class="target-reference"><a href="{{ get_url(path='@/docs/targets.md') }}">{{ landing.targets.link_label }}</a></p>
     </div>
   </section>
 

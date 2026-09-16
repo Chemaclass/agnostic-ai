@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -11,6 +12,68 @@ import (
 )
 
 const siteDocsContentDir = "../../docs/site/content/docs"
+
+func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
+	var landing struct {
+		Targets struct {
+			Features []string `toml:"features"`
+			Matrix   []struct {
+				ID       string `toml:"id"`
+				Coverage int    `toml:"coverage"`
+				Support  []bool `toml:"support"`
+			} `toml:"matrix"`
+		} `toml:"targets"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
+		t.Fatalf("decode landing data: %v", err)
+	}
+
+	wantFeatures := []string{"Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"}
+	if strings.Join(landing.Targets.Features, ",") != strings.Join(wantFeatures, ",") {
+		t.Fatalf("capability features = %v, want %v", landing.Targets.Features, wantFeatures)
+	}
+	if len(landing.Targets.Matrix) != 10 {
+		t.Fatalf("capability matrix has %d targets, want 10", len(landing.Targets.Matrix))
+	}
+
+	capabilitiesRE := regexp.MustCompile(`Supports:\s*\[\]spec\.Kind\{([^}]*)\}`)
+	kinds := []string{"Rule", "Agent", "Skill", "MCP", "Hook", "Command"}
+	// Permissions are a Settings field, not a spec kind. These adapters map the portable allow, deny, and ask lists.
+	permissionTargets := map[string]bool{"claude": true, "qoder": true}
+	selected := make(map[string]bool, len(landing.Targets.Matrix))
+
+	for _, target := range landing.Targets.Matrix {
+		if selected[target.ID] {
+			t.Errorf("capability matrix repeats %s", target.ID)
+		}
+		selected[target.ID] = true
+		if len(target.Support) != len(wantFeatures) {
+			t.Errorf("%s has %d feature cells, want %d", target.ID, len(target.Support), len(wantFeatures))
+			continue
+		}
+
+		source := readBuiltFile(t, filepath.Join("../../internal/adapters", target.ID, target.ID+".go"))
+		match := capabilitiesRE.FindStringSubmatch(source)
+		if len(match) != 2 {
+			t.Fatalf("find declared capabilities for %s", target.ID)
+		}
+		declared := match[1]
+		coverage := strings.Count(declared, "spec.Kind")
+		if target.Coverage != coverage {
+			t.Errorf("%s coverage = %d, adapter declares %d kinds", target.ID, target.Coverage, coverage)
+		}
+
+		for index, kind := range kinds {
+			want := strings.Contains(declared, "spec.Kind"+kind)
+			if target.Support[index] != want {
+				t.Errorf("%s %s support = %t, adapter says %t", target.ID, wantFeatures[index], target.Support[index], want)
+			}
+		}
+		if target.Support[len(target.Support)-1] != permissionTargets[target.ID] {
+			t.Errorf("%s portable permissions support = %t, want %t", target.ID, target.Support[len(target.Support)-1], permissionTargets[target.ID])
+		}
+	}
+}
 
 func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	page := readBuiltFile(t, "../../docs/playground/index.html")

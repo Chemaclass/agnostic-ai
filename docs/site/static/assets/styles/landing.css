@@ -260,64 +260,82 @@ main > section:not(.hero) {
   flex: none;
 }
 
-.target-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+.capability-table-wrap {
+  overflow-x: auto;
   margin-top: 2.25rem;
+  border-block: 1px solid var(--line);
+  scrollbar-color: var(--muted) var(--surface);
 }
 
-.target-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--surface);
+.capability-table {
+  width: 100%;
+  min-width: 50rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
-.target-signal {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 3px;
-  background: var(--accent);
-}
-
-.target-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.target-copy strong {
-  font-size: 0.88rem;
-}
-
-.target-copy > span {
-  overflow: hidden;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  text-overflow: ellipsis;
+.capability-table th,
+.capability-table td {
+  padding: 0.62rem 0.7rem;
+  border-bottom: 1px solid var(--line-soft);
   white-space: nowrap;
 }
 
-.target-state {
-  padding: 0.16rem 0.4rem;
-  border-radius: 4px;
-  background: var(--surface-quiet);
+.capability-table thead th {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-.target-state.is-default {
-  background: color-mix(in srgb, var(--good) 12%, transparent);
+.capability-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+.capability-table tbody tr:last-child th,
+.capability-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.capability-score {
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.capability-yes {
   color: var(--good);
+  font-weight: 700;
+}
+
+.capability-no {
+  color: var(--muted);
+}
+
+.capability-table caption {
+  caption-side: bottom;
+  padding-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.target-reference {
+  margin: 1rem 0 0;
+  font-size: 0.86rem;
+}
+
+.target-reference a {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .workflow-steps,
@@ -515,10 +533,6 @@ main > section:not(.hero) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .target-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .code-example {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
@@ -535,10 +549,6 @@ main > section:not(.hero) {
 }
 
 @media (max-width: 560px) {
-  .target-grid {
-    grid-template-columns: 1fr;
-  }
-
   .command {
     font-size: 0.72rem;
   }
