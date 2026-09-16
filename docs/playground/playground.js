@@ -103,7 +103,7 @@ dist/
 `,
 };
 
-const DEFAULT_TARGETS = ["claude", "codex", "cursor", "gemini"];
+const DEFAULT_TARGETS = ["claude", "codex", "gemini"];
 const STORAGE_KEY = "agnostic-ai-playground";
 
 const $ = (id) => document.getElementById(id);
@@ -424,7 +424,7 @@ async function init() {
   buildTargetChips(capabilities, prefs.targets);
   buildSamplePicker();
 
-  els.source.value = SAMPLES[els.kind.value] || SAMPLES.rule;
+  els.source.value = SAMPLES[els.kind.value] || SAMPLES.agent;
 
   els.source.addEventListener("input", scheduleRender);
   els.kind.addEventListener("change", () => {

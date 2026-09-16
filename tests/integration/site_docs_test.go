@@ -103,6 +103,12 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	page := readBuiltFile(t, "../../docs/playground/index.html")
 	script := readBuiltFile(t, "../../docs/playground/playground.js")
+	if !strings.Contains(page, `<option value="agent" selected>agent</option>`) {
+		t.Error("playground does not default to the agent spec kind")
+	}
+	if !strings.Contains(script, `const DEFAULT_TARGETS = ["claude", "codex", "gemini"];`) {
+		t.Error("playground defaults must select only claude, codex, and gemini")
+	}
 	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
 		if !strings.Contains(page, `value="`+kind+`"`) {
 			t.Errorf("playground kind picker is missing %s", kind)
