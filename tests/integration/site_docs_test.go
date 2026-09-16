@@ -224,6 +224,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	index := readBuiltFile(t, filepath.Join(outputDir, "docs", "index.html"))
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
+	if domain := strings.TrimSpace(readBuiltFile(t, filepath.Join(outputDir, "CNAME"))); domain != "agnostic-ai.org" {
+		t.Errorf("built CNAME = %q, want agnostic-ai.org", domain)
+	}
 	for _, required := range []string{
 		"Documentation without detours.",
 		"Paste into your coding agent",
