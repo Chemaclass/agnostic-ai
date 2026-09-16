@@ -62,7 +62,7 @@ func (s *Session) RestoreHelperFiles(tool string, dryRun bool) error {
 		// but never ignored or tracked as an output. Mode is preserved so
 		// executable helpers stay executable; content is written
 		// byte-identical (no trailing-newline normalization).
-		if err := s.writeFileWithMode(dst, string(body), info.Mode().Perm(), dryRun); err != nil {
+		if err := s.writeFileWithMode(dst, string(body), info.Mode().Perm(), true, dryRun); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 	}

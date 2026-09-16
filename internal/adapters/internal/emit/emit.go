@@ -305,14 +305,14 @@ func (s *Session) Rollback() error {
 // action (create/update/skip) is determined by comparing against existing
 // content; unchanged files are skipped and not rewritten.
 func (s *Session) WriteFile(path, content string, dryRun bool) error {
-	return s.writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, dryRun)
+	return s.writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, false, dryRun)
 }
 
 // WriteExecutableFile writes a generated script with executable permissions.
 // It follows the same capture, unmanaged, backup, transaction, and detailed
 // recording behavior as WriteFile.
 func (s *Session) WriteExecutableFile(path, content string, dryRun bool) error {
-	return s.writeFileWithMode(path, normalizeTrailingNewline(content), executablePerm, dryRun)
+	return s.writeFileWithMode(path, normalizeTrailingNewline(content), executablePerm, true, dryRun)
 }
 
 // normalizeTrailingNewline collapses any run of trailing newlines into
@@ -439,10 +439,13 @@ func parentGone(err error) bool {
 // argument` on macOS. The prune is correct and the write is correct;
 // only their interleaving is wrong, and recreating the parent is the
 // cheap half of that fix. See removeEmptyDirs for the other half.
-func writeFileAt(path, content string, mode os.FileMode) error {
+func writeFileAt(path, content string, mode os.FileMode, enforceMode bool) error {
 	err := os.WriteFile(path, []byte(content), mode)
 	if err == nil {
-		return os.Chmod(path, mode)
+		if enforceMode {
+			return os.Chmod(path, mode)
+		}
+		return nil
 	}
 	if !parentGone(err) {
 		return err
@@ -453,10 +456,13 @@ func writeFileAt(path, content string, mode os.FileMode) error {
 	if err := os.WriteFile(path, []byte(content), mode); err != nil {
 		return err
 	}
-	return os.Chmod(path, mode)
+	if enforceMode {
+		return os.Chmod(path, mode)
+	}
+	return nil
 }
 
-func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryRun bool) error {
+func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enforceMode, dryRun bool) error {
 	if s.skipUnmanaged(path) {
 		return nil
 	}
@@ -506,7 +512,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 		switch {
 		case os.IsNotExist(err):
 			action = "create"
-		case err == nil && statErr == nil && string(existing) == content && info.Mode().Perm() == mode.Perm():
+		case err == nil && string(existing) == content && (!enforceMode || statErr == nil && info.Mode().Perm() == mode.Perm()):
 			// File is already up to date; skip the write.
 			s.mu.Lock()
 			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: headerlessSum(content)})
@@ -534,7 +540,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 		}
-		if err := writeFileAt(path, content, mode); err != nil {
+		if err := writeFileAt(path, content, mode, enforceMode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		s.mu.Lock()
@@ -569,7 +575,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, dryR
 			}
 		}
 	}
-	if err := writeFileAt(path, content, mode); err != nil {
+	if err := writeFileAt(path, content, mode, enforceMode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
@@ -852,7 +858,7 @@ func (s *Session) CopyTree(srcDir, dstDir string, skip func(rel string) bool, dr
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		dst := filepath.Join(dstDir, rel)
-		return s.writeFileWithMode(dst, string(data), fi.Mode().Perm(), dryRun)
+		return s.writeFileWithMode(dst, string(data), fi.Mode().Perm(), true, dryRun)
 	})
 }
 

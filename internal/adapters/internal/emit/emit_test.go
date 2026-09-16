@@ -148,6 +148,29 @@ func TestWriteExecutableFile_CorrectsExistingMode(t *testing.T) {
 	}
 }
 
+func TestWriteFile_PreservesExistingMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support Unix mode bits")
+	}
+	t.Parallel()
+	sess := NewSession()
+	path := filepath.Join(t.TempDir(), "private.toml")
+	if err := os.WriteFile(path, []byte("old\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sess.WriteFile(path, "new", false); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %o, want existing mode 600", info.Mode().Perm())
+	}
+}
+
 func TestWriteFile_DryRun(t *testing.T) {
 	sess := NewSession()
 	dir := t.TempDir()
