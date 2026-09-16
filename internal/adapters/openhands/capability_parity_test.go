@@ -31,6 +31,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		matchers []string
 	}
 	cases := []expect{
+		{spec.KindAgent, []string{".agents/agents/alpha.md", ".agents/agents/beta.md", ".agents/agents/gamma.md"}},
 		{spec.KindRule, []string{".agents/skills/r4/SKILL.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{"config.toml"}},
@@ -72,8 +73,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind openhands does not declare in caps.Supports (Agent, Hook,
-// Command, Settings). A future caps.Supports expansion needs to
+// every kind openhands does not declare in caps.Supports (Command and
+// Settings). A future caps.Supports expansion needs to
 // delete the matching row here and demonstrate the emit path that
 // backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -82,15 +83,14 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "helper", Path: "agents/helper.md", Body: "helper body"},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
 		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (agent/command/settings), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (command/settings), got %d", got)
 	}
 }
 

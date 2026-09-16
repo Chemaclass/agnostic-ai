@@ -8,6 +8,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Goose and OpenHands emit project agents to their shared `.agents/agents/<name>.md` path with portable name, description, model, and prompt content. Generic tool lists surface coverage notes instead of silently using the wrong vocabulary (#631).
 - Codex and Copilot apply the portable Settings model to their repository config. Copilot import restores it, while existing target-specific settings and Codex overlay precedence stay intact (#827).
 - Settings specs now select the project default model for OpenCode, Junie, Qoder, and Kilo; Qoder also receives shared allow, deny, and ask permissions. Native imports restore the portable fields and preserve unrelated settings (#806).
 - Goose hook specs emit a complete Open Plugins package with its manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#629).
@@ -21,6 +22,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Changed
 
+- Antigravity agents use its documented nested `.agents/agents/<name>/agent.md` layout, avoiding model collisions with Goose and OpenHands. Import prefers nested profiles, while the sync ledger safely migrates managed legacy flat files (#717).
 - The GitHub Pages site now builds with Zola 0.22.0 from shared templates, structured landing data, and dated Markdown briefings. One navbar spans the landing page and updates, all five primary destinations stay visible on mobile, and adding a release briefing now updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without editing page design. Legacy audit URLs, RSS GUIDs, markers, and counts remain stable.
 
 ### Fixed

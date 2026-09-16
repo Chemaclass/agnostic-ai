@@ -15,7 +15,7 @@ import (
 // names nothing here and is dropped rather than written dead.
 var modelTiers = map[string]bool{"inherit": true, "flash": true, "pro": true}
 
-// emitAgents writes one native `<dir>/<name>.md` per agent spec and
+// emitAgents writes one native `<dir>/<name>/agent.md` per agent spec and
 // sweeps the rule-form file a prior sync left behind for the same name,
 // at both the current and the pre-plural rules directory.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, rulesDirs []string, dryRun bool) error {
@@ -28,7 +28,7 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, rulesDirs [
 		if drops.model {
 			droppedModel++
 		}
-		path := filepath.Join(dir, a.Name+".md")
+		path := filepath.Join(dir, a.Name, "agent.md")
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ type agentDrops struct {
 	model bool
 }
 
-// agentMarkdown renders one `.agents/agents/<name>.md` subagent file.
+// agentMarkdown renders one `.agents/agents/<name>/agent.md` subagent file.
 // Antigravity's documented frontmatter is `name` and `description`
 // (both required) plus `tools`, `mainAgent`, `subagent`, `model`,
 // `commandExecutionPolicy`, `mcpServers`, and `skills`/`plugins`

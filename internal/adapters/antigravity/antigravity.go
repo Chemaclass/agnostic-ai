@@ -1,7 +1,8 @@
 // Package antigravity emits configs for Google Antigravity IDE.
 //
 // Antigravity reads project instructions from per-rule files under
-// `.agents/rules/*.md`, custom subagents from `.agents/agents/<name>.md`,
+// `.agents/rules/*.md`, custom subagents from
+// `.agents/agents/<name>/agent.md`,
 // and skills from a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. This adapter emits all three. Antigravity
 // "now defaults to `.agents/rules`, but still maintains backward support
@@ -15,9 +16,10 @@
 // once an adapter's default lands on it.
 //
 // Agents emit as native subagent profiles at
-// `.agents/agents/<name>.md`: "Antigravity automatically discovers
-// custom subagent `.md` files in the following locations", workspace
-// row `.agents/agents/<name>.md` (antigravity.google/docs/subagents).
+// `.agents/agents/<name>/agent.md`, one of the two workspace forms in
+// Antigravity's subagent reference. The nested form avoids colliding
+// with Goose and OpenHands, which only read flat files in the shared
+// `.agents/agents/` directory.
 // Frontmatter carries `name` and `description` (both required); "The
 // content following the YAML `---` delimiter defines the subagent's
 // system prompt." This adapter previously flattened agents into
@@ -95,8 +97,8 @@ const (
 	legacyRulesDir  = ".agent/rules"
 	legacySkillsDir = ".agent/skills"
 	// defaultAgentsDir is Antigravity's workspace subagent path:
-	// "Antigravity automatically discovers custom subagent `.md` files"
-	// at `.agents/agents/<name>.md` (antigravity.google/docs/subagents).
+	// Antigravity discovers nested workspace profiles at
+	// `.agents/agents/<name>/agent.md` (antigravity.google/docs/subagents).
 	defaultAgentsDir = ".agents/agents"
 	// legacyAgentPrefix is the filename prefix agents carried while they
 	// flattened into the rules directory. Emit sweeps a stale managed
@@ -119,7 +121,7 @@ func New() *Adapter { return &Adapter{} }
 func (Adapter) Name() string { return target }
 
 // Emit writes per-rule files under .agents/rules/, one subagent file
-// per agent under .agents/agents/<name>.md, a folder per skill under
+// per agent under .agents/agents/<name>/agent.md, a folder per skill under
 // .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
 // servers, .agents/hooks.json for hooks, and, when opted in via
 // outputs.antigravity.rules-file, a

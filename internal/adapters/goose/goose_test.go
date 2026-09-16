@@ -74,6 +74,60 @@ func TestEmit_SkillsDirOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_Agent_WritesSharedFlatProfile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent,
+		Name: "reviewer",
+		Meta: map[string]any{
+			"description": "Reviews code changes.",
+			"model":       "anthropic/claude-sonnet-4",
+			"tools":       []any{"Read"},
+		},
+		Body: "Review the diff.",
+	}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".agents/agents/reviewer.md"))
+	for _, want := range []string{"name: reviewer", "description: Reviews code changes.", "model: anthropic/claude-sonnet-4", "Review the diff."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in agent profile:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "tools:") {
+		t.Errorf("portable tools leaked into Goose agent profile:\n%s", got)
+	}
+}
+
+func TestEmit_AgentsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"goose": {AgentsDir: "custom/agents"}}}
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Body: "Review."}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/agents/reviewer.md")); err != nil {
+		t.Errorf("expected override dir to hold the agent file: %v", err)
+	}
+}
+
+func TestEmit_AgentToolsSurfaceCoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"tools": []any{"Read"}}}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := emit.PendingCoverageNotesCount(); got != 1 {
+		t.Errorf("expected one tools coverage note, got %d", got)
+	}
+}
+
 // outputs.goose.rules-file opts into the legacy concatenated
 // `.goosehints`-style document.
 func TestEmit_RulesFile_WritesConcatenatedRules(t *testing.T) {
@@ -97,9 +151,8 @@ func TestEmit_RulesFile_WritesConcatenatedRules(t *testing.T) {
 	}
 }
 
-// An agent spec has no native goose surface, and a skill spec routes
-// to its own native folder (see TestEmit_Skill_WritesSkillFolderWithoutRulesFileOptIn),
-// so neither belongs in the opt-in rules document: only rule bodies do.
+// Agent and skill specs route to their own native files, so neither
+// belongs in the opt-in rules document: only rule bodies do.
 func TestEmit_RulesFile_ExcludesAgentsAndSkills(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

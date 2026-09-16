@@ -231,7 +231,7 @@ func TestRemoveGeneratedTree_PreservesUserFilesAndTheirDirs(t *testing.T) {
 
 // sync --jobs runs one target's empty-directory prune alongside another
 // target's write into the same shared directory (codex sweeping its
-// legacy `.agents/agents/*.toml` next to antigravity's `<name>.md`).
+// legacy `.agents/agents/*.toml` next to Antigravity's nested profiles).
 // The write used to fail outright on the pruned parent.
 func TestWriteFile_SurvivesAConcurrentPruneOfItsParent(t *testing.T) {
 	sess := NewSession()

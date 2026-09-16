@@ -75,12 +75,15 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the goose
-// adapter declares in caps.Supports (Rule, Skill). The skill entries
+// adapter declares in caps.Supports. The agent and skill entries
 // use the same names, paths, and bodies as every other adapter's
 // kit-sink skills so the shared `.agents/skills/` tree stays
 // byte-identical.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindReview, Name: "review", Body: "Check the changed code."},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},

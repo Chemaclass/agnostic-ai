@@ -34,8 +34,12 @@
 // recommended standard" (github.com/aaif-goose/goose, using-skills.md):
 // ".agents/skills/ — Project-level skills, scoped to the current
 // project"; a legacy `.goose/skills/`, `.claude/skills/`, and others
-// are also discovered but not written here. Agent specs are unsupported
-// by this adapter (tracked separately), so caps.Supports omits KindAgent.
+// are also discovered but not written here.
+//
+// Project agents emit as flat `.agents/agents/<name>.md` profiles with
+// the portable name, description, model, and prompt body. OpenHands
+// reads the same path and fields, so both adapters use one shared
+// renderer and their writes dedupe byte-for-byte.
 //
 // Hooks emit as an Open Plugins package under
 // `.agents/plugins/agnostic-ai/`: a required `plugin.json` manifest plus
@@ -59,12 +63,13 @@ import (
 
 const (
 	target           = "goose"
+	defaultAgentsDir = ".agents/agents"
 	defaultSkillsDir = ".agents/skills"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindReview},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindReview},
 }
 
 // Adapter emits Goose configs.
@@ -78,9 +83,9 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one skill folder per skill spec under `.agents/skills/`,
 // plus the legacy concatenated `.goosehints`-style document only when
-// `outputs.goose.rules-file` is set, scoped to rules so an agent spec
-// targeted at goose (unsupported by this adapter) never leaks into the
-// document. Root-scoped rules concatenate into that path unchanged; a
+// `outputs.goose.rules-file` is set, scoped to rules so native agent
+// profiles never leak into the document. Root-scoped rules concatenate
+// into that path unchanged; a
 // rule carrying a source-layout or frontmatter scope concatenates into
 // a sibling `<scope>/<basename>` file instead, matching Goose's own
 // nested-discovery mechanism (see the package doc). The root AGENTS.md
@@ -90,6 +95,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	if err := sess.WriteSharedAgentFiles(b.Agents, target, agentsDir, dryRun); err != nil {
+		return err
+	}
+	noteDroppedAgentTools(b.Agents)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -107,6 +117,17 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	return emitReviews(sess, b.Reviews, cfg, dryRun)
+}
+
+func noteDroppedAgentTools(agents []spec.Entry) {
+	dropped := 0
+	for _, agent := range agents {
+		if emit.SharedAgentToolsDropped(agent, target) {
+			dropped++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", dropped,
+		"Goose does not document a tools field for project agents")
 }
 
 // splitRulesByScope buckets rules into root-scoped (EffectiveScope() ==

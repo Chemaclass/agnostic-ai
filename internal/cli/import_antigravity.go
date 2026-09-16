@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -18,10 +23,10 @@ var antigravityRulesDirs = []string{
 
 const antigravityMainFile = ".agent/AGENTS.md"
 
-// antigravityAgentsDir is Antigravity's native custom-subagent
-// directory (antigravity.google/docs/subagents): flat `<name>.md`
-// files, not the pre-#638 `agent-<name>.md` rule-form.
-const antigravityAgentsDir = ".agents/agents"
+// antigravityDefaultAgentsDir is Antigravity's native custom-subagent
+// root. New output uses `<name>/agent.md`; import falls back to the
+// older flat `<name>.md` form when no nested profiles exist.
+const antigravityDefaultAgentsDir = ".agents/agents"
 
 // antigravityMCPFile mirrors the antigravity adapter's own
 // defaultMCPFile (internal/adapters/antigravity/antigravity.go).
@@ -71,11 +76,14 @@ func antigravityImportDir(root string) string {
 //     `# <heading>\n` block are stripped from each body). The
 //     `agent-<name>.md` form covers projects synced before agents moved
 //     to their own directory (#638).
-//   - `.agents/agents/*.md` (the native subagent directory)
+//   - `.agents/agents/<name>/agent.md` (the preferred native subagent form)
 //     reconstructs agents, byte-for-byte minus the provenance header,
 //     so `model` and any `x-antigravity` key round-trip untouched. A
 //     generic `tools` list never reaches the file on emit, so it never
-//     comes back from one either.
+//     comes back from one either. Import falls back to the older flat
+//     `.agents/agents/*.md` form only when no nested profile exists, so
+//     co-located Goose/OpenHands profiles are not mistaken for
+//     Antigravity agents.
 //   - When `outputs.antigravity.rules-file` is set in agnostic-ai.yaml,
 //     the legacy concatenated file is sliced by H2 sections.
 //   - `.agents/mcp_config.json`'s `mcpServers` map walks via
@@ -91,7 +99,8 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		return err
 	}
 
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, antigravityAgentsDir), filepath.Join(root, src.Agents))
+	agentsDir := filepath.Join(root, antigravityAgentsDirFromCfg(cfg))
+	nativeAgents, err := importAntigravityAgents(agentsDir, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -127,6 +136,52 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		c.rules+rulesFileCount, c.agents, c.skills, mcps)
 	printImportNextSteps(root, "antigravity")
 	return nil
+}
+
+// antigravityAgentsDirFromCfg returns the configured native agents root.
+func antigravityAgentsDirFromCfg(cfg *config.Config) string {
+	if cfg != nil {
+		if output, ok := cfg.Outputs["antigravity"]; ok && output.AgentsDir != "" {
+			return output.AgentsDir
+		}
+	}
+	return antigravityDefaultAgentsDir
+}
+
+// importAntigravityAgents imports the nested profile form first. When
+// none exist it accepts the vendor's older flat form for compatibility.
+func importAntigravityAgents(srcDir, dstDir string) (int, error) {
+	entries, err := os.ReadDir(srcDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", srcDir, err)
+	}
+
+	count := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		srcPath := filepath.Join(srcDir, entry.Name(), "agent.md")
+		data, err := os.ReadFile(srcPath)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcPath, err)
+		}
+		dstPath := filepath.Join(dstDir, entry.Name()+".md")
+		if err := importWriteFile(dstPath, []byte(header.Strip(string(data))), 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", dstPath, err)
+		}
+		count++
+	}
+	if count > 0 {
+		return count, nil
+	}
+	return importFlatMarkdownFiles(srcDir, dstDir)
 }
 
 // antigravityRulesFileFromCfg returns the project-relative
