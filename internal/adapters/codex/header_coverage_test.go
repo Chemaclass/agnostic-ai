@@ -137,6 +137,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "gpt-5.4-codex"}},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{

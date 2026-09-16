@@ -9,15 +9,17 @@ import (
 const (
 	ampMainFile     = "AGENTS.md"
 	ampCommandsDir  = ".agents/commands"
+	ampSkillsDir    = ".agents/skills"
 	ampSettingsKey  = "amp.mcpServers"
 	ampSettingsFile = ".amp/settings.json"
 )
 
 // importFromAmp reads an existing Sourcegraph Amp project (AGENTS.md,
-// the pre-migration `.agents/commands/`, `.amp/settings.json`) under
+// `.agents/skills/`, the pre-migration `.agents/commands/`, and
+// `.amp/settings.json`) under
 // root and writes specs into the configured source directories.
 func importFromAmp(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
 	rules, err := importAmpRules(root, filepath.Join(root, src.Rules))
@@ -28,6 +30,10 @@ func importFromAmp(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	skills, err := importSkillFolders(filepath.Join(root, ampSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
 	mcps, err := importAmpMCP(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
@@ -35,7 +41,7 @@ func importFromAmp(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, ampMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d mcps\n", rules, agents, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n", rules, agents, skills, mcps)
 	printImportNextSteps(root, "amp")
 	return nil
 }

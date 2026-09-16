@@ -24,6 +24,7 @@ var (
 	copilotChatmodesDir    = filepath.Join(".github", "chatmodes")
 	copilotHooksDir        = filepath.Join(".github", "hooks")
 	copilotMCPFile         = filepath.Join(".vscode", "mcp.json")
+	copilotSettingsFile    = filepath.Join(".github", "copilot", "settings.json")
 )
 
 const (
@@ -34,10 +35,11 @@ const (
 
 // importFromCopilot reads an existing GitHub Copilot project
 // (`.github/copilot-instructions.md`, `.github/instructions/`,
-// `.github/chatmodes/`, `.vscode/mcp.json`) under root and writes
+// `.github/chatmodes/`, `.github/copilot/settings.json`, and
+// `.vscode/mcp.json`) under root and writes
 // specs into the configured source directories.
 func importFromCopilot(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
 	}
 	counts, err := importCopilotRules(root, src)
@@ -64,11 +66,15 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	settings, err := importPortableSettings(root, copilotSettingsFile, filepath.Join(root, src.Settings), false, false)
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, copilotMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps\n",
-		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, hooks, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d settings\n",
+		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, hooks, mcps, settings)
 	printImportNextSteps(root, "copilot")
 	return nil
 }

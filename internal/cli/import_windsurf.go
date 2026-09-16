@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -18,11 +20,14 @@ var windsurfRulesDirs = []string{
 	filepath.Join(".windsurf", "rules"),
 }
 
-// windsurfSkillsDir is the shared cross-tool skills tree Devin Desktop
-// scans (docs.devin.ai/desktop/cascade/skills): a folder per skill
-// holding a SKILL.md, the same tree codex, amp, zed, crush, and
-// openhands emit into.
-const windsurfSkillsDir = ".agents/skills"
+// windsurfSkillsDirs lists every documented project skill path in
+// precedence order. The shared Agent Skills path comes first, followed by
+// Devin's own current path and the Windsurf compatibility path.
+var windsurfSkillsDirs = []string{
+	filepath.Join(".agents", "skills"),
+	filepath.Join(".devin", "skills"),
+	filepath.Join(".windsurf", "skills"),
+}
 
 // windsurfAgentsDir is Devin CLI's native custom-subagent directory
 // (docs.devin.ai/cli/subagents): flat `<name>.md` files, not the
@@ -119,6 +124,36 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 	}
 }
 
+// normalizeWindsurfSkill moves Devin-only trigger policy under the target
+// namespace. The shared skill renderer resolves it back to top-level
+// `triggers` for Windsurf without leaking that native key to other targets.
+func normalizeWindsurfSkill(data []byte) ([]byte, error) {
+	meta, body := splitMdcFrontmatter(data)
+	triggers, ok := meta["triggers"]
+	if !ok {
+		return data, nil
+	}
+	delete(meta, "triggers")
+	targetMeta, _ := meta["x-windsurf"].(map[string]any)
+	if targetMeta == nil {
+		targetMeta = map[string]any{}
+	}
+	targetMeta["triggers"] = triggers
+	meta["x-windsurf"] = targetMeta
+	front, err := yaml.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("marshal frontmatter: %w", err)
+	}
+	out := "---\n" + string(front) + "---\n"
+	if body != "" {
+		out += "\n" + body
+		if !strings.HasSuffix(out, "\n") {
+			out += "\n"
+		}
+	}
+	return []byte(out), nil
+}
+
 // importFromWindsurf reads an existing Devin Desktop / Windsurf project
 // and writes specs into the configured source directories, reversing
 // the windsurf emit:
@@ -140,8 +175,10 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 //     is on disk (e.g. `edit`), not the Claude-style name it collapsed
 //     from, since `Write` and `Edit` both emit as `edit` and are
 //     indistinguishable once written.
-//   - `.agents/skills/<name>/SKILL.md` folders reconstruct skills
-//     natively, with bundled sibling assets copied byte-for-byte.
+//   - `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`
+//     reconstruct native skill folders with bundled assets. Earlier paths
+//     win same-name collisions. `triggers` moves under `x-windsurf` so its
+//     manual/model invocation boundary survives sync without leaking.
 //   - `.devin/mcp_config.json`'s `mcpServers` map writes one yaml per
 //     server. See importWindsurfMCP for the `transport` -> `type`
 //     rename this importer applies on the way in.
@@ -180,11 +217,17 @@ func importFromWindsurf(root string, src config.Sources) error {
 		return err
 	}
 	c.agents += nativeAgents
-	folderSkills, err := importSkillFolders(filepath.Join(root, windsurfSkillsDir), filepath.Join(root, src.Skills))
-	if err != nil {
-		return err
+	seenSkills := map[string]bool{}
+	for _, skillsDir := range windsurfSkillsDirs {
+		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{
+			SkipNames:      seenSkills,
+			TransformSkill: normalizeWindsurfSkill,
+		})
+		if err != nil {
+			return err
+		}
+		c.skills += folderSkills
 	}
-	c.skills += folderSkills
 	mcps, err := importWindsurfMCP(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err

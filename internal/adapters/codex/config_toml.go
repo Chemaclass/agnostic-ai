@@ -11,7 +11,8 @@ import (
 )
 
 // renderConfigTOML builds the `.codex/config.toml` body from the captured
-// overlay, the bundle's MCP entries, and any first-class config fields.
+// overlay, portable settings, the bundle's MCP entries, and any first-class
+// config fields.
 // The overlay (carrying user-authored keys outside hooks/mcp_servers) is
 // written first; then first-class scalars from `outputs.codex.config`
 // (skipping any key the overlay already defines); then MCP server tables.
@@ -20,8 +21,17 @@ import (
 // Hooks no longer render here. They land in `.codex/hooks.json` (see
 // emitHooksJSON) which natively supports per-hook `timeout` and
 // `statusMessage` metadata that the TOML schema discarded.
-func renderConfigTOML(_ []spec.Entry, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
-	hasContent := anyNamedMCP(mcps) || hasCodexConfig(cfg) || overlayBody != ""
+func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
+	portableModel := emit.LastSettingsModel(settings)
+	effectiveCfg := &config.CodexConfig{Model: portableModel}
+	if cfg != nil {
+		copy := *cfg
+		if copy.Model == "" {
+			copy.Model = portableModel
+		}
+		effectiveCfg = &copy
+	}
+	hasContent := anyNamedMCP(mcps) || hasCodexConfig(effectiveCfg) || overlayBody != ""
 	if !hasContent {
 		return ""
 	}
@@ -36,7 +46,7 @@ func renderConfigTOML(_ []spec.Entry, mcps []spec.Entry, cfg *config.CodexConfig
 		sb.WriteString("\n")
 	}
 
-	writeCodexConfigFields(&sb, cfg, overlayKeys)
+	writeCodexConfigFields(&sb, effectiveCfg, overlayKeys)
 	writeMCPServers(&sb, mcps)
 	return sb.String()
 }

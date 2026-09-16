@@ -76,6 +76,8 @@ agnostic-ai import cursor         # .cursor/rules/, .cursor/agents/, .cursor/ski
 agnostic-ai import cline          # .cline/rules/, .cline/agents/ (or legacy .clinerules/)
 agnostic-ai import windsurf       # .devin/rules/ (or legacy .windsurf/rules/)
 agnostic-ai import continue       # .continue/rules/
+agnostic-ai import amp            # AGENTS.md, .agents/skills/, .amp/settings.json
+agnostic-ai import copilot        # .github instructions, agents, skills, hooks, settings; .vscode/mcp.json
 ```
 
 - Touches only spec files under `sources:`. Never modifies `targets:` or other config.
@@ -155,6 +157,8 @@ Reads `.cursor/rules/**` recursively, so nested rule directories are imported to
 The leading `# <heading>` block (which the adapter prepends on emit) is stripped on import, and a minimal `name:` frontmatter is injected.
 
 `import cline` additionally reconstructs agents from `.cline/agents/<name>.md`, Cline's native per-agent directory (target-audit 2026-08-01, #534): each file copies byte-for-byte minus the provenance header (no `agent-` prefix to strip, and no synthesized heading, since sync no longer writes one there). The `agent-<name>.md` prefix in the table above only fires when a project still carries the pre-migration `.clinerules/` layout, where rules and agents shared one directory.
+
+Native skill imports cover every documented project path. Amp reads `.agents/skills/`. Cline reads `.cline/skills/`, `.clinerules/skills/`, then `.claude/skills/`. Windsurf reads `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`. Listed order is same-name precedence. Bundled assets and executable modes survive. Cline prunes `.clinerules/skills/` from its legacy rules walk, while Windsurf moves native `triggers` under `x-windsurf` so manual-only and model invocation policy returns unchanged on sync. Copilot also imports `.github/copilot/settings.json` `model` into the portable Settings source.
 
 `import junie` reads rules and agents from `.junie/AGENTS.md`'s sentinel-marked Rules and Agents blocks: the file Junie's guidelines lookup opens, since that lookup is strict precedence and `sync` always writes it first (target-audit 2026-08-08, #552). It also reconstructs skills from `.junie/skills/<name>/SKILL.md`, Junie's native Agent Skills folder tree (target-audit 2026-08-01): bundled sibling assets copy byte-for-byte, same as `import cursor`'s and `import codex`'s skill-folder handling above. A project synced by an agnostic-ai version before that fix still has real content flattened under `.junie/rules/` (reclassified by filename prefix, the same scheme as the group above); that directory takes precedence over `.junie/AGENTS.md` when it still exists. A legacy flat `.junie/rules/skill-<name>.md` (from a project synced before Native Agent Skills shipped) still imports as a skill too.
 

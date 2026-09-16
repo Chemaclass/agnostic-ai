@@ -20,7 +20,10 @@
 // customization and policy declarations. Amp reads the same layout at the
 // same path; identical bytes dedupe, so co-enabling both is safe.
 //
-// Codex MCP servers live in `.codex/config.toml` (one
+// Codex settings and MCP servers live in `.codex/config.toml`. The last
+// portable Settings model fills `model` unless outputs.codex.config.model
+// sets a target-specific value; an imported overlay still has final
+// precedence for backward compatibility. MCP servers use one
 // `[mcp_servers.<name>]` table each). A name is quoted (`tomlKeySegment`)
 // when it carries a character a bare TOML key rejects; Codex CLI
 // 0.152.0 widened the accepted server-name charset to include `:`,
@@ -124,7 +127,7 @@ var caps = emit.Capabilities{
 	// outputs.codex.commands-dir: Codex loads custom prompts from
 	// ~/.codex/prompts only and deprecates them in favor of skills, so
 	// a project-level prompts tree would never be read.
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
 }
 
 // Adapter emits Codex configs.
@@ -304,7 +307,7 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	body := renderConfigTOML(b.HooksFor(target), b.MCPs, codexCfg, overlay, overlayKeys)
+	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, overlay, overlayKeys)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
 	if body == "" {
 		// Nothing to render this sync: a prior sync may have left a stale

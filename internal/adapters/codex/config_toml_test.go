@@ -1145,7 +1145,8 @@ func TestEmit_CodexConfig_OverlayWinsOnDuplicate(t *testing.T) {
 			"codex": {Config: &config.CodexConfig{Model: "from-cfg", Sandbox: "workspace-write"}},
 		},
 	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "from-settings"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
@@ -1157,6 +1158,36 @@ func TestEmit_CodexConfig_OverlayWinsOnDuplicate(t *testing.T) {
 	}
 	if !strings.Contains(got, `sandbox = "workspace-write"`) {
 		t.Errorf("expected outputs.codex.config.sandbox to still emit:\n%s", got)
+	}
+}
+
+func TestEmit_SettingsWritesCodexModel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"model": "gpt-5.3-codex"}},
+		{Kind: spec.KindSettings, Name: "project", Meta: map[string]any{"model": "gpt-5.4-codex"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `model = "gpt-5.4-codex"`) {
+		t.Errorf("last portable model did not reach config.toml:\n%s", got)
+	}
+}
+
+func TestEmit_CodexConfigModelWinsOverSettings(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "portable"}}}
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {Config: &config.CodexConfig{Model: "codex-specific"}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `model = "codex-specific"`) || strings.Contains(got, `model = "portable"`) {
+		t.Errorf("outputs.codex.config.model should win over portable settings:\n%s", got)
 	}
 }
 

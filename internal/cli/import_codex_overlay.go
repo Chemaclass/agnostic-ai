@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 const (
@@ -67,8 +69,9 @@ func importCodexConfigOverlay(root string) (bool, error) {
 	// Validate that the input is parseable as TOML before trying to strip
 	// the spec-managed sections; surfacing a parse error here points the
 	// user at the real config.toml rather than the filtered overlay.
+	raw := header.Strip(string(data))
 	doc := map[string]any{}
-	if _, err := toml.Decode(string(data), &doc); err != nil {
+	if _, err := toml.Decode(raw, &doc); err != nil {
 		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	delete(doc, "hooks")
@@ -82,7 +85,7 @@ func importCodexConfigOverlay(root string) (bool, error) {
 	// would otherwise normalize away. Falling back to encoding via the
 	// TOML library only happens when the text strip cannot produce a
 	// valid overlay (e.g. malformed input the parser still accepted).
-	filtered := stripCodexSpecManagedSections(string(data))
+	filtered := stripCodexSpecManagedSections(raw)
 	if filtered = strings.TrimSpace(filtered); filtered != "" {
 		filtered += "\n"
 	}

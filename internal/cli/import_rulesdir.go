@@ -38,6 +38,10 @@ type rulesDirImportOpts struct {
 	// activation key translates back into the generic
 	// `description` / `globs` / `alwaysApply` fields.
 	NormalizeMeta func(map[string]any)
+	// SkipDirs names directories relative to the rules root that belong
+	// to another native surface. The walker prunes each one before it can
+	// misclassify its Markdown files as rules.
+	SkipDirs map[string]bool
 }
 
 // importRulesDirectory walks srcDir for .md files and reclassifies each
@@ -74,7 +78,20 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+		if d.IsDir() {
+			if path == full {
+				return nil
+			}
+			rel, err := filepath.Rel(full, path)
+			if err != nil {
+				return err
+			}
+			if opts.SkipDirs[filepath.ToSlash(rel)] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".md") {
 			return nil
 		}
 		rel, err := filepath.Rel(full, path)

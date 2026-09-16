@@ -201,6 +201,21 @@ func TestImportFromCopilot_ImportsMCP(t *testing.T) {
 	}
 }
 
+func TestImportFromCopilot_ImportsProjectModel(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{
+  "model": "gpt-5.4",
+  "respectGitignore": true
+}`)
+	if err := importFromCopilot(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "settings", "imported.yaml"))
+	if !strings.Contains(got, "model: gpt-5.4") {
+		t.Errorf("project model not imported:\n%s", got)
+	}
+}
+
 // Native agent profiles and skill folders round-trip into the agents
 // and skills sources; the .agent infix drops from the filename.
 func TestImportFromCopilot_NativeAgentsAndSkills(t *testing.T) {

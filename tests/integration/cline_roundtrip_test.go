@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -171,6 +172,50 @@ func TestClineRoundTrip_LegacyTreeSyncImportSyncIsByteEqual(t *testing.T) {
 				p, len(first[p]), len(second[p]), unifiedDiffLines(first[p], second[p]))
 		}
 	}
+}
+
+func TestClineRoundTrip_EveryNativeSkillPath(t *testing.T) {
+	for _, skillsDir := range []string{".cline/skills", ".clinerules/skills", ".claude/skills"} {
+		t.Run(strings.ReplaceAll(skillsDir, "/", "_"), func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			must(t, os.WriteFile("agnostic-ai.yaml", []byte("version: 1\nsources:\n  skills: .agnostic-ai/skills\ntargets: [cline]\noutputs:\n  cline:\n    skills-dir: "+skillsDir+"\ngitignore:\n  enabled: false\n"), 0o644))
+			must(t, os.MkdirAll(".agnostic-ai/skills/review/scripts", 0o755))
+			must(t, os.WriteFile(".agnostic-ai/skills/review/SKILL.md", []byte("---\nname: review\ndescription: Review changes\n---\n\nReview the diff.\n"), 0o644))
+			must(t, os.WriteFile(".agnostic-ai/skills/review/scripts/check.sh", []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+			runCmd(t, "sync", "-t", "cline")
+			firstSkill := readBytes(t, filepath.Join(skillsDir, "review", "SKILL.md"))
+			firstAsset := readBytes(t, filepath.Join(skillsDir, "review", "scripts", "check.sh"))
+			must(t, os.RemoveAll(".agnostic-ai/skills"))
+			runCmd(t, "import", "cline")
+			must(t, os.RemoveAll(strings.Split(skillsDir, "/")[0]))
+			runCmd(t, "sync", "-t", "cline")
+
+			if got := readBytes(t, filepath.Join(skillsDir, "review", "SKILL.md")); string(got) != string(firstSkill) {
+				t.Errorf("SKILL.md changed across %s round-trip:\n%s", skillsDir, unifiedDiffLines(string(firstSkill), string(got)))
+			}
+			if got := readBytes(t, filepath.Join(skillsDir, "review", "scripts", "check.sh")); string(got) != string(firstAsset) {
+				t.Errorf("asset changed across %s round-trip", skillsDir)
+			}
+			info, err := os.Stat(filepath.Join(skillsDir, "review", "scripts", "check.sh"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+				t.Errorf("asset lost executable mode: %o", info.Mode().Perm())
+			}
+		})
+	}
+}
+
+func readBytes(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func seedClineLegacyRoundTripFixture(t *testing.T, dir string) {

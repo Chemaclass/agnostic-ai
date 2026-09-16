@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +106,82 @@ func TestImportWindsurf_RoundTripFixedPoint(t *testing.T) {
 	execCLI(t, "sync", "-t", "windsurf")
 	second := snapshotEmitted(t, dir)
 	assertEmittedEqual(t, first, second)
+}
+
+func TestImportWindsurf_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	paths := []struct {
+		dir  string
+		name string
+	}{
+		{filepath.Join(".agents", "skills"), "agents"},
+		{filepath.Join(".devin", "skills"), "devin"},
+		{filepath.Join(".windsurf", "skills"), "windsurf"},
+	}
+	for _, path := range paths {
+		writeFile(t, filepath.Join(dir, path.dir, path.name, "SKILL.md"),
+			"---\nname: "+path.name+"\n---\n\n"+path.name+" body\n")
+		writeFile(t, filepath.Join(dir, path.dir, "shared", "SKILL.md"),
+			"---\nname: shared\n---\n\nfrom "+path.name+"\n")
+	}
+
+	if err := importFromWindsurf(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range paths {
+		got := readFile(t, filepath.Join(dir, "skills", path.name, "SKILL.md"))
+		if !strings.Contains(got, path.name+" body") {
+			t.Errorf("%s skill not imported:\n%s", path.name, got)
+		}
+	}
+	shared := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))
+	if !strings.Contains(shared, "from agents") {
+		t.Errorf(".agents/skills should win a same-name collision:\n%s", shared)
+	}
+}
+
+func TestImportWindsurf_PreservesSkillTriggersUnderTargetMeta(t *testing.T) {
+	values := map[string][]any{
+		"user-only":  {"user"},
+		"model-only": {"model"},
+		"both":       {"user", "model"},
+	}
+	for name, triggers := range values {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [windsurf]\noutputs:\n  windsurf:\n    skills-dir: .devin/skills\n")
+			native := "---\nname: " + name + "\ndescription: " + name + "\ntriggers:\n"
+			for _, trigger := range triggers {
+				native += "  - " + trigger.(string) + "\n"
+			}
+			native += "---\n\nSkill body.\n"
+			writeFile(t, filepath.Join(".devin", "skills", name, "SKILL.md"), native)
+
+			execCLI(t, "import", "windsurf")
+			source := readFile(t, filepath.Join(".agnostic-ai", "skills", name, "SKILL.md"))
+			meta, _ := splitMdcFrontmatter([]byte(source))
+			if _, exists := meta["triggers"]; exists {
+				t.Fatalf("native triggers must not stay portable at top level:\n%s", source)
+			}
+			targetMeta, ok := meta["x-windsurf"].(map[string]any)
+			if !ok || !reflect.DeepEqual(targetMeta["triggers"], triggers) {
+				t.Fatalf("x-windsurf.triggers = %#v, want %#v", targetMeta["triggers"], triggers)
+			}
+
+			execCLI(t, "sync", "-t", "windsurf")
+			emitted := readFile(t, filepath.Join(".devin", "skills", name, "SKILL.md"))
+			emittedMeta, _ := splitMdcFrontmatter([]byte(emitted))
+			if !reflect.DeepEqual(emittedMeta["triggers"], triggers) {
+				t.Errorf("emitted triggers = %#v, want %#v\n%s", emittedMeta["triggers"], triggers, emitted)
+			}
+			if _, exists := emittedMeta["x-windsurf"]; exists {
+				t.Errorf("target namespace leaked into native skill:\n%s", emitted)
+			}
+		})
+	}
 }
 
 // TestImportWindsurf_MCPTransportKeyRenamesToType covers a
