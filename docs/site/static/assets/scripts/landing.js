@@ -43,49 +43,6 @@
     selectTab(0, false);
   }
 
-  function copyText(value) {
-    if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(value);
-    }
-    return new Promise(function (resolve, reject) {
-      var field = document.createElement("textarea");
-      field.value = value;
-      field.setAttribute("readonly", "");
-      field.style.position = "fixed";
-      field.style.opacity = "0";
-      document.body.appendChild(field);
-      field.select();
-      try {
-        if (!document.execCommand("copy")) {
-          throw new Error("copy command failed");
-        }
-        resolve();
-      } catch (error) {
-        reject(error);
-      } finally {
-        field.remove();
-      }
-    });
-  }
-
-  Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (button) {
-    button.addEventListener("click", function () {
-      var code = button.parentElement.querySelector("code");
-      if (!code) {
-        return;
-      }
-      copyText(code.textContent).then(function () {
-        button.textContent = "Copied";
-        window.setTimeout(function () {
-          button.textContent = "Copy";
-        }, 1400);
-      }).catch(function () {
-        button.textContent = "Select text";
-        code.focus();
-      });
-    });
-  });
-
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var revealGroups = document.querySelectorAll(".reveal-group");
   if (!reduceMotion && "IntersectionObserver" in window) {

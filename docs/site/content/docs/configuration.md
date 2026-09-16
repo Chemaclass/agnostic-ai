@@ -1,6 +1,14 @@
++++
+title = "Configuration"
+description = "Configure sources, targets, output overrides, sync behavior, imports, and global defaults."
+weight = 130
+
+[extra]
+group = "Reference"
++++
+
 # Configuration
 
-[User docs](README.md)
 
 `agnostic-ai.yaml` lives at the project root. It is read from the current working directory at command time. Every section is optional. Defaults are listed below.
 
@@ -17,7 +25,7 @@ gitignore:
 
 Run `agnostic-ai init` to create a config with your selected tools. Source paths default to `.agnostic-ai/<kind>/`; add overrides only when needed.
 
-For directory-specific instructions, keep this one project config and add `scope` to a rule. `agnostic-ai new rule payments-context --scope services/payments` scaffolds it. See [scoped context](scoped-context.md) for target compatibility and output override limits. Set `on-unsupported: error` when every selected target must preserve scope.
+For directory-specific instructions, keep this one project config and add `scope` to a rule. `agnostic-ai new rule payments-context --scope services/payments` scaffolds it. See [scoped context](@/docs/scoped-context.md) for target compatibility and output override limits. Set `on-unsupported: error` when every selected target must preserve scope.
 
 ## Find a setting
 
@@ -31,7 +39,7 @@ For directory-specific instructions, keep this one project config and add `scope
 | Override settings on one machine | [Local overrides](#local-overrides) |
 | Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
 | Share personal instructions across projects | [Global configuration](#global-configuration) |
-| Inspect all fields | [Annotated config](#full-schema) or [JSON Schema](../schemas/config.schema.json) |
+| Inspect all fields | [Annotated config](#full-schema) or [JSON Schema](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json) |
 
 ## Local overrides
 
@@ -445,7 +453,7 @@ Unknown names produce a clear error and leave the working tree untouched. Pass `
 
 Sync-level knobs applied globally. Per-target overrides live in `outputs.<target>`.
 
-### `sync.collision-policy`
+### `sync.collision-policy` {#synccollision-policy}
 
 Controls what happens when two enabled targets emit to the same output path.
 
@@ -463,7 +471,7 @@ sync:
   collision-policy: prefer-spec   # CI-safe: skip collision check
 ```
 
-### `sync.target-overview`
+### `sync.target-overview` {#synctarget-overview}
 
 Off by default. When `true`, each target entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gains a generated appendix listing where that tool's generated artifacts live (rules dir, agents dir, MCP file, ...). The locations honor your `outputs.<target>.*` overrides.
 
@@ -512,7 +520,7 @@ Example output:
 
 Targets whose artifacts all flow through the entry-point pointer (aider) get no appendix. External adapters (`agnostic-ai-adapter-<name>` binaries) have no native-artifacts protocol yet, so their section is absent from the appendix.
 
-### `sync.shared-skills`
+### `sync.shared-skills` {#syncshared-skills}
 
 Collapses byte-identical emitted skill folders into one canonical copy. Targets that share the Agent Skills layout (`<dir>/<name>/SKILL.md` plus bundled assets: Claude, Cursor, Codex, Amp) otherwise each get a full real copy of every skill. With the opt-in, sync keeps one real tree and replaces the others with per-skill relative symlinks. Off by default.
 
@@ -528,7 +536,7 @@ sync:
 - Turning the option off (or a skill starting to diverge) converts links back to real trees on the next sync. Removing a skill sweeps its canonical tree and every link.
 - On filesystems without symlink support (Windows without the privilege), sync warns once and keeps real copies.
 
-### `sync.unmanaged`
+### `sync.unmanaged` {#syncunmanaged}
 
 Paths you own. `sync` never writes, merges, copies, or removes them.
 
@@ -635,7 +643,7 @@ The instrumented gaps:
 | `path` | `.gitignore` | Override the file location. Useful for monorepos or local-only ignore files. |
 | `allow` | empty | Re-allow patterns emitted as `!`-prefixed lines at the end of the managed block. Keeps a tracked file (e.g. a `testdata/AGENTS.md` fixture) from being ignored by a broader rule, without hand-editing. Patterns are gitignore globs, emitted verbatim. |
 
-The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Two comment lines head the block: the first says to edit specs not the block, the second warns that the listed paths are not committed and a fresh clone or `git worktree` lacks them until `sync` runs (wire it into a [post-checkout hook](git-hooks.md#regenerate-on-checkout)). Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every generated entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere. Generated files under a tool subdirectory collapse to that subdirectory (`/.claude/rules/`, not one line per file), but the collapse stops at the generated subdir, so a hand-authored sibling such as `.claude/settings.json` or `.claude/hooks/` is never swallowed by a `/.claude/` ignore. For cases a root-anchored ignore can't express, add the glob to `allow`; its `!` line is written last so it overrides the ignores above it.
+The managed block is delimited by `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Two comment lines head the block: the first says to edit specs not the block, the second warns that the listed paths are not committed and a fresh clone or `git worktree` lacks them until `sync` runs (wire it into a [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)). Lines outside the block are preserved as-is. Re-running `sync` with no spec changes is a no-op (file mtime unchanged). Every generated entry is root-anchored (`/AGENTS.md`, not `AGENTS.md`), so a generated file never ignores a same-named file nested elsewhere. Generated files under a tool subdirectory collapse to that subdirectory (`/.claude/rules/`, not one line per file), but the collapse stops at the generated subdir, so a hand-authored sibling such as `.claude/settings.json` or `.claude/hooks/` is never swallowed by a `/.claude/` ignore. For cases a root-anchored ignore can't express, add the glob to `allow`; its `!` line is written last so it overrides the ignores above it.
 
 The block also owns the three fixed agnostic-ai paths that are never generated by an adapter: `agnostic-ai.local.yaml` (the per-machine override), `/.agnostic-ai/.sync-state`, and `/.agnostic-ai/packs/`. `init` seeds them even with `gitignore.enabled: false`, since they must never be committed; `sync` keeps them alongside the generated entries. Projects created by an older version carried these as loose lines outside the block (with a duplicated `.sync-state`); the next `init`, `sync`, or `packs add` strips the loose copies and folds them into the block.
 
@@ -784,7 +792,7 @@ The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured
 - `.agnostic-ai.local/` (the project-user spec layer)
 - `.agnostic-ai/overlays/`: captured per-target settings (`claude.settings.json`, `codex.config.toml`). Hand-edit an overlay to change something the spec layer does not own (Claude `statusLine`, Codex `[profiles.*]`, ...) and watch re-runs `sync` within the 50 ms debounce window.
 
-See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounce details.
+See [`sync --watch`](@/docs/cli-reference.md#sync) for the polling fallback and debounce details.
 
 ## Path semantics
 
@@ -794,11 +802,11 @@ See [`sync --watch`](cli-reference.md#sync) for the polling fallback and debounc
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](targets.md#entry-point-files) for which file each target uses.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/targets.md#entry-point-files) for which file each target uses.
 
 ### Per-target paragraphs
 
-`.agnostic-ai/AGNOSTIC_AI.md` accepts the same `::target` / `::targets` / `::end` fences as spec bodies (see [Per-target body fences](spec-format.md#per-target-body-fences)).
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the same `::target` / `::targets` / `::end` fences as spec bodies (see [Per-target body fences](@/docs/spec-format.md#per-target-body-fences)).
 
 ```md
 Shared conventions for every tool.
@@ -853,7 +861,7 @@ Add `.agnostic-ai.local/` to your `.gitignore` so personal overrides stay local.
 
 ## Global configuration
 
-`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](targets.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
+`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](@/docs/targets.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
 
 The source root is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset:
 

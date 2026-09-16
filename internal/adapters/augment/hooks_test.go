@@ -157,7 +157,7 @@ func TestEmit_Hook_ClaudeStyleMatcherSurfacesCoverageNote(t *testing.T) {
 
 // A `command` list produces one hook entry per command, matching
 // Claude Code's, Codex's, and Qoder's documented behavior for the same
-// field (docs/user/spec-format.md, "When command is a list...").
+// field (docs/site/content/docs/spec-format.md, "When command is a list...").
 func TestEmit_Hook_CommandListProducesMultipleEntries(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

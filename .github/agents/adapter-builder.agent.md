@@ -20,7 +20,7 @@ Steps:
 3. Register in `internal/adapters/adapter.go`.
 4. Add to default targets in `internal/config/config.go` and `internal/cli/init.go`.
 5. Update `.gitignore` if the target writes new generated paths at root.
-6. Update `docs/user/targets.md` capability matrix and per-target output section.
+6. Update `docs/site/content/docs/targets.md` capability matrix and per-target output section.
 7. Update `README.md` capability table.
 8. Update `agnostic-ai.yaml` example with the new target name and a comment.
 9. Add a unit test in `internal/adapters/<name>/<name>_test.go`.

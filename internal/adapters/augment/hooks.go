@@ -80,7 +80,7 @@ type hookGroup struct {
 // their own narrower field sets.
 //
 // `timeout` converts unit: the shared hook spec's own `timeout` field
-// is seconds (docs/user/spec-format.md), Augment's is milliseconds
+// is seconds (docs/site/content/docs/spec-format.md), Augment's is milliseconds
 // (default 60000 when the key is absent), so the value is multiplied
 // by 1000 before it reaches this struct's Timeout field. A spec that
 // never sets `timeout` produces 0, which `omitempty` drops, and

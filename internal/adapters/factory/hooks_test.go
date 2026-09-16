@@ -164,7 +164,7 @@ func TestEmit_Hooks_NoHooksWritesNothing(t *testing.T) {
 }
 
 // TestEmit_Hooks_OverwritesUserEdits pins the write as a plain
-// overwrite, the claim the package doc and docs/user/targets.md now
+// overwrite, the claim the package doc and docs/site/content/docs/targets.md now
 // make. The vendor sends users to hand-edit its sibling file
 // ("**Project servers cannot be removed** with `droid mcp remove` or
 // the `/mcp` manager. To remove them, edit `.factory/mcp.json`

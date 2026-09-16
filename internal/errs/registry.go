@@ -11,7 +11,7 @@ type Entry struct {
 }
 
 // registry holds the canonical metadata for every defined code. Keep
-// in sync with docs/user/errors.md.
+// in sync with docs/site/content/docs/errors.md.
 var registry = map[Code]Entry{
 	CodeSpecParse: {
 		Code:  CodeSpecParse,

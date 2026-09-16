@@ -1,6 +1,14 @@
++++
+title = "Directory-specific instructions"
+description = "Keep rules close to the directories where they apply across supported tools."
+weight = 40
+
+[extra]
+group = "Workflows"
++++
+
 # Directory-specific instructions
 
-[User docs](README.md)
 
 Write a service's conventions once. Sync generates each tool's native scoped instructions, without copying them into root context.
 
@@ -109,6 +117,6 @@ Use compatible targets or separate worktrees. `prefer-spec` cannot bypass scope 
 
 Keep provenance headers enabled. Directory-document targets reject `file` and `rules-dir` overrides. Scoped rules reject `rules-file` overrides except Goose's `.goosehints` opt-in.
 
-For existing hand-authored files or conflicting aliases, follow [migration](migration.md#keep-directory-specific-instructions). After moving or deleting a scope, run a full sync to remove obsolete managed output; partial sync preserves omitted targets' files. Backups and revert work for scoped outputs too.
+For existing hand-authored files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After moving or deleting a scope, run a full sync to remove obsolete managed output; partial sync preserves omitted targets' files. Backups and revert work for scoped outputs too.
 
-See [troubleshooting](troubleshooting.md#scoped-rules) for common errors. No per-directory config or separate inheritance language is needed.
+See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors. No per-directory config or separate inheritance language is needed.

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros/docs.html" as docs %}
+
+{% block title %}{{ page.title }} | agnostic-ai docs{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+{% block og_type %}article{% endblock og_type %}
+{% block og_title %}{{ page.title }} | agnostic-ai docs{% endblock og_title %}
+{% block og_description %}{{ page.description }}{% endblock og_description %}
+{% block twitter_title %}{{ page.title }} | agnostic-ai docs{% endblock twitter_title %}
+{% block twitter_description %}{{ page.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_target %}#doc-body{% endblock skip_target %}
+{% block skip_label %}Skip to guide{% endblock skip_label %}
+
+{% block content %}
+{% set docs_section = get_section(path="docs/_index.md") %}
+<main id="content">
+  <div class="docs-mobile-nav">
+    <details>
+      <summary>Browse documentation</summary>
+      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+    </details>
+  </div>
+  <div class="docs-page-layout">
+    <aside class="docs-sidebar">
+      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+    </aside>
+
+    <article class="docs-content" id="doc-body">
+      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span><span>{{ page.extra.group }}</span></div>
+      {{ page.content | safe }}
+      <footer class="docs-source-link"><a href="{{ config.extra.repository_url }}/blob/main/docs/site/content/docs/{{ page.slug }}.md">Edit this page on GitHub</a></footer>
+    </article>
+
+    {% if page.toc | length > 0 %}
+    <aside class="docs-toc">
+      <p>On this page</p>
+      {{ docs::toc(headings=page.toc) }}
+    </aside>
+    {% endif %}
+  </div>
+</main>
+{% endblock content %}

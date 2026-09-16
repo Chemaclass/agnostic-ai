@@ -126,7 +126,9 @@ The palette is warm, low-saturation, and built around one rare rust signal.
 
 ## Layout
 
-The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids become one column, and audit stats stack.
+The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. Search and target controls sit below the All editions heading, never in the editorial hero. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids and filter controls become one column, and audit stats stack.
+
+Documentation uses the same publication shell. Its landing page groups guides from page metadata, so adding a page does not require a second directory list. Guide pages use a sticky task navigation beside the 46rem reading column, add a page outline on wide screens, and collapse navigation into a native disclosure on narrow screens.
 
 Vertical rhythm expands between editorial sections and tightens inside evidence rows. Content order does not change across breakpoints.
 
@@ -150,6 +152,19 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 - **Mobile:** keep Home, Updates, Playground, Docs, and GitHub visible in a compact wrapped row.
 - **Focus:** a 2px Rust Signal outline with 4px offset.
 
+### Documentation navigation
+
+- **Landing:** flat ruled rows group Start, Workflows, and Reference pages from Zola metadata.
+- **Guide pages:** the current guide is visible in a sticky left navigation, with an On this page outline on wide screens.
+- **Mobile:** a native disclosure keeps every guide reachable before the article without requiring JavaScript.
+- **Source:** each guide links to its canonical Markdown file for quick edits and review.
+
+### Agent handoff
+
+- **Discovery:** the landing first viewport links to agent setup, while the docs index pairs a ready-to-paste prompt with the plain-text instructions.
+- **Content:** the prompt and safety contract live in the canonical agent setup guide. Generated text endpoints never become another source to maintain.
+- **Presentation:** use one flat bordered prompt field, shared copy behavior, and direct links. Keep the full operational workflow in the guide rather than expanding the landing page.
+
 ### Signal tags
 
 - **Style:** 999px pill, 1px Hairline border, Muted Ink monospace text, and 0.5rem inline padding.
@@ -157,8 +172,14 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 
 ### Update rows
 
-- **Style:** flat rows separated by Hairline borders. Headline color changes to Rust Signal on hover.
-- **Layout:** date, title, and finding count form three columns at 760px and one column below it.
+- **Style:** flat rows separated by Hairline borders. Headline color changes to Rust Signal on hover. Descriptions and static target tags make each edition scannable without turning it into a card.
+- **Layout:** date, title with description and tags, and finding count form three columns at 760px and one column below it.
+
+### Archive filters
+
+- **Style:** one bordered search field, a native Targets disclosure, and compact square action buttons use the existing paper, hairline, rust, and monospace control language.
+- **Behavior:** controls appear only after JavaScript initializes. Target choices use OR, search terms use AND, and explicit Apply keeps the archive calm while state is edited. Result count, applied summary, unknown-target notice, and empty recovery share one polite status region.
+- **Fallback:** all rows stay in the HTML and remain readable without JavaScript. Print hides inputs and buttons while keeping the applied summary and visible results.
 
 ### Evidence callouts
 

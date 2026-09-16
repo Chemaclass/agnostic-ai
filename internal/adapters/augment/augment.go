@@ -97,7 +97,7 @@
 // configuration section of its own, so it is not a sixth registrable
 // event). `timeout` reaches the file in **milliseconds**: the shared
 // hook spec's own `timeout` field is documented in seconds
-// (docs/user/spec-format.md), so this adapter multiplies by 1000
+// (docs/site/content/docs/spec-format.md), so this adapter multiplies by 1000
 // before writing it, unlike factory, goose, and qoder's seconds-native
 // renderers; the vendor default when the key is absent is 60000. A
 // hook's `command` must additionally be a path to a script ending in

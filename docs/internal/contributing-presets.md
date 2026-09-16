@@ -15,7 +15,7 @@ internal/cli/initdata/presets/<name>/
 └── mcps/...
 ```
 
-Omit kinds you don't need. Spec format: [docs/user/spec-format.md](../user/spec-format.md).
+Omit kinds you don't need. Spec format: [docs/site/content/docs/spec-format.md](../site/content/docs/spec-format.md).
 
 ## Steps
 

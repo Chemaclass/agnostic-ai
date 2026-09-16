@@ -1,12 +1,20 @@
++++
+title = "Git hooks"
+description = "Run sync checks around commits and checkouts with common hook tools."
+weight = 60
+
+[extra]
+group = "Workflows"
++++
+
 # Git hooks
 
-[User docs](README.md)
 
 Catch spec drift at commit time, before CI. Each recipe runs `agnostic-ai sync --check` whenever a spec or `agnostic-ai.yaml` is staged, blocking the commit if any generated file is out of date.
 
-The same `sync --check` powers the [CI gate](ci.md). Running it locally shortens the feedback loop from "push, wait, fail" to "commit, fix, commit".
+The same `sync --check` powers the [CI gate](@/docs/ci.md). Running it locally shortens the feedback loop from "push, wait, fail" to "commit, fix, commit".
 
-For ignored outputs, run `sync` when bootstrapping each checkout before enabling a drift hook. In CI, use the [ignored-output recipe](ci.md#ignored-outputs). A local drift check compares your working tree, not only staged files.
+For ignored outputs, run `sync` when bootstrapping each checkout before enabling a drift hook. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs). A local drift check compares your working tree, not only staged files.
 
 ## Why a pre-commit hook
 
@@ -40,7 +48,7 @@ pre-commit install
 
 ## lefthook
 
-[lefthook](https://lefthook.dev) is a single Go binary, no runtime dependency. This repo dogfoods it; see [`lefthook.yml`](../../lefthook.yml).
+[lefthook](https://lefthook.dev) is a single Go binary, no runtime dependency. This repo dogfoods it; see [`lefthook.yml`](https://github.com/Chemaclass/agnostic-ai/blob/main/lefthook.yml).
 
 Add to `lefthook.yml`:
 

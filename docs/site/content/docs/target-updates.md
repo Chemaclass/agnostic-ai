@@ -1,10 +1,20 @@
++++
+title = "Release and AI tooling updates"
+description = "Understand release briefings, upstream evidence, and target capability classifications."
+weight = 100
+
+[extra]
+group = "Workflows"
++++
+
 # Release and AI tooling updates
 
-[All docs](../README.md) · [Read the updates](https://chemaclass.github.io/agnostic-ai/updates/) · [Targets](targets.md) · [Changelog](../../CHANGELOG.md)
 
 AI coding tools change their project configuration often. Each agnostic-ai release includes a briefing that explains what the project shipped and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
 Each edition starts as one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the RSS item. An [RSS feed](https://chemaclass.github.io/agnostic-ai/updates/feed.xml) announces new editions without turning an issue into a newsletter.
+
+The archive can filter whole editions by target and search their titles, descriptions, editorial summaries, and highlighted signals. Multiple targets use OR, while whitespace-separated search terms use AND. Applied filters stay in the URL so a filtered archive can be bookmarked or shared. Without JavaScript, every edition remains in date order and readable.
 
 ## What each release briefing tells you
 
@@ -32,9 +42,9 @@ A proposed improvement is not shipped support. Design candidates stay out of aut
 
 The [release updates](https://chemaclass.github.io/agnostic-ai/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
 
-[`targets.md`](targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
+[`targets.md`](@/docs/targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
 
-[`CHANGELOG.md`](../../CHANGELOG.md) records what agnostic-ai released.
+[`CHANGELOG.md`](https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md) records what agnostic-ai released.
 
 Observation, support, release. Keep those three states separate.
 
@@ -42,19 +52,20 @@ Target audit reports and issues are research inputs. They retain the detailed ve
 
 ## Publishing workflow
 
-The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article immediately before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, and `.html` compatibility alias. It does not need audit counts, an audit marker, or a report digest.
+The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article immediately before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, `.html` compatibility alias, and article-level target IDs. It does not need audit counts, an audit marker, or a report digest.
 
 To prepare a release briefing:
 
 1. Finalize the dated release section in `CHANGELOG.md`.
 2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release briefing contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
 3. Copy the dated changelog section exactly into `Shipped in agnostic-ai vX.Y.Z`. Add only verified upstream news to its separate section.
-4. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.22.0.
-5. Review `_site/updates/`, `_site/updates/feed.xml`, and `_site/sitemap.xml`. Do not commit `_site/`.
-6. Include the article in the release commit and tag.
+4. Set `extra.targets` to the registered IDs covered substantively in the article. Use `[]` for a general edition. A checked or clean target does not count as coverage.
+5. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.22.0 and Node 22.
+6. Review `_site/updates/`, `_site/updates/feed.xml`, and `_site/sitemap.xml`. Do not commit `_site/`.
+7. Include the article in the release commit and tag.
 
 Pushing the release commit to `main` automatically runs the Pages workflow. The same workflow supports `workflow_dispatch` on `main` for a manual recovery run. The release process watches both the Release and Pages workflows.
 
 Legacy audit articles keep their original directory URL, `.html` alias, RSS GUID, audit marker, report digest, counts, and capability markers. Do not migrate their metadata to the release schema.
 
-The landing copy lives in `docs/site/data/landing.toml`. Shared navigation and page structure live in `docs/site/templates/`. CSS and JavaScript live in `docs/site/static/assets/`. A normal release changes only one Markdown article.
+The stable target ID and display-label vocabulary lives in `docs/site/data/updates.toml`. Keep historical IDs there if a target is renamed or removed, so published article metadata keeps its meaning. The landing copy lives in `docs/site/data/landing.toml`. Shared navigation and page structure live in `docs/site/templates/`. CSS and JavaScript live in `docs/site/static/assets/`. A normal release changes only one Markdown article.

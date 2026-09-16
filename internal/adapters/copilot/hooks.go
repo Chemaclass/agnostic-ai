@@ -159,7 +159,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 // buildHooks returns the rendered document, or nil when no spec
 // produces a hook entry. `event:` passes through verbatim into the
 // JSON key, matching every other hook emitter in this repo and
-// docs/user/spec-format.md's own stated policy ("agnostic-ai emits
+// docs/site/content/docs/spec-format.md's own stated policy ("agnostic-ai emits
 // the event: value verbatim into each target's schema; it does not
 // translate event names between tools"): both `PreToolUse` and
 // `preToolUse` are literal, vendor-documented, independently valid

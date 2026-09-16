@@ -19,7 +19,7 @@ Omit empty dirs. No `agnostic-ai.yaml` needed; the loader uses default subdir na
 
 ## Spec content
 
-Same frontmatter + Markdown body as [user spec format](../user/spec-format.md). Authors should:
+Same frontmatter + Markdown body as [user spec format](../site/content/docs/spec-format.md). Authors should:
 
 - Set `name:` (merge key for downstream overrides).
 - Write a short, action-oriented `description:` (adapters surface it in merged docs).

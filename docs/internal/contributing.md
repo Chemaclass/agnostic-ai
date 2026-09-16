@@ -54,8 +54,8 @@ CI lints source specs. It does not run `sync --check` against a fresh checkout b
 
 ## Documentation checklist
 
-- New or changed flags, targets, or output fields: update [targets](../user/targets.md) and [configuration](../user/configuration.md), plus the [CLI reference](../user/cli-reference.md) for command changes.
-- New or changed spec fields: update [spec format](../user/spec-format.md).
+- New or changed flags, targets, or output fields: update [targets](../site/content/docs/targets.md) and [configuration](../site/content/docs/configuration.md), plus the [CLI reference](../site/content/docs/cli-reference.md) for command changes.
+- New or changed spec fields: update [spec format](../site/content/docs/spec-format.md).
 - Config struct tag changes: regenerate [config.schema.json](../schemas/config.schema.json).
 - New commands or visible behavior: update the matching capability or quickstart explanation in [README](../../README.md).
 - User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md).

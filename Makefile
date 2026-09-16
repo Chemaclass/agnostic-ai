@@ -128,9 +128,11 @@ site-build:
 	fi
 	zola --root $(SITE_DIR) build --force --minify --output-dir $(abspath $(SITE_OUTPUT_DIR))
 	./scripts/build-site-sitemap.sh $(SITE_OUTPUT_DIR)/sitemap.xml
+	./scripts/build-llm-docs.sh $(SITE_OUTPUT_DIR)
 
 site-test:
-	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestZolaPin_)'
+	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js
+	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve:
 	@have=$$(zola --version 2>/dev/null); \

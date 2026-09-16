@@ -432,7 +432,7 @@ function test_format_release_notes_omits_install_and_docs_blocks() {
   assert_not_contains "## Install" "$out"
   assert_not_contains "brew install" "$out"
   assert_not_contains "## Documentation" "$out"
-  assert_not_contains "/docs/user/getting-started.md" "$out"
+  assert_not_contains "/docs/site/content/docs/getting-started.md" "$out"
   rm -f "$tmp"
 }
 

@@ -19,9 +19,8 @@ smart_punctuation = false
 
 [slugify]
 paths = "safe"
-anchors = "safe"
+anchors = "on"
 
 [extra]
 repository_url = "https://github.com/Chemaclass/agnostic-ai"
-docs_url = "https://github.com/Chemaclass/agnostic-ai/tree/main/docs/user"
 image_url = "https://chemaclass.github.io/agnostic-ai/og.png"

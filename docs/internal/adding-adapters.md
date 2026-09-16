@@ -64,8 +64,8 @@ Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and t
 
 ## 3. Document
 
-- Add a row to `docs/user/targets.md` capability matrix + per-target output section.
-- Update `README.md` supported-target summary and `docs/user/configuration.md`.
+- Add a row to `docs/site/content/docs/targets.md` capability matrix + per-target output section.
+- Update `README.md` supported-target summary and `docs/site/content/docs/configuration.md`.
 - Add an `[Unreleased]` entry in `CHANGELOG.md`.
 - If config struct fields or tags change, run `go run ./cmd/schemagen`.
 
@@ -165,7 +165,7 @@ honest:
   the new target has a section, so an adapter cannot merge un-audited.
 - `scripts/target-facts.sh <target>` prints what the repo currently
   claims (capabilities, default paths, package doc, the
-  `docs/user/targets.md` rows). Diff that against the vendor doc.
+  `docs/site/content/docs/targets.md` rows). Diff that against the vendor doc.
 
 The `target-audit` skill runs that comparison across every registered
 target in parallel and files an issue per confirmed drift. Run it after

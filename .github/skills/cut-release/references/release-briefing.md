@@ -64,6 +64,7 @@ version = "vX.Y.Z"
 dek = "<one-paragraph editorial summary>"
 rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/YYYY-MM-DD-vX.Y.Z.html"
 archive_stats = "<short release summary>"
+targets = ["claude", "codex"]
 
 [[extra.signals]]
 status = "shipped"
@@ -77,6 +78,13 @@ Add two or three signals that summarize the highest-consequence items. Signals
 can point to shipped work or upstream news, but their status and summary must
 make the distinction explicit. Release posts do not use `audit_marker`,
 `report_digest`, `targets_checked`, `finding_count`, or `clean_count`.
+
+Set article-level `targets` to the exact registered target IDs covered
+substantively by the briefing. A target mentioned only as checked, clean, or
+unaffected does not count as coverage. Use an empty list when the edition is
+general to agnostic-ai. Do not derive these IDs from the display labels in
+signals. Before publishing, confirm every ID exists in
+`docs/site/data/updates.toml`, with no duplicates.
 
 The canonical URL is `/updates/YYYY-MM-DD-vX.Y.Z/`. The `.html` alias is the
 permanent RSS GUID. Never reuse or change a published GUID. Zola generates the
@@ -96,10 +104,12 @@ Before committing:
    claim than the source.
 3. Confirm high-impact changes appear before additions in both the changelog
    and article narrative.
-4. Run `make site-build site-test`.
-5. Check that the new canonical article, `.html` alias, archive entry, and RSS
+4. Confirm `extra.targets` names every substantively covered target and no
+   target mentioned only as checked or clean.
+5. Run `make site-build site-test`.
+6. Check that the new canonical article, `.html` alias, archive entry, and RSS
    GUID exist in the built output.
-6. Stage the briefing with the version and changelog. Confirm the release tag
+7. Stage the briefing with the version and changelog. Confirm the release tag
    will point at that exact commit.
 
 After pushing, watch both the `Release` and `Pages` workflows. Pages runs

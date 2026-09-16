@@ -19,7 +19,7 @@ The prompt names your targets. Everything else you fetch yourself:
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, adapter package doc, and the
-  `docs/user/targets.md` rows for that target. One call per target, no
+  `docs/site/content/docs/targets.md` rows for that target. One call per target, no
   grepping.
 - Their side: `.agnostic-ai/skills/target-audit/references/sources.md`
   lists the vendor doc and changelog URLs per target.
@@ -103,7 +103,7 @@ The prompt names your targets. Everything else you fetch yourself:
      config file we emit (MCP transport keys, frontmatter, event names).
    - **Deprecation**: a surface we still emit that the vendor now marks
      legacy or removed.
-   - **Doc drift**: `docs/user/targets.md` or the adapter package doc
+   - **Doc drift**: `docs/site/content/docs/targets.md` or the adapter package doc
      describes behavior the vendor no longer documents.
    - **Capability changes**: a documented, released project-scoped
      capability that changes what a team can configure or automate,

@@ -25,7 +25,7 @@ agnostic-ai/
 
 ## Data flow
 
-The CLI loads config and source specs, selects targets, and orchestrates emission. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../user/configuration.md#layered-specs).
+The CLI loads config and source specs, selects targets, and orchestrates emission. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../site/content/docs/configuration.md#layered-specs).
 
 ### Config layer
 
@@ -55,7 +55,7 @@ mcps/*.yaml   ─┘
 (Config, spec.Bundle) ──► adapter.Emit(bundle, config, dryRun)
 ```
 
-Per-target outputs documented in [docs/user/targets.md](../user/targets.md).
+Per-target outputs documented in [docs/site/content/docs/targets.md](../site/content/docs/targets.md).
 
 ## Emit modes
 
@@ -105,7 +105,7 @@ Stateless. `New()` once, `Emit` per sync.
 
 ### `config.Config`
 
-Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/config/config.go) for the full type and [Configuration](../user/configuration.md) for user-facing fields.
+Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/config/config.go) for the full type and [Configuration](../site/content/docs/configuration.md) for user-facing fields.
 
 ## Registry
 

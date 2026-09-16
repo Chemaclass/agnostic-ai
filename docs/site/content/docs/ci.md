@@ -1,6 +1,14 @@
++++
+title = "CI"
+description = "Detect generated-output drift and keep project configuration consistent in automation."
+weight = 50
+
+[extra]
+group = "Workflows"
++++
+
 # CI
 
-[User docs](README.md) · [Git strategy](getting-started.md#commit-or-ignore-generated-outputs)
 
 Choose the check based on whether generated outputs are committed. Run it from the project root after installing the CLI.
 
@@ -27,7 +35,7 @@ agnostic-ai sync
 
 Use `agnostic-ai lint` as an additional source-quality check. A subsequent `sync --check` can verify consistency of generated output, but it does not establish that any committed files were up to date.
 
-This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](../internal/contributing.md#choose-checks-for-your-change).
+This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
 ## GitHub Action
 
@@ -43,4 +51,4 @@ For ignored outputs, use `command: sync` instead. Set the action's `version` inp
 
 ## Diagnose drift
 
-Use `agnostic-ai sync --check --diff` to inspect changes. The [CLI reference](cli-reference.md#reading-a-failing---check) explains output formats and failure categories.
+Use `agnostic-ai sync --check --diff` to inspect changes. The [CLI reference](@/docs/cli-reference.md#reading-a-failing---check) explains output formats and failure categories.

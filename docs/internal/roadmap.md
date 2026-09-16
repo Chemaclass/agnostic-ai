@@ -14,7 +14,7 @@ Project layers, low to high precedence:
 
 Native global configuration (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --global` and does not participate in project layering.
 
-Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See [configuration.md](../user/configuration.md#layered-specs).
+Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See [configuration.md](../site/content/docs/configuration.md#layered-specs).
 
 ## Shipped
 
@@ -24,7 +24,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
-- MCP and hook support across tools: see the maintained [capability matrix](../user/targets.md#capability-matrix).
+- MCP and hook support across tools: see the maintained [capability matrix](../site/content/docs/targets.md#capability-matrix).
 
 ## Open
 

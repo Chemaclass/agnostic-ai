@@ -8,6 +8,9 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Coding agents can follow `/agent-setup.txt` to install, import, configure, sync, and verify agnostic-ai safely. The website and README expose the same ready-to-paste prompt, while the plain-text endpoint and `llms-full.txt` are generated from canonical user guides.
+- User guides now live at the public `/docs/` site with generated task-based navigation, page outlines, mobile browsing, and direct source links. The same Markdown remains the single source for the website, repository, and `llms-full.txt`.
+- The updates archive filters whole editions by one or more targets and search terms, keeps applied filters in shareable URLs, and preserves the complete date-ordered archive when JavaScript is unavailable.
 - Release briefings now ship in the same commit and tag as each release. They reproduce the exact release changelog and separately cover verified upstream CLI and model news, with high-impact changes first and clear agnostic-ai support states. `target-audit` supplies evidence-backed reports and issues instead of opening weekly publication PRs. Its `--compare-models <model>` option remains a bounded challenge pass and never treats model agreement as proof.
 
 ### Changed

@@ -1,0 +1,72 @@
++++
+title = "Installation"
+description = "Install, verify, upgrade, and configure shell completion for agnostic-ai."
+weight = 10
+
+[extra]
+group = "Start"
++++
+
+# Installation
+
+
+The install scripts download a prebuilt release for your OS and CPU and verify it against the release checksums. You do not need Go.
+
+## macOS and Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
+```
+
+The binary goes to `/usr/local/bin` when writable, otherwise `~/.local/bin`. Add the destination to `PATH` if needed. Set `AGNOSTIC_AI_INSTALL_DIR` to choose a directory or `AGNOSTIC_AI_VERSION` to pin a version.
+
+## Windows
+
+Run in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
+```
+
+The default destination is `%LOCALAPPDATA%\Programs\agnostic-ai`. Open a new terminal if the command is not found. Download the [script](https://github.com/Chemaclass/agnostic-ai/blob/main/scripts/install.ps1) to use its `-InstallDir` and `-Version` options.
+
+## Other install options
+
+| Method | Instructions |
+|---|---|
+| Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` (Go version from [go.mod](https://github.com/Chemaclass/agnostic-ai/blob/main/go.mod) or newer; put `$(go env GOPATH)/bin` on `PATH`) |
+| Manual download | Download your OS/CPU archive and `checksums.txt` from [GitHub Releases](https://github.com/Chemaclass/agnostic-ai/releases), verify the checksum, and extract the binary into a directory on `PATH` |
+
+Package-manager publishing is maintained separately from release archives. See [release distribution](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/release-process.md#distribution) for the configured channels.
+
+## Verify the install
+
+```bash
+agnostic-ai --version
+agnostic-ai --help
+```
+
+Then follow [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migration.md) if you already have tool configuration.
+
+## Upgrade
+
+```bash
+agnostic-ai upgrade
+```
+
+This upgrades the detected install to the latest release. Package-manager installs use their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. Use `agnostic-ai upgrade --check` to inspect the install and find older binaries on `PATH` without changing anything. To install one specific release rather than the latest, including going back to an older one a project pins, pass `agnostic-ai upgrade --version v0.56.1`. See the [upgrade reference](@/docs/cli-reference.md#upgrade).
+
+`agnostic-ai update` is an alias. The old `--run` flag still works, but is no longer needed.
+
+## Shell completion
+
+See [completion](@/docs/cli-reference.md#completion) for Bash, Zsh, Fish, and PowerShell setup.
+
+## Claude Code plugin
+
+The [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) provides install, setup, import, and sync commands inside Claude Code:
+
+```text
+/plugin marketplace add Chemaclass/agnostic-ai
+/plugin install agnostic-ai@chemaclass
+```

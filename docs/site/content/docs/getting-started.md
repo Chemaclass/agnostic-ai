@@ -1,14 +1,22 @@
++++
+title = "Getting started"
+description = "Install agnostic-ai and sync one rule to two AI coding tools."
+weight = 20
+
+[extra]
+group = "Start"
++++
+
 # Getting started
 
-[User docs](README.md) · [Install the CLI](installation.md)
 
 Create one rule and sync it to Claude Code and Cursor. This example uses explicit targets so the commands also work in a non-interactive shell.
 
-Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration? Follow [Migration](migration.md) before syncing.
+Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration? Follow [Migration](@/docs/migration.md) before syncing.
 
 ## Install
 
-Follow [Installation](installation.md), then confirm `agnostic-ai --version` works.
+Follow [Installation](@/docs/installation.md), then confirm `agnostic-ai --version` works.
 
 ## Scaffold
 
@@ -21,7 +29,7 @@ agnostic-ai new rule conventional-commits
 
 `init` creates `agnostic-ai.yaml` and source folders under `.agnostic-ai/`. `new` writes `.agnostic-ai/rules/conventional-commits.md`.
 
-For an interactive target picker, run `agnostic-ai init` without the pipe. Choose only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](cli-reference.md#init).
+For an interactive target picker, run `agnostic-ai init` without the pipe. Choose only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](@/docs/cli-reference.md#init).
 
 ## First rule
 
@@ -58,15 +66,15 @@ For this example, inspect:
 
 Both rule files contain your commit convention. Edit the source file and run `sync` again to update them. Do not edit the generated copies.
 
-To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](targets.md#selecting-targets) for one-run filters and the first-sync picker.
+To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](@/docs/targets.md#selecting-targets) for one-run filters and the first-sync picker.
 
 ## Commit or ignore generated outputs
 
 `init` enables `gitignore.enabled` by default. Commit `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. The local `.agnostic-ai/.sync-state` cache and personal overrides stay ignored. Every fresh clone or worktree needs `agnostic-ai sync` to create its tool files.
 
-To keep generated outputs in Git, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block. For a new project, `init --gitignore=false` chooses this from the start. Commit the specs and generated files together, then use the [CI drift gate](ci.md#committed-outputs).
+To keep generated outputs in Git, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block. For a new project, `init --gitignore=false` chooses this from the start. Commit the specs and generated files together, then use the [CI drift gate](@/docs/ci.md#committed-outputs).
 
-If outputs are ignored, CI should validate specs and generate files. It cannot compare a fresh checkout against files that were never committed. See [CI for ignored outputs](ci.md#ignored-outputs).
+If outputs are ignored, CI should validate specs and generate files. It cannot compare a fresh checkout against files that were never committed. See [CI for ignored outputs](@/docs/ci.md#ignored-outputs).
 
 ## Daily use
 
@@ -78,11 +86,11 @@ Keep this running while editing specs; Ctrl+C stops it. Run `agnostic-ai status`
 
 ## Next steps
 
-- [Directory-specific instructions](scoped-context.md): keep service conventions within their subtree.
-- [Spec format](spec-format.md): add skills, agents, hooks, and MCP servers.
-- [Configuration](configuration.md): select tools and customize paths.
-- [Git hooks](git-hooks.md): generate output when opening a fresh checkout.
-- [Troubleshooting](troubleshooting.md): resolve missing files or sync failures.
+- [Directory-specific instructions](@/docs/scoped-context.md): keep service conventions within their subtree.
+- [Spec format](@/docs/spec-format.md): add skills, agents, hooks, and MCP servers.
+- [Configuration](@/docs/configuration.md): select tools and customize paths.
+- [Git hooks](@/docs/git-hooks.md): generate output when opening a fresh checkout.
+- [Troubleshooting](@/docs/troubleshooting.md): resolve missing files or sync failures.
 
 <a id="shell-completion"></a>
 
@@ -114,11 +122,11 @@ Keep this running while editing specs; Ctrl+C stops it. Run `agnostic-ai status`
 
 These links keep previous guide sections easy to find:
 
-- [Shell completion](installation.md#shell-completion)
-- [Add a single spec](cli-reference.md#new)
-- [Import an existing AI CLI config](migration.md)
-- [Check project status](cli-reference.md#status)
-- [Roll back a sync](migration.md#back-up-and-restore)
-- [Watch mode](cli-reference.md#sync)
-- [Auto-manage .gitignore](configuration.md#gitignore)
-- [CI gate](ci.md)
+- [Shell completion](@/docs/installation.md#shell-completion)
+- [Add a single spec](@/docs/cli-reference.md#new)
+- [Import an existing AI CLI config](@/docs/migration.md)
+- [Check project status](@/docs/cli-reference.md#status)
+- [Roll back a sync](@/docs/migration.md#back-up-and-restore)
+- [Watch mode](@/docs/cli-reference.md#sync)
+- [Auto-manage .gitignore](@/docs/configuration.md#gitignore)
+- [CI gate](@/docs/ci.md)

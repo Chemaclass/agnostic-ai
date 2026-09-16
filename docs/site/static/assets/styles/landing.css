@@ -57,55 +57,32 @@ main > section:not(.hero) {
   margin-top: 2rem;
 }
 
-.button {
-  min-height: 2.75rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.1rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.button svg {
-  width: 1rem;
-  height: 1rem;
-  transition: transform 160ms ease-out;
-}
-
-.button:hover svg {
-  transform: translateX(0.2rem);
-}
-
-.button-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.button-primary:hover {
-  background: color-mix(in srgb, var(--accent) 88%, var(--ink));
-  color: var(--accent-ink);
-}
-
-.button-secondary {
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--ink);
-}
-
-.button-secondary:hover {
-  border-color: var(--accent);
-}
-
 .hero-facts {
   margin: 1.8rem 0 0;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+}
+
+.agent-shortcut {
+  display: grid;
+  gap: 0.15rem;
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.agent-shortcut a {
+  width: fit-content;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.agent-shortcut span {
+  max-width: 38rem;
+  color: var(--muted);
 }
 
 .transform {

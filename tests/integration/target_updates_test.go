@@ -8,6 +8,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 const updatesContentDir = "../../docs/site/content/updates"
@@ -52,7 +56,7 @@ func TestTargetUpdates_ArticlesKeepDurablePublicationMetadata(t *testing.T) {
 			t.Fatalf("read %s: %v", path, err)
 		}
 		article := string(data)
-		for _, required := range []string{"kind = ", "rss_guid = ", "aliases = ", "archive_stats = ", "[[extra.signals]]"} {
+		for _, required := range []string{"kind = ", "rss_guid = ", "aliases = ", "archive_stats = ", "targets = ", "[[extra.signals]]"} {
 			if !strings.Contains(article, required) {
 				t.Errorf("%s is missing %q", filepath.Base(path), required)
 			}
@@ -69,6 +73,79 @@ func TestTargetUpdates_ArticlesKeepDurablePublicationMetadata(t *testing.T) {
 			}
 		} else {
 			t.Errorf("%s has an unknown update kind", filepath.Base(path))
+		}
+	}
+}
+
+func TestTargetUpdates_MetadataUsesRegisteredTargetVocabulary(t *testing.T) {
+	t.Parallel()
+	var vocabulary struct {
+		Targets []struct {
+			ID    string `toml:"id"`
+			Label string `toml:"label"`
+		} `toml:"targets"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/updates.toml", &vocabulary); err != nil {
+		t.Fatalf("parse updates.toml: %v", err)
+	}
+	if len(vocabulary.Targets) == 0 {
+		t.Fatal("updates.toml defines no target vocabulary")
+	}
+
+	known := make(map[string]string, len(vocabulary.Targets))
+	for _, target := range vocabulary.Targets {
+		if _, duplicate := known[target.ID]; duplicate {
+			t.Errorf("updates.toml defines target %q more than once", target.ID)
+		}
+		known[target.ID] = target.Label
+	}
+	for _, id := range adapters.Names() {
+		if _, ok := known[id]; !ok {
+			t.Errorf("updates.toml is missing registered target %q", id)
+		}
+	}
+	if known["claude"] != "Claude Code" || known["codex"] != "Codex CLI" {
+		t.Errorf("canonical labels = claude:%q codex:%q", known["claude"], known["codex"])
+	}
+
+	articles, err := filepath.Glob(filepath.Join(updatesContentDir, "[0-9]*.md"))
+	if err != nil {
+		t.Fatalf("find target update articles: %v", err)
+	}
+	for _, path := range articles {
+		article := readBuiltFile(t, path)
+		if !strings.HasPrefix(article, "+++\n") {
+			t.Errorf("%s has no TOML frontmatter", filepath.Base(path))
+			continue
+		}
+		frontmatterEnd := strings.Index(article[4:], "\n+++")
+		if frontmatterEnd < 0 {
+			t.Errorf("%s has no closing frontmatter delimiter", filepath.Base(path))
+			continue
+		}
+		var frontmatter struct {
+			Extra struct {
+				Targets []string `toml:"targets"`
+			} `toml:"extra"`
+		}
+		metadata, err := toml.Decode(article[4:4+frontmatterEnd], &frontmatter)
+		if err != nil {
+			t.Errorf("parse %s frontmatter: %v", filepath.Base(path), err)
+			continue
+		}
+		if !metadata.IsDefined("extra", "targets") {
+			t.Errorf("%s has no article-level targets metadata", filepath.Base(path))
+			continue
+		}
+		seen := map[string]bool{}
+		for _, id := range frontmatter.Extra.Targets {
+			if seen[id] {
+				t.Errorf("%s lists target %q more than once", filepath.Base(path), id)
+			}
+			seen[id] = true
+			if _, ok := known[id]; !ok {
+				t.Errorf("%s lists unknown target %q", filepath.Base(path), id)
+			}
 		}
 	}
 }
@@ -124,6 +201,7 @@ version = "v0.59.0"
 dek = "This release article exists only inside the site build test."
 rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/2026-09-22-v0.59.0.html"
 archive_stats = "1 shipped change · 1 upstream note"
+targets = ["claude", "codex"]
 
 [[extra.signals]]
 status = "shipped"
@@ -145,6 +223,53 @@ No verified upstream change met the publication bar.
 		t.Fatalf("write second post fixture: %v", err)
 	}
 
+	fixtures := []struct {
+		date        string
+		slug        string
+		title       string
+		description string
+		targets     string
+		signal      string
+	}{
+		{"2026-09-21", "2026-09-21-missing", "Missing metadata fixture", "Defensive rendering keeps this edition available.", "", "Fallback metadata remains readable"},
+		{"2026-09-20", "2026-09-20-general", "General edition fixture", "This edition covers the project rather than a target.", "targets = []", "General project release"},
+		{"2026-09-19", "2026-09-19-other", "Gemini edition fixture", "An unrelated target should not match Claude or Codex.", `targets = ["gemini"]`, "Gemini hooks changed"},
+		{"2026-09-18", "2026-09-18-codex", "Codex edition fixture", "Codex skills gained directory scope.", `targets = ["codex"]`, "Nested skills reach Codex"},
+		{"2026-09-17", "2026-09-17-claude", "Claude edition fixture", "Claude skills gained an invocation boundary.", `targets = ["claude"]`, "Manual skills reach Claude"},
+	}
+	for _, fixture := range fixtures {
+		post := `+++
+title = "` + fixture.title + `"
+description = "` + fixture.description + `"
+date = ` + fixture.date + `T00:00:00+02:00
+slug = "` + fixture.slug + `"
+aliases = ["updates/` + fixture.slug + `.html"]
+
+[extra]
+kind = "release"
+version = "v0.59.0-fixture"
+dek = "Fixture edition for archive filtering."
+rss_guid = "https://chemaclass.github.io/agnostic-ai/updates/` + fixture.slug + `.html"
+archive_stats = "1 fixture change"
+` + fixture.targets + `
+
+[[extra.signals]]
+status = "fixture"
+targets = ["fixture"]
+title = "` + fixture.signal + `"
+summary = "Searchable fixture summary."
++++
+
+## Fixture edition
+
+This temporary article exercises archive metadata.
+`
+		path := filepath.Join(siteDir, "content", "updates", fixture.slug+".md")
+		if err := os.WriteFile(path, []byte(post), 0o600); err != nil {
+			t.Fatalf("write %s fixture: %v", fixture.slug, err)
+		}
+	}
+
 	outputDir := filepath.Join(t.TempDir(), "public")
 	command := exec.Command(zolaPath, "--root", siteDir, "build", "--output-dir", outputDir)
 	if output, err := command.CombinedOutput(); err != nil {
@@ -159,6 +284,38 @@ No verified upstream change met the publication bar.
 
 	if !strings.Contains(archive, "A temporary release briefing") || !strings.Contains(archive, "Release metadata drives the latest edition") {
 		t.Error("second post did not become the archive's latest edition")
+	}
+	for _, expected := range []string{
+		`data-targets="claude"`,
+		`data-targets="codex"`,
+		`data-targets="gemini"`,
+		`data-targets="claude codex"`,
+		`data-targets=""`,
+		`data-search="Claude edition fixture Claude skills gained an invocation boundary. Fixture edition for archive filtering. Manual skills reach Claude Searchable fixture summary. claude Claude Code"`,
+		"Defensive rendering keeps this edition available.",
+		"Claude Code",
+		"Codex CLI",
+	} {
+		if !strings.Contains(archive, expected) {
+			t.Errorf("generated archive is missing %q", expected)
+		}
+	}
+	orderedTitles := []string{
+		"A temporary release briefing",
+		"Missing metadata fixture",
+		"General edition fixture",
+		"Gemini edition fixture",
+		"Codex edition fixture",
+		"Claude edition fixture",
+		"New safety boundaries are becoming project configuration",
+	}
+	lastIndex := -1
+	for _, title := range orderedTitles {
+		index := strings.Index(archive, title)
+		if index <= lastIndex {
+			t.Errorf("archive title %q is out of date order", title)
+		}
+		lastIndex = index
 	}
 	if !strings.Contains(feed, "A temporary release briefing") || !strings.Contains(feed, "https://chemaclass.github.io/agnostic-ai/updates/2026-09-22-v0.59.0.html") {
 		t.Error("second post did not reach the RSS feed with its stable GUID")
@@ -193,7 +350,7 @@ No verified upstream change met the publication bar.
 	if err := xml.Unmarshal([]byte(feed), &rss); err != nil {
 		t.Fatalf("feed.xml is not valid XML: %v", err)
 	}
-	if len(rss.Channel.Items) != 2 || rss.Channel.Items[0].Title != "agnostic-ai v0.59.0: A temporary release briefing" {
+	if len(rss.Channel.Items) != 7 || rss.Channel.Items[0].Title != "agnostic-ai v0.59.0: A temporary release briefing" {
 		t.Errorf("feed order = %+v, want the temporary post first", rss.Channel.Items)
 	}
 }
@@ -210,6 +367,9 @@ func TestTargetUpdates_SitemapUsesCanonicalContentRoutes(t *testing.T) {
 	for _, route := range []string{
 		"https://chemaclass.github.io/agnostic-ai/",
 		"https://chemaclass.github.io/agnostic-ai/playground/",
+		"https://chemaclass.github.io/agnostic-ai/docs/",
+		"https://chemaclass.github.io/agnostic-ai/docs/agent-setup/",
+		"https://chemaclass.github.io/agnostic-ai/docs/getting-started/",
 		"https://chemaclass.github.io/agnostic-ai/updates/",
 		"https://chemaclass.github.io/agnostic-ai/updates/2026-09-15/",
 	} {

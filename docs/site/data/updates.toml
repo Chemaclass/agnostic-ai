@@ -1,0 +1,110 @@
+[copy]
+search_label = "Search titles and summaries"
+search_placeholder = "Try skills, hooks, or a target"
+targets_label = "Targets"
+targets_help = "Choose any targets. Editions matching at least one are included."
+apply_label = "Apply filters"
+clear_label = "Clear filters"
+no_results_title = "No editions match"
+no_results_body = "Try a broader search or clear the target filters."
+noscript = "Filters need JavaScript. Every edition remains available below."
+
+[[targets]]
+id = "claude"
+label = "Claude Code"
+
+[[targets]]
+id = "codex"
+label = "Codex CLI"
+
+[[targets]]
+id = "gemini"
+label = "Gemini CLI"
+
+[[targets]]
+id = "cursor"
+label = "Cursor"
+
+[[targets]]
+id = "copilot"
+label = "GitHub Copilot"
+
+[[targets]]
+id = "aider"
+label = "Aider"
+
+[[targets]]
+id = "cline"
+label = "Cline"
+
+[[targets]]
+id = "windsurf"
+label = "Windsurf"
+
+[[targets]]
+id = "continue"
+label = "Continue"
+
+[[targets]]
+id = "amp"
+label = "Amp"
+
+[[targets]]
+id = "zed"
+label = "Zed"
+
+[[targets]]
+id = "warp"
+label = "Warp"
+
+[[targets]]
+id = "opencode"
+label = "OpenCode"
+
+[[targets]]
+id = "antigravity"
+label = "Antigravity"
+
+[[targets]]
+id = "junie"
+label = "Junie"
+
+[[targets]]
+id = "kiro"
+label = "Kiro"
+
+[[targets]]
+id = "crush"
+label = "Crush"
+
+[[targets]]
+id = "trae"
+label = "Trae"
+
+[[targets]]
+id = "jules"
+label = "Jules"
+
+[[targets]]
+id = "goose"
+label = "Goose"
+
+[[targets]]
+id = "augment"
+label = "Augment"
+
+[[targets]]
+id = "qoder"
+label = "Qoder"
+
+[[targets]]
+id = "openhands"
+label = "OpenHands"
+
+[[targets]]
+id = "factory"
+label = "Factory"
+
+[[targets]]
+id = "kilo"
+label = "Kilo Code"
