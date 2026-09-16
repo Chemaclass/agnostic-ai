@@ -17,7 +17,7 @@ func TestEmit_PreservesStableNativeHookHandlers(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "http", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "http", "url": "https://example.test/check", "headers": map[string]any{"Authorization": "Bearer $TOKEN"}, "allowedEnvVars": []any{"TOKEN"}, "timeout": 15, "statusMessage": "Checking request", "if": "Bash(git *)"}},
 		{Kind: spec.KindHook, Name: "mcp", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "mcp_tool", "server": "checks", "tool": "verify", "input": map[string]any{"path": "${tool_input.file_path}"}}},
-		{Kind: spec.KindHook, Name: "prompt", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "prompt", "prompt": "Allow read-only commands.", "model": "example-model", "once": true}},
+		{Kind: spec.KindHook, Name: "prompt", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "prompt", "prompt": "Allow read-only commands.", "model": "example-model", "once": true, "continueOnBlock": true}},
 		{Kind: spec.KindHook, Name: "command", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "echo", "args": []any{"checked"}}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -45,10 +45,22 @@ func TestEmit_PreservesStableNativeHookHandlers(t *testing.T) {
 	want := map[string]map[string]any{
 		"http":     {"type": "http", "url": "https://example.test/check", "headers": map[string]any{"Authorization": "Bearer $TOKEN"}, "allowedEnvVars": []any{"TOKEN"}, "timeout": float64(15), "statusMessage": "Checking request", "if": "Bash(git *)"},
 		"mcp_tool": {"type": "mcp_tool", "server": "checks", "tool": "verify", "input": map[string]any{"path": "${tool_input.file_path}"}},
-		"prompt":   {"type": "prompt", "prompt": "Allow read-only commands.", "model": "example-model", "once": true},
+		"prompt":   {"type": "prompt", "prompt": "Allow read-only commands.", "model": "example-model", "once": true, "continueOnBlock": true},
 		"command":  {"type": "command", "command": "echo", "args": []any{"checked"}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("native handlers = %#v, want %#v", got, want)
+	}
+}
+
+func TestHookHandlers_PromptContinueOnBlockFalseKeepsNativeDefault(t *testing.T) {
+	handlers := hookHandlers(spec.Entry{Kind: spec.KindHook, Meta: map[string]any{
+		"type": "prompt", "prompt": "Check the request.", "continueOnBlock": false,
+	}})
+	if len(handlers) != 1 {
+		t.Fatalf("handlers = %#v", handlers)
+	}
+	if handlers[0].ContinueOnBlock {
+		t.Error("continueOnBlock false became true")
 	}
 }

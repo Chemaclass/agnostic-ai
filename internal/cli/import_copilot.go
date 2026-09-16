@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -20,6 +22,7 @@ var (
 	copilotAgentsDir       = filepath.Join(".github", "agents")
 	copilotSkillsDir       = filepath.Join(".github", "skills")
 	copilotChatmodesDir    = filepath.Join(".github", "chatmodes")
+	copilotHooksDir        = filepath.Join(".github", "hooks")
 	copilotMCPFile         = filepath.Join(".vscode", "mcp.json")
 )
 
@@ -34,7 +37,7 @@ const (
 // `.github/chatmodes/`, `.vscode/mcp.json`) under root and writes
 // specs into the configured source directories.
 func importFromCopilot(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	counts, err := importCopilotRules(root, src)
@@ -57,13 +60,119 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	hooks, err := importCopilotHooks(root, filepath.Join(root, src.Hooks))
+	if err != nil {
+		return err
+	}
 	if _, err := mirrorMainFile(root, copilotMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, mcps)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps\n",
+		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, hooks, mcps)
 	printImportNextSteps(root, "copilot")
 	return nil
+}
+
+// importCopilotHooks reads every repository hook file and writes one
+// target-scoped spec per native handler. Copilot's event arrays do not group
+// handlers, so separate specs preserve HTTP, prompt, and command payloads.
+func importCopilotHooks(root, dstDir string) (int, error) {
+	dir := filepath.Join(root, copilotHooksDir)
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", dir, err)
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", path, err)
+		}
+		var native struct {
+			Hooks map[string][]map[string]any `json:"hooks"`
+		}
+		if err := json.Unmarshal(data, &native); err != nil {
+			return count, fmt.Errorf("parse %s: %w", path, err)
+		}
+		events := make([]string, 0, len(native.Hooks))
+		for event := range native.Hooks {
+			events = append(events, event)
+		}
+		sort.Strings(events)
+		for _, event := range events {
+			for _, handler := range native.Hooks[event] {
+				doc := normalizeCopilotHook(event, handler)
+				if doc == nil {
+					continue
+				}
+				payload, err := json.Marshal(handler)
+				if err != nil {
+					return count, fmt.Errorf("marshal %s hook: %w", event, err)
+				}
+				matcher, _ := handler["matcher"].(string)
+				name := hookSpecName(event, matcher, []string{string(payload)})
+				doc["name"], doc["target"] = name, "copilot"
+				raw, err := yaml.Marshal(doc)
+				if err != nil {
+					return count, fmt.Errorf("marshal hook %s: %w", name, err)
+				}
+				dst := filepath.Join(dstDir, name+".yaml")
+				if err := importWriteFile(dst, raw, 0o644); err != nil {
+					return count, fmt.Errorf("write %s: %w", dst, err)
+				}
+				count++
+			}
+		}
+	}
+	return count, nil
+}
+
+func normalizeCopilotHook(event string, native map[string]any) map[string]any {
+	kind, _ := native["type"].(string)
+	if kind == "" {
+		kind = "command"
+	}
+	doc := map[string]any{"event": event, "type": kind}
+	for _, key := range []string{"matcher", "url", "headers", "allowedEnvVars", "prompt"} {
+		if value, exists := native[key]; exists {
+			doc[key] = value
+		}
+	}
+	if timeout, exists := native["timeoutSec"]; exists {
+		doc["timeout"] = timeout
+	}
+	switch kind {
+	case "command":
+		command, _ := native["command"].(string)
+		if command == "" {
+			command, _ = native["exec"].(string)
+			if args, exists := native["args"]; exists {
+				doc["args"] = args
+			}
+		}
+		if command == "" {
+			return nil
+		}
+		doc["command"] = command
+	case "http":
+		if url, _ := native["url"].(string); url == "" {
+			return nil
+		}
+	case "prompt":
+		if prompt, _ := native["prompt"].(string); prompt == "" {
+			return nil
+		}
+	default:
+		return nil
+	}
+	return doc
 }
 
 // importCopilotAgents copies every native agent profile under

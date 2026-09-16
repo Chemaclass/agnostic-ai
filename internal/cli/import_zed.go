@@ -61,10 +61,9 @@ func importFromZed(root string, src config.Sources) error {
 var zedTaskTopLevel = map[string]bool{"label": true, "command": true, "args": true}
 
 // importZedTasks reads `.zed/tasks.json` and writes one hook yaml per
-// task entry. Each Zed task has `label`, `command`, and optional `args`;
-// we synthesize an `event: OnDemand` since Zed has no native lifecycle
-// hooks. The full shell command (command + args, joined) becomes the
-// hook command so the round-trip is lossless.
+// task entry. `create_worktree` becomes the portable WorktreeCreate event;
+// tasks without it import as OnDemand. The full shell command becomes the
+// hook command, while other native task fields stay under x-zed.
 func importZedTasks(root, dstDir string) (int, error) {
 	src := filepath.Join(root, zedTasksFile)
 	data, err := os.ReadFile(src)
@@ -95,9 +94,20 @@ func importZedTasks(root, dstDir string) (int, error) {
 			fullCmd = strings.TrimSpace(cmd + " " + strings.Join(args, " "))
 		}
 		name, desc := splitZedTaskLabel(label, i)
+		event := "OnDemand"
+		worktreeHook := false
+		var otherHooks []string
+		for _, hook := range toStringSlice(t["hooks"]) {
+			if hook == "create_worktree" {
+				event = "WorktreeCreate"
+				worktreeHook = true
+				continue
+			}
+			otherHooks = append(otherHooks, hook)
+		}
 		doc := map[string]any{
 			"name":    name,
-			"event":   "OnDemand",
+			"event":   event,
 			"command": fullCmd,
 		}
 		if desc != "" {
@@ -106,6 +116,12 @@ func importZedTasks(root, dstDir string) (int, error) {
 		xzed := map[string]any{}
 		for k, v := range t {
 			if zedTaskTopLevel[k] {
+				continue
+			}
+			if k == "hooks" && worktreeHook {
+				if len(otherHooks) > 0 {
+					xzed[k] = otherHooks
+				}
 				continue
 			}
 			xzed[k] = v

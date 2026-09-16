@@ -56,6 +56,41 @@ func TestImportFromZed_ImportsTasksAsHooks(t *testing.T) {
 	}
 }
 
+func TestImportFromZed_RestoresWorktreeCreateEvent(t *testing.T) {
+	dir := t.TempDir()
+	tasks := `[
+  {"label": "prepare", "command": "sh", "args": ["-c", "./scripts/setup"], "hooks": ["create_worktree"]}
+]`
+	writeFile(t, filepath.Join(dir, zedTasksFile), tasks)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "hooks", "prepare.yaml"))
+	if !strings.Contains(got, "event: WorktreeCreate") {
+		t.Errorf("expected WorktreeCreate event, got:\n%s", got)
+	}
+	if strings.Contains(got, "x-zed:") {
+		t.Errorf("mapped create_worktree hook must not be duplicated under x-zed:\n%s", got)
+	}
+}
+
+func TestImportFromZed_PreservesOtherTaskHooksWithWorktreeEvent(t *testing.T) {
+	dir := t.TempDir()
+	tasks := `[
+  {"label": "prepare", "command": "true", "hooks": ["create_worktree", "future_hook"]}
+]`
+	writeFile(t, filepath.Join(dir, zedTasksFile), tasks)
+	if err := importFromZed(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "hooks", "prepare.yaml"))
+	for _, want := range []string{"event: WorktreeCreate", "x-zed:", "future_hook"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in imported task:\n%s", want, got)
+		}
+	}
+}
+
 // Round-trip for #539: task fields beyond label/command/args must
 // survive an import under x-zed so a sync -> import -> sync cycle does
 // not silently drop them.

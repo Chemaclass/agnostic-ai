@@ -37,6 +37,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindMCP, []string{".factory/mcp.json"}},
 		{spec.KindHook, []string{".factory/hooks.json"}},
+		{spec.KindCommand, []string{".factory/commands/review.md"}},
 	}
 	for _, k := range caps.Supports {
 		if k == spec.KindRule {
@@ -76,8 +77,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind factory does not declare in caps.Supports (Command,
-// since #629 moved Hook into the declared set). A future
+// every kind factory does not declare in caps.Supports (Settings,
+// since #629 moved Hook and #630 moved Command into the declared set). A future
 // caps.Supports expansion needs to delete the matching row here and
 // demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -86,13 +87,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd body"},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (command), got %d", got)
+		t.Errorf("expected 1 capability warning (settings), got %d", got)
 	}
 }
 

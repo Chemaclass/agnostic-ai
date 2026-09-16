@@ -18,6 +18,7 @@ import (
 // unsupported and has nothing to read back.
 var ignoreFileByTarget = map[string]string{
 	"aider":    ".aiderignore",
+	"augment":  ".augmentignore",
 	"crush":    ".crushignore",
 	"cursor":   ".cursorignore",
 	"gemini":   ".geminiignore",

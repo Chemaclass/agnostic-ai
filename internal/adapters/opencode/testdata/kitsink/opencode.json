@@ -22,5 +22,6 @@
       "cwd": "/srv/project",
       "type": "local"
     }
-  }
+  },
+  "model": "example/model"
 }

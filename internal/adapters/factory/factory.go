@@ -60,11 +60,9 @@
 // shape emit.MCPSchemaServersMap already produces for Claude Code and
 // Cursor: stdio carries `command`/`args`/`env` with no `type`; HTTP
 // and SSE carry an explicit `type` plus `url`/`headers`, both
-// documented by Factory. This adapter also emits `type: ws` when a
-// server's own transport is `ws`; Factory's docs list only `stdio`,
-// `http`, and `sse`, so that support is inherited from the shared MCP
-// schema (vendor-confirmed for Claude Code, not for Factory) rather
-// than confirmed here. Unlike Claude Code, Cursor, and Copilot,
+// documented by Factory. WebSocket entries are skipped with a coverage
+// note because Factory documents a closed transport set of `stdio`,
+// `http`, and `sse`. Unlike Claude Code, Cursor, and Copilot,
 // Factory's own schema documents a working per-server `disabled`
 // boolean (default false), so this adapter does not strip it the way
 // those three do.
@@ -94,6 +92,9 @@
 // Factory MCP options preserve disabledTools, timeout and connectTimeout
 // (milliseconds, including zero). HTTP/SSE oauth accepts false or Factory
 // metadata fields. x-factory overrides corresponding top-level options.
+// Commands emit at `.factory/commands/<name>.md` with the documented
+// description and argument-hint frontmatter. Factory recommends Skills for
+// new reusable workflows, but continues to load this project command surface.
 package factory
 
 import (
@@ -106,10 +107,11 @@ import (
 )
 
 const (
-	target           = "factory"
-	defaultDroidsDir = ".factory/droids"
-	defaultSkillsDir = ".agents/skills"
-	defaultMCPFile   = ".factory/mcp.json"
+	target             = "factory"
+	defaultDroidsDir   = ".factory/droids"
+	defaultSkillsDir   = ".agents/skills"
+	defaultCommandsDir = ".factory/commands"
+	defaultMCPFile     = ".factory/mcp.json"
 )
 
 // droidHandBuiltKeys names the frontmatter keys this adapter builds
@@ -125,7 +127,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -140,7 +142,8 @@ func (Adapter) Name() string { return target }
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
 // `.agents/skills/`, a managed `.factory/mcp.json` for MCP servers,
-// and `.factory/hooks.json` for hook specs. The project-root
+// `.factory/hooks.json` for hook specs, and one native command file per
+// command spec. The project-root
 // AGENTS.md (rules' single source of truth for Droid CLI) is written
 // by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -155,13 +158,53 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
+	if err := emitCommands(sess, b.Commands, emit.OutputCommandsDir(cfg, target, defaultCommandsDir), dryRun); err != nil {
+		return err
+	}
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	// Factory's schema documents a working `disabled` key (unlike
 	// Claude Code, Cursor, and Copilot), so the shared builder's
 	// existing `disabled` output is correct here as-is; no strip.
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithFactoryMCPExtras())
+	return sess.WriteMCPFile(factoryMCPs(b.MCPs), emit.MCPSchemaServersMap, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithFactoryMCPExtras())
+}
+
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
+	for _, command := range commands {
+		path := filepath.Join(dir, command.Name+".md")
+		resolved := emit.ResolveMeta(command.Meta, target)
+		front := map[string]any{}
+		var keys []string
+		for _, key := range []string{"description", "argument-hint"} {
+			if value, ok := resolved[key]; ok {
+				front[key] = value
+				keys = append(keys, key)
+			}
+		}
+		emit.MergeCustomTargetMeta(front, &keys, command.Meta, target, "description", "argument-hint")
+		body := emit.FrontmatterOrdered(front, keys) + "\n" + command.Body
+		if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func factoryMCPs(entries []spec.Entry) []spec.Entry {
+	out := make([]spec.Entry, 0, len(entries))
+	dropped := 0
+	for _, entry := range entries {
+		transport, _ := entry.Meta["type"].(string)
+		if transport == "ws" {
+			dropped++
+			continue
+		}
+		out = append(out, entry)
+	}
+	emit.NoteCoverageGap(target, spec.KindMCP, dropped,
+		"WebSocket transport is not supported; Factory documents only stdio, http, and sse")
+	return out
 }
 
 // emitDroids writes one `<dir>/<name>.md` per agent spec whose body is

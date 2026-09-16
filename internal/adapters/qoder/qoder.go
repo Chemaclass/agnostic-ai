@@ -127,6 +127,9 @@
 // windsurf. See hooks.go for the field mapping and the vendor quote for
 // each field's semantics; see mcp.go's emitSettings for why the
 // `mcpServers` and `hooks` keys merge in one write rather than two.
+// Settings specs join that write: `model` maps to `model.name`, while
+// allow, deny, and ask permission lists map directly. Native sibling
+// fields inside both objects are preserved.
 package qoder
 
 import (
@@ -149,7 +152,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
 }
 
 // Adapter emits Qoder configs.
@@ -192,7 +195,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitSettings(sess, b.MCPs, b.Hooks, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec.

@@ -112,7 +112,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	sess.WarnIfLegacyFileOutranksEntryPoint(cfg, target, legacyOutFile, defaultOutFile)
 
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteScopedSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if err := emitWorkflows(sess, b, cfg, dryRun); err != nil {

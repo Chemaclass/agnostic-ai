@@ -56,6 +56,7 @@ type CommandEntry struct {
 	AllowedEnvVars         []string          `json:"allowedEnvVars,omitempty"`
 	Prompt                 string            `json:"prompt,omitempty"`
 	Model                  string            `json:"model,omitempty"`
+	ContinueOnBlock        bool              `json:"continueOnBlock,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

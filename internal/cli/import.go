@@ -27,7 +27,7 @@ var rulesDirImporters = map[string]string{}
 // help text and error messages.
 func importSources() string {
 	names := []string{
-		"aider", "amp", "antigravity", "claude", "cline", "codex", "continue",
+		"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
 		"copilot", "crush", "cursor", "gemini", "junie", "kilo", "kiro", "opencode",
 		"qoder", "trae", "warp", "windsurf", "zed",
 	}
@@ -117,6 +117,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromZed(root, src)
 	case "antigravity":
 		return importFromAntigravity(root, src, cfg)
+	case "augment":
+		return importAugmentIgnore(root, src)
 	case "continue":
 		return importFromContinue(root, src)
 	case "kiro":
@@ -175,7 +177,7 @@ func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
 		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush",
-		"trae", "junie", "qoder", "kilo":
+		"trae", "junie", "qoder", "kilo", "augment":
 		return true
 	}
 	_, ok := rulesDirImporters[source]

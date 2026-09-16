@@ -50,6 +50,7 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 			return nil
 		}
 		base.Model, _ = meta["model"].(string)
+		base.ContinueOnBlock = hookBoolMeta(meta, "continueOnBlock")
 	default:
 		emit.NoteFieldNoOp(target, spec.KindHook, "type", 1, "supported hook handlers are command, http, mcp_tool, and prompt")
 		return nil

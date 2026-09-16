@@ -115,7 +115,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		"Cursor subagents have no tools field (name, description, model, readonly, is_background); use readonly: true for a coarse restriction")
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	for _, s := range b.Skills {
-		if err := emitSkill(sess, s, skillsDir, dryRun); err != nil {
+		dir, err := emit.ScopedSkillsDir(s.Scope, skillsDir)
+		if err != nil {
+			return err
+		}
+		if err := emitSkill(sess, s, dir, dryRun); err != nil {
 			return err
 		}
 	}

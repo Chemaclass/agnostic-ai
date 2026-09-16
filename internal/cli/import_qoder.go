@@ -32,7 +32,8 @@ const (
 	// user-level `~/.qoder/commands/` tier, and the CLI page states
 	// that tier takes precedence over this one for a same-named
 	// command (#630).
-	qoderCommandsDir = ".qoder/commands"
+	qoderCommandsDir  = ".qoder/commands"
+	qoderSettingsFile = ".qoder/settings.json"
 )
 
 // importFromQoder reads an existing Qoder project (`.qoder/rules/*.md`,
@@ -40,7 +41,7 @@ const (
 // `.qoder/commands/*.md`) under root and writes specs into the
 // configured source directories.
 func importFromQoder(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings); err != nil {
 		return err
 	}
 	c, err := importRulesDirectory(root, qoderRulesDir, src)
@@ -59,7 +60,11 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands (from qoder)\n", c.rules, agents, skills, commands)
+	settings, err := importPortableSettings(root, qoderSettingsFile, filepath.Join(root, src.Settings), true, true)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d settings (from qoder)\n", c.rules, agents, skills, commands, settings)
 	printImportNextSteps(root, "qoder")
 	return nil
 }

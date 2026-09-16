@@ -48,10 +48,10 @@ func importFromCursor(root string, src config.Sources) error {
 	return nil
 }
 
-// importCursorSkills copies each `.cursor/skills/<name>/` directory tree
-// byte-for-byte into `<dstDir>/<name>/` via importSkillFolders.
+// importCursorSkills copies root and nested `.cursor/skills/<name>/`
+// directory trees into the matching canonical source scope.
 func importCursorSkills(root, dstDir string) (int, error) {
-	return importSkillFolders(filepath.Join(root, ".cursor", "skills"), dstDir)
+	return importScopedSkillFolders(root, filepath.Join(".cursor", "skills"), dstDir)
 }
 
 // importFlatMarkdownFiles copies every top-level `*.md` in src

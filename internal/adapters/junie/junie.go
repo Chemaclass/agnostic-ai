@@ -95,6 +95,8 @@
 //
 // MCP servers write to `.junie/mcp/mcp.json` using the standard
 // `mcpServers` map schema (the same shape Claude Code and Cursor use).
+// Settings specs merge their last non-empty `model` into
+// `.junie/config.json`, preserving unrelated native project settings.
 //
 // Ignore specs emit as `.aiignore` (override via
 // outputs.junie.ignore-file), gitignore syntax under a `#` provenance
@@ -137,6 +139,7 @@ const (
 	defaultSkillsDir   = ".junie/skills"
 	defaultCommandsDir = ".junie/commands"
 	defaultMCPFile     = ".junie/mcp/mcp.json"
+	defaultConfigFile  = ".junie/config.json"
 	// defaultIgnoreFile is Junie's project-root ignore file. It sits
 	// outside `.junie/` because the vendor puts it there: "creating and
 	// configuring an `.aiignore` file in the project root directory"
@@ -152,7 +155,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 }
 
 // Adapter emits Junie configs.
@@ -169,8 +172,9 @@ func (Adapter) Name() string { return target }
 // one folder per skill under the skills directory (Junie's native
 // SKILL.md layout; a flat file there never loads as a skill), one
 // native file per command under the commands directory, `.aiignore`
-// when ignore entries exist, then the MCP server file when the bundle
-// has any MCP entries. A stale managed
+// when ignore entries exist, `.junie/config.json` when a settings spec
+// selects a model, then the MCP server file when the bundle has any MCP
+// entries. A stale managed
 // tree at the pre-#552 `.junie/rules/` default (or its
 // outputs.junie.rules-dir override) is swept.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -197,6 +201,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
+	}
+	if model := emit.LastSettingsModel(b.Settings); model != "" {
+		if err := sess.MergeJSONFile(defaultConfigFile, map[string]any{"model": model}, dryRun); err != nil {
+			return err
+		}
 	}
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

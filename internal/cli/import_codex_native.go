@@ -416,19 +416,24 @@ func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
 	return front, body, true
 }
 
-// importCodexSkills walks every dir in codexSkillsDirs under root and
-// mirrors each `<dir>/<name>/` skill folder byte-for-byte into
-// `<dstDir>/<name>/`. Every file under the skill directory — SKILL.md,
+// importCodexSkills walks root and nested native skill directories and
+// mirrors each `<dir>/<name>/` folder into its canonical source scope.
+// Every file under the skill directory, including SKILL.md,
 // `agents/openai.yaml`, helper scripts, fixtures, nested subdirectories
-// — is preserved so an import then `sync` keeps the full skill payload
+// is preserved so an import then `sync` keeps the full skill payload
 // intact across all targets. When the same skill name appears under
 // both layouts the first one wins (codex-native path comes first).
 func importCodexSkills(root, dstDir string) (int, error) {
 	count := 0
 	seen := map[string]bool{}
 	claudePresent := claudeTreeExists(root)
-	for _, sub := range codexSkillsDirs {
-		srcDir := filepath.Join(root, sub)
+	locations, err := findScopedSkillDirs(root, codexSkillsDirs[0])
+	if err != nil {
+		return 0, err
+	}
+	locations = append(locations, scopedSkillDir{path: filepath.Join(root, codexSkillsDirs[1])})
+	for _, location := range locations {
+		srcDir := location.path
 		entries, err := os.ReadDir(srcDir)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
@@ -440,7 +445,8 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			if !e.IsDir() {
 				continue
 			}
-			if seen[e.Name()] {
+			identity := filepath.ToSlash(filepath.Join(location.scope, e.Name()))
+			if seen[identity] {
 				continue
 			}
 			skillSrc := filepath.Join(srcDir, e.Name())
@@ -449,8 +455,8 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			} else if err != nil {
 				return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 			}
-			seen[e.Name()] = true
-			skillDst := filepath.Join(dstDir, e.Name())
+			seen[identity] = true
+			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())
 			merged := dirExists(skillDst)
 			if merged {
 				if err := mergeCodexSkillIntoExisting(skillSrc, skillDst); err != nil {

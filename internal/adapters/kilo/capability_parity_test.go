@@ -37,6 +37,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindCommand, []string{".kilo/commands/cmd-one.md", ".kilo/commands/cmd-two.md", ".kilo/commands/cmd-three.md"}},
 		{spec.KindMCP, []string{"kilo.jsonc"}},
+		{spec.KindSettings, []string{"kilo.jsonc"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

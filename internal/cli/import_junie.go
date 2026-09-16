@@ -37,6 +37,7 @@ const (
 	// 2026-08-11, #605): one `.md` per command, `description` the only
 	// vendor-documented frontmatter field.
 	junieCommandsDir = ".junie/commands"
+	junieConfigFile  = ".junie/config.json"
 )
 
 // junieAgentsDirs lists the directories junie-cli-subagents.html
@@ -71,7 +72,7 @@ var junieAgentsDirs = []string{".junie/agents", ".agents"}
 //     natively (#605).
 //   - a hand-authored `.aiignore` reconstructs an ignore spec (#754).
 func importFromJunie(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings); err != nil {
 		return err
 	}
 	c, err := importJunieRulesAndAgents(root, src)
@@ -91,7 +92,11 @@ func importFromJunie(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores (from junie)\n", c.rules, c.agents, c.skills, commands, ignores)
+	settings, err := importPortableSettings(root, junieConfigFile, filepath.Join(root, src.Settings), false, false)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores, %d settings (from junie)\n", c.rules, c.agents, c.skills, commands, ignores, settings)
 	printImportNextSteps(root, "junie")
 	return nil
 }

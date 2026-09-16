@@ -252,6 +252,7 @@ outputs:
   factory:
     agents-dir: .factory/droids         # default. One <name>.md custom-droid profile per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush.
+    commands-dir: .factory/commands     # default. One Markdown slash command per command spec.
     hooks-file: .factory/hooks.json     # default. Nine events, keyed directly by event, no wrapper key.
     mcp-file: .factory/mcp.json         # default. mcpServers map; disabled is a real key here.
   kilo:
@@ -264,11 +265,14 @@ outputs:
   goose:
     review-file: .agents/REVIEW.md  # default. Relative to each review scope.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush; Goose's own recommended standard.
+    hooks-file: .agents/plugins/agnostic-ai/hooks/hooks.json # default. Open Plugins hook package; plugin.json is written beside hooks/.
     # rules-file: .goosehints           # opt-in: also write a concatenated .goosehints doc (Goose also reads AGENTS.md).
   augment:
     rules-dir: .augment/rules           # default. One .md per rule (type: agent_requested when alwaysApply: false).
     agents-dir: .augment/agents         # default. One .md per agent.
     skills-dir: .agents/skills          # default. Shared tree with codex/amp/zed/crush/openhands/windsurf.
+    commands-dir: .augment/commands     # default. Scoped subdirectories become command namespaces.
+    ignore-file: .augmentignore         # default. Workspace indexing exclusions.
     mcp-file: .augment/settings.json    # default. mcpServers + hooks merged in one write; user keys preserved.
     # rules-file: .augment-guidelines   # opt-in: also write a concatenated .augment-guidelines doc.
 
@@ -384,7 +388,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `opencode` | `commands-dir` | `.opencode/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `subtask`. |
 | `opencode` | `emit-skills-as-commands` | `false` | When true, skills additionally emit as `.opencode/commands/skill-<name>.md`. |
 | `opencode` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `opencode`. |
-| `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"`. Pre-existing user keys preserved. |
+| `opencode` | `mcp-file` | `opencode.json` | `mcp` map with `type: "local"\|"remote"` plus the portable default `model`. Other user keys are preserved. |
 | `antigravity` | `rules-dir` | `.agents/rules` | One `.md` per rule. The legacy `.agent/rules` singular form still reads for backward compatibility; a stale managed copy there is swept on sync. |
 | `antigravity` | `agents-dir` | `.agents/agents` | One custom-subagent `.md` per agent (`name` + `description`; `model` only when it names a documented tier, `inherit`/`flash`/`pro`). A generic `tools` list never emits: Antigravity's vocabulary shares no name with agnostic-ai's and an unmapped one can hang the subagent, so set `x-antigravity.tools`. Sweeps a stale `<rules-dir>/agent-<name>.md` left by a pre-native sync (#638). |
 | `antigravity` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`, Antigravity's native skills layout), shared with Codex, Amp, Zed, Crush, and OpenHands. |
@@ -394,7 +398,7 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `junie` | `skills-dir` | `.junie/skills` | One folder per skill (`<name>/SKILL.md`, Junie's native Agent Skills layout, shipped 2026-07-31); a flat file there never loads as a skill. |
 | `junie` | `mcp-file` | `.junie/mcp/mcp.json` | Standard `mcpServers` schema. |
 | `kiro` | `rules-dir` | `.kiro/steering` | One steering `.md` per rule (`inclusion: always` or `fileMatch`). |
-| `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `tools` translated onto Kiro's own category tags `read`/`write`/`shell`/`web`; `x-kiro` passthrough for `mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`, or `tools` directly to bypass the translation). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
+| `kiro` | `agents-dir` | `.kiro/agents` | One native agent profile `.md` per agent (`description`, optional `model`; `x-kiro.name` for a display name distinct from the filename; `tools` translated onto Kiro's own category tags `read`/`write`/`shell`/`web`; `x-kiro` passthrough for `mcpServers`/`permissions`/`hooks`/`keyboardShortcut`/`welcomeMessage`, or `tools` directly to bypass the translation). Sweeps a stale `.kiro/steering/agent-<name>.md` left by a pre-native sync. |
 | `kiro` | `skills-dir` | `.kiro/skills` | One folder per skill (`<name>/SKILL.md`), Kiro's own native skill tree (`skill://.kiro/skills/*/SKILL.md`); bundled `scripts/`, `references/`, and `assets/` copy byte-for-byte. Sweeps a stale flattened `.kiro/steering/skill-<name>.md` left by a pre-native sync. |
 | `kiro` | `hooks-dir` | `.kiro/hooks` | One JSON file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled, description}]}`). `disabled: true` writes `"enabled": false`; arbitrary `x-kiro` keys (e.g. `confirm`) pass through. |
 | `kiro` | `mcp-file` | `.kiro/settings/mcp.json` | Standard `mcpServers` schema. |
@@ -408,12 +412,13 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `qoder` | `rules-dir` | `.qoder/rules` | One `.md` per rule (native, one file per rule; takes precedence over the inlined `AGENTS.md` rules). |
 | `qoder` | `agents-dir` | `.qoder/agents` | One `.md` per agent (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as a comma-separated string (`Read, Grep, Bash`), Qoder's only documented form; safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style. |
 | `qoder` | `skills-dir` | `.qoder/skills` | One folder per skill (`<name>/SKILL.md`, Qoder's native Agent Skills layout). Qoder's own tree, not the `.agents/skills/` compatibility path Kilo Code, Augment, and OpenHands share: the vendor doc does not list it as a compatible location. |
-| `qoder` | `mcp-file` | `.qoder/settings.json` | Standard `mcpServers` schema, merged into Qoder's own settings file so unrelated keys survive. Moved off the project-root `.mcp.json` in #641: that path is Claude Code's, and Qoder's documented per-server fields (`trust`, `includeTools`, `alwaysAllow`, a working `disabled`) diverge from Claude Code's. Delete a leftover `.mcp.json` by hand in a Qoder-only project; it still loads and outranks this file. |
+| `qoder` | `mcp-file` | `.qoder/settings.json` | Standard `mcpServers`, hooks, portable `model.name`, and shared permission lists merge into Qoder's settings file. Unrelated top-level and nested settings survive. Moved off the project-root `.mcp.json` in #641: that path is Claude Code's, and Qoder's documented per-server fields (`trust`, `includeTools`, `alwaysAllow`, a working `disabled`) diverge from Claude Code's. Delete a leftover `.mcp.json` by hand in a Qoder-only project; it still loads and outranks this file. |
 | `openhands` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. A rule carrying `globs`/`paths` or a scope also lands here as `<name>/SKILL.md` (a path-triggered rule), sharing this key rather than a separate rules-dir. |
 | `openhands` | `mcp-file` | `config.toml` | `[mcp]` table: `stdio_servers` (array of tables), `sse_servers` / `shttp_servers` (URL strings, or `{ url, api_key }` objects when the entry sets `api_key`). No `type` field; transport is implied by the array. `headers` has no equivalent and surfaces a coverage note instead of reaching OpenHands silently. |
 | `openhands` | `hooks-file` | `.openhands/hooks.json` | Per-event hook arrays. Six events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`). Written in the Claude-shaped PascalCase form the vendor documents as interchangeable with its native snake_case keys. A `matcher` applies to the two ToolUse events only, and must use OpenHands' own tool names (`terminal`, not `Bash`). |
 | `factory` | `agents-dir` | `.factory/droids` | One `<name>.md` custom-droid profile per agent (`name`, `description`, optional `model`/`tools`, `x-factory` passthrough). |
 | `factory` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, identical bytes dedupe. |
+| `factory` | `commands-dir` | `.factory/commands` | One Markdown slash command per command spec, with `description` and `argument-hint` frontmatter. |
 | `factory` | `hooks-file` | `.factory/hooks.json` | Nine events (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`). Keyed directly by event, no wrapper key, the same divergence Windsurf/Devin CLI carries. `type` is always `command`; `timeout` is seconds (vendor default 60). |
 | `factory` | `mcp-file` | `.factory/mcp.json` | Standard `mcpServers` schema. `disabled` is a real key here (unlike Claude Code, Cursor, and Copilot) and passes through unchanged. |
 | `kilo` | `ignore-file` | `.kilocodeignore` | Compatibility input for Kilo's read/edit permission migrator. |
@@ -421,13 +426,16 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `kilo` | `agents-dir` | `.kilo/agents` | One `.md` per agent (`description`, optional `color`/`mode`/`model`; `x-kilo` passthrough for `disable`/`hidden`/`steps`/`temperature`/`top_p`/`permission`). |
 | `kilo` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf/augment, identical bytes dedupe. Kilo Code documents this path as a "loaded by default" compatibility dir alongside its own `.kilo/skills/`. |
 | `kilo` | `commands-dir` | `.kilo/commands` | One `.md` per command. Frontmatter filtered to `description`, `agent`, `model`, `variant`, `subtask`, near-identical to OpenCode's own command frontmatter. |
-| `kilo` | `mcp-file` | `kilo.jsonc` | `instructions` array and `mcp` map merged together (not `mcpServers`, the deprecated form); user keys preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
+| `kilo` | `mcp-file` | `kilo.jsonc` | `instructions`, `mcp`, and the portable default `model` merge together (not `mcpServers`, the deprecated form); unrelated user keys are preserved. Stdio combines `command`+`args` into one array with `type: "local"` and `environment` for env vars; remote sets `type: "remote"` with `url`/`headers`. `disabled: true` maps to `"enabled": false`. |
 | `goose` | `review-file` | `.agents/REVIEW.md` | Plain review bodies, root and per scope. |
 | `goose` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush, and Goose's own documented recommended standard. |
+| `goose` | `hooks-file` | `.agents/plugins/agnostic-ai/hooks/hooks.json` | Goose Open Plugins hook configuration. A required `plugin.json` manifest is written at the containing plugin root. Overrides must keep the `<plugin>/hooks/hooks.json` suffix so Goose can discover the package. |
 | `goose` | `rules-file` | _empty_ | When set (e.g. `.goosehints`), also writes a concatenated rules document Goose reads alongside `AGENTS.md`. Opt-in. |
 | `augment` | `rules-dir` | `.augment/rules` | One `.md` per rule. `type: agent_requested` (with a `description`, falling back to the rule name) when the spec sets `alwaysApply: false`; the vendor default `always_apply` stays implicit. Also inlined into `AGENTS.md`: Augment does not cleanly establish precedence between the two surfaces, so this adapter keeps both. |
 | `augment` | `agents-dir` | `.augment/agents` | One `.md` per agent (`name`, `description`, optional `color`/`model`). `tools`/`disabled_tools` only pass through via `x-augment`, since Augment's own tool vocabulary differs from agnostic-ai's Claude-style names; a plain `tools` list surfaces a coverage note instead. |
 | `augment` | `skills-dir` | `.agents/skills` | One folder per skill; the cross-tool tree shared with codex/amp/zed/crush/openhands/windsurf, identical bytes dedupe. Augment also reads `.claude/skills/` and `.augment/skills/` directly. |
+| `augment` | `commands-dir` | `.augment/commands` | One Markdown command per spec. Source-layout scope is preserved as nested command namespaces. |
+| `augment` | `ignore-file` | `.augmentignore` | Workspace indexing exclusions using gitignore-style patterns. |
 | `augment` | `rules-file` | _empty_ | When set (e.g. `.augment-guidelines`), writes a concatenated guidelines document Augment reads. Opt-in; the vendor's own precedence order truncates it first under budget pressure. |
 | `augment` | `mcp-file` | `.augment/settings.json` | `mcpServers` map and, since #629, `hooks` (five events; `timeout` converts the shared spec's seconds to Augment's milliseconds; `command` must end in `.sh`/`.ps1`/`.cmd`/`.bat`), merged in one write into Auggie CLI's own project settings file so `shell`, `startupScript`, `theme`, and other unrelated keys survive the sync. |
 

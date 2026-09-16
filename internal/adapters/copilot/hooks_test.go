@@ -52,6 +52,37 @@ func TestEmit_Hook_WritesGithubHooksFile(t *testing.T) {
 	}
 }
 
+func TestEmit_Hook_HTTPHandlerPreservesNativeFields(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "check", Meta: map[string]any{
+		"event": "PreToolUse", "type": "http", "url": "https://example.test/check",
+		"headers": map[string]any{"Authorization": "Bearer $TOKEN"}, "allowedEnvVars": []any{"TOKEN"}, "timeout": 20,
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, defaultHooksFile))
+	for _, want := range []string{`"type": "http"`, `"url": "https://example.test/check"`, `"Authorization"`, `"allowedEnvVars"`, `"TOKEN"`, `"timeoutSec": 20`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestEmit_Hook_PromptHandlerOnSessionStart(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "context", Meta: map[string]any{
+		"event": "sessionStart", "type": "prompt", "prompt": "Read the project notes.",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, defaultHooksFile))
+	if !strings.Contains(got, `"type": "prompt"`) || !strings.Contains(got, `"prompt": "Read the project notes."`) {
+		t.Errorf("prompt handler missing: %s", got)
+	}
+}
+
 // TestEmit_Hook_VersionIsIntegerOne pins the wrapper's `version` field
 // as the bare integer `1`, not the quoted string `"1"` or `"v1"` —
 // Kiro's own wrapper needed a fix for exactly that string-vs-int

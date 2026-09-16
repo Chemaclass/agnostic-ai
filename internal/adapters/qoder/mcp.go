@@ -15,8 +15,9 @@ const qoderHooksKey = "hooks"
 // `.qoder/settings.json` (default; override via outputs.qoder.mcp-file)
 // in one write. Routes through MergeJSONFile so the rest of that file
 // (the `mcp` group's `enableAllProjectMcpServers` /
-// `enabledProjectMcpServers`, permissions, custom models) survives a
-// sync untouched.
+// `enabledProjectMcpServers` and custom model fields) survives a sync.
+// Portable settings own `model.name` and the allow, deny, and ask lists;
+// native sibling fields within both objects are preserved.
 //
 // That file is JSONC: "Configuration files are in JSON format
 // (supporting // comments, see below)" and "Configuration files can
@@ -37,9 +38,8 @@ const qoderHooksKey = "hooks"
 // targets disagreed on the file's content, when only qoder writes it
 // (#629).
 //
-// No file is written when mcps and hooks are both empty, or every
-// entry in both renders empty.
-func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
+// No file is written when MCP, hook, and settings inputs all render empty.
+func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if servers := buildMCPMap(mcps); len(servers) > 0 {
 		keys[qoderMCPKey] = servers
@@ -47,10 +47,16 @@ func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dry
 	if block := buildHooksBlock(hooks); block != nil {
 		keys[qoderHooksKey] = block
 	}
+	if model := emit.LastSettingsModel(settings); model != "" {
+		keys["model"] = map[string]any{"name": model}
+	}
+	if permissions := emit.SettingsPermissions(settings); permissions != nil {
+		keys["permissions"] = permissions
+	}
 	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, keys, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"model", "permissions"}, dryRun)
 }
 
 func buildMCPMap(mcps []spec.Entry) map[string]any {

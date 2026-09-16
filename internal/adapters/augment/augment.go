@@ -117,8 +117,12 @@
 // same treatment openhands and windsurf give their own mismatched tool
 // vocabularies. See hooks.go for the field-level detail.
 //
-// caps.Supports declares KindRule, KindAgent, KindSkill, KindMCP, and
-// KindHook.
+// Commands emit at `.augment/commands/<name>.md`, and ignore specs emit
+// at the project-root `.augmentignore`. Both paths respect their output
+// overrides.
+//
+// caps.Supports declares KindRule, KindAgent, KindSkill, KindMCP,
+// KindHook, KindCommand, and KindIgnore.
 package augment
 
 import (
@@ -138,18 +142,19 @@ const (
 	// scans (alongside .augment/skills/ and .claude/skills/); codex,
 	// amp, zed, crush, openhands, and windsurf already write here, so
 	// identical skill folders dedupe under sync.shared-skills.
-	defaultSkillsDir = ".agents/skills"
+	defaultSkillsDir   = ".agents/skills"
+	defaultCommandsDir = ".augment/commands"
+	defaultIgnoreFile  = ".augmentignore"
 	// defaultSettingsFile is the project-tier settings file (see the
-	// package doc). This adapter only ever sets the `mcpServers` key on
-	// it; every other key (shell, startupScript, theme, plugin keys,
-	// tool permissions, and eventually hooks per #629) is left alone by
-	// emit.MergeJSONFile.
+	// package doc). This adapter only sets the `mcpServers` and `hooks`
+	// keys on it; every other key (shell, startupScript, theme, plugin
+	// keys, and tool permissions) is left alone by emit.MergeJSONFile.
 	defaultSettingsFile = ".augment/settings.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore},
 }
 
 // Adapter emits Augment configs.
@@ -163,8 +168,9 @@ func (Adapter) Name() string { return target }
 
 // Emit writes one `.augment/rules/<name>.md` per rule, one
 // `.augment/agents/<name>.md` per agent, one shared
-// `.agents/skills/<name>/SKILL.md` folder per skill, and merges MCP
-// servers into `.augment/settings.json`. The legacy concatenated
+// `.agents/skills/<name>/SKILL.md` folder per skill, one native command
+// file per command, `.augmentignore`, and merges MCP servers and hooks
+// into `.augment/settings.json`. The legacy concatenated
 // `.augment-guidelines` document remains opt-in via
 // `outputs.augment.rules-file`, scoped to rules only so an agent or
 // skill body never leaks into it. The root AGENTS.md entry-point (with
@@ -196,7 +202,35 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+		return err
+	}
 	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
+}
+
+func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
+	for _, command := range commands {
+		path := filepath.Join(dir, filepath.FromSlash(command.Scope), command.Name+".md")
+		resolved := emit.ResolveMeta(command.Meta, target)
+		front := map[string]any{}
+		var keys []string
+		for _, key := range []string{"description", "argument-hint", "model"} {
+			if value, ok := resolved[key]; ok {
+				front[key] = value
+				keys = append(keys, key)
+			}
+		}
+		emit.MergeCustomTargetMeta(front, &keys, command.Meta, target, "description", "argument-hint", "model")
+		body := emit.FrontmatterOrdered(front, keys) + "\n" + command.Body
+		if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // emitSettings merges MCP servers under `mcpServers` (the exact shape

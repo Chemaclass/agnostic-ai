@@ -146,8 +146,16 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 			"command": "sh",
 			"args":    []string{"-c", cmd},
 		}
+		native, _ := emit.CustomTargetMeta(h.Meta, target)
+		hooks := emit.StringSlice(native["hooks"])
+		if event, _ := h.Meta["event"].(string); event == "WorktreeCreate" && !containsString(hooks, "create_worktree") {
+			hooks = append([]string{"create_worktree"}, hooks...)
+		}
+		if len(hooks) > 0 {
+			task["hooks"] = hooks
+		}
 		var keys []string
-		emit.MergeCustomTargetMeta(task, &keys, h.Meta, target, "label", "command", "args")
+		emit.MergeCustomTargetMeta(task, &keys, h.Meta, target, "label", "command", "args", "hooks")
 		tasks = append(tasks, task)
 	}
 	if len(tasks) == 0 {
@@ -158,6 +166,15 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 		return fmt.Errorf("marshal zed tasks: %w", err)
 	}
 	return sess.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // emitContextServers writes (or merges into) .zed/settings.json with

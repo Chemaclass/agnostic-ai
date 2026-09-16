@@ -39,6 +39,8 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md"}},
 		{spec.KindMCP, []string{".augment/settings.json"}},
 		{spec.KindHook, []string{".augment/settings.json"}},
+		{spec.KindCommand, []string{".augment/commands/review.md"}},
+		{spec.KindIgnore, []string{".augmentignore"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -75,10 +77,9 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for a
-// kind augment does not declare in caps.Supports. Command is the
-// closest such kind: `.augment/commands/<name>.md` is #630's row, a
-// separate PR, so it stays unsupported here (Hook moved to the
-// supported side in #629). A future caps.Supports expansion needs to
+// kind augment does not declare in caps.Supports. Settings remains
+// unsupported because Augment's ordered first-match permission rules
+// cannot be represented losslessly by the shared grouped lists. A future caps.Supports expansion needs to
 // delete the matching row here and demonstrate the emit path that
 // backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -87,13 +88,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md", Body: "review body"},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (command), got %d", got)
+		t.Errorf("expected 1 capability warning (settings), got %d", got)
 	}
 }
 

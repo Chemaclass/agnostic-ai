@@ -8,6 +8,11 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Added
 
+- Settings specs now select the project default model for OpenCode, Junie, Qoder, and Kilo; Qoder also receives shared allow, deny, and ask permissions. Native imports restore the portable fields and preserve unrelated settings (#806).
+- Goose hook specs emit a complete Open Plugins package with its manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#629).
+- Augment and Factory emit native Markdown commands, preserving documented frontmatter and `$ARGUMENTS`; Augment also preserves nested command namespaces (#630).
+- Augment ignore specs emit to `.augmentignore`, and `import augment` preserves existing pattern order and negations (#808).
+- Directory-scoped skills remain scoped when emitted to and imported from Codex, Cursor, Warp, and OpenCode (#805).
 - Coding agents can follow `/agent-setup.txt` to install, import, configure, sync, and verify agnostic-ai safely. The website and README expose the same ready-to-paste prompt, while the plain-text endpoint and `llms-full.txt` are generated from canonical user guides.
 - User guides now live at the public `/docs/` site with generated task-based navigation, page outlines, mobile browsing, and direct source links. The same Markdown remains the single source for the website, repository, and `llms-full.txt`.
 - The updates archive filters whole editions by one or more targets and search terms, keeps applied filters in shareable URLs, and preserves the complete date-ordered archive when JavaScript is unavailable.
@@ -16,6 +21,13 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Changed
 
 - The GitHub Pages site now builds with Zola 0.22.0 from shared templates, structured landing data, and dated Markdown briefings. One navbar spans the landing page and updates, all five primary destinations stay visible on mobile, and adding a release briefing now updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without editing page design. Legacy audit URLs, RSS GUIDs, markers, and counts remain stable.
+
+### Fixed
+
+- Claude prompt hooks preserve `continueOnBlock`; Copilot preserves HTTP and `sessionStart` prompt handlers through emit and import (#804, #629).
+- Kiro preserves an explicit `x-kiro.name` display name while keeping the canonical spec name as the filename (#807).
+- Factory and Windsurf skip unsupported WebSocket MCP entries with a coverage note instead of writing invalid native configuration (#809, #816).
+- Zed maps `WorktreeCreate` hooks to native `create_worktree` task hooks and restores the event on import (#817).
 
 ## v0.58.0 - 2026-09-14
 

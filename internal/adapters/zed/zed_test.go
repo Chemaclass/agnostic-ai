@@ -103,6 +103,25 @@ func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
 	}
 }
 
+func TestEmit_TaskMapsWorktreeCreateHook(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"zed": {TasksFile: ".zed/tasks.json"}}}
+	entries := []spec.Entry{{
+		Kind: spec.KindHook, Name: "prepare-worktree",
+		Meta: map[string]any{
+			"event": "WorktreeCreate", "command": "./scripts/setup-worktree",
+			"x-zed": map[string]any{"hooks": []any{"future_hook"}},
+		},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".zed/tasks.json"))
+	if !strings.Contains(got, `"hooks": [`) || !strings.Contains(got, `"create_worktree"`) || !strings.Contains(got, `"future_hook"`) {
+		t.Errorf("expected native create_worktree task hook, got:\n%s", got)
+	}
+}
+
 // Stdio MCP emits to .zed/settings.json under context_servers with the
 // nested `command: {path, args, env}` shape.
 func TestEmit_MCP_StdioWritesContextServers(t *testing.T) {

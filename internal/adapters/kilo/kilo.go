@@ -123,8 +123,11 @@
 // Ignore specs emit project-root .kilocodeignore (outputs.kilo.ignore-file
 // overrides the path). Kilo migrates that compatibility input into read/edit
 // permission denials; this adapter does not translate patterns itself.
+// Settings specs merge their last non-empty model into top-level `model` in
+// `kilo.jsonc`, alongside the instructions and MCP keys.
 // MCP entries preserve timeout in milliseconds, including zero, and remote
-// oauth:false, with x-kilo overrides. import kilo reads only the ignore file.
+// oauth:false, with x-kilo overrides. import kilo reads the ignore file and
+// portable default model.
 package kilo
 
 import (
@@ -157,7 +160,7 @@ const defaultIgnoreFile = ".kilocodeignore"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 }
 
 // Adapter emits Kilo Code configs.
@@ -174,7 +177,8 @@ func (Adapter) Name() string { return target }
 // `.agents/skills/<name>/SKILL.md` folder per skill, one command
 // Markdown file per command spec under `.kilo/commands/`, plus a
 // merged `kilo.jsonc` carrying the `instructions` array (one entry per
-// rule file) and the `mcp` map. The project-root AGENTS.md (still
+// rule file), the `mcp` map, and a portable default `model`. The
+// project-root AGENTS.md (still
 // read, but lower priority than `instructions`; see the package doc)
 // is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -204,7 +208,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	return emitKiloJSONC(sess, b.Rules, rulesDir, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitKiloJSONC(sess, b.Rules, rulesDir, b.MCPs, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
@@ -273,18 +277,20 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 
 // emitKiloJSONC merges the `instructions` and `mcp` keys into
 // kilo.jsonc in a single read-modify-write. Routes through
-// emit.MergeJSONFile so any pre-existing user-managed keys (models,
-// providers, ...) survive the sync, in JSONC form as well as plain JSON
-// (see the package doc). Each key is set only when its source list is
-// non-empty, and no file is written at all when both are empty (or
-// every MCP entry renders empty).
-func emitKiloJSONC(sess *emit.Session, rules []spec.Entry, rulesDir string, mcps []spec.Entry, path string, dryRun bool) error {
+// emit.MergeJSONFile so any pre-existing user-managed keys (providers,
+// themes, ...) survive the sync, in JSONC form as well as plain JSON
+// (see the package doc). Each key is set only when its source contributes,
+// and no file is written when all three sources are empty.
+func emitKiloJSONC(sess *emit.Session, rules []spec.Entry, rulesDir string, mcps, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if instructions := ruleInstructions(rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
 	}
 	if servers := buildMCPMap(mcps); len(servers) > 0 {
 		keys["mcp"] = servers
+	}
+	if model := emit.LastSettingsModel(settings); model != "" {
+		keys["model"] = model
 	}
 	if len(keys) == 0 {
 		return nil
