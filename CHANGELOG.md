@@ -24,6 +24,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Changed
 
 - Antigravity agents use its documented nested `.agents/agents/<name>/agent.md` layout, avoiding model collisions with Goose and OpenHands. Import prefers nested profiles, while the sync ledger safely migrates managed legacy flat files (#717).
+- The playground now uses the website's shared navigation, theme control, and responsive header instead of maintaining a separate navbar.
 - The GitHub Pages site now builds with Zola 0.22.0 from shared templates, structured landing data, and dated Markdown briefings. One navbar spans the landing page and updates, all five primary destinations stay visible on mobile, and adding a release briefing now updates the latest edition, archive, RSS feed, compatibility alias, and sitemap without editing page design. Legacy audit URLs, RSS GUIDs, markers, and counts remain stable.
 
 ### Fixed

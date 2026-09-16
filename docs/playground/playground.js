@@ -73,7 +73,6 @@ Cite \`file:line\` for every finding. Lead with highest-impact issues.
 
 const DEFAULT_TARGETS = ["claude", "codex", "cursor", "gemini"];
 const STORAGE_KEY = "agnostic-ai-playground";
-const THEME_KEY = "agnostic-ai-theme";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -90,38 +89,11 @@ const els = {
   content: $("content"),
   copy: $("copy"),
   download: $("download"),
-  themeToggle: $("theme-toggle"),
 };
 
 let renderResults = [];
 let currentTarget = null;
 let currentFile = null;
-
-/* ─── Theme ─── */
-
-function applyTheme(mode) {
-  if (mode === "light" || mode === "dark") {
-    document.documentElement.dataset.theme = mode;
-  } else {
-    delete document.documentElement.dataset.theme;
-  }
-}
-
-function loadTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  applyTheme(saved);
-}
-
-function cycleTheme() {
-  const cur = document.documentElement.dataset.theme;
-  const next = cur === "dark" ? "light" : cur === "light" ? "" : "dark";
-  if (next) {
-    localStorage.setItem(THEME_KEY, next);
-  } else {
-    localStorage.removeItem(THEME_KEY);
-  }
-  applyTheme(next);
-}
 
 /* ─── Status ─── */
 
@@ -353,9 +325,6 @@ function handleDownload() {
 /* ─── Init ─── */
 
 async function init() {
-  loadTheme();
-  els.themeToggle.addEventListener("click", cycleTheme);
-
   const go = new Go();
   let module;
   try {

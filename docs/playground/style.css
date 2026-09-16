@@ -21,7 +21,7 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.42), 0 8px 24px rgba(0, 0, 0, 0.26);
 
   --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root[data-theme="light"] {
@@ -112,82 +112,18 @@ a:focus-visible {
   border: 0;
 }
 
-/* ─────────── Topbar ─────────── */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: saturate(180%) blur(10px);
-  border-bottom: 1px solid var(--border);
+.site-header {
+  font-size: 17px;
+  line-height: 1.65;
 }
 
-.topbar-inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 12px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--fg);
-  font-weight: 600;
-}
-
-.brand:hover {
+.site-header a:focus-visible {
   text-decoration: none;
 }
 
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  color: var(--accent-fg);
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: 16px;
-  background: var(--accent);
-}
-
-.brand-name {
-  letter-spacing: -0.01em;
-}
-
-.brand-tag {
-  color: var(--fg-muted);
-  font-weight: 500;
-  font-size: 13px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
-  margin-left: 4px;
-}
-
-.topbar-links {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.topbar-links a {
-  color: var(--fg-dim);
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-}
-
-.topbar-links a:hover {
-  color: var(--fg);
-  background: var(--panel-2);
-  text-decoration: none;
+.site-header :focus-visible {
+  outline-offset: 4px;
+  border-radius: 3px;
 }
 
 /* ─────────── Hero ─────────── */
@@ -603,19 +539,6 @@ textarea::placeholder {
 /* ─────────── Phone tuning ─────────── */
 
 @media (max-width: 640px) {
-  .topbar-inner {
-    padding: 10px 14px;
-  }
-
-  .brand-tag {
-    display: none;
-  }
-
-  .topbar-links a {
-    padding: 4px 8px;
-    font-size: 13px;
-  }
-
   .hero-inner {
     padding: 22px 16px 18px;
   }

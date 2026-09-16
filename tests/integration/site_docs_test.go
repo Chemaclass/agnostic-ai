@@ -12,6 +12,31 @@ import (
 
 const siteDocsContentDir = "../../docs/site/content/docs"
 
+func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
+	page := readBuiltFile(t, "../../docs/playground/index.html")
+	for _, required := range []string{
+		`href="../assets/styles/base.css"`,
+		`src="../assets/scripts/theme.js"`,
+		`class="site-header"`,
+		`class="site-nav"`,
+		`class="theme-toggle"`,
+		`class="signal-rule"`,
+		`href="./" aria-current="page">Playground</a>`,
+	} {
+		if !strings.Contains(page, required) {
+			t.Errorf("playground navigation is missing %q", required)
+		}
+	}
+	for _, label := range []string{"Home", "Updates", "Playground", "Docs", "GitHub"} {
+		if !strings.Contains(page, ">"+label+"</a>") {
+			t.Errorf("playground navigation is missing %s", label)
+		}
+	}
+	if strings.Contains(page, `class="topbar"`) || strings.Contains(page, `class="topbar-links"`) {
+		t.Error("playground still carries its separate navigation implementation")
+	}
+}
+
 func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 	pages, err := filepath.Glob(filepath.Join(siteDocsContentDir, "[^_]*.md"))
 	if err != nil {

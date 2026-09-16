@@ -42,7 +42,8 @@ write_url() {
     docs/site/static/assets/styles/base.css docs/site/static/assets/styles/landing.css \
     docs/site/static/assets/scripts/theme.js docs/site/static/assets/scripts/landing.js
   write_url /playground/ weekly 0.8 \
-    docs/playground/index.html docs/playground/playground.js docs/playground/style.css
+    docs/playground/index.html docs/playground/playground.js docs/playground/style.css \
+    docs/site/static/assets/styles/base.css docs/site/static/assets/scripts/theme.js
   write_url /docs/ weekly 0.9 \
     docs/site/content/docs/_index.md docs/site/content/docs/[!_]*.md \
     docs/site/templates/base.html docs/site/templates/docs/section.html \

@@ -21,13 +21,13 @@ Writes `docs/playground/agnostic-ai.wasm` and copies the Go-toolchain `wasm_exec
 make playground-serve
 ```
 
-Starts `python3 -m http.server 8080` in `docs/playground/`. Open http://127.0.0.1:8080.
+Builds the Zola site and WebAssembly bundle, assembles the same tree published by GitHub Pages, then serves `_site/` with `python3 -m http.server 8080`. Open http://127.0.0.1:8080/playground/.
 
 `file://` does not work because browsers refuse `WebAssembly.instantiateStreaming` on local files.
 
 ## After edits
 
-- `playground.js` or `style.css` changes: refresh the browser.
+- `index.html`, `playground.js`, or `style.css` changes: restart the server so `_site/playground/` receives the update, then refresh the browser.
 - Go source changes: rebuild with `make playground-build` first, then refresh.
 
 ## Clean

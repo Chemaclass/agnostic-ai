@@ -13,12 +13,13 @@ Open the [published playground](https://chemaclass.github.io/agnostic-ai/playgro
 ## Run locally
 
 ```bash
-make playground-serve       # builds, then serves on http://127.0.0.1:8080
+make playground-serve       # builds the site and opens /playground/ on port 8080
 ```
 
 `file://` protocol does **not** work. Browsers refuse to fetch the
-`.wasm` from a `file://` page. Use the `playground-serve` target or any
-static HTTP server pointed at `docs/playground/`.
+`.wasm` from a `file://` page. The playground also shares navigation assets
+with the Zola site, so use the assembled page at
+http://127.0.0.1:8080/playground/.
 
 ## What's in this directory
 

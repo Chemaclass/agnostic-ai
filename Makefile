@@ -158,9 +158,11 @@ playground-build:
 	@printf "playground built. wasm size: "
 	@ls -lh $(PLAYGROUND_DIR)/agnostic-ai.wasm | awk '{print $$5}'
 
-playground-serve: playground-build
-	@echo "serving $(PLAYGROUND_DIR) at http://127.0.0.1:8080"
-	@cd $(PLAYGROUND_DIR) && python3 -m http.server 8080
+playground-serve: site-build playground-build
+	mkdir -p $(SITE_OUTPUT_DIR)/playground
+	cp -R $(PLAYGROUND_DIR)/. $(SITE_OUTPUT_DIR)/playground/
+	@echo "serving playground at http://127.0.0.1:8080/playground/"
+	@python3 -m http.server 8080 --directory $(SITE_OUTPUT_DIR)
 
 playground-clean:
 	rm -f $(PLAYGROUND_DIR)/agnostic-ai.wasm $(PLAYGROUND_DIR)/wasm_exec.js
