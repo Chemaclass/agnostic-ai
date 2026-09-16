@@ -60,7 +60,7 @@ func (s *Session) MaterializeHookScript(cmd, target, sourceTool string, dryRun b
 	if !ok {
 		return nil
 	}
-	return s.writeFileWithMode("."+target+"/hooks/"+basename, string(body), mode, dryRun)
+	return s.writeFileWithMode("."+target+"/hooks/"+basename, string(body), mode, true, dryRun)
 }
 
 // SourceToolFromHookCommand extracts the `.<tool>/hooks/` segment from

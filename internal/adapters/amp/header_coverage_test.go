@@ -23,7 +23,7 @@ import (
 // empty settings file trips here.
 //
 // The kit-sink bundle covers agents, skills, rules (via legacy
-// rules-file), and MCPs.
+// rules-file), MCPs, and environments.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -112,6 +112,13 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
+		},
+		{
+			Kind: spec.KindEnvironment, Name: "development",
+			Meta: map[string]any{
+				"install":   "go mod download",
+				"terminals": []any{map[string]any{"name": "dev", "command": "go run ."}},
+			},
 		},
 	}
 	return spec.NewBundle(entries)

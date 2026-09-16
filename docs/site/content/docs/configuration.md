@@ -195,6 +195,8 @@ outputs:
   amp:
     skills-dir: .agents/skills      # default. One folder per skill (<name>/SKILL.md).
     mcp-file: .amp/settings.json    # default. amp.mcpServers (dotted key).
+    setup-file: .agents/setup       # default. Executable dependency setup from environment install.
+    environment-file: .amp/services.yaml # default. Supervised services from environment terminals.
     # commands-dir:                 # no longer emits anything: Amp removed custom commands.
   zed:
     skills-dir: .agents/skills    # default. One folder per skill; shared tree with codex and amp.
@@ -375,6 +377,8 @@ Per-target paths. Each target reads only the fields it understands. Irrelevant f
 | `continue` | `assistants-dir` | _empty_ | When set, each agent also emits as a Continue local Assistant YAML at `<dir>/<name>.yaml`. The rule-form emission still happens. Opt-in. |
 | `amp` | `commands-dir` | _empty_ | No longer emits anything: Amp [removed custom commands](https://ampcode.com/news/slashing-custom-commands) on 2026-01-29 and its migration steps end with "Delete the original command file". Setting this key only prints a sync-time warning. Agent bodies reach Amp through `rules-file` when set. |
 | `amp` | `skills-dir` | `.agents/skills` | One folder per skill with a `SKILL.md` (Amp's native skills layout). |
+| `amp` | `setup-file` | `.agents/setup` | Executable orb dependency setup generated from an environment spec's `install` field. |
+| `amp` | `environment-file` | `.amp/services.yaml` | Supervised orb services generated from an environment spec's `terminals` field. |
 | `amp` | `rules-file` | _empty_ | When set, writes a legacy concatenated rules document at that path. `sync` skips the pointer-body write for `amp`. |
 | `amp` | `mcp-file` | `.amp/settings.json` | Writes `amp.mcpServers` (dotted key). Pre-existing keys preserved. |
 | `zed` | `skills-dir` | `.agents/skills` | One folder per skill (`<name>/SKILL.md`); the cross-tool tree shared with codex and amp, identical bytes dedupe. |

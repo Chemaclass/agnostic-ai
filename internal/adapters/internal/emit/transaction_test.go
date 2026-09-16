@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -29,6 +30,34 @@ func TestTransaction_RollbackRestoresOverwrittenFile(t *testing.T) {
 	}
 	if string(got) != "original" {
 		t.Errorf("expected original content after rollback, got %q", got)
+	}
+}
+
+func TestTransaction_RollbackRestoresExecutableMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support Unix executable mode bits")
+	}
+	t.Parallel()
+	sess := NewSession()
+	path := filepath.Join(t.TempDir(), "setup")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sess.StartTransaction()
+	if err := sess.WriteFile(path, "replacement", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("mode = %o, want 755", info.Mode().Perm())
 	}
 }
 
