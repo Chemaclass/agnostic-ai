@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // Codex stores custom agents under `.codex/agents/`. agnostic-ai used
@@ -1062,6 +1063,9 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 
 	count := 0
 	for _, name := range names {
+		if err := spec.ValidateName(spec.KindMCP, name); err != nil {
+			return count, err
+		}
 		s := servers[name]
 		doc := map[string]any{"name": name}
 		switch {
@@ -1160,7 +1164,7 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		if err != nil {
 			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
 		}
-		path := filepath.Join(dstDir, name+".yaml")
+		path := filepath.Join(dstDir, spec.MCPFileName(name))
 		if err := importWriteFile(path, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", path, err)
 		}

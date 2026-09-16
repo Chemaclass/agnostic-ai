@@ -263,6 +263,59 @@ func TestLoadAll_AcceptsSafeNames(t *testing.T) {
 	}
 }
 
+func TestLoadAll_AcceptsPackageStyleMCPName(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	want := "npm:@modelcontextprotocol/server-sequential.thinking"
+	mustWrite(t, filepath.Join(dir, "mcps", "package.yaml"), "name: "+want+"\ncommand: npx\n")
+	cfg := defaultsForTest()
+	cfg.Sources.MCPs = "mcps"
+
+	entries, err := LoadAll(dir, cfg)
+	if err != nil {
+		t.Fatalf("package-style MCP name rejected: %v", err)
+	}
+	mcps := Filter(entries, KindMCP)
+	if len(mcps) != 1 || mcps[0].Name != want {
+		t.Errorf("expected 1 MCP named %q, got %+v", want, mcps)
+	}
+}
+
+func TestMCPFileName(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		want string
+	}{
+		{"filesystem", "filesystem.yaml"},
+		{"legacy:@ name", "legacy:@ name.yaml"},
+		{"npm:@scope/server", "npm%3A%40scope%2Fserver.yaml"},
+		{"literal%2Fname", "literal%252Fname.yaml"},
+		{"scope/日本", "scope%2F%E6%97%A5%E6%9C%AC.yaml"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MCPFileName(tt.name); got != tt.want {
+				t.Errorf("MCPFileName(%q) = %q, want %q", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateName_MCPAllowsVendorPathsWithoutTraversal(t *testing.T) {
+	t.Parallel()
+	if err := ValidateName(KindMCP, "npm:@scope/server"); err != nil {
+		t.Fatalf("package-style MCP name rejected: %v", err)
+	}
+	if err := ValidateName(KindRule, "nested/rule"); err == nil {
+		t.Fatal("rule name with a slash must stay invalid")
+	}
+	for _, bad := range []string{"", ".", "..", "../escape", "scope/../escape", `scope\server`, "bad\x00name"} {
+		if err := ValidateName(KindMCP, bad); err == nil {
+			t.Errorf("MCP name %q: expected validation error", bad)
+		}
+	}
+}
+
 func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

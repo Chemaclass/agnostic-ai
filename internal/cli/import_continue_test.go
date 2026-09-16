@@ -251,7 +251,7 @@ func TestImportFromContinue_MCPJSONRejectsMalformedInput(t *testing.T) {
 }
 
 func TestImportFromContinue_MCPJSONRejectsUnsafeNames(t *testing.T) {
-	for _, name := range []string{"../escape", "nested/server", `nested\server`, ".", "..", "", "bad\x00name"} {
+	for _, name := range []string{"../escape", `nested\server`, ".", "..", "", "bad\x00name"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			src := filepath.Join(dir, continueMCPServersDir, "unsafe.json")

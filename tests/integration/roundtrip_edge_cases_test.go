@@ -89,6 +89,33 @@ func TestEdgeCase_EmptyCodexConfigSkipsOverlayAndOutput(t *testing.T) {
 	}
 }
 
+func TestEdgeCase_CodexPackageStyleMCPNameRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	must(t, os.MkdirAll(filepath.Join(dir, ".codex"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".codex/config.toml"), []byte(`[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking"]
+command = "npx"
+`), 0o644))
+	testutil.Chdir(t, dir)
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(edgeCaseCodexOnlyConfig), 0o644))
+
+	runCmd(t, "import", "codex")
+	specPath := filepath.Join(dir, ".agnostic-ai/mcps/npm%3A%40modelcontextprotocol%2Fserver-sequential.thinking.yaml")
+	if _, err := os.Stat(specPath); err != nil {
+		t.Fatalf("encoded MCP spec missing: %v", err)
+	}
+
+	must(t, os.Remove(filepath.Join(dir, ".codex/config.toml")))
+	runCmd(t, "sync", "-t", "codex")
+	got, err := os.ReadFile(filepath.Join(dir, ".codex/config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[mcp_servers."npm:@modelcontextprotocol/server-sequential.thinking"]`
+	if !strings.Contains(string(got), want) {
+		t.Errorf("package-style MCP name changed after import and sync:\n%s", got)
+	}
+}
+
 // TestEdgeCase_CodexOverlayWinsOverFirstClassConfig confirms the
 // documented precedence: when both the overlay and outputs.codex.config
 // declare the same key, the overlay wins on conflict and the

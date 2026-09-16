@@ -374,6 +374,8 @@ env:
   ROOT: /tmp
 ```
 
+The `name` is the server identifier, not the source filename. It can use package-style forward slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. agnostic-ai percent-encodes slash-bearing names when it needs one YAML file per server, while the YAML `name` and every generated target config keep the original value. Other spec kinds still require one safe path segment because their names become output paths.
+
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier. Becomes the key in the generated config. |

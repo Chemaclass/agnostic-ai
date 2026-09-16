@@ -71,6 +71,25 @@ func TestEmit_MCP_StdioWritesPerServerYAML(t *testing.T) {
 	}
 }
 
+func TestEmit_MCP_PackageNameUsesSafeFilename(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	want := "npm:@modelcontextprotocol/server-sequential.thinking"
+	entries := []spec.Entry{{
+		Kind: spec.KindMCP,
+		Name: want,
+		Meta: map[string]any{"command": "npx"},
+	}}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, ".continue/mcpServers/npm%3A%40modelcontextprotocol%2Fserver-sequential.thinking.yaml")
+	got := readFile(t, path)
+	if !strings.Contains(got, "name: "+want) {
+		t.Errorf("MCP name changed in native document:\n%s", got)
+	}
+}
+
 // Continue's URL branch takes `type: "sse" | "streamable-http"` and
 // nothing else, so the canonical agnostic spelling `http` has to be
 // translated on the way out or `blockSchema.parse` throws and the

@@ -204,7 +204,7 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 		if err != nil {
 			return err
 		}
-		path := filepath.Join(dir, m.Name+".yaml")
+		path := filepath.Join(dir, spec.MCPFileName(m.Name))
 		if err := sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun); err != nil {
 			return err
 		}
