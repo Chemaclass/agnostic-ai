@@ -74,6 +74,8 @@ Supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [all 25 tar
 
 Native output includes Claude and Cursor prompt hooks, Goose review instructions, and Crush/Kilo ignore files. VS Code MCP sync retains `inputs`, `sandbox`, and other sibling settings. MCP options preserve each target's documented connection settings; imports also cover Continue JSONC and shared skill folders for Zed, Warp, and Antigravity.
 
+The [AI tooling updates](https://chemaclass.github.io/agnostic-ai/updates/) archive filters complete release briefings by target and search terms. Filter state stays in the URL for bookmarks and sharing, while the full archive remains readable without JavaScript.
+
 Gemini hook specs emit the native nested command format. Import preserves handler groups and millisecond timeouts. See [hook rendering](docs/user/spec-format.md#per-target-rendering).
 
 Use `targets:` in `agnostic-ai.yaml` to select the tools you need. For instructions shared across your own projects, see [global configuration](docs/user/configuration.md#global-configuration).

@@ -28,7 +28,7 @@ Developers author canonical specs in a repository, run `agnostic-ai sync`, revie
 - GitHub Pages is a Zola static site built from `docs/site/` and assembled with the browser playground.
 - `CHANGELOG.md` records released agnostic-ai behavior. Release briefings reproduce that record and separately cover verified upstream ecosystem changes, including changes agnostic-ai does not support yet.
 - Public claims need direct vendor evidence. Proposed shared capabilities are not presented as shipped support.
-- Updates are dated Markdown files with a generated archive and RSS feed. The site does not require a CMS or client-side framework.
+- Updates are dated Markdown files with a generated archive and RSS feed. Readers can filter complete editions by target and search terms, with shareable URL state and a complete no-JavaScript archive. The site does not require a CMS or client-side framework.
 
 ## Brand Commitments
 

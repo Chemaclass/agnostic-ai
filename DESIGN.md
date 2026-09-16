@@ -126,7 +126,7 @@ The palette is warm, low-saturation, and built around one rare rust signal.
 
 ## Layout
 
-The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids become one column, and audit stats stack.
+The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. Search and target controls sit below the All editions heading, never in the editorial hero. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids and filter controls become one column, and audit stats stack.
 
 Vertical rhythm expands between editorial sections and tightens inside evidence rows. Content order does not change across breakpoints.
 
@@ -157,8 +157,14 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 
 ### Update rows
 
-- **Style:** flat rows separated by Hairline borders. Headline color changes to Rust Signal on hover.
-- **Layout:** date, title, and finding count form three columns at 760px and one column below it.
+- **Style:** flat rows separated by Hairline borders. Headline color changes to Rust Signal on hover. Descriptions and static target tags make each edition scannable without turning it into a card.
+- **Layout:** date, title with description and tags, and finding count form three columns at 760px and one column below it.
+
+### Archive filters
+
+- **Style:** one bordered search field, a native Targets disclosure, and compact square action buttons use the existing paper, hairline, rust, and monospace control language.
+- **Behavior:** controls appear only after JavaScript initializes. Target choices use OR, search terms use AND, and explicit Apply keeps the archive calm while state is edited. Result count, applied summary, unknown-target notice, and empty recovery share one polite status region.
+- **Fallback:** all rows stay in the HTML and remain readable without JavaScript. Print hides inputs and buttons while keeping the applied summary and visible results.
 
 ### Evidence callouts
 

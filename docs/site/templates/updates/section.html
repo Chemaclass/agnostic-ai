@@ -7,10 +7,12 @@
 {% block twitter_title %}{{ section.title }} | agnostic-ai{% endblock twitter_title %}
 {% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/updates.css', trailing_slash=false) }}">{% endblock styles %}
+{% block scripts %}<script src="{{ get_url(path='assets/scripts/updates.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}
 {% block skip_label %}Skip to updates{% endblock skip_label %}
 
 {% block content %}
 {% set latest = section.pages | first %}
+{% set updates = load_data(path="data/updates.toml") %}
 <main id="content">
   <section class="masthead">
     <div class="wrap masthead-grid">
@@ -53,14 +55,69 @@
         <h2 id="archive-title">All editions</h2>
         <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">Subscribe by RSS</a>
       </div>
-      <div class="archive-list">
+      <form class="archive-filter" data-updates-filter hidden>
+        <div class="archive-filter-search">
+          <label for="edition-search">{{ updates.copy.search_label }}</label>
+          <input id="edition-search" name="q" type="search" placeholder="{{ updates.copy.search_placeholder }}" autocomplete="off">
+        </div>
+        <details class="target-filter">
+          <summary>{{ updates.copy.targets_label }}</summary>
+          <fieldset>
+            <legend>Filter editions by target</legend>
+            <p class="target-filter-help">{{ updates.copy.targets_help }}</p>
+            <div class="target-options">
+              {% for target in updates.targets %}
+              <label><input type="checkbox" name="target" value="{{ target.id }}"><span>{{ target.label }}</span></label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        </details>
+        <div class="archive-filter-actions">
+          <button class="filter-apply" type="submit">{{ updates.copy.apply_label }}</button>
+          <button class="filter-clear" type="button" data-clear-filters>{{ updates.copy.clear_label }}</button>
+        </div>
+        <div class="filter-feedback" aria-live="polite" aria-atomic="true">
+          <p><strong data-result-count>{{ section.pages | length }} of {{ section.pages | length }} editions</strong><span data-filter-summary>All targets</span></p>
+          <p class="filter-notice" data-filter-notice hidden></p>
+        </div>
+      </form>
+      <noscript><p class="filter-noscript">{{ updates.copy.noscript }}</p></noscript>
+      <div class="archive-list" data-edition-list>
         {% for article in section.pages %}
-        <a class="archive-row" href="{{ article.permalink }}">
+        {% set article_targets = article.extra.targets | default(value=[]) %}
+        {% set_global search_text = article.title ~ " " ~ article.description ~ " " ~ article.extra.dek %}
+        {% for signal in article.extra.signals %}
+          {% set_global search_text = search_text ~ " " ~ signal.title ~ " " ~ signal.summary %}
+        {% endfor %}
+        {% for article_target in article_targets %}
+          {% set_global search_text = search_text ~ " " ~ article_target %}
+          {% for registered_target in updates.targets %}
+            {% if registered_target.id == article_target %}{% set_global search_text = search_text ~ " " ~ registered_target.label %}{% endif %}
+          {% endfor %}
+        {% endfor %}
+        <a class="archive-row" href="{{ article.permalink }}" data-targets="{{ article_targets | join(sep=' ') }}" data-search="{{ search_text }}">
           <time datetime="{{ article.date | date(format='%Y-%m-%d') }}">{{ article.date | date(format='%d %b %Y') }}</time>
-          <h3>{{ article.title }}</h3>
+          <span class="archive-row-copy">
+            <h3>{{ article.title }}</h3>
+            <span class="archive-description">{{ article.description }}</span>
+            {% if article_targets | length > 0 %}
+            <span class="archive-targets" aria-label="Covered targets">
+              {% for article_target in article_targets %}
+                {% for registered_target in updates.targets %}
+                  {% if registered_target.id == article_target %}<span class="tag">{{ registered_target.label }}</span>{% endif %}
+                {% endfor %}
+              {% endfor %}
+            </span>
+            {% endif %}
+          </span>
           <span class="count">{{ article.extra.archive_stats }}</span>
         </a>
         {% endfor %}
+      </div>
+      <div class="archive-empty" data-empty-state hidden>
+        <h3>{{ updates.copy.no_results_title }}</h3>
+        <p>{{ updates.copy.no_results_body }}</p>
+        <button class="filter-clear" type="button" data-clear-filters>{{ updates.copy.clear_label }}</button>
       </div>
     </div>
   </section>

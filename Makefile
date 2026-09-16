@@ -130,6 +130,7 @@ site-build:
 	./scripts/build-site-sitemap.sh $(SITE_OUTPUT_DIR)/sitemap.xml
 
 site-test:
+	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestZolaPin_)'
 
 site-serve:
