@@ -41,3 +41,9 @@
   </div>
 </main>
 {% endblock content %}
+
+{% block scripts %}
+{% if page.extra.scripts %}
+  {% for script in page.extra.scripts %}<script src="{{ get_url(path=script, trailing_slash=false) }}" defer></script>{% endfor %}
+{% endif %}
+{% endblock scripts %}

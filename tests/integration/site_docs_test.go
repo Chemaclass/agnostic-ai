@@ -9,6 +9,9 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const siteDocsContentDir = "../../docs/site/content/docs"
@@ -89,6 +92,84 @@ func TestSiteDocs_LandingCapabilityMatrixMatchesAdapters(t *testing.T) {
 		}
 		if target.Support[len(target.Support)-1] != permissionTargets[target.ID] {
 			t.Errorf("%s portable permissions support = %t, want %t", target.ID, target.Support[len(target.Support)-1], permissionTargets[target.ID])
+		}
+	}
+}
+
+func TestSiteDocs_TargetCapabilityMatrixMatchesAdapters(t *testing.T) {
+	var matrix struct {
+		Features []struct {
+			ID string `toml:"id"`
+		} `toml:"features"`
+		Targets []struct {
+			ID       string   `toml:"id"`
+			Statuses []string `toml:"statuses"`
+		} `toml:"targets"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &matrix); err != nil {
+		t.Fatalf("decode target capability data: %v", err)
+	}
+	wantFeatures := []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"}
+	if len(matrix.Features) != len(wantFeatures) {
+		t.Fatalf("target capability matrix has %d features, want %d", len(matrix.Features), len(wantFeatures))
+	}
+	for index, feature := range matrix.Features {
+		if feature.ID != wantFeatures[index] {
+			t.Fatalf("target capability feature %d = %q, want %q", index, feature.ID, wantFeatures[index])
+		}
+	}
+
+	kinds := map[string]spec.Kind{
+		"agent": spec.KindAgent, "skill": spec.KindSkill, "rule": spec.KindRule,
+		"hook": spec.KindHook, "mcp": spec.KindMCP, "command": spec.KindCommand,
+		"settings": spec.KindSettings, "review": spec.KindReview,
+		"environment": spec.KindEnvironment, "ignore": spec.KindIgnore,
+	}
+	declared := map[string]map[spec.Kind]bool{}
+	for _, target := range adapters.CapabilityMatrix() {
+		declared[target.Name] = map[spec.Kind]bool{}
+		for _, kind := range target.Supports {
+			declared[target.Name][kind] = true
+		}
+	}
+	if len(matrix.Targets) != len(declared) {
+		t.Fatalf("target capability matrix has %d targets, adapters declare %d", len(matrix.Targets), len(declared))
+	}
+
+	validStatuses := map[string]bool{"native": true, "mapped": true, "opt-in": true, "source": true, "no": true}
+	seen := map[string]bool{}
+	for _, target := range matrix.Targets {
+		if seen[target.ID] {
+			t.Errorf("target capability matrix repeats %s", target.ID)
+		}
+		seen[target.ID] = true
+		supported, ok := declared[target.ID]
+		if !ok {
+			t.Errorf("target capability matrix contains unknown target %s", target.ID)
+			continue
+		}
+		if len(target.Statuses) != len(matrix.Features) {
+			t.Errorf("%s has %d status cells, want %d", target.ID, len(target.Statuses), len(matrix.Features))
+			continue
+		}
+		for index, status := range target.Statuses {
+			if !validStatuses[status] {
+				t.Errorf("%s has unknown status %q", target.ID, status)
+				continue
+			}
+			kind, ok := kinds[matrix.Features[index].ID]
+			if !ok {
+				t.Errorf("target capability matrix has unknown feature %q", matrix.Features[index].ID)
+				continue
+			}
+			if got, want := status != "no", supported[kind]; got != want {
+				t.Errorf("%s %s status = %q, adapter support = %t", target.ID, kind, status, want)
+			}
+		}
+	}
+	for target := range declared {
+		if !seen[target] {
+			t.Errorf("target capability matrix is missing %s", target)
 		}
 	}
 }
@@ -230,6 +311,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 
 	index := readBuiltFile(t, filepath.Join(outputDir, "docs", "index.html"))
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
+	targets := readBuiltFile(t, filepath.Join(outputDir, "docs", "targets", "index.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
 	if domain := strings.TrimSpace(readBuiltFile(t, filepath.Join(outputDir, "CNAME"))); domain != "agnostic-ai.org" {
 		t.Errorf("built CNAME = %q, want agnostic-ai.org", domain)
@@ -262,6 +344,19 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	if strings.Contains(guide, "docs/user") || strings.Contains(guide, "@/docs/") {
 		t.Error("getting-started guide exposes a source-only documentation path")
+	}
+	for _, required := range []string{
+		`data-capability-browser`,
+		`data-capability-target="claude"`,
+		`href="#codex-codex"`,
+		`Native`,
+		`Opt-in`,
+		`Source only`,
+		`assets/scripts/capability-matrix.js`,
+	} {
+		if !strings.Contains(targets, required) {
+			t.Errorf("targets guide is missing capability UI %q", required)
+		}
 	}
 	for _, required := range []string{
 		"Set up agnostic-ai with a coding agent",

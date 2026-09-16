@@ -404,6 +404,351 @@
   font-size: 0.72rem;
 }
 
+.capability-browser {
+  margin-block: 1.5rem 2.5rem;
+}
+
+.capability-filters[hidden],
+.capability-active-targets[hidden],
+.capability-notice[hidden],
+.capability-matrix-region[hidden],
+.capability-empty[hidden],
+.capability-matrix tr[hidden] {
+  display: none;
+}
+
+.capability-filters {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(12rem, 0.8fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+  padding-block: 1rem;
+  border-block: 1px solid var(--line);
+}
+
+.capability-search {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+}
+
+.capability-search input,
+.capability-target-picker summary {
+  min-height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.capability-search input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  caret-color: var(--accent);
+}
+
+.capability-search input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.capability-target-picker {
+  position: relative;
+  margin: 0;
+}
+
+.capability-target-picker summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 2.1rem 0.6rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+.capability-target-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.capability-target-picker summary::after {
+  content: "";
+  position: absolute;
+  right: 0.8rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: translateY(-0.15rem) rotate(45deg);
+}
+
+.capability-target-picker[open] summary::after {
+  transform: translateY(0.15rem) rotate(225deg);
+}
+
+.capability-target-picker summary span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.capability-target-options {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  left: 0;
+  max-height: 22rem;
+  padding: 0.5rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  scrollbar-width: thin;
+}
+
+.capability-target-options label {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.capability-target-options label:hover {
+  background: var(--surface-quiet);
+  color: var(--ink);
+}
+
+.capability-target-options input {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.capability-target-options code {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.capability-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.capability-filter-actions .button,
+.capability-empty .button {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.capability-active-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
+.capability-target-chip {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-quiet);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.capability-target-chip::after {
+  content: "remove";
+  margin-left: 0.45rem;
+  color: var(--muted);
+  font-size: 0.58rem;
+}
+
+.capability-target-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.docs-content .capability-result,
+.docs-content .capability-notice {
+  max-width: none;
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.docs-content .capability-notice {
+  color: var(--danger);
+}
+
+.capability-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.65rem 1rem;
+  margin-block: 1.25rem;
+}
+
+.capability-legend > span {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.capability-state {
+  min-height: 1.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.48rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-quiet);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.capability-state-opt-in {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.capability-state-mapped {
+  border-style: dashed;
+}
+
+.capability-state-source,
+.capability-state-no {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.capability-state-no {
+  border-color: transparent;
+}
+
+.capability-matrix-region {
+  max-height: min(70vh, 44rem);
+  overflow: auto;
+  border-block: 1px solid var(--line);
+  background: var(--paper);
+  scrollbar-color: var(--muted) var(--surface-quiet);
+  scrollbar-width: thin;
+}
+
+.docs-content .capability-matrix {
+  width: max-content;
+  min-width: 100%;
+  display: table;
+  margin: 0;
+  overflow: visible;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
+}
+
+.docs-content .capability-matrix caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.docs-content .capability-matrix th,
+.docs-content .capability-matrix td {
+  min-width: 5.8rem;
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.docs-content .capability-matrix thead th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.docs-content .capability-matrix th:first-child {
+  width: 11rem;
+  min-width: 11rem;
+  position: sticky;
+  z-index: 1;
+  left: 0;
+  background: var(--paper);
+  text-align: left;
+}
+
+.docs-content .capability-matrix thead th:first-child {
+  z-index: 3;
+  background: var(--surface);
+}
+
+.capability-matrix tbody tr:hover th,
+.capability-matrix tbody tr:hover td {
+  background: var(--surface-quiet);
+}
+
+.capability-matrix th[scope="row"] a {
+  display: grid;
+  gap: 0.1rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.capability-matrix th[scope="row"] a:hover {
+  color: var(--accent);
+}
+
+.capability-matrix th[scope="row"] code {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 400;
+}
+
+.capability-empty {
+  padding: 2rem 1rem;
+  border-block: 1px solid var(--line);
+  text-align: center;
+}
+
+.docs-content .capability-empty p {
+  max-width: none;
+  color: var(--ink-soft);
+}
+
 .docs-content blockquote {
   margin: 1.5rem 0;
   padding: 1rem 1.15rem;
@@ -522,6 +867,103 @@
   }
 }
 
+@media (max-width: 700px) {
+  .capability-filters {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .capability-target-options {
+    position: static;
+    max-height: 18rem;
+    margin-top: 0.4rem;
+  }
+
+  .capability-filter-actions > * {
+    flex: 1;
+  }
+
+  .capability-legend {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capability-matrix-region {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .docs-content .capability-matrix,
+  .docs-content .capability-matrix tbody,
+  .docs-content .capability-matrix tr {
+    width: 100%;
+    display: block;
+  }
+
+  .docs-content .capability-matrix thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .docs-content .capability-matrix tr {
+    padding-block: 0.65rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .docs-content .capability-matrix tr:last-child {
+    border-bottom: 0;
+  }
+
+  .docs-content .capability-matrix th:first-child {
+    width: auto;
+    min-width: 0;
+    position: static;
+    padding: 0.5rem 0.75rem 0.7rem;
+    border: 0;
+    background: transparent;
+  }
+
+  .capability-matrix th[scope="row"] a {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .docs-content .capability-matrix td {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.38rem 0.75rem;
+    border: 0;
+    text-align: right;
+  }
+
+  .docs-content .capability-matrix td::before {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .docs-content .capability-matrix td:nth-child(2)::before { content: "Agents"; }
+  .docs-content .capability-matrix td:nth-child(3)::before { content: "Skills"; }
+  .docs-content .capability-matrix td:nth-child(4)::before { content: "Rules"; }
+  .docs-content .capability-matrix td:nth-child(5)::before { content: "Hooks"; }
+  .docs-content .capability-matrix td:nth-child(6)::before { content: "MCP"; }
+  .docs-content .capability-matrix td:nth-child(7)::before { content: "Commands"; }
+  .docs-content .capability-matrix td:nth-child(8)::before { content: "Settings"; }
+  .docs-content .capability-matrix td:nth-child(9)::before { content: "Reviews"; }
+  .docs-content .capability-matrix td:nth-child(10)::before { content: "Environments"; }
+  .docs-content .capability-matrix td:nth-child(11)::before { content: "Ignore"; }
+}
+
 @media (max-width: 620px) {
   .docs-index-row {
     gap: 0.75rem;
@@ -550,5 +992,22 @@
     display: block;
     width: 100%;
     padding: 0;
+  }
+
+  .capability-filters,
+  .capability-active-targets,
+  .capability-result,
+  .capability-notice,
+  .capability-empty {
+    display: none !important;
+  }
+
+  .capability-matrix-region {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .capability-matrix tr[hidden] {
+    display: table-row !important;
   }
 }

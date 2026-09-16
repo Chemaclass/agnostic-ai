@@ -1,0 +1,214 @@
+[[features]]
+id = "agent"
+label = "Agents"
+
+[[features]]
+id = "skill"
+label = "Skills"
+
+[[features]]
+id = "rule"
+label = "Rules"
+
+[[features]]
+id = "hook"
+label = "Hooks"
+
+[[features]]
+id = "mcp"
+label = "MCP"
+
+[[features]]
+id = "command"
+label = "Commands"
+
+[[features]]
+id = "settings"
+label = "Settings"
+
+[[features]]
+id = "review"
+label = "Reviews"
+
+[[features]]
+id = "environment"
+label = "Environments"
+
+[[features]]
+id = "ignore"
+label = "Ignore"
+
+[[states]]
+id = "native"
+label = "Native"
+description = "Emitted to a matching target surface by default."
+
+[[states]]
+id = "mapped"
+label = "Mapped"
+description = "Emitted through another native surface that preserves the content."
+
+[[states]]
+id = "opt-in"
+label = "Opt-in"
+description = "Emitted only after enabling a target output option."
+
+[[states]]
+id = "source"
+label = "Source only"
+description = "Kept as a portable spec but not emitted by default."
+
+[[states]]
+id = "no"
+label = "No"
+description = "The target does not support this spec kind."
+
+[[targets]]
+id = "claude"
+name = "Claude Code"
+href = "#claude-code-claude"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
+id = "codex"
+name = "Codex"
+href = "#codex-codex"
+statuses = ["native", "native", "native", "native", "native", "opt-in", "native", "no", "no", "no"]
+
+[[targets]]
+id = "gemini"
+name = "Gemini CLI"
+href = "#gemini-cli-gemini"
+statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
+
+[[targets]]
+id = "cursor"
+name = "Cursor"
+href = "#cursor-cursor"
+statuses = ["native", "native", "native", "native", "native", "native", "no", "native", "native", "native"]
+
+[[targets]]
+id = "copilot"
+name = "GitHub Copilot"
+href = "#github-copilot-copilot"
+statuses = ["native", "native", "native", "native", "native", "no", "native", "no", "no", "no"]
+
+[[targets]]
+id = "aider"
+name = "Aider"
+href = "#aider-aider"
+statuses = ["source", "source", "native", "no", "no", "no", "no", "no", "no", "native"]
+
+[[targets]]
+id = "cline"
+name = "Cline"
+href = "#cline-cline"
+statuses = ["native", "native", "native", "no", "no", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "windsurf"
+name = "Windsurf / Devin"
+href = "#windsurf-devin-desktop-windsurf"
+statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
+
+[[targets]]
+id = "continue"
+name = "Continue"
+href = "#continue-continue"
+statuses = ["mapped", "mapped", "native", "no", "native", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "amp"
+name = "Amp"
+href = "#amp-amp"
+statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "native", "no"]
+
+[[targets]]
+id = "zed"
+name = "Zed"
+href = "#zed-zed"
+statuses = ["opt-in", "native", "native", "opt-in", "native", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "warp"
+name = "Warp"
+href = "#warp-warp"
+statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "opencode"
+name = "OpenCode"
+href = "#opencode-opencode"
+statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
+id = "antigravity"
+name = "Google Antigravity"
+href = "#google-antigravity-antigravity"
+statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "junie"
+name = "Junie"
+href = "#junie-junie"
+statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "native"]
+
+[[targets]]
+id = "kiro"
+name = "Kiro"
+href = "#kiro-kiro"
+statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
+
+[[targets]]
+id = "crush"
+name = "Crush"
+href = "#crush-crush"
+statuses = ["no", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
+
+[[targets]]
+id = "trae"
+name = "Trae"
+href = "#trae-trae"
+statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
+
+[[targets]]
+id = "qoder"
+name = "Qoder"
+href = "#qoder-qoder"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
+id = "openhands"
+name = "OpenHands"
+href = "#openhands-openhands"
+statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "native", "no"]
+
+[[targets]]
+id = "factory"
+name = "Factory"
+href = "#factory-factory"
+statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "no"]
+
+[[targets]]
+id = "kilo"
+name = "Kilo Code"
+href = "#kilo-kilo"
+statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "native"]
+
+[[targets]]
+id = "jules"
+name = "Jules"
+href = "#jules-jules"
+statuses = ["no", "no", "native", "no", "no", "no", "no", "no", "no", "no"]
+
+[[targets]]
+id = "goose"
+name = "Goose"
+href = "#goose-goose"
+statuses = ["native", "native", "native", "native", "no", "no", "no", "native", "no", "no"]
+
+[[targets]]
+id = "augment"
+name = "Augment"
+href = "#augment-augment"
+statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]

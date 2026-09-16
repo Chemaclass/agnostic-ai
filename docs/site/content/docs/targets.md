@@ -5,6 +5,7 @@ weight = 120
 
 [extra]
 group = "Reference"
+scripts = ["assets/scripts/capability-matrix.js"]
 +++
 
 # Targets
@@ -66,35 +67,9 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 
 ## Capability matrix
 
-| Target          | Agents              | Skills | Rules                    | Hooks | MCPs | Commands | Settings | Reviews | Environments | Ignore |
-|-----------------|---------------------|--------|--------------------------|-------|------|----------|----------|---------|--------------|--------|
-| **claude**      | `.claude/agents/`   | `.claude/skills/` | `.claude/rules/*.md`   | `.claude/settings.json` | `.mcp.json` | `.claude/commands/<name>.md` | `.claude/settings.json` (`permissions`, `model`) | - | - | - |
-| **codex**       | `.codex/agents/*.toml` | `<scope>/.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.codex.rules-file`) | `.codex/hooks.json` (per-event arrays) | `.codex/config.toml` (`[mcp_servers.<name>]`) | `.codex/prompts/<name>.md` w/ opt-in (deprecated by Codex) | `.codex/config.toml` (`model`) | - | - | - |
-| **gemini**      | `.gemini/agents/<name>.md` (+ command TOML w/ opt-in) | `.gemini/skills/<name>/SKILL.md` (+ command TOML w/ opt-in) | inlined into `GEMINI.md` (legacy concat via `outputs.gemini.rules-file`) | `.gemini/settings.json` (`hooks`) | `.gemini/settings.json` (`mcpServers`) | `.gemini/commands/<name>.toml` | - | - | - | `.geminiignore` |
-| **cursor**      | `.cursor/agents/<name>.md` | `<scope>/.cursor/skills/<name>/SKILL.md` | `.cursor/rules/*.mdc` | `.cursor/hooks.json` | `.cursor/mcp.json` | `.cursor/commands/<name>.md` | - | `.cursor/BUGBOT.md` (per scope) | `.cursor/environment.json` | `.cursorignore` |
-| **copilot**     | `.github/agents/<name>.agent.md` | `.github/skills/<name>/SKILL.md` | `.github/instructions/<name>.instructions.md` (scoped `applyTo:<glob>`; always-on rules use `applyTo:"**"`, or set `outputs.copilot.rules-file` for the legacy concatenated layout) | `.github/hooks/agnostic-ai.json` (`version: 1` wrapper, `timeoutSec`) | `.vscode/mcp.json` + `.github/mcp.json` | - | `.github/copilot/settings.json` (`model`) | - | - | - |
-| **aider**       | source-dir only (legacy merge via `outputs.aider.rules-file`) | source-dir only | inlined into `CONVENTIONS.md` (legacy merge via `outputs.aider.rules-file`) | - | - | - | - | - | - | `.aiderignore` |
-| **cline**       | `.cline/agents/<name>.md` (+ `.cline/workflows/<name>.md` w/ opt-in) | `.cline/skills/<name>/SKILL.md` | `.cline/rules/*.md` (opt-in legacy path via `outputs.cline.rules-dir: .clinerules`) | -     | - | - | - | - | - | - |
-| **windsurf**    | `.devin/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.devin/rules/*.md` (scoped: `<scope>/.devin/rules/*.md`) | `.devin/hooks.v1.json` | `.devin/mcp_config.json` | - | - | - | - | `.devinignore` |
-| **continue**    | as `.md` rule (+ `.continue/assistants/<name>.yaml` w/ opt-in) | as `.md` (`skill-<name>.md`) | `.continue/rules/*.md`   | -     | `.continue/mcpServers/*.yaml` | - | - | - | - | - |
-| **amp**         | merged doc w/ opt-in (`outputs.amp.rules-file`) | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.amp.rules-file`) | - | `.amp/settings.json` (`amp.mcpServers`) | - | - | - | `.agents/setup` + `.amp/services.yaml` | - |
-| **zed**         | merged doc w/ opt-in (`outputs.zed.rules-file`) | `.agents/skills/<name>/SKILL.md` | inlined into `.rules` (legacy merge via `outputs.zed.rules-file`) | `.zed/tasks.json` w/ opt-in | `.zed/settings.json` (`context_servers`) | - | - | - | - | - |
-| **warp**        | `.warp/workflows/<name>.yaml` w/ opt-in | `<scope>/.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (legacy concat via `outputs.warp.rules-file`) | - | `.warp/.mcp.json` | - | - | - | - | - |
-| **opencode**    | `.opencode/agents/<name>.md` | `<scope>/.opencode/skills/<name>/SKILL.md` (+ command form w/ opt-in) | inlined into `AGENTS.md` (legacy concat via `outputs.opencode.rules-file`) | - | `opencode.json` (`mcp`) | `.opencode/commands/<name>.md` | `opencode.json` (`model`) | - | - | - |
-| **antigravity** | `.agents/agents/<name>/agent.md` | `.agents/skills/<name>/SKILL.md` | `.agents/rules/*.md` (legacy merge via `outputs.antigravity.rules-file`) | `.agents/hooks.json` | `.agents/mcp_config.json` | - | - | - | - | - |
-| **junie**       | `.junie/agents/<name>.md` | `.junie/skills/<name>/SKILL.md` | inlined into `.junie/AGENTS.md` | - | `.junie/mcp/mcp.json` | `.junie/commands/<name>.md` | `.junie/config.json` (`model`) | - | - | `.aiignore` |
-| **kiro**        | `.kiro/agents/<name>.md` (native agent profile) | `.kiro/skills/<name>/SKILL.md` | `.kiro/steering/<name>.md` (`inclusion: always` or `fileMatch`) | `.kiro/hooks/<name>.json` | `.kiro/settings/mcp.json` | - | - | - | - | `.kiroignore` |
-| **crush**       | - | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | `crush.json` (`hooks`, `PreToolUse` only) | `crush.json` (`mcp`) | - | - | - | - | `.crushignore` |
-| **trae** | `.trae/agents/<name>.md` | `.trae/skills/<name>/SKILL.md` | `.trae/rules/*.md` | `.trae/hooks.json` (`version: 1` wrapper) | `.trae/mcp.json` | `.trae/commands/<name>.md` | - | - | - | `.trae/.ignore` |
-| **qoder**       | `.qoder/agents/<name>.md` | `.qoder/skills/<name>/SKILL.md` | `.qoder/rules/<name>.md` | `.qoder/settings.json` (`hooks`) | `.qoder/settings.json` (`mcpServers`) | `.qoder/commands/<name>.md` | `.qoder/settings.json` (`model`, `permissions`) | - | - | - |
-| **openhands**   | `.agents/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md`; a rule with `globs`/`paths` or a source-layout scope instead emits as a path-triggered rule at `.agents/skills/<name>/SKILL.md` (`paths:` frontmatter) | `.openhands/hooks.json` | `config.toml` (`[mcp]`) | - | - | - | `.openhands/setup.sh` | - |
-| **factory**     | `.factory/droids/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` | `.factory/hooks.json` | `.factory/mcp.json` | `.factory/commands/<name>.md` | - | - | - | - |
-| **kilo**        | `.kilo/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.kilo/rules/<name>.md` (+ `kilo.jsonc` `instructions` array; also inlined into `AGENTS.md`) | - | `kilo.jsonc` (`mcp`) | `.kilo/commands/<name>.md` | `kilo.jsonc` (`model`) | - | - | `.kilocodeignore` |
-| **jules**       | - | - | inlined into `AGENTS.md` | - | - | - | - | - | - | - |
-| **goose**       | `.agents/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | inlined into `AGENTS.md` (opt-in `.goosehints`) | `.agents/plugins/agnostic-ai/hooks/hooks.json` | - | - | - | `.agents/REVIEW.md` (per scope) | - | - |
-| **augment**     | `.augment/agents/<name>.md` | `.agents/skills/<name>/SKILL.md` | `.augment/rules/<name>.md` (+ inlined into `AGENTS.md`; opt-in `.augment-guidelines`) | `.augment/settings.json` (`hooks`) | `.augment/settings.json` (`mcpServers`) | `.augment/commands/<name>.md` | - | - | - | `.augmentignore` |
+{{ capability_matrix() }}
 
-Cells marked "w/ opt-in" or "source-dir only" do not emit by default. When specs of that kind are present, `sync` prints a `note:` line naming the key to set (or stating the content stays source-dir only). See [Coverage notes](@/docs/configuration.md#coverage-notes).
+The matrix answers whether a portable spec reaches each target. Open a target name for exact paths, configuration keys, and caveats. `Native` means matching target output is emitted by default. `Mapped` uses another native surface, `Opt-in` requires an output option, and `Source only` keeps the portable spec without default target output. When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 
