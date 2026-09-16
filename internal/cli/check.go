@@ -61,12 +61,10 @@ func collectDrift(targets []string) ([]driftReport, error) {
 			fmt.Fprintf(os.Stderr, "! %v\n", err)
 			continue
 		}
-		sess.StartCapture()
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
-			sess.StopCapture()
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		files := sess.StopCapture()
 
 		rep := driftReport{Target: t}
 		for _, f := range files {
@@ -90,6 +88,19 @@ func collectDrift(targets []string) ([]driftReport, error) {
 	}
 	reports = append(reports, epRep)
 	return reports, nil
+}
+
+// captureAdapterFiles renders one target into memory without touching disk.
+// Drift checks and verification fingerprints share this path so they always
+// identify the same native output bytes.
+func captureAdapterFiles(sess *adapters.Session, adapter adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
+	sess.StartCapture()
+	err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false)
+	files := sess.StopCapture()
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // collectEntryPointDrift checks whether AGNOSTIC_AI.md and every enabled

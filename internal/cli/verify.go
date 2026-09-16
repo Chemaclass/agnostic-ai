@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -86,11 +87,11 @@ func newVerifyCmd() *cobra.Command {
 			}
 
 			for _, target := range effective {
-				context, err := buildVerifyContext(cfg, b, target)
+				verification, err := buildVerifyContext(cfg, b, target)
 				if err != nil {
 					return err
 				}
-				if err := runVerifier(cmd, cfg.Verify.Command, context); err != nil {
+				if err := runVerifier(cmd, cfg.Verify.Command, verification); err != nil {
 					return err
 				}
 			}
@@ -164,12 +165,10 @@ func harnessFingerprint(cfg *config.Config, b spec.Bundle, target string) (strin
 		return "", fmt.Errorf("verify %s: %w", target, err)
 	}
 	sess := adapters.NewSession()
-	sess.StartCapture()
-	if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
-		sess.StopCapture()
+	files, err := captureAdapterFiles(sess, adapter, b, cfg)
+	if err != nil {
 		return "", fmt.Errorf("verify %s: %w", target, err)
 	}
-	files := append([]adapters.CapturedFile(nil), sess.StopCapture()...)
 
 	agnosticBody, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	if err != nil {
@@ -202,11 +201,7 @@ func harnessFingerprint(cfg *config.Config, b spec.Bundle, target string) (strin
 	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-type fingerprintWriter interface {
-	Write([]byte) (int, error)
-}
-
-func writeFingerprintPart(dst fingerprintWriter, name, content string) {
+func writeFingerprintPart(dst io.Writer, name, content string) {
 	_, _ = fmt.Fprintf(dst, "%d:%s%d:%s", len(name), name, len(content), content)
 }
 
