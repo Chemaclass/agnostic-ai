@@ -27,77 +27,67 @@ title = "One source of truth,"
 muted_title = "25 tools, each native."
 body = "Compare ten of the broadest integrations across the configuration surfaces teams use most. **Yes** means an adapter path exists. Open a tool for defaults, opt-ins, and caveats."
 features = ["Rules", "Agents", "Skills", "MCP", "Hooks", "Commands", "Permissions"]
-caption = "Coverage counts all 10 portable spec kinds. Permissions means portable allow, deny, and ask settings."
+caption = "Permissions means portable allow, deny, and ask settings."
 link_label = "See paths and all 25 targets"
 
 [[targets.matrix]]
 id = "cursor"
 name = "Cursor"
 href = "#cursor-cursor"
-coverage = 9
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "claude"
 name = "Claude Code"
 href = "#claude-code-claude"
-coverage = 7
 support = [true, true, true, true, true, true, true]
 
 [[targets.matrix]]
 id = "codex"
 name = "Codex CLI"
 href = "#codex-codex"
-coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "gemini"
 name = "Gemini CLI"
 href = "#gemini-cli-gemini"
-coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "qoder"
 name = "Qoder"
 href = "#qoder-qoder"
-coverage = 7
 support = [true, true, true, true, true, true, true]
 
 [[targets.matrix]]
 id = "trae"
 name = "Trae"
 href = "#trae-trae"
-coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "junie"
 name = "Junie"
 href = "#junie-junie"
-coverage = 7
 support = [true, true, true, true, false, true, false]
 
 [[targets.matrix]]
 id = "kilo"
 name = "Kilo Code"
 href = "#kilo-kilo"
-coverage = 7
 support = [true, true, true, true, false, true, false]
 
 [[targets.matrix]]
 id = "augment"
 name = "Augment Code"
 href = "#augment-augment"
-coverage = 7
 support = [true, true, true, true, true, true, false]
 
 [[targets.matrix]]
 id = "copilot"
 name = "GitHub Copilot"
 href = "#github-copilot-copilot"
-coverage = 6
 support = [true, true, true, true, true, false, false]
 
 [workflow]
