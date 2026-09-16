@@ -71,7 +71,7 @@ var hookLifecycle = []string{
 // `env`, `rewakeMessage`, and `rewakeSummary` on that same entry, plus
 // three more hook entry types (`http`, `prompt`, `agent`). None of
 // those six has a field on the shared hook spec (the `type` field's own
-// doc entry in docs/user/spec-format.md ties it to Codex's `mcp_tool`
+// doc entry in docs/site/content/docs/spec-format.md ties it to Codex's `mcp_tool`
 // only), so nothing here can reach them; they stay unset rather than
 // guessed.
 //

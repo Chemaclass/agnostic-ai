@@ -1,6 +1,14 @@
++++
+title = "CLI reference"
+description = "Look up every agnostic-ai command, option, and exit behavior."
+weight = 140
+
+[extra]
+group = "Reference"
++++
+
 # CLI reference
 
-[User docs](README.md)
 
 ```
 agnostic-ai [command] [flags]
@@ -18,7 +26,7 @@ agnostic-ai [command] [flags]
 | Share specs | [packs](#packs) |
 | Set up your environment | [completion](#completion), [upgrade or update](#upgrade), [install-hook](#install-hook), [lsp](#lsp) |
 
-For a walkthrough, use [Getting started](getting-started.md) or [Migration](migration.md). For automation, check [exit codes](#exit-codes) and the [CI guide](ci.md).
+For a walkthrough, use [Getting started](@/docs/getting-started.md) or [Migration](@/docs/migration.md). For automation, check [exit codes](#exit-codes) and the [CI guide](@/docs/ci.md).
 
 ## Global flags
 
@@ -176,7 +184,7 @@ Lossy on round-trip (Kiro's emit cannot carry these, so the reconstructed spec d
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-Crush imports root rules from its inlined block. It has no verified native directory scope; scoped source rules are skipped on sync. Import cannot recover scope from previously flattened instructions. See [scoped context](scoped-context.md).
+Crush imports root rules from its inlined block. It has no verified native directory scope; scoped source rules are skipped on sync. Import cannot recover scope from previously flattened instructions. See [scoped context](@/docs/scoped-context.md).
 
 ## validate
 
@@ -234,7 +242,7 @@ Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-
 agnostic-ai new rule payments-context --scope services/payments
 ```
 
-`--scope` applies to `new rule` only. It accepts a project-relative directory and creates a flat source without global catch-all selectors. See [scoped context](scoped-context.md).
+`--scope` applies to `new rule` only. It accepts a project-relative directory and creates a flat source without global catch-all selectors. See [scoped context](@/docs/scoped-context.md).
 
 ## explain
 
@@ -289,7 +297,7 @@ agnostic-ai sync [flags]
 
 | Flag | Description |
 |------|-------------|
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills directly from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's native user config. Covers 22 targets; see [global output](targets.md#global-output). Works outside a project and never loads project config or packs. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills directly from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's native user config. Covers 22 targets; see [global output](@/docs/targets.md#global-output). Works outside a project and never loads project config or packs. |
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--only <list>` | Emit only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
 | `--except <list>` | Emit all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |
@@ -305,7 +313,7 @@ agnostic-ai sync [flags]
 | `--jobs <n>` | Number of targets to emit in parallel. `0` (default) uses one worker per CPU; `1` forces serial emission. Output (files, summary, JSON, gitignore, warnings) is byte-identical regardless of the value, so lower it only to debug or pin ordering. |
 | `--json` | Output as JSON instead of plain text. Stable schema; breaking changes bump `version`. |
 
-Paths listed under [`sync.unmanaged`](configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
+Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 
 **Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. On the next full run it removes files it no longer emits, such as a deleted skill's folder with its bundled `references/`, and prunes the empty directories left behind. A generated file is proven by its provenance header. A file copied verbatim (a skill asset, or any output of a target with `provenance_header: false`) is proven by the content hash recorded when sync wrote it. A leftover edited since sync is kept and reported as `~ kept orphan <path>`; it counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`. `--dry-run` does not preview the sweep.
 
@@ -351,7 +359,7 @@ agnostic-ai sync --check --json        # machine-readable drift report
 
 `--only` and `--except` validate names against the configured targets and error on unknown names (no silent skip).
 
-### Reading a failing `--check`
+### Reading a failing `--check` {#reading-a-failing---check}
 
 A drifting `--check` exits non-zero and, on stderr, prints the one command that reconciles it: `agnostic-ai sync`. The error line itself points at `agnostic-ai doctor` for a full diagnosis. Two flags make the failure self-explanatory without a local re-run:
 
@@ -418,7 +426,7 @@ agnostic-ai revert --json              # machine-readable output
 
 Without a prior `--backup`, `revert` is a no-op unless `--force` is passed. This protects helper files from accidental deletion.
 
-Paths under [`sync.unmanaged`](configuration.md#syncunmanaged) are never restored or removed.
+Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never restored or removed.
 
 ## doctor
 
@@ -445,7 +453,7 @@ After the drift report, doctor prints an **MCP block**: each MCP spec's stdio `c
 
 doctor also prints an **Unmanaged config block**: agentic config files on disk that carry no provenance marker (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`, ...), grouped by the `import` source that adopts each. Only header-bearing formats (markdown, TOML) are scanned; JSON config is merge-managed and covered by the drift block. Advisory: does not change the exit code.
 
-doctor also prints a **User-owned block**: the [`sync.unmanaged`](configuration.md#syncunmanaged) entries. Those paths never count as drift and are absent from the Unmanaged config block.
+doctor also prints a **User-owned block**: the [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries. Those paths never count as drift and are absent from the Unmanaged config block.
 
 Subcommands run a single check in isolation: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
 
@@ -539,7 +547,7 @@ Detection:
 - `*\Microsoft\WinGet\*` → `winget upgrade Chemaclass.agnostic-ai`
 - `*/node_modules/*` → `npm install -g agnostic-ai@latest`
 - Standalone binary on macOS or Linux → download the matching release archive, verify its checksum and version, then replace the running binary atomically.
-- Standalone binary on Windows → use the [PowerShell install script](installation.md#windows) to update it; Windows cannot replace a running executable.
+- Standalone binary on Windows → use the [PowerShell install script](@/docs/installation.md#windows) to update it; Windows cannot replace a running executable.
 
 The three Windows-and-Node markers match case-insensitively, since those path segments carry whatever casing the user's profile uses.
 
@@ -555,7 +563,7 @@ agnostic-ai sync --help       # same
 
 ## graph
 
-Render the spec → target → file dependency graph. Read-only: no writes. Full guide in [graph](graph.md).
+Render the spec → target → file dependency graph. Read-only: no writes. Full guide in [graph](@/docs/graph.md).
 
 ```bash
 agnostic-ai graph                     # aligned text matrix
@@ -572,7 +580,7 @@ agnostic-ai graph --target claude     # narrow by target, --spec, or --kind
 
 ## why
 
-Reverse provenance for an emitted file. Reports the adapter, source spec(s), the `outputs.<target>.*` keys used, and the last sync timestamp. Full guide in [why](why.md).
+Reverse provenance for an emitted file. Reports the adapter, source spec(s), the `outputs.<target>.*` keys used, and the last sync timestamp. Full guide in [why](@/docs/why.md).
 
 ```bash
 agnostic-ai why .claude/rules/no-console-log.md
@@ -600,7 +608,7 @@ agnostic-ai lint --strict   # treat warnings as errors (CI)
 
 ## packs
 
-Manage shareable spec packs. Packs load as a layer below the project, so the project overrides any pack entry by name. Full guide in [packs](packs.md).
+Manage shareable spec packs. Packs load as a layer below the project, so the project overrides any pack entry by name. Full guide in [packs](@/docs/packs.md).
 
 ```bash
 agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
@@ -612,7 +620,7 @@ agnostic-ai packs remove go-rules
 
 ## install-hook
 
-Install a pre-commit hook that runs `sync --check`. See [git hooks](git-hooks.md).
+Install a pre-commit hook that runs `sync --check`. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
@@ -647,12 +655,12 @@ agnostic-ai lsp
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`. Ordinary project sync does not load it. See [global configuration](configuration.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`. Ordinary project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
 
 ## Config precedence
 
 Last wins:
 
-1. Built-in defaults (see [configuration](configuration.md))
+1. Built-in defaults (see [configuration](@/docs/configuration.md))
 2. `agnostic-ai.yaml`
 3. CLI flags (e.g. `-t`)

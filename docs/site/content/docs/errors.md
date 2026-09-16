@@ -1,6 +1,14 @@
++++
+title = "Error codes"
+description = "Understand every AAI diagnostic and the action that resolves it."
+weight = 150
+
+[extra]
+group = "Reference"
++++
+
 # Error codes
 
-[User docs](README.md)
 
 Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets:
 
@@ -70,7 +78,7 @@ Two or more enabled targets would write to the same path (commonly the root `AGE
 
 A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, and `sync` cannot establish that its exclusions survive. Missing or reordered patterns, new negations, and changed whitespace trigger the conservative check. The file stays untouched.
 
-**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](spec-format.md#overwrite-behaviour).
+**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format.md#overwrite-behaviour).
 
 ### AAI-202: Import source name unknown
 

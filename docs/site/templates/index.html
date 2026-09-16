@@ -169,7 +169,7 @@
       <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy Go install command">Copy</button></div>
       <div class="button-row">
         <a class="button button-primary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.closing.primary_label }}</a>
-        <a class="button button-secondary" href="{{ config.extra.docs_url }}">{{ landing.closing.secondary_label }}</a>
+        <a class="button button-secondary" href="{{ get_url(path='@/docs/_index.md') }}">{{ landing.closing.secondary_label }}</a>
       </div>
     </div>
   </section>

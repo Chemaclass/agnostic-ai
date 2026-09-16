@@ -291,7 +291,7 @@ type explainCodeOutput struct {
 func runExplainCode(cmd *cobra.Command, code errs.Code, jsonOut bool) error {
 	entry, ok := errs.Lookup(code)
 	if !ok {
-		return fmt.Errorf("unknown error code: %s (see docs/user/errors.md for the canonical list)", code)
+		return fmt.Errorf("unknown error code: %s (see docs/site/content/docs/errors.md for the canonical list)", code)
 	}
 	if jsonOut {
 		enc := json.NewEncoder(cmd.OutOrStdout())

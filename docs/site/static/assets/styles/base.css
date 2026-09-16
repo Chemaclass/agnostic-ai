@@ -110,6 +110,49 @@ a:hover {
   text-decoration-color: currentColor;
 }
 
+.button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 160ms ease-out;
+}
+
+.button:hover svg {
+  transform: translateX(0.2rem);
+}
+
+.button-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.button-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+  color: var(--accent-ink);
+}
+
+.button-secondary {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.button-secondary:hover {
+  border-color: var(--accent);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;

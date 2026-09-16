@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }} | agnostic-ai{% endblock title %}
+{% block description %}{{ section.description }}{% endblock description %}
+{% block og_title %}{{ section.title }} | agnostic-ai{% endblock og_title %}
+{% block og_description %}{{ section.description }}{% endblock og_description %}
+{% block twitter_title %}{{ section.title }} | agnostic-ai{% endblock twitter_title %}
+{% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_label %}Skip to documentation{% endblock skip_label %}
+
+{% block content %}
+<main id="content">
+  <section class="docs-hero">
+    <div class="wrap docs-hero-grid">
+      <h1>Documentation without detours.</h1>
+      <div>
+        {{ section.content | safe }}
+        <div class="docs-hero-actions">
+          <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Start with one rule</a>
+          <a href="{{ get_url(path='@/docs/migration.md') }}">Bring an existing setup</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="docs-directory" aria-labelledby="docs-directory-title">
+    <div class="wrap">
+      <div class="docs-directory-head">
+        <h2 id="docs-directory-title">Find the guide for the job.</h2>
+        <p>Read one path end to end, or jump straight to a reference.</p>
+      </div>
+      {% set groups = ["Start", "Workflows", "Reference"] %}
+      {% for group in groups %}
+      <div class="docs-index-group">
+        <h3>{{ group }}</h3>
+        <div class="docs-index-list">
+          {% for doc in section.pages %}
+            {% if doc.extra.group == group %}
+            <a class="docs-index-row" href="{{ doc.permalink | safe }}">
+              <span><strong>{{ doc.title }}</strong><span>{{ doc.description }}</span></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock content %}

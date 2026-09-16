@@ -78,20 +78,28 @@ jobs:
         run: |
           set -euo pipefail
 
+          strip_frontmatter() {
+            awk '
+              NR == 1 && $0 == "+++" { in_frontmatter = 1; next }
+              in_frontmatter && $0 == "+++" { in_frontmatter = 0; next }
+              !in_frontmatter { print }
+            ' "$1" | sed -E 's|\]\(@/docs/([^)#]+)\.md(#[^)]+)?\)|](https://chemaclass.github.io/agnostic-ai/docs/\1/\2)|g'
+          }
+
           # One fetch that gives an agent every user doc, in reading order.
           {
             echo "# agnostic-ai: full documentation"
             echo
-            echo "Generated from docs/user/ at ${GITHUB_SHA}. Source of truth:"
+            echo "Generated from docs/site/content/docs/ at ${GITHUB_SHA}. Source of truth:"
             echo "https://github.com/Chemaclass/agnostic-ai"
-            for doc in README installation getting-started migration troubleshooting \
+            for doc in _index installation getting-started migration troubleshooting \
                        why spec-format targets target-updates configuration \
                        cli-reference ci packs git-hooks graph errors \
                        alternatives-why-not-symlinks; do
               echo
               echo "---"
               echo
-              cat "docs/user/${doc}.md"
+              strip_frontmatter "docs/site/content/docs/${doc}.md"
             done
           } > _site/llms-full.txt
 

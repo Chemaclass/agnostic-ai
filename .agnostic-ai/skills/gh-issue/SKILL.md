@@ -79,8 +79,8 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 9. **Update CHANGELOG.md** — add an entry under `## [Unreleased]`, grouped as `Added`, `Changed`, `Fixed`, or `Removed` per `.claude/rules/docs-sync.md`. Skip only for pure refactors or test-only changes.
 
 10. **Update user docs when behavior is visible**:
-    - New or changed flag, target, or output field → `docs/user/targets.md` and `docs/user/configuration.md`.
-    - New or changed spec field → `docs/user/spec-format.md`.
+    - New or changed flag, target, or output field → `docs/site/content/docs/targets.md` and `docs/site/content/docs/configuration.md`.
+    - New or changed spec field → `docs/site/content/docs/spec-format.md`.
     - New command or capability → `README.md`.
 
 11. **Commit changes** using Conventional Commits (`.claude/rules/conventional-commits.md`):

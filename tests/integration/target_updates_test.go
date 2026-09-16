@@ -367,6 +367,8 @@ func TestTargetUpdates_SitemapUsesCanonicalContentRoutes(t *testing.T) {
 	for _, route := range []string{
 		"https://chemaclass.github.io/agnostic-ai/",
 		"https://chemaclass.github.io/agnostic-ai/playground/",
+		"https://chemaclass.github.io/agnostic-ai/docs/",
+		"https://chemaclass.github.io/agnostic-ai/docs/getting-started/",
 		"https://chemaclass.github.io/agnostic-ai/updates/",
 		"https://chemaclass.github.io/agnostic-ai/updates/2026-09-15/",
 	} {

@@ -34,7 +34,7 @@
 // plain top-level field: `color` is the same generic top-level key
 // augment (augment.go:224) and qoder also promote, written through
 // without per-target validation; the three targets document different
-// value spaces (`color` support by target, docs/user/spec-format.md), and
+// value spaces (`color` support by target, docs/site/content/docs/spec-format.md), and
 // `mode` shares OpenCode's `primary`/`subagent`/`all` vocabulary under
 // the identical name. Kilo Code's full agent Configuration Options table
 // also documents `disable`, `hidden`, `steps`, `temperature`, and `top_p`

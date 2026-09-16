@@ -229,7 +229,7 @@ must touch:
 - [ ] `internal/adapters/<target>/`: emission and `caps.Supports`
 - [ ] the `import` side, if the moved path is one we read back
 - [ ] adapter package doc comment
-- [ ] `docs/user/targets.md`: capability matrix row and per-target section
+- [ ] `docs/site/content/docs/targets.md`: capability matrix row and per-target section
 - [ ] `.agnostic-ai/skills/target-audit/references/sources.md`, if a URL
       moved
 - [ ] tests: `capability_parity_test.go`, `kitsink_golden_test.go`, the
@@ -286,7 +286,7 @@ Bucket by severity, not by target:
 | all `missing-feature` and `degraded` | one batched PR | additive only, and adapter packages never import each other, so they cannot conflict |
 | all `cosmetic` plus audit-source URL fixes | one docs PR | no code, no risk |
 
-Every adapter fix touches `docs/user/targets.md` and `CHANGELOG.md`. One
+Every adapter fix touches `docs/site/content/docs/targets.md` and `CHANGELOG.md`. One
 PR per target would put every open PR in conflict on those two files for
 no review benefit. Bucketing keeps the conflicts to the count of buckets.
 
@@ -309,7 +309,7 @@ to the issue with what the evidence missed, and label it `invalid`.
 ## Phase 7: Land the PRs
 
 Only the first PR merges cleanly. Every adapter fix touches
-`docs/user/targets.md` and `CHANGELOG.md`, so each later PR needs a
+`docs/site/content/docs/targets.md` and `CHANGELOG.md`, so each later PR needs a
 rebase. Budget for it.
 
 **On a conflict in a shared doc, merge both sides. Never pick one.** In

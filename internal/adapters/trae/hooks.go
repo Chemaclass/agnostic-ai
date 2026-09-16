@@ -123,7 +123,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 
 // buildHooks returns the rendered document, or nil when no spec
 // produces a hook entry. `event:` passes through verbatim, matching
-// every other hook emitter in this repo and docs/user/spec-format.md's
+// every other hook emitter in this repo and docs/site/content/docs/spec-format.md's
 // own stated policy.
 //
 // Only the three fields Trae's hook-definition table documents are

@@ -1,0 +1,30 @@
+{% macro navigation(section, current_path) %}
+<nav class="docs-nav" aria-label="Documentation">
+  <a class="docs-nav-home{% if current_path == '/docs/' %} is-current{% endif %}" href="{{ section.permalink | safe }}">Documentation</a>
+  {% set groups = ["Start", "Workflows", "Reference"] %}
+  {% for group in groups %}
+  <div class="docs-nav-group">
+    <p>{{ group }}</p>
+    {% for doc in section.pages %}
+      {% if doc.extra.group == group %}<a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</nav>
+{% endmacro navigation %}
+
+{% macro toc(headings) %}
+<nav class="docs-toc-links" aria-label="On this page">
+  {% for heading in headings %}
+    {% if heading.level == 1 %}
+      {% for child in heading.children %}
+      <a href="{{ child.permalink | safe }}">{{ child.title | safe }}</a>
+        {% for grandchild in child.children %}<a class="is-nested" href="{{ grandchild.permalink | safe }}">{{ grandchild.title | safe }}</a>{% endfor %}
+      {% endfor %}
+    {% else %}
+      <a href="{{ heading.permalink | safe }}">{{ heading.title | safe }}</a>
+      {% for child in heading.children %}<a class="is-nested" href="{{ child.permalink | safe }}">{{ child.title | safe }}</a>{% endfor %}
+    {% endif %}
+  {% endfor %}
+</nav>
+{% endmacro toc %}

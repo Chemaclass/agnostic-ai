@@ -128,6 +128,8 @@ The palette is warm, low-saturation, and built around one rare rust signal.
 
 The archive uses a 72rem page container with 1rem minimum side gutters. The first viewport separates a large editorial thesis from a short explanation, then places the latest article beside its critical changes on screens at least 760px wide. Search and target controls sit below the All editions heading, never in the editorial hero. The article uses a 46rem reading column. Below 700px, the five primary links wrap into a compact second header row, grids and filter controls become one column, and audit stats stack.
 
+Documentation uses the same publication shell. Its landing page groups guides from page metadata, so adding a page does not require a second directory list. Guide pages use a sticky task navigation beside the 46rem reading column, add a page outline on wide screens, and collapse navigation into a native disclosure on narrow screens.
+
 Vertical rhythm expands between editorial sections and tightens inside evidence rows. Content order does not change across breakpoints.
 
 ## Elevation & Depth
@@ -149,6 +151,13 @@ Most containers remain square and merge into the page grid. Pills are reserved f
 - **Style:** compact system-sans links beside a monospace wordmark; the current page uses Rust Signal and 700 weight.
 - **Mobile:** keep Home, Updates, Playground, Docs, and GitHub visible in a compact wrapped row.
 - **Focus:** a 2px Rust Signal outline with 4px offset.
+
+### Documentation navigation
+
+- **Landing:** flat ruled rows group Start, Workflows, and Reference pages from Zola metadata.
+- **Guide pages:** the current guide is visible in a sticky left navigation, with an On this page outline on wide screens.
+- **Mobile:** a native disclosure keeps every guide reachable before the article without requiring JavaScript.
+- **Source:** each guide links to its canonical Markdown file for quick edits and review.
 
 ### Signal tags
 

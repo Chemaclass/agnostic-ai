@@ -1,6 +1,14 @@
++++
+title = "Spec packs"
+description = "Install, update, and layer reusable bundles of agnostic-ai specs."
+weight = 70
+
+[extra]
+group = "Workflows"
++++
+
 # Spec packs
 
-[User docs](README.md)
 
 A pack is a versioned directory of agnostic specs (agents, skills, rules, hooks, MCPs) published as a Git repo or shared on disk. Packs let teams and the community ship reusable conventions without copying spec files between projects.
 
@@ -47,7 +55,7 @@ A pack mirrors the standard agnostic source layout at its root:
 └── mcps/
 ```
 
-Empty directories may be omitted. Nothing requires a pack to populate every directory. Frontmatter rules mirror the [spec format](spec-format.md).
+Empty directories may be omitted. Nothing requires a pack to populate every directory. Frontmatter rules mirror the [spec format](@/docs/spec-format.md).
 
 ## Lockfile
 

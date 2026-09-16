@@ -1,10 +1,18 @@
++++
+title = "Spec format"
+description = "Define agents, skills, rules, hooks, MCP servers, commands, settings, and other portable specs."
+weight = 110
+
+[extra]
+group = "Reference"
++++
+
 # Spec format
 
-[User docs](README.md)
 
-Source paths below are relative to `.agnostic-ai/` by default. For example, `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](configuration.md#sources).
+Source paths below are relative to `.agnostic-ai/` by default. For example, `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](@/docs/configuration.md#sources).
 
-Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable workflow, or an [MCP server](#mcp-servers) for a tool connection. See [Getting started](getting-started.md) for a complete first-rule example.
+Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable workflow, or an [MCP server](#mcp-servers) for a tool connection. See [Getting started](@/docs/getting-started.md) for a complete first-rule example.
 
 | Kind    | Source                                    | Format                      |
 |---------|-------------------------------------------|-----------------------------|
@@ -42,7 +50,7 @@ agnostic-ai new rule payments-context --scope services/payments
 
 Scoped bodies are excluded from root instruction appendices. Supported targets receive native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`.
 
-See [directory-specific instructions](scoped-context.md) for the complete target matrix, selector rules, runtime limits, and shared-reader compatibility.
+See [directory-specific instructions](@/docs/scoped-context.md) for the complete target matrix, selector rules, runtime limits, and shared-reader compatibility.
 
 ## Agents
 
@@ -135,7 +143,7 @@ Emission by target:
 - **Flattened to a rule file** (`skill-<name>.md`) on the few targets with no skill surface. Bundled assets cannot follow, so those raise a coverage note.
 - **Also as a slash command**, opt-in per target via `outputs.<target>.emit-skills-as-commands: true`.
 
-Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](targets.md) — that list is kept current per change and this one is deliberately not a second copy of it.
+Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](@/docs/targets.md) — that list is kept current per change and this one is deliberately not a second copy of it.
 
 ## Rules
 
@@ -154,9 +162,9 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and descendants. Source-layout scope takes precedence. Native routing and supported targets are listed in [scoped context](scoped-context.md). |
+| `scope` | no | project-wide | Project-relative directory and descendants. Source-layout scope takes precedence. Native routing and supported targets are listed in [scoped context](@/docs/scoped-context.md). |
 | `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns. With `scope`, the selector must preserve the directory boundary. `new rule --scope` omits this field. |
-| `paths` | no | unset | Project-relative file patterns, as a string or list. Scoped rules accept this alongside or instead of `globs`; see [selector limits](scoped-context.md#narrow-a-rule-to-certain-files). |
+| `paths` | no | unset | Project-relative file patterns, as a string or list. Scoped rules accept this alongside or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, applies only within the directory boundary; sync chooses the required native flags. `new rule --scope` omits this field. |
 
 ## Hooks
@@ -244,7 +252,7 @@ Shared outro.
 - An unterminated fence runs to end-of-body, so a missing `::end` keeps the tail of the file.
 - The empty target (the source view used by `import` round-trips) returns the body with fences intact, so a re-emit stays byte-stable.
 - `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced, and each tool's unique middle gets its own `::target` block.
-- The same fences work in `.agnostic-ai/AGNOSTIC_AI.md`. A fenced block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is read by the whole AGENTS.md family (codex, amp, warp, cline, ...), so `::target codex` lands there and every reader of that file sees it. A shared file is never split. See [Entry-point files](configuration.md#entry-point-files).
+- The same fences work in `.agnostic-ai/AGNOSTIC_AI.md`. A fenced block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is read by the whole AGENTS.md family (codex, amp, warp, cline, ...), so `::target codex` lands there and every reader of that file sees it. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
 
 ### Import auto-scoping
 
@@ -413,7 +421,7 @@ env:
 
 Factory HTTP/SSE servers accept `oauth: false` or an object containing `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`. Kilo remote servers accept `oauth: false`; OAuth objects are not emitted there. Factory and Kilo preserve explicit zero timeouts. Use `x-factory`, `x-kilo`, or `x-continue` to override the corresponding top-level options for that target.
 
-`command` and `url` are the two fields a server cannot work without, and `agnostic-ai lint` reports a missing one as an error (LINT008). Neither `validate` nor `sync` catches it: some targets drop the entry, the rest write a server object with no way to start or reach anything, and both do it silently. See [lint](cli-reference.md#lint).
+`command` and `url` are the two fields a server cannot work without, and `agnostic-ai lint` reports a missing one as an error (LINT008). Neither `validate` nor `sync` catches it: some targets drop the entry, the rest write a server object with no way to start or reach anything, and both do it silently. See [lint](@/docs/cli-reference.md#lint).
 
 Targets with native MCP propagation:
 

@@ -15,7 +15,7 @@ Authors a new agnostic-ai spec file from a description.
    - skill: `skills/<name>/SKILL.md`
    - rule: `rules/<name>.md`
    - hook: `hooks/<name>.yaml`
-3. Build the YAML frontmatter (or full YAML for hooks) per `docs/user/spec-format.md`.
+3. Build the YAML frontmatter (or full YAML for hooks) per `docs/site/content/docs/spec-format.md`.
 4. Write the body in plain English. Lead with the action.
 5. Run `agnostic-ai validate` to confirm parse.
 6. Run `agnostic-ai sync --dry-run` to preview emitted outputs.

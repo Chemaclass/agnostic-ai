@@ -43,7 +43,7 @@
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with('/updates') %} aria-current="page"{% endif %}>Updates</a>
         <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
-        <a href="{{ config.extra.docs_url }}">Docs</a>
+        <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with('/docs') %} aria-current="page"{% endif %}>Docs</a>
         <a href="{{ config.extra.repository_url }}">GitHub</a>
       </nav>
       <button class="theme-toggle" type="button" aria-label="Use dark theme" title="Change color theme">
@@ -66,7 +66,7 @@
         <a href="{{ get_url(path='@/_index.md') }}">Home</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}">Updates</a>
         <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
-        <a href="{{ config.extra.docs_url }}">Docs</a>
+        <a href="{{ get_url(path='@/docs/_index.md') }}">Docs</a>
         <a href="{{ config.extra.repository_url }}">GitHub</a>
         <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">RSS</a>
       </nav>

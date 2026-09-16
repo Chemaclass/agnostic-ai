@@ -98,7 +98,7 @@
 // `trigger` (the spec's `event`, passed through verbatim like every
 // other adapter's hook event), an optional `matcher`, an `action`
 // object, an optional `timeout`, and the spec's generic `description`
-// field (docs/user/spec-format.md: "Free-form documentation"; the
+// field (docs/site/content/docs/spec-format.md: "Free-form documentation"; the
 // vendor field reference lists the matching `hooks[].description` as
 // "Documentation only"). A spec's `command:` (string or list)
 // renders `action: {"type": "command", "command": ...}`; a list

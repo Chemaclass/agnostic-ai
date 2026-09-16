@@ -131,7 +131,7 @@ site-build:
 
 site-test:
 	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js
-	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestZolaPin_)'
+	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve:
 	@have=$$(zola --version 2>/dev/null); \

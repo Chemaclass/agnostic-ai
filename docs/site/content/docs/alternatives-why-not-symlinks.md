@@ -1,6 +1,14 @@
++++
+title = "Why not symlinks or manual copies?"
+description = "See where native formats diverge and when agnostic-ai is worth using."
+weight = 170
+
+[extra]
+group = "Reference"
++++
+
 # Why agnostic-ai instead of symlinks or manual copies
 
-[User docs](README.md)
 
 You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. Switch tools and you rewrite everything.
 
@@ -67,7 +75,7 @@ The canonical pointer body is shared. The path is not. `AGENTS.md` is byte-ident
 
 ### Rules delivery is path-divergent
 
-Tools consume different instruction layouts: native per-rule files, root instruction blocks, or nested directory documents. Sync renders the format each target needs and preserves [directory scope](scoped-context.md) where supported. A symlink shares bytes; it cannot translate activation fields, combine rule bodies, or prevent one tool from loading another tool's scoped file globally.
+Tools consume different instruction layouts: native per-rule files, root instruction blocks, or nested directory documents. Sync renders the format each target needs and preserves [directory scope](@/docs/scoped-context.md) where supported. A symlink shares bytes; it cannot translate activation fields, combine rule bodies, or prevent one tool from loading another tool's scoped file globally.
 
 ### Hooks are target-specific
 
@@ -77,7 +85,7 @@ These divergences live at the emit-function level (`DocumentStyled` vs `Frontmat
 
 ### Where symlinks do work, sync manages them for you
 
-When several targets DO render identical bytes (a plain skill folder on codex, amp, zed, and crush), the duplication is real, and `sync.shared-skills: true` collapses it: one canonical copy plus per-skill relative symlinks, planned from the rendered output each sync. See [`sync.shared-skills`](configuration.md#syncshared-skills). The difference from hand-rolled links: sync only links folders whose rendered bytes match, unlinks them the moment a target's render diverges, sweeps them with the skill, and degrades to real copies on filesystems without symlink support. A hand-made `.claude/skills -> ../.cursor/skills` link has none of those guards.
+When several targets DO render identical bytes (a plain skill folder on codex, amp, zed, and crush), the duplication is real, and `sync.shared-skills: true` collapses it: one canonical copy plus per-skill relative symlinks, planned from the rendered output each sync. See [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills). The difference from hand-rolled links: sync only links folders whose rendered bytes match, unlinks them the moment a target's render diverges, sweeps them with the skill, and degrades to real copies on filesystems without symlink support. A hand-made `.claude/skills -> ../.cursor/skills` link has none of those guards.
 
 ## Comparison
 
@@ -130,5 +138,5 @@ Add a second tool with a different format (Codex TOML agents, Cursor `.mdc` rule
 
 ## Next steps
 
-- New here: start with [Getting started](getting-started.md).
-- To trace an emitted file back to its source spec, adapter, and sync time: see [`agnostic-ai why <file>`](why.md).
+- New here: start with [Getting started](@/docs/getting-started.md).
+- To trace an emitted file back to its source spec, adapter, and sync time: see [`agnostic-ai why <file>`](@/docs/why.md).

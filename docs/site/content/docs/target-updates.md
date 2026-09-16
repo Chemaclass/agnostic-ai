@@ -1,6 +1,14 @@
++++
+title = "Release and AI tooling updates"
+description = "Understand release briefings, upstream evidence, and target capability classifications."
+weight = 100
+
+[extra]
+group = "Workflows"
++++
+
 # Release and AI tooling updates
 
-[All docs](../README.md) · [Read the updates](https://chemaclass.github.io/agnostic-ai/updates/) · [Targets](targets.md) · [Changelog](../../CHANGELOG.md)
 
 AI coding tools change their project configuration often. Each agnostic-ai release includes a briefing that explains what the project shipped and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
@@ -34,9 +42,9 @@ A proposed improvement is not shipped support. Design candidates stay out of aut
 
 The [release updates](https://chemaclass.github.io/agnostic-ai/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
 
-[`targets.md`](targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
+[`targets.md`](@/docs/targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
 
-[`CHANGELOG.md`](../../CHANGELOG.md) records what agnostic-ai released.
+[`CHANGELOG.md`](https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md) records what agnostic-ai released.
 
 Observation, support, release. Keep those three states separate.
 

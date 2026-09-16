@@ -58,7 +58,7 @@ vendor accepts.
    - `internal/adapters/<target>/`: emission plus `caps.Supports`
    - the `import` side, when the moved path is one we read back
    - the adapter package doc comment, which states what the tool reads
-   - `docs/user/targets.md`: capability matrix row and per-target section
+   - `docs/site/content/docs/targets.md`: capability matrix row and per-target section
    - `.agnostic-ai/skills/target-audit/references/sources.md`, when a URL
      moved
 5. `agnostic-ai sync`, then commit the regenerated per-target files. A PR

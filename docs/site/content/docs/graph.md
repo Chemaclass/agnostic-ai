@@ -1,6 +1,14 @@
++++
+title = "Graph"
+description = "Visualize which specs reach which targets and inspect the delivery graph."
+weight = 80
+
+[extra]
+group = "Workflows"
++++
+
 # graph
 
-[User docs](README.md)
 
 Render the spec to target to file dependency graph for the current project.
 
@@ -96,5 +104,5 @@ agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 
 ## See also
 
-- [`render`](cli-reference.md#render) prints the file content for one spec, per target.
-- [`explain`](cli-reference.md#explain) lists every output file and section a single spec contributes to.
+- [`render`](@/docs/cli-reference.md#render) prints the file content for one spec, per target.
+- [`explain`](@/docs/cli-reference.md#explain) lists every output file and section a single spec contributes to.
