@@ -26,6 +26,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 ### Fixed
 
 - Amp, Cline, and Windsurf import every documented project skill path with explicit collision precedence, bundled assets, and file modes. Windsurf also preserves native `triggers` invocation policy through import and sync (#821, #823).
+- Amp verification uses the current installer and npm package, and Copilot audits now track its canonical repository settings and model policy reference (#822).
 - Claude prompt hooks preserve `continueOnBlock`; Copilot preserves HTTP and `sessionStart` prompt handlers through emit and import (#804, #629).
 - Kiro preserves an explicit `x-kiro.name` display name while keeping the canonical spec name as the filename (#807).
 - Factory and Windsurf skip unsupported WebSocket MCP entries with a coverage note instead of writing invalid native configuration (#809, #816).
