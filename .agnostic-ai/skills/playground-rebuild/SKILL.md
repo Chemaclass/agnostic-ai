@@ -5,7 +5,7 @@ description: Rebuild and serve the WASM playground at docs/playground/. Use afte
 
 # playground-rebuild
 
-The hosted playground at https://chemaclass.github.io/agnostic-ai/ runs the same code as the CLI, compiled to WebAssembly via `cmd/agnostic-ai-wasm`.
+The hosted playground at https://agnostic-ai.org/playground/ runs the same code as the CLI, compiled to WebAssembly via `cmd/agnostic-ai-wasm`.
 
 ## Build
 

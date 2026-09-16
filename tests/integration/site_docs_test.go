@@ -230,11 +230,11 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, required := range []string{
 		"Documentation without detours.",
 		"Paste into your coding agent",
-		"/agnostic-ai/agent-setup.txt",
-		"/agnostic-ai/docs/agent-setup/",
-		"/agnostic-ai/docs/getting-started/",
-		"/agnostic-ai/docs/cli-reference/",
-		"/agnostic-ai/docs/troubleshooting/",
+		"/agent-setup.txt",
+		"/docs/agent-setup/",
+		"/docs/getting-started/",
+		"/docs/cli-reference/",
+		"/docs/troubleshooting/",
 	} {
 		if !strings.Contains(index, required) {
 			t.Errorf("documentation index is missing %q", required)
@@ -243,10 +243,10 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, required := range []string{
 		"Browse documentation",
 		`aria-current="page"`,
-		"https://chemaclass.github.io/agnostic-ai/docs/getting-started/",
+		"https://agnostic-ai.org/docs/getting-started/",
 		"On this page",
 		"Edit this page on GitHub",
-		"/agnostic-ai/docs/migration/",
+		"/docs/migration/",
 	} {
 		if !strings.Contains(guide, required) {
 			t.Errorf("getting-started guide is missing %q", required)
@@ -257,13 +257,25 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	for _, required := range []string{
 		"Set up agnostic-ai with a coding agent",
-		"/agnostic-ai/docs/agent-setup/",
+		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
-		"/agnostic-ai/agent-setup.txt",
+		"/agent-setup.txt",
 	} {
 		if !strings.Contains(home, required) {
 			t.Errorf("home page is missing %q", required)
 		}
+	}
+	for _, assetURL := range []string{
+		"https://agnostic-ai.org/assets/styles/base.css",
+		"https://agnostic-ai.org/assets/styles/landing.css",
+		"https://agnostic-ai.org/assets/scripts/theme.js",
+	} {
+		if !strings.Contains(home, assetURL) {
+			t.Errorf("home page is missing custom-domain asset %q", assetURL)
+		}
+	}
+	if strings.Contains(home, "chemaclass.github.io/agnostic-ai") {
+		t.Error("home page still references the legacy GitHub Pages project URL")
 	}
 }
 
@@ -282,7 +294,7 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 		"## Safety contract",
 		"agnostic-ai init --from all",
 		"agnostic-ai sync --check",
-		"https://chemaclass.github.io/agnostic-ai/docs/installation/",
+		"https://agnostic-ai.org/docs/installation/",
 	} {
 		if !strings.Contains(agentSetup, required) {
 			t.Errorf("agent-setup.txt is missing %q", required)

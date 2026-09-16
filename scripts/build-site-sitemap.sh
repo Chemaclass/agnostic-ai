@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 output_file=$1
-site_url=https://chemaclass.github.io/agnostic-ai
+site_url=https://agnostic-ai.org
 
 last_modified() {
   local committed_date

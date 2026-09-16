@@ -1,4 +1,4 @@
-base_url = "https://chemaclass.github.io/agnostic-ai"
+base_url = "https://agnostic-ai.org"
 title = "agnostic-ai"
 description = "One source of truth for AI coding agents, skills, rules, hooks, commands, and MCP servers."
 default_language = "en"
@@ -23,4 +23,4 @@ anchors = "on"
 
 [extra]
 repository_url = "https://github.com/Chemaclass/agnostic-ai"
-image_url = "https://chemaclass.github.io/agnostic-ai/og.png"
+image_url = "https://agnostic-ai.org/og.png"

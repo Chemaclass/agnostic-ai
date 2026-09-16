@@ -19,36 +19,36 @@ stop duplicating prompt files per tool.
 
 ## Start here
 
-- [Agent setup instructions](https://chemaclass.github.io/agnostic-ai/agent-setup.txt): one plain-text workflow an agent can follow to install, import, configure, sync, and verify agnostic-ai safely.
-- [Agent setup guide](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/): the human-readable version, including a ready-to-paste prompt.
-- [Landing page](https://chemaclass.github.io/agnostic-ai/): what it does and why, with a worked example.
-- [Playground](https://chemaclass.github.io/agnostic-ai/playground/): paste a spec, pick targets, see each CLI's output. Runs in-browser via WebAssembly.
-- [AI tooling updates](https://chemaclass.github.io/agnostic-ai/updates/): release briefings on consequential vendor changes, developer impact, and the agnostic-ai response.
-- [Updates RSS feed](https://chemaclass.github.io/agnostic-ai/updates/feed.xml): subscribe without watching an issue tracker.
-- [Full docs as one file](https://chemaclass.github.io/agnostic-ai/llms-full.txt): every user doc concatenated, for a single fetch.
+- [Agent setup instructions](https://agnostic-ai.org/agent-setup.txt): one plain-text workflow an agent can follow to install, import, configure, sync, and verify agnostic-ai safely.
+- [Agent setup guide](https://agnostic-ai.org/docs/agent-setup/): the human-readable version, including a ready-to-paste prompt.
+- [Landing page](https://agnostic-ai.org/): what it does and why, with a worked example.
+- [Playground](https://agnostic-ai.org/playground/): paste a spec, pick targets, see each CLI's output. Runs in-browser via WebAssembly.
+- [AI tooling updates](https://agnostic-ai.org/updates/): release briefings on consequential vendor changes, developer impact, and the agnostic-ai response.
+- [Updates RSS feed](https://agnostic-ai.org/updates/feed.xml): subscribe without watching an issue tracker.
+- [Full docs as one file](https://agnostic-ai.org/llms-full.txt): every user doc concatenated, for a single fetch.
 - [Repository](https://github.com/Chemaclass/agnostic-ai): source, issues, releases.
 
 ## Docs
 
-- [Documentation index](https://chemaclass.github.io/agnostic-ai/docs/): choose a guide by task.
-- [Installation](https://chemaclass.github.io/agnostic-ai/docs/installation/): install, upgrade, and shell setup.
-- [Coding-agent setup](https://chemaclass.github.io/agnostic-ai/docs/agent-setup/): delegate a safe setup or migration to a coding agent.
-- [Migration](https://chemaclass.github.io/agnostic-ai/docs/migration/): import existing tool configuration and review the first sync.
-- [Troubleshooting](https://chemaclass.github.io/agnostic-ai/docs/troubleshooting/): diagnose setup, sync, and CI problems.
+- [Documentation index](https://agnostic-ai.org/docs/): choose a guide by task.
+- [Installation](https://agnostic-ai.org/docs/installation/): install, upgrade, and shell setup.
+- [Coding-agent setup](https://agnostic-ai.org/docs/agent-setup/): delegate a safe setup or migration to a coding agent.
+- [Migration](https://agnostic-ai.org/docs/migration/): import existing tool configuration and review the first sync.
+- [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): diagnose setup, sync, and CI problems.
 
-- [Getting started](https://chemaclass.github.io/agnostic-ai/docs/getting-started/): install, init, first sync.
-- [Why](https://chemaclass.github.io/agnostic-ai/docs/why/): trace an output file to its source specs.
-- [Spec format](https://chemaclass.github.io/agnostic-ai/docs/spec-format/): the frontmatter and body of every spec kind.
-- [Targets](https://chemaclass.github.io/agnostic-ai/docs/targets/): all 25 tools, their capability matrix, and the exact paths written per tool.
-- [AI tooling updates guide](https://chemaclass.github.io/agnostic-ai/docs/target-updates/): evidence rules, classifications, and the publishing workflow.
-- [Configuration](https://chemaclass.github.io/agnostic-ai/docs/configuration/): `agnostic-ai.yaml` reference.
-- [CLI reference](https://chemaclass.github.io/agnostic-ai/docs/cli-reference/): every command and flag.
-- [CI](https://chemaclass.github.io/agnostic-ai/docs/ci/): the `sync --check` drift gate.
-- [Packs](https://chemaclass.github.io/agnostic-ai/docs/packs/): sharing and reusing spec bundles.
-- [Git hooks](https://chemaclass.github.io/agnostic-ai/docs/git-hooks/): keeping generated files in step with commits.
-- [Graph](https://chemaclass.github.io/agnostic-ai/docs/graph/): visualising what reaches which tool.
-- [Errors](https://chemaclass.github.io/agnostic-ai/docs/errors/): every diagnostic, and what fixes it.
-- [Why not symlinks](https://chemaclass.github.io/agnostic-ai/docs/alternatives-why-not-symlinks/): the alternatives considered.
+- [Getting started](https://agnostic-ai.org/docs/getting-started/): install, init, first sync.
+- [Why](https://agnostic-ai.org/docs/why/): trace an output file to its source specs.
+- [Spec format](https://agnostic-ai.org/docs/spec-format/): the frontmatter and body of every spec kind.
+- [Targets](https://agnostic-ai.org/docs/targets/): all 25 tools, their capability matrix, and the exact paths written per tool.
+- [AI tooling updates guide](https://agnostic-ai.org/docs/target-updates/): evidence rules, classifications, and the publishing workflow.
+- [Configuration](https://agnostic-ai.org/docs/configuration/): `agnostic-ai.yaml` reference.
+- [CLI reference](https://agnostic-ai.org/docs/cli-reference/): every command and flag.
+- [CI](https://agnostic-ai.org/docs/ci/): the `sync --check` drift gate.
+- [Packs](https://agnostic-ai.org/docs/packs/): sharing and reusing spec bundles.
+- [Git hooks](https://agnostic-ai.org/docs/git-hooks/): keeping generated files in step with commits.
+- [Graph](https://agnostic-ai.org/docs/graph/): visualising what reaches which tool.
+- [Errors](https://agnostic-ai.org/docs/errors/): every diagnostic, and what fixes it.
+- [Why not symlinks](https://agnostic-ai.org/docs/alternatives-why-not-symlinks/): the alternatives considered.
 
 ## Machine-readable
 

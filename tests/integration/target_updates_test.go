@@ -329,7 +329,7 @@ This temporary article exercises archive metadata.
 	if strings.Contains(article, "target-capability-audit:") || strings.Contains(article, "Audit summary") {
 		t.Error("the generated release article includes audit-only rendering")
 	}
-	if !strings.Contains(alias, "url=https://chemaclass.github.io/agnostic-ai/updates/2026-09-22-v0.59.0/") {
+	if !strings.Contains(alias, "url=https://agnostic-ai.org/updates/2026-09-22-v0.59.0/") {
 		t.Error("the .html compatibility alias does not redirect to the canonical article")
 	}
 	for name, body := range map[string]string{"home": home, "archive": archive, "article": article} {
@@ -365,13 +365,13 @@ func TestTargetUpdates_SitemapUsesCanonicalContentRoutes(t *testing.T) {
 
 	sitemap := readBuiltFile(t, outputPath)
 	for _, route := range []string{
-		"https://chemaclass.github.io/agnostic-ai/",
-		"https://chemaclass.github.io/agnostic-ai/playground/",
-		"https://chemaclass.github.io/agnostic-ai/docs/",
-		"https://chemaclass.github.io/agnostic-ai/docs/agent-setup/",
-		"https://chemaclass.github.io/agnostic-ai/docs/getting-started/",
-		"https://chemaclass.github.io/agnostic-ai/updates/",
-		"https://chemaclass.github.io/agnostic-ai/updates/2026-09-15/",
+		"https://agnostic-ai.org/",
+		"https://agnostic-ai.org/playground/",
+		"https://agnostic-ai.org/docs/",
+		"https://agnostic-ai.org/docs/agent-setup/",
+		"https://agnostic-ai.org/docs/getting-started/",
+		"https://agnostic-ai.org/updates/",
+		"https://agnostic-ai.org/updates/2026-09-15/",
 	} {
 		if !strings.Contains(sitemap, "<loc>"+route+"</loc>") {
 			t.Errorf("sitemap is missing %s", route)

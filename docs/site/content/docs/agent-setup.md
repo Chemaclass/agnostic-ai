@@ -5,7 +5,7 @@ weight = 15
 
 [extra]
 group = "Start"
-prompt = """Set up agnostic-ai in this repository. Follow https://chemaclass.github.io/agnostic-ai/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed."""
+prompt = """Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed."""
 +++
 
 # Set up agnostic-ai with a coding agent

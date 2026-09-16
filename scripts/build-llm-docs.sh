@@ -17,7 +17,7 @@ render_doc() {
     NR == 1 && $0 == "+++" { in_frontmatter = 1; next }
     in_frontmatter && $0 == "+++" { in_frontmatter = 0; next }
     !in_frontmatter { print }
-  ' "$1" | sed -E 's|\]\(@/docs/([^)#]+)\.md(#[^)]+)?\)|](https://chemaclass.github.io/agnostic-ai/docs/\1/\2)|g'
+  ' "$1" | sed -E 's|\]\(@/docs/([^)#]+)\.md(#[^)]+)?\)|](https://agnostic-ai.org/docs/\1/\2)|g'
 }
 
 render_doc "$docs_dir/agent-setup.md" > "$output_dir/agent-setup.txt"

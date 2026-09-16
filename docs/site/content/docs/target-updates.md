@@ -12,7 +12,7 @@ group = "Workflows"
 
 AI coding tools change their project configuration often. Each agnostic-ai release includes a briefing that explains what the project shipped and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
-Each edition starts as one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the RSS item. An [RSS feed](https://chemaclass.github.io/agnostic-ai/updates/feed.xml) announces new editions without turning an issue into a newsletter.
+Each edition starts as one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the RSS item. An [RSS feed](https://agnostic-ai.org/updates/feed.xml) announces new editions without turning an issue into a newsletter.
 
 The archive can filter whole editions by target and search their titles, descriptions, editorial summaries, and highlighted signals. Multiple targets use OR, while whitespace-separated search terms use AND. Applied filters stay in the URL so a filtered archive can be bookmarked or shared. Without JavaScript, every edition remains in date order and readable.
 
@@ -40,7 +40,7 @@ A proposed improvement is not shipped support. Design candidates stay out of aut
 
 ## Know which record to trust
 
-The [release updates](https://chemaclass.github.io/agnostic-ai/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
+The [release updates](https://agnostic-ai.org/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
 
 [`targets.md`](@/docs/targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
 

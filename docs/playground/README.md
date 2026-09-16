@@ -10,7 +10,7 @@ so the page costs zero server resources and works on any static host.
 
 ## Try it
 
-Open the [published playground](https://chemaclass.github.io/agnostic-ai/playground/). The [Pages workflow](../../.github/workflows/playground.yml) rebuilds it on pushes to `main` and manual dispatch.
+Open the [published playground](https://agnostic-ai.org/playground/). The [Pages workflow](../../.github/workflows/playground.yml) rebuilds it on pushes to `main` and manual dispatch.
 
 ## Run locally
 
