@@ -186,6 +186,11 @@ code {
   font-size: 0.88em;
 }
 
+/* Inline tokens such as long file paths have no space to break at, so they overflow the column without this. Code blocks scroll instead. */
+:not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
 .wrap {
   width: min(calc(100% - 2rem), var(--page));
   margin-inline: auto;
