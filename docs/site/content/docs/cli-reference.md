@@ -54,7 +54,7 @@ echo "claude,codex" | agnostic-ai init
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore` | On by default: generated outputs go into a managed `.gitignore` block, without a prompt when non-interactive. `--gitignore=false` commits them instead. |
 
-Without `--all`, targets come from a prompt on a TTY (↑/↓ to move, space to toggle, enter to confirm), a comma-separated list on piped stdin, or every target when stdin is closed. `targets:` gets the chosen targets in canonical order. Unknown names error and write nothing.
+Without `--all`, targets come from a prompt on a TTY (↑/↓ to move, space to toggle, enter to confirm), a comma-separated list on piped stdin, or every target when stdin is closed. `targets:` gets the chosen targets in canonical order. Unknown names error and write nothing. The prompt pre-ticks every tool it detects from a marker such as `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`; the first-sync picker does the same.
 
 ## import
 

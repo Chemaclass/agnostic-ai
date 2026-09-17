@@ -91,13 +91,7 @@ Per-run (CLI):
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-CLI flag overrides config. Unknown targets log a warning and skip.
-
-The default target set is 20: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, zed, opencode, antigravity, junie, kiro, crush, trae, qoder, openhands, factory, kilo. **Amp**, **Warp**, **Jules**, **Goose**, and **Augment** are opt-in, excluded from the default set so enabling them is a deliberate choice. Add them to `targets:` (or pass `-t amp,warp,jules,goose,augment`).
-
-Amp and Warp then emit their target-specific files (`.agents/`, `.amp/settings.json`, `.warp/`). Augment emits rules, agents, commands, ignore patterns, hooks, MCP servers, and shared skills under its documented project paths, plus the legacy `.augment-guidelines` document when `outputs.augment.rules-file` is set. Jules adds nothing beyond the shared pointer body. Goose emits project agents, shared skills, Open Plugins hooks, and review guidance, plus its native rules file when `outputs.goose.rules-file` is set.
-
-Interactive `init` pre-ticks any target whose marker is present in the working directory (e.g. `.claude/`, `.codex/`, `.gemini/`, `.cursor/`, `.github/copilot-instructions.md`). The first-time sync prompt does the same. Toggle entries before confirming.
+CLI flag overrides config. Unknown targets log a warning and skip. Five targets are opt-in (`-t amp,warp,jules,goose,augment` enables them for one run); the [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference.md#init) pre-ticks the tools it detects.
 
 ## New targets
 
