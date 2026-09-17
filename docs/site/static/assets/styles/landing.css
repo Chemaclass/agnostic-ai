@@ -343,7 +343,6 @@ main > section[id] {
   font-weight: 700;
 }
 
-.workflow-steps,
 .mission-question {
   max-width: 46rem;
   margin-top: 2rem;
@@ -363,6 +362,7 @@ main > section[id] {
   font-weight: 700;
 }
 
+.workflow-steps,
 .feature-list {
   display: grid;
   gap: 1rem;
