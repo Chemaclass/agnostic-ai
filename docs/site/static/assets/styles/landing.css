@@ -182,6 +182,52 @@ main > section[id] {
   gap: 0.45rem;
 }
 
+/* The hero diagram plays once on load: the arrow draws, then each native file lands, in the order sync writes them. */
+@keyframes sync-arrow {
+  from {
+    stroke-dashoffset: 52;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes sync-file {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.transform-arrow path {
+  stroke-dasharray: 52;
+  animation: sync-arrow 520ms ease-out both;
+}
+
+.output-file {
+  animation: sync-file 360ms ease-out both;
+}
+
+.output-file:nth-child(1) {
+  animation-delay: 420ms;
+}
+
+.output-file:nth-child(2) {
+  animation-delay: 560ms;
+}
+
+.output-file:nth-child(3) {
+  animation-delay: 700ms;
+}
+
+.output-file:nth-child(4) {
+  animation-delay: 840ms;
+}
+
 .output-file {
   display: flex;
   align-items: center;
@@ -730,6 +776,11 @@ main > section[id] {
 @media (prefers-reduced-motion: reduce) {
   .demo-play {
     transition: none;
+  }
+
+  .transform-arrow path,
+  .output-file {
+    animation: none;
   }
 
   .button svg,
