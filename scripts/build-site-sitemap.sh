@@ -71,5 +71,14 @@ write_url() {
     write_url "/docs/${guide_slug}/" monthly 0.8 "$guide"
   done
 
+  write_url /docs/targets/ monthly 0.8 \
+    docs/site/content/docs/targets/_index.md docs/site/data/capabilities.toml \
+    docs/site/templates/docs/targets.html
+  for target in docs/site/content/docs/targets/[!_]*.md; do
+    [[ -e "$target" ]] || continue
+    target_name=${target##*/}
+    write_url "/docs/targets/${target_name%.md}/" monthly 0.7 "$target"
+  done
+
   printf '%s\n' '</urlset>'
 } > "$output_file"

@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/xml"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -381,6 +382,22 @@ func TestTargetUpdates_SitemapUsesCanonicalContentRoutes(t *testing.T) {
 		if !strings.Contains(sitemap, "<loc>"+route+"</loc>") {
 			t.Errorf("sitemap is missing %s", route)
 		}
+	}
+	// Every docs page must be listed, including pages in subsections such as docs/targets/.
+	err := filepath.WalkDir("../../docs/site/content/docs", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".md" {
+			return walkErr
+		}
+		rel, _ := filepath.Rel("../../docs/site/content", path)
+		route := "/" + strings.TrimSuffix(filepath.ToSlash(rel), ".md") + "/"
+		route = strings.TrimSuffix(route, "_index/")
+		if !strings.Contains(sitemap, "<loc>https://agnostic-ai.org"+route+"</loc>") {
+			t.Errorf("sitemap is missing docs page %s", route)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	if strings.Contains(sitemap, "2026-09-15.html</loc>") {
 		t.Error("sitemap advertises the compatibility alias instead of the canonical article")
