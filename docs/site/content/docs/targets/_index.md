@@ -26,33 +26,17 @@ Rules with `scope` use native file conditions or nested instruction documents on
 
 `sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a root entry-point file per enabled target. All entry-point files share the same canonical pointer body. Editing one in place is a no-op (overwritten on next sync), and switching tools never surfaces inconsistent conventions.
 
-| Target          | Entry-point file                  |
-|-----------------|-----------------------------------|
-| **claude**      | `CLAUDE.md`                       |
-| **codex**       | `AGENTS.md`                       |
-| **amp**         | `AGENTS.md`                       |
-| **warp**        | `AGENTS.md`                       |
-| **cline**       | `AGENTS.md`                       |
-| **windsurf**    | `AGENTS.md`                       |
-| **junie**       | `AGENTS.md`                       |
-| **kiro**        | `AGENTS.md`                       |
-| **crush**       | `AGENTS.md`                       |
-| **trae**        | `AGENTS.md`                       |
-| **jules**       | `AGENTS.md`                       |
-| **goose**       | `AGENTS.md`                       |
-| **augment**     | `AGENTS.md`                       |
-| **qoder**       | `AGENTS.md`                       |
-| **openhands**   | `AGENTS.md`                       |
-| **factory**     | `AGENTS.md`                       |
-| **kilo**        | `AGENTS.md`                       |
-| **opencode**    | `AGENTS.md`                       |
-| **gemini**      | `GEMINI.md`                       |
-| **aider**       | `CONVENTIONS.md`                  |
-| **copilot**     | `.github/copilot-instructions.md` |
-| **zed**         | `.rules`                          |
-| **antigravity** | `.agent/AGENTS.md`                |
+| Entry-point file | Targets |
+|---|---|
+| `AGENTS.md` | [codex](@/docs/targets/codex.md), [amp](@/docs/targets/amp.md), [warp](@/docs/targets/warp.md), [cline](@/docs/targets/cline.md), [windsurf](@/docs/targets/windsurf.md), [junie](@/docs/targets/junie.md), [kiro](@/docs/targets/kiro.md), [crush](@/docs/targets/crush.md), [trae](@/docs/targets/trae.md), [jules](@/docs/targets/jules.md), [goose](@/docs/targets/goose.md), [augment](@/docs/targets/augment.md), [qoder](@/docs/targets/qoder.md), [openhands](@/docs/targets/openhands.md), [factory](@/docs/targets/factory.md), [kilo](@/docs/targets/kilo.md), [opencode](@/docs/targets/opencode.md) |
+| `CLAUDE.md` | [claude](@/docs/targets/claude.md) |
+| `GEMINI.md` | [gemini](@/docs/targets/gemini.md) |
+| `CONVENTIONS.md` | [aider](@/docs/targets/aider.md) |
+| `.github/copilot-instructions.md` | [copilot](@/docs/targets/copilot.md) |
+| `.rules` | [zed](@/docs/targets/zed.md) |
+| `.agent/AGENTS.md` | [antigravity](@/docs/targets/antigravity.md) |
 
-Targets sharing a path (codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, kilo, and opencode at `AGENTS.md`) write it once; dedup is automatic. Targets absent from the table above (cursor, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
+Targets sharing a path write it once; dedup is automatic. Targets absent from the table above (cursor, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 
 Windsurf joined that group in the 2026-09-03 target audit (#645). Devin CLI's supported-file-names table rows `AGENTS.md` as "Recommended" and the page states "Devin CLI reads this file automatically" ([docs.devin.ai/cli/extensibility/rules](https://docs.devin.ai/cli/extensibility/rules)); the Cascade side reads it too. Before this, a windsurf-only repo got no root entry-point at all and could not dedupe with the other AGENTS.md consumers, so an unscoped rule reached Devin through no path whatsoever once the scoped-rule fix (#628) landed.
 
