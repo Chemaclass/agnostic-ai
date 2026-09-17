@@ -111,6 +111,7 @@
         <article><h3>{{ principle.title }}</h3><div>{{ principle.body | markdown | safe }}</div></article>
         {% endfor %}
       </div>
+      <p class="mission-question"><strong>{{ landing.mission.symlinks.question }}</strong> {{ landing.mission.symlinks.answer }} <a href="{{ get_url(path='@/docs/alternatives-why-not-symlinks.md') }}">{{ landing.mission.symlinks.link_label }}</a></p>
     </div>
   </section>
 

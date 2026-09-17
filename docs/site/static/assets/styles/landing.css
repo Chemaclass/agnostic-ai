@@ -344,6 +344,25 @@ main > section[id] {
 }
 
 .workflow-steps,
+.mission-question {
+  max-width: 46rem;
+  margin-top: 2rem;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.mission-question strong {
+  color: var(--ink);
+}
+
+.mission-question a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .feature-list {
   display: grid;
   gap: 1rem;

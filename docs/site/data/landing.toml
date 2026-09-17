@@ -40,6 +40,11 @@ body = "Adding a target never changes what the others get. `rules/backend/auth.m
 title = "A sync layer, not a platform"
 body = "agnostic-ai should be easy to stop using. The generated files are yours and they keep working."
 
+[mission.symlinks]
+question = "Why not just symlink one file?"
+answer = "Each tool reads a different format at a different path. A symlink shares bytes; it cannot translate them."
+link_label = "See how the formats diverge"
+
 [targets]
 title = "One source of truth,"
 muted_title = "every tool native."

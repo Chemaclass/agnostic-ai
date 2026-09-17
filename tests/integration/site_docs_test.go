@@ -394,6 +394,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
 		"/agent-setup.txt",
+		"Why not just symlink one file?",
+		`href="https://agnostic-ai.org/docs/alternatives-why-not-symlinks/"`,
 		`id="demo"`,
 		`data-video-id="uEG6ITlqyHU"`,
 		`href="https://www.youtube.com/watch?v=uEG6ITlqyHU"`,
