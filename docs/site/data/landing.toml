@@ -22,33 +22,51 @@ outputs = [
   ".junie/AGENTS.md · .kiro/steering · +13",
 ]
 
+[mission]
+title = "Your setup outlives"
+muted_title = "the tool you picked."
+body = "Every AI coding tool ships its own config file. Adopt three and your instructions live in three places, drifting apart. That is lock-in, one config file at a time. agnostic-ai keeps **one source in your repository** and writes the rest."
+
+[[mission.principles]]
+title = "You own the source"
+body = "Plain Markdown and YAML in your repo. No account, no database, no service. `import` brings an existing setup in without rewriting it."
+[[mission.principles]]
+title = "Generated files are outputs"
+body = "Never a second source of truth. Same input, same bytes, so they diff cleanly. `sync --check` fails CI when they drift."
+[[mission.principles]]
+title = "No tool is privileged"
+body = "Adding a target never changes what the others get. `rules/backend/auth.md` routes to each target's native directory and scope syntax."
+[[mission.principles]]
+title = "A sync layer, not a platform"
+body = "agnostic-ai should be easy to stop using. The generated files are yours and they keep working."
+
 [targets]
 title = "One source of truth,"
-muted_title = "25 tools, each native."
-body = "Seven of the most complete integrations across the surfaces teams use most. **Native** means the adapter writes that spec kind by default, **opt-in** means you turn it on."
+muted_title = "every tool native."
+body = "The five most complete integrations. **Native** writes that spec kind by default, **opt-in** you turn on."
 features = ["agent", "skill", "rule", "hook", "mcp", "command"]
-ids = ["claude", "codex", "cursor", "gemini", "junie", "augment", "copilot"]
+ids = ["claude", "codex", "cursor", "gemini", "copilot"]
 link_label = "See paths and all 25 targets"
 
 [workflow]
-title = "Install, then sync."
-muted_title = "Your first portable setup."
-body = "Choose an installer, initialize the repository, and verify the generated files. Existing AI configuration can be imported before the first sync."
+title = "Three commands."
+muted_title = "Import, preview, sync."
+install_label = "All install options"
 guide_label = "Open the getting started guide"
 migration_label = "Migrate an existing setup"
 
 [[workflow.steps]]
 title = "Start or import"
 command = "agnostic-ai init --from all"
-body = "Detect existing AI tool files and import them before generating anything. For a fresh repository, run `agnostic-ai init`."
+body = "Import existing AI tool files first."
 [[workflow.steps]]
 title = "Review the output"
 command = "agnostic-ai sync --dry-run"
-body = "Preview every native file before writing it. Choose only the targets this repository uses."
+body = "Preview every native file before writing it."
 [[workflow.steps]]
-title = "Sync and enforce"
-command = "agnostic-ai sync && agnostic-ai sync --check"
-body = "Write the files, then use the same check in CI to catch drift."
+title = "Write the files"
+command = "agnostic-ai sync"
+body = "Write every native file for the targets you chose."
 
 [[workflow.installers]]
 id = "brew"
@@ -87,24 +105,11 @@ prompt = "$"
 command = "curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz"
 note = "Swap `darwin_arm64` for your release archive. Windows builds and `checksums.txt` are on the releases page."
 
-[[workflow.features]]
-title = "Byte-stable, reviewable"
-body = "Stateless adapters mean the same input produces the same output. Generated files diff cleanly."
-[[workflow.features]]
-title = "Round-trip safe"
-body = "A provenance marker and style preservation keep `import` then `sync` byte-stable."
-[[workflow.features]]
-title = "Scoped rules"
-body = "`rules/backend/auth.md` routes to each target's native directory and scope syntax."
-[[workflow.features]]
-title = "CI gate in one line"
-body = "The check action fails a pull request when generated configuration drifts from source."
-
 [updates]
 title = "Keep the setup current."
 muted_title = "Know what changed."
-body = "Release briefings separate shipped agnostic-ai support from verified upstream CLI and model changes, so teams can act on the changes that affect their tools."
-latest_label = "Latest briefing"
+body = "What shipped in agnostic-ai, and what changed upstream in the tools it targets."
+latest_label = "Latest briefings"
 primary_label = "Read the latest briefing"
 archive_label = "Browse all updates"
 rss_label = "Subscribe by RSS"

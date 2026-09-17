@@ -90,25 +90,21 @@
     </div>
   </section>
 
+  <section id="mission">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.mission.title }} <span>{{ landing.mission.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.mission.body | markdown | safe }}</div>
+      <div class="feature-list reveal-group">
+        {% for principle in landing.mission.principles %}
+        <article><h3>{{ principle.title }}</h3><div>{{ principle.body | markdown | safe }}</div></article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
   <section class="section-band" id="quickstart">
     <div class="wrap">
       <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.workflow.body | markdown | safe }}</div>
-
-      <div class="installer reveal-group">
-        <div class="install-tabs" role="tablist" aria-label="Installation method">
-          {% for installer in landing.workflow.installers %}
-          <button type="button" role="tab" id="tab-{{ installer.id }}" aria-controls="panel-{{ installer.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ installer.label }}</button>
-          {% endfor %}
-        </div>
-        {% for installer in landing.workflow.installers %}
-        <div class="install-panel" role="tabpanel" id="panel-{{ installer.id }}" aria-labelledby="tab-{{ installer.id }}">
-          <div class="command"><span aria-hidden="true">{{ installer.prompt }}</span><code>{{ installer.command }}</code><button type="button" data-copy aria-label="Copy {{ installer.label }} install command">Copy</button></div>
-          <div class="install-note">{{ installer.note | markdown | safe }}</div>
-        </div>
-        {% endfor %}
-      </div>
-
       <div class="workflow-steps reveal-group">
         {% for step in landing.workflow.steps %}
         <article>
@@ -120,14 +116,9 @@
       </div>
 
       <div class="quickstart-links">
+        <a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.workflow.install_label }}</a>
         <a href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.workflow.guide_label }}</a>
         <a href="{{ get_url(path='@/docs/migration.md') }}">{{ landing.workflow.migration_label }}</a>
-      </div>
-
-      <div class="feature-list reveal-group">
-        {% for feature in landing.workflow.features %}
-        <article><h3>{{ feature.title }}</h3><div>{{ feature.body | markdown | safe }}</div></article>
-        {% endfor %}
       </div>
     </div>
   </section>
@@ -150,7 +141,7 @@
           <tbody>
             {% for id in landing.targets.ids %}{% for target in capabilities.targets %}{% if target.id == id %}
             <tr>
-              <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.name }}<code>{{ target.id }}</code></a></th>
+              <th scope="row"><a href="{{ get_url(path='@/docs/targets.md') }}{{ target.href }}">{{ target.short_name | default(value=target.name) }}</a></th>
               {% for column in capability_columns %}{% set status = target.statuses[column] %}<td><span class="capability-mobile-label">{{ capabilities.features[column].label }}</span><span class="capability-state capability-state-{{ status }}">{% for state in capabilities.states %}{% if state.id == status %}{{ state.label }}{% endif %}{% endfor %}</span></td>{% endfor %}
             </tr>
             {% endif %}{% endfor %}{% endfor %}
@@ -174,14 +165,15 @@
             <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">{{ landing.updates.rss_label }}</a>
           </div>
         </div>
-        <article class="latest-update">
-          <p class="latest-update-meta"><span>{{ landing.updates.latest_label }}</span><time datetime="{{ latest_update.date | date(format='%Y-%m-%d') }}">{{ latest_update.date | date(format='%d %B %Y') }}</time></p>
-          <h3><a href="{{ latest_update.permalink }}">{{ latest_update.title }}</a></h3>
-          <p>{{ latest_update.description }}</p>
-          <ul>
-            {% for signal in latest_update.extra.signals %}{% if loop.index <= 3 %}<li>{{ signal.title }}</li>{% endif %}{% endfor %}
-          </ul>
-        </article>
+        <div class="latest-updates">
+          <p class="latest-update-meta"><span>{{ landing.updates.latest_label }}</span></p>
+          {% for update in updates_section.pages | slice(end=3) %}
+          <article class="latest-update">
+            <time datetime="{{ update.date | date(format='%Y-%m-%d') }}">{{ update.date | date(format='%d %B %Y') }}</time>
+            <h3><a href="{{ update.permalink }}">{{ update.title }}</a></h3>
+          </article>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </section>

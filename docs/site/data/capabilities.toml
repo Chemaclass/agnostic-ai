@@ -66,6 +66,7 @@ description = "The target does not support this spec kind."
 [[targets]]
 id = "claude"
 name = "Claude Code"
+short_name = "Claude"
 href = "#claude-code-claude"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
@@ -78,6 +79,7 @@ statuses = ["native", "native", "native", "native", "native", "opt-in", "native"
 [[targets]]
 id = "gemini"
 name = "Gemini CLI"
+short_name = "Gemini"
 href = "#gemini-cli-gemini"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
 
@@ -90,6 +92,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "no", "n
 [[targets]]
 id = "copilot"
 name = "GitHub Copilot"
+short_name = "Copilot"
 href = "#github-copilot-copilot"
 statuses = ["native", "native", "native", "native", "native", "no", "native", "no", "no", "no"]
 

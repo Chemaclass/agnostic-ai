@@ -278,8 +278,6 @@ main > section[id] {
 }
 
 .capability-table th[scope="row"] a {
-  display: grid;
-  gap: 0.1rem;
   color: var(--ink);
   font-weight: 700;
   text-decoration: none;
@@ -287,14 +285,6 @@ main > section[id] {
 
 .capability-table th[scope="row"] a:hover {
   color: var(--accent);
-}
-
-.capability-table th[scope="row"] code {
-  padding: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 400;
 }
 
 .capability-state {
@@ -404,47 +394,6 @@ main > section[id] {
   background: var(--surface);
 }
 
-.install-tabs {
-  display: flex;
-  gap: 0.25rem;
-  overflow-x: auto;
-  padding: 0.4rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-quiet);
-  scrollbar-width: thin;
-}
-
-.install-tabs button {
-  flex: none;
-  padding: 0.42rem 0.75rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.install-tabs button[aria-selected="true"] {
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--ink);
-}
-
-.install-panel {
-  padding: 1rem;
-  border-top: 1px solid var(--line-soft);
-}
-
-.install-panel:first-of-type {
-  border-top: 0;
-}
-
-.install-panel[hidden] {
-  display: none;
-}
-
 .command {
   display: flex;
   align-items: center;
@@ -486,14 +435,23 @@ main > section[id] {
   color: var(--accent);
 }
 
-.install-note {
-  margin-top: 0.65rem;
-  color: var(--muted);
-  font-size: 0.84rem;
+/* Touch devices have no hover, so the control only hides where a pointer can reveal it. */
+@media (hover: hover) and (pointer: fine) {
+  .command button {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .command:hover button,
+  .command:focus-within button {
+    opacity: 1;
+  }
 }
 
-.install-note p {
-  margin: 0;
+@media (prefers-reduced-motion: reduce) {
+  .command button {
+    transition: none;
+  }
 }
 
 .update-brief-grid {
@@ -515,17 +473,26 @@ main > section[id] {
   font-weight: 700;
 }
 
+.latest-updates {
+  border-top: 1px solid var(--line);
+}
+
 .latest-update {
-  padding-block: 1.2rem;
-  border-block: 1px solid var(--line);
+  display: grid;
+  gap: 0.3rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.latest-update time {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
 }
 
 .latest-update-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  margin: 0 0 1rem;
+  margin: 0;
+  padding-block: 0.9rem;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.69rem;
@@ -537,31 +504,11 @@ main > section[id] {
 }
 
 .latest-update h3 {
-  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-size: clamp(1.1rem, 2.2vw, 1.3rem);
 }
 
 .latest-update h3 a {
   text-decoration-color: transparent;
-}
-
-.latest-update > p:not(.latest-update-meta) {
-  margin-top: 0.8rem;
-  color: var(--ink-soft);
-}
-
-.latest-update ul {
-  display: grid;
-  gap: 0.55rem;
-  margin: 1rem 0 0;
-  padding: 0;
-  color: var(--ink-soft);
-  font-size: 0.86rem;
-  list-style: none;
-}
-
-.latest-update li {
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--line-soft);
 }
 
 .closing {

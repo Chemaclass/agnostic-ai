@@ -4,6 +4,17 @@
 
 Write shared instructions, rules, skills, agents, hooks, and MCP configuration once. `agnostic-ai sync` writes the native files for the coding tools your team uses.
 
+## Why agnostic-ai
+
+Every AI coding tool ships its own config file. Adopt three and your instructions live in three places. They drift. Switching tools means rewriting work you already did. That is lock-in, delivered one config file at a time.
+
+agnostic-ai makes that configuration yours. One source in your repository, plain Markdown and YAML. Every tool reads a generated copy. Adding a tool costs nothing. Dropping one costs nothing.
+
+- **You own the source.** Plain files in your repo. No account, no database, no service.
+- **Generated files are outputs.** Never a second source of truth. `sync` overwrites them, `sync --check` proves it.
+- **No tool is privileged.** Adding a target never changes what the others get.
+- **A sync layer, not a platform.** agnostic-ai should be easy to stop using.
+
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
 [![Downloads](https://img.shields.io/github/downloads/Chemaclass/agnostic-ai/total)](https://github.com/Chemaclass/agnostic-ai/releases)

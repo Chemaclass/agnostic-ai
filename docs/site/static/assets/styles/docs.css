@@ -106,6 +106,25 @@
   color: var(--accent);
 }
 
+/* Touch devices have no hover, so the control only hides where a pointer can reveal it. */
+@media (hover: hover) and (pointer: fine) {
+  .agent-prompt-head button {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .agent-prompt:hover .agent-prompt-head button,
+  .agent-prompt:focus-within .agent-prompt-head button {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-prompt-head button {
+    transition: none;
+  }
+}
+
 .agent-prompt pre {
   margin: 0;
   padding: 1rem;

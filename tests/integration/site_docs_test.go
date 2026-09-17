@@ -81,8 +81,8 @@ func TestSiteDocs_LandingCapabilityMatrixSelectsKnownTargets(t *testing.T) {
 		}
 	}
 
-	if len(landing.Targets.IDs) != 7 {
-		t.Fatalf("landing capability matrix has %d targets, want 7", len(landing.Targets.IDs))
+	if len(landing.Targets.IDs) != 5 {
+		t.Fatalf("landing capability matrix has %d targets, want 5", len(landing.Targets.IDs))
 	}
 	selected := make(map[string]bool, len(landing.Targets.IDs))
 	for _, id := range landing.Targets.IDs {
