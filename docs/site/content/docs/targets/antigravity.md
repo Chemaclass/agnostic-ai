@@ -22,13 +22,13 @@ Antigravity reads project instructions from a top-level AGENTS.md-style file, pe
 
 The entry-point path stays under `.agent/` (singular) to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`. Rules, skills, and MCP default to the plural `.agents/` form Antigravity itself now prefers ([rules](https://antigravity.google/docs/ide/rules), [skills](https://antigravity.google/docs/ide/skills)), which still "maintains backward support" for the singular paths.
 
-A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults is swept on sync unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path explicitly. `import antigravity` prefers `.agents/rules` and `.agents/skills`, falling back to their singular `.agent/` counterparts only when the preferred directory is absent. Skill imports include bundled assets.
+A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults is swept on sync unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path explicitly.
 
 - **Agents**: one custom subagent per agent at `.agents/agents/<name>/agent.md`, the nested workspace form documented alongside the flat form in [Antigravity's subagent reference](https://antigravity.google/docs/subagents).
   - Goose and OpenHands only scan top-level `.md` files in the same root, so the nested form keeps Antigravity's restricted `model` tier separate from their free-form model IDs (#717). Frontmatter carries `name` and `description`, both required; the body defines the system prompt.
   - A managed flat profile from an earlier sync is removed by the sync ledger when no enabled target still writes it. When Goose or OpenHands is enabled, that flat path remains as their current shared output. `import antigravity` prefers nested profiles and falls back to legacy flat files only when no nested profile exists, so it does not ingest co-located Goose or OpenHands agents.
   - Agents previously flattened into `.agents/rules/agent-<name>.md`, a path the subagent loader never reads (#638); a managed copy at the old name is swept for every current agent.
-  - A generic `tools` list never reaches this file: Antigravity's vocabulary is its own (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...) with no name in common with agnostic-ai's Claude-style set, and the vendor warns that an unmapped name can hang the subagent. It drops with a coverage note; set `x-antigravity.tools` to write Antigravity's own names.
+  - A generic `tools` list never reaches this file: Antigravity's vocabulary is its own (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...) with no name in common with agnostic-ai's Claude-style set, and the vendor warns that "Specifying an unmapped or misspelled tool name in the `tools` list may cause the subagent process to hang during execution". It drops with a coverage note; set `x-antigravity.tools` to write Antigravity's own names.
   - `model` is a three-value tier enum (`inherit`, `flash`, `pro`), not a model ID, so a value outside it drops the same way.
   - Every other documented key (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) reaches the file through `x-antigravity` too.
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`, Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills). It's the same tree Codex, Amp, Zed, Crush, and OpenHands share, so identical skill folders dedupe. The SKILL.md frontmatter is reduced to `name` + `description`; the body follows. Sibling files next to the source SKILL.md (helper scripts, fixtures) are copied byte-for-byte into the emitted folder.
@@ -58,6 +58,12 @@ Config keys:
 | `outputs.antigravity.mcp-file` | `.agents/mcp_config.json` | |
 | `outputs.antigravity.hooks-file` | `.agents/hooks.json` | |
 | `outputs.antigravity.rules-file` | unset | writes a legacy merged document and skips the pointer-body write |
+
+## Import
+
+`agnostic-ai import antigravity` prefers `.agents/rules` and `.agents/skills/`. It falls back to the singular `.agent/rules` and `.agent/skills/` only when the preferred directory is absent. Skill imports include all bundled assets.
+
+Agents and MCP servers import as described under **Agents** and **MCP**: nested profiles win over legacy flat files, and `serverUrl` becomes `url`.
 
 Verify with the real IDE:
 

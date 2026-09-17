@@ -57,7 +57,7 @@ Hooks are [native](https://kiro.dev/docs/hooks/) too: one JSON file per hook spe
 
 `disabled: true` writes `"enabled": false`; the enabled default needs no key. The spec's generic `description` field (free-form documentation) now reaches the file too; the vendor lists the matching `hooks[].description` as "Documentation only".
 
-Every entry marshals from a map rather than a fixed set of fields, so arbitrary `x-kiro` keys pass through as well: `confirm` ("Ask for confirmation before a Stop command hook runs", taking `question`, `options` (`id`/`label`/`run` each), and an optional `confirmCommand`) has no agnostic-ai spec equivalent and is only reachable this way. `x-kiro.action` accepts `{"type": "agent", "prompt": ...}` or `{"type": "command", "command": ...}`. A valid explicit action needs no generic `command` and replaces the whole fallback command list with one native action. Invalid actions fail sync instead of running a fallback.
+Every entry marshals from a map rather than a fixed set of fields, so arbitrary `x-kiro` keys pass through as well: `confirm` ("Ask for confirmation before a Stop command hook runs", taking `question`, `options` (`id`/`label`/`run` each), and an optional `confirmCommand`) has no agnostic-ai spec equivalent and is only reachable this way. `x-kiro.action` accepts `{"type": "agent", "prompt": ...}` or `{"type": "command", "command": ...}`, written in spec YAML as `x-kiro.action: {type: agent, prompt: ...}` or `{type: command, command: ...}`. A valid explicit action needs no generic `command` and replaces the whole fallback command list with one native action. Invalid actions fail sync instead of running a fallback.
 
 Explicit `timeout: 0` disables the command timeout; omission retains Kiro's 60-second default. Before #642, `description` and `confirm` were unreachable at any layer, including x-kiro, because the prior fixed-struct shape had no route for a key it did not declare.
 
@@ -67,7 +67,7 @@ MCP servers write to `.kiro/settings/mcp.json` under the standard `mcpServers` m
 
 Both tables also document `disabled` ("Whether the server is disabled (default: false)"), which passes through under that literal name, unlike Claude Code and Cursor which have no file-based equivalent. They also document `autoApprove` ("Tool names to auto-approve without prompting", `"*"` for all) and `disabledTools` ("Tool names to omit when calling the Agent").
 
-A remote server adds an `oauth` object (`clientId`, `clientSecret`, `redirectUri`, `clientMetadataUrl`, `oauthScopes`) and the top-level `oauthScopes` fallback; an explicitly empty `oauthScopes: []` emits as written, since the vendor makes that the documented remedy for scope errors. All four were unreachable before #634, top-level or namespaced.
+A remote server adds an `oauth` object, `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`, and the top-level `oauthScopes` fallback. `oauth.oauthScopes` wins when both are set; an explicitly empty `oauthScopes: []` emits as written, since the vendor makes that the documented remedy for scope errors. All four were unreachable before #634, top-level or namespaced.
 
 Kiro's `oauth` is not Claude Code's, so each target maps only the sub-keys its own vendor documents. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
 
@@ -87,6 +87,28 @@ Config keys:
 | `outputs.kiro.hooks-dir` | `.kiro/hooks` |
 | `outputs.kiro.mcp-file` | `.kiro/settings/mcp.json` |
 | `outputs.kiro.ignore-file` | `.kiroignore` |
+
+## Import
+
+`agnostic-ai import kiro` reverses the Kiro layout. Native agent and skill trees import first. Then the flat `.kiro/steering/` files (frontmatter-first `inclusion:` block, filename prefix picks the kind) fill in rules plus anything a pre-native sync still left flattened there:
+
+| Source | Becomes |
+|--------|---------|
+| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md` |
+| `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled sibling assets included |
+| `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (unscoped rule) |
+| `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
+| `.kiro/steering/agent-<name>.md` (legacy, pre-native sync) | `<agents>/<name>.md`, body only |
+| `.kiro/steering/skill-<name>.md` (legacy, pre-native sync) | `<skills>/<name>/SKILL.md`, body only |
+| `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+The native rows run after the legacy steering sweep, so a name present under both wins on the native copy.
+
+Some data is lossy on round-trip. Kiro's emit cannot carry it, so the reconstructed spec drops it without changing Kiro's output:
+
+- A rule's source-layout scope collapses into an equivalent `globs:`.
+- A legacy flattened steering agent or skill keeps only its body. That flattened form never carried a description, model, or bundled sibling assets in the first place.
 
 Verify with the real IDE:
 

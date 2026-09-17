@@ -19,7 +19,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 ```
 
 - **Rules**: root rules inline into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md`; see [directory-specific instructions](@/docs/scoped-context.md) for shared-reader compatibility.
-- **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md` (Amp's [native skills layout](https://ampcode.com/docs/customize/skills)). Amp [removed custom slash commands in favor of skills](https://ampcode.com/news/slashing-custom-commands), so skills no longer emit as `.agents/commands/skill-<name>.md`. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte. `import amp` restores the full folder and preserves executable modes.
+- **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md` (Amp's [native skills layout](https://ampcode.com/docs/customize/skills)). Amp [removed custom slash commands in favor of skills](https://ampcode.com/news/slashing-custom-commands), so skills no longer emit as `.agents/commands/skill-<name>.md`. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
   - Arbitrary `x-amp` keys pass through, which is how a skill scopes its own MCP servers: Amp's docs say "a skill can define MCP servers in a sibling `mcp.json` file or in the `mcpServers` field of its `SKILL.md` frontmatter", and prefers `mcpServers` when both are present. Set `x-amp.mcpServers` on the skill spec and it lands in the emitted frontmatter verbatim, so the server's tools stay hidden until that skill loads. Amp's docs recommend this over user settings "for most use cases" (#591).
 - **Agents**: no file of their own. They used to emit as slash commands under `.agents/commands/<name>.md`, until Amp [removed custom commands in favor of skills on 2026-01-29](https://ampcode.com/news/slashing-custom-commands) and its migration steps ended with "Delete the original command file". Emitting there wrote a file Amp never reads, on a green sync with no warning, so sync now writes nothing and sweeps what a previous sync left behind (#727).
   - Agent bodies reach Amp through the merged document when `outputs.amp.rules-file` is set, and otherwise only through the entry-point pointer to the source specs, which `sync` reports as a coverage note.
@@ -45,6 +45,10 @@ Config keys:
 | `outputs.amp.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 
 `outputs.amp.commands-dir` no longer affects Amp now that no command surface is left to point at.
+
+## Import
+
+`agnostic-ai import amp` reads `AGENTS.md`, skills from `.agents/skills/`, and MCP servers from `.amp/settings.json`. A pre-migration `.agents/commands/` tree still imports, one agent per file. Each skill folder is restored in full, bundled assets included, and executable modes are preserved.
 
 Verify with the real CLI:
 

@@ -22,7 +22,7 @@ target_id = "copilot"
 .github/copilot/settings.json                              # when a Settings model exists
 ```
 
-- **Rules**: Copilot supports path-scoped instructions via `applyTo:` frontmatter. Rules with `globs` (or a source-layout scope like `rules/backend/auth.md`) emit as a separate `.instructions.md` with `applyTo` derived from globs (explicit `globs` wins, else `<scope>/**`). Always-on rules (no globs, no scope, or `alwaysApply: true`) skip per-file emission and are reachable via the pointer body plus the source spec dir.
+- **Rules**: Copilot supports path-scoped instructions via `applyTo:` frontmatter. Rules with `globs` (or a source-layout scope like `rules/backend/auth.md`) emit as a separate `.instructions.md` with `applyTo` derived from globs (explicit `globs` wins, else `<scope>/**`). Always-on rules (no globs, no scope, or `alwaysApply: true`) skip per-file emission and are reachable via the pointer body plus the source spec dir. The adapter manages no rule frontmatter keys: every `x-copilot` key lands alongside `applyTo`.
 - **Agents**: native [custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`: frontmatter `name` + `description` plus `tools` and `model` when the spec declares them; arbitrary `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, ...) pass through. The body is the agent prompt. The old flattened `agent-<name>.instructions.md` copies are gone; the ledger sweeps them.
 - **Skills**: native [Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) folders at `.github/skills/<name>/SKILL.md` (Copilot also scans `.claude/skills/` and `.agents/skills/`), with bundled sibling files propagated byte-for-byte. The old flattened `skill-<name>.instructions.md` copies are gone; the ledger sweeps them.
 - **Chat modes**: when `outputs.copilot.chatmodes-dir` is set, each agent also emits as a [Copilot Custom Chat Mode](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot#about-custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter. The native agent profile still emits alongside.
@@ -35,7 +35,7 @@ target_id = "copilot"
 
   VS Code MCP output owns the complete `servers` map and preserves unrelated top-level keys, including `inputs` and `sandbox`, at the default or configured path. JSONC is accepted; sync removes comments and normalizes formatting. Invalid JSONC aborts the write. `.github/mcp.json` and the opt-in root mirror remain managed as whole documents.
 
-  VS Code alone accepts stdio `cwd`, `envFile`, and `sandboxEnabled`, remote `oauth: {clientId, enterpriseManaged}`, and `dev.watch` on stdio, HTTP, and SSE servers. `dev.debug` is stdio-only; a remote server that sets it gets a coverage note while its watch patterns still emit. These fields stay out of the Copilot CLI file and root mirror. See [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
+  VS Code alone accepts stdio `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only), remote `oauth: {clientId, enterpriseManaged}`, and `dev.watch` (a glob or glob array that restarts the server on change) on stdio, HTTP, and SSE servers. `dev.debug`, shaped `debug: {type: "node"|"debugpy", debugpyPath}`, is stdio-only; a remote server that sets it gets a coverage note while its watch patterns still emit. These fields stay out of the Copilot CLI file and root mirror. Every entry also accepts MCP `roots`, a list of `{uri, name}` objects. See [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
 
   The same table's third entry, a `.mcp.json` anywhere from the working directory up to the repository root, stays opt-in behind `outputs.copilot.root-mcp-file: .mcp.json`. The project root is shared ground with Claude Code rather than Copilot's own directory, and a repository-root file is a surprise for a project that does not need it. Claude Code writes its own root `.mcp.json` under `mcpServers` too, so enabling both targets produces identical bytes at one path; the collision check compares content, not owners, so it stays quiet and sync writes the file once.
 - **Hooks**: land in `.github/hooks/agnostic-ai.json` (override via `outputs.copilot.hooks-file`), one of possibly several `*.json` files Copilot loads and merges from that directory: "Repository-level hook files: `.github/hooks/*.json` in the repository root", read by both Copilot CLI and Copilot cloud agent ([docs.github.com/en/copilot/reference/hooks-reference](https://docs.github.com/en/copilot/reference/hooks-reference), "Hooks locations"). The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each hook entry is a flat object carrying `matcher` directly (`{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`), not Claude Code's nested `{matcher, hooks: [...]}` group. 14 events exist today, one more than the 13 recorded when #629 was filed.
@@ -67,6 +67,20 @@ Config keys:
 | `outputs.copilot.chatmodes-dir` | empty, opt-in | emits one Custom Chat Mode per agent |
 | `outputs.copilot.rules-file` | unset | writes always-on rules concatenated at that path and skips the pointer-body write |
 | `outputs.copilot.hooks-file` | `.github/hooks/agnostic-ai.json` | |
+
+## Import
+
+`agnostic-ai import copilot` reads:
+
+| Source | Becomes |
+|---|---|
+| `.github/copilot-instructions.md` | `<rules>/<slug>.md` per `##` section, plus a copy at `.agnostic-ai/AGNOSTIC_AI.md` |
+| `.github/instructions/<name>.instructions.md` | `<rules>/<name>.md`; the `agent-` and `skill-` filename prefixes become agents and skills |
+| `.github/agents/<name>.agent.md` and `.github/chatmodes/<name>.chatmode.md` | `<agents>/<name>.md` |
+| `.github/skills/<name>/` | `<skills>/<name>/` |
+| `.github/hooks/*.json` | one target-scoped hook spec per handler |
+| `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
+| `.github/copilot/settings.json` `model` | the portable Settings source |
 
 Verify with the real extension:
 

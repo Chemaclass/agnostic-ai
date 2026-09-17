@@ -40,7 +40,7 @@ Set `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old layout; oth
   | neither | `trigger: manual` |
 
   An always-on rule stays bare: Devin loads a file with no frontmatter as always-on, and its Always On mode puts the full body in the system prompt on every message, so a `description` has no job there. Devin's fifth documented value, `agent`, has no counterpart in the spec format and is never emitted. Before this, no rule file carried frontmatter, so `alwaysApply: false` was silently promoted to always-on (#628).
-- **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`. Devin documents `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/` as project paths. This adapter writes the shared first path so identical skills dedupe with Codex, Amp, Zed, Crush, OpenHands, Antigravity, Augment, and Kilo. `import windsurf` reads all three in that order, and the first same-name skill wins.
+- **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`. Devin documents `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/` as project paths. This adapter writes the shared first path so identical skills dedupe with Codex, Amp, Zed, Crush, OpenHands, Antigravity, Augment, and Kilo.
   - Native `triggers` values move under `x-windsurf` in the source spec, then return to top-level frontmatter on sync. This preserves `[user]`, `[model]`, and combined invocation policy without leaking a Devin-only field to other targets. Sibling assets and modes survive every path.
 - **Ignore**: ignore specs emit as `.devinignore`, gitignore syntax under a `#` provenance header: "you can add a `.devinignore` file to your repo root, with the same syntax as .gitignore" ([docs.devin.ai/desktop/context-awareness/windsurf-ignore](https://docs.devin.ai/desktop/context-awareness/windsurf-ignore)). Devin Desktop also still respects the legacy `.codeiumignore` filename and `.windsurfignore`, but this adapter only writes the current `.devinignore` path; override via `outputs.windsurf.ignore-file` to write one of the legacy names instead.
 - **MCP**: merges into `.devin/mcp_config.json` under a root `mcpServers` map. This is the file [Devin Local](https://docs.devin.ai/desktop/devin-local) reads for project scope, not Cascade: Devin Desktop v3.9.19 removed Cascade, leaving Devin Local as the only agent ([docs.devin.ai/desktop/changelog.md](https://docs.devin.ai/desktop/changelog.md), target-audit 2026-09-09, #707). [Cascade's own MCP page](https://docs.devin.ai/desktop/cascade/mcp) confirms this: "The MCP configuration on this page applies to the legacy Cascade agent only. The Devin Local agent ... configures MCP servers in the Devin CLI config files instead."
@@ -68,6 +68,12 @@ Config keys:
 | `outputs.windsurf.ignore-file` | `.devinignore` | |
 | `outputs.windsurf.mcp-file` | `.devin/mcp_config.json` | |
 | `outputs.windsurf.hooks-file` | `.devin/hooks.v1.json` | |
+
+## Import
+
+`agnostic-ai import windsurf` reads rules from `.devin/rules/`, falling back to legacy `.windsurf/rules/`, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+
+Skills import from `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`. The first same-name skill wins. Bundled assets and executable modes survive, and native `triggers` move under `x-windsurf` as described under **Skills**.
 
 Verify with the real IDE:
 

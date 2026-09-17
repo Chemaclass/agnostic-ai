@@ -37,7 +37,7 @@ Subagents and slash commands are both CLI-only surfaces (`junie-ide-plugin.html`
 
 Subagents emit one file per agent at `.junie/agents/<name>.md`: "Subagents are Markdown files with YAML metadata stored in the `.junie/agents/` or `.agents/` directory." This adapter defaults to `.junie/agents/`, the vendor's own preferred location (the same page says Junie CLI detects `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/` on open and offers to import them specifically into `.junie/agents/`), rather than the shared `.agents/` tree several other targets already write skills, rules, commands, or an MCP file into. No registered target defaults an agent file into `.agents/` itself today, so there is nothing to dedupe with either way. Set `outputs.junie.agents-dir: .agents` for the shared alternative, the same pattern Codex uses for its own `outputs.codex.agents-dir: .agents/agents` community layout.
 
-Frontmatter passes through verbatim: the vendor's documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) are already spelled the way a spec author writes them, so nothing here is translated. `reasoningLevel` also accepts `effort` as an alias, taking precedence when both are set; a spec author can write either key and both pass through unchanged.
+Frontmatter passes through verbatim: the vendor's documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) are already spelled the way a spec author writes them, so nothing here is translated. `tools` and `disallowedTools` pass through as YAML lists (#604). Junie's built-in group labels match the Claude-style names for every group it documents, plus `AskUserQuestion`, but it documents fewer groups: no `WebFetch`, `Task`, `TodoWrite`, or `NotebookEdit`. `reasoningLevel` also accepts `effort` as an alias, taking precedence when both are set; a spec author can write either key and both pass through unchanged.
 
 Agent bodies no longer inline into `.junie/AGENTS.md` now that this native destination exists, the same rule Augment and Kilo Code follow for their own native agents directories. `.junie/AGENTS.md` is fully regenerated from the canonical pointer body on every sync rather than patched in place, so a project still carrying the pre-#604 inlined `## Agents` block loses it on its very next sync with no extra sweep step. With `sync.target-overview` off, `.junie/AGENTS.md` and the shared root `AGENTS.md` render byte-identical content whenever another AGENTS.md-family target is also enabled.
 
@@ -49,7 +49,7 @@ Skills are unaffected by any of the above: they emit into their own native folde
 
 The IDE plugin doc alone now adds a **Custom path** step ahead of `.junie/AGENTS.md`, read from Settings | Tools | Junie | Project Settings. The CLI-facing doc has no such step, and since that per-workspace IDE preference is not usually committed to the repo, it rarely changes which file wins in a synced project (target-audit 2026-08-09, #590).
 
-A settings spec's default `model` merges into `.junie/config.json`, preserving unrelated native keys. `import junie` restores the model to `settings/imported.yaml`.
+A settings spec's default `model` merges into `.junie/config.json`, preserving unrelated native keys.
 
 Ignore specs emit as `.aiignore` in the project root: "You can restrict Junie from processing the contents of specific files or folders by creating and configuring an `.aiignore` file in the project root directory" and "The `.aiignore` file follows the same syntax and pattern format as the `.gitignore` file" ([junie-ide-plugin.html](https://junie.jetbrains.com/docs/junie-ide-plugin.html), target-audit 2026-09-11, #728).
 
@@ -70,7 +70,15 @@ Config keys:
 
 `.junie/AGENTS.md` is a fixed path, not configurable.
 
-`import junie` reads `.junie/AGENTS.md`'s Rules block, `.junie/agents/<name>.md` (or `.agents/<name>.md`) for agents, `.junie/commands/<name>.md` for commands, and `.junie/skills/<name>/SKILL.md` folders for skills. A project synced between #552 and #604 has no native agent file yet; import falls back to `.junie/AGENTS.md`'s pre-#604 sentinel-marked Agents block for that case. A project synced before #552 falls back further, to the pre-fix `.junie/rules/` directory, when that still exists on disk.
+## Import
+
+`agnostic-ai import junie` reads the sentinel-marked Rules block in `.junie/AGENTS.md`, the file Junie's guidelines lookup opens first and `sync` always writes (#552). It reads agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`) and commands from `.junie/commands/<name>.md`. Skills come from `.junie/skills/<name>/SKILL.md` folders, with bundled sibling assets copied byte-for-byte. The default `model` in `.junie/config.json` is restored to `settings/imported.yaml`.
+
+Older layouts still import:
+
+- A project synced between #552 and #604 has no native agent file yet. Import falls back to the pre-#604 sentinel-marked Agents block in `.junie/AGENTS.md`.
+- A project synced before #552 still has content flattened under `.junie/rules/`. When that directory exists, it takes precedence over `.junie/AGENTS.md`, and each file is reclassified by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+- A legacy flat `.junie/rules/skill-<name>.md`, from a project synced before Native Agent Skills shipped, still imports as a skill.
 
 Verify with the real agent:
 

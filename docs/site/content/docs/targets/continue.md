@@ -25,7 +25,7 @@ target_id = "continue"
   - What is not confirmed: that Continue itself scans `outputs.continue.assistants-dir` as a directory of assistants. [`understanding-configs.mdx`](https://docs.continue.dev/guides/understanding-configs) describes Local Configuration as one global `~/.continue/config.yaml`, with no project-scoped per-agent directory anywhere in the current docs.
   - Since the emitted file is a self-contained, valid `config.yaml`, point Continue at it explicitly instead: `cn --config <dir>/<name>.yaml`, or the IDE's config picker. Models and rules are omitted so user defaults apply. The rule-form emission (`.continue/rules/agent-<name>.md`) still happens either way.
 
-Stdio MCP servers preserve `cwd`; every transport preserves `connectionTimeout`. Remote `requestOptions` preserves timeout, TLS, proxy, certificate, and header settings. Portable `headers` fills `requestOptions.headers`; an explicit native header wins a duplicate key. `x-continue` overrides each corresponding top-level option. `import continue` reads YAML blocks containing exactly one server and JSONC `.json` files, either an `mcpServers` map or a bare server named after the file. Unsafe names and duplicate names across files fail before MCP specs are written.
+Stdio MCP servers preserve `cwd`; every transport preserves `connectionTimeout` (milliseconds). Remote `requestOptions` preserves `timeout`, `verifySsl`, `caBundlePath`, `proxy`, `clientCertificate`, and `headers`. Portable `headers` fills `requestOptions.headers`; an explicit native header wins a duplicate key. `x-continue` overrides each corresponding top-level option.
 
 Config keys:
 
@@ -34,6 +34,17 @@ Config keys:
 | `outputs.continue.rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill. Continue has no skill surface, so a skill lands here as `skill-<name>.md`. |
 | `outputs.continue.mcp-dir` | `.continue/mcpServers` | |
 | `outputs.continue.assistants-dir` | empty | opt-in |
+
+## Import
+
+`agnostic-ai import continue` reads rules from `.continue/rules/` and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+
+MCP servers import from `.continue/mcpServers/`:
+
+- `*.yaml` blocks containing exactly one server.
+- `.json` files parsed as JSONC. A JSON file can hold an `mcpServers` map or a bare server named after its filename.
+
+Duplicate or unsafe server names across files fail before MCP specs are written. Connection options survive import and sync, and import undoes the Continue spellings described under **MCP**.
 
 Verify with the real extension:
 

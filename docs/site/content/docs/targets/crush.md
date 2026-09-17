@@ -23,7 +23,7 @@ MCP servers merge into the `mcp` key of `crush.json` (`{type: stdio, command, ar
 
 `sse` keeps its own type rather than collapsing into `http`: Crush's `MCPType` enum treats them as distinct values routed to different transports, and an SSE-only server does not speak the Streamable HTTP that a mislabelled `http` entry would connect with. A spec's `remote` type has no matching Crush value and defaults to `http`.
 
-Either transport also carries `disabled`, `sessionless`, `enabled_tools`, and `disabled_tools`, all four read from [the vendor's published `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json) rather than the README, which is the only place the MCP property set appears closed. `disabled` ("Whether this MCP server is disabled") was dropped silently until #641, and that drop was worse than a warning: one spec synced to crush and trae printed a note for trae and nothing for crush, so the silence read as success.
+Either transport also carries `disabled`, `sessionless`, `enabled_tools`, and `disabled_tools`, all four read from [the vendor's published `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json) rather than the README, which is the only place the MCP property set appears closed. `disabled` ("Whether this MCP server is disabled", at `$defs.MCPConfig.properties.disabled`) passes through unchanged. It was dropped silently until #641, and that drop was worse than a warning: one spec synced to crush and trae printed a note for trae and nothing for crush, so the silence read as success.
 
 `sessionless` marks a server that sends no `Mcp-Session-Id` "so Crush skips the subscriptions/listen stream it would otherwise reject" (shipped in v0.91.2; leave it unset to let Crush auto-detect known cases such as GitHub MCP). The two tool lists gate which of the server's tools reach the agent.
 
@@ -36,7 +36,6 @@ User-managed keys (`models`, `providers`, `lsp`, `options`) survive every sync. 
   - That one event answers to five spellings: "Event names are case insensitive and snake-caseable, so `PreToolUse`, `pretooluse`, `PRETOOLUSE`, `pre_tool_use`, and `PRE_TOOL_USE` all work" (verified 2026-09-11, #731). This adapter applies that rule when it decides whether a spec is a `PreToolUse` hook, and always writes the canonical `PreToolUse` key, so the output shape never depends on how the spec spelled it.
   - A `PreToolUse` entry renders flat, one array item per hook (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), unlike the Claude-style `{"matcher": ..., "hooks": [...]}` grouping Claude Code, Codex, OpenHands, and Qoder use. `command` is the only required field; `timeout` is seconds, defaulting to 30 when unset.
   - Crush's own tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`; its worked examples use `^bash$`), so a Claude-style matcher (`Bash`, `Edit`, ...) parses as a valid regex and then matches nothing, the same trap OpenHands and Windsurf hit with their own tool vocabularies. That case surfaces a field no-op note.
-  - `import crush` reads `hooks.PreToolUse` back into hook specs: a named entry's `name` becomes both the spec's `name:` field and its filename, so a re-import lands at the same path.
 
 `crush.json` is Crush's legacy format: the vendor's own docs call it deprecated and say "new configuration options will only be added to Bash-based config", the documented primary format now, `crushrc` (a Bash script Crush sources on startup). JSON still loads today (the vendor: "we plan to support it for the forseeable future") and this adapter still targets it. Writing a `crushrc` emitter is a separate feature with its own design questions (shell-quoting header values, merge interaction) and is not done here.
 
@@ -44,7 +43,7 @@ Two things to know: any future crush-only MCP field ships Bash-only and has no p
 
 A project that also hand-authors a `crushrc` gets that warning against our `crush.json` on every launch.
 
-Ignore specs write project-root `.crushignore` with gitignore syntax, supported by [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). `import crush` captures the file into an ignore spec. The shared hand-authored-file protection applies.
+Ignore specs write project-root `.crushignore` with gitignore syntax, supported by [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
 
 Config keys:
 
@@ -53,6 +52,21 @@ Config keys:
 | `outputs.crush.skills-dir` | `.agents/skills` | |
 | `outputs.crush.mcp-file` | `crush.json` | also the hooks file |
 | `outputs.crush.ignore-file` | `.crushignore` | |
+
+## Import
+
+`agnostic-ai import crush` reverses the Crush layout. Crush has no per-rule directory, so rules ride inside the shared `AGENTS.md`:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
+| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
+| `crush.json` `hooks.PreToolUse` | hook specs; a named entry's `name` becomes both the spec's `name:` field and its filename, so a re-import lands at the same path |
+| `.crushignore` | an ignore spec |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Crush imports root rules from its inlined block. It has no verified native directory scope; scoped source rules are skipped on sync. Import cannot recover scope from previously flattened instructions. See [scoped context](@/docs/scoped-context.md).
 
 Verify with the real CLI:
 

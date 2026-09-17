@@ -25,7 +25,7 @@ The older [cline-rules page](https://docs.cline.bot/customization/cline-rules) s
 Agents always emit at `.cline/agents/`, independent of that override. Cline's own file format for that directory has no dedicated doc page, so this adapter writes the spec body verbatim, with no synthesized heading and no invented frontmatter.
 
 - **Rule activation**: scoped rules emit conditional `paths` constrained to the directory, even when the source sets `alwaysApply: true`. For unscoped rules, `alwaysApply: false` enables native `paths` derived from the file selector; without a usable selector, the adapter reports a coverage note. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). The `.cline/rules` versus `.clinerules` runtime caveat above still applies.
-- **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend. A flat file directly under the rules directory never loads as a skill, so this is a folder, not a rule-form file. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte. `import cline` reads all three documented project paths in order: `.cline/skills/`, `.clinerules/skills/`, then `.claude/skills/`. The first same-name skill wins, and `.clinerules/skills/` is excluded from the legacy rules walk.
+- **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend. A flat file directly under the rules directory never loads as a skill, so this is a folder, not a rule-form file. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
 
 When `outputs.cline.workflows-dir` is set, each agent also emits as a Markdown file at `<dir>/<name>.md`, invokable from chat as `/<name>.md`, with the italic description prefixing the body when present. Cline's doc for this feature, `docs.cline.bot/features/workflows`, 404s, and `llms.txt` lists no project-scoped replacement in the current `customization/` tree (Rules, `.clineignore`, Hooks, Plugins, Skills; no Workflows entry, target-audit 2026-08-08, #563).
 
@@ -39,6 +39,14 @@ Config keys:
 | `outputs.cline.agents-dir` | `.cline/agents` | |
 | `outputs.cline.skills-dir` | `.cline/skills` | |
 | `outputs.cline.workflows-dir` | empty | opt-in |
+
+## Import
+
+`agnostic-ai import cline` reads rules from `.cline/rules/`, falling back to `.clinerules/`, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+
+It reconstructs agents from `.cline/agents/<name>.md`, Cline's native per-agent directory (#534). Each file copies byte-for-byte minus the provenance header. There is no `agent-` prefix to strip and no synthesized heading, since sync no longer writes one there. The `agent-<name>.md` prefix only fires when a project still carries the pre-migration `.clinerules/` layout, where rules and agents shared one directory.
+
+Skills import from all three documented project paths, in this order: `.cline/skills/`, `.clinerules/skills/`, then `.claude/skills/`. The first same-name skill wins. Bundled assets and executable modes survive. `.clinerules/skills/` is excluded from the legacy rules walk.
 
 Verify with the real extension:
 

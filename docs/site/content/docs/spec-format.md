@@ -9,10 +9,11 @@ group = "Reference"
 
 # Spec format
 
+This page covers how to write each spec kind. The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive it, and each target page shows how that tool renders it.
 
-Source paths below are relative to `.agnostic-ai/` by default. For example, `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](@/docs/configuration.md#sources).
+Source paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](@/docs/configuration.md#sources).
 
-Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable workflow, or an [MCP server](#mcp-servers) for a tool connection. See [Getting started](@/docs/getting-started.md) for a complete first-rule example.
+Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable workflow, or an [MCP server](#mcp-servers) for a tool connection. See [Getting started](@/docs/getting-started.md) for a complete first rule.
 
 | Kind    | Source                                    | Format                      |
 |---------|-------------------------------------------|-----------------------------|
@@ -27,11 +28,11 @@ Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable w
 | [Environment](#environments) | `environments/*.yaml`                  | YAML                        |
 | [Ignore](#ignore) | `ignore/*.md`                          | Markdown + YAML frontmatter |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, `ignore/` is picked up; every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
+Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads, and every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
 
 ## Nested layout: per-directory scope
 
-A spec in a subdirectory of its source dir carries an implicit **scope** equal to that subpath.
+A spec in a subdirectory of its source dir gets an implicit **scope** equal to that subpath.
 
 ```
 rules/
@@ -42,15 +43,13 @@ rules/
     └── limits.md                # scope: "backend/api"
 ```
 
-For rules, scope controls native activation or directory discovery. It does not merely organize generated files. A flat rule may set `scope: services/payments`; source-layout scope takes precedence. Create one with:
+For rules, scope controls native activation or directory discovery, not just file organization. A flat rule may set `scope: services/payments`; source-layout scope takes precedence.
 
 ```bash
 agnostic-ai new rule payments-context --scope services/payments
 ```
 
-Scoped bodies are excluded from root instruction appendices. Supported targets receive native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`.
-
-See [directory-specific instructions](@/docs/scoped-context.md) for the complete target matrix, selector rules, runtime limits, and shared-reader compatibility.
+Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. See [directory-specific instructions](@/docs/scoped-context.md) for the target matrix and selector limits.
 
 ## Agents
 
@@ -72,16 +71,17 @@ Report concise findings with `file:line` references.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | no | filename without `.md` | Agent identifier. Used for the output filename. |
+| `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
-| `tools` | no | unset | Tools the agent may invoke. Behavior varies by target; see [`tools` support by target](#tools-support-by-target) below. |
-| `model` | no | unset | Preferred model. String applies everywhere; a map selects per target (see below). |
+| `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
+| `model` | no | unset | Preferred model: a string for every target, or a map per target. |
+| `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
 
-Any other frontmatter field passes through to the target CLI unchanged.
+Any other frontmatter field passes through unchanged.
 
 ### Per-target models
 
-`model:` accepts a string (same model everywhere) or a map keyed by target name with an optional `default` fallback.
+`model:` takes a string or a map keyed by target name, with an optional `default`.
 
 ```yaml
 ---
@@ -93,27 +93,47 @@ model:
 ---
 ```
 
-Resolution per target: matching key wins, else `default`, else no `model` line is emitted (the CLI uses its own built-in default). An `x-<target>.model` override beats the map; `x-<target>.model: null` deletes it.
+For each target, the matching key wins, then `default`. With neither, no `model` line is written and the tool uses its own default. `x-<target>.model` beats the map, and `x-<target>.model: null` deletes it.
 
 | Want | Write |
 |------|-------|
 | Same model everywhere | `model: sonnet` |
-| Per-target, with a concrete fallback | `model: {claude: sonnet, default: gpt-4o}` |
-| Per-target, native default elsewhere | `model: {claude: sonnet}` |
+| Per target, with a fallback | `model: {claude: sonnet, default: gpt-4o}` |
+| Per target, tool default elsewhere | `model: {claude: sonnet}` |
+
+### `tools` support by target
+
+Only the targets listed were checked. `tools: [Read, Bash]` does not restrict every target, so check this table first. A target that cannot honor the field prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
+
+| Target | Behavior |
+|--------|----------|
+| [Claude Code](@/docs/targets/claude.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md) | Passed through as a YAML list |
+| [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md) | Passed through as a comma-separated string (`tools: Read, Bash`) |
+| [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md) | Translated to native names |
+| [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Kilo Code](@/docs/targets/kilo.md) | Dropped with a note |
+
+Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
+
+### `color` support by target
+
+Only the targets listed were checked. `color` is a shared top-level key on three targets, each with its own value space. agnostic-ai writes it verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.
+
+| Target | Values |
+|--------|--------|
+| [Augment](@/docs/targets/augment.md) | Free text, an ANSI color name |
+| [Kilo Code](@/docs/targets/kilo.md) | Hex or a theme token |
+| [Qoder](@/docs/targets/qoder.md) | One of eight names |
+
+For example, `color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token.
 
 ## Skills
 
 Two layouts:
 
-**Flat:** `skills/yaml-validator.md`
+- **Flat:** `skills/yaml-validator.md`
+- **Nested**, for skills with attached resources: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
 
-**Nested** (for skills with attached resources):
-```
-skills/yaml-validator/SKILL.md
-skills/yaml-validator/schema.yaml
-```
-
-Only `SKILL.md` and flat `skills/*.md` are parsed as skills. Every other file inside a nested skill directory (scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`) is a bundled asset: it copies verbatim to the same relative location under each target's skills dir and is never promoted to its own skill. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` the skill body references. Executable bits are preserved both directions through import + sync.
+Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset: scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`. Assets copy verbatim to the same relative path under each target's skills dir and never become skills. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the body references. Import and sync preserve executable bits.
 
 ```markdown
 ---
@@ -122,8 +142,6 @@ description: Validate YAML against a schema.
 ---
 
 # YAML Validator
-
-Zed skill names must use 1-64 lowercase letters or digits with single hyphens between segments. Zed sync rejects names such as `Deploy`, `my_skill`, and `my--skill` with an actionable error. Other targets retain their own naming rules.
 
 ## Steps
 1. Read target file
@@ -134,16 +152,10 @@ Zed skill names must use 1-64 lowercase letters or digits with single hyphens be
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | no | dir or filename | Skill identifier. Used for the output directory. |
-| `description` | no | empty | One-liner shown when the model decides whether to invoke the skill. |
+| `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
+| `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
 
-Emission by target:
-
-- **Native**, one folder per skill at `<dir>/<name>/SKILL.md`, carrying bundled assets verbatim. Most targets. Several share one tree at `.agents/skills/`, so identical bytes dedupe instead of writing another on-disk copy.
-- **Flattened to a rule file** (`skill-<name>.md`) on the few targets with no skill surface. Bundled assets cannot follow, so those raise a coverage note.
-- **Also as a slash command**, opt-in per target via `outputs.<target>.emit-skills-as-commands: true`.
-
-Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](@/docs/targets/_index.md) — that list is kept current per change and this one is deliberately not a second copy of it.
+Most targets write one native folder per skill at `<dir>/<name>/SKILL.md`, with bundled assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule file and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. The [Skills notes](@/docs/targets/_index.md#capability-matrix) and each target page give the exact directory.
 
 ## Rules
 
@@ -162,10 +174,10 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and descendants. Source-layout scope takes precedence. Native routing and supported targets are listed in [scoped context](@/docs/scoped-context.md). |
-| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns. With `scope`, the selector must preserve the directory boundary. `new rule --scope` omits this field. |
-| `paths` | no | unset | Project-relative file patterns, as a string or list. Scoped rules accept this alongside or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
-| `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, applies only within the directory boundary; sync chooses the required native flags. `new rule --scope` omits this field. |
+| `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope takes precedence. See [scoped context](@/docs/scoped-context.md). |
+| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
+| `paths` | no | unset | File patterns, as a string or list. Scoped rules accept it with or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
+| `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, only inside the directory. `new rule --scope` omits it. |
 
 ## Hooks
 
@@ -183,43 +195,40 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 |-------|----------|---------|-------------|
 | `name` | no | filename | Hook identifier. |
 | `description` | no | empty | Free-form documentation. |
-| `event` | yes | none | Hook event. See list below. |
-| `matcher` | no | empty | Regex on tool name (or other event-specific selector). |
-| `command` | command handlers only | none | Shell command or list. Not needed for Claude HTTP/MCP/prompt hooks, Cursor prompt hooks, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. |
-| `args` | no | empty | Argument list. Claude Code, Qoder and Copilot. Setting it switches the hook to **exec form**: `command` is resolved as an executable and spawned directly with `args` as the argument vector, no shell involved, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset for shell form, which is what you want when the command uses a pipe or `&&`. The targets spell the form differently. Claude Code and Qoder keep the executable in `command`, and Qoder ignores `shell` in exec form; Copilot moves it to `exec` and forbids carrying both, and its exec form runs under Copilot CLI only, so a hook that must also run under Copilot cloud agent leaves `args` unset. `sync` says so with a coverage note. |
-| `type` | no | `command` | Claude: `command`, `http`, `mcp_tool`, or `prompt`. Codex: `command` or `mcp_tool`. Cursor: `command` or `prompt`. |
-| `server` | yes, when `type: mcp_tool` | none | Name of the already-connected MCP server to call. Claude + Codex. |
-| `tool` | yes, when `type: mcp_tool` | none | Name of the tool to call on that server. Claude + Codex. |
-| `input` | no, `type: mcp_tool` only | empty | JSON object of argument templates for the tool call. Claude + Codex. |
-| `url` | HTTP handler only | none | Claude or Copilot hook endpoint. Optional `headers` supplies HTTP headers and `allowedEnvVars` names variables allowed in header values. |
-| `prompt` | prompt handler only | none | Natural-language condition for Claude, Cursor, or Copilot. Copilot accepts it only on `sessionStart`. Optional `model` selects Claude's evaluating model. |
-| `continueOnBlock` | no, Claude prompt | `false` | Feed a blocking prompt-hook reason back to Claude and continue the turn instead of ending it. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Claude + Codex, both shapes, Cursor, Kiro (`0` disables the timeout there instead of meaning immediate cancellation; kiro.dev's own default when the key is absent is 60), Qoder (default 600 when absent), Crush (default 30 when absent), Factory (default 60 when absent), Goose (default 30 when absent), and Copilot (`timeoutSec`). Augment and Gemini convert this value to **milliseconds** before writing it (vendor default 60000 when absent). |
-| `statusMessage` | no | empty | Spinner message while the hook runs. Claude + Codex, both shapes, and Qoder. |
-| `async` | no | `false` | Run in the background without blocking. Claude + Codex, and Qoder. |
-| `asyncRewake` | no | `false` | Background run that wakes Claude on exit code 2 (implies `async`). Claude and Qoder. |
-| `shell` | no | empty | `bash` or `powershell`. Claude and Qoder. |
-| `if` | no | empty | Permission-rule filter (e.g. `Bash(git *)`) gating when the hook fires. Claude and Qoder. |
-| `loop_limit` | no | `5` | Stop-blocking limit. Trae: `Stop` only. Cursor: `stop` and `subagentStop`, with `null` allowing unlimited runs. |
-| `failClosed` | no, Cursor | `false` | Block the action when the hook fails. Applies to command and prompt handlers. |
-| `disabled` | no | `false` | Keep the hook in the file but stop it running. Antigravity only, where it writes the definition's own `enabled: false`. Every other target emits the hook unchanged. |
-| `x-goose.on_failure` | no | `allow` | `allow` or `block` for a Goose `PreToolUse` command hook that cannot complete. Goose ignores it on other events. |
-| `commandWindows` | no | empty | Windows-specific command override. Codex. |
-| `additionalContextLimit` | no | none | Token threshold for how much hook output reaches the model. Codex. Set `0` to pass the complete additional context. |
-| `target` | no | empty | Single target name. Emits only there. |
-| `targets` | no | empty | List of target names. Emits only to those. |
-| `target-exclude` | no | empty | Single target name to block. Emits everywhere else. |
-| `targets-exclude` | no | empty | List of target names to block. Emits to every other configured target. |
+| `event` | yes | none | Hook event, written verbatim. See [events](#events). |
+| `matcher` | no | empty | Regex on the tool name, or another event-specific selector. |
+| `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
+| `args` | no | empty | Argument list. Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset when the command needs a pipe or `&&`. |
+| `type` | no | `command` | Handler type: `command`, `http`, `mcp_tool`, or `prompt`, where the target supports it. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Some targets convert to milliseconds or apply their own default. |
+| `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; other targets emit the hook unchanged. |
 
-Tool-specific fields emit only where that tool's schema defines them; other targets ignore them. Scope non-command hooks with `target` or `targets`. Claude's stable handlers preserve `timeout`, `statusMessage`, `if`, and `once`; `args`, `async`, `asyncRewake`, and `shell` stay command-only. Cursor prompt hooks preserve `matcher`, `timeout`, `loop_limit` (including `null`), and `failClosed`. Kiro accepts `x-kiro.action: {type: agent, prompt: ...}` or `{type: command, command: ...}` without a generic command; the explicit action replaces a fallback command list and invalid overrides fail sync.
+Handler-specific and tool-specific fields emit only where the target's schema defines them, and other targets ignore them. See the target page for each:
 
-With none of the scoping fields set, the hook emits to every target that supports hooks. `target` takes precedence over `targets` when both appear. Exclude wins: a target in both an include and an exclude list is excluded.
+| Fields | Targets |
+|--------|---------|
+| `server`, `tool`, `input` (for `type: mcp_tool`) | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md) |
+| `url`, `headers`, `allowedEnvVars` (HTTP handler) | [Claude Code](@/docs/targets/claude.md), [Copilot](@/docs/targets/copilot.md) |
+| `prompt`, `model` (prompt handler) | [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md) (`sessionStart` only) |
+| `continueOnBlock` | [Claude Code](@/docs/targets/claude.md) |
+| `statusMessage`, `async` | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md), [Qoder](@/docs/targets/qoder.md) |
+| `asyncRewake`, `shell`, `if` | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) |
+| `commandWindows`, `additionalContextLimit` | [Codex](@/docs/targets/codex.md) |
+| `failClosed` | [Cursor](@/docs/targets/cursor.md) |
+| `loop_limit` | [Cursor](@/docs/targets/cursor.md), [Trae](@/docs/targets/trae.md) |
+| `x-goose.on_failure` | [Goose](@/docs/targets/goose.md) |
+| `x-kiro.action` | [Kiro](@/docs/targets/kiro.md) |
+| `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` | [Gemini](@/docs/targets/gemini.md) |
 
-These four scoping fields work on every spec kind (agents, skills, rules, commands, mcps), not only hooks. A `target: codex` agent emits only into `.codex/agents/`; a `targets-exclude: [gemini]` skill emits to every configured target except gemini.
+`command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Scope a non-command hook to the targets that support it with `target` or `targets`.
+
+### Events
+
+`event` is written verbatim. agnostic-ai does not translate event names between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Each target page lists its events, file, and wrapper shape. Targets without hook support log a warning and skip.
 
 ### Per-target body fences
 
-When a spec emits to multiple targets but the prose must diverge (codex wants a "Workflow" section claude does not), wrap the divergent prose in `::target` fences. Outside-fence content emits everywhere; inside-fence content emits only to the listed targets. Marker lines never reach the output.
+When a spec emits to several targets but the prose must differ, wrap the divergent prose in `::target` fences. Content outside a fence emits everywhere. Content inside emits only to the listed targets. Marker lines never reach the output.
 
 ```md
 ---
@@ -249,16 +258,32 @@ Shared intro paragraph.
 Shared outro.
 ```
 
-- `::target <name>` and `::targets <a> <b>` open a fence pinned to one or more targets.
-- `::end` closes the most recent fence.
-- An unterminated fence runs to end-of-body, so a missing `::end` keeps the tail of the file.
-- The empty target (the source view used by `import` round-trips) returns the body with fences intact, so a re-emit stays byte-stable.
-- `import codex` builds these fences automatically when both tools ship the same agent or skill name with diverging bodies: the longest common prefix and suffix stay un-fenced, and each tool's unique middle gets its own `::target` block.
-- The same fences work in `.agnostic-ai/AGNOSTIC_AI.md`. A fenced block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is read by the whole AGENTS.md family (codex, amp, warp, cline, ...), so `::target codex` lands there and every reader of that file sees it. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+| Syntax | Meaning |
+|--------|---------|
+| `::target <name>` | Opens a fence for one target. |
+| `::targets <a> <b>` | Opens a fence for several targets. |
+| `::end` | Closes the most recent fence. A missing `::end` runs to the end of the body. |
+
+- The source view used by `import` round-trips keeps fences intact, so a re-emit stays byte-stable.
+- `import codex` builds fences when Claude and Codex ship the same agent or skill with different bodies: the common prefix and suffix stay unfenced, and each tool's middle gets its own block.
+- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is shared by the whole AGENTS.md family, so `::target codex` content reaches every reader of that file. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+
+## Target scoping
+
+Four fields limit where any spec kind emits: agents, skills, rules, commands, hooks, and MCP servers.
+
+| Field | Effect |
+|-------|--------|
+| `target` | Emit only to this one target. |
+| `targets` | Emit only to these targets. |
+| `target-exclude` | Emit everywhere except this target. |
+| `targets-exclude` | Emit everywhere except these targets. |
+
+With none set, the spec emits to every target that supports its kind. `target` beats `targets` when both appear. Exclusion wins over inclusion. For example, a `target: codex` agent emits only into `.codex/agents/`, and a `targets-exclude: [gemini]` skill emits everywhere but Gemini.
 
 ### Import auto-scoping
 
-Hooks imported from a tool-native source auto-set `target` to that tool (codex import → `target: codex`, claude → `target: claude`, gemini → `target: gemini`). Remove the field by hand to let the hook flow everywhere.
+A hook imported from a tool sets `target` to that tool: `target: codex`, `target: claude`, or `target: gemini`. Delete the field to let the hook reach every target.
 
 ```yaml
 event: PostToolUse
@@ -267,123 +292,11 @@ command: "$(git rev-parse --show-toplevel)/.codex/hooks/format-php.sh"
 target: codex   # shell-expanded codex path; do not leak to other tools
 ```
 
-`import claude` and `import codex` apply the same auto-scoping to agents and skills: when both `.claude/` and `.codex/` exist but only one carries a given spec, the captured frontmatter gains `target: <tool>`. A spec present in both tools stays un-scoped (cross-emit). Pure single-tool projects also stay un-scoped, so byte-identical round-trips hold.
-
-### Supported events (Claude Code)
-
-| Event | When it fires |
-|-------|---------------|
-| `PreToolUse` | Before any tool call. Matcher is the tool name regex. |
-| `PostToolUse` | After any tool call. Matcher is the tool name regex. |
-| `PostToolUseFailure` | After a tool call fails. |
-| `PermissionRequest` | When a permission dialog appears. |
-| `UserPromptSubmit` | Before the model reads a new user message. |
-| `SubagentStart` / `SubagentStop` | When a subagent spawns / finishes. |
-| `Stop` | When the model stops generating. |
-| `Notification` | When Claude Code surfaces a system notification. |
-| `SessionStart` / `SessionEnd` | When a session begins / terminates. |
-| `PreCompact` / `PostCompact` | Around context compaction. |
-
-Claude Code defines more events (`Setup`, `InstructionsLoaded`, `TaskCompleted`, `TeammateIdle`, `FileChanged`, ...); the `event:` value passes through verbatim, so any documented name works. See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) for the full list. Codex shares the `SessionStart`/`SubagentStart`/`UserPromptSubmit`/`PreToolUse`/`PermissionRequest`/`PostToolUse`/`PreCompact`/`PostCompact`/`Stop`/`SubagentStop` vocabulary.
-
-Native emission, one file per target:
-
-| Target | File | Notes |
-|---|---|---|
-| Claude Code | `.claude/settings.json` | |
-| Codex | `.codex/hooks.json` | Per-event arrays. |
-| Gemini | `.gemini/settings.json` | Under `hooks`. |
-| Cursor | `.cursor/hooks.json` | `version` plus per-event arrays. |
-| Windsurf / Devin CLI | `.devin/hooks.v1.json` | No wrapper key. `type` accepts `prompt` as well as `command`. |
-| Factory | `.factory/hooks.json` | No wrapper key, nine events, `type` always `"command"`. |
-| Kiro | `.kiro/hooks/<name>.json` | A `{"version": "v1", "hooks": [...]}` array. |
-| Qoder | `.qoder/settings.json` | Under `hooks`, merged alongside `mcpServers` in the same file. |
-| OpenHands | `.openhands/hooks.json` | Six events. |
-| Augment | `.augment/settings.json` | Under `hooks`, merged alongside `mcpServers` in one write. Five events. `timeout` is in **milliseconds**, converted from this field's seconds. `command` must be a path ending in `.sh`/`.ps1`/`.cmd`/`.bat`, or it never runs. |
-| Crush | `crush.json` | Under `hooks`, `PreToolUse` only, merged alongside `mcp` in the same file. |
-| Trae | `.trae/hooks.json` | The same integer `{"version": 1, "hooks": {...}}` wrapper around Claude-shaped `{matcher, hooks: [...]}` groups, six events, plus a `loop_limit` on `Stop`. |
-| Goose | `.agents/plugins/agnostic-ai/hooks/hooks.json` | With the required Open Plugins manifest beside it. |
-| Copilot | `.github/hooks/agnostic-ai.json` | An integer `{"version": 1, "hooks": {...}}` wrapper, 14 events, command, HTTP, and `sessionStart` prompt handlers, `timeoutSec`. |
-
-Copilot accepts both `PreToolUse` and its own camelCase `preToolUse` as event-key spellings in the same file, so this adapter passes `event:` through verbatim rather than picking one.
-
-Zed is opt-in: ordinary hooks become manual tasks, while `WorktreeCreate` maps to a task with `hooks: ["create_worktree"]`. Without `outputs.zed.tasks-file`, Zed raises a coverage note. Other targets log a warning and skip.
-
-Event names pass through verbatim, so a Cursor hook sets `event:` to a Cursor name (`beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `sessionStart`, `stop`, ...). See each tool's docs for its full event list and matcher semantics.
-
-agnostic-ai emits the `event:` value **verbatim** into each target's schema; it does not translate event names between tools. Claude and Codex share the `PreToolUse` / `PostToolUse` / `UserPromptSubmit` vocabulary, so one hook spec feeds both. Gemini uses its own names (`BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`), so a Gemini hook must set `event:` to one of those. `agnostic-ai validate` flags any event a target does not recognize.
-
-### Per-target rendering
-
-This spec:
-
-```yaml
-event: PostToolUse
-matcher: Bash(git commit*)
-command: echo "tests please"
-```
-
-Renders to `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {"type": "command", "command": "echo \"tests please\""}
-        ]
-      }
-    ]
-  }
-}
-```
-
-Renders to `.codex/hooks.json` (same nested shape as Claude, routed into per-event arrays):
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {"type": "command", "command": "echo \"tests please\""}
-        ]
-      }
-    ]
-  }
-}
-```
-
-Gemini uses different event names, so a Gemini hook sets `event:` to one of its own. This spec:
-
-```yaml
-event: AfterTool
-matcher: run_shell_command
-command: echo "tests please"
-```
-
-Renders to `.gemini/settings.json` (nested command handlers, event name passed through unchanged):
-
-```json
-{
-  "hooks": {
-    "AfterTool": [
-      {"matcher": "run_shell_command", "hooks": [{"type": "command", "command": "echo \"tests please\""}]}
-    ]
-  }
-}
-```
-
-When `command` is a list, each entry becomes a separate handler (Claude, Codex, Gemini). Gemini keeps the handlers in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler; `x-gemini.name` sets its native display name, and `x-gemini.env` supplies per-handler environment variables.
-
-Gemini hook imports preserve nested definitions and accept old flat files. A single handler imports with a timeout in seconds when exactly representable as a whole second; otherwise `x-gemini.timeout` retains the native milliseconds. A group with multiple handlers uses `x-gemini.hooks`, a native handler array that preserves each command, name, description, environment map, and millisecond timeout. This array replaces `command` emission for Gemini.
+`import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped, and so does every spec in a single-tool project, so round-trips stay byte-identical.
 
 ## MCP servers
 
-Pure YAML, no markdown body. One file per server.
+Pure YAML, no markdown body, one file per server.
 
 ```yaml
 name: filesystem
@@ -397,155 +310,58 @@ env:
   ROOT: /tmp
 ```
 
-The `name` is the server identifier, not the source filename. It can use package-style forward slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. agnostic-ai percent-encodes slash-bearing names when it needs one YAML file per server, while the YAML `name` and every generated target config keep the original value. Other spec kinds still require one safe path segment because their names become output paths.
+`name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. agnostic-ai percent-encodes such names in YAML filenames, and every generated config keeps the original. Other spec kinds need one safe path segment, because their names become output paths.
+
+A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008. `validate` and `sync` do not: some targets drop the entry, others write a server that cannot start. See [lint](@/docs/cli-reference.md#lint).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | yes | none | Server identifier. Becomes the key in the generated config. |
+| `name` | yes | none | Server identifier and key in the generated config. |
 | `description` | no | empty | Free-form documentation. |
-| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports (`http`, `sse`, `ws`) emit an explicit `type`; `stdio` stays type-less since it is the inferred default. |
+| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
-| `env` | no | empty | Environment variables passed to the server. |
-| `cwd` | no | empty | Working directory for the stdio server process. Codex, Gemini, OpenCode, Qoder, Continue, Copilot/VS Code. Warp maps this to its own `working_directory` field. |
-| `env_vars` | no | empty | Extra environment variables allowed for a Codex stdio server. Entries are names or `{name, source}` objects, where `source` is `local` or `remote`. |
+| `env` | no | empty | Environment variables for the server. |
 | `url` | http/sse/ws only | none | Endpoint URL. |
-| `headers` | no | empty | HTTP headers for `http`/`sse` transports. |
-| `env_http_headers` | no | empty | Codex HTTP headers mapped to the environment variable that supplies each value. |
-| `envFile` | stdio only, Cursor + Copilot/VS Code | empty | Path to an env file loading additional variables (e.g. `.env`, `${workspaceFolder}/.env`). Not supported on a `url` (remote) entry. |
-| `dev` | no, Copilot/VS Code | empty | `watch` is a glob or glob array that restarts stdio, HTTP, or SSE servers on change. `debug: {type: "node"\|"debugpy", debugpyPath}` is stdio-only. Remote debugging produces a coverage note; watch patterns still emit. Neither field reaches Copilot CLI. |
-| `sandboxEnabled` | stdio only, Copilot/VS Code | `false` | Run the server in a sandboxed environment. macOS and Linux only. |
-| `auth` | no | empty | Two unrelated shapes by target. Codex HTTP authentication fallback, a string: `oauth` or `chatgpt`. Cursor static OAuth on a remote (`url`) entry, an object: `{CLIENT_ID, CLIENT_SECRET, scopes}` (`CLIENT_ID` required, the other two optional). |
-| `http_headers_helper` | http only, Codex | empty | Local command that prints a JSON object of HTTP header names/values, for a locally connected HTTP MCP server. |
-| `required` | no, Codex | `false` | Fail startup/resume if this enabled MCP server cannot initialize. |
-| `startup_timeout_sec` | no, Codex | `10` | Override the server's startup timeout, in seconds. Distinct from `timeout` below, which is milliseconds on the targets that use it; Codex's own field name says `sec` so the two never conflate. |
-| `startup_timeout_ms` | no, Codex | `10000` | The same startup timeout in milliseconds. Codex documents it as an alias, so set one or the other, not both. |
-| `tool_timeout_sec` | no, Codex | `60` | Override the per-tool execution timeout, in seconds. Same unit note as `startup_timeout_sec`. |
-| `default_tools_approval_mode` | no, Codex | unset | Default approval behavior (`auto`, `prompt`, `writes`, or `approve`) for this server's tools, unless a per-tool override exists. |
-| `scopes` | http/sse only, Codex | empty | OAuth scopes to request when authenticating to this MCP server. |
-| `oauth_resource` | http/sse only, Codex | empty | RFC 8707 OAuth resource parameter to include during MCP login. |
-| `experimental_environment` | no, Codex | unset | `local` or `remote` placement for the server. `remote` starts a stdio server through a remote executor environment; HTTP remote placement is documented as not yet implemented. |
-| `enabled_tools` | no, Codex + Crush | empty | Allow list of tool names exposed by the server. |
-| `disabled_tools` | no, Codex + Crush | empty | Deny list applied after `enabled_tools`. |
-| `sessionless` | no, Crush | `false` | Mark a server that sends no `Mcp-Session-Id` so Crush skips the subscriptions/listen stream it would otherwise reject. Leave unset to let Crush auto-detect known sessionless servers such as GitHub MCP. |
-| `trust` | no, Gemini + Qoder | `false` | Bypass all tool-call confirmations for this server. |
-| `includeTools` | no, Gemini + Qoder | empty | Allowlist of tool names exposed from this server. On Amp the same concept exists but goes in namespaced as `x-amp.includeTools`: Amp's MCP page enumerates its fields without naming it, so a top-level mapping would assert more than the vendor states. |
-| `excludeTools` | no, Gemini + Qoder | empty | Denylist of tool names; takes precedence over `includeTools` on a name in both. |
-| `alwaysAllow` | no, Qoder | empty | Tool names always allowed without confirmation. |
-| `autoApprove` | no, Kiro | empty | Tool names to auto-approve without prompting. `"*"` auto-approves all of the server's tools. |
-| `disabledTools` | no, Kiro + Factory | empty | Tool names to omit when calling the agent. |
-| `alwaysLoad` | no, Claude Code | `false` | Load every tool from this server into context at session start instead of deferring it behind tool search. Available on all transports. |
-| `headersHelper` | http/sse/ws only, Claude Code | empty | Command run at connection time that prints headers to merge into the connection, for a server on Kerberos, short-lived tokens, or internal SSO. |
-| `oauthScopes` | http/sse only, Kiro | empty | OAuth scopes to request. Overridden by `oauth.oauthScopes` when both are set; an explicitly empty list emits as written, since Kiro documents `[]` as the remedy for scope errors. |
-| `oauth` | no | empty | Target-specific shapes, each mapped to the keys its own vendor documents. Claude Code (http/sse): `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string; `clientSecret` is never written, since Claude Code keeps it in the system keychain. Kiro (http/sse): `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`. Qoder: passed through as declared, since the vendor's own field list is open-ended. Crush: a plain boolean toggle, paired with the separate `oauth_client_id` / `oauth_client_secret` / `oauth_callback_port` fields. Copilot/VS Code (http/sse): `{clientId, enterpriseManaged}`. Codex (http/sse): `{client_id, callback_url, callback_port}`, a nested `[mcp_servers.<id>.oauth]` table rather than a top-level object. |
-| `connectionTimeout` | no, Continue | empty | MCP connection timeout in milliseconds. Preserved on stdio and remote servers. |
-| `requestOptions` | remote, Continue | empty | Native HTTP options, including `timeout`, `verifySsl`, `caBundlePath`, `proxy`, `clientCertificate`, and `headers`. Portable headers fill this map; an explicitly supplied native header wins a duplicate key. |
-| `connectTimeout` | no, Factory | empty | MCP connection timeout in milliseconds, including explicit zero. |
-| `api_key` | no | empty | OpenHands credential for an `http`/`sse` server. Upgrades the emitted `sse_servers`/`shttp_servers` element from a bare URL string to `{ url, api_key }`, OpenHands' own documented object form. `headers` has no equivalent there and surfaces a coverage note instead. |
-| `timeout` | no | empty | Two unrelated units by target. OpenHands: tool-execution timeout in seconds (1-3600, default 60) for an `http` server; documented for the SHTTP tab only, so it upgrades `shttp_servers` elements the same way `api_key` does, and an `sse` entry that sets it surfaces a coverage note instead. Gemini, Claude Code, OpenCode, Qoder, Factory, and Kilo: milliseconds, any transport. Claude Code's is a per-tool-call execution timeout, OpenCode's a tool-fetch timeout defaulting to 5000. |
-| `disabled` | no | `false` | Support varies by target; see [`disabled` support by target](#disabled-support-by-target) below. |
-| `roots` | no | empty | List of `{uri, name}` objects. Passed to targets that support MCP roots (Claude Code, Cursor, Copilot). |
+| `headers` | no | empty | HTTP headers for `http`/`sse`. |
+| `cwd` | no | empty | Working directory for a stdio server, where the target supports it. |
+| `timeout` | no | empty | Units vary: milliseconds on most targets, seconds on OpenHands `http` servers. |
+| `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
+| `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
+| `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
 
-Factory HTTP/SSE servers accept `oauth: false` or an object containing `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`. Kilo remote servers accept `oauth: false`; OAuth objects are not emitted there. Factory and Kilo preserve explicit zero timeouts. Use `x-factory`, `x-kilo`, or `x-continue` to override the corresponding top-level options for that target.
+Some fields apply only to certain targets and are ignored elsewhere. Each target page describes them.
 
-`command` and `url` are the two fields a server cannot work without, and `agnostic-ai lint` reports a missing one as an error (LINT008). Neither `validate` nor `sync` catches it: some targets drop the entry, the rest write a server object with no way to start or reach anything, and both do it silently. See [lint](@/docs/cli-reference.md#lint).
+| Target | Extra fields |
+|--------|--------------|
+| [Codex](@/docs/targets/codex.md) | `env_vars`, `env_http_headers`, `http_headers_helper`, `auth`, `required`, `startup_timeout_sec`, `startup_timeout_ms`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, `enabled_tools`, `disabled_tools` |
+| [Crush](@/docs/targets/crush.md) | `enabled_tools`, `disabled_tools`, `sessionless` |
+| [Gemini](@/docs/targets/gemini.md) | `trust`, `includeTools`, `excludeTools` |
+| [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
+| [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
+| [Factory](@/docs/targets/factory.md) | `disabledTools`, `connectTimeout` |
+| [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `headersHelper` |
+| [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
+| [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` |
+| [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
+| [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }` |
 
-Targets with native MCP propagation:
-
-| Target | File | Schema |
-|--------|------|--------|
-| Claude Code | `.mcp.json` | standard `mcpServers` |
-| Cursor | `.cursor/mcp.json` | standard `mcpServers` |
-| Copilot / VS Code | `.vscode/mcp.json` + `.github/mcp.json` | `servers` with `type` field for VS Code; `mcpServers` for Copilot CLI, which does not read the VS Code file |
-| Codex | `.codex/config.toml` | `[mcp_servers.<name>]` table |
-| Gemini | `.gemini/settings.json` | `mcpServers` (uses `httpUrl` for HTTP) |
-| Continue | `.continue/mcpServers/<name>.yaml` | one YAML per server |
-| Amp | `.amp/settings.json` | `amp.mcpServers` (dotted key) |
-| Zed | `.zed/settings.json` | `context_servers` (stdio: `command`/`args`/`env`; HTTP/SSE: native `url`/`headers`) |
-| Warp | `.warp/.mcp.json` | standard `mcpServers` (stdio `cwd` maps to `working_directory`) |
-| OpenCode | `opencode.json` | `mcp` with `type: local\|remote` |
-| Antigravity | `.agents/mcp_config.json` | `mcpServers` (remote uses `serverUrl`, not `url`) |
-| Factory | `.factory/mcp.json` | standard `mcpServers` |
-| Qoder | `.qoder/settings.json` | standard `mcpServers`, merged so unrelated settings keys survive |
-| OpenHands | `config.toml` | `[mcp]` table with `stdio_servers` / `sse_servers` / `shttp_servers` arrays, no `type` field; a remote entry is a bare URL string, or `{ url, api_key, timeout }` once `api_key` and/or (shttp only) `timeout` is set |
-| Trae | `.trae/mcp.json` | standard `mcpServers`, no `type` field (stdio: `command`/`args`/`env`; HTTP: `url`/`headers`) |
-| Windsurf | `.devin/mcp_config.json` | `mcpServers` (Devin Local's file, not Cascade's; remote uses `transport`, not `type`) |
-| Augment | `.augment/settings.json` | standard `mcpServers`, merged into the file alongside `shell`, `theme`, and other Auggie CLI settings rather than overwriting it |
-
-Aider, Cline, Jules, and Goose have no project-scoped MCP file and skip with a warning.
+On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 
 ### `disabled` support by target
 
-Confirmed per target, never generalized: a target not listed here has not been checked.
+Only the targets listed were checked. Native booleans default to `false`.
 
 | Target | Behavior |
 |--------|----------|
-| Antigravity | Native `disabled` boolean in `.agents/mcp_config.json` (default `false`); passes through unchanged under that literal name, unlike Codex and Kilo Code which map it to `enabled: false`. |
-| Codex | Maps to `enabled = false` in `.codex/config.toml`. |
-| Crush | Native `disabled` boolean in `crush.json` (default `false`); passes through unchanged. Confirmed in the vendor's published `schema.json` (`$defs.MCPConfig.properties.disabled`), not in the README. |
-| Factory | Native `disabled` boolean in `.factory/mcp.json` (default `false`); passes through unchanged. |
-| Kilo Code | Maps to `"enabled": false` in `kilo.jsonc`; an enabled server gets no key at all. |
-| Kiro | Native `disabled` boolean in `.kiro/settings/mcp.json` (default `false`); passes through unchanged on both local and remote servers. |
-| OpenCode | Maps to `"enabled": false` in `opencode.json`; an enabled server gets no key at all. `import opencode` reads it back into `disabled: true`. |
-| Qoder | Native `disabled` boolean in `.qoder/settings.json` (default `false`); passes through unchanged. It had no effect while qoder shared Claude Code's `.mcp.json`, and works now that qoder writes its own file. |
-| Windsurf | Native `disabled` boolean in `.devin/mcp_config.json` (default `false`); passes through unchanged. `devin mcp enable`/`disable` toggle the same key. |
-| Zed | Maps to `"enabled": false` in `.zed/settings.json`; an enabled server gets no key at all, since Zed defaults it to true. Confirmed in Zed's own settings struct (`crates/settings_content/src/project.rs`), not on its MCP doc page, which names no per-server toggle. |
-| Claude Code, Cursor, Copilot, Trae, Augment | No file-based way to pre-disable a project-scoped MCP server; the field has no effect and agnostic-ai does not emit it. Disable the server from the target's own UI instead (Augment: `auggie mcp remove`). |
-| Warp | No file-based way to pre-disable a project-scoped MCP server: Warp's two property tables are closed lists and neither carries a disable key. Little is lost, since "project-scoped servers never auto-spawn" there; start the server from the MCP servers page when you want it. |
-
-### `tools` support by target
-
-Confirmed per target, never generalized: a target not listed here has not
-been checked. One `tools: [Read, Bash]` spec produces five different
-outcomes, so read this before assuming an allowlist restricts anything.
-
-| Target | Behavior |
-|--------|----------|
-| Claude Code, Copilot | Passes through verbatim as a YAML list. The vendor vocabulary matches agnostic-ai's Claude-style names. |
-| Junie | Passes through verbatim as a YAML list, at the agent's native `.junie/agents/<name>.md` file (#604). Junie's own built-in tool group labels (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, plus `AskUserQuestion`, which has no Claude equivalent) match agnostic-ai's Claude-style names for every group Junie documents, though it documents fewer groups overall (no `WebFetch`, `Task`, `TodoWrite`, or `NotebookEdit`). `disallowedTools` (a denylist applied after `tools`) passes through the same way. |
-| Qoder | Passes through as a comma-separated string (`tools: Read, Bash`), the only form Qoder documents. Its built-in vocabulary is Claude-style, so the names carry over unchanged. |
-| Trae | Passes through as a comma-separated string (`tools: Read, Bash`), the form Trae's subagent doc documents, at the agent's native `.trae/agents/<name>.md` file (#638). Its vocabulary is Claude-style and covers agnostic-ai's set exactly, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`. `x-trae.disallowedTools` (a denylist that wins over `tools`) reaches the file the same way. |
-| Windsurf | **Translated**, not passed through, and written under Devin's own key name `allowed-tools`. Devin publishes a complete five-name vocabulary (`read`, `edit`, `grep`, `glob`, `exec`), so `Read`/`Grep`/`Glob`/`Bash` map one-to-one and `Write`/`Edit` both collapse onto `edit`, which means an agent declaring only `Write` also gains edit capability. An `mcp__<server>__<tool>` name passes through untranslated. Names outside the table surface a coverage note rather than being dropped silently. `x-windsurf.allowed-tools` bypasses translation entirely. |
-| Antigravity | No effect. Antigravity's names (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...) share nothing with agnostic-ai's, and the vendor warns that "Specifying an unmapped or misspelled tool name in the `tools` list may cause the subagent process to hang during execution", so a verbatim passthrough is worse than dropping. Set `x-antigravity.tools`. A coverage note fires. |
-| OpenHands | No effect. OpenHands agents use native names such as `file_editor` and `terminal`, so the generic Claude-style list is dropped with a coverage note. Set `x-openhands.tools` and use a distinct `outputs.openhands.agents-dir` when the resulting file must differ from Goose's shared default. |
-| Goose | No effect. Goose's documented project-agent fields are `name`, `description`, and `model`; it documents no `tools` field. A coverage note fires. |
-| Kiro | **Translated**, not passed through. Kiro's vocabulary is lowercase categories, so `Read`/`Grep`/`Glob` become `read`, `Write`/`Edit` become `write`, `Bash` becomes `shell`, and `WebFetch`/`WebSearch` become `web`. A category grants more than the single name it came from: `Edit` alone also permits `delete_file`. Names outside the table surface a coverage note rather than being dropped. `x-kiro.tools` bypasses translation entirely. |
-| Factory | **Translated**, not passed through, onto a different vocabulary than Kiro's. Droid CLI's complete tool-ID table is `Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`, `Execute`, `WebSearch`, `FetchUrl`, and "Unknown IDs cause a validation error", so `Bash` becomes `Execute`, `Write` becomes `Create`, and `WebFetch` becomes `FetchUrl`; every other agnostic-ai name is already a valid ID and carries over. `TodoWrite` and `Skill` drop because Factory always grants them, and `ExitSpecMode` and `GenerateDroid` drop because listing either one is a validation error. Any other name drops with a coverage note instead of failing the whole droid at load time. `x-factory.tools` bypasses translation, the only way to reach a category name (`read-only`) or a registered MCP tool ID. |
-| Codex | No effect. Codex uses `tools` as a configuration table rather than a Claude-style allowlist, so the field is not written and a coverage note fires. Set `x-codex.tools` for Codex-native settings. |
-| Cursor | No effect. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`. `readonly: true` is the coarse equivalent. A coverage note fires. |
-| Augment | No effect. Augment's names (`view`, `codebase-retrieval`, `str-replace-editor`, ...) are its own vocabulary, and no vendor-published mapping exists. Set `x-augment.tools` / `x-augment.disabled_tools`. A coverage note fires. |
-| Kilo Code | No effect. Kilo Code's agent schema has no `tools` key at all; access is controlled by a `permission` object. Set `x-kilo.permission`. A coverage note fires. |
-
-Every target that cannot honor the field says so at sync time. A silently
-dropped restriction is the failure this table and those notes exist to
-prevent: an author who writes `tools: [Read]` and gets an unrestricted
-agent has no way to notice.
-
-### `color` support by target
-
-Confirmed per target, never generalized: a target not listed here has not
-been checked. `color` is a shared top-level key on three targets, and each
-documents its own value space, so a value valid on one may go unrecognized
-on another.
-
-| Target | Documented values |
-|--------|--------------------|
-| Augment | Free text: "should be a valid ANSI color name" ([docs.augmentcode.com/cli/subagents](https://docs.augmentcode.com/cli/subagents)). |
-| Kilo Code | Hex (`#FF5733`) or a theme token (`primary`, `accent`, `error`, and others the doc leaves open-ended with "etc.") ([Kilo-Org/kilocode `custom-subagents.md`](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md)). |
-| Qoder | One of eight named values: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([docs.qoder.com/cli/subagent](https://docs.qoder.com/cli/subagent)). |
-
-agnostic-ai writes `color` verbatim to whichever of these three targets an
-agent spec reaches; it does not validate the value against any target's
-vocabulary. `color: blue` is a valid ANSI name for Augment and one of
-Qoder's eight named values, but is neither hex nor a listed Kilo Code
-theme token, so it may not render there as intended (Kilo Code's "etc."
-leaves other tokens possible, not confirmed). An unrecognized value is
-cosmetic: the agent still runs, only the badge may not show the intended
-color.
+| [Antigravity](@/docs/targets/antigravity.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Qoder](@/docs/targets/qoder.md), [Windsurf](@/docs/targets/windsurf.md) | Native `disabled` |
+| [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
+| [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md), [Augment](@/docs/targets/augment.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
 
 ## Commands
 
-Markdown with optional YAML frontmatter. Each spec becomes one native slash command on supported targets.
+Markdown with optional YAML frontmatter. Each spec becomes one native slash command.
 
 ```markdown
 ---
@@ -563,17 +379,15 @@ Deploy the app to {{env}}.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | no | filename | Command identifier. Becomes the slash name (e.g. `/deploy`). |
+| `name` | no | filename | Command identifier and slash name, such as `/deploy`. |
 | `description` | no | empty | One-liner shown in slash-command pickers. |
-| `argument-hint` | no | empty | Hint string shown after the command. Claude, Augment, and Factory. |
+| `argument-hint` | no | empty | Hint shown after the command, on Claude Code, Augment, and Factory. |
 
-Any other frontmatter passes through unchanged. Use the `x-<target>` namespace for target-specific keys (e.g. `x-claude.allowed-tools`).
-
-Native emission: Claude Code (`.claude/commands/<name>.md`), Cursor (`.cursor/commands/<name>.md`), Gemini (`.gemini/commands/<name>.toml`), OpenCode (`.opencode/commands/<name>.md`), Trae (`.trae/commands/<name>.md`), Junie (`.junie/commands/<name>.md`), Qoder (`.qoder/commands/<name>.md`), Kilo Code (`.kilo/commands/<name>.md`), Augment (`.augment/commands/<scope>/<name>.md`), and Factory (`.factory/commands/<name>.md`). Codex deprecated project prompts, so its commands emit only when `outputs.codex.commands-dir` is set; otherwise `sync` prints a coverage note. Amp has no file-based command surface at all (commands register programmatically via `amp.registerCommand(...)`), so, like other targets outside this list, it logs a warning and skips.
+Any other frontmatter passes through. Put target-specific keys under `x-<target>`, for example `x-claude.allowed-tools`. Codex emits commands only when `outputs.codex.commands-dir` is set. Targets without a command surface log a warning and skip.
 
 ## Settings
 
-Pure YAML, one file per settings group under `settings/`. A tool-neutral place to single-source agent permissions and the default model instead of hand-editing each tool's settings file.
+Pure YAML, one file per settings group. One place for agent permissions and the default model instead of each tool's settings file.
 
 ```yaml
 permissions:
@@ -588,22 +402,16 @@ model: claude-opus-4-8
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `permissions.allow` | no | empty | Permission rules auto-approved without prompting. |
-| `permissions.deny` | no | empty | Permission rules always blocked. |
-| `permissions.ask` | no | empty | Permission rules that prompt before running. |
-| `model` | no | empty | Default model the tool should use. |
+| `permissions.allow` | no | empty | Rules approved without prompting. |
+| `permissions.deny` | no | empty | Rules always blocked. |
+| `permissions.ask` | no | empty | Rules that prompt before running. |
+| `model` | no | empty | Default model. |
 
-Multiple settings files merge: permission lists concatenate (de-duped, source order preserved); the last non-empty `model` wins.
-
-Native emission: Claude Code (`.claude/settings.json`, `permissions` + `model`), Codex (`.codex/config.toml`, `model`), Copilot (`.github/copilot/settings.json`, `model`), Qoder (`.qoder/settings.json`, `permissions` + nested `model.name`), OpenCode (`opencode.json`, `model`), Junie (`.junie/config.json`, `model`), and Kilo Code (`kilo.jsonc`, `model`). Unrepresentable settings fields produce the normal coverage summary while supported fields still emit. Import for Copilot, OpenCode, Junie, Qoder, and Kilo creates `settings/imported.yaml` from portable fields and leaves target-only native keys in place.
-
-When the Claude-specific `outputs.claude.settings` config in `agnostic-ai.yaml` also sets these fields, scalars like `model` take the config value (it is the more specific source), while `permissions` lists are unioned across the captured overlay, the settings spec, and the config so no layer silently drops another's allow/deny/ask rules.
-
-`import claude` keeps `permissions` and `model` in the Claude-only overlay (`.agnostic-ai/overlays/claude.settings.json`), since a Claude model id does not necessarily port to other tools. Codex does the same through its config overlay. Imports from Copilot, OpenCode, Junie, Qoder, and Kilo write their portable fields to `settings/imported.yaml`, ready for cross-target sync. Review imported model identifiers before enabling more targets because vendors use different naming schemes. A settings spec's permissions still union with the imported Claude overlay on sync.
+Multiple files merge. Permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins. Claude Code and Qoder take `permissions` and `model`; Codex, Copilot, OpenCode, Junie, and Kilo Code take `model` only. A field a target cannot represent produces a coverage note while the others still emit. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
 
 ## Reviews
 
-Markdown with optional YAML frontmatter, one file per guidance group under `reviews/`. A single source for code-review-bot guidance that maps to each ecosystem's native review-rule file.
+Markdown with optional YAML frontmatter, one file per guidance group. One source for code-review-bot guidance.
 
 ```markdown
 ---
@@ -613,13 +421,11 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Review specs honor `scope` (and the source-directory layout) exactly like rules, so per-directory guidance is supported. Specs that share a scope concatenate into that scope's single review file.
-
-Native emission: Cursor [Bugbot](https://cursor.com/docs/bugbot) uses `.cursor/BUGBOT.md` at the root and `<scope>/.cursor/BUGBOT.md` for scoped specs; `outputs.cursor.review-file` overrides the basename. Goose uses `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md`; `outputs.goose.review-file` overrides that scope-relative path. `goose review` combines instructions from changed-file directories and their ancestors. Both emit plain bodies without spec frontmatter. Other adapters report reviews as unsupported.
+Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot) and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported.
 
 ## Environments
 
-Pure YAML, one file per environment group under `environments/`. A single source for how a coding agent boots its dev env (install dependencies, start services, forward ports, open terminals).
+Pure YAML, one file per environment group. One source for how a coding agent boots its dev environment: install dependencies, start services, forward ports, open terminals.
 
 ```yaml
 install: go mod download
@@ -628,17 +434,11 @@ terminals:
     command: go run ./cmd/agnostic-ai
 ```
 
-Native emission: Cursor background-agent [environment.json](https://docs.cursor.com/background-agent). The spec body is the `.cursor/environment.json` content: every key except the agnostic-ai routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) passes through verbatim, so you author Cursor's schema while agnostic-ai single-sources it. Multiple environment specs merge by top-level key (last wins). Override the path with `outputs.cursor.environment-file`.
-
-Also native on OpenHands: the `install` field writes [`.openhands/setup.sh`](https://docs.openhands.dev/openhands/usage/customization/repository), the vendor's documented repository bootstrap script that "will run every time OpenHands begins working with your repository". The script body is `install` verbatim under a `#!/bin/bash` shebang. `terminals` has no OpenHands equivalent (the script runs once, synchronously; there is no long-running process surface) and surfaces a coverage note instead. Multiple environment specs merge the same way as Cursor's (last `install` wins). Override the path with `outputs.openhands.setup-file`.
-
-Also native on Amp orbs: `install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing) script, while each named terminal becomes a supervised service in [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals). Terminal fields after `name` pass through to the service, including Amp-specific fields supplied through `x-amp.terminals`. Service names must match Amp's lowercase, number, and hyphen rules, and each service requires `command`. Multiple environment specs merge by top-level key, last value wins. Override the paths with `outputs.amp.setup-file` and `outputs.amp.environment-file`. Amp's `.agents/resume` is not emitted: it runs after activation and every wake with thread credentials, which is distinct from dependency installation and supervised services.
-
-Other targets (devcontainers, Codex setup scripts) have no emitter yet and report the spec as unsupported.
+Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`). [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, and Amp turns `terminals` into services. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported.
 
 ## Ignore
 
-Markdown with optional YAML frontmatter, one file per group under `ignore/`. The body is gitignore-syntax patterns naming what an agent must not read or index. One source fans out to each tool's native ignore file.
+Markdown with optional YAML frontmatter, one file per group. The body holds gitignore-syntax patterns for what an agent must not read or index.
 
 ```markdown
 # Secrets and build artifacts the agent should never read
@@ -647,11 +447,11 @@ secrets/
 dist/
 ```
 
-Native emission (gitignore syntax, under a `#` provenance header): Cursor `.cursorignore`, Gemini `.geminiignore`, Aider `.aiderignore`, Windsurf `.devinignore`, Kiro `.kiroignore`, Trae `.trae/.ignore`, Junie `.aiignore`, Crush `.crushignore`, and Kilo `.kilocodeignore` (a compatibility input migrated into read/edit permission denials). Each spec keeps its pattern order and whitespace. Outer line breaks are trimmed, CRLF becomes LF, and the specs are concatenated with a blank line between them. Each path is overridable via `outputs.<target>.ignore-file`. Targets without an ignore-file convention report the spec as unsupported.
+Specs concatenate into each target's native ignore file under a `#` provenance header, separated by a blank line. Pattern order and whitespace are kept; outer line breaks are trimmed and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Targets without an ignore file report the spec as unsupported.
 
 ### Overwrite behaviour
 
-Sync replaces an ignore file without an agnostic-ai provenance header only when it can establish that existing exclusions survive. Every pattern must remain unchanged and in the same order. Extra exclusion patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The comparison is conservative: equivalent spellings or harmless reorderings can still fail.
+Sync replaces an ignore file without an agnostic-ai provenance header only when every existing exclusion survives. Each pattern must stay unchanged and in order. Extra patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The check is conservative, so an equivalent rewrite can still fail.
 
 ```
 .kiroignore: hand-authored ignore file cannot be safely overwritten: existing
@@ -660,27 +460,25 @@ patterns are missing or reordered: "my-secrets/", "*.key". Run
 their order and review any added negations before syncing again.
 ```
 
-`agnostic-ai import <target>` reads the file into `ignore/<target>.md`, preserving comments, pattern order, and whitespace. Import removes a leading UTF-8 byte-order mark so the generated header does not turn it into a pattern character. Syncing unchanged imported patterns needs no manual cleanup. If other specs add negations or repeat the imported patterns in a different order, review the combined order before syncing. Already-generated files still regenerate from their specs, including intentional pattern removals.
+`agnostic-ai import <target>` reads the file into `ignore/<target>.md` with comments, order, and whitespace intact. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
 
-Comment and blank lines exclude nothing, so a file holding only those never blocks a sync. A hash is a comment prefix only at the start of a line; leading spaces and tabs can be part of a pattern. `outputs.<target>.provenance-header: false` removes the marker used to recognize generated output and disables this check. Dry-run skips it because no file is written; `sync --check` still reports unsafe overwrites.
+Comment and blank lines exclude nothing, so a file with only those never blocks a sync. `#` starts a comment only at the start of a line; leading spaces and tabs can belong to a pattern. `outputs.<target>.provenance-header: false` removes the marker and disables this check. Dry-run skips the check because it writes nothing; `sync --check` still reports unsafe overwrites.
 
 ## Frontmatter rules
 
 - YAML between two `---` lines at the top of the file.
-- Empty (`---\n---\n`) is allowed and treated as no metadata.
-- Files without frontmatter still load; name defaults to the filename.
-- Malformed frontmatter is treated as no metadata; the entire content becomes the body.
-- Any field not listed above passes through on emit. Useful for target-specific extensions.
+- Empty frontmatter (`---\n---\n`) means no metadata.
+- A file without frontmatter still loads; its name defaults to the filename.
+- Malformed frontmatter counts as no metadata, and the whole file becomes the body.
+- Fields not listed on this page pass through on emit.
 
 ## Path variables: `{{$NAME}}`
 
-A spec body can name a directory without hardcoding one target's layout. `{{$SKILLS_DIR}}` expands to `.claude/skills` for claude, `.agents/skills` for codex, and `.github/skills` for copilot, from one source file.
+A spec body can name a directory without hardcoding one target's layout. `{{$SKILLS_DIR}}` expands to `.claude/skills` for claude, `.agents/skills` for codex, and `.github/skills` for copilot.
 
 ```markdown
 Put new skills in {{$SKILLS_DIR}} and agent profiles in {{$AGENTS_DIR}}.
 ```
-
-Five variables are available:
 
 | Variable | Resolves to |
 |---|---|
@@ -690,17 +488,15 @@ Five variables are available:
 | `{{$RULES_DIR}}` | the target's rules directory |
 | `{{$MCP_FILE}}` | the target's MCP config file |
 
-Rules:
-
-- **Bodies only.** Every spec kind that carries a body is expanded; frontmatter values are not.
-- **An `outputs.<target>.<field>` override wins.** Set `outputs.claude.skills-dir: custom/skills` and `{{$SKILLS_DIR}}` follows it, so a body never names a directory the emitted tree does not use.
-- **A variable the target has no surface for stays verbatim** and raises a coverage note. It is not blanked, because turning "see {{$COMMANDS_DIR}}" into "see " loses the sentence silently. Targets that carry every kind in one entry-point document (aider, jules) resolve no variables at all.
-- **A variable is declared only where the target has a dedicated surface for that kind.** Several targets flatten agents into their rules directory with a filename prefix (continue, trae, windsurf) or render them as commands (gemini); those declare no `{{$AGENTS_DIR}}` rather than point at a directory that is not an agents directory. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
-- **The `$` sigil is required.** Plain `{{placeholder}}` is left alone, so Warp workflow arguments and any Handlebars or Jinja quoted in prose survive untouched. Lowercase names (`{{$skills_dir}}`) do not resolve.
+- **Bodies only.** Every spec body expands; frontmatter values do not.
+- **An `outputs.<target>.<field>` override wins.** With `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it.
+- **A variable with no target surface stays verbatim** and raises a coverage note, so "see {{$COMMANDS_DIR}}" never becomes "see ". aider and jules resolve no variables.
+- **A variable exists only where the target has a dedicated surface.** Targets that flatten agents into rules (continue, trae, windsurf) or commands (gemini) declare no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
+- **The `$` sigil is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and quoted Handlebars or Jinja survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
 
 ## Target-specific extensions: `x-<target>` namespace
 
-Use `x-<target>:` blocks to attach fields only one adapter consumes. Other adapters strip the block on emit, so the spec stays portable.
+Use an `x-<target>:` block for fields only one adapter reads. Other adapters strip it, so the spec stays portable.
 
 ```markdown
 ---
@@ -715,43 +511,16 @@ x-cursor:
 ---
 ```
 
-Resolution per target:
-
-- All `x-*` keys are dropped first.
-- The matching `x-<target>` block is flattened into top-level meta.
-- Flattened keys override top-level keys with the same name.
+For each target, all `x-*` keys are dropped, then the matching `x-<target>` block is flattened into the top level, overriding keys with the same name.
 
 | Target | Resulting frontmatter |
 |--------|-----------------------|
 | `claude` | `name`, `description`, `model`, `allowed-tools` |
 | `cursor` | `name`, `description`, `model`, `globs`, `alwaysApply` |
-| `gemini` | `description` (`name` becomes the `.toml` filename; `model` has no native command surface and is not emitted) |
-
-For Codex agents, `x-codex` fields (`model`, `model_reasoning_effort`, `sandbox_mode`, `nickname_candidates`) pass through to the generated `.codex/agents/<name>.toml`. For Codex skills, `x-codex.interface`, `x-codex.policy`, and `x-codex.dependencies` trigger an additional `.agents/skills/<name>/agents/openai.yaml` for UI customization, policy, and tool dependencies.
+| `gemini` | `description` (`name` becomes the `.toml` filename; `model` is not emitted for commands) |
 
 ### Arbitrary custom keys
 
-Any other key under `x-<target>` emits verbatim into that target's output surface. Declaring it under `x-<target>` is the opt-in: shared top-level keys stay stripped, so plain specs keep emitting valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
+Any other key under `x-<target>` emits verbatim into that target's output. Declaring it under `x-<target>` is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
 
-Per surface:
-
-| Target | Surface | Custom key lands in |
-|--------|---------|---------------------|
-| `claude` | `SKILL.md` frontmatter | every `x-claude` key (e.g. `disable-model-invocation: true`) |
-| `codex` | `SKILL.md` frontmatter | every `x-codex` key except `interface`/`policy`/`dependencies` (those route to `openai.yaml`) |
-| `amp`, `zed`, `crush`, `gemini`, `opencode`, `copilot`, `kiro` | `SKILL.md` frontmatter (shared renderer) | every `x-<target>` key beyond `name`/`description` (e.g. crush's `user-invocable: true`, which adds the skill to the command palette) |
-| `cursor` | `SKILL.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`paths`/`disable-model-invocation`/`icon`/`color`/`metadata` |
-| `cursor` | agent `.md` frontmatter | every `x-cursor` key beyond `name`/`description`/`model`/`readonly`/`is_background` |
-| `copilot` | rule `.instructions.md` frontmatter | every `x-copilot` key, alongside `applyTo` |
-| `copilot` | `.agent.md` frontmatter | every `x-copilot` key beyond `name`/`description`/`tools`/`model` |
-| `opencode` | agent `.md` frontmatter | every `x-opencode` key beyond `description`/`mode`/`model`/`temperature`/`permission` |
-| `opencode` | command `.md` frontmatter | every `x-opencode` key beyond `description`/`agent`/`model`/`subtask` |
-| `gemini` | command `.toml` | every `x-gemini` key (string, bool, number, or string array) |
-| `gemini` | agent `.md` frontmatter | every `x-gemini` key beyond `name`/`description`/`kind`/`model`/`temperature`/`max_turns`/`timeout_mins` (e.g. `mcpServers`, Gemini's inline per-agent MCP servers; `x-gemini.tools` also wins outright over the translated `tools` list) |
-| `kiro` | agent `.md` frontmatter | every `x-kiro` key beyond `name`/`description`/`model`; `name` is handled separately as Kiro's display name while the filename remains the canonical spec identity |
-| `kiro` | hook `.json` entry | every `x-kiro` key beyond `name`/`trigger`/`matcher`/`action`/`timeout`/`enabled`/`description` (e.g. `confirm`, Kiro's Stop-hook confirmation block, which has no agnostic-ai spec equivalent) |
-| `qoder` | agent `.md` frontmatter | every `x-qoder` key beyond `name`/`description`/`model`/`tools`/`skills`/`mcpServers` |
-| `warp` | workflow `.yaml` | every `x-warp` key beyond `name`/`command`/`description`/`tags` (e.g. `shells`, `arguments`, `source_url`, `author`, `author_url`) |
-| `zed` | task (in `outputs.zed.tasks-file`) | every `x-zed` key beyond `label`/`command`/`args`/`hooks` (e.g. `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, `reevaluate_context`); `hooks` is handled separately so `WorktreeCreate` can add `create_worktree` without dropping other native hook names |
-
-Targets that emit no surface for a spec kind drop arbitrary custom keys (kiro rule steering files carry no passthrough; kiro agents, skills, and hooks do, see above). Gemini TOML accepts scalars and string arrays only; nested tables are skipped.
+Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
