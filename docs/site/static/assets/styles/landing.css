@@ -22,6 +22,7 @@ main > section[id] {
 
 .hero-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: clamp(2.5rem, 7vw, 5rem);
 }
