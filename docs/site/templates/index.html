@@ -8,6 +8,7 @@
 {% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/landing.css', trailing_slash=false) }}">{% endblock styles %}
 {% block structured_data %}
+{% set landing = load_data(path="data/landing.toml") %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -43,6 +44,17 @@
         "Round-trip safe import then sync",
         "sync --check CI drift detection"
       ]
+    },
+    {
+      "@type": "VideoObject",
+      "@id": "{{ config.base_url }}/#demo",
+      "name": {{ landing.demo.video_title | json_encode | safe }},
+      "description": {{ landing.demo.body | json_encode | safe }},
+      "thumbnailUrl": "{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}",
+      "uploadDate": "{{ landing.demo.upload_date }}",
+      "duration": "{{ landing.demo.duration }}",
+      "contentUrl": "https://www.youtube.com/watch?v={{ landing.demo.video_id }}",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/{{ landing.demo.video_id }}"
     }
   ]
 }
@@ -119,6 +131,19 @@
         <a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.workflow.install_label }}</a>
         <a href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.workflow.guide_label }}</a>
         <a href="{{ get_url(path='@/docs/migration.md') }}">{{ landing.workflow.migration_label }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.demo.title }} <span>{{ landing.demo.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.demo.body | markdown | safe }}</div>
+      <div class="demo-frame reveal-group" data-video-facade data-video-id="{{ landing.demo.video_id }}" data-video-title="{{ landing.demo.video_title }}">
+        <a class="demo-poster" href="https://www.youtube.com/watch?v={{ landing.demo.video_id }}" data-video-play aria-label="{{ landing.demo.play_label }}">
+          <img src="{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}" width="1280" height="720" alt="" loading="lazy" decoding="async">
+          <span class="demo-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+        </a>
       </div>
     </div>
   </section>

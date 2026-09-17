@@ -105,6 +105,16 @@ prompt = "$"
 command = "curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz"
 note = "Swap `darwin_arm64` for your release archive. Windows builds and `checksums.txt` are on the releases page."
 
+[demo]
+title = "Watch it run."
+muted_title = "The talk demo."
+body = "Twenty minutes from one spec to native files for every target."
+video_id = "uEG6ITlqyHU"
+video_title = "One spec, every AI CLI"
+play_label = "Play the demo video, 20 minutes"
+upload_date = "2026-09-17"
+duration = "PT19M55S"
+
 [updates]
 title = "Keep the setup current."
 muted_title = "Know what changed."

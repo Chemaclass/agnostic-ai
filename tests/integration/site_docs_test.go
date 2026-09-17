@@ -390,16 +390,28 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
 		"/agent-setup.txt",
+		`id="demo"`,
+		`data-video-id="uEG6ITlqyHU"`,
+		`href="https://www.youtube.com/watch?v=uEG6ITlqyHU"`,
+		"assets/images/demo-poster.webp",
+		`"@type": "VideoObject"`,
 	} {
 		if !strings.Contains(normalizedHome, required) {
 			t.Errorf("home page is missing %q", required)
 		}
 	}
+	if strings.Contains(home, "<iframe") {
+		t.Error("home page loads the demo player before the visitor asks for it")
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", "demo-poster.webp")); err != nil {
+		t.Errorf("demo poster is not published: %v", err)
+	}
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
+	demoIndex := strings.Index(home, `id="demo"`)
 	targetsIndex := strings.Index(home, `id="targets"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
-		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
+	if quickstartIndex < 0 || demoIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= demoIndex || demoIndex >= targetsIndex || targetsIndex >= updatesIndex {
+		t.Errorf("home sections are not ordered quickstart, demo, targets, updates: %d, %d, %d, %d", quickstartIndex, demoIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
@@ -432,6 +444,18 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	} {
 		if !strings.Contains(sharingHome, metadata) {
 			t.Errorf("home page is missing sharing metadata %q", metadata)
+		}
+	}
+}
+
+func TestSiteDocs_LandingCopyAvoidsDashesAndExclamations(t *testing.T) {
+	data, err := os.ReadFile("../../docs/site/data/landing.toml")
+	if err != nil {
+		t.Fatalf("read landing data: %v", err)
+	}
+	for _, forbidden := range []string{"\u2014", "\u2013", "!"} {
+		if strings.Contains(string(data), forbidden) {
+			t.Errorf("landing copy contains %q", forbidden)
 		}
 	}
 }

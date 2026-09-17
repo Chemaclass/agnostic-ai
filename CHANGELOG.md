@@ -6,6 +6,10 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+### Added
+
+- The landing page embeds the talk demo behind a click-to-play poster; YouTube loads only after the click, through youtube-nocookie.com.
+
 ## v0.59.0 - 2026-09-16
 
 ### Added
