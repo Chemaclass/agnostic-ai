@@ -10,6 +10,8 @@ target_id = "kiro"
 
 # Kiro (`kiro`)
 
+## Output
+
 ```
 AGENTS.md                          # canonical entry-point pointer body (written by sync, shared path)
 .kiro/steering/<name>.md           # one per rule (inclusion: always, or fileMatch + fileMatchPattern from globs)
@@ -77,7 +79,7 @@ Two vendor caveats gate how far the file reaches, and neither is something `sync
 
 Multiple specs concatenate. Override via `outputs.kiro.ignore-file`.
 
-Config keys:
+## Config keys
 
 | Key | Default |
 | --- | --- |
@@ -110,7 +112,7 @@ Some data is lossy on round-trip. Kiro's emit cannot carry it, so the reconstruc
 - A rule's source-layout scope collapses into an equivalent `globs:`.
 - A legacy flattened steering agent or skill keeps only its body. That flattened form never carried a description, model, or bundled sibling assets in the first place.
 
-Verify with the real IDE:
+## Verify
 
 1. Install Kiro from [kiro.dev](https://kiro.dev).
 2. Check the tree: `ls AGENTS.md .kiro/steering/ .kiro/skills/ .kiro/agents/ .kiro/hooks/ .kiro/settings/mcp.json .kiroignore`, `head -2 .kiro/steering/*.md .kiro/skills/*/SKILL.md .kiro/agents/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`, and `python -m json.tool .kiro/hooks/*.json > /dev/null` for each hook file.

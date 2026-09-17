@@ -10,6 +10,8 @@ target_id = "zed"
 
 # Zed (`zed`)
 
+## Output
+
 ```
 .rules                                 # canonical entry-point pointer body + inlined rules (written by sync)
 .agents/skills/<name>/SKILL.md         # one folder per skill (shared tree with codex/amp/crush)
@@ -30,7 +32,7 @@ target_id = "zed"
 
 Zed skill names must contain 1-64 lowercase letters or digits, with single hyphens between segments. Invalid names such as `Deploy`, `my_skill`, and `my--skill` fail sync with the name and required format; they are not renamed.
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 | --- | --- | --- |
@@ -43,7 +45,7 @@ Config keys:
 
 `agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (back into hook specs, as described under **Hooks**), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` and all bundled assets.
 
-Verify with the real editor:
+## Verify
 
 1. Install Zed from [zed.dev](https://zed.dev).
 2. Check the tree: `ls .rules .agents/skills/ .zed/settings.json .zed/tasks.json`, `test -f .agents/skills/*/SKILL.md`, `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.

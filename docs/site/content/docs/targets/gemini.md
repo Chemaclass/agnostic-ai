@@ -10,6 +10,8 @@ target_id = "gemini"
 
 # Gemini CLI (`gemini`)
 
+## Output
+
 ```
 GEMINI.md                              # canonical entry-point pointer body (written by sync)
 .gemini/agents/<name>.md               # one per agent, Gemini's native subagent surface
@@ -44,7 +46,7 @@ GEMINI.md                              # canonical entry-point pointer body (wri
 
   Native nested hooks preserve commands, matchers, names, descriptions, environment maps, timeouts, and sequential groups. Distinct definitions with the same command and matcher import into separate files. A single handler's timeout imports in seconds when it is a whole second; otherwise `x-gemini.timeout` keeps the native milliseconds. Multiple handlers stay together under `x-gemini.hooks`, which replaces `command` emission for Gemini; old flat hook files still import (#762).
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 |---|---|---|
@@ -57,7 +59,7 @@ Config keys:
 | `outputs.gemini.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.gemini.ignore-file` | `.geminiignore` | |
 
-Verify with the real CLI:
+## Verify
 
 1. Install: `npm install -g @google/gemini-cli` ([docs](https://geminicli.com/docs/)).
 2. Check the tree: `ls GEMINI.md .gemini/agents/ .gemini/commands/ .gemini/settings.json`, `head -2 .gemini/agents/*.md` (frontmatter first), `head -1 .gemini/commands/*.toml` for the provenance header, `python -m json.tool .gemini/settings.json > /dev/null`.

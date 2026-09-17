@@ -10,6 +10,8 @@ target_id = "trae"
 
 # Trae (`trae`)
 
+## Output
+
 ```
 AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
 .trae/rules/<name>.md         # one per rule
@@ -57,6 +59,8 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.t
   - Unlike every other ignore target, it does not apply on save: "The `.ignore` file will take effect after re-indexing is complete", so a freshly synced pattern needs a Build under Settings > Indexing & Docs before it holds.
   - Multiple specs concatenate. Override via `outputs.trae.ignore-file`.
 
+## Config keys
+
 | Key | Default |
 | --- | --- |
 | `outputs.trae.rules-dir` | `.trae/rules` |
@@ -67,7 +71,7 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.t
 | `outputs.trae.ignore-file` | `.trae/.ignore` |
 | `outputs.trae.mcp-file` | `.trae/mcp.json` |
 
-Verify with the real IDE:
+## Verify
 
 1. Install Trae from [trae.ai](https://www.trae.ai).
 2. Check the tree:

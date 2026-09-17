@@ -10,6 +10,8 @@ target_id = "factory"
 
 # Factory (`factory`)
 
+## Output
+
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .factory/droids/<name>.md          # one custom-droid profile per agent
@@ -44,6 +46,8 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
   - Remote HTTP/SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
   - `x-factory` overrides each top-level option. These fields stay scoped to Factory. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target). A `type: ws` spec emits no server and raises a coverage note because Factory documents only stdio, HTTP, and SSE.
 
+## Config keys
+
 | Key | Default |
 | --- | --- |
 | `outputs.factory.agents-dir` | `.factory/droids` |
@@ -52,7 +56,7 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
 | `outputs.factory.hooks-file` | `.factory/hooks.json` |
 | `outputs.factory.mcp-file` | `.factory/mcp.json` |
 
-Verify with the real CLI:
+## Verify
 
 1. Install the Factory CLI ([subagents docs](https://docs.factory.ai/harness/subagents)).
 2. Check the tree:

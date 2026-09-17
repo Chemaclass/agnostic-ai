@@ -10,6 +10,8 @@ target_id = "augment"
 
 # Augment (`augment`)
 
+## Output
+
 ```
 AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .augment/
@@ -38,7 +40,7 @@ Hooks merge into that same `.augment/settings.json`, under a `hooks` key, in the
 
 Commands emit to `.augment/commands/<scope>/<name>.md`; a source-layout scope becomes a nested command namespace, while `description`, `argument-hint`, and `model` stay in frontmatter. Ignore specs emit to `.augmentignore`, and `import augment` restores a hand-authored file without changing pattern order or negation semantics.
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 |-----|---------|-------|
@@ -50,7 +52,7 @@ Config keys:
 | `outputs.augment.rules-file` | unset | opt-in, writes the legacy concatenated `.augment-guidelines` document |
 | `outputs.augment.mcp-file` | `.augment/settings.json` | also the hooks file, since both merge into the same document |
 
-Verify with the real extension:
+## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
 2. Check the tree: `ls AGENTS.md .augment/rules/ .augment/agents/ .agents/skills/`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set and `.augment/settings.json` when MCP or hook specs are present.

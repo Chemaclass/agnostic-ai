@@ -10,6 +10,8 @@ target_id = "openhands"
 
 # OpenHands (`openhands`)
 
+## Output
+
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined always-on rules (written by sync, shared path)
 .agents/agents/<name>.md           # one project agent (shared with Goose)
@@ -44,6 +46,8 @@ The vendor documents two locations for this, a flat `.md` file and a folder; thi
   - `terminals` (Cursor's long-running dev processes) has no equivalent here, since the script runs once, synchronously, at repo start; it surfaces a coverage note instead of being silently dropped.
   - Multiple environment specs merge the same way Cursor's do: last spec's `install` wins.
 
+## Config keys
+
 | Key | Default |
 | --- | --- |
 | `outputs.openhands.agents-dir` | `.agents/agents` |
@@ -52,7 +56,7 @@ The vendor documents two locations for this, a flat `.md` file and a folder; thi
 | `outputs.openhands.hooks-file` | `.openhands/hooks.json` |
 | `outputs.openhands.setup-file` | `.openhands/setup.sh` |
 
-Verify with the real CLI:
+## Verify
 
 1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
 2. Check the tree:

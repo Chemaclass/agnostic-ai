@@ -10,6 +10,8 @@ target_id = "aider"
 
 # Aider (`aider`)
 
+## Output
+
 ```
 CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 .aider.conf.yml          # only when conf-file is set
@@ -17,7 +19,7 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 
 `CONVENTIONS.md` carries the pointer body plus a sentinel-marked `## Rules` block with unscoped rule bodies inline, so the conventions reach Aider by default; `import aider` strips that block. Wire the file in via `aider --read CONVENTIONS.md`. Set `outputs.aider.conf-file: .aider.conf.yml` to also merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html) so the file auto-loads. `model` and `weak-model` propagate into the same file when set. Pre-existing keys are preserved; the `read:` list de-duplicates.
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 |---|---|---|
@@ -27,7 +29,7 @@ Config keys:
 | `outputs.aider.rules-file` | unset | writes a legacy merged document and skips the pointer-body write |
 | `outputs.aider.ignore-file` | `.aiderignore` | |
 
-Verify with the real CLI:
+## Verify
 
 1. Install: `python -m pip install -U aider-chat` (or `pipx install aider-chat`).
 2. Check the tree: `ls CONVENTIONS.md .aider.conf.yml`, `head -1 .aider.conf.yml` must start with the provenance header.

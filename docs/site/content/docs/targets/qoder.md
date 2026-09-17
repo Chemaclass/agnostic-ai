@@ -10,6 +10,8 @@ target_id = "qoder"
 
 # Qoder (`qoder`)
 
+## Output
+
 ```
 AGENTS.md                        # canonical entry-point pointer body (written by sync, shared path)
 .qoder/rules/<name>.md           # one per rule (native, one file per rule)
@@ -59,6 +61,8 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
 
   Merging `hooks` and `mcpServers` happens in one write, not two. `MergeJSONFile` re-reads `.qoder/settings.json` from disk on every call, and two separate calls in the same sync would each see the file before the other's write landed during sync's collision-detection pass, which reads as two targets disagreeing on one file's content when only Qoder writes it.
 
+## Config keys
+
 | Key | Default |
 | --- | --- |
 | `outputs.qoder.rules-dir` | `.qoder/rules` |
@@ -67,7 +71,7 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
 | `outputs.qoder.commands-dir` | `.qoder/commands` |
 | `outputs.qoder.mcp-file` | `.qoder/settings.json` (also the hooks path since the two share one file) |
 
-Verify with the real IDE:
+## Verify
 
 1. Install Qoder from [qoder.com](https://qoder.com).
 2. Check the tree:

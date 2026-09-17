@@ -10,6 +10,8 @@ target_id = "crush"
 
 # Crush (`crush`)
 
+## Output
+
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed)
@@ -45,7 +47,7 @@ A project that also hand-authors a `crushrc` gets that warning against our `crus
 
 Ignore specs write project-root `.crushignore` with gitignore syntax, supported by [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 | --- | --- | --- |
@@ -68,7 +70,7 @@ Config keys:
 
 Crush imports root rules from its inlined block. It has no verified native directory scope; scoped source rules are skipped on sync. Import cannot recover scope from previously flattened instructions. See [scoped context](@/docs/scoped-context.md).
 
-Verify with the real CLI:
+## Verify
 
 1. Install: `brew install charmbracelet/tap/crush` (or see the [README](https://github.com/charmbracelet/crush)).
 2. Check the tree: `ls AGENTS.md .agents/skills/`, `python -m json.tool crush.json > /dev/null`.

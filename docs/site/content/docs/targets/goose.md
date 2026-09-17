@@ -10,6 +10,8 @@ target_id = "goose"
 
 # Goose (`goose`)
 
+## Output
+
 ```
 AGENTS.md                          # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 .agents/agents/<name>.md           # one project agent (shared with OpenHands)
@@ -33,7 +35,7 @@ Goose discovers additional context files (any of `CONTEXT_FILE_NAMES`, default `
 
 `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from directories containing changed files and their ancestors, so root and scoped guidance compose. Same-scope bodies concatenate, and routing frontmatter is omitted because the loader reads plain text. The [v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md) documents this surface. Agent-shaped check files remain outside this adapter.
 
-Config keys:
+## Config keys
 
 | Key | Default | Notes |
 |-----|---------|-------|
@@ -43,7 +45,7 @@ Config keys:
 | `outputs.goose.hooks-file` | `.agents/plugins/agnostic-ai/hooks/hooks.json` | overrides must keep the `<plugin>/hooks/hooks.json` suffix |
 | `outputs.goose.review-file` | `.agents/REVIEW.md` | relative to each scope |
 
-Verify with the real CLI:
+## Verify
 
 1. Install Goose ([docs](https://goose-docs.ai)).
 2. Check the tree: `ls AGENTS.md .agents/agents/ .agents/skills/`, plus `.goosehints` when `outputs.goose.rules-file` is set.
