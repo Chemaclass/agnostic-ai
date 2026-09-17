@@ -328,8 +328,51 @@
 .docs-content > pre,
 .docs-content > .capability-browser,
 .docs-content > .agent-prompt-guide,
-.docs-content > .docs-index-list {
+.docs-content > .docs-index-list,
+.docs-content > .target-grid {
   max-width: none;
+}
+
+.target-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem;
+  margin-block: 1.25rem 2.5rem;
+}
+
+.target-card {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 120ms ease;
+}
+
+.target-card:hover,
+.target-card:focus-visible {
+  border-color: var(--accent);
+}
+
+.target-card strong {
+  font-size: 0.95rem;
+}
+
+.target-card code {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .target-card {
+    transition: none;
+  }
 }
 
 .docs-breadcrumb {
