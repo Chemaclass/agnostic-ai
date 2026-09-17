@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   decodeEntities,
   normalize,
+  parseIndex,
   prepare,
   scoreEntry,
   search,
@@ -114,4 +115,11 @@ test("the shortcut hint follows the platform", function () {
   assert.equal(shortcutHint("MacIntel"), "⌘K");
   assert.equal(shortcutHint("macOS"), "⌘K");
   assert.equal(shortcutHint("Win32"), "Ctrl K");
+});
+
+test("parses the index with or without the dev server's live-reload script", function () {
+  const json = '[{"url":"/docs/","title":"Docs [start]","heading":"","group":"Docs","body":"a ] b"}]';
+  assert.equal(parseIndex(json)[0].title, "Docs [start]");
+  const served = json + '\n<script src="/livereload.js?port=1111&amp;mindelay=10"></script>';
+  assert.deepEqual(parseIndex(served), parseIndex(json));
 });

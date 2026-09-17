@@ -31,6 +31,11 @@
     return normalize(query).split(" ").filter(Boolean);
   }
 
+  // `zola serve` appends a live-reload script after the JSON, since the index is served as HTML.
+  function parseIndex(text) {
+    return JSON.parse(text.slice(0, text.lastIndexOf("]") + 1));
+  }
+
   function prepare(entries) {
     return (entries || []).map(function (entry) {
       return {
@@ -208,10 +213,10 @@
           if (!response.ok) {
             throw new Error("search index request failed");
           }
-          return response.json();
+          return response.text();
         })
-        .then(function (entries) {
-          prepared = prepare(entries);
+        .then(function (text) {
+          prepared = prepare(parseIndex(text));
           runQuery();
         })
         .catch(function () {
@@ -409,6 +414,7 @@
     init: init,
     isTypingTarget: isTypingTarget,
     normalize: normalize,
+    parseIndex: parseIndex,
     prepare: prepare,
     scoreEntry: scoreEntry,
     search: search,
