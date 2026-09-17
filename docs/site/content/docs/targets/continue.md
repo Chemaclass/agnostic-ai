@@ -31,7 +31,7 @@ Config keys:
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `outputs.continue.rules-dir` | `.continue/rules` | |
+| `outputs.continue.rules-dir` | `.continue/rules` | One `.md` per rule, agent, and skill. Continue has no skill surface, so a skill lands here as `skill-<name>.md`. |
 | `outputs.continue.mcp-dir` | `.continue/mcpServers` | |
 | `outputs.continue.assistants-dir` | empty | opt-in |
 

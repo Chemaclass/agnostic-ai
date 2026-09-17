@@ -60,6 +60,75 @@ Config keys:
 | `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
 
+## Codex config
+
+The `outputs.codex.config` block declares first-class `.codex/config.toml` global keys, written into the project-tier config on each sync. A portable Settings spec can set the same project `model`; `outputs.codex.config.model` wins when both exist. Keys not listed here belong in the user-level `~/.codex/config.toml`, which Codex merges last.
+
+```yaml
+outputs:
+  codex:
+    config:
+      model: o4-mini
+      sandbox: workspace
+      approval-policy: on-failure
+      model-reasoning-effort: high
+      model-reasoning-summary: auto
+      history-persistence: project
+      notify: ["python3", "/etc/codex/notify.py"]
+      profiles:
+        work:
+          model: o4-mini
+          sandbox: workspace-write
+          approval-policy: on-failure
+        oss:
+          model: gpt-oss-20b
+          model-provider: ollama
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `model` | string | Model identifier Codex uses for this project. |
+| `sandbox` | string | Sandbox profile (e.g. `workspace`). |
+| `approval-policy` | string | When Codex asks for approval: `never`, `on-failure`, or `always`. |
+| `model-reasoning-effort` | string | Reasoning effort for o-series models: `low`, `medium`, `high`. |
+| `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
+| `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
+| `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
+| `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
+| `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
+
+### Codex exec-policies
+
+`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex CLI's Starlark exec-policy DSL, rendered into `.codex/rules/default.rules` on sync. Each entry allow- or forbid-lists a shell command prefix.
+
+```yaml
+outputs:
+  codex:
+    exec-policies:
+      - pattern: ["composer", "test"]
+        decision: allow           # allow | forbidden | prompt
+        justification: Composer scripts are project entrypoints.
+        match: ["composer test", "composer test -- --filter Foo"]
+      - pattern: ["rm", "-rf", "/"]
+        decision: forbidden
+        justification: Never remove the filesystem root.
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `pattern` | yes | Shell command prefix tokens (`["composer", "test"]`). Becomes the `prefix_rule(pattern = [...])` argument. |
+| `decision` | yes | One of `allow`, `forbidden`, `prompt`. |
+| `justification` | no | Free-form comment emitted above the rule as a `#` line. |
+| `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
+
+For many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
+
+`agnostic-ai import codex` against a project that ships `.codex/rules/default.rules` captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without extra config.
+
+The file is written only when at least one policy is declared. Otherwise nothing under `.codex/rules/` is created.
+
+The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `agnostic-ai import codex`) and prepends its body before the spec-derived `[mcp_servers.*]` sections. The overlay carries every other `.codex/config.toml` key the user has configured (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...) so wiping `.codex/` between `import` and `sync` no longer drops them. For `model`, precedence from low to high is portable Settings spec, `outputs.codex.config.model`, captured overlay. The overlay also wins any other conflict with `outputs.codex.config.*`; the lower value is dropped to keep the TOML valid.
+
 Verify with the real CLI:
 
 1. Install: `npm install -g @openai/codex` ([quickstart](https://learn.chatgpt.com/docs/codex/cli)); `codex --version` to confirm PATH.

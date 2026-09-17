@@ -21,6 +21,6 @@ The [scoped-context walkthrough](../user/scoped-context.md#start-with-one-direct
 
 ## Configure only what you need
 
-Start with the config created by `init`. [agnostic-ai.yaml](agnostic-ai.yaml) is a small, commented starter for Claude Code and Cursor. The [configuration reference](../user/configuration.md#full-schema) contains the expanded field listing.
+Start with the config created by `init`. [agnostic-ai.yaml](agnostic-ai.yaml) is a small, commented starter for Claude Code and Cursor. The [configuration reference](https://agnostic-ai.org/docs/configuration/) describes every field.
 
 See [Configuration](../user/configuration.md) for defaults and [Targets](../user/targets.md) for supported fields per tool.
