@@ -39,7 +39,7 @@ Subagents emit one file per agent at `.junie/agents/<name>.md`: "Subagents are M
 
 Frontmatter passes through verbatim: the vendor's documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) are already spelled the way a spec author writes them, so nothing here is translated. `reasoningLevel` also accepts `effort` as an alias, taking precedence when both are set; a spec author can write either key and both pass through unchanged.
 
-Agent bodies no longer inline into `.junie/AGENTS.md` now that this native destination exists, the same rule Augment and Kilo Code follow for their own native agents directories. `.junie/AGENTS.md` is fully regenerated from the canonical pointer body on every sync rather than patched in place, so a project still carrying the pre-#604 inlined `## Agents` block loses it on its very next sync with no extra sweep step.
+Agent bodies no longer inline into `.junie/AGENTS.md` now that this native destination exists, the same rule Augment and Kilo Code follow for their own native agents directories. `.junie/AGENTS.md` is fully regenerated from the canonical pointer body on every sync rather than patched in place, so a project still carrying the pre-#604 inlined `## Agents` block loses it on its very next sync with no extra sweep step. With `sync.target-overview` off, `.junie/AGENTS.md` and the shared root `AGENTS.md` render byte-identical content whenever another AGENTS.md-family target is also enabled.
 
 One sub-feature on the subagents page, an auto model-selection policy toggle read from `/settings → Subagents`, is marked Early Access; the base file format and discovery are not caveated.
 
