@@ -56,13 +56,29 @@
         <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with('/docs') %} aria-current="page"{% endif %}>Docs</a>
         <a href="{{ config.extra.repository_url }}">GitHub</a>
       </nav>
-      <button class="theme-toggle" type="button" aria-label="Use dark theme" title="Change color theme">
-        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      </button>
+      <div class="site-actions">
+        <button class="search-trigger" type="button" data-search-open aria-haspopup="dialog" aria-controls="site-search" aria-keyshortcuts="Meta+K Control+K /" aria-label="Search docs and updates" title="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span class="search-trigger-label">Search</span>
+          <kbd class="search-trigger-hint" data-search-hint aria-hidden="true">Ctrl K</kbd>
+        </button>
+        <button class="theme-toggle" type="button" aria-label="Use dark theme" title="Change color theme">
+          <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
     </div>
   </header>
   <div class="signal-rule" aria-hidden="true"></div>
+  <dialog id="site-search" class="site-search" aria-label="Site search" data-search data-search-index="{{ get_url(path='@/search-index.md') }}">
+    <form class="site-search-form" role="search" data-search-form>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="site-search-input" id="site-search-input" type="text" enterkeyhint="search" role="combobox" aria-expanded="false" aria-controls="site-search-results" aria-autocomplete="list" aria-label="Search docs and updates" placeholder="Search docs and updates" autocomplete="off" spellcheck="false" data-search-input>
+      <button class="site-search-close" type="button" data-search-close aria-label="Close search">Esc</button>
+    </form>
+    <p class="site-search-status" role="status" aria-live="polite" data-search-status>Type to search the docs and updates.</p>
+    <ul class="site-search-results" id="site-search-results" role="listbox" aria-label="Search results" data-search-results></ul>
+  </dialog>
 
   {% block content %}{% endblock content %}
 
@@ -120,6 +136,7 @@
     </div>
   </footer>
   <script src="{{ get_url(path='assets/scripts/copy.js', trailing_slash=false) }}" defer></script>
+  <script src="{{ get_url(path='assets/scripts/search.js', trailing_slash=false) }}" defer></script>
   {% block scripts %}{% endblock scripts %}
 </body>
 </html>

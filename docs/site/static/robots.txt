@@ -6,5 +6,6 @@ Allow: /
 # The WASM bundle and its glue are assets, not pages.
 Disallow: /playground/agnostic-ai.wasm
 Disallow: /playground/wasm_exec.js
+Disallow: /search-index/
 
 Sitemap: https://agnostic-ai.org/sitemap.xml

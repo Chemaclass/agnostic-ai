@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -188,6 +189,9 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 		`class="theme-toggle"`,
 		`class="signal-rule"`,
 		`href="./" aria-current="page">Playground</a>`,
+		`data-search-open`,
+		`data-search-index="../search-index/"`,
+		`src="../assets/scripts/search.js"`,
 	} {
 		if !strings.Contains(page, required) {
 			t.Errorf("playground navigation is missing %q", required)
@@ -444,6 +448,85 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	} {
 		if !strings.Contains(sharingHome, metadata) {
 			t.Errorf("home page is missing sharing metadata %q", metadata)
+		}
+	}
+}
+
+func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
+	zolaPath, err := exec.LookPath("zola")
+	if err != nil {
+		t.Skip("zola is not installed")
+	}
+
+	outputDir := t.TempDir()
+	command := exec.Command(zolaPath, "--root", "../../docs/site", "build", "--force", "--output-dir", outputDir)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("build documentation site: %v\n%s", err, output)
+	}
+
+	var entries []struct {
+		URL     string `json:"url"`
+		Title   string `json:"title"`
+		Heading string `json:"heading"`
+		Group   string `json:"group"`
+		Body    string `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(readBuiltFile(t, filepath.Join(outputDir, "search-index", "index.html"))), &entries); err != nil {
+		t.Fatalf("search index is not valid JSON: %v", err)
+	}
+	if len(entries) < 200 {
+		t.Errorf("search index has %d entries, want at least 200", len(entries))
+	}
+
+	bodies := map[string]string{}
+	for _, entry := range entries {
+		if entry.URL == "" || entry.Title == "" {
+			t.Errorf("search entry lacks a URL or title: %+v", entry)
+		}
+		if entry.Group != "Docs" && entry.Group != "Targets" && entry.Group != "Updates" {
+			t.Errorf("%s has unexpected group %q", entry.URL, entry.Group)
+		}
+		if _, seen := bodies[entry.URL]; seen {
+			t.Errorf("search index repeats %s", entry.URL)
+		}
+		if strings.Contains(entry.Body, "<") || strings.Contains(entry.Body, "&quot;") {
+			t.Errorf("%s body carries markup or an HTML entity that minification corrupts", entry.URL)
+		}
+		if entry.URL == "https://agnostic-ai.org/" || strings.Contains(entry.URL, "/playground/") || strings.Contains(entry.URL, "/search-index/") {
+			t.Errorf("search index includes excluded page %s", entry.URL)
+		}
+		bodies[entry.URL] = entry.Body
+	}
+	for _, url := range []string{
+		"https://agnostic-ai.org/docs/",
+		"https://agnostic-ai.org/docs/targets/",
+		"https://agnostic-ai.org/docs/targets/claude/",
+		"https://agnostic-ai.org/docs/spec-format/#hooks",
+		"https://agnostic-ai.org/docs/configuration/#verify",
+		"https://agnostic-ai.org/updates/",
+		"https://agnostic-ai.org/updates/2026-09-16-v0.59.0/",
+	} {
+		if _, ok := bodies[url]; !ok {
+			t.Errorf("search index is missing %s", url)
+		}
+	}
+	lefthook := bodies["https://agnostic-ai.org/docs/git-hooks/#lefthook"]
+	husky := bodies["https://agnostic-ai.org/docs/git-hooks/#husky-lint-staged"]
+	if strings.TrimSpace(lefthook) == "" || strings.TrimSpace(husky) == "" || lefthook == husky {
+		t.Error("sibling sections on the git hooks guide do not get their own search text")
+	}
+
+	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
+	for _, required := range []string{
+		"data-search-open",
+		`id="site-search"`,
+		`role="combobox"`,
+		`data-search-index="https://agnostic-ai.org/search-index/"`,
+		"assets/scripts/search.js",
+		`class="theme-toggle"`,
+	} {
+		if !strings.Contains(home, required) {
+			t.Errorf("home page is missing search UI %q", required)
 		}
 	}
 }
