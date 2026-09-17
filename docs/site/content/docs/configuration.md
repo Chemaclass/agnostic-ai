@@ -850,7 +850,7 @@ See [`sync --watch`](@/docs/cli-reference.md#sync) for the polling fallback and 
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/targets.md#entry-point-files) for which file each target uses.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/targets/_index.md#entry-point-files) for which file each target uses.
 
 ### Per-target paragraphs
 
@@ -909,7 +909,7 @@ Add `.agnostic-ai.local/` to your `.gitignore` so personal overrides stay local.
 
 ## Global configuration
 
-`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](@/docs/targets.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
+`agnostic-ai sync --global` syncs user-level instructions, rules, hooks, and skills to 22 of the 25 targets. It works from any directory and does not load `agnostic-ai.yaml`, packs, local overrides, or project specs. See [global output](@/docs/targets/_index.md#global-output) for the per-target paths and for the three targets that document no user-level surface.
 
 The source root is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset:
 

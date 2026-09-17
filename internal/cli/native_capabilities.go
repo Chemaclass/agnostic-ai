@@ -7,7 +7,7 @@ import "github.com/chemaclass/agnostic-ai/internal/spec"
 // union of every configured target's set are reported by `validate`.
 //
 // Sources of truth (kept out of source comments because they rot):
-// the per-adapter docs linked from `docs/site/content/docs/targets.md`. When a
+// the per-adapter docs under `docs/site/content/docs/targets/`. When a
 // target adds a new event, append it here so validation stays useful.
 var hookEventsByTarget = map[string]map[string]struct{}{
 	"claude": setOf(

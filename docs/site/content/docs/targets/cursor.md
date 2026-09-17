@@ -1,0 +1,64 @@
++++
+title = "Cursor"
+description = "How agnostic-ai emits Cursor configuration: native paths, capability limits, and output options."
+weight = 40
+
+[extra]
+group = "Reference"
+target_id = "cursor"
++++
+
+# Cursor (`cursor`)
+
+```
+.cursor/rules/<name>.mdc
+.cursor/agents/<name>.md             # one native subagent per agent spec
+.cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
+.cursor/commands/<name>.md           # one per command spec
+.cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
+.cursor/mcp.json                     # when MCP entries exist
+```
+
+- **Rules**: emit with `alwaysApply: true` (override in spec frontmatter). An always-apply rule omits `globs`. A non-always rule without `globs` falls back to the Claude-spelled `paths` list (comma-joined). When both are absent, `globs` is omitted too rather than defaulted to `**/*`, so Cursor treats the rule as description-driven ("Apply Intelligently") or manual-only ("Apply Manually") instead of auto-attaching it to every file. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean. (#443, #536)
+- **Agents**: native [Cursor subagents](https://cursor.com/docs/subagents.md) at `.cursor/agents/<name>.md` (Cursor 2.4+): frontmatter `name` + `description` plus optional `model`, `readonly`, and `is_background` when the spec declares them; the body is the system prompt. The old flattened `.mdc` and agent-as-command emissions are gone; the ledger sweeps stale copies.
+- **Commands**: each command spec emits as a [Cursor command](https://cursor.com/help/customization/skills.md) under `.cursor/commands/`: Markdown whose body is the prompt. The old `/docs/agent/chat/commands` page 308s to that link, a "migrate commands to skills" FAQ; no Cursor page documents `.cursor/commands` directly any more, so this is the closest surviving reference. Override the directory via `outputs.cursor.commands-dir`.
+- **Skills**: native folders under `.cursor/skills/<name>/SKILL.md` (the [Agent Skills](https://cursor.com/docs/skills.md) layout Cursor 2.4+ discovers), with every bundled sibling file (scripts, references, assets) propagated byte-for-byte. A source-layout scope moves the native tree under that directory and survives import.
+
+  Frontmatter carries `name` + `description`; optional `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata` pass through when the spec declares them (`icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes)). The pre-native flattened `skill-<name>.mdc` copies are no longer written and get swept by the ledger on the next sync.
+- **Review**: review specs emit as [Bugbot](https://cursor.com/docs/bugbot) files inside `.cursor/` directories: `.cursor/BUGBOT.md` at the repo root for unscoped specs, `<scope>/.cursor/BUGBOT.md` for scoped ones, with same-scope specs concatenated. Bugbot always includes the root file and picks up per-directory copies while traversing up from changed files. Override the basename via `outputs.cursor.review-file`. (#433)
+- **Environment**: environment specs emit as `.cursor/environment.json` (background-agent bootstrap). The spec keys pass through verbatim minus agnostic routing fields; multiple specs merge by top-level key. Override the path via `outputs.cursor.environment-file`. (#434)
+- **Ignore**: ignore specs emit as `.cursorignore` (gitignore syntax). Multiple specs concatenate. Override via `outputs.cursor.ignore-file`. (#435)
+- **Hooks**: emit as [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). Command hooks retain their `{command, matcher?}` shape. A `type: prompt` hook instead emits `prompt` and optional `model`. Both forms preserve `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`. Override the file via `outputs.cursor.hooks-file`. (#438)
+
+  Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Thirteen of those events consume a `matcher`, per the vendor's own "Available matchers by hook" table: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (the full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).
+
+  `lint` no longer flags a matcher on the last five (#734). It also stays quiet on `beforeMCPExecution` and `afterMCPExecution`, which that table does not list; a warning there would be the same false positive in the other direction.
+
+  Cursor also reads Claude Code's own hook file. [Third-party hooks](https://cursor.com/docs/reference/third-party-hooks.md) puts `.claude/settings.json` at rank 6 of a seven-rank merge with `.cursor/hooks.json` at rank 3, and "All matching hooks from every source run." So a repo syncing `claude` and `cursor` together runs every hook twice. Two gates keep it off until you ask for it, both on that page: "Enable Third-party skills in Cursor Settings → Rules, Skills, Subagents", and "The feature must be enabled for your account" (#756).
+- **MCP**: written into `.cursor/mcp.json` under the standard `mcpServers` map (the shared builder also used by Claude Code). A stdio server accepts `envFile`, a path to an env file loading additional variables. A remote (`url`) server accepts a static-OAuth `auth` object (`CLIENT_ID`, `CLIENT_SECRET`, `scopes`) for a provider without OAuth Dynamic Client Registration ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md), #661).
+
+  Neither field is documented for the other targets sharing this builder, so both stay scoped to Cursor rather than appearing everywhere the shared schema is used. `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
+
+The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.json` from MCP specs.
+
+Config keys:
+
+| Key | Default |
+|---|---|
+| `outputs.cursor.rules-dir` | `.cursor/rules` |
+| `outputs.cursor.agents-dir` | `.cursor/agents` |
+| `outputs.cursor.skills-dir` | `.cursor/skills` |
+| `outputs.cursor.commands-dir` | `.cursor/commands` |
+| `outputs.cursor.mcp-file` | `.cursor/mcp.json` |
+| `outputs.cursor.review-file` | `BUGBOT.md` |
+| `outputs.cursor.environment-file` | `.cursor/environment.json` |
+| `outputs.cursor.ignore-file` | `.cursorignore` |
+| `outputs.cursor.hooks-file` | `.cursor/hooks.json` |
+
+Verify with the real IDE:
+
+1. Install Cursor from [cursor.com](https://cursor.com).
+2. Check the tree: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` for the provenance header (it sits after the frontmatter block), `python -m json.tool .cursor/mcp.json > /dev/null`.
+3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` (confirm `alwaysApply` matches each rule's frontmatter, no "failed to parse" warnings), the Skills list shows each `.cursor/skills/<name>/`, the agent picker lists each `.cursor/agents/<name>.md`, and the `/` command picker lists each `.cursor/commands/<name>.md`.
+4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
+5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses; trigger the matched event (e.g. a shell command for `beforeShellExecution`) and confirm the `command` runs.

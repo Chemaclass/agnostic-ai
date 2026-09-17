@@ -19,7 +19,7 @@ Run commands from the directory containing `agnostic-ai.yaml`.
 | Config is missing | Change to the project root, or run `agnostic-ai init` for a new project |
 | A new clone or worktree has no tool files | Run `agnostic-ai sync`; ignored outputs are absent from Git |
 | An edited spec has no effect | Run `agnostic-ai list` to confirm it loads, then `agnostic-ai sync --dry-run` to inspect planned output |
-| A tool receives only some spec kinds | Check its [capabilities](@/docs/targets.md#capability-matrix) and any unsupported-kind warnings |
+| A tool receives only some spec kinds | Check its [capabilities](@/docs/targets/_index.md#capability-matrix) and any unsupported-kind warnings |
 | `sync --check` reports drift | Run `agnostic-ai sync`, review the result, and commit outputs if the project tracks them |
 | CI fails on every fresh checkout | Match the [CI recipe](@/docs/ci.md) to whether generated outputs are committed |
 | Two targets emit to the same path | Read [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and inspect output overrides |

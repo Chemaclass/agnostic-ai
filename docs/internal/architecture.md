@@ -55,7 +55,7 @@ mcps/*.yaml   ─┘
 (Config, spec.Bundle) ──► adapter.Emit(bundle, config, dryRun)
 ```
 
-Per-target outputs documented in [docs/site/content/docs/targets.md](../site/content/docs/targets.md).
+Per-target outputs documented in [docs/site/content/docs/targets/](../site/content/docs/targets/_index.md), one page per target.
 
 ## Emit modes
 

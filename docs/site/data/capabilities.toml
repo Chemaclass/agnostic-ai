@@ -67,151 +67,151 @@ description = "The target does not support this spec kind."
 id = "claude"
 name = "Claude Code"
 short_name = "Claude"
-href = "#claude-code-claude"
+href = "@/docs/targets/claude.md"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
 [[targets]]
 id = "codex"
 name = "Codex"
-href = "#codex-codex"
+href = "@/docs/targets/codex.md"
 statuses = ["native", "native", "native", "native", "native", "opt-in", "native", "no", "no", "no"]
 
 [[targets]]
 id = "gemini"
 name = "Gemini CLI"
 short_name = "Gemini"
-href = "#gemini-cli-gemini"
+href = "@/docs/targets/gemini.md"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
 
 [[targets]]
 id = "cursor"
 name = "Cursor"
-href = "#cursor-cursor"
+href = "@/docs/targets/cursor.md"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "native", "native", "native"]
 
 [[targets]]
 id = "copilot"
 name = "GitHub Copilot"
 short_name = "Copilot"
-href = "#github-copilot-copilot"
+href = "@/docs/targets/copilot.md"
 statuses = ["native", "native", "native", "native", "native", "no", "native", "no", "no", "no"]
 
 [[targets]]
 id = "aider"
 name = "Aider"
-href = "#aider-aider"
+href = "@/docs/targets/aider.md"
 statuses = ["source", "source", "native", "no", "no", "no", "no", "no", "no", "native"]
 
 [[targets]]
 id = "cline"
 name = "Cline"
-href = "#cline-cline"
+href = "@/docs/targets/cline.md"
 statuses = ["native", "native", "native", "no", "no", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "windsurf"
 name = "Windsurf / Devin"
-href = "#windsurf-devin-desktop-windsurf"
+href = "@/docs/targets/windsurf.md"
 statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
 
 [[targets]]
 id = "continue"
 name = "Continue"
-href = "#continue-continue"
+href = "@/docs/targets/continue.md"
 statuses = ["mapped", "mapped", "native", "no", "native", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "amp"
 name = "Amp"
-href = "#amp-amp"
+href = "@/docs/targets/amp.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "native", "no"]
 
 [[targets]]
 id = "zed"
 name = "Zed"
-href = "#zed-zed"
+href = "@/docs/targets/zed.md"
 statuses = ["opt-in", "native", "native", "opt-in", "native", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "warp"
 name = "Warp"
-href = "#warp-warp"
+href = "@/docs/targets/warp.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "opencode"
 name = "OpenCode"
-href = "#opencode-opencode"
+href = "@/docs/targets/opencode.md"
 statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
 
 [[targets]]
 id = "antigravity"
 name = "Google Antigravity"
-href = "#google-antigravity-antigravity"
+href = "@/docs/targets/antigravity.md"
 statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "junie"
 name = "Junie"
-href = "#junie-junie"
+href = "@/docs/targets/junie.md"
 statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "native"]
 
 [[targets]]
 id = "kiro"
 name = "Kiro"
-href = "#kiro-kiro"
+href = "@/docs/targets/kiro.md"
 statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
 
 [[targets]]
 id = "crush"
 name = "Crush"
-href = "#crush-crush"
+href = "@/docs/targets/crush.md"
 statuses = ["no", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
 
 [[targets]]
 id = "trae"
 name = "Trae"
-href = "#trae-trae"
+href = "@/docs/targets/trae.md"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
 
 [[targets]]
 id = "qoder"
 name = "Qoder"
-href = "#qoder-qoder"
+href = "@/docs/targets/qoder.md"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
 [[targets]]
 id = "openhands"
 name = "OpenHands"
-href = "#openhands-openhands"
+href = "@/docs/targets/openhands.md"
 statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "native", "no"]
 
 [[targets]]
 id = "factory"
 name = "Factory"
-href = "#factory-factory"
+href = "@/docs/targets/factory.md"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "no"]
 
 [[targets]]
 id = "kilo"
 name = "Kilo Code"
-href = "#kilo-kilo"
+href = "@/docs/targets/kilo.md"
 statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "native"]
 
 [[targets]]
 id = "jules"
 name = "Jules"
-href = "#jules-jules"
+href = "@/docs/targets/jules.md"
 statuses = ["no", "no", "native", "no", "no", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "goose"
 name = "Goose"
-href = "#goose-goose"
+href = "@/docs/targets/goose.md"
 statuses = ["native", "native", "native", "native", "no", "no", "no", "native", "no", "no"]
 
 [[targets]]
 id = "augment"
 name = "Augment"
-href = "#augment-augment"
+href = "@/docs/targets/augment.md"
 statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]

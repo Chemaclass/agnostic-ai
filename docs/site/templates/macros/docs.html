@@ -6,7 +6,12 @@
   <div class="docs-nav-group">
     <p>{{ group }}</p>
     {% for doc in section.pages %}
-      {% if doc.extra.group == group %}<a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>{% endif %}
+      {% if doc.extra.group == group %}
+        <a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>
+        {% for path in section.subsections %}{% set sub = get_section(path=path) %}
+          {% if sub.extra.nav_after == doc.slug %}<a{% if current_path is starting_with(sub.path) %} class="is-current" aria-current="page"{% endif %} href="{{ sub.permalink | safe }}">{{ sub.title }}</a>{% endif %}
+        {% endfor %}
+      {% endif %}
     {% endfor %}
   </div>
   {% endfor %}

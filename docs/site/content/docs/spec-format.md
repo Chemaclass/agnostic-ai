@@ -143,7 +143,7 @@ Emission by target:
 - **Flattened to a rule file** (`skill-<name>.md`) on the few targets with no skill surface. Bundled assets cannot follow, so those raise a coverage note.
 - **Also as a slash command**, opt-in per target via `outputs.<target>.emit-skills-as-commands: true`.
 
-Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](@/docs/targets.md) — that list is kept current per change and this one is deliberately not a second copy of it.
+Which target does which, and the exact directory each reads, is the [Skills row and cross-cutting bullet in targets](@/docs/targets/_index.md) — that list is kept current per change and this one is deliberately not a second copy of it.
 
 ## Rules
 

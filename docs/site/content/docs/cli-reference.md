@@ -301,7 +301,7 @@ agnostic-ai sync [flags]
 
 | Flag | Description |
 |------|-------------|
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills directly from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's native user config. Covers 22 targets; see [global output](@/docs/targets.md#global-output). Works outside a project and never loads project config or packs. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills directly from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's native user config. Covers 22 targets; see [global output](@/docs/targets/_index.md#global-output). Works outside a project and never loads project config or packs. |
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--only <list>` | Emit only these targets (comma-separated). Mutually exclusive with `--except`. Errors on unknown names. |
 | `--except <list>` | Emit all configured targets except these (comma-separated). Mutually exclusive with `--only`. Errors on unknown names. |

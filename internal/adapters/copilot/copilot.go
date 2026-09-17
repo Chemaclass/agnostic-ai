@@ -101,7 +101,7 @@
 // hook spec targeting both runs twice under Copilot CLI out of the box.
 // The vendor names no toggle for that read. This adapter writes both
 // files anyway, since each target is asked for by name and declining
-// one silently would be the bigger surprise; docs/site/content/docs/targets.md
+// one silently would be the bigger surprise; docs/site/content/docs/targets/_index.md
 // carries the warning instead (#755).
 package copilot
 

@@ -265,7 +265,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // docs.devin.ai/desktop/cascade/memories). Devin's fifth documented
 // value, `agent`, and its `always_on` default have no key written here:
 // see activationFrontmatter for why always-on files stay bare, and
-// targets.md for why `agent` is out of reach.
+// docs/site/content/docs/targets/windsurf.md for why `agent` is out of reach.
 const (
 	triggerGlob          = "glob"
 	triggerModelDecision = "model_decision"

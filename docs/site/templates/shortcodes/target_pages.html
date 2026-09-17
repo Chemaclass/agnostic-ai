@@ -1,0 +1,9 @@
+{% set matrix = load_data(path="data/capabilities.toml") %}
+<div class="docs-index-list">
+  {% for target in matrix.targets %}
+  <a class="docs-index-row" href="{{ get_url(path=target.href) }}">
+    <span><strong>{{ target.name }}</strong><span><code>{{ target.id }}</code></span></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </a>
+  {% endfor %}
+</div>

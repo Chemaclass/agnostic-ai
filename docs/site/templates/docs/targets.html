@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "macros/docs.html" as docs %}
+
+{% block title %}{{ section.title }} | agnostic-ai docs{% endblock title %}
+{% block description %}{{ section.description }}{% endblock description %}
+{% block og_type %}article{% endblock og_type %}
+{% block og_title %}{{ section.title }} | agnostic-ai docs{% endblock og_title %}
+{% block og_description %}{{ section.description }}{% endblock og_description %}
+{% block twitter_title %}{{ section.title }} | agnostic-ai docs{% endblock twitter_title %}
+{% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_target %}#doc-body{% endblock skip_target %}
+{% block skip_label %}Skip to guide{% endblock skip_label %}
+
+{% block content %}
+{% set docs_section = get_section(path="docs/_index.md") %}
+<main id="content">
+  <div class="docs-mobile-nav">
+    <details>
+      <summary>Browse documentation</summary>
+      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+    </details>
+  </div>
+  <div class="docs-page-layout">
+    <aside class="docs-sidebar">
+      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+    </aside>
+
+    <article class="docs-content" id="doc-body">
+      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span><span>{{ section.extra.group }}</span></div>
+      {{ section.content | safe }}
+      <footer class="docs-source-link"><a href="{{ config.extra.repository_url }}/blob/main/docs/site/content/docs/targets/_index.md">Edit this page on GitHub</a></footer>
+    </article>
+
+    {% if section.toc | length > 0 %}
+    <aside class="docs-toc">
+      <p>On this page</p>
+      {{ docs::toc(headings=section.toc) }}
+    </aside>
+    {% endif %}
+  </div>
+</main>
+{% endblock content %}
+
+{% block scripts %}
+{% set matrix = load_data(path="data/capabilities.toml") %}
+<script>
+  // Targets used to share one page, so older deep links carry a per-target anchor such as #claude-code-claude.
+  (function () {
+    var hash = decodeURIComponent(window.location.hash.slice(1));
+    if (!hash || document.getElementById(hash)) return;
+    var match = hash.match(/-({% for target in matrix.targets %}{{ target.id }}{% if not loop.last %}|{% endif %}{% endfor %})$/);
+    if (match) window.location.replace("{{ get_url(path='@/docs/targets/_index.md') }}" + match[1] + "/");
+  })();
+</script>
+{% if section.extra.scripts %}
+  {% for script in section.extra.scripts %}<script src="{{ get_url(path=script, trailing_slash=false) }}" defer></script>{% endfor %}
+{% endif %}
+{% endblock scripts %}

@@ -363,7 +363,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, required := range []string{
 		`data-capability-browser`,
 		`data-capability-target="claude"`,
-		`href="#codex-codex"`,
+		`href="https://agnostic-ai.org/docs/targets/codex/"`,
 		`Native`,
 		`Opt-in`,
 		`Source only`,
@@ -385,7 +385,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"agnostic-ai sync --dry-run",
 		"Keep the setup current.",
 		"Read the latest briefing",
-		`href="https://agnostic-ai.org/docs/targets/#codex-codex"`,
+		`href="https://agnostic-ai.org/docs/targets/codex/"`,
 		`"installUrl": "https://agnostic-ai.org/#quickstart"`,
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",

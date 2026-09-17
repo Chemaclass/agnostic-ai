@@ -42,7 +42,7 @@ A proposed improvement is not shipped support. Design candidates stay out of aut
 
 The [release updates](https://agnostic-ai.org/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, but label that state explicitly.
 
-[`targets.md`](@/docs/targets.md) records support in the current code, including native paths, capability limits, and opt-in settings.
+[`targets.md`](@/docs/targets/_index.md) records support in the current code, including native paths, capability limits, and opt-in settings.
 
 [`CHANGELOG.md`](https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md) records what agnostic-ai released.
 

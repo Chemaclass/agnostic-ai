@@ -44,7 +44,7 @@
       <tbody>
         {% for target in matrix.targets %}
         <tr data-capability-target="{{ target.id }}" data-capability-search="{{ target.name }} {{ target.id }}">
-          <th scope="row"><a href="{{ target.href }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
+          <th scope="row"><a href="{{ get_url(path=target.href) }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
           {% for status in target.statuses %}
           <td class="capability-cell capability-cell-{{ status }}"><span class="capability-state capability-state-{{ status }}">{% if status == "native" %}Native{% elif status == "mapped" %}Mapped{% elif status == "opt-in" %}Opt-in{% elif status == "source" %}Source only{% else %}No{% endif %}</span></td>
           {% endfor %}

@@ -24,7 +24,7 @@ Higher layer wins on `(Kind, Name)` collision. Merge in `spec.LoadLayered`. See 
 - Codex subagents + skills (`.codex/agents/<name>.toml`, `.agents/skills/<name>/SKILL.md`).
 - Top-level `import <source>` (multi-source: `import claude codex`).
 - `doctor --fix [--backup]`.
-- MCP and hook support across tools: see the maintained [capability matrix](../site/content/docs/targets.md#capability-matrix).
+- MCP and hook support across tools: see the maintained [capability matrix](../site/content/docs/targets/_index.md#capability-matrix).
 
 ## Open
 

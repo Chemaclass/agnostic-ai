@@ -66,7 +66,7 @@ For this example, inspect:
 
 Both rule files contain your commit convention. Edit the source file and run `sync` again to update them. Do not edit the generated copies.
 
-To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](@/docs/targets.md#selecting-targets) for one-run filters and the first-sync picker.
+To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](@/docs/targets/_index.md#selecting-targets) for one-run filters and the first-sync picker.
 
 ## Commit or ignore generated outputs
 

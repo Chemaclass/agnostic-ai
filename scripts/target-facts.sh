@@ -3,10 +3,10 @@
 # target-facts.sh - print what agnostic-ai currently claims about a target.
 #
 # One compact dump per target: declared capabilities, default output paths,
-# the adapter's package doc comment, and the rows docs/site/content/docs/targets.md
-# publishes. Feeds the `target-audit` skill so an auditing agent reads the
-# repo's side of the comparison in one call instead of grepping Go and a
-# 60 KB markdown file.
+# the adapter's package doc comment, the rows docs/site/content/docs/targets/_index.md
+# publishes about it, and its own docs/site/content/docs/targets/<target>.md page.
+# Feeds the `target-audit` skill so an auditing agent reads the repo's side of
+# the comparison in one call instead of grepping Go and the docs tree.
 #
 # Every target list is derived from the adapter registry, never hardcoded,
 # so a newly added adapter is audited without touching this script or the
@@ -24,7 +24,7 @@ set -euo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 REGISTRY="$ROOT/internal/adapters/adapter.go"
-TARGETS_DOC="$ROOT/docs/site/content/docs/targets.md"
+TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
 
 usage() {
   cat <<'EOF'
@@ -135,18 +135,16 @@ caps() {
   ' "$1"
 }
 
-# doc_rows <target> prints every docs/site/content/docs/targets.md line naming the target.
+# doc_rows <target> prints every targets/_index.md line naming the target.
 doc_rows() {
-  grep -n "\*\*$1\*\*" "$TARGETS_DOC" || true
+  grep -n "\*\*$1\*\*" "$TARGETS_DIR/_index.md" || true
 }
 
-# doc_section <target> prints the "### Name (`target`)" section body.
+# doc_section <target> prints the target's own page, without its front matter.
 doc_section() {
-  awk -v t="$1" '
-    $0 ~ "^### .*\\(`" t "`\\)" { inside = 1; print; next }
-    inside && /^### / { exit }
-    inside { print }
-  ' "$TARGETS_DOC"
+  local page="$TARGETS_DIR/$1.md"
+  [ -f "$page" ] || return 0
+  awk 'NR == 1 && /^\+\+\+$/ { fm = 1; next } fm && /^\+\+\+$/ { fm = 0; next } !fm { print }' "$page"
 }
 
 # dump_target <target> prints the full fact sheet for one target.
@@ -171,10 +169,10 @@ dump_target() {
   echo
   echo "--- adapter package doc (what we claim the tool does) ---"
   doc_comment "$src"
-  echo "--- docs/site/content/docs/targets.md rows ---"
+  echo "--- docs/site/content/docs/targets/_index.md rows ---"
   doc_rows "$t"
   echo
-  echo "--- docs/site/content/docs/targets.md section ---"
+  echo "--- docs/site/content/docs/targets/$t.md ---"
   doc_section "$t"
   echo
 }

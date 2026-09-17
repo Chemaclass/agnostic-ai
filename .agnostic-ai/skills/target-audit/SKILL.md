@@ -229,7 +229,7 @@ must touch:
 - [ ] `internal/adapters/<target>/`: emission and `caps.Supports`
 - [ ] the `import` side, if the moved path is one we read back
 - [ ] adapter package doc comment
-- [ ] `docs/site/content/docs/targets.md`: capability matrix row and per-target section
+- [ ] `docs/site/data/capabilities.toml` (capability matrix row) and `docs/site/content/docs/targets/<target>.md` (per-target page)
 - [ ] browser playground: when `caps.Supports` changes, verify the capability-aware
       target picker with `make playground-build`; do not add a separate capability list
 - [ ] `.agnostic-ai/skills/target-audit/references/sources.md`, if a URL
@@ -288,9 +288,9 @@ Bucket by severity, not by target:
 | all `missing-feature` and `degraded` | one batched PR | additive only, and adapter packages never import each other, so they cannot conflict |
 | all `cosmetic` plus audit-source URL fixes | one docs PR | no code, no risk |
 
-Every adapter fix touches `docs/site/content/docs/targets.md` and `CHANGELOG.md`. One
-PR per target would put every open PR in conflict on those two files for
-no review benefit. Bucketing keeps the conflicts to the count of buckets.
+Every adapter fix touches `CHANGELOG.md`, and `docs/site/content/docs/targets/_index.md`
+when it changes a cross-target note. One PR per target would put every open PR
+in conflict on those files for no review benefit. Bucketing keeps the conflicts to the count of buckets.
 
 The playground reads `caps.Supports` through the compiled adapter registry.
 A capability declaration changed by a fix is therefore published on the next
@@ -316,7 +316,7 @@ to the issue with what the evidence missed, and label it `invalid`.
 ## Phase 7: Land the PRs
 
 Only the first PR merges cleanly. Every adapter fix touches
-`docs/site/content/docs/targets.md` and `CHANGELOG.md`, so each later PR needs a
+`CHANGELOG.md` (and `targets/_index.md` for cross-target notes), so each later PR needs a
 rebase. Budget for it.
 
 **On a conflict in a shared doc, merge both sides. Never pick one.** In
@@ -335,7 +335,7 @@ file, contradicting each other, with no conflict marker to catch it. The
 2026-08-08 run shipped three of these: two `- **Skills**:` bullets eight
 minutes apart, one saying "Warp has no skill surface" and the other
 listing Warp's scanned directories; duplicated `trae` and `qoder` rows in
-the capability matrices of both `targets.md` and `README.md`.
+the capability matrices of both the old single-page `targets.md` and `README.md`.
 
 In every case one copy was current and one stale, **and not consistently
 in the same position**: trae wanted the second row, qoder the first. So

@@ -128,7 +128,9 @@ function test_dump_target_emits_every_section_for_a_real_target() {
   assert_contains "TARGET: kilo" "$out"
   assert_contains "declared capabilities" "$out"
   assert_contains "default output paths" "$out"
-  assert_contains "docs/site/content/docs/targets.md rows" "$out"
+  assert_contains "docs/site/content/docs/targets/_index.md rows" "$out"
+  assert_contains "docs/site/content/docs/targets/kilo.md" "$out"
+  assert_contains "# Kilo" "$out"
 }
 
 # ---- coverage of the audit source list ---------------------------------------
