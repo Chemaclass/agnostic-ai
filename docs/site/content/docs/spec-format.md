@@ -286,7 +286,30 @@ target: codex   # shell-expanded codex path; do not leak to other tools
 
 Claude Code defines more events (`Setup`, `InstructionsLoaded`, `TaskCompleted`, `TeammateIdle`, `FileChanged`, ...); the `event:` value passes through verbatim, so any documented name works. See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) for the full list. Codex shares the `SessionStart`/`SubagentStart`/`UserPromptSubmit`/`PreToolUse`/`PermissionRequest`/`PostToolUse`/`PreCompact`/`PostCompact`/`Stop`/`SubagentStop` vocabulary.
 
-Native emission: Claude Code (`.claude/settings.json`), Codex (`.codex/hooks.json`, per-event arrays), Gemini (`.gemini/settings.json` `hooks`), Cursor (`.cursor/hooks.json`, `version` + per-event arrays), Windsurf / Devin CLI (`.devin/hooks.v1.json`, no wrapper key, `type` accepting `prompt` as well as `command`), Factory (`.factory/hooks.json`, also no wrapper key, nine events, `type` always `"command"`), Kiro (`.kiro/hooks/<name>.json`, a `{"version": "v1", "hooks": [...]}` array), Qoder (`.qoder/settings.json` `hooks`, merged alongside `mcpServers` in the same file), OpenHands (`.openhands/hooks.json`, six events), Augment (`.augment/settings.json` `hooks`, merged alongside `mcpServers` in one write; five events; `timeout` in **milliseconds**, converted from this field's seconds; `command` must be a path ending in `.sh`/`.ps1`/`.cmd`/`.bat`, or it never runs), Crush (`crush.json` `hooks`, `PreToolUse` only, merged alongside `mcp` in the same file), Trae (`.trae/hooks.json`, the same integer `{"version": 1, "hooks": {...}}` wrapper around Claude-shaped `{matcher, hooks: [...]}` groups, six events, plus a `loop_limit` on `Stop`), Goose (`.agents/plugins/agnostic-ai/hooks/hooks.json`, with the required Open Plugins manifest beside it), and Copilot (`.github/hooks/agnostic-ai.json`, an integer `{"version": 1, "hooks": {...}}` wrapper, 14 events, command, HTTP, and `sessionStart` prompt handlers, `timeoutSec`; both `PreToolUse` and Copilot's own camelCase `preToolUse` are independently valid event-key spellings in that same file, so this one also passes `event:` through verbatim rather than picking one). Zed is opt-in: ordinary hooks become manual tasks, while `WorktreeCreate` maps to a task with `hooks: ["create_worktree"]`. Without `outputs.zed.tasks-file`, Zed raises a coverage note. Other targets log a warning and skip. Event names pass through verbatim, so a Cursor hook sets `event:` to a Cursor name (`beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `sessionStart`, `stop`, ...). See each tool's docs for its full event list and matcher semantics.
+Native emission, one file per target:
+
+| Target | File | Notes |
+|---|---|---|
+| Claude Code | `.claude/settings.json` | |
+| Codex | `.codex/hooks.json` | Per-event arrays. |
+| Gemini | `.gemini/settings.json` | Under `hooks`. |
+| Cursor | `.cursor/hooks.json` | `version` plus per-event arrays. |
+| Windsurf / Devin CLI | `.devin/hooks.v1.json` | No wrapper key. `type` accepts `prompt` as well as `command`. |
+| Factory | `.factory/hooks.json` | No wrapper key, nine events, `type` always `"command"`. |
+| Kiro | `.kiro/hooks/<name>.json` | A `{"version": "v1", "hooks": [...]}` array. |
+| Qoder | `.qoder/settings.json` | Under `hooks`, merged alongside `mcpServers` in the same file. |
+| OpenHands | `.openhands/hooks.json` | Six events. |
+| Augment | `.augment/settings.json` | Under `hooks`, merged alongside `mcpServers` in one write. Five events. `timeout` is in **milliseconds**, converted from this field's seconds. `command` must be a path ending in `.sh`/`.ps1`/`.cmd`/`.bat`, or it never runs. |
+| Crush | `crush.json` | Under `hooks`, `PreToolUse` only, merged alongside `mcp` in the same file. |
+| Trae | `.trae/hooks.json` | The same integer `{"version": 1, "hooks": {...}}` wrapper around Claude-shaped `{matcher, hooks: [...]}` groups, six events, plus a `loop_limit` on `Stop`. |
+| Goose | `.agents/plugins/agnostic-ai/hooks/hooks.json` | With the required Open Plugins manifest beside it. |
+| Copilot | `.github/hooks/agnostic-ai.json` | An integer `{"version": 1, "hooks": {...}}` wrapper, 14 events, command, HTTP, and `sessionStart` prompt handlers, `timeoutSec`. |
+
+Copilot accepts both `PreToolUse` and its own camelCase `preToolUse` as event-key spellings in the same file, so this adapter passes `event:` through verbatim rather than picking one.
+
+Zed is opt-in: ordinary hooks become manual tasks, while `WorktreeCreate` maps to a task with `hooks: ["create_worktree"]`. Without `outputs.zed.tasks-file`, Zed raises a coverage note. Other targets log a warning and skip.
+
+Event names pass through verbatim, so a Cursor hook sets `event:` to a Cursor name (`beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `sessionStart`, `stop`, ...). See each tool's docs for its full event list and matcher semantics.
 
 agnostic-ai emits the `event:` value **verbatim** into each target's schema; it does not translate event names between tools. Claude and Codex share the `PreToolUse` / `PostToolUse` / `UserPromptSubmit` vocabulary, so one hook spec feeds both. Gemini uses its own names (`BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`), so a Gemini hook must set `event:` to one of those. `agnostic-ai validate` flags any event a target does not recognize.
 
