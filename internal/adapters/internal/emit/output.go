@@ -1,6 +1,11 @@
 package emit
 
-import "github.com/chemaclass/agnostic-ai/internal/config"
+import (
+	"path"
+	"path/filepath"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
+)
 
 // OutputFile returns cfg.Outputs[target].File when set, otherwise fallback.
 func OutputFile(cfg *config.Config, target, fallback string) string {
@@ -16,6 +21,17 @@ func OutputDir(cfg *config.Config, target, fallback string) string {
 		return o.Dir
 	}
 	return fallback
+}
+
+// OutputSubDir returns sub under cfg.Outputs[target].Dir, or def when no
+// dir override is set. Per-kind defaults resolve through it so a bare
+// `outputs.<target>.dir` moves the whole tool directory instead of
+// leaving some kinds behind at the project root (#849).
+func OutputSubDir(cfg *config.Config, target, sub, def string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.Dir != "" {
+		return path.Join(filepath.ToSlash(o.Dir), sub)
+	}
+	return def
 }
 
 // OutputRulesDir returns cfg.Outputs[target].RulesDir when set, otherwise fallback.

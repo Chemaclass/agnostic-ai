@@ -691,8 +691,9 @@ func ValidateName(kind Kind, name string) error {
 		return nil
 	}
 	if name != filepath.Base(name) || name == "." || name == ".." ||
-		strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') {
-		return fmt.Errorf("invalid spec name %q: must be a single path segment (no %q, %q, or path separators)", name, "/", "..")
+		strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') ||
+		strings.ContainsRune(name, '\x00') {
+		return fmt.Errorf("invalid spec name %q: must be a single path segment (no %q, %q, path separators, or a NUL byte)", name, "/", "..")
 	}
 	return nil
 }

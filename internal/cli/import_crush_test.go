@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -111,5 +115,61 @@ func TestImportCrush_KnownSourceWiredIn(t *testing.T) {
 		if !strings.Contains(sources, want) {
 			t.Errorf("importSources() missing %q: %s", want, sources)
 		}
+	}
+}
+
+// TestImportCrush_HookNameCannotEscapeHooksDir regresses #831. A Crush
+// hook name is a free-form TUI label: `../escape` must not steer the
+// written spec out of the hooks directory, and the label must survive in
+// the spec's `name:` field either way.
+func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
+	for _, name := range []string{"../escape", "nested/deep", "..", ".", "nul\x00byte"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+			quoted, err := json.Marshal(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(dir, "crush.json"), `{"hooks":{"PreToolUse":[{"name":`+
+				string(quoted)+`,"matcher":"^bash$","command":"echo unsafe"}]}}`)
+
+			execCLI(t, "import", "crush")
+
+			hooksDir := filepath.Join(dir, ".agnostic-ai", "hooks")
+			written := []string{}
+			if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() || filepath.Ext(path) != ".yaml" || d.Name() == "agnostic-ai.yaml" {
+					return err
+				}
+				written = append(written, path)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if len(written) != 1 {
+				t.Fatalf("expected exactly one hook spec, got %v", written)
+			}
+			if filepath.Dir(written[0]) != hooksDir {
+				t.Fatalf("hook spec escaped %s: %s", hooksDir, written[0])
+			}
+			var got struct {
+				Name    string `yaml:"name"`
+				Command string `yaml:"command"`
+			}
+			body := readFile(t, written[0])
+			if err := yaml.Unmarshal([]byte(body), &got); err != nil {
+				t.Fatalf("spec is not valid yaml:\n%s\n%v", body, err)
+			}
+			if got.Name != name {
+				t.Errorf("friendly name not preserved: got %q, want %q", got.Name, name)
+			}
+			if got.Command != "echo unsafe" {
+				t.Errorf("command not preserved: got %q", got.Command)
+			}
+		})
 	}
 }

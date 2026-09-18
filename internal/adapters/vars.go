@@ -110,6 +110,18 @@ var targetVarPaths = map[string]map[string]string{
 	"goose": {emit.VarAgentsDir: ".agents/agents"},
 }
 
+// dirRelativeVars maps each *_DIR variable to its sub-directory under
+// the target's output dir, for the targets that honor
+// `outputs.<target>.dir`. Claude is the only one today: its directories
+// move with a bare `dir` override, so a spec body that names
+// `{{rules_dir}}` must name the moved path, not the default (#849).
+var dirRelativeVars = map[string]map[string]string{
+	"claude": {
+		emit.VarSkillsDir: "skills", emit.VarAgentsDir: "agents",
+		emit.VarCommandsDir: "commands", emit.VarRulesDir: "rules",
+	},
+}
+
 // varsFor resolves the variable table for target, letting an
 // outputs.<target>.<field> override win over the declared default so a
 // spec body and the emitted tree never disagree about where files land.
@@ -119,7 +131,11 @@ func varsFor(cfg *config.Config, target string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(declared))
+	subs := dirRelativeVars[target]
 	for name, fallback := range declared {
+		if sub, ok := subs[name]; ok {
+			fallback = emit.OutputSubDir(cfg, target, sub, fallback)
+		}
 		switch name {
 		case emit.VarSkillsDir:
 			out[name] = emit.OutputSkillsDir(cfg, target, fallback)

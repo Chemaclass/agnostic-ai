@@ -152,8 +152,8 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 // so `outputs.<target>.rules-mode: import` wires the files into the
 // entry-point via `@`-import lines pointing at this dir. Claude is the
 // only such target today.
-var importRulesDir = map[string]string{
-	"claude": ".claude/rules",
+var importRulesDir = map[string]struct{ sub, def string }{
+	"claude": {"rules", ".claude/rules"},
 }
 
 // ImportsRulesIntoEntryPoint reports whether target wires its per-rule
@@ -163,7 +163,7 @@ var importRulesDir = map[string]string{
 // legacy concatenated rules-file layout overrides it: that adapter owns
 // the entry-point write.
 func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
-	if cfg == nil || importRulesDir[target] == "" || HasLegacyRulesFile(cfg, target) {
+	if cfg == nil || importRulesDir[target].def == "" || HasLegacyRulesFile(cfg, target) {
 		return false
 	}
 	o, ok := cfg.Outputs[target]
@@ -178,10 +178,10 @@ func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
 // sentinel markers so import strips the block on round-trip.
 func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle) string {
 	def := importRulesDir[target]
-	if def == "" || len(b.Rules) == 0 {
+	if def.def == "" || len(b.Rules) == 0 {
 		return ""
 	}
-	rulesDir := OutputRulesDir(cfg, target, def)
+	rulesDir := OutputRulesDir(cfg, target, OutputSubDir(cfg, target, def.sub, def.def))
 	var sb strings.Builder
 	sb.WriteString("These rule files are loaded into context on every session:\n\n")
 	for _, r := range b.Rules {
