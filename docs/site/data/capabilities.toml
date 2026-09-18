@@ -112,7 +112,7 @@ statuses = ["native", "native", "native", "no", "no", "no", "no", "no", "no", "n
 id = "windsurf"
 name = "Windsurf / Devin"
 href = "@/docs/targets/windsurf.md"
-statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
+statuses = ["native", "native", "native", "native", "native", "no", "native", "no", "no", "native"]
 
 [[targets]]
 id = "continue"
@@ -214,4 +214,4 @@ statuses = ["native", "native", "native", "native", "no", "no", "no", "native", 
 id = "augment"
 name = "Augment"
 href = "@/docs/targets/augment.md"
-statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]

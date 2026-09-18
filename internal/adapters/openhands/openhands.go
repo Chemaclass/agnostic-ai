@@ -11,6 +11,22 @@
 // prompt body. Portable tool names are omitted with a coverage note
 // because OpenHands uses its own file_editor/terminal vocabulary.
 //
+// The portable `color` field is omitted with a coverage note too, for
+// a different reason. OpenHands does document it ("Rich color name
+// (e.g., `"blue"`, `"green"`) used by visualizers to style this
+// agent's output in terminal panels",
+// docs.openhands.dev/sdk/guides/agent-file-based), but Goose's own
+// frontmatter table for the same tree is `name`, `description`, and
+// `model` only, and its shipping loader's AgentMetadata struct carries
+// exactly those three fields
+// (crates/goose/src/agents/platform_extensions/summon.rs). Writing
+// `color` in the shared renderer would leave a key Goose reads into
+// nothing; writing it for openhands alone would break the
+// byte-identity the shared path depends on and trip collision
+// detection for anyone syncing both. `x-openhands.color` reaches the
+// file for an author who wants it on this target only, and suppresses
+// the note (target-audit 2026-09-18, #864).
+//
 // The project-root AGENTS.md is written centrally by `sync` as a slim
 // pointer to the source specs (one body shared with every other
 // target's entry-point file). OpenHands reads that file natively for
@@ -124,6 +140,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	noteDroppedAgentTools(b.Agents)
+	noteDroppedAgentColor(b.Agents)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -149,6 +166,24 @@ func noteDroppedAgentTools(agents []spec.Entry) {
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", dropped,
 		"OpenHands project agents use the file_editor and terminal tool vocabulary")
+}
+
+// noteDroppedAgentColor reports the portable `color` field OpenHands
+// does document for a file-based agent but this adapter does not write.
+// `.agents/agents/<name>.md` is shared with Goose byte-for-byte, and
+// Goose's own frontmatter is `name`, `description`, and `model` only,
+// so a `color` key there would be inert in every Goose agent file and
+// would split the two renderers apart. x-openhands.color reaches the
+// file for an author who wants it on this target alone.
+func noteDroppedAgentColor(agents []spec.Entry) {
+	dropped := 0
+	for _, agent := range agents {
+		if emit.SharedAgentFieldDropped(agent, target, "color") {
+			dropped++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "color", dropped,
+		"`.agents/agents/<name>.md` is shared byte-for-byte with Goose, whose frontmatter has no color key; set x-openhands.color to emit it for openhands only")
 }
 
 // emitMCPConfig sorts mcps into OpenHands' three [mcp] arrays, surfaces

@@ -22,6 +22,7 @@ AGENTS.md                            # shared pointer body (dedup with the other
 .windsurfignore                      # when ignore entries exist (agent file access)
 .devin/mcp_config.json               # when MCP entries exist
 .devin/hooks.v1.json                 # when hook entries exist
+.devin/config.json                   # when settings entries carry permission rules
 ```
 
 Windsurf became Devin Desktop (2026-06). Devin Desktop prefers `.devin/rules/*.md` and keeps `.windsurf/rules/` as a backward-compat fallback (`.windsurfrules` is legacy), so rules now emit at the preferred path. The target keeps its `windsurf` name: existing `outputs.windsurf.*` keys and `x-windsurf` meta continue to work.
@@ -59,6 +60,11 @@ Set `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old layout; oth
   - Per entry: `type` (`"command"` runs a shell command, or `"prompt"` evaluates an LLM prompt instead; agnostic-ai's generic hook spec has no `prompt` field, so that shape only reaches the file through a hand-authored `type`/`prompt` Meta pair), `command`, and optional `timeout` (seconds). `matcher` is a regex on the event's `tool_name`, available on `PreToolUse`, `PostToolUse`, and `PermissionRequest`.
   - **Devin CLI names its own tools in lowercase snake_case** (`exec`, `edit`, `read`, `write`, `apply_patch`, `grep`, `glob`, `webfetch`, ...), not Claude's PascalCase. A matcher carried over from a Claude spec parses as a valid regex and then matches nothing. That case surfaces a coverage note rather than a guessed rename, the same treatment OpenHands and Antigravity give their own mismatched vocabularies.
 
+- **Settings**: the portable `permissions` lists merge into `.devin/config.json` under `permissions`, the committed project policy Devin's own approval prompts write to: "Allow for project | `.devin/config.json` | Yes" ([docs.devin.ai/cli/reference/permissions](https://docs.devin.ai/cli/reference/permissions)). Only that key is set, so `read_config_from`, `hooks`, and any sibling inside `permissions` survive the sync. Those three are the only keys Devin accepts there: "Only `permissions`, `read_config_from`, and `hooks` are available in project configs" ([docs.devin.ai/cli/reference/configuration/config-file](https://docs.devin.ai/cli/reference/configuration/config-file)).
+  - A portable `model` stays out with a coverage note. The same page marks the `agent` block **user only**, so writing `agent.model` into a project config would reach nothing.
+  - Devin has its own rule vocabulary, so each rule is translated rather than copied. `Read(glob)` and `Write(glob)` pass through, `Edit(glob)` collapses onto `Write(glob)`, `Bash(prefix:*)` becomes `Exec(prefix)`, `WebFetch(pattern)` becomes `Fetch(pattern)`, a bare tool name follows the same table `allowed-tools` uses (`Bash` to `exec`, and so on), and `mcp__<server>__<tool>` passes through untouched.
+  - An exact `Bash(...)` rule with no `:*` suffix has no faithful form and drops with a coverage note. Devin's `Exec` only prefix-matches, so translating an exact rule would widen an allow into commands nobody approved. Set `x-windsurf.permissions` to write Devin's own rules directly; that object replaces the portable one for that spec and passes through untranslated.
+
 `outputs.windsurf.workflows-dir` no longer emits anything. It used to write each agent as a Workflow, invokable in Cascade as `/<name>`, but Devin Desktop v3.9.19 ("September 8, 2026") removed Cascade, the only agent that ever read one: "Cascade has been removed. Devin Local is now the only agent available in Devin Desktop" ([docs.devin.ai/desktop/changelog.md](https://docs.devin.ai/desktop/changelog.md)).
 
 Devin Local does not pick the surface back up: "Workflows are not available with the Devin Local agent. Migrate your workflows to skills with the Devin: Open Cascade Migration Wizard command" ([docs.devin.ai/desktop/devin-local](https://docs.devin.ai/desktop/devin-local), Limitations; target-audit 2026-09-09, #707). Setting the key now only prints a warning naming that migration path; the native `.devin/agents/<name>.md` emission happens either way, unaffected.
@@ -74,6 +80,7 @@ Devin Local does not pick the surface back up: "Workflows are not available with
 | `outputs.windsurf.ignore-file` | `.devinignore` | moves the indexing ignore file only; `.windsurfignore` follows the same spec for agent file access |
 | `outputs.windsurf.mcp-file` | `.devin/mcp_config.json` | |
 | `outputs.windsurf.hooks-file` | `.devin/hooks.v1.json` | |
+| `outputs.windsurf.conf-file` | `.devin/config.json` | project config; only `permissions` is ever set |
 
 ## Import
 
@@ -94,3 +101,4 @@ A hand-authored ignore file imports from `.devinignore`, falling back to `.winds
 5. When ignore specs exist, `cat .devinignore` shows the concatenated patterns and indexing skips them. `cat .windsurfignore` shows the same patterns; ask the agent to open one of those paths and it should refuse.
 6. Devin Local is the only agent in Devin Desktop (Cascade was removed in v3.9.19, #707); confirm each `mcpServers.<name>` from `.devin/mcp_config.json` connects, with a disabled spec showing as disabled.
 7. Run `/hooks` in Devin CLI to confirm each entry in `.devin/hooks.v1.json` loads, with the file listed as its source.
+8. With settings specs, `python -m json.tool .devin/config.json > /dev/null` parses, a command covered by a `deny` rule is refused, and one covered by `allow` runs without a prompt.

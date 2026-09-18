@@ -120,6 +120,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "launch-process", "command": "hooks/guard.sh", "timeout": 10},
 		},
+		{
+			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",
+			Meta: map[string]any{"permissions": map[string]any{
+				"allow": []any{"Read", "Bash(npm test:*)"},
+				"deny":  []any{"Bash(rm:*)"},
+			}},
+		},
 	}
 	return spec.NewBundle(entries)
 }

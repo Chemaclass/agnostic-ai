@@ -65,3 +65,17 @@ func SharedAgentToolsDropped(agent spec.Entry, target string) bool {
 	_, explicit := custom["tools"]
 	return !explicit
 }
+
+// SharedAgentFieldDropped reports whether a portable scalar frontmatter
+// field is omitted for target because this renderer writes no key for
+// it. An explicit x-<target> entry, including a nil delete marker,
+// means the author already chose the target behavior and suppresses the
+// coverage note.
+func SharedAgentFieldDropped(agent spec.Entry, target, field string) bool {
+	if value, _ := agent.Meta[field].(string); value == "" {
+		return false
+	}
+	custom, _ := agent.Meta[XPrefix+target].(map[string]any)
+	_, explicit := custom[field]
+	return !explicit
+}
