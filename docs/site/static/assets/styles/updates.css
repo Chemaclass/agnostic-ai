@@ -690,6 +690,19 @@ details[open] summary::after {
   }
 }
 
+@media (max-width: 768px) {
+  .read-link,
+  .back-link {
+    min-height: 2rem;
+  }
+
+  .archive-head a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .read-link svg {
     transition: none;

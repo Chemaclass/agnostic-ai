@@ -615,7 +615,20 @@ textarea::placeholder {
   textarea {
     min-height: 220px;
     padding: 12px;
-    font-size: 13px;
+    font-size: 16px;
+  }
+
+  .chips label,
+  .tabs button,
+  .ghost,
+  select {
+    min-height: 2rem;
+  }
+
+  .footer-inner a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
   }
 
   .tabs {

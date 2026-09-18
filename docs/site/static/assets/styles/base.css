@@ -229,6 +229,7 @@ code {
 }
 
 .brand {
+  min-height: 2rem;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -323,7 +324,7 @@ code {
   border-radius: 5px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.66rem;
+  font-size: 0.7rem;
 }
 
 html.search-open {
@@ -332,8 +333,8 @@ html.search-open {
 
 .site-search {
   width: min(40rem, calc(100% - 2rem));
-  max-height: min(78vh, 40rem);
-  margin: 10vh auto auto;
+  max-height: min(78dvh, 40rem);
+  margin: 10dvh auto auto;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -370,7 +371,9 @@ html.search-open {
 
 .site-search-input {
   min-width: 0;
+  min-height: 2.5rem;
   flex: 1;
+  padding-block: 0.4rem;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -380,6 +383,9 @@ html.search-open {
 }
 
 .site-search-close {
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
   background: transparent;
   cursor: pointer;
 }
@@ -424,7 +430,7 @@ html.search-open {
 .site-search-crumb {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -667,6 +673,19 @@ html.search-open {
   }
 }
 
+@media (max-width: 768px) {
+  .footer-col ul {
+    gap: 0.15rem;
+  }
+
+  .footer-col a,
+  .footer-bottom a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+  }
+}
+
 @media (max-width: 700px) {
   .site-bar {
     gap: 0.4rem 0.75rem;
@@ -684,8 +703,12 @@ html.search-open {
 
   .site-nav a {
     min-width: 0;
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.25rem 0;
-    font-size: clamp(0.64rem, 2.8vw, 0.78rem);
+    font-size: clamp(0.7rem, 2.8vw, 0.78rem);
     letter-spacing: -0.01em;
     text-align: center;
   }
