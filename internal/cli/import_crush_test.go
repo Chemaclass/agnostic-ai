@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -111,5 +113,50 @@ func TestImportCrush_KnownSourceWiredIn(t *testing.T) {
 		if !strings.Contains(sources, want) {
 			t.Errorf("importSources() missing %q: %s", want, sources)
 		}
+	}
+}
+
+// TestImportCrush_HookNameCannotEscapeHooksDir regresses #831. A Crush
+// hook name is a free-form TUI label: `../escape` must not steer the
+// written spec out of the hooks directory, and the label must survive in
+// the spec's `name:` field either way.
+func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
+	for _, name := range []string{"../escape", "nested/deep", "..", "."} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+			writeFile(t, filepath.Join(dir, "crush.json"), `{"hooks":{"PreToolUse":[{"name":`+
+				strconv.Quote(name)+`,"matcher":"^bash$","command":"echo unsafe"}]}}`)
+
+			execCLI(t, "import", "crush")
+
+			hooksDir := filepath.Join(dir, ".agnostic-ai", "hooks")
+			written := []string{}
+			if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() || filepath.Ext(path) != ".yaml" || d.Name() == "agnostic-ai.yaml" {
+					return err
+				}
+				written = append(written, path)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if len(written) != 1 {
+				t.Fatalf("expected exactly one hook spec, got %v", written)
+			}
+			if filepath.Dir(written[0]) != hooksDir {
+				t.Fatalf("hook spec escaped %s: %s", hooksDir, written[0])
+			}
+			body := readFile(t, written[0])
+			if !strings.Contains(body, "name: "+strconv.Quote(name)) && !strings.Contains(body, "name: "+name) {
+				t.Errorf("friendly name %q missing from spec:\n%s", name, body)
+			}
+			if !strings.Contains(body, "echo unsafe") {
+				t.Errorf("command missing from spec:\n%s", body)
+			}
+		})
 	}
 }

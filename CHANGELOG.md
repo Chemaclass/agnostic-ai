@@ -22,6 +22,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- `agnostic-ai import crush` no longer lets a hook name steer where its spec is written. A Crush hook named `../escape` wrote outside the hooks directory; such a name now falls back to the deterministic filename and stays in the spec's `name:` field (#831).
+- `outputs.claude.dir` moves rules and commands with the rest of the tool directory. With `dir: vendor/.claude`, rules landed in `.claude/rules/` at the project root while agents and settings moved, so one target wrote into two trees. A per-kind key such as `rules-dir` still wins (#849).
 - A nested `outputs.<target>.dir` such as `vendor/.claude` no longer collapses the managed `.gitignore` block to `/vendor/.claude/`, which ignored the whole tool directory including hand-authored files and the shareable `agent-memory/` store. The block now collapses at the generated subdirectory below the configured dir, as it already did for the default `.claude` (#846).
 - The managed `.gitignore` block ignores Claude Code's `agent-memory-local/` instead of `agent-memory/`, matching the documented scopes: `memory: project` is shareable via version control, `memory: local` is not. A previously hidden `.claude/agent-memory/` starts appearing in `git status`, and an already tracked `agent-memory-local/` stays tracked until `git rm -r --cached` removes it, since a new ignore line does not untrack files. Nothing is deleted or committed automatically (#841).
 - Long inline code, such as a file path, no longer pushes a docs page sideways.

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // crushPreToolUseEvent is the only hook event Crush's own runtime
@@ -63,10 +65,7 @@ func importCrushHooks(root, dstDir string) (int, error) {
 			continue
 		}
 		name := strings.TrimSpace(h.Name)
-		fileName := name
-		if fileName == "" {
-			fileName = hookSpecName(crushPreToolUseEvent, h.Matcher, []string{h.Command})
-		}
+		fileName := crushHookFileName(name, h.Matcher, h.Command)
 		docMap := map[string]any{
 			"event":   crushPreToolUseEvent,
 			"command": h.Command,
@@ -87,6 +86,18 @@ func importCrushHooks(root, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// crushHookFileName returns the spec filename for one imported hook. A
+// Crush name is a free-form TUI label, not an identifier, so a label
+// that is not a single safe path segment (`../escape`) cannot be the
+// filename; those entries fall back to the deterministic name while the
+// label still reaches the spec's `name:` field.
+func crushHookFileName(name, matcher, command string) string {
+	if spec.ValidateName(spec.KindHook, name) == nil {
+		return name
+	}
+	return hookSpecName(crushPreToolUseEvent, matcher, []string{command})
 }
 
 func writeCrushHookSpec(dstDir, name string, docMap map[string]any) error {

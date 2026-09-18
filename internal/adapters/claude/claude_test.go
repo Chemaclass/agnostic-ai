@@ -1815,3 +1815,67 @@ func TestGitignoreHints_HonorsDirOverride(t *testing.T) {
 		}
 	}
 }
+
+// TestEmit_DirOverrideMovesEveryKind regresses #849. A bare
+// `outputs.claude.dir` moved agents, skills, and settings.json but left
+// rules and commands at the project root, so one target wrote into two
+// trees. An explicit per-kind key still wins over the moved default.
+func TestEmit_DirOverrideMovesEveryKind(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"claude": {Dir: "vendor/.claude"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
+		{Kind: spec.KindCommand, Name: "c1", Body: "command one"},
+		{Kind: spec.KindAgent, Name: "a1", Body: "agent one"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{
+		"vendor/.claude/rules/r1.md",
+		"vendor/.claude/commands/c1.md",
+		"vendor/.claude/agents/a1.md",
+	} {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(rel))); err != nil {
+			t.Errorf("expected %s under the overridden dir: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude")); !os.IsNotExist(err) {
+		t.Errorf("nothing should land at the default dir, got err %v", err)
+	}
+
+	for _, artifact := range New().NativeArtifacts(cfg) {
+		if artifact.Label == "Rules" || artifact.Label == "Commands" {
+			if !strings.HasPrefix(filepath.ToSlash(artifact.Location), "vendor/.claude/") {
+				t.Errorf("%s overview location %q ignores the dir override", artifact.Label, artifact.Location)
+			}
+		}
+	}
+}
+
+// TestEmit_PerKindDirWinsOverDirOverride keeps the #849 fix from
+// swallowing an explicit per-kind key.
+func TestEmit_PerKindDirWinsOverDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"claude": {Dir: "vendor/.claude", RulesDir: "docs/rules"},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "r1", Body: "rule one"},
+	}), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "docs", "rules", "r1.md")); err != nil {
+		t.Errorf("rules-dir override ignored: %v", err)
+	}
+}

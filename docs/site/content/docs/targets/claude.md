@@ -67,6 +67,8 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 
+`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/` and commands in `vendor/.claude/commands/`. A per-kind key overrides that path on its own.
+
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local. A store already committed before this changed stays tracked until `git rm -r --cached .claude/agent-memory-local` removes it, because an ignore line does not untrack files.
 
 ## Agent memory
