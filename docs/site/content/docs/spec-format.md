@@ -76,8 +76,11 @@ Report concise findings with `file:line` references.
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
 | `model` | no | unset | Preferred model: a string for every target, or a map per target. |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
+| `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
 
 Any other frontmatter field passes through unchanged.
+
+`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) consumes it today, where `project` is the scope git carries; every other adapter drops the key.
 
 ### Per-target models
 

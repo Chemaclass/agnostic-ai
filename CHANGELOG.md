@@ -10,6 +10,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
 - The landing page embeds the talk demo behind a click-to-play poster; YouTube loads only after the click, through youtube-nocookie.com.
+- The docs cover agent memory and the memory boundary: the three `memory` scopes an agent spec can set, which one git carries, and why the Claude Code and Qoder auto memory stores are tool-owned and never synced. A new `memory-curator` skill, scoped to those two targets, audits a store in place and proposes merges and deletions before touching anything (#842, #843).
 
 ### Fixed
 

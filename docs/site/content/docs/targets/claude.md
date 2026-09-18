@@ -69,6 +69,28 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local. A store already committed before this changed stays tracked until `git rm -r --cached .claude/agent-memory-local` removes it, because an ignore line does not untrack files.
 
+## Agent memory
+
+An agent spec gives a subagent a directory that survives across sessions with a top-level `memory` key. Claude Code is the only target that reads it; every other adapter drops the key, so the same spec stays portable.
+
+```yaml
+---
+name: code-reviewer
+description: Reviews diffs for bugs and style.
+memory: project
+---
+```
+
+| Scope | Directory | Git |
+|---|---|---|
+| `user` | `~/.claude/agent-memory/<name>/` | outside the repository, so git never sees it |
+| `project` | `.claude/agent-memory/<name>/` | committed, documented as shareable via version control |
+| `local` | `.claude/agent-memory-local/<name>/` | not committed, documented as personal to one machine |
+
+Claude Code creates and writes the directory itself, on first use. agnostic-ai only emits the frontmatter key, and never reads or writes the store.
+
+This is subagent memory. It is a different feature from auto memory, the notes Claude Code keeps for the whole session under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
+
 ## Claude settings
 
 The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers, so partial adoption works.

@@ -68,6 +68,16 @@ Cross-cutting kind notes:
 - **Commands**: slash-prompt files authored under `commands/`. Native on ten targets, each with its own directory and frontmatter subset; see the target's section. Codex deprecated project prompts, so its commands stay source-only unless `outputs.codex.commands-dir` opts into the legacy `.codex/prompts/` layout. Amp has no file-based command surface at all, since commands register programmatically from plugin TypeScript, so there is nothing to opt into. Other targets skip with a warning.
 - **Ignore**: gitignore-syntax exclusion files, native on ten targets. Every ignore spec concatenates into each of them under a `#` provenance header, preserving pattern order and whitespace. Before replacing a hand-authored file, `sync` requires every existing pattern to survive unchanged and in order, with no added negations; extra exclusions are allowed, and comments and blank lines never block a sync. When preservation cannot be established, `AAI-103` names the risk and leaves the file untouched (#761). Run `agnostic-ai import <target>` to pull existing patterns into a spec first, then review conflicts before syncing. `outputs.<target>.provenance-header: false` removes the marker this check relies on and disables it. See [overwrite behavior](@/docs/spec-format.md#overwrite-behaviour). Other targets skip with a warning.
 
+## Memory and local state
+
+Two targets keep an automatic memory store the tool writes for itself: [Claude Code](@/docs/targets/claude.md) under `~/.claude/projects/<project>/memory/` and [Qoder](@/docs/targets/qoder.md) under `~/.qoder/projects/<project>/memory/`. Each store is a `MEMORY.md` index plus one topic file per memory, and each is machine-local.
+
+agnostic-ai does not sync them, and will not. The store is keyed by a project directory name neither vendor documents, so any path agnostic-ai derived would be a guess that breaks on the next release, and Qoder offers no setting to point the store somewhere else. The contents are also the wrong shape to share: they are one person's corrections and session context, not a project convention that should land in a teammate's checkout.
+
+Durable team knowledge belongs in a spec instead. Use a [rule](@/docs/spec-format.md#rules) for a convention that must be in context every session, a [skill](@/docs/spec-format.md#skills) for a procedure that loads on demand, and an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) when one subagent should accumulate project knowledge in a directory git carries.
+
+To curate a store in place, the [`memory-curator` skill](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md) runs inside the tool and edits only that tool's own memory, during that tool's own session.
+
 ## Per-target output
 
 One page per target, with its emitted tree, capability notes, config keys, and how to verify it against the real tool.
