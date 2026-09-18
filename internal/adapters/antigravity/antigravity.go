@@ -189,5 +189,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
+	if err := emit.WritePluginManifests(sess, pluginRoots(
+		rulesDir, agentsDir, skillsDir,
+		emit.OutputMCPFile(cfg, target, defaultMCPFile),
+		emit.OutputHooksFile(cfg, target, defaultHooksFile),
+	), dryRun); err != nil {
+		return err
+	}
+
 	return sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
 }

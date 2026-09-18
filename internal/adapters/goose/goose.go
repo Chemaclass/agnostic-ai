@@ -138,7 +138,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if len(b.Skills) > 0 {
 		skillsPlugin = pluginSkillsRoot(skillsDir)
 	}
-	return writePluginManifests(sess, []string{hooksPlugin, skillsPlugin}, dryRun)
+	return emit.WritePluginManifests(sess, []string{hooksPlugin, skillsPlugin}, dryRun)
 }
 
 func noteDroppedAgentTools(agents []spec.Entry) {
