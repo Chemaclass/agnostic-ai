@@ -18,10 +18,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
-- `import crush` no longer writes a hook spec outside the hooks directory when a hook is named `../escape` (#831).
-- `outputs.claude.dir` now moves rules, commands, and the `{{rules_dir}}` path variables with the rest of the tool directory (#849).
+- The managed `.gitignore` block ignores Claude Code's machine-local `agent-memory-local/` instead of the shareable `agent-memory/`, so a hidden `agent-memory/` reappears in `git status` (#841).
 - A nested `outputs.<target>.dir` such as `vendor/.claude` no longer ignores that whole directory in the managed `.gitignore` block (#846).
-- The managed `.gitignore` block ignores Claude Code's machine-local `agent-memory-local/` instead of the shareable `agent-memory/` (#841).
+- `outputs.claude.dir` now moves rules, commands, and the `{{rules_dir}}` path variables with the rest of the tool directory (#849).
+- `import crush` no longer writes a hook spec outside the hooks directory when a hook is named `../escape` (#831).
 
 ### Site
 

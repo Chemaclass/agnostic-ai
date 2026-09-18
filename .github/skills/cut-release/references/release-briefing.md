@@ -4,6 +4,43 @@ Create one release briefing immediately before the release commit. The file,
 version bump, and final dated changelog section must land in the same commit
 and receive the same signed tag.
 
+## Title and dek
+
+The title carries a `agnostic-ai vX.Y.Z:` prefix, because this is an installed
+CLI and "which version has the fix" is a real question. The prefix is overhead,
+so the words after the colon have to work harder.
+
+- Name a thing that now exists or now behaves differently. Never name a concept
+  the release invented. "The memory boundary" fails: the dek has to define it
+  before it means anything, and a reader scanning the index cannot act on it.
+- One outcome after the colon, or a list of concrete nouns. Never two
+  abstractions joined by "and".
+- Keep the website out of the title. The site section states that it changes
+  nothing in the tool, so a headline spent on it is a headline wasted.
+- When the release is maintenance, title it as maintenance and lead with the
+  change that will surprise someone. A four-fix release titled as four fixes
+  keeps its credibility; one inflated into a design thesis loses it.
+
+The dek names the change in its first sentence. What it now does comes second,
+reasons come third or not at all. Order by blast radius: the item most people
+will notice leads, whatever changelog section it sits in.
+
+Banned openers, no exceptions:
+
+- The release as the subject of a claim: "This release draws the line", "This
+  release closes the loop", "This release is all about", "This release focuses
+  on". The release may be the subject only when the predicate is an inventory,
+  as in "This release includes numerous bug fixes".
+- Announcement throat-clearing: "We are excited to announce", "We are thrilled",
+  "We've been busy", "Without further ado".
+- A rhetorical question as the first sentence.
+- A "what is this project" paragraph.
+- Metaphor verbs for state changes: draws the line, closes the loop, unlocks,
+  levels up, supercharges.
+
+Use "you" for what the reader does. Use "we" only for a decision a person made,
+never to describe what the software does.
+
 ## Curation
 
 A release briefing is curated, not transcribed. Before writing, split the release
