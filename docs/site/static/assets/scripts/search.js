@@ -185,20 +185,31 @@
   }
 
   // One page filling every slot with its own sections hides the rest of
-  // the corpus, so a page contributes at most PER_PAGE_LIMIT entries.
+  // the corpus, so a page contributes at most PER_PAGE_LIMIT entries
+  // before every other page has had its turn. Entries held back that way
+  // still fill slots the rest of the corpus leaves empty, in rank order,
+  // rather than shrinking the result list.
   function capPerPage(ranked, limit) {
     const counts = {};
     const entries = [];
+    const overflow = [];
     for (const result of ranked) {
       if (entries.length >= limit) {
-        break;
+        return entries;
       }
       const seen = counts[result.item.page] || 0;
       if (seen >= PER_PAGE_LIMIT) {
+        overflow.push(result.item.entry);
         continue;
       }
       counts[result.item.page] = seen + 1;
       entries.push(result.item.entry);
+    }
+    for (const entry of overflow) {
+      if (entries.length >= limit) {
+        break;
+      }
+      entries.push(entry);
     }
     return entries;
   }

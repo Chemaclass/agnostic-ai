@@ -316,13 +316,48 @@ test("Updates rank below Docs and Targets on equal evidence", function () {
   assert.equal(search(twins, "telemetry")[0].group, "Docs", "the Docs twin wins despite coming second");
 });
 
-test("at most three entries of one page reach the results", function () {
-  const found = urls(search(ranked, "spec"));
-  const sameSpecPage = found.filter(function (url) {
-    return url.indexOf("/docs/spec-format/") !== -1;
+test("one page yields slots to other pages before filling the rest", function () {
+  const sections = ["one", "two", "three", "four", "five"].map(function (name) {
+    return {
+      url: "https://agnostic-ai.org/docs/alpha/#" + name,
+      title: "Alpha",
+      heading: "Widget " + name,
+      group: "Docs",
+      body: "A widget section."
+    };
   });
-  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/");
-  assert.equal(sameSpecPage.length, 3, "the page contributes at most three entries");
+  const many = prepare([{
+    url: "https://agnostic-ai.org/docs/alpha/",
+    title: "Alpha",
+    heading: "",
+    group: "Docs",
+    body: "Widget overview."
+  }].concat(sections, [
+    {
+      url: "https://agnostic-ai.org/docs/beta/",
+      title: "Beta",
+      heading: "",
+      group: "Docs",
+      body: "Another widget guide."
+    },
+    {
+      url: "https://agnostic-ai.org/docs/gamma/",
+      title: "Gamma",
+      heading: "",
+      group: "Docs",
+      body: "A third widget guide."
+    }
+  ]));
+
+  const found = urls(search(many, "widget"));
+  const fromAlpha = found.filter(function (url) {
+    return url.indexOf("/docs/alpha/") !== -1;
+  });
+  const fourth = found.indexOf(fromAlpha[3]);
+  assert.equal(fromAlpha.length, 6, "held-back entries still reach empty slots");
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/beta/") < fourth);
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/gamma/") < fourth);
+  assert.equal(found.length, 8, "the cap does not shrink the result list");
 });
 
 test("typing a prefix keeps the same top result", function () {
