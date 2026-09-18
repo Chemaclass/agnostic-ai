@@ -213,7 +213,7 @@
 }
 
 .docs-page-layout {
-  width: min(calc(100% - 2rem), 86rem);
+  width: min(calc(100% - 2rem), 48rem);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-inline: auto;
@@ -226,7 +226,7 @@
 }
 
 .docs-mobile-nav {
-  width: min(calc(100% - 2rem), 86rem);
+  width: min(calc(100% - 2rem), 48rem);
   margin: 1.25rem auto 0;
 }
 
@@ -237,6 +237,9 @@
 
 .docs-mobile-nav summary {
   position: relative;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
   padding: 0.85rem 2rem 0.85rem 0;
   color: var(--ink);
   font-weight: 700;
@@ -280,6 +283,21 @@
   text-decoration: none;
 }
 
+.docs-nav-home,
+.docs-nav-group a {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+
+/* The disclosure is the only nav on a phone, so its rows get a full touch target. */
+.docs-mobile-nav .docs-nav-home,
+.docs-mobile-nav .docs-nav-group a {
+  min-height: 2.75rem;
+}
+
 .docs-nav-group {
   display: grid;
   gap: 0.18rem;
@@ -296,8 +314,6 @@
 }
 
 .docs-nav-group a {
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
   color: var(--ink-soft);
   font-size: 0.82rem;
   line-height: 1.35;
@@ -425,7 +441,7 @@
 .docs-content ul,
 .docs-content ol,
 .docs-content blockquote {
-  max-width: 72ch;
+  max-width: 66ch;
 }
 
 .docs-content ul,
@@ -476,6 +492,13 @@
   overflow-x: auto;
   border-collapse: collapse;
   font-size: 0.88rem;
+  /* Edge shadows appear only while a table has more to scroll: the paper-coloured
+     layers travel with the content and uncover them. */
+  background:
+    linear-gradient(to right, var(--paper) 40%, transparent) 0 0 / 1.75rem 100% no-repeat local,
+    linear-gradient(to left, var(--paper) 40%, transparent) 100% 0 / 1.75rem 100% no-repeat local,
+    linear-gradient(to right, color-mix(in srgb, var(--ink) 18%, transparent), transparent) 0 0 / 0.65rem 100% no-repeat scroll,
+    linear-gradient(to left, color-mix(in srgb, var(--ink) 18%, transparent), transparent) 100% 0 / 0.65rem 100% no-repeat scroll;
 }
 
 .docs-content th,
@@ -491,6 +514,11 @@
   color: var(--ink);
   font-family: var(--mono);
   font-size: 0.72rem;
+}
+
+/* Inline code scales with its cell, which drops it below a legible size in dense tables. */
+.docs-content table code {
+  font-size: 0.78rem;
 }
 
 .capability-browser {
@@ -650,7 +678,7 @@
 }
 
 .capability-target-chip {
-  min-height: 1.9rem;
+  min-height: 2rem;
   padding: 0.25rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -665,7 +693,7 @@
   content: "remove";
   margin-left: 0.45rem;
   color: var(--muted);
-  font-size: 0.58rem;
+  font-size: 0.7rem;
 }
 
 .capability-target-chip:hover {
@@ -704,7 +732,7 @@
 }
 
 .capability-state {
-  min-height: 1.55rem;
+  min-height: 1.6rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -714,7 +742,7 @@
   background: var(--surface-quiet);
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -756,6 +784,7 @@
   display: table;
   margin: 0;
   overflow: visible;
+  background: none;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.78rem;
@@ -823,7 +852,7 @@
 
 .capability-matrix th[scope="row"] code {
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 400;
 }
 
@@ -870,6 +899,12 @@
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.76rem;
+}
+
+.docs-source-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
 }
 
 .docs-toc > p {
@@ -921,14 +956,17 @@
   }
 }
 
-@media (min-width: 900px) {
+/* Each column the layout adds costs the article width, so the page cap grows by at
+   least as much: the reading column never shrinks as the viewport grows. */
+@media (min-width: 1024px) {
   .docs-mobile-nav {
     display: none;
   }
 
   .docs-page-layout {
-    grid-template-columns: 13rem minmax(0, 1fr);
-    gap: 3rem;
+    width: min(calc(100% - 2rem), 65rem);
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 2rem;
   }
 
   .docs-sidebar {
@@ -942,9 +980,10 @@
   }
 }
 
-@media (min-width: 1240px) {
+@media (min-width: 1280px) {
   .docs-page-layout {
-    grid-template-columns: 13rem minmax(0, 1fr) 12rem;
+    width: min(calc(100% - 2rem), 86rem);
+    grid-template-columns: 12rem minmax(0, 1fr) 11rem;
   }
 
   .docs-toc {
@@ -1036,7 +1075,7 @@
   .docs-content .capability-matrix td::before {
     color: var(--muted);
     font-family: var(--mono);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 700;
   }
 
