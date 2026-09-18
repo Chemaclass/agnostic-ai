@@ -14,6 +14,22 @@
   "use strict";
 
   const RESULT_LIMIT = 10;
+  const PER_PAGE_LIMIT = 3;
+  const HEAD_EXACT = 30;
+  const HEAD_PREFIX = 24;
+  const TITLE_EXACT = 12;
+  const TITLE_PREFIX = 5;
+  const BODY_BASE = 4;
+  const BODY_HIT_CAP = 4;
+  const COVERAGE_WEIGHT = 40;
+  const CAP_YIELD_RATIO = 0.5;
+  const PHRASE_HEAD = 20;
+  const PHRASE_BODY = 10;
+  const LANDING_BONUS = 15;
+  const SLUG_BONUS = 10;
+  const GROUP_RANK = { Docs: 0, Targets: 1, Updates: 2 };
+  const DEFAULT_GROUP_RANK = 1;
+  const GROUP_WEIGHT = { Updates: 0.7 };
   const IDLE_STATUS = "Type to search the docs and updates.";
   const ENTITIES = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": "\"", "&#39;": "'" };
 
@@ -27,8 +43,15 @@
     return decodeEntities(text).toLowerCase().replace(/[^\p{L}\p{N}._/-]+/gu, " ").trim();
   }
 
+  // A one-character token prefix-matches most of the corpus, and a
+  // repeated term would count twice toward the score and the coverage.
   function tokenize(query) {
-    return normalize(query).split(" ").filter(Boolean);
+    const terms = normalize(query).split(" ").filter(function (term) {
+      return term.length > 1;
+    });
+    return terms.filter(function (term, index) {
+      return terms.indexOf(term) === index;
+    });
   }
 
   // `zola serve` appends a live-reload script after the JSON, since the index is served as HTML.
@@ -36,13 +59,53 @@
     return JSON.parse(text.slice(0, text.lastIndexOf("]") + 1));
   }
 
+  // Fold a plural onto its singular so "hooks" and "hook" reach the same
+  // entries. An "is", "us", or "ss" ending is not a plural, and "news"
+  // is a word this corpus uses that would otherwise fold onto "new".
+  const STEM_KEEP = { news: true };
+
+  function stem(word) {
+    if (STEM_KEEP[word] || word.length <= 3 || !/[a-hj-rtv-z]s$/.test(word)) {
+      return word;
+    }
+    return word.slice(0, -1);
+  }
+
+  function stemPhrase(text) {
+    return text.split(" ").filter(Boolean).map(stem).join(" ");
+  }
+
+  function pageUrl(url) {
+    return String(url || "").split("#")[0];
+  }
+
+  // The last path segment names the topic when the title does not:
+  // /docs/migration/ is titled "Import existing tool configuration".
+  function slugWords(url) {
+    const segments = pageUrl(url).split("/").filter(Boolean);
+    const last = segments.length === 0 ? "" : segments[segments.length - 1];
+    return normalize(last.replace(/[-_]+/g, " "));
+  }
+
+  function wordCount(text) {
+    return normalize(text).split(" ").filter(Boolean).length || 1;
+  }
+
   function prepare(entries) {
     return (entries || []).map(function (entry) {
+      const isPage = !entry.heading;
+      const slug = stemPhrase(slugWords(entry.url));
+      const head = isPage ? normalize(entry.title) + " " + slug : normalize(entry.heading);
       return {
         entry: entry,
-        title: " " + normalize(entry.title) + " ",
-        heading: " " + normalize(entry.heading) + " ",
-        body: " " + normalize(entry.body) + " "
+        isPage: isPage,
+        page: pageUrl(entry.url),
+        slug: slug,
+        head: " " + stemPhrase(head) + " ",
+        phrase: " " + stemPhrase(normalize(isPage ? entry.title : entry.heading)) + " ",
+        headWords: wordCount(isPage ? entry.title : entry.heading),
+        title: isPage ? " " : " " + stemPhrase(normalize(entry.title)) + " ",
+        body: " " + stemPhrase(normalize(entry.body)) + " "
       };
     });
   }
@@ -64,22 +127,120 @@
     return field.indexOf(" " + term) !== -1 ? prefixScore : 0;
   }
 
-  function scoreEntry(prepared, terms) {
-    if (!terms || terms.length === 0) {
+  // A query whose words sit together is about that phrase, not about
+  // each word on its own.
+  function phraseScore(prepared, terms) {
+    if (terms.length < 2) {
       return 0;
     }
+    const phrase = " " + terms.join(" ");
+    if (prepared.phrase.indexOf(phrase) !== -1) {
+      return PHRASE_HEAD;
+    }
+    return prepared.body.indexOf(phrase) !== -1 ? PHRASE_BODY : 0;
+  }
+
+  // Coverage keeps a short exact heading ahead of a long one that merely
+  // contains the term, and sections inherit only a little of their page
+  // title, or every section of a match outranks the page itself.
+  function scoreEntry(prepared, rawTerms) {
+    if (!rawTerms || rawTerms.length === 0) {
+      return 0;
+    }
+    const terms = rawTerms.map(stem);
     let total = 0;
+    let covered = 0;
     for (const term of terms) {
-      const bodyHits = countWordStarts(prepared.body, " " + term, 5);
-      const score = fieldScore(prepared.heading, term, 40, 20) +
-        fieldScore(prepared.title, term, 30, 12) +
-        (bodyHits > 0 ? 5 + bodyHits : 0);
+      const head = fieldScore(prepared.head, term, HEAD_EXACT, HEAD_PREFIX);
+      if (head > 0) {
+        covered += 1;
+      }
+      const bodyHits = countWordStarts(prepared.body, " " + term, BODY_HIT_CAP);
+      // A page body holds every section's text, so repeat hits there are
+      // not evidence that the page beats the section holding the term.
+      const bodyScore = prepared.isPage ? BODY_BASE : BODY_BASE + bodyHits;
+      const score = head +
+        fieldScore(prepared.title, term, TITLE_EXACT, TITLE_PREFIX) +
+        (bodyHits > 0 ? bodyScore : 0);
       if (score === 0) {
         return 0;
       }
       total += score;
     }
-    return prepared.entry.heading ? total : total + 3;
+    total += COVERAGE_WEIGHT * Math.min(1, covered / prepared.headWords);
+    total += phraseScore(prepared, terms);
+    if (prepared.isPage && covered > 0) {
+      total += LANDING_BONUS;
+      if (prepared.slug === terms.join(" ")) {
+        total += SLUG_BONUS;
+      }
+    }
+    return total * (GROUP_WEIGHT[prepared.entry.group] || 1);
+  }
+
+  function groupRank(item) {
+    const rank = GROUP_RANK[item.entry.group];
+    return rank === undefined ? DEFAULT_GROUP_RANK : rank;
+  }
+
+  // Score, then the group a reader most likely wants, then the page
+  // ahead of one of its own sections, then index order.
+  function compareResults(a, b) {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    const group = groupRank(a.item) - groupRank(b.item);
+    if (group !== 0) {
+      return group;
+    }
+    if (a.item.isPage !== b.item.isPage) {
+      return a.item.isPage ? -1 : 1;
+    }
+    return a.index - b.index;
+  }
+
+  // A page holds a slot only against a result that is competitive with
+  // it. Yielding to a far weaker one leaves the list non-monotonic:
+  // three strong hits, two weak ones, then the strong hits resume.
+  function yieldsSlot(ranked, index, counts) {
+    for (let next = index + 1; next < ranked.length; next += 1) {
+      const candidate = ranked[next];
+      if ((counts[candidate.item.page] || 0) >= PER_PAGE_LIMIT) {
+        continue;
+      }
+      return candidate.score >= ranked[index].score * CAP_YIELD_RATIO;
+    }
+    return false;
+  }
+
+  // One page filling every slot with its own sections hides the rest of
+  // the corpus, so a page contributes at most PER_PAGE_LIMIT entries
+  // before every other page has had its turn. Entries held back that way
+  // still fill slots the rest of the corpus leaves empty, in rank order.
+  function capPerPage(ranked, limit) {
+    const counts = {};
+    const entries = [];
+    const overflow = [];
+    for (let index = 0; index < ranked.length; index += 1) {
+      if (entries.length >= limit) {
+        return entries;
+      }
+      const result = ranked[index];
+      const seen = counts[result.item.page] || 0;
+      if (seen >= PER_PAGE_LIMIT && yieldsSlot(ranked, index, counts)) {
+        overflow.push(result.item.entry);
+        continue;
+      }
+      counts[result.item.page] = seen + 1;
+      entries.push(result.item.entry);
+    }
+    for (const entry of overflow) {
+      if (entries.length >= limit) {
+        break;
+      }
+      entries.push(entry);
+    }
+    return entries;
   }
 
   function search(prepared, query, limit) {
@@ -87,20 +248,15 @@
       return [];
     }
     const terms = tokenize(query);
-    return (prepared || [])
+    const ranked = (prepared || [])
       .map(function (item, index) {
-        return { entry: item.entry, score: scoreEntry(item, terms), index: index };
+        return { item: item, score: scoreEntry(item, terms), index: index };
       })
       .filter(function (result) {
         return result.score > 0;
       })
-      .sort(function (a, b) {
-        return b.score - a.score || a.index - b.index;
-      })
-      .slice(0, limit === undefined ? RESULT_LIMIT : limit)
-      .map(function (result) {
-        return result.entry;
-      });
+      .sort(compareResults);
+    return capPerPage(ranked, limit === undefined ? RESULT_LIMIT : limit);
   }
 
   function escapeRegExp(value) {
@@ -132,9 +288,13 @@
     if (words.length === 0) {
       return [{ text: excerpt, mark: false }];
     }
+    // Terms arrive stemmed, so allow back the plural s the stemmer cut
+    // or the highlight covers only part of the word it matched.
     const pattern = new RegExp(words.slice().sort(function (a, b) {
       return b.length - a.length;
-    }).map(escapeRegExp).join("|"), "gi");
+    }).map(function (word) {
+      return escapeRegExp(word) + "s?";
+    }).join("|"), "gi");
 
     const segments = [];
     let cursor = 0;
@@ -294,7 +454,9 @@
         return;
       }
       const found = search(prepared, query, RESULT_LIMIT);
-      render(found, tokenize(query));
+      // Stems, not raw terms: a result can match on "hook" while the
+      // reader typed "hooks", and the snippet should still find it.
+      render(found, tokenize(query).map(stem));
       if (found.length === 0) {
         setStatus("Nothing found. Try another word.");
       } else {
@@ -419,6 +581,7 @@
     scoreEntry: scoreEntry,
     search: search,
     shortcutHint: shortcutHint,
+    stem: stem,
     teaser: teaser,
     tokenize: tokenize
   };

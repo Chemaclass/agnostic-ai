@@ -10,9 +10,9 @@
 {%- endmacro heading %}
 
 {% macro page(page, group, first) -%}
-{%- set intro = page.content | split(pat="</h1>") | last | split(pat="<h2") | first -%}
+{%- set full = page.content | split(pat="</h1>") | last -%}
 {%- set description = page.description | default(value="") -%}
-{%- set body = description ~ " " ~ intro -%}
+{%- set body = description ~ " " ~ full -%}
 {{ self::entry(url=page.permalink, title=page.title, heading="", group=group, body=body, first=first) }}
 {%- for h in page.toc -%}
   {%- if h.level == 1 -%}

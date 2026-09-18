@@ -518,6 +518,31 @@ func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
 		t.Error("sibling sections on the git hooks guide do not get their own search text")
 	}
 
+	// A page entry indexes the page's first 3000 characters, not only the
+	// text above its first heading, so a query naming the page reaches the
+	// page itself rather than one of its sections.
+	cursor := bodies["https://agnostic-ai.org/docs/targets/cursor/"]
+	if !strings.Contains(cursor, ".cursor/rules") {
+		t.Error("the cursor page entry does not carry text from below its first heading")
+	}
+
+	// Equal-scoring search results fall back to index order, so briefings
+	// have to be indexed newest first for the newest one to win that tie.
+	// These two published on the same day, which is the case that orders
+	// by time rather than by date alone.
+	later, earlier := -1, -1
+	for i, entry := range entries {
+		switch entry.URL {
+		case "https://agnostic-ai.org/updates/2026-09-18-v0.61.0/":
+			later = i
+		case "https://agnostic-ai.org/updates/2026-09-18-v0.60.0/":
+			earlier = i
+		}
+	}
+	if later < 0 || earlier < 0 || later > earlier {
+		t.Errorf("same-day briefings are not indexed newest first: v0.61.0 at %d, v0.60.0 at %d", later, earlier)
+	}
+
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
 	for _, required := range []string{
 		"data-search-open",

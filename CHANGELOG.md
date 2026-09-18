@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Site
+
+- Site search ranks the page a query names ahead of that page's own sections, finds a page by text anywhere in it, folds plurals, and caps one page at three of the ten result slots.
+
 ## v0.61.0 - 2026-09-18
 
 ### Added
