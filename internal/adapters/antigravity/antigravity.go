@@ -5,15 +5,24 @@
 // `.agents/agents/<name>/agent.md`,
 // and skills from a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. This adapter emits all three. Antigravity
-// "now defaults to `.agents/rules`, but still maintains backward support
-// for `.agent/rules`" (antigravity.google/docs/ide/rules), and the
-// same wording covers skills (/docs/ide/skills). This adapter defaults to
-// the plural form and sweeps a stale managed tree at the pre-plural
-// `.agent/rules` / `.agent/skills` paths on sync, the same pattern codex
-// uses for its own pre-v0.43 `.codex/skills/` default. `.agents/skills`
+// "defaults to `.agents/rules`, but still maintains backward
+// compatibility for `.agent/rules`" (antigravity.google/docs/rules-workflows?tab=ide),
+// and the same wording covers skills (/docs/skills?tab=ide). This
+// adapter defaults to the plural form and sweeps a stale managed tree at
+// the pre-plural `.agent/rules` / `.agent/skills` paths on sync, the
+// same pattern codex uses for its own pre-v0.43 `.codex/skills/`
+// default. `.agents/skills`
 // is also the shared tree codex, amp, zed, crush, openhands, and
 // windsurf already emit into, so identical skill folders dedupe there
 // once an adapter's default lands on it.
+//
+// A rule emits as a bare Markdown file, which is Antigravity's
+// always-on mode. The vendor lists four activation modes (Manual,
+// Always on, Model decision, Glob pattern) as prose about the
+// Customizations panel and names no frontmatter key, no file format,
+// and no example for any of them, so a spec's `globs` or
+// `alwaysApply: false` has nowhere to land and drops with a coverage
+// note (see rule.go).
 //
 // Agents emit as native subagent profiles at
 // `.agents/agents/<name>/agent.md`, one of the two workspace forms in
@@ -43,12 +52,16 @@
 //
 // The `.agent/AGENTS.md` entry-point is written centrally by `sync`
 // as a slim pointer to the source specs (one body shared with every
-// other target's entry-point file). When `outputs.antigravity.rules-file`
+// other target's entry-point file). No Antigravity page documents an
+// AGENTS.md-family project file, so that path is an agnostic-ai
+// convention picked to stay clear of the project-root `AGENTS.md`
+// codex, amp, and warp own. Every rule body still lands in the
+// documented `.agents/rules/` tree. When `outputs.antigravity.rules-file`
 // is set, this adapter instead writes the legacy merged layout at that
 // path so users on older workflows keep their behavior.
 //
 // MCP servers land in `.agents/mcp_config.json`, a single `mcpServers`
-// object (antigravity.google/docs/ide/mcp). Remote servers require the
+// object (antigravity.google/docs/mcp?tab=ide). Remote servers require the
 // `serverUrl` field: "Legacy fields like `url` or `httpUrl` are not
 // supported," so this adapter cannot reuse the shared
 // `emit.MCPSchemaServersMap` builder, which emits `url` (see mcp.go).
@@ -63,7 +76,7 @@
 // back the same way.
 //
 // Hooks merge into `.agents/hooks.json`, keyed by hook definition name
-// rather than by event (antigravity.google/docs/ide/hooks). Each spec
+// rather than by event (antigravity.google/docs/hooks?tab=ide). Each spec
 // becomes its own named definition holding the one event it names, so
 // `enabled: false` (the definition's own field, the inverse of the
 // portable `disabled: true`) disables that spec alone. Five events run:
@@ -146,6 +159,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
+	noteRuleActivation(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
 			return err

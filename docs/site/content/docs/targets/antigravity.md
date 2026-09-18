@@ -20,12 +20,15 @@ target_id = "antigravity"
 .agents/mcp_config.json        # when MCP entries exist
 ```
 
-Antigravity reads project instructions from a top-level AGENTS.md-style file, per-rule files under `.agents/rules/`, and custom subagents under `.agents/agents/`. The adapter emits all three.
+Antigravity reads per-rule files under `.agents/rules/` and custom subagents under `.agents/agents/`. The adapter emits both.
 
-The entry-point path stays under `.agent/` (singular) to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`. Rules, skills, and MCP default to the plural `.agents/` form Antigravity itself now prefers ([rules](https://antigravity.google/docs/ide/rules), [skills](https://antigravity.google/docs/ide/skills)), which still "maintains backward support" for the singular paths.
+`.agent/AGENTS.md` is an agnostic-ai convention, not a documented Antigravity read path. No vendor page names an AGENTS.md-family project instruction file. The path keeps the entry-point clear of the project-root `AGENTS.md` that codex, amp, and warp own, and every rule body still lands in the documented `.agents/rules/` tree either way.
+
+Rules, skills, and MCP default to the plural `.agents/` form Antigravity itself now prefers ([rules](https://antigravity.google/docs/rules-workflows?tab=ide), [skills](https://antigravity.google/docs/skills?tab=ide)), which still "maintains backward compatibility" for the singular paths.
 
 A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults is swept on sync unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path explicitly.
 
+- **Rules**: one bare Markdown file per rule, which is Antigravity's always-on mode. The vendor lists four activation modes (Manual, Always on, Model decision, Glob pattern) as prose about the Customizations panel and names no frontmatter key, no file format, and no example for any of them. A spec's `globs` or `alwaysApply: false` therefore has nowhere to land and drops with a coverage note instead of a guessed key.
 - **Agents**: one custom subagent per agent at `.agents/agents/<name>/agent.md`, the nested workspace form documented alongside the flat form in [Antigravity's subagent reference](https://antigravity.google/docs/subagents).
   - Goose and OpenHands only scan top-level `.md` files in the same root, so the nested form keeps Antigravity's restricted `model` tier separate from their free-form model IDs (#717). Frontmatter carries `name` and `description`, both required; the body defines the system prompt.
   - A managed flat profile from an earlier sync is removed by the sync ledger when no enabled target still writes it. When Goose or OpenHands is enabled, that flat path remains as their current shared output. `import antigravity` prefers nested profiles and falls back to legacy flat files only when no nested profile exists, so it does not ingest co-located Goose or OpenHands agents.
@@ -35,13 +38,13 @@ A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults
   - `model` is a three-value tier enum (`inherit`, `flash`, `pro`), not a model ID, so a value outside it drops the same way.
   - Every other documented key (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) reaches the file through `x-antigravity` too.
 - **Skills**: one folder per skill under `.agents/skills/<name>/SKILL.md`, Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills). It's the same tree Codex, Amp, Zed, Crush, and OpenHands share, so identical skill folders dedupe. The SKILL.md frontmatter is reduced to `name` + `description`; the body follows. Sibling files next to the source SKILL.md (helper scripts, fixtures) are copied byte-for-byte into the emitted folder.
-- **MCP**: servers land in `.agents/mcp_config.json` under a single `mcpServers` object ([antigravity.google/docs/ide/mcp](https://antigravity.google/docs/ide/mcp)).
+- **MCP**: servers land in `.agents/mcp_config.json` under a single `mcpServers` object ([antigravity.google/docs/mcp?tab=ide](https://antigravity.google/docs/mcp?tab=ide)).
   - Remote servers carry `serverUrl`. The vendor doc states the legacy `url` / `httpUrl` field names "are not supported," so this is a dedicated schema, not the shared `mcpServers`-with-`url` shape claude and cursor use.
   - stdio servers carry `command`, `args`, `env`, and `cwd`; remote servers add `headers`.
   - Both transports accept `disabled` under that literal name (see [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target)), unlike codex and kilo which map it onto their own `enabled: false`.
   - Three more documented fields (`authProviderType`, `oauth`, `disabledTools`, same page) have no dedicated mapping. They, `description`, `roots`, and any field the vendor adds next reach the file through `x-antigravity` instead, the same escape hatch Zed and Warp give their own unmapped fields.
   - `import antigravity` reads `.agents/mcp_config.json` back, renaming `serverUrl` to the spec's generic `url` and preserving any other field under `x-antigravity` the same way.
-- **Hooks**: merge into `.agents/hooks.json` (override via `outputs.antigravity.hooks-file`): "Hooks are configured in a `hooks.json` file located in your customization directory (e.g., `.agents/` in your workspace)" ([antigravity.google/docs/ide/hooks](https://antigravity.google/docs/ide/hooks), #629).
+- **Hooks**: merge into `.agents/hooks.json` (override via `outputs.antigravity.hooks-file`): "Hooks are configured in a `hooks.json` file located in your customization directory (e.g., `.agents/` in your workspace)" ([antigravity.google/docs/hooks?tab=ide](https://antigravity.google/docs/hooks?tab=ide), #629).
   - **The file is keyed by hook definition name, not by event**, unlike every other hook target here, so each spec becomes its own top-level definition named after it and holding the one event it names.
   - That is also where `enabled` lives: a spec's `disabled: true` writes `enabled: false` on its own definition ("Set to `false` to disable the hook without removing it"), a sibling of the event key rather than a member of the handler array. This is the inverse spelling of the literal `disabled` this same adapter writes for MCP servers.
   - Five events exist: `PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, `Stop`. The first two hold `{matcher, hooks: [...]}` groups; for the other three "the structure is simpler (a list of handlers directly under the event key) and the matcher is ignored". This adapter writes each shape where the vendor documents it and notes a matcher set on the three that ignore it.

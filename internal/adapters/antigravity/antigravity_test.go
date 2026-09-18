@@ -291,7 +291,7 @@ func TestEmit_MCP_NotDisabledNoDisabledKey(t *testing.T) {
 	}
 }
 
-// Three more MCP fields are documented (antigravity.google/docs/ide/mcp:
+// Three more MCP fields are documented (antigravity.google/docs/mcp?tab=ide:
 // `authProviderType`, `oauth`, `disabledTools`) but buildMCPServer has no
 // dedicated case for any of them. Before this fix the antigravity
 // package had zero MergeCustomTargetMeta calls, so none of the three
