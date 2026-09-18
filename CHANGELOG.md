@@ -12,31 +12,28 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
-- `sync` reports when a target writing into `.agents/agents/` runs beside Windsurf, which reads that tree too and would load two profiles for one agent (#863).
-- `import windsurf` and `import augment` read back the committed permission policy sync writes, so a project that already had one keeps it (#872).
-- Antigravity ships a workspace plugin when a per-kind output key points into `.agents/plugins/<name>/`: the required `plugin.json` manifest is written for you (#810).
 - Portable permission lists reach Windsurf's `.devin/config.json` and Augment's `.augment/settings.json`, translated onto each vendor's rule shape (#856).
-- A portable `color` on an OpenHands agent reports a coverage note naming `x-openhands.color` instead of disappearing (#864).
+- `import windsurf` and `import augment` read that policy back, so a project that already had one keeps it (#872).
+- Point a per-kind output key into `.agents/plugins/<name>/` and Antigravity ships a workspace plugin: the required `plugin.json` manifest follows (#810).
 
 ### Fixed
 
-- A portable `permissionMode` and agent-scoped `hooks` now reach Qoder's agent file, with a note for a value or event it does not run (#825, #826).
-- A portable `effort` on an agent reaches Qoder and, as `reasoningEffort`, Factory, which reports a note for the levels its enum does not cover (#824).
-- An agent's `mcpServers` list now reaches Factory's droid file instead of being dropped, so a narrowed tool surface survives the sync (#812).
-- A skill carrying `disable-model-invocation` reports a coverage note on Crush and Factory instead of silently becoming model-invocable there (#811).
-- `import claude` and `doctor` follow `outputs.claude.dir` and the per-kind keys, so a project that moved the Claude Code directory can round-trip (#852).
 - Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, not the unread `.cline/rules/` (#853).
-- Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
+- `import claude` and `doctor` follow `outputs.claude.dir` and the per-kind keys, so a project that moved the Claude Code directory can round-trip (#852).
 - Per-kind output keys move the files they name: `outputs.claude.agents-dir`, `outputs.claude.skills-dir`, and Copilot's `{{rules_dir}}` were accepted and ignored.
+- Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout keeps its skills (#854).
 - A `type: ws` MCP entry is dropped with a note on Augment and Qoder, whose vendors document no such server, instead of writing a `url` neither reads (#855).
 - Junie MCP entries drop `disabled` and `description`, two keys no Junie page documents, so a server marked disabled no longer imports as enabled (#858).
+- Warp stdio MCP entries carry `"args": []`, the key Warp's CLI Server table marks required (#859).
+- Per-agent fields reach the targets documenting them: `effort` and `mcpServers` on Qoder and Factory, `permissionMode` and scoped `hooks` on Qoder (#812, #824, #825, #826).
 - An `outputs.kilo.skills-dir` outside the three trees Kilo Code scans is now listed in `kilo.jsonc`'s `skills.paths`, so those skills load (#861).
 - Goose writes the `plugin.json` manifest for a skills-only bundle, so `outputs.goose.skills-dir` under `.agents/plugins/<name>/` is discoverable (#862).
 - Windsurf ignore specs also write `.windsurfignore`, which the Devin agent respects when reading files, beside `.devinignore` for indexing (#863).
-- Warp stdio MCP entries carry `"args": []`, the key Warp's CLI Server table marks required (#859).
+- `sync` reports when a target writing into `.agents/agents/` runs beside Windsurf, which reads that tree too and would load two profiles for one agent (#863).
+- A field a target cannot honor reports a coverage note instead of vanishing: `disable-model-invocation` on Crush and Factory, `color` on OpenHands, rule activation on Antigravity (#811, #864, #865).
 - OpenCode skill names and Junie agent names that break the vendor's documented regex now fail sync instead of writing a file the tool never loads (#857).
 - Cursor hooks filtering `beforeTabFileRead` or `afterTabFileEdit` no longer raise LINT005, since the vendor's matcher table documents both (#860).
-- A rule carrying `globs` or `alwaysApply: false` reports a coverage note on Antigravity, which documents no frontmatter key for its four activation modes (#865).
+- Two fork pull requests on branches with the same name no longer cancel each other's CI run (#850).
 
 ### Site
 
