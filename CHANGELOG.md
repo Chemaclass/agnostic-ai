@@ -12,33 +12,29 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
-- Settings specs reach Windsurf: the portable permission lists merge into `.devin/config.json` under `permissions`, translated onto Devin's own rule vocabulary (#856).
-- Settings specs reach Augment: the portable permission lists merge into `.augment/settings.json` under `toolPermissions`, in the object form the vendor requires (#856).
-- A portable `color` on an OpenHands agent now prints a coverage note naming `x-openhands.color` instead of being dropped in silence (#864).
+- Portable permission lists reach Windsurf's `.devin/config.json` and Augment's `.augment/settings.json`, translated onto each vendor's rule shape (#856).
+- A portable `color` on an OpenHands agent reports a coverage note naming `x-openhands.color` instead of disappearing (#864).
 
 ### Fixed
 
-- `outputs.claude.agents-dir` and `outputs.claude.skills-dir` now move the emitted agents and skills instead of being silently ignored.
-- `{{rules_dir}}` resolves from `outputs.copilot.instructions-dir` on Copilot, so a spec body names the directory sync writes to.
-- Every documented `outputs.<target>.<key>` is now covered by a test that emits a spec and checks the file moved, so a key cannot be accepted and ignored.
-- Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, instead of the unread `.cline/rules/` (#853).
-- A `type: ws` MCP spec no longer writes a dead `{"type": "ws", "url": ...}` entry on Augment or Qoder, whose vendors document no such server; the entry is dropped with a note (#855).
-- Junie MCP entries no longer carry `disabled` or `description`, two keys no Junie page documents, so a disabled server no longer imports as enabled (#858).
-- Warp stdio MCP entries carry `"args": []` when the spec sets no arguments, the key Warp's CLI Server table marks required (#859).
+- Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, not the unread `.cline/rules/` (#853).
 - Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
-- OpenCode skill names and Junie agent names that break the vendor's documented regex now fail sync, instead of writing a file the tool never loads (#857).
-- Cursor hook specs that filter `beforeTabFileRead` or `afterTabFileEdit` no longer raise LINT005, since the vendor's matcher table documents both (#860).
-- An `outputs.kilo.skills-dir` outside the three trees Kilo Code scans by itself is now listed in `kilo.jsonc`'s `skills.paths`, so those skills load (#861).
-- Goose writes the `plugin.json` manifest for a skills-only bundle too, so `outputs.goose.skills-dir` under `.agents/plugins/<name>/skills` is discoverable (#862).
-- Windsurf ignore specs also write `.windsurfignore`, which the Devin agent respects when accessing files, next to `.devinignore` for indexing (#863).
-- A rule carrying `globs` or `alwaysApply: false` now reports a coverage note on Antigravity, which documents no frontmatter key for its four activation modes and reads the emitted file as always-on (#865).
+- Per-kind output keys move the files they name: `outputs.claude.agents-dir`, `outputs.claude.skills-dir`, and Copilot's `{{rules_dir}}` were accepted and ignored.
+- A `type: ws` MCP entry is dropped with a note on Augment and Qoder, whose vendors document no such server, instead of writing a `url` neither reads (#855).
+- Junie MCP entries drop `disabled` and `description`, two keys no Junie page documents, so a server marked disabled no longer imports as enabled (#858).
+- An `outputs.kilo.skills-dir` outside the three trees Kilo Code scans is now listed in `kilo.jsonc`'s `skills.paths`, so those skills load (#861).
+- Goose writes the `plugin.json` manifest for a skills-only bundle, so `outputs.goose.skills-dir` under `.agents/plugins/<name>/` is discoverable (#862).
+- Windsurf ignore specs also write `.windsurfignore`, which the Devin agent respects when reading files, beside `.devinignore` for indexing (#863).
+- Warp stdio MCP entries carry `"args": []`, the key Warp's CLI Server table marks required (#859).
+- OpenCode skill names and Junie agent names that break the vendor's documented regex now fail sync instead of writing a file the tool never loads (#857).
+- Cursor hooks filtering `beforeTabFileRead` or `afterTabFileEdit` no longer raise LINT005, since the vendor's matcher table documents both (#860).
+- A rule carrying `globs` or `alwaysApply: false` reports a coverage note on Antigravity, which documents no frontmatter key for its four activation modes (#865).
 
 ### Site
 
+- Cursor now runs `.claude/settings.json` hooks by default, with both opt-in gates gone, so a repo syncing claude and cursor runs every hook twice (#865).
 - The target filter on `/updates/` closes on a click outside it, on Escape, and when focus leaves it.
-- The docs drop throat-clearing, thesis sentences, and facts repeated on the same page.
-- Cursor runs `.claude/settings.json` hooks by default now that both opt-in gates are gone, so a repo syncing claude and cursor runs every hook twice (#865).
-- The Antigravity page cites the vendor's moved doc URLs, stops claiming `.agent/AGENTS.md` is a documented read path, and the Amp page lists the `platforms` service field (#865).
+- The docs drop throat-clearing and facts repeated on the same page, and the Antigravity page moves to the vendor's current URLs (#865).
 
 ## v0.60.0 - 2026-09-18
 
