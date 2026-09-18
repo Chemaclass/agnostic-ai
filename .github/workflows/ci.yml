@@ -9,13 +9,19 @@ on:
 permissions:
   contents: read
 
-# `head_ref` is set only for pull_request, so every push to a PR shares one
-# group and cancels the previous run instead of paying for a second full
-# 11-check matrix that nobody reads. Pushes to main fall back to `run_id`,
-# which is unique per run, so a main run never queues behind or cancels
-# another and every commit on the default branch keeps its own full run.
+# The pull request number is set only for pull_request, so every push to a
+# PR shares one group and cancels the previous run instead of paying for a
+# second full 11-check matrix that nobody reads. Pushes to main fall back
+# to `run_id`, which is unique per run, so a main run never queues behind
+# or cancels another and every commit on the default branch keeps its own
+# full run.
+#
+# Keyed on the number rather than `head_ref`: a branch name is not unique
+# across forks, and GitHub's web editor defaults every one of them to
+# `patch-1`, so two outside contributors would have cancelled each other's
+# runs (#850).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
