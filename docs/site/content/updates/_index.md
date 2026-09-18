@@ -1,6 +1,6 @@
 +++
 title = "AI tooling updates"
-description = "Release briefings on what agnostic-ai shipped and the upstream CLI and model changes developers should understand."
+description = "Release briefings: what shipped in agnostic-ai, and what changed upstream in the AI CLIs it targets."
 sort_by = "date"
 template = "updates/section.html"
 page_template = "updates/page.html"
@@ -8,5 +8,5 @@ generate_feeds = true
 
 [extra]
 masthead = "AI tooling changed again."
-lede = "Release briefings that separate shipped agnostic-ai support from verified upstream CLI and model news."
+lede = "What shipped in agnostic-ai, and what changed upstream in the tools it targets. Each claim is checked against the vendor docs."
 +++

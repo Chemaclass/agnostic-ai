@@ -1,6 +1,6 @@
 +++
 title = "Installation"
-description = "Install, verify, upgrade, and configure shell completion for agnostic-ai."
+description = "Install agnostic-ai on macOS, Linux, or Windows, then verify and upgrade it."
 weight = 10
 
 [extra]
@@ -10,7 +10,7 @@ group = "Start"
 # Installation
 
 
-The install scripts download a prebuilt release for your OS and CPU and verify it against the release checksums. You do not need Go.
+The install scripts download a prebuilt release for your OS and CPU, then verify it against the release checksums. You do not need Go.
 
 ## macOS and Linux
 
@@ -28,7 +28,7 @@ Run in PowerShell:
 irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
 ```
 
-The default destination is `%LOCALAPPDATA%\Programs\agnostic-ai`. Open a new terminal if the command is not found. Download the [script](https://github.com/Chemaclass/agnostic-ai/blob/main/scripts/install.ps1) to use its `-InstallDir` and `-Version` options.
+The default destination is `%LOCALAPPDATA%\Programs\agnostic-ai`. Open a new terminal if the command is not found. Download the [script](https://github.com/Chemaclass/agnostic-ai/blob/main/scripts/install.ps1) for its `-InstallDir` and `-Version` options.
 
 ## Other install options
 
@@ -54,9 +54,9 @@ Then follow [Getting started](@/docs/getting-started.md), or [Migration](@/docs/
 agnostic-ai upgrade
 ```
 
-This upgrades the detected install to the latest release. Package-manager installs use their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. Use `agnostic-ai upgrade --check` to inspect the install and find older binaries on `PATH` without changing anything. To install one specific release rather than the latest, including going back to an older one a project pins, pass `agnostic-ai upgrade --version v0.56.1`. See the [upgrade reference](@/docs/cli-reference.md#upgrade).
+Upgrades the detected install to the latest release. Package-manager installs go through their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. `agnostic-ai upgrade --check` inspects the install and finds older binaries on `PATH` without changing anything. To pick one release instead of the latest, including an older one a project pins, pass `agnostic-ai upgrade --version v0.56.1`. See the [upgrade reference](@/docs/cli-reference.md#upgrade).
 
-`agnostic-ai update` is an alias. The old `--run` flag still works, but is no longer needed.
+`agnostic-ai update` is an alias. The old `--run` flag still works but is no longer needed.
 
 ## Shell completion
 
@@ -64,7 +64,7 @@ See [completion](@/docs/cli-reference.md#completion) for Bash, Zsh, Fish, and Po
 
 ## Claude Code plugin
 
-The [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) provides install, setup, import, and sync commands inside Claude Code:
+The [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) adds install, setup, import, and sync commands inside Claude Code:
 
 ```text
 /plugin marketplace add Chemaclass/agnostic-ai

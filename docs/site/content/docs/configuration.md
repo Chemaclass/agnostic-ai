@@ -76,7 +76,7 @@ outputs:
 
 ## `sources`
 
-Paths are relative to the config file. Missing directories are skipped silently.
+Missing directories are skipped silently. See [path semantics](#path-semantics).
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -134,7 +134,7 @@ sync:
 
 ### `sync.target-overview` {#synctarget-overview}
 
-When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gets an appendix listing where that tool's generated artifacts live (rules dir, agents dir, MCP file, ...), honoring `outputs.<target>.*` overrides.
+When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gets an appendix listing where that tool's generated artifacts live (rules dir, agents dir, MCP file, ...). It honors `outputs.<target>.*` overrides.
 
 ```yaml
 sync:
@@ -224,7 +224,7 @@ See the [`verify` command](@/docs/cli-reference.md#verify) for the drift check, 
 
 ## `import`
 
-Per-source knobs for the `import` command. Empty blocks use per-source defaults.
+Per-source options for the `import` command. Empty blocks use per-source defaults.
 
 ### `import.codex.shred`
 
@@ -281,7 +281,7 @@ Setting the named key clears the note. Notes matching the previous sync are supp
 | `path` | `.gitignore` | Another file, for monorepos or local-only ignore files. |
 | `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a tracked file (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
 
-An existing config with no `gitignore` key stays `false`. `sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference.md#init).
+`sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference.md#init).
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept, and an unchanged sync keeps the file mtime. Its header says to edit specs, and that a fresh clone or `git worktree` lacks these paths until `sync` runs (see [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)).
 
@@ -369,4 +369,4 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
 - Native tool precedence applies when global and project configuration both exist.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults, and any agents, MCP servers, commands, settings, reviews, environments, or ignore specs, into a project's `.agnostic-ai/` or a pack. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.

@@ -1,6 +1,6 @@
 +++
 title = "Error codes"
-description = "Understand every AAI diagnostic and the action that resolves it."
+description = "Every AAI-NNN diagnostic, what causes it, and the fix."
 weight = 150
 
 [extra]
@@ -16,7 +16,7 @@ Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in squ
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
 ```
 
-Look up a code without leaving the terminal:
+Look up a code from the terminal:
 
 ```
 $ agnostic-ai explain AAI-003
@@ -46,9 +46,9 @@ Codes are stable across releases. New codes append; existing codes are never ren
 
 ### AAI-001: Spec parse failed
 
-A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error includes the path and (when available) line:col of the offending byte.
+A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error gives the path and, when available, the line:col of the offending byte.
 
-**Fix:** open the file at the reported position. Confirm the frontmatter delimiters (`---`) wrap the metadata and that the YAML is well-formed (correct indentation, no tabs, quoted strings where needed).
+**Fix:** open the file at the reported position. Check that the frontmatter delimiters (`---`) wrap the metadata and that the YAML is valid: correct indentation, no tabs, quoted strings where needed.
 
 ### AAI-002: Spec kind not supported by target
 
@@ -76,7 +76,7 @@ Two or more enabled targets would write to the same path (commonly the root `AGE
 
 ### AAI-103: Hand-authored ignore file cannot be safely overwritten
 
-A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, and `sync` cannot establish that its exclusions survive. Missing or reordered patterns, new negations, and changed whitespace trigger the conservative check. The file stays untouched.
+A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, so `sync` cannot prove its exclusions survive and leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
 
 **Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format.md#overwrite-behaviour).
 

@@ -20,7 +20,7 @@ target_id = "antigravity"
 .agents/mcp_config.json        # when MCP entries exist
 ```
 
-Antigravity reads project instructions from a top-level AGENTS.md-style file, per-rule files under `.agents/rules/`, and custom subagents under `.agents/agents/`. The adapter emits all three; `sync` writes the pointer body to `.agent/AGENTS.md`.
+Antigravity reads project instructions from a top-level AGENTS.md-style file, per-rule files under `.agents/rules/`, and custom subagents under `.agents/agents/`. The adapter emits all three.
 
 The entry-point path stays under `.agent/` (singular) to avoid clashing with codex / amp / warp at the project-root `AGENTS.md`. Rules, skills, and MCP default to the plural `.agents/` form Antigravity itself now prefers ([rules](https://antigravity.google/docs/ide/rules), [skills](https://antigravity.google/docs/ide/skills)), which still "maintains backward support" for the singular paths.
 
@@ -48,7 +48,7 @@ A stale managed tree at the pre-plural `.agent/rules` / `.agent/skills` defaults
   - **Antigravity names its own tools** (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...) with none in common with Claude's, so a matcher carried over from a Claude spec parses as a valid regex and then matches nothing. That case emits verbatim with a coverage note rather than a guessed rename, the same line OpenHands, Crush, and Windsurf hold.
   - The hook payload's `transcriptPath` resolves under `~/.gemini/antigravity-ide`, the IDE's own app-data directory, confirming the IDE itself runs them (target-audit 2026-08-27, #563).
 
-Commands remain fully unconfirmed in the public-preview docs and skip with a warning. Add `on-unsupported: silent` to suppress it, or wait for a future release once they stabilise.
+Commands are unconfirmed in the public-preview docs and skip with a warning. Add `on-unsupported: silent` to suppress it.
 
 ## Config keys
 

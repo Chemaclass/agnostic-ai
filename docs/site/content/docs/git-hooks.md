@@ -1,6 +1,6 @@
 +++
 title = "Git hooks"
-description = "Run sync checks around commits and checkouts with common hook tools."
+description = "Run sync checks around commits and checkouts with pre-commit, lefthook, or husky."
 weight = 60
 
 [extra]
@@ -12,9 +12,9 @@ group = "Workflows"
 
 Catch spec drift at commit time, before CI. Each recipe runs `agnostic-ai sync --check` whenever a spec or `agnostic-ai.yaml` is staged, blocking the commit if any generated file is out of date.
 
-The same `sync --check` powers the [CI gate](@/docs/ci.md). Running it locally shortens the feedback loop from "push, wait, fail" to "commit, fix, commit".
+The same `sync --check` powers the [CI gate](@/docs/ci.md), and a local run compares your whole working tree, not only staged files.
 
-For ignored outputs, run `sync` when bootstrapping each checkout before enabling a drift hook. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs). A local drift check compares your working tree, not only staged files.
+For ignored outputs, run `sync` when bootstrapping each checkout before enabling a drift hook. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
 
 ## Why a pre-commit hook
 
@@ -44,11 +44,11 @@ Install once per checkout:
 pre-commit install
 ```
 
-`files:` scopes the hook to spec changes; unrelated commits skip the check. `pass_filenames: false` runs the binary on the whole project (like CI) instead of passing each staged path.
+`files:` scopes the hook to spec changes, so unrelated commits skip it. `pass_filenames: false` runs the binary on the whole project, like CI, instead of passing each staged path.
 
 ## lefthook
 
-[lefthook](https://lefthook.dev) is a single Go binary, no runtime dependency. This repo dogfoods it; see [`lefthook.yml`](https://github.com/Chemaclass/agnostic-ai/blob/main/lefthook.yml).
+[lefthook](https://lefthook.dev) is a single Go binary, no runtime dependency. This repo uses it: see [`lefthook.yml`](https://github.com/Chemaclass/agnostic-ai/blob/main/lefthook.yml).
 
 Add to `lefthook.yml`:
 
@@ -70,7 +70,7 @@ lefthook install
 
 ## husky + lint-staged
 
-In Node projects, [husky](https://typicode.github.io/husky) plus [lint-staged](https://github.com/lint-staged/lint-staged) is the standard pairing.
+In Node projects, [husky](https://typicode.github.io/husky) plus [lint-staged](https://github.com/lint-staged/lint-staged) is the usual pairing.
 
 `package.json`:
 
@@ -97,11 +97,11 @@ Install once per checkout:
 npm install
 ```
 
-The trailing `--` swallows the staged paths lint-staged appends; `sync --check` reads the project root, not individual files.
+The trailing `--` swallows the staged paths lint-staged appends, because `sync --check` reads the project root, not individual files.
 
 ## Regenerate on checkout
 
-The hooks above catch drift at commit time. They do not help when generated outputs are gitignored (`gitignore.enabled: true`): a fresh clone or a new `git worktree` then starts with no `CLAUDE.md`, rules, or hooks until someone runs `sync`. A contributor cloning the repo runs `sync` by hand; automated worktree creation does not, so an AI session opened there finds no config.
+Commit hooks do not help when generated outputs are gitignored (`gitignore.enabled: true`): a fresh clone or a new `git worktree` starts with no `CLAUDE.md`, rules, or hooks until someone runs `sync`. A contributor can run `sync` by hand, automated worktree creation cannot, so an AI session opened there finds no config.
 
 A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git worktree add` all fire it, so outputs regenerate themselves.
 
@@ -121,7 +121,7 @@ Plain git (`.git/hooks/post-checkout`, `chmod +x`):
 agnostic-ai sync
 ```
 
-`post-checkout` receives three arguments; a file checkout passes `0` as the third. Guard on it if you only want the hook on branch and worktree switches:
+`post-checkout` receives three arguments, and a file checkout passes `0` as the third. Guard on it to limit the hook to branch and worktree switches:
 
 ```sh
 #!/bin/sh
@@ -129,11 +129,11 @@ agnostic-ai sync
 agnostic-ai sync
 ```
 
-This needs `agnostic-ai` on `PATH` in every environment that checks out the repo. If contributors may lack the CLI, commit the generated outputs instead of gitignoring them.
+This needs `agnostic-ai` on `PATH` in every environment that checks out the repo. If some contributors lack the CLI, commit the generated outputs instead of gitignoring them.
 
 ## Tips
 
-- The hook needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so new contributors avoid `command not found` on their first commit.
-- To recover from drift, run `agnostic-ai sync` and stage the regenerated outputs alongside the spec change.
+- The hook needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found` on their first commit.
+- To recover from drift, run `agnostic-ai sync` and stage the regenerated outputs with the spec change.
 - Set `gitignore.enabled: true` in `agnostic-ai.yaml` to keep generated outputs out of git. The hook still catches drift because `sync --check` ignores `gitignore`.
-- Skip a hook for one commit with `git commit --no-verify`. Save it for emergencies.
+- Skip a hook for one commit with `git commit --no-verify`. Keep that for emergencies.

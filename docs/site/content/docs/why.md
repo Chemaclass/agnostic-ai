@@ -1,6 +1,6 @@
 +++
 title = "Trace generated files"
-description = "Explain which specs produced a generated file and why it exists."
+description = "Trace a generated file back to the specs and adapter that produced it."
 weight = 90
 
 [extra]
@@ -12,7 +12,7 @@ group = "Workflows"
 
 Trace an emitted file back to its source: the adapter that wrote it, the source spec(s), the `outputs.<target>.*` keys used for the path, and the last sync time.
 
-Use it to find out why a file under a target directory exists. The inverse of [`agnostic-ai explain <spec>`](@/docs/cli-reference.md#explain) (spec to outputs).
+[`agnostic-ai explain <spec>`](@/docs/cli-reference.md#explain) does the inverse, spec to outputs.
 
 ## Usage
 
@@ -21,7 +21,7 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-`<file>` resolves relative to the project root. Symlinks are followed. `--format json` returns the same data with stable keys for editor extensions and CI scripts.
+`<file>` resolves relative to the project root, and symlinks are followed. `--format json` returns the same data with stable keys, for editor extensions and CI scripts.
 
 ## Example
 
@@ -46,9 +46,9 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 ## Entry-point files
 
-Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. Augment has a native `.augment/rules/` directory but inlines into `AGENTS.md` too. That file is written by sync's entry-point distribution, not by an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and attributes the file to the first consuming target.
+Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. Augment has a native `.augment/rules/` directory but inlines into `AGENTS.md` too. Sync's entry-point distribution writes that file, not an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and credits the file to the first consuming target.
 
 ## Errors
 
-- **No sync state**: `.agnostic-ai/.sync-state` is absent. `why` suggests running `agnostic-ai sync` first.
-- **Untracked file**: path matches no adapter emission. `why` reports "not synced or not tracked" and suggests re-running `sync` or verifying the path.
+- **No sync state**: `.agnostic-ai/.sync-state` is absent. `why` tells you to run `agnostic-ai sync` first.
+- **Untracked file**: the path matches no adapter emission. `why` reports "not synced or not tracked" and tells you to re-run `sync` or check the path.

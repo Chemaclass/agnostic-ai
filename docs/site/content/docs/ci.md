@@ -1,6 +1,6 @@
 +++
 title = "CI"
-description = "Detect generated-output drift and keep project configuration consistent in automation."
+description = "Catch drift between specs and generated output in CI."
 weight = 50
 
 [extra]
@@ -10,7 +10,7 @@ group = "Workflows"
 # CI
 
 
-Choose the check based on whether generated outputs are committed. Run it from the project root after installing the CLI.
+Pick the check that matches your Git strategy. Run it from the project root, after installing the CLI.
 
 ## Committed outputs
 
@@ -20,9 +20,9 @@ Fail when the checked-in tool files no longer match the specs:
 agnostic-ai sync --check
 ```
 
-The command compares planned output with files on disk without writing. Missing or changed output produces a non-zero exit code. To fix drift, run `agnostic-ai sync` locally and commit the updated outputs.
+`--check` compares the planned output with the files on disk and writes nothing. Missing or changed output exits non-zero. To fix drift, run `agnostic-ai sync` locally and commit the result.
 
-Do not sync immediately before this check in CI: that would replace the evidence of drift.
+Never run `sync` right before this check in CI. It erases the drift you are testing for.
 
 ## Ignored outputs
 
@@ -33,7 +33,7 @@ agnostic-ai validate
 agnostic-ai sync
 ```
 
-Use `agnostic-ai lint` as an additional source-quality check. A subsequent `sync --check` can verify consistency of generated output, but it does not establish that any committed files were up to date.
+Add `agnostic-ai lint` for source quality. A `sync --check` afterwards confirms the generated output is consistent, but proves nothing about committed files.
 
 This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
@@ -47,15 +47,15 @@ The [agnostic-ai action](https://github.com/chemaclass/agnostic-ai-action) insta
     command: check
 ```
 
-For ignored outputs, use `command: sync` instead. Set the action's `version` input to a released CLI version to keep local and CI behavior aligned. See the action's README for its current inputs and installation behavior.
+For ignored outputs, use `command: sync` instead. Set the action's `version` input to a released CLI version so local and CI behavior match. The action's README lists its current inputs and install behavior.
 
 ## Diagnose drift
 
-Use `agnostic-ai sync --check --diff` to inspect changes. The [CLI reference](@/docs/cli-reference.md#reading-a-failing---check) explains output formats and failure categories.
+Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference.md#reading-a-failing---check) explains the output formats and failure categories.
 
 ## Gate model and CLI changes
 
-`sync --check` proves that generated files match their specs. It does not prove that a model or CLI still produces acceptable results for your project.
+`sync --check` proves the generated files match their specs. It proves nothing about whether a model or CLI still produces good results for your project.
 
 Configure a project-owned verifier:
 
@@ -64,11 +64,11 @@ verify:
   command: [./scripts/verify-harness]
 ```
 
-Then add the gate after installing the required AI CLI:
+Add the gate after installing the AI CLI it needs:
 
 ```yaml
 - name: Verify Codex harness behavior
   run: agnostic-ai verify --target codex
 ```
 
-agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, and sends versioned JSON to the script through stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference.md#verify) for the JSON contract.
+agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference.md#verify) for the JSON contract.

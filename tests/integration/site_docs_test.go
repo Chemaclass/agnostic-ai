@@ -336,7 +336,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("built CNAME = %q, want agnostic-ai.org", domain)
 	}
 	for _, required := range []string{
-		"Documentation without detours.",
+		"Documentation.",
 		"Paste into your coding agent",
 		"/agent-setup.txt",
 		"/docs/agent-setup/",

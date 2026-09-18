@@ -134,9 +134,7 @@ outputs:
 
 For many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
 
-`agnostic-ai import codex` against a project that ships `.codex/rules/default.rules` captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving without extra config.
-
-The file is written only when at least one policy is declared. Otherwise nothing under `.codex/rules/` is created.
+`agnostic-ai import codex` against a project that ships `.codex/rules/default.rules` captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving with no extra config.
 
 The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `agnostic-ai import codex`) and prepends its body before the spec-derived `[mcp_servers.*]` sections. The overlay carries every other `.codex/config.toml` key the user has configured (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...) so wiping `.codex/` between `import` and `sync` no longer drops them. For `model`, precedence from low to high is portable Settings spec, `outputs.codex.config.model`, captured overlay. The overlay also wins any other conflict with `outputs.codex.config.*`; the lower value is dropped to keep the TOML valid.
 
@@ -160,7 +158,7 @@ The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured
 
 Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, and `vendor/`.
 
-`sync -t codex` prepends the overlay before the spec-derived sections, so every captured key survives a `.codex/` wipe. When the overlay and `outputs.codex.config.*` declare the same key, the overlay wins and the first-class key is dropped to avoid a TOML duplicate-key error. Keys set in only one place pass through unchanged. The [exec-policies overlay](#codex-exec-policies) is captured the same way.
+`sync -t codex` prepends the overlay before the spec-derived sections, so every captured key survives a `.codex/` wipe. Keys set in only one place pass through unchanged; see [Codex config](#codex-config) for what happens when both declare the same key. The [exec-policies overlay](#codex-exec-policies) is captured the same way.
 
 ## Verify
 

@@ -9,7 +9,7 @@ group = "Reference"
 
 # Spec format
 
-This page covers how to write each spec kind. The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive it, and each target page shows how that tool renders it.
+The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive each spec kind. Each target page shows how that tool renders it.
 
 Source paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override directories with [`sources`](@/docs/configuration.md#sources).
 
@@ -28,7 +28,7 @@ Start with a [rule](#rules) for conventions, a [skill](#skills) for a reusable w
 | [Environment](#environments) | `environments/*.yaml`                  | YAML                        |
 | [Ignore](#ignore) | `ignore/*.md`                          | Markdown + YAML frontmatter |
 
-Discovery is recursive. Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads, and every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
+Discovery is recursive: every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads, and every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
 
 ## Nested layout: per-directory scope
 
@@ -43,7 +43,7 @@ rules/
     └── limits.md                # scope: "backend/api"
 ```
 
-For rules, scope controls native activation or directory discovery, not just file organization. A flat rule may set `scope: services/payments`; source-layout scope takes precedence.
+For rules, scope controls native activation or directory discovery, not only file organization. A flat rule may set `scope: services/payments`; source-layout scope takes precedence.
 
 ```bash
 agnostic-ai new rule payments-context --scope services/payments
@@ -80,7 +80,7 @@ Report concise findings with `file:line` references.
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) acts on it today, where `project` is the scope git carries. Junie copies the key through unchanged, and every other adapter drops it.
+`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) acts on it today, where `project` is the scope git carries. Junie passes the key through; every other adapter drops it.
 
 ### Per-target models
 
@@ -106,7 +106,7 @@ For each target, the matching key wins, then `default`. With neither, no `model`
 
 ### `tools` support by target
 
-Only the targets listed were checked. `tools: [Read, Bash]` does not restrict every target, so check this table first. A target that cannot honor the field prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
+Only the targets listed were checked. `tools: [Read, Bash]` does not restrict every target. A target that cannot honor the field prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
 
 | Target | Behavior |
 |--------|----------|
@@ -119,7 +119,7 @@ Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. 
 
 ### `color` support by target
 
-Only the targets listed were checked. `color` is a shared top-level key on three targets, each with its own value space. agnostic-ai writes it verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.
+Only the targets listed were checked. agnostic-ai writes `color` verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.
 
 | Target | Values |
 |--------|--------|
@@ -127,7 +127,7 @@ Only the targets listed were checked. `color` is a shared top-level key on three
 | [Kilo Code](@/docs/targets/kilo.md) | Hex or a theme token |
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
 
-For example, `color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token.
+`color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token.
 
 ## Skills
 
@@ -136,7 +136,7 @@ Two layouts:
 - **Flat:** `skills/yaml-validator.md`
 - **Nested**, for skills with attached resources: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
 
-Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset: scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`. Assets copy verbatim to the same relative path under each target's skills dir and never become skills. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the body references. Import and sync preserve executable bits.
+Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset: scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`. Assets copy verbatim to the same relative path under each target's skills dir. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the body references. Import and sync preserve executable bits.
 
 ```markdown
 ---
@@ -206,7 +206,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `timeout` | no | none | Seconds before the tool cancels the hook. Some targets convert to milliseconds or apply their own default. |
 | `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; other targets emit the hook unchanged. |
 
-Handler-specific and tool-specific fields emit only where the target's schema defines them, and other targets ignore them. See the target page for each:
+Handler-specific and tool-specific fields emit only where the target's schema defines them, and other targets ignore them.
 
 | Fields | Targets |
 |--------|---------|
@@ -227,11 +227,11 @@ Handler-specific and tool-specific fields emit only where the target's schema de
 
 ### Events
 
-`event` is written verbatim. agnostic-ai does not translate event names between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Each target page lists its events, file, and wrapper shape. Targets without hook support log a warning and skip.
+agnostic-ai writes `event` verbatim and never translates event names between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Each target page lists its events, file, and wrapper shape. Targets without hook support log a warning and skip.
 
 ### Per-target body fences
 
-When a spec emits to several targets but the prose must differ, wrap the divergent prose in `::target` fences. Content outside a fence emits everywhere. Content inside emits only to the listed targets. Marker lines never reach the output.
+When one spec needs different prose per target, wrap the divergent part in `::target` fences. Content outside a fence emits everywhere; content inside emits only to the listed targets. Marker lines never reach the output.
 
 ```md
 ---
@@ -273,7 +273,7 @@ Shared outro.
 
 ## Target scoping
 
-Four fields limit where any spec kind emits: agents, skills, rules, commands, hooks, and MCP servers.
+Four fields limit where a spec emits, for every kind: agents, skills, rules, commands, hooks, and MCP servers.
 
 | Field | Effect |
 |-------|--------|
@@ -282,7 +282,7 @@ Four fields limit where any spec kind emits: agents, skills, rules, commands, ho
 | `target-exclude` | Emit everywhere except this target. |
 | `targets-exclude` | Emit everywhere except these targets. |
 
-With none set, the spec emits to every target that supports its kind. `target` beats `targets` when both appear. Exclusion wins over inclusion. For example, a `target: codex` agent emits only into `.codex/agents/`, and a `targets-exclude: [gemini]` skill emits everywhere but Gemini.
+With none set, the spec emits to every target that supports its kind. `target` beats `targets` when both appear. Exclusion wins over inclusion. A `target: codex` agent emits only into `.codex/agents/`, and a `targets-exclude: [gemini]` skill emits everywhere but Gemini.
 
 ### Import auto-scoping
 
@@ -333,7 +333,7 @@ A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai l
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
 
-Some fields apply only to certain targets and are ignored elsewhere. Each target page describes them.
+Some fields apply only to certain targets and are ignored elsewhere.
 
 | Target | Extra fields |
 |--------|--------------|
@@ -390,7 +390,7 @@ Any other frontmatter passes through. Put target-specific keys under `x-<target>
 
 ## Settings
 
-Pure YAML, one file per settings group. One place for agent permissions and the default model instead of each tool's settings file.
+Pure YAML, one file per settings group. Agent permissions and the default model live here instead of in each tool's settings file.
 
 ```yaml
 permissions:
@@ -410,11 +410,11 @@ model: claude-opus-4-8
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `model` | no | empty | Default model. |
 
-Multiple files merge. Permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins. Claude Code and Qoder take `permissions` and `model`; Codex, Copilot, OpenCode, Junie, and Kilo Code take `model` only. A field a target cannot represent produces a coverage note while the others still emit. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins. Claude Code and Qoder take `permissions` and `model`; Codex, Copilot, OpenCode, Junie, and Kilo Code take `model` only. A field a target cannot represent produces a coverage note while the others still emit. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
 
 ## Reviews
 
-Markdown with optional YAML frontmatter, one file per guidance group. One source for code-review-bot guidance.
+Markdown with optional YAML frontmatter, one file per group of code-review-bot guidance.
 
 ```markdown
 ---
@@ -428,7 +428,7 @@ Reviews honor `scope` and the source layout like rules do. Specs with the same s
 
 ## Environments
 
-Pure YAML, one file per environment group. One source for how a coding agent boots its dev environment: install dependencies, start services, forward ports, open terminals.
+Pure YAML, one file per environment group. It describes how a coding agent boots the dev environment: install dependencies, start services, forward ports, open terminals.
 
 ```yaml
 install: go mod download
@@ -524,6 +524,6 @@ For each target, all `x-*` keys are dropped, then the matching `x-<target>` bloc
 
 ### Arbitrary custom keys
 
-Any other key under `x-<target>` emits verbatim into that target's output. Declaring it under `x-<target>` is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
+Any other key under `x-<target>` emits verbatim into that target's output. That block is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
 
 Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.

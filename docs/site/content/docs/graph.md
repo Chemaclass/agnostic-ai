@@ -1,6 +1,6 @@
 +++
 title = "Graph"
-description = "Visualize which specs reach which targets and inspect the delivery graph."
+description = "See which specs reach which targets, and which files they produce."
 weight = 80
 
 [extra]
@@ -33,7 +33,7 @@ agnostic-ai graph [flags]
 
 ### text (default)
 
-Aligned matrix. Rows are specs, columns are targets. Each cell is the kind that target emits, or `-` when nothing was produced.
+Aligned matrix: rows are specs, columns are targets. Each cell holds the kind that target emits, or `-` when nothing is produced.
 
 ```text
 spec           | claude cursor codex
@@ -54,7 +54,7 @@ graph LR
 
 ### dot
 
-Graphviz directed graph. Pipe to `dot(1)` for SVG/PNG.
+Graphviz directed graph. Pipe to `dot(1)` for SVG or PNG.
 
 ```bash
 agnostic-ai graph --format dot | dot -Tsvg > graph.svg
@@ -105,4 +105,4 @@ agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 ## See also
 
 - [`render`](@/docs/cli-reference.md#render) prints the file content for one spec, per target.
-- [`explain`](@/docs/cli-reference.md#explain) lists every output file and section a single spec contributes to.
+- [`explain`](@/docs/cli-reference.md#explain) lists every output file and section one spec contributes to.

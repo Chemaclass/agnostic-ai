@@ -24,7 +24,7 @@ Rules with `scope` use native file conditions or nested instruction documents on
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a root entry-point file per enabled target. All entry-point files share the same canonical pointer body. Editing one in place is a no-op (overwritten on next sync), and switching tools never surfaces inconsistent conventions.
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a root entry-point file per enabled target. All entry-point files share the same canonical pointer body, so editing one in place is a no-op: the next sync overwrites it.
 
 | Entry-point file | Targets |
 |---|---|
@@ -40,7 +40,7 @@ Targets sharing a path write it once; dedup is automatic. Targets absent from th
 
 Details that apply to one target live on its page: [Warp](@/docs/targets/warp.md) still honours a legacy `WARP.md`, [Junie](@/docs/targets/junie.md) prefers `.junie/AGENTS.md`, [Zed](@/docs/targets/zed.md) reads `.rules`, and [Windsurf](@/docs/targets/windsurf.md) and [OpenCode](@/docs/targets/opencode.md) moved onto the shared `AGENTS.md`.
 
-Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, junie) inline unscoped rule bodies into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds, and `import` strips it, keeping the AGNOSTIC_AI.md round-trip lossless. Junie and Zed are the two members of this list whose entry-point file (`.junie/AGENTS.md` and `.rules`) is not the shared path the others write.
+Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, junie) inline unscoped rule bodies into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds, and `import` strips it, keeping the AGNOSTIC_AI.md round-trip lossless. Junie and Zed are the exceptions: their entry-point files (`.junie/AGENTS.md` and `.rules`) are not the shared path.
 
 Three targets have a native rules directory and still inline into AGENTS.md as well:
 
@@ -56,12 +56,12 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 
 {{ capability_matrix() }}
 
-The matrix answers whether a portable spec reaches each target. Open a target name for exact paths, configuration keys, and caveats. `Native` means matching target output is emitted by default. `Mapped` uses another native surface, `Opt-in` requires an output option, and `Source only` keeps the portable spec without default target output. When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
+Open a target name for its exact paths, configuration keys, and caveats. `Native` means matching target output is emitted by default. `Mapped` uses another native surface, `Opt-in` requires an output option, and `Source only` keeps the portable spec without default target output. When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 
 - **Skills**: emit as native skill folders (`SKILL.md` plus bundled assets). Most targets read the shared tree at `.agents/skills/`; the rest read their own. Each target's section below gives its path and why. With [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills), byte-identical folders across targets collapse into one canonical copy plus per-skill symlinks. Aider and Continue have no skill surface, so skills flatten to rule-form files there.
-- **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, and others). Event names, file paths, wrapper shapes, and timeout units all differ per target, so read the target's section before authoring one. Matchers are the sharper trap: Claude Code's tool vocabulary reaches Qoder and Copilot's PascalCase form unchanged, but OpenHands, Windsurf, Augment, Crush, Factory, and Trae each name tools differently, so a Claude-authored matcher parses there and then matches nothing. Zed runs hooks only through the opt-in `outputs.zed.tasks-file`. Other targets skip with a warning.
+- **Hooks**: shell commands on lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, and others). Event names, file paths, wrapper shapes, and timeout units all differ per target, so read the target's section before authoring one. Matchers fail more quietly: Claude Code's tool vocabulary reaches Qoder and Copilot's PascalCase form unchanged, but OpenHands, Windsurf, Augment, Crush, Factory, and Trae each name tools differently, so a Claude-authored matcher parses there and then matches nothing. Zed runs hooks only through the opt-in `outputs.zed.tasks-file`. Other targets skip with a warning.
 
   **`.claude/settings.json` is turning into a cross-tool hook file, so syncing `claude` alongside another target can run the same hook twice.** Four vendors read it today: Claude Code, which owns it, plus three that load it on top of their own hook file. Copilot ("all hook entries from all sources are run"), Cursor ("All matching hooks from every source run"), and Trae ("TraeCode will read all enabled hook configurations and execute them in combination"). Only Copilot's read is on by default and ungated; Cursor's and Trae's each sit behind an off-by-default switch, and the per-target sections say which. Until a vendor offers a toggle, give a hook spec a single `target:` rather than two that both read this file.
 - **MCP servers**: propagate to every target with a project-scoped MCP file (21 of 25, see the matrix). Aider, Cline, Jules, and Goose have no MCP surface and skip with a warning. Targets with an explicit transport field carry it on remote entries and omit it on stdio; the rest infer the transport from which keys are emitted. Copilot emits twice, since Copilot CLI does not read VS Code's `.vscode/mcp.json`. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target) for which targets honor a spec's `disabled: true`.
@@ -72,15 +72,15 @@ Cross-cutting kind notes:
 
 Two targets keep an automatic memory store the tool writes for itself: [Claude Code](@/docs/targets/claude.md) under `~/.claude/projects/<project>/memory/` and [Qoder](@/docs/targets/qoder.md) under `~/.qoder/projects/<project>/memory/`. Each store is a `MEMORY.md` index plus one topic file per memory, and each is machine-local.
 
-agnostic-ai does not sync them, and will not. Claude Code can move its store with `autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_CODE_PROJECT_DIR_NAME`, and Qoder offers no equivalent setting, so a path agnostic-ai derived would be wrong for anyone who moved it and a guess everywhere else. The contents are also the wrong shape to share: they are one person's corrections and session context, not a project convention that should land in a teammate's checkout.
+agnostic-ai does not sync them, and will not. Claude Code can move its store with `autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_CODE_PROJECT_DIR_NAME`, and Qoder has no equivalent setting, so a derived path would be wrong for anyone who moved it and a guess everywhere else. The contents are also the wrong shape to share: one person's corrections and session context, not a project convention for a teammate's checkout.
 
 Durable team knowledge belongs in a spec instead. Use a [rule](@/docs/spec-format.md#rules) for a convention that must be in context every session, a [skill](@/docs/spec-format.md#skills) for a procedure that loads on demand, and an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) when one subagent should accumulate project knowledge in a directory git carries.
 
-To curate a store in place, use the `memory-curator` skill. It runs inside the tool and edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. In a new project, `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder. `init` refuses to run where `agnostic-ai.yaml` already exists, so in a project that already has one, run `agnostic-ai new skill memory-curator` and replace the whole scaffolded file, frontmatter included, with [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md). The `targets: [claude, qoder]` line matters: without it the skill reaches every target.
+To curate a store in place, use the `memory-curator` skill. It edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. In a new project, `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder. `init` refuses to run where `agnostic-ai.yaml` already exists, so in a project that already has one, run `agnostic-ai new skill memory-curator` and replace the whole scaffolded file, frontmatter included, with [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md). The `targets: [claude, qoder]` line matters: without it the skill reaches every target.
 
 ## Per-target output
 
-One page per target, with its emitted tree, capability notes, config keys, and how to verify it against the real tool.
+One page per target: emitted tree, capability notes, config keys, and how to verify it against the real tool.
 
 {{ target_pages() }}
 
@@ -109,7 +109,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs documented below. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
+`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
 
 | Target | Instructions | Rules | Hooks | Skills |
 |--------|--------------|-------|-------|--------|
@@ -138,7 +138,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 
 Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
 
-Three targets are absent by verdict:
+Three targets are absent on purpose:
 
 - Aider reaches a home instructions file only through a `read:` entry in `~/.aider.conf.yml`, never automatically.
 - Continue's one documented home surface is the `rules:` list inside the `config.yaml` that Continue itself rewrites.
@@ -168,7 +168,7 @@ The other seventeen are declined for a stated reason, not for lack of a project 
 
 Copilot also documents a user-level hooks directory (`~/.copilot/hooks/`), left for a future user-scope pass; its `{"version": 1, "hooks": {...}}` shape and `timeoutSec` field are already implemented at project scope. Issue #629 is complete and covers project scope only.
 
-Cursor does not automatically load the home-level `AGENTS.md`. Global sync therefore installs a managed `sessionStart` hook and a self-contained script bridge under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows). The bridge returns the rendered instructions as valid `additional_context` JSON without calling agnostic-ai, Python, or jq. Cursor session-start hooks are fire-and-forget context injection, not enforced policy. Existing `sessionStart` entries remain in place. Every other instructions path in the table above auto-loads, so Cursor is the only target that needs the bridge.
+Cursor does not automatically load the home-level `AGENTS.md`. Global sync therefore installs a managed `sessionStart` hook and a self-contained script bridge under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows). The bridge returns the rendered instructions as valid `additional_context` JSON without calling agnostic-ai, Python, or jq. Cursor session-start hooks are fire-and-forget context injection, not enforced policy. Existing `sessionStart` entries remain in place. Every other instructions path in the table above auto-loads.
 
 Two interactions to know before enabling everything at once:
 

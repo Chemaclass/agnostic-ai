@@ -42,7 +42,7 @@ agnostic-ai sync --check
 agnostic-ai graph --spec payments-context
 ```
 
-Claude receives a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini receives `services/payments/GEMINI.md`. Cursor alone would receive a native `.mdc` rule instead.
+Claude gets a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. Cursor alone would get a native `.mdc` rule instead.
 
 Edit the source and sync again. Use `agnostic-ai render .agnostic-ai/rules/payments-context.md` to preview, or `agnostic-ai why services/payments/AGENTS.md` to trace the generated file.
 
@@ -64,7 +64,7 @@ scope: services/payments
 globs: "services/payments/**/*.go"
 ```
 
-`**/*` reduces to the whole scope. `**/*.go` is not rewritten relative to the scope and is currently unsupported. Directory-document targets such as Codex cannot express narrower file filters.
+`**/*` reduces to the whole scope. `**/*.go` is not rewritten relative to the scope and is unsupported. Directory-document targets such as Codex cannot express narrower file filters.
 
 Prefer one `paths` or `globs` selector per rule. If both are present, their constrained patterns must agree or one must cover the scope. Multiple patterns work for scoped Claude, Cline, Qoder, and OpenHands rules. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`.
 
@@ -97,7 +97,7 @@ Mappings checked against vendor documentation on 2026-09-09. Tests verify genera
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 
 
-Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope here. Antigravity's Glob mode lacks a verified serialized format. These six targets skip scoped rules; root rules still work.
+Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. Antigravity's Glob mode lacks a verified serialized format. These six targets skip scoped rules; root rules still work.
 
 Runtime limits:
 
@@ -119,4 +119,4 @@ Keep provenance headers enabled. Directory-document targets reject `file` and `r
 
 For existing hand-authored files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After moving or deleting a scope, run a full sync to remove obsolete managed output; partial sync preserves omitted targets' files. Backups and revert work for scoped outputs too.
 
-See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors. No per-directory config or separate inheritance language is needed.
+See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors.

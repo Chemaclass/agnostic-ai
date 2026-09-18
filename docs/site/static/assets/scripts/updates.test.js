@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  dismissesDropdown,
   filterEditions,
   matchesEdition,
   normalizeTargets,
@@ -52,4 +53,15 @@ test("URL encoding round trips target and search values", function () {
   assert.match(url.search, /target=claude\+code/);
   assert.match(url.search, /q=MCP\+%26\+skills/);
   assert.deepEqual(parseURL(url), { targets: ["claude code"], query: "MCP & skills" });
+});
+
+test("the target dropdown closes on a click outside and stays open inside", function () {
+  const inside = { id: "checkbox" };
+  const details = { open: true, contains: function (node) { return node === inside; } };
+  assert.equal(dismissesDropdown(details, {}), true);
+  assert.equal(dismissesDropdown(details, inside), false);
+  assert.equal(dismissesDropdown(details, null), true);
+  details.open = false;
+  assert.equal(dismissesDropdown(details, {}), false);
+  assert.equal(dismissesDropdown(null, {}), false);
 });

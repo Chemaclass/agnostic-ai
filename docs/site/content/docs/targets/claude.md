@@ -23,14 +23,14 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 .mcp.json
 ```
 
-- **Rules**: one file per spec under `.claude/rules/`. Claude Code discovers every `.md` file under that directory (recursively) at session start, so the emitted rules load natively with no extra wiring. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files.
+- **Rules**: one file per spec under `.claude/rules/`. Claude Code discovers every `.md` file under that directory (recursively) at session start, so emitted rules load with no extra wiring. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files.
 - **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, round-trip-stripped on `import`. It predates native rules loading, so keep it only for Claude Code versions older than the `.claude/rules/` rollout. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file instead, and skips the pointer-body write for `claude`.
 - **Skills**: one folder per skill at `.claude/skills/<name>/SKILL.md`. The adapter manages no frontmatter keys, so every `x-claude` key passes through, for example `disable-model-invocation: true`.
 - **Commands**: one file per spec at `.claude/commands/<name>.md`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; body is the prompt template.
 - **MCP**: written into `.mcp.json` under the standard `mcpServers` map. Stdio entries use `command`/`args`/`env` with no `type`; remote entries use `type` plus `url`/`headers`. Every entry also accepts `timeout` (per-tool-call execution timeout in milliseconds; values under 1000 are ignored) and `alwaysLoad` (load the server's tools at session start instead of deferring them behind tool search, "available on all server types").
 
   An `http`, `sse`, or `ws` entry additionally accepts `headersHelper`, a command run at connection time whose output merges into the connection headers, for "an authentication scheme other than OAuth, such as Kerberos, short-lived tokens, or an internal SSO". It also accepts an `oauth` object, `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string ([code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp), target-audit 2026-08-27, #634). `oauth.clientSecret` is never written: the vendor keeps the secret in the system keychain, "not in your config". Every entry accepts `roots`, a list of `{uri, name}` objects. `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
-- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, bashOutputMaxChars, and taskOutputMaxChars. The last two raise how much command and background-task output Claude Code takes inline before spilling it to a file, up to 128K characters, and need Claude Code v2.1.261 or later (#679). The deprecated includeCoAuthoredBy key remains available for older Claude Code versions. These settings merge above the captured overlay and below the spec-derived hooks. See [Claude settings](#claude-settings).
+- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, bashOutputMaxChars, and taskOutputMaxChars. The last two need Claude Code v2.1.261 or later (#679). The deprecated includeCoAuthoredBy key remains available for older Claude Code versions. These settings merge above the captured overlay and below the spec-derived hooks. See [Claude settings](#claude-settings).
 
 Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers. HTTP uses `url`, optional `headers`, and `allowedEnvVars`. MCP uses `server`, `tool`, and optional `input`. Prompt uses `prompt`, optional `model`, and `continueOnBlock`. When `continueOnBlock: true`, a blocking prompt result returns its reason to Claude and the turn continues. `import claude` preserves these handlers alongside command hooks. Experimental agent handlers are not emitted. See [hook fields](@/docs/spec-format.md#hooks).
 
@@ -73,7 +73,7 @@ With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/ag
 
 ## Agent memory
 
-An agent spec gives a subagent a directory that survives across sessions with a top-level `memory` key. Claude Code is the only target that acts on it. Junie copies the key into its own agent file unchanged, and every other adapter drops it, so the same spec stays portable.
+A top-level `memory` key gives a subagent a directory that survives across sessions. Claude Code is the only target that acts on it. Junie copies the key into its own agent file unchanged, and every other adapter drops it, so the same spec stays portable.
 
 ```yaml
 ---
@@ -89,13 +89,13 @@ memory: project
 | `project` | `.claude/agent-memory/<name>/` | documented as shareable via version control, so commit it if the team wants it shared |
 | `local` | `.claude/agent-memory-local/<name>/` | documented as not to be checked into version control |
 
-Claude Code creates and writes the directory itself, on first use. agnostic-ai only emits the frontmatter key, and never reads or writes the store.
+Claude Code creates and writes the directory on first use. agnostic-ai emits the frontmatter key and never reads or writes the store.
 
-This is subagent memory. It writes to its own directory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
+This is subagent memory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
 
 ## Claude settings
 
-The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers, so partial adoption works.
+The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers.
 
 ```yaml
 outputs:
@@ -176,6 +176,6 @@ Each imported MCP spec round-trips to every MCP-aware target on the next `sync`:
 1. Install: `npm install -g @anthropic-ai/claude-code` (or the desktop app; both read the same files).
 2. Check the tree: `ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json` and `grep "Generated by agnostic-ai" .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md` for the provenance header (it sits after the YAML frontmatter, so `head -1` would only show `---`).
 3. Validate JSON: `python -m json.tool .claude/settings.json > /dev/null && python -m json.tool .mcp.json > /dev/null`.
-4. Launch `claude` from the project root. `/agents`, `/skills`, and the slash-command picker should list every entry. The MCP picker shows each `.mcp.json` server green.
+4. Launch `claude` from the project root. `/agents`, `/skills`, and the slash-command picker list every entry. The MCP picker shows each `.mcp.json` server green.
 5. Trigger a matcher action (e.g. an `Edit` for `PostToolUse`/`Edit`); the hook command runs with no "schema mismatch" in the log.
 6. Confirm `outputs.claude.settings.*` keys under `/config`.

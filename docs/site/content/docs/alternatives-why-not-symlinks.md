@@ -1,6 +1,6 @@
 +++
 title = "Why not symlinks or manual copies?"
-description = "See where native formats diverge and when agnostic-ai is worth using."
+description = "Where native formats diverge, and when a symlink or a copy is still enough."
 weight = 170
 
 [extra]
@@ -11,7 +11,7 @@ group = "Reference"
 
 You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. The instinct is to symlink one file into each path, or copy it on every change.
 
-That solves the wrong problem. Each tool reads a different format at a different path, so one spec has to become different bytes for each tool. A symlink shares bytes and a copy duplicates them. Neither can translate. agnostic-ai keeps one source in Markdown and YAML, aligned with the [`AGENTS.md`](https://agents.md/) open standard, and writes each tool's native files from it.
+Each tool reads a different format at a different path, so one spec has to become different bytes per tool. A symlink shares bytes, a copy duplicates them; neither translates. agnostic-ai keeps one source in Markdown and YAML, aligned with the [`AGENTS.md`](https://agents.md/) open standard, and writes each tool's native files from it.
 
 ## One spec, different bytes
 
@@ -44,7 +44,7 @@ Symlinks need admin rights or developer mode on Windows, and with `git core.syml
 
 ## Where symlinks do work
 
-When several tools need identical bytes, sync links them for you. `sync.shared-skills: true` keeps one copy of a byte-identical skill folder plus relative symlinks, unlinks a folder the moment one tool's output differs, and falls back to real copies where symlinks are unsupported. See [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills).
+`sync.shared-skills: true` keeps one copy of a byte-identical skill folder plus relative symlinks, unlinks a folder the moment one tool's output differs, and falls back to real copies where symlinks are unsupported. See [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills).
 
 ## When you do not need agnostic-ai
 
@@ -52,7 +52,7 @@ When several tools need identical bytes, sync links them for you. `sync.shared-s
 - **Two tools reading the same Markdown at the same path.** A symlink or copy is enough until the format or path differs.
 - **Claude Code `@`-imports.** `@/RULES_SHARED.md` in `.claude/rules/base.md` pulls a shared body in natively.
 
-Add a second tool with a different format, such as Codex TOML agents or Cursor `.mdc` rules, and each of these breaks. That is where agnostic-ai earns its place.
+Add a second tool with a different format, such as Codex TOML agents or Cursor `.mdc` rules, and each of these breaks.
 
 ## Next steps
 
