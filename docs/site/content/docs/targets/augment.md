@@ -58,6 +58,10 @@ Commands emit to `.augment/commands/<scope>/<name>.md`; a source-layout scope be
 | `outputs.augment.rules-file` | unset | opt-in, writes the legacy concatenated `.augment-guidelines` document |
 | `outputs.augment.mcp-file` | `.augment/settings.json` | also the hooks and permissions file, since all three merge into the same document |
 
+## Import
+
+`import augment` reads the workspace indexing exclusions and the committed `toolPermissions` policy from `.augment/settings.json`, for the six tool names Augment publishes. An entry matching on `shellInputRegex` has no portable spelling and is skipped rather than guessed at, and so is one whose `permission` is a bare string, which Augment itself treats as malformed. Every other Augment surface stays out of import.
+
 ## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).

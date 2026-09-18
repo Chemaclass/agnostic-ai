@@ -190,7 +190,7 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //     falling back to `.windsurfignore`, the second file sync writes
 //     from the same spec, when the indexing file is absent (#863).
 func importFromWindsurf(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
 	}
 	rulesDir := windsurfImportDir(root)
@@ -242,7 +242,11 @@ func importFromWindsurf(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores)
+	settings, err := importWindsurfPermissions(root, filepath.Join(root, src.Settings))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores, %d settings (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores, settings)
 	printImportNextSteps(root, "windsurf")
 	return nil
 }

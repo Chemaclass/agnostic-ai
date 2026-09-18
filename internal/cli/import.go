@@ -118,7 +118,7 @@ func runImport(root, source string, cfg *config.Config) error {
 	case "antigravity":
 		return importFromAntigravity(root, src, cfg)
 	case "augment":
-		return importAugmentIgnore(root, src)
+		return importFromAugment(root, src)
 	case "continue":
 		return importFromContinue(root, src)
 	case "kiro":
