@@ -68,6 +68,57 @@ func writesUnder(paths []string, name, want string) bool {
 	return false
 }
 
+// A target that honors `outputs.<target>.dir` must resolve its declared
+// variables under the configured dir, or a spec body names a directory
+// the sync no longer writes to (#849).
+func TestTargetVarPaths_FollowDirOverride(t *testing.T) {
+	const moved = "vendor/.claude"
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: moved}}}
+
+	vars := varsFor(cfg, "claude")
+	if len(vars) == 0 {
+		t.Fatal("claude resolved no variables")
+	}
+	for name, got := range vars {
+		if name == emit.VarMCPFile {
+			continue
+		}
+		if !strings.HasPrefix(got, moved+"/") {
+			t.Errorf("%s = %q, want it under %q", name, got, moved)
+		}
+	}
+
+	probes := map[string]spec.Entry{
+		emit.VarSkillsDir:   {Kind: spec.KindSkill, Name: "probe", Path: "skills/probe/SKILL.md", Body: "b"},
+		emit.VarAgentsDir:   {Kind: spec.KindAgent, Name: "probe", Path: "agents/probe.md", Body: "b"},
+		emit.VarCommandsDir: {Kind: spec.KindCommand, Name: "probe", Path: "commands/probe.md", Body: "b"},
+		emit.VarRulesDir:    {Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b"},
+	}
+	adapter, err := Resolve("claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range vars {
+		probe, ok := probes[name]
+		if !ok {
+			continue
+		}
+		sess := NewSession()
+		sess.StartCapture()
+		if err := EmitWithProvenance(sess, adapter, spec.NewBundle([]spec.Entry{probe}), cfg, true); err != nil {
+			sess.StopCapture()
+			t.Fatalf("%s: emit failed: %v", name, err)
+		}
+		var paths []string
+		for _, f := range sess.StopCapture() {
+			paths = append(paths, f.Path)
+		}
+		if !writesUnder(paths, name, want) {
+			t.Errorf("claude resolves %s=%q under the dir override but emits that kind to %v", name, want, paths)
+		}
+	}
+}
+
 // Every registered target needs an entry, even an empty one, so adding
 // an adapter forces a decision about its variables instead of silently
 // leaving every variable unresolved there.

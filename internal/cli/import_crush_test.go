@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -121,15 +123,19 @@ func TestImportCrush_KnownSourceWiredIn(t *testing.T) {
 // written spec out of the hooks directory, and the label must survive in
 // the spec's `name:` field either way.
 func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
-	for _, name := range []string{"../escape", "nested/deep", "..", "."} {
+	for _, name := range []string{"../escape", "nested/deep", "..", ".", "nul\x00byte"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			testutil.Chdir(t, dir)
 			silence(t)
 
 			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+			quoted, err := json.Marshal(name)
+			if err != nil {
+				t.Fatal(err)
+			}
 			writeFile(t, filepath.Join(dir, "crush.json"), `{"hooks":{"PreToolUse":[{"name":`+
-				strconv.Quote(name)+`,"matcher":"^bash$","command":"echo unsafe"}]}}`)
+				string(quoted)+`,"matcher":"^bash$","command":"echo unsafe"}]}}`)
 
 			execCLI(t, "import", "crush")
 
@@ -150,12 +156,19 @@ func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
 			if filepath.Dir(written[0]) != hooksDir {
 				t.Fatalf("hook spec escaped %s: %s", hooksDir, written[0])
 			}
-			body := readFile(t, written[0])
-			if !strings.Contains(body, "name: "+strconv.Quote(name)) && !strings.Contains(body, "name: "+name) {
-				t.Errorf("friendly name %q missing from spec:\n%s", name, body)
+			var got struct {
+				Name    string `yaml:"name"`
+				Command string `yaml:"command"`
 			}
-			if !strings.Contains(body, "echo unsafe") {
-				t.Errorf("command missing from spec:\n%s", body)
+			body := readFile(t, written[0])
+			if err := yaml.Unmarshal([]byte(body), &got); err != nil {
+				t.Fatalf("spec is not valid yaml:\n%s\n%v", body, err)
+			}
+			if got.Name != name {
+				t.Errorf("friendly name not preserved: got %q, want %q", got.Name, name)
+			}
+			if got.Command != "echo unsafe" {
+				t.Errorf("command not preserved: got %q", got.Command)
 			}
 		})
 	}
