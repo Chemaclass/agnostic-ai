@@ -23,6 +23,12 @@ The user asks to release, tag, ship, or cut a new version.
    - minor: additive features
    - major: breaking changes
 4. Update `CHANGELOG.md`: drop empty `### ` subsections from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
+
+   Curate the section before moving it. Product sections come first and carry
+   only changes to the tool; `### Site` comes last, holds everything whose only
+   effect is on agnostic-ai.org or the docs, and is grouped into a few lines by
+   theme. Condensing must not drop a claim: check that every backticked path,
+   flag, and `#NNN` in the old lines still appears in the new ones.
 5. Bump `version` in `cmd/agnostic-ai/main.go` and `extra.version` in
    `docs/site/config.toml`. The site footer publishes that value, and
    `make site-test` fails when either disagrees with the latest dated

@@ -4,23 +4,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 Entry style: one line per change. Lead with what changed, not how. State the user-facing effect. Link the issue (`#NNN`) when one exists. No em dashes, no filler.
 
+Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `### Removed` carry changes to the tool: what it reads, what it writes, what it refuses. Changes to agnostic-ai.org and the documentation go last, under `### Site`, grouped into a few lines rather than one per commit. A release with ten site lines and two product lines tells a reader the wrong thing about the release.
+
 ## [Unreleased]
 
 ## v0.60.0 - 2026-09-18
 
 ### Added
 
-- The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
-- The landing page embeds the talk demo behind a click-to-play poster; YouTube loads only after the click, through youtube-nocookie.com.
-- The landing page states what agnostic-ai is for: four principles, and an answer to "why not just symlink one file?".
-- The docs cover agent memory and the memory boundary: the three `memory` scopes an agent spec can set, which one git carries, and why the Claude Code and Qoder auto memory stores are tool-owned and never synced. A new `memory-curator` skill, scoped to those two targets, audits a store in place and proposes merges and deletions, applying nothing until you confirm. `agnostic-ai init --demo` seeds the skill in a new project (#842, #843).
-
-### Changed
-
-- The targets reference is one page per target at `/docs/targets/<id>/`, with the index keeping the capability matrix and the cross-target notes. Older deep links such as `#claude-code-claude` redirect to the new page.
-- Every target page carries the same sections: Output, Config keys, Import where it applies, and Verify.
-- The spec format, CLI, and configuration references are roughly half their former length. Detail that applies to one target moved onto that target's page.
-- Docs pages keep a readable measure: the content column no longer narrows as the window widens, and prose lines stop near 83 characters.
+- A `memory-curator` skill, scoped to Claude Code and Qoder, audits an agent memory store in place and proposes merges and deletions, applying nothing until you confirm. `agnostic-ai init --demo` seeds it in a new project (#842, #843).
 
 ### Fixed
 
@@ -28,10 +20,14 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 - `outputs.claude.dir` moves rules and commands with the rest of the tool directory, and `{{rules_dir}}` and the other path variables resolve to the moved paths. With `dir: vendor/.claude`, rules landed in `.claude/rules/` at the project root while agents and settings moved, so one target wrote into two trees. A per-kind key such as `rules-dir` still wins. If you already set `dir`, the next full sync writes rules and commands under it and sweeps the old files as orphans; Claude Code auto-loads only a project-root `.claude/rules/`, so set `rules-mode: import` if it should still load them from the moved directory (#849).
 - A nested `outputs.<target>.dir` such as `vendor/.claude` no longer collapses the managed `.gitignore` block to `/vendor/.claude/`, which ignored the whole tool directory including hand-authored files and the shareable `agent-memory/` store. The block now collapses at the generated subdirectory below the configured dir, as it already did for the default `.claude` (#846).
 - The managed `.gitignore` block ignores Claude Code's `agent-memory-local/` instead of `agent-memory/`, matching the documented scopes: `memory: project` is shareable via version control, `memory: local` is not. A previously hidden `.claude/agent-memory/` starts appearing in `git status`, and an already tracked `agent-memory-local/` stays tracked until `git rm -r --cached` removes it, since a new ignore line does not untrack files. Nothing is deleted or committed automatically (#841).
-- Long inline code, such as a file path, no longer pushes a docs page sideways.
-- The sitemap lists `/docs/targets/` and every target page again, after the reference was split.
-- Search works against a local `zola serve`, which appends a live-reload script to the index.
-- Phone layouts meet minimum sizes: tap targets reach 32px and no text renders below 11px.
+
+### Site
+
+- The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
+- The targets reference is one page per target at `/docs/targets/<id>/`, each carrying the same sections (Output, Config keys, Import where it applies, Verify). The index keeps the capability matrix and the cross-target notes, and older deep links such as `#claude-code-claude` redirect to the new page.
+- The spec format, CLI, and configuration references are roughly half their former length, with detail that applies to one target moved onto that target's page. The docs also cover agent memory and the memory boundary: the three `memory` scopes an agent spec can set, which one git carries, and why the Claude Code and Qoder auto memory stores are tool-owned and never synced.
+- The landing page states what agnostic-ai is for, with four principles and an answer to "why not just symlink one file?", and embeds the talk demo behind a click-to-play poster that loads YouTube only after the click, through youtube-nocookie.com.
+- Layout and navigation fixes: a readable measure that no longer narrows as the window widens, long inline code that no longer pushes a page sideways, tap targets at 32px with no text below 11px, the sitemap listing `/docs/targets/` and every target page again, and search working against a local `zola serve`.
 
 ## v0.59.0 - 2026-09-16
 

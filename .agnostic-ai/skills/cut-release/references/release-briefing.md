@@ -4,6 +4,38 @@ Create one release briefing immediately before the release commit. The file,
 version bump, and final dated changelog section must land in the same commit
 and receive the same signed tag.
 
+## Curation
+
+A release briefing is curated, not transcribed. Before writing, split the release
+into product changes and site changes, and lead with the product. A reader wants
+to know what the tool does differently, and how much of the release is website
+work is part of that answer.
+
+Two rules follow from that:
+
+1. The `### Site` section stays last and stays short. Site work is grouped by
+   theme in a few lines, never one line per commit.
+2. Every product entry states an observable effect, not the mechanism behind it.
+   Name the flag, path, or file a user will see. The issue and the PR hold the
+   implementation detail; the briefing does not repeat it.
+
+If a release is mostly site work, say so plainly in the dek rather than padding
+the product sections to hide it.
+
+Four more rules keep a briefing scannable:
+
+1. Open the article with `## What to do {#actions}`: a numbered list of what a
+   reader upgrading must actually do, each item one bounded action, ordered by
+   who is affected most. Close it with a line stating that nothing else needs
+   action. Omit the whole section when there is genuinely nothing to do, and
+   never pad it to look thorough.
+2. Rank every list by consequence and cap it at five visible lines. More than
+   five means grouping by theme, not a longer list.
+3. State the win concretely. "Rules land under the configured dir" is a win a
+   reader can check; "improved path resolution" is not.
+4. No preamble and no closing pleasantry. The dek is the summary; each section
+   starts with substance.
+
 ## Research inputs
 
 Start with the exact `CHANGELOG.md` section being released. Then inspect target
@@ -36,7 +68,9 @@ Use two visible top-level sections:
 2. `Upstream CLI and model news`
 
 The shipped section must reproduce the final dated release changelog content
-exactly, including its subsection order and bullets. Do not paraphrase, merge,
+exactly, including its subsection order and bullets, which puts the product
+sections first and `### Site` last. Curate in the changelog, then copy; never
+curate only in the article, or the two disagree. Do not paraphrase, merge,
 or omit entries. The upstream section describes external changes only. For
 every item, state the affected product, source date, user consequence, source
 link, and agnostic-ai support state. Use `supported`, `target extension`,
@@ -63,7 +97,7 @@ kind = "release"
 version = "vX.Y.Z"
 dek = "<one-paragraph editorial summary>"
 rss_guid = "https://agnostic-ai.org/updates/YYYY-MM-DD-vX.Y.Z.html"
-archive_stats = "<short release summary>"
+archive_stats = "<N product changes · N site updates · N upstream notes>"
 targets = ["claude", "codex"]
 
 [[extra.signals]]
