@@ -10,6 +10,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+## v0.61.0 - 2026-09-18
+
 ### Added
 
 - Portable permission lists reach Windsurf's `.devin/config.json` and Augment's `.augment/settings.json`, and `import` reads them back (#856, #872).
