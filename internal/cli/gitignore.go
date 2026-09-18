@@ -115,8 +115,8 @@ func normalizeGitignorePath(p string) string {
 
 // outputDirs are the generated directories a config pins explicitly. The
 // two shapes collapse differently: a tool root also holds hand-authored
-// files, so collapsing stops one level below it, while a per-kind dir is
-// generated end to end and collapses at the dir itself.
+// files, so collapsing stops one level below it, while a nested per-kind
+// dir is generated end to end and collapses at the dir itself.
 type outputDirs struct {
 	roots  []string
 	leaves []string
@@ -217,7 +217,10 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 // collapseDirFor returns the directory rel collapses into, or "" when rel
 // must stay listed precisely because it sits directly under its tool dir.
 func collapseDirFor(rel string, dirs outputDirs) string {
-	if leaf := deepestDirPrefix(dirs.leaves, rel); leaf != "" {
+	// A one-segment per-kind dir (`rules-dir: .clinerules`) is also the tool
+	// dir a user drops hand-written files into, so only a nested one is
+	// generated end to end and safe to collapse at.
+	if leaf := deepestDirPrefix(dirs.leaves, rel); leaf != "" && strings.Contains(leaf, "/") {
 		return leaf
 	}
 	root := deepestDirPrefix(dirs.roots, rel)

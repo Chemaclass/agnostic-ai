@@ -612,9 +612,36 @@ func TestBuildManagedBlock_NestedOutputDirRespectsUnmanaged(t *testing.T) {
 
 	block := buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"})
 
+	has := map[string]bool{}
 	for _, e := range block {
-		if e == "/vendor/.claude/agents/" {
-			t.Errorf("directory holding a user-owned file collapsed: %v", block)
+		has[e] = true
+	}
+	if !has["/vendor/.claude/agents/scout.md"] {
+		t.Errorf("block missing the precise generated file: %v", block)
+	}
+	for _, unwanted := range []string{"/vendor/.claude/agents/", "/vendor/.claude/"} {
+		if has[unwanted] {
+			t.Errorf("directory holding a user-owned file collapsed, %q: %v", unwanted, block)
 		}
+	}
+}
+
+// A per-kind dir that is a single segment doubles as the tool dir the user
+// drops hand-written files into, so it stays expanded. `.clinerules` is the
+// override the cline adapter documents for the pre-migration rule path.
+func TestBuildManagedBlock_SingleSegmentPerKindDirStaysExpanded(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {RulesDir: ".clinerules"}}}
+
+	block := buildManagedBlock(cfg, []string{".clinerules/x.md"})
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	if !has["/.clinerules/x.md"] {
+		t.Errorf("block missing the precise generated file: %v", block)
+	}
+	if has["/.clinerules/"] {
+		t.Errorf("single-segment per-kind dir collapsed, hiding hand-written siblings: %v", block)
 	}
 }
