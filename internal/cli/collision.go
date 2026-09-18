@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -71,6 +73,8 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 			contents[f.Path][f.Content] = true
 		}
 	}
+	warnSharedAgentsTreeReaders(owners, targets)
+
 	var lines []string
 	for path, ts := range owners {
 		// Byte-identical writes from several targets dedupe into one
@@ -100,4 +104,53 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
 	return errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+}
+
+// sharedAgentsTree is the project subagent root several vendors read.
+const sharedAgentsTree = ".agents/agents/"
+
+// warnSharedAgentsTreeReaders reports the one overlap the collision
+// check above cannot see. Devin reads `.agents/agents/` as well as its
+// own `.devin/agents/`, and the targets that own that tree write an
+// agent at a different path inside it: antigravity nests
+// `<name>/agent.md`, goose and openhands write a flat `<name>.md`. Two
+// different paths never collide on content, so one spec quietly becomes
+// two profiles claiming the same name, and Devin documents a conflict
+// rule only for built-in names.
+//
+// It stays a warning rather than an error. The configuration is
+// legitimate, and the two files cannot be merged into one: `model`
+// means a model id to Devin and a closed `inherit`/`flash`/`pro` tier
+// to Antigravity, so a single file would have to carry a value one of
+// the two vendors never documented. Scope the spec with `target:` to
+// silence it (#863).
+func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
+	if !slices.Contains(targets, "windsurf") {
+		return
+	}
+	shared := map[string][]string{}
+	for path, ts := range owners {
+		if !strings.HasPrefix(filepath.ToSlash(path), sharedAgentsTree) {
+			continue
+		}
+		for _, t := range ts {
+			if t != "windsurf" {
+				shared[filepath.ToSlash(path)] = append(shared[filepath.ToSlash(path)], t)
+			}
+		}
+	}
+	if len(shared) == 0 {
+		return
+	}
+	paths := make([]string, 0, len(shared))
+	for path := range shared {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		ts := shared[path]
+		sort.Strings(ts)
+		summaryf("  note: %s is written by %s and also read by Devin, which has its own copy in .devin/agents/; Devin loads both and only the .devin/ copy carries allowed-tools (scope the spec with `target:` to write one)\n",
+			path, strings.Join(ts, ", "))
+	}
 }
