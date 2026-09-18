@@ -22,6 +22,7 @@
   const BODY_BASE = 4;
   const BODY_HIT_CAP = 4;
   const COVERAGE_WEIGHT = 40;
+  const CAP_YIELD_RATIO = 0.5;
   const PHRASE_HEAD = 20;
   const PHRASE_BODY = 10;
   const LANDING_BONUS = 15;
@@ -42,8 +43,15 @@
     return decodeEntities(text).toLowerCase().replace(/[^\p{L}\p{N}._/-]+/gu, " ").trim();
   }
 
+  // A one-character token prefix-matches most of the corpus, and a
+  // repeated term would count twice toward the score and the coverage.
   function tokenize(query) {
-    return normalize(query).split(" ").filter(Boolean);
+    const terms = normalize(query).split(" ").filter(function (term) {
+      return term.length > 1;
+    });
+    return terms.filter(function (term, index) {
+      return terms.indexOf(term) === index;
+    });
   }
 
   // `zola serve` appends a live-reload script after the JSON, since the index is served as HTML.
@@ -51,10 +59,16 @@
     return JSON.parse(text.slice(0, text.lastIndexOf("]") + 1));
   }
 
-  // Fold a plural onto its singular so "hooks" and "hook" reach the
-  // same entries. Short words and an "ss" ending keep their final s.
+  // Fold a plural onto its singular so "hooks" and "hook" reach the same
+  // entries. An "is", "us", or "ss" ending is not a plural, and "news"
+  // is a word this corpus uses that would otherwise fold onto "new".
+  const STEM_KEEP = { news: true };
+
   function stem(word) {
-    return word.length > 3 && /[a-rt-z]s$/.test(word) ? word.slice(0, -1) : word;
+    if (STEM_KEEP[word] || word.length <= 3 || !/[a-hj-rtv-z]s$/.test(word)) {
+      return word;
+    }
+    return word.slice(0, -1);
   }
 
   function stemPhrase(text) {
@@ -88,6 +102,7 @@
         page: pageUrl(entry.url),
         slug: slug,
         head: " " + stemPhrase(head) + " ",
+        phrase: " " + stemPhrase(normalize(isPage ? entry.title : entry.heading)) + " ",
         headWords: wordCount(isPage ? entry.title : entry.heading),
         title: isPage ? " " : " " + stemPhrase(normalize(entry.title)) + " ",
         body: " " + stemPhrase(normalize(entry.body)) + " "
@@ -119,17 +134,15 @@
       return 0;
     }
     const phrase = " " + terms.join(" ");
-    if (prepared.head.indexOf(phrase) !== -1) {
+    if (prepared.phrase.indexOf(phrase) !== -1) {
       return PHRASE_HEAD;
     }
     return prepared.body.indexOf(phrase) !== -1 ? PHRASE_BODY : 0;
   }
 
-  // Coverage is what keeps a short exact heading ahead of a long one
-  // that merely contains the term: "Hooks" covers the whole heading,
-  // "permissionMode and agent hooks support by target" covers a sixth
-  // of it. Sections inherit only a little of their page title, or every
-  // section of a matching page outranks the page itself.
+  // Coverage keeps a short exact heading ahead of a long one that merely
+  // contains the term, and sections inherit only a little of their page
+  // title, or every section of a match outranks the page itself.
   function scoreEntry(prepared, rawTerms) {
     if (!rawTerms || rawTerms.length === 0) {
       return 0;
@@ -143,15 +156,18 @@
         covered += 1;
       }
       const bodyHits = countWordStarts(prepared.body, " " + term, BODY_HIT_CAP);
+      // A page body holds every section's text, so repeat hits there are
+      // not evidence that the page beats the section holding the term.
+      const bodyScore = prepared.isPage ? BODY_BASE : BODY_BASE + bodyHits;
       const score = head +
         fieldScore(prepared.title, term, TITLE_EXACT, TITLE_PREFIX) +
-        (bodyHits > 0 ? BODY_BASE + bodyHits : 0);
+        (bodyHits > 0 ? bodyScore : 0);
       if (score === 0) {
         return 0;
       }
       total += score;
     }
-    total += COVERAGE_WEIGHT * covered / prepared.headWords;
+    total += COVERAGE_WEIGHT * Math.min(1, covered / prepared.headWords);
     total += phraseScore(prepared, terms);
     if (prepared.isPage && covered > 0) {
       total += LANDING_BONUS;
@@ -167,9 +183,8 @@
     return rank === undefined ? DEFAULT_GROUP_RANK : rank;
   }
 
-  // Score first, then the group a reader most likely wants, then the
-  // page ahead of one of its own sections, then index order. Index
-  // order alone is what made equal scores look arbitrary.
+  // Score, then the group a reader most likely wants, then the page
+  // ahead of one of its own sections, then index order.
   function compareResults(a, b) {
     if (b.score !== a.score) {
       return b.score - a.score;
@@ -184,21 +199,35 @@
     return a.index - b.index;
   }
 
+  // A page holds a slot only against a result that is competitive with
+  // it. Yielding to a far weaker one leaves the list non-monotonic:
+  // three strong hits, two weak ones, then the strong hits resume.
+  function yieldsSlot(ranked, index, counts) {
+    for (let next = index + 1; next < ranked.length; next += 1) {
+      const candidate = ranked[next];
+      if ((counts[candidate.item.page] || 0) >= PER_PAGE_LIMIT) {
+        continue;
+      }
+      return candidate.score >= ranked[index].score * CAP_YIELD_RATIO;
+    }
+    return false;
+  }
+
   // One page filling every slot with its own sections hides the rest of
   // the corpus, so a page contributes at most PER_PAGE_LIMIT entries
   // before every other page has had its turn. Entries held back that way
-  // still fill slots the rest of the corpus leaves empty, in rank order,
-  // rather than shrinking the result list.
+  // still fill slots the rest of the corpus leaves empty, in rank order.
   function capPerPage(ranked, limit) {
     const counts = {};
     const entries = [];
     const overflow = [];
-    for (const result of ranked) {
+    for (let index = 0; index < ranked.length; index += 1) {
       if (entries.length >= limit) {
         return entries;
       }
+      const result = ranked[index];
       const seen = counts[result.item.page] || 0;
-      if (seen >= PER_PAGE_LIMIT) {
+      if (seen >= PER_PAGE_LIMIT && yieldsSlot(ranked, index, counts)) {
         overflow.push(result.item.entry);
         continue;
       }
@@ -259,9 +288,13 @@
     if (words.length === 0) {
       return [{ text: excerpt, mark: false }];
     }
+    // Terms arrive stemmed, so allow back the plural s the stemmer cut
+    // or the highlight covers only part of the word it matched.
     const pattern = new RegExp(words.slice().sort(function (a, b) {
       return b.length - a.length;
-    }).map(escapeRegExp).join("|"), "gi");
+    }).map(function (word) {
+      return escapeRegExp(word) + "s?";
+    }).join("|"), "gi");
 
     const segments = [];
     let cursor = 0;

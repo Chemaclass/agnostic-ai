@@ -242,6 +242,8 @@ const corpus = [
   }
 ];
 
+const PER_PAGE_SLOTS = 3;
+
 const ranked = prepare(corpus);
 
 function firstUrl(query) {
@@ -284,7 +286,7 @@ test("a snippet highlights a result that matched on the stem", function () {
   const segments = teaser("Hooks run after each tool call.", ["hooks"].map(stem));
   assert.deepEqual(segments.filter(function (segment) {
     return segment.mark;
-  }), [{ text: "Hook", mark: true }]);
+  }), [{ text: "Hooks", mark: true }], "the whole word is marked, not the stem alone");
 });
 
 test("a section inherits only a little of its page title", function () {
@@ -334,18 +336,18 @@ test("one page yields slots to other pages before filling the rest", function ()
     body: "Widget overview."
   }].concat(sections, [
     {
-      url: "https://agnostic-ai.org/docs/beta/",
+      url: "https://agnostic-ai.org/docs/beta/#widget",
       title: "Beta",
-      heading: "",
+      heading: "Widget beta",
       group: "Docs",
-      body: "Another widget guide."
+      body: "Another widget section."
     },
     {
-      url: "https://agnostic-ai.org/docs/gamma/",
+      url: "https://agnostic-ai.org/docs/gamma/#widget",
       title: "Gamma",
-      heading: "",
+      heading: "Widget gamma",
       group: "Docs",
-      body: "A third widget guide."
+      body: "A third widget section."
     }
   ]));
 
@@ -355,8 +357,8 @@ test("one page yields slots to other pages before filling the rest", function ()
   });
   const fourth = found.indexOf(fromAlpha[3]);
   assert.equal(fromAlpha.length, 6, "held-back entries still reach empty slots");
-  assert.ok(found.indexOf("https://agnostic-ai.org/docs/beta/") < fourth);
-  assert.ok(found.indexOf("https://agnostic-ai.org/docs/gamma/") < fourth);
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/beta/#widget") < fourth);
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/gamma/#widget") < fourth);
   assert.equal(found.length, 8, "the cap does not shrink the result list");
 });
 
@@ -372,4 +374,135 @@ test("scoreEntry stems the terms it is handed", function () {
   });
   assert.equal(scoreEntry(hooks, tokenize("hooks")), scoreEntry(hooks, tokenize("hook")));
   assert.equal(scoreEntry(hooks, tokenize("xyzzy")), 0);
+});
+
+test("a phrase in a heading outranks the same words scattered", function () {
+  const pair = prepare([
+    {
+      url: "https://agnostic-ai.org/docs/a/#scattered",
+      title: "A",
+      heading: "Glob and other pattern work",
+      group: "Docs",
+      body: "Nothing else."
+    },
+    {
+      url: "https://agnostic-ai.org/docs/b/#phrase",
+      title: "B",
+      heading: "Glob pattern",
+      group: "Docs",
+      body: "Nothing else."
+    }
+  ]);
+  assert.equal(search(pair, "glob pattern")[0].url, "https://agnostic-ai.org/docs/b/#phrase");
+  assert.ok(scoreEntry(pair[1], ["glob", "pattern"]) > scoreEntry(pair[0], ["glob", "pattern"]));
+});
+
+test("the slug bonus lifts the page a query names exactly", function () {
+  const pair = prepare([
+    {
+      url: "https://agnostic-ai.org/docs/other/",
+      title: "Spec packs",
+      heading: "",
+      group: "Docs",
+      body: "Packs bundle specs."
+    },
+    {
+      url: "https://agnostic-ai.org/docs/packs/",
+      title: "Spec packs",
+      heading: "",
+      group: "Docs",
+      body: "Packs bundle specs."
+    }
+  ]);
+  assert.equal(search(pair, "packs")[0].url, "https://agnostic-ai.org/docs/packs/");
+  assert.ok(scoreEntry(pair[1], ["packs"]) > scoreEntry(pair[0], ["packs"]));
+});
+
+test("a page sorts ahead of a section on an equal score", function () {
+  const pair = prepare([
+    {
+      url: "https://agnostic-ai.org/docs/alpha/#widget",
+      title: "Alpha",
+      heading: "Widget work",
+      group: "Docs",
+      body: "One widget here."
+    },
+    {
+      url: "https://agnostic-ai.org/docs/other/",
+      title: "Widget word word word",
+      heading: "",
+      group: "Docs",
+      body: "No match here."
+    }
+  ]);
+  assert.equal(scoreEntry(pair[0], ["widget"]), scoreEntry(pair[1], ["widget"]), "the fixture ties");
+  assert.equal(search(pair, "widget")[0].url, "https://agnostic-ai.org/docs/other/");
+});
+
+test("held-back entries backfill in rank order", function () {
+  const sections = [90, 80, 70, 60, 50].map(function (weight, index) {
+    return {
+      url: "https://agnostic-ai.org/docs/alpha/#s" + index,
+      title: "Alpha",
+      heading: "Widget " + "long ".repeat(5 - index) + index,
+      group: "Docs",
+      body: "A widget section."
+    };
+  });
+  const many = prepare(sections.concat([{
+    url: "https://agnostic-ai.org/docs/beta/#widget",
+    title: "Beta",
+    heading: "Widget beta",
+    group: "Docs",
+    body: "Another widget section."
+  }]));
+  const found = urls(search(many, "widget"));
+  const held = found.slice(PER_PAGE_SLOTS + 1);
+  const scores = held.map(function (url) {
+    return scoreEntry(many.find(function (item) {
+      return item.entry.url === url;
+    }), ["widget"]);
+  });
+  assert.equal(found.length, 6, "every match is shown");
+  assert.equal(held.length, 2, "the fourth and fifth sections were held back");
+  assert.ok(scores[0] > scores[1], "the backfill keeps rank order");
+});
+
+test("a page does not yield its slot to a far weaker result", function () {
+  const strong = [0, 1, 2, 3].map(function (index) {
+    return {
+      url: "https://agnostic-ai.org/docs/alpha/#s" + index,
+      title: "Alpha",
+      heading: "Widget",
+      group: "Docs",
+      body: "A widget section."
+    };
+  });
+  const many = prepare(strong.concat([{
+    url: "https://agnostic-ai.org/docs/beta/",
+    title: "Beta",
+    heading: "",
+    group: "Docs",
+    body: "This mentions a widget once."
+  }]));
+  const found = urls(search(many, "widget"));
+  assert.equal(found[3], "https://agnostic-ai.org/docs/alpha/#s3", "the weak page does not jump the queue");
+  assert.equal(found[4], "https://agnostic-ai.org/docs/beta/");
+});
+
+test("a stemmer keeps words whose final s is not a plural", function () {
+  ["this", "status", "plus", "opus", "news"].forEach(function (word) {
+    assert.equal(stem(word), word);
+  });
+  assert.equal(stem("rules"), "rule");
+  assert.equal(stem("docs"), "doc");
+});
+
+test("a query term counts once however often it is typed", function () {
+  assert.deepEqual(tokenize("hooks hooks"), ["hooks"]);
+  assert.deepEqual(tokenize("a hooks"), ["hooks"]);
+  const entry = ranked.find(function (item) {
+    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/#hooks";
+  });
+  assert.equal(scoreEntry(entry, tokenize("hooks hooks")), scoreEntry(entry, tokenize("hooks")));
 });
