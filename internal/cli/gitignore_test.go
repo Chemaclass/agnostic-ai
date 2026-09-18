@@ -340,7 +340,7 @@ func TestCollapseManagedEntries_FoldsOutputSubdirsKeepsRootAndSources(t *testing
 		"/.codex/agents/x.md",
 		"/AGENTS.md",
 	}
-	got := collapseManagedEntries(in, []string{".agnostic-ai"}, nil)
+	got := collapseManagedEntries(in, outputDirs{}, []string{".agnostic-ai"}, nil)
 	want := []string{
 		"/.agnostic-ai/.sync-state", // protected source dir: kept precise
 		"/.claude/CLAUDE.md",        // file under tool dir: kept precise
@@ -365,7 +365,7 @@ func TestCollapseManagedEntries_FoldsOutputSubdirsKeepsRootAndSources(t *testing
 func TestCollapseManagedEntries_DoesNotSwallowHandAuthoredSiblings(t *testing.T) {
 	// Only the generated rules subdir is emitted; settings.json is
 	// hand-authored and never appears in the entry list.
-	got := collapseManagedEntries([]string{"/.claude/rules/auth.md"}, nil, nil)
+	got := collapseManagedEntries([]string{"/.claude/rules/auth.md"}, outputDirs{}, nil, nil)
 	want := []string{"/.claude/rules/"}
 	if len(got) != len(want) || got[0] != want[0] {
 		t.Fatalf("got %v, want %v", got, want)
@@ -381,7 +381,7 @@ func TestCollapseManagedEntries_NeverIgnoresSourceTree(t *testing.T) {
 	// A spec living under .agnostic-ai must never be collapsed into
 	// `/.agnostic-ai/`, which would ignore committed sources.
 	in := []string{"/.agnostic-ai/.sync-state", "/.agnostic-ai/agents/a.md"}
-	got := collapseManagedEntries(in, []string{".agnostic-ai"}, nil)
+	got := collapseManagedEntries(in, outputDirs{}, []string{".agnostic-ai"}, nil)
 	for _, e := range got {
 		if e == "/.agnostic-ai/" {
 			t.Fatalf("source dir was collapsed: %v", got)
@@ -516,10 +516,105 @@ func TestBuildManagedBlock_KeepsPreciseEntriesAroundUnmanagedFile(t *testing.T) 
 func TestCollapseManagedEntries_UnmanagedDirsStayExpanded(t *testing.T) {
 	in := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/x.md"}
 
-	got := collapseManagedEntries(in, nil, []string{".claude/agents/hand-*.md"})
+	got := collapseManagedEntries(in, outputDirs{}, nil, []string{".claude/agents/hand-*.md"})
 
 	want := []string{"/.claude/agents/a.md", "/.claude/agents/b.md", "/.codex/agents/"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// Regression for #846: with a nested `outputs.<target>.dir` the block must
+// still collapse at the generated subdirectory below the configured dir. The
+// old first-two-segments rule folded everything into `/vendor/.claude/`,
+// which hid hand-authored files and the shareable agent-memory store.
+func TestBuildManagedBlock_NestedOutputDirCollapsesBelowIt(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+	entries := []string{
+		"vendor/.claude/CLAUDE.md",
+		"vendor/.claude/agents/scout.md",
+		"vendor/.claude/skills/demo/SKILL.md",
+	}
+
+	block := buildManagedBlock(cfg, entries)
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	for _, want := range []string{
+		"/vendor/.claude/CLAUDE.md",
+		"/vendor/.claude/agents/",
+		"/vendor/.claude/skills/",
+	} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+	for _, unwanted := range []string{"/vendor/", "/vendor/.claude/"} {
+		if has[unwanted] {
+			t.Errorf("collapsed too shallow, %q would hide hand-authored files: %v", unwanted, block)
+		}
+	}
+}
+
+// The default `.claude` dir needs no override to collapse correctly; the
+// nested-dir fix must leave it byte-identical.
+func TestBuildManagedBlock_DefaultOutputDirCollapseUnchanged(t *testing.T) {
+	entries := []string{
+		".claude/CLAUDE.md",
+		".claude/agents/scout.md",
+		".claude/skills/demo/SKILL.md",
+	}
+
+	block := buildManagedBlock(&config.Config{}, entries)
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	for _, want := range []string{"/.claude/CLAUDE.md", "/.claude/agents/", "/.claude/skills/"} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+	if has["/.claude/"] {
+		t.Errorf("whole tool dir ignored: %v", block)
+	}
+}
+
+// A per-kind dir override is itself fully generated, so it collapses at the
+// dir rather than one level below it.
+func TestBuildManagedBlock_NestedKindDirCollapsesAtTheDir(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {RulesDir: "config/editor/.cursor/rules"}}}
+
+	block := buildManagedBlock(cfg, []string{"config/editor/.cursor/rules/style.mdc"})
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	if !has["/config/editor/.cursor/rules/"] {
+		t.Errorf("block missing the collapsed rules dir: %v", block)
+	}
+	for _, unwanted := range []string{"/config/", "/config/editor/"} {
+		if has[unwanted] {
+			t.Errorf("collapsed too shallow, %q: %v", unwanted, block)
+		}
+	}
+}
+
+// The #414 guard still applies below a nested dir: a user-owned path under
+// `sync.unmanaged` keeps its directory expanded.
+func TestBuildManagedBlock_NestedOutputDirRespectsUnmanaged(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+	cfg.Sync.Unmanaged = []string{"vendor/.claude/agents/hand-*.md"}
+
+	block := buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"})
+
+	for _, e := range block {
+		if e == "/vendor/.claude/agents/" {
+			t.Errorf("directory holding a user-owned file collapsed: %v", block)
+		}
 	}
 }
