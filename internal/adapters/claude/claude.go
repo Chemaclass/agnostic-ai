@@ -91,18 +91,21 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // GitignoreHints returns local Claude Code artifacts that agnostic-ai
-// never emits but that must stay out of version control: the agent
-// memory store and the per-user local settings file. Both are
-// machine-local, so the managed `.gitignore` block carries them and a
-// sync refresh no longer drops a hand-added entry (#469). They live
-// under the same dir as generated output, so they follow the
-// `outputs.claude.dir` override too.
+// never emits but that must stay out of version control: the
+// `memory: local` agent store and the per-user local settings file.
+// Claude keeps the two subagent memory scopes apart, so only the local
+// one belongs here; `memory: project` writes `agent-memory/`, which the
+// team is meant to commit. Both listed paths are machine-local, so the
+// managed `.gitignore` block carries them and a sync refresh no longer
+// drops a hand-added entry (#469). They live under the same dir as
+// generated output, so they follow the `outputs.claude.dir` override
+// too.
 func (Adapter) GitignoreHints(cfg *config.Config) []string {
 	// gitignore patterns are always forward-slashed, so normalize the
 	// joined paths even though the dir override may arrive OS-native.
 	dir := filepath.ToSlash(emit.OutputDir(cfg, target, defaultDir))
 	return []string{
-		dir + "/agent-memory/",
+		dir + "/agent-memory-local/",
 		dir + "/settings.local.json",
 	}
 }
