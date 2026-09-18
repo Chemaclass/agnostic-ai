@@ -20,12 +20,21 @@ var (
 	copilotMainFile        = filepath.Join(".github", "copilot-instructions.md")
 	copilotInstructionsDir = filepath.Join(".github", "instructions")
 	copilotAgentsDir       = filepath.Join(".github", "agents")
-	copilotSkillsDir       = filepath.Join(".github", "skills")
 	copilotChatmodesDir    = filepath.Join(".github", "chatmodes")
 	copilotHooksDir        = filepath.Join(".github", "hooks")
 	copilotMCPFile         = filepath.Join(".vscode", "mcp.json")
 	copilotSettingsFile    = filepath.Join(".github", "copilot", "settings.json")
 )
+
+// copilotSkillsDirs lists the three project skill directories the
+// vendor documents ("create a `.github/skills`, `.claude/skills`, or
+// `.agents/skills` directory in your repository"), in precedence order.
+// `.github/skills/` is what the adapter emits, so it comes first.
+var copilotSkillsDirs = []string{
+	filepath.Join(".github", "skills"),
+	filepath.Join(".claude", "skills"),
+	filepath.Join(".agents", "skills"),
+}
 
 const (
 	copilotInstructionSuffix = ".instructions.md"
@@ -35,9 +44,9 @@ const (
 
 // importFromCopilot reads an existing GitHub Copilot project
 // (`.github/copilot-instructions.md`, `.github/instructions/`,
-// `.github/chatmodes/`, `.github/copilot/settings.json`, and
-// `.vscode/mcp.json`) under root and writes
-// specs into the configured source directories.
+// `.github/chatmodes/`, every directory in copilotSkillsDirs,
+// `.github/copilot/settings.json`, and `.vscode/mcp.json`) under root
+// and writes specs into the configured source directories.
 func importFromCopilot(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
@@ -50,9 +59,14 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(filepath.Join(root, copilotSkillsDir), filepath.Join(root, src.Skills))
-	if err != nil {
-		return err
+	skills := 0
+	seenSkills := map[string]bool{}
+	for _, skillsDir := range copilotSkillsDirs {
+		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		if err != nil {
+			return err
+		}
+		skills += folderSkills
 	}
 	chatmodes, err := importCopilotChatmodes(root, filepath.Join(root, src.Agents))
 	if err != nil {

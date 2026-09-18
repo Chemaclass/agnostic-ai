@@ -60,7 +60,11 @@
 // `reasoningLevel` also accepts `effort` as an alias, taking precedence
 // when both are set; a spec author can write either key and both pass
 // through unchanged, since there is no separate `effort` field to
-// translate from. Agent bodies no longer inline into `.junie/AGENTS.md`
+// translate from. That same table constrains `name` to
+// `[a-z][a-z0-9_-]*`, and the filename fallback ("If missing, the file
+// name (without extension) is used") carries the constraint too, so an
+// agent name breaking it fails before output is written (#857).
+// Agent bodies no longer inline into `.junie/AGENTS.md`
 // now that this native destination exists: the
 // same rule Augment and Kilo Code follow once their own native agents
 // directory (`.augment/agents/`, `.kilo/agents/`) exists. A project
@@ -134,6 +138,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -171,6 +176,15 @@ var caps = emit.Capabilities{
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 }
 
+// agentNameRule is the regex the subagent frontmatter table states for
+// `name`. It is looser than the opencode and zed skill rule (underscores
+// are allowed, the first character must be a letter), so the shared
+// emit.ValidateNames takes the pattern and the prose (#857).
+var agentNameRule = emit.NameRule{
+	Pattern: regexp.MustCompile(`^[a-z][a-z0-9_-]*$`),
+	Rule:    "start with a lowercase letter, then use only lowercase letters, digits, hyphens, or underscores",
+}
+
 // Adapter emits Junie configs.
 type Adapter struct{}
 
@@ -206,6 +220,9 @@ const (
 // outputs.junie.rules-dir override) is swept.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := emit.ValidateNames(b.Agents, target, "agent", agentNameRule); err != nil {
 		return err
 	}
 	if err := emitEntryPoint(sess, b, cfg, dryRun); err != nil {

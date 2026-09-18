@@ -551,3 +551,38 @@ func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
 		t.Errorf("expected no .aiignore for a bundle with no ignore specs, err=%v", err)
 	}
 }
+
+// Junie's subagent frontmatter table requires `[a-z][a-z0-9_-]*` for
+// `name`, and the filename fallback carries the same constraint. Emit
+// fails rather than writing an agent file the documented rule rejects
+// (#857).
+func TestEmit_Agent_RejectsNameBreakingVendorRegex(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "Deploy_Bot", Body: "body"}}
+	err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false)
+	if err == nil {
+		t.Fatal("expected an error for an agent name breaking the vendor regex")
+	}
+	for _, want := range []string{"junie", "agent", "Deploy_Bot"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must name %q, got: %v", want, err)
+		}
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".junie/agents/Deploy_Bot.md")); !os.IsNotExist(statErr) {
+		t.Errorf("invalid agent file must not be written, err=%v", statErr)
+	}
+}
+
+// Junie's regex is looser than opencode's: underscores and digits are
+// allowed after the first character, which must be a lowercase letter.
+func TestEmit_Agent_AcceptsValidVendorNames(t *testing.T) {
+	testutil.TempCwd(t)
+
+	for _, name := range []string{"deploy", "deploy-bot", "deploy_bot", "d1_2-3"} {
+		entries := []spec.Entry{{Kind: spec.KindAgent, Name: name, Body: "body"}}
+		if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+			t.Errorf("valid agent name %q rejected: %v", name, err)
+		}
+	}
+}

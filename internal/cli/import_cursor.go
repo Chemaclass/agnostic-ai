@@ -15,10 +15,21 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
+// cursorSkillsDirs lists every project skill path cursor.com/docs/skills'
+// own "Skill directories" table marks project-level, in precedence order.
+// `.cursor/skills/` is what the adapter emits, so it comes first;
+// `.agents/skills/` is the shared cross-tool tree codex, amp, crush, and
+// goose also write. Cursor discovers both at the repository root and in
+// nested project subdirectories.
+var cursorSkillsDirs = []string{
+	filepath.Join(".cursor", "skills"),
+	filepath.Join(".agents", "skills"),
+}
+
 // importFromCursor reads existing Cursor config (.cursor/rules/*.mdc,
-// .cursor/agents/*.md, .cursor/skills/<name>/ folders,
-// .cursor/commands/*.md, a hand-authored .cursorignore) under root and
-// writes specs into the configured source directories.
+// .cursor/agents/*.md, .cursor/skills/<name>/ and .agents/skills/<name>/
+// folders, .cursor/commands/*.md, a hand-authored .cursorignore) under
+// root and writes specs into the configured source directories.
 func importFromCursor(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
 		return err
@@ -48,10 +59,11 @@ func importFromCursor(root string, src config.Sources) error {
 	return nil
 }
 
-// importCursorSkills copies root and nested `.cursor/skills/<name>/`
-// directory trees into the matching canonical source scope.
+// importCursorSkills copies root and nested `<dir>/<name>/` directory
+// trees into the matching canonical source scope, for every project
+// skill directory in cursorSkillsDirs.
 func importCursorSkills(root, dstDir string) (int, error) {
-	return importScopedSkillFolders(root, filepath.Join(".cursor", "skills"), dstDir)
+	return importScopedSkillFoldersFrom(root, cursorSkillsDirs, dstDir)
 }
 
 // importFlatMarkdownFiles copies every top-level `*.md` in src

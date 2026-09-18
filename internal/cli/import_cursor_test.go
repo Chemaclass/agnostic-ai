@@ -241,3 +241,41 @@ func TestImportFromCursor_AgentsSkillsAndCommands(t *testing.T) {
 		}
 	}
 }
+
+// Cursor's Skill directories table lists `.agents/skills/` and
+// `.cursor/skills/` both as project-level, and both are discovered in
+// nested subdirectories. Reading only `.cursor/skills` dropped every
+// skill in a repo on the shared layout (#854).
+func TestImportFromCursor_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	for _, path := range cursorSkillsDirs {
+		name := strings.TrimPrefix(filepath.Dir(path), ".")
+		writeFile(t, filepath.Join(dir, path, name, "SKILL.md"),
+			"---\nname: "+name+"\n---\n\n"+name+" body\n")
+		writeFile(t, filepath.Join(dir, path, "shared", "SKILL.md"),
+			"---\nname: shared\n---\n\nfrom "+name+"\n")
+	}
+	writeFile(t, filepath.Join(dir, "apps", "web", ".agents", "skills", "deploy-web", "SKILL.md"),
+		"---\nname: deploy-web\n---\n\nnested body\n")
+	silence(t)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range cursorSkillsDirs {
+		name := strings.TrimPrefix(filepath.Dir(path), ".")
+		got := readFile(t, filepath.Join(dir, "skills", name, "SKILL.md"))
+		if !strings.Contains(got, name+" body") {
+			t.Errorf("%s skill not imported:\n%s", path, got)
+		}
+	}
+	nested := readFile(t, filepath.Join(dir, "skills", "apps", "web", "deploy-web", "SKILL.md"))
+	if !strings.Contains(nested, "nested body") {
+		t.Errorf("nested .agents/skills scope not preserved:\n%s", nested)
+	}
+	shared := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))
+	if !strings.Contains(shared, "from cursor") {
+		t.Errorf(".cursor/skills should win a same-name collision:\n%s", shared)
+	}
+}

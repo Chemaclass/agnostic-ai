@@ -68,7 +68,14 @@ var caps = emit.Capabilities{
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
-var skillNamePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+// skillNameRule is Zed's documented skill identifier constraint. The
+// same rule holds for OpenCode, so it lives behind emit.ValidateNames
+// rather than in two adapters (#857).
+var skillNameRule = emit.NameRule{
+	Pattern: regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`),
+	MaxLen:  64,
+	Rule:    "contain 1-64 lowercase letters or digits with single hyphen separators",
+}
 
 // Adapter emits Zed configs.
 type Adapter struct{}
@@ -91,10 +98,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	for _, skill := range b.Skills {
-		if len(skill.Name) > 64 || !skillNamePattern.MatchString(skill.Name) {
-			return fmt.Errorf("zed skill %q: name must contain 1-64 lowercase letters or digits with single hyphen separators", skill.Name)
-		}
+	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
+		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {

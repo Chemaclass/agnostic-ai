@@ -79,10 +79,12 @@ target_id = "copilot"
 | `.github/copilot-instructions.md` | `<rules>/<slug>.md` per `##` section, plus a copy at `.agnostic-ai/AGNOSTIC_AI.md` |
 | `.github/instructions/<name>.instructions.md` | `<rules>/<name>.md`; the `agent-` and `skill-` filename prefixes become agents and skills |
 | `.github/agents/<name>.agent.md` and `.github/chatmodes/<name>.chatmode.md` | `<agents>/<name>.md` |
-| `.github/skills/<name>/` | `<skills>/<name>/` |
+| `.github/skills/<name>/`, `.claude/skills/<name>/`, `.agents/skills/<name>/` | `<skills>/<name>/` |
 | `.github/hooks/*.json` | one target-scoped hook spec per handler |
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
 | `.github/copilot/settings.json` `model` | the portable Settings source |
+
+All three skill directories are read because [Add skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) documents all three as project skill locations. The emit path wins a same-name collision, then `.claude/skills`, then `.agents/skills` (#854).
 
 ## Verify
 

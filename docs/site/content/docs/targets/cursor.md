@@ -32,9 +32,9 @@ target_id = "cursor"
 - **Ignore**: ignore specs emit as `.cursorignore` (gitignore syntax). Multiple specs concatenate. Override via `outputs.cursor.ignore-file`. (#435)
 - **Hooks**: emit as [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). Command hooks retain their `{command, matcher?}` shape. A `type: prompt` hook instead emits `prompt` and optional `model`. Both forms preserve `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`. Override the file via `outputs.cursor.hooks-file`. (#438)
 
-  Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Thirteen of those events consume a `matcher`, per the vendor's own "Available matchers by hook" table: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (the full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).
+  Cursor uses camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...), passed through verbatim; `validate` flags unrecognized ones. Fifteen of those events consume a `matcher`, per the vendor's own "Available matchers by hook" table: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (the full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).
 
-  `lint` no longer flags a matcher on the last five (#734). It also stays quiet on `beforeMCPExecution` and `afterMCPExecution`, which that table does not list; a warning there would be the same false positive in the other direction.
+  `lint` flags a matcher on none of the fifteen (#734, #860). It also stays quiet on `beforeMCPExecution` and `afterMCPExecution`, which that table does not list; a warning there would be the same false positive in the other direction.
 
   Cursor also reads Claude Code's own hook file. [Third-party hooks](https://cursor.com/docs/reference/third-party-hooks.md) puts `.claude/settings.json` at rank 6 of a seven-rank merge with `.cursor/hooks.json` at rank 3, and "All matching hooks from every source run." So a repo syncing `claude` and `cursor` together runs every hook twice. Two gates keep it off until you ask for it, both on that page: "Enable Third-party skills in Cursor Settings → Rules, Skills, Subagents", and "The feature must be enabled for your account" (#756).
 - **MCP**: written into `.cursor/mcp.json` under the standard `mcpServers` map (the shared builder also used by Claude Code). A stdio server accepts `envFile`, a path to an env file loading additional variables. A remote (`url`) server accepts a static-OAuth `auth` object, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for a provider without OAuth Dynamic Client Registration ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md), #661).
@@ -67,8 +67,10 @@ The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.jso
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md`, nested subdirectories preserved |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
 | `.cursor/agents/<name>.md` | `<agents>/<name>.md` (byte-identical copy, provenance header stripped) |
-| `.cursor/skills/<name>/` | `<skills>/<name>/`, full folder tree (SKILL.md + bundled assets) copied byte-for-byte |
+| `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree (SKILL.md + bundled assets) copied byte-for-byte |
 | `.cursor/commands/<name>.md` | `<commands>/<name>.md` (byte-identical copy, provenance header stripped) |
+
+Both skill directories are read because the [Skills](https://cursor.com/docs/skills.md) "Skill directories" table marks both project-level, at the repository root and in nested subdirectories (the nesting becomes the spec scope). `.cursor/skills` wins a same-name collision at the same scope (#854).
 
 It round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
 

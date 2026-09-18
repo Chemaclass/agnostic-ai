@@ -222,8 +222,8 @@ func TestImportFromCopilot_NativeAgentsAndSkills(t *testing.T) {
 	dir := t.TempDir()
 	agentBody := "---\nname: reviewer\ndescription: Review diffs.\n---\nReview diffs.\n"
 	writeFile(t, filepath.Join(dir, copilotAgentsDir, "reviewer.agent.md"), agentBody)
-	writeFile(t, filepath.Join(dir, copilotSkillsDir, "greet", "SKILL.md"), "---\nname: greet\n---\nhi\n")
-	writeFile(t, filepath.Join(dir, copilotSkillsDir, "greet", "helper.sh"), "echo hi\n")
+	writeFile(t, filepath.Join(dir, copilotSkillsDirs[0], "greet", "SKILL.md"), "---\nname: greet\n---\nhi\n")
+	writeFile(t, filepath.Join(dir, copilotSkillsDirs[0], "greet", "helper.sh"), "echo hi\n")
 
 	if err := importFromCopilot(dir, rootSources()); err != nil {
 		t.Fatal(err)
@@ -238,5 +238,34 @@ func TestImportFromCopilot_NativeAgentsAndSkills(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "skills", "greet", "helper.sh")); err != nil {
 		t.Errorf("skill folder should import with assets: %v", err)
+	}
+}
+
+// The vendor documents three project skill directories, not one. A repo
+// on the shared `.agents/skills` layout used to import zero skills (#854).
+func TestImportFromCopilot_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	for _, path := range copilotSkillsDirs {
+		name := strings.TrimPrefix(filepath.Dir(path), ".")
+		writeFile(t, filepath.Join(dir, path, name, "SKILL.md"),
+			"---\nname: "+name+"\n---\n\n"+name+" body\n")
+		writeFile(t, filepath.Join(dir, path, "shared", "SKILL.md"),
+			"---\nname: shared\n---\n\nfrom "+name+"\n")
+	}
+
+	if err := importFromCopilot(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range copilotSkillsDirs {
+		name := strings.TrimPrefix(filepath.Dir(path), ".")
+		got := readFile(t, filepath.Join(dir, "skills", name, "SKILL.md"))
+		if !strings.Contains(got, name+" body") {
+			t.Errorf("%s skill not imported:\n%s", path, got)
+		}
+	}
+	shared := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))
+	if !strings.Contains(shared, "from github") {
+		t.Errorf(".github/skills should win a same-name collision:\n%s", shared)
 	}
 }

@@ -26,10 +26,16 @@
 // `.opencode/commands/<name>.md`.
 // Settings specs merge their last non-empty `model` into the project
 // `opencode.json` file without replacing unrelated native keys.
+//
+// Skill names must contain 1-64 lowercase alphanumeric characters
+// separated by single hyphens, per opencode.ai/docs/skills. Invalid
+// names fail before output is written: OpenCode skips such a folder, so
+// the skill would never reach the `skill` tool catalog.
 package opencode
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -63,6 +69,15 @@ var caps = emit.Capabilities{
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings},
 }
 
+// skillNameRule is the regex opencode.ai/docs/skills states for a skill
+// `name`, which must also match the folder holding SKILL.md. Byte-identical
+// to Zed's rule, hence the shared emit.ValidateNames (#857).
+var skillNameRule = emit.NameRule{
+	Pattern: regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`),
+	MaxLen:  64,
+	Rule:    "contain 1-64 lowercase letters or digits with single hyphen separators",
+}
+
 // Adapter emits OpenCode configs.
 type Adapter struct{}
 
@@ -83,6 +98,9 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // pre-#623 sync left behind.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}
 	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {

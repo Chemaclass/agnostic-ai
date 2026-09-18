@@ -19,6 +19,9 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - A `type: ws` MCP spec no longer writes a dead `{"type": "ws", "url": ...}` entry on Augment or Qoder, whose vendors document no such server; the entry is dropped with a note (#855).
 - Junie MCP entries no longer carry `disabled` or `description`, two keys no Junie page documents, so a disabled server no longer imports as enabled (#858).
 - Warp stdio MCP entries carry `"args": []` when the spec sets no arguments, the key Warp's CLI Server table marks required (#859).
+- Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
+- OpenCode skill names and Junie agent names that break the vendor's documented regex now fail sync, instead of writing a file the tool never loads (#857).
+- Cursor hook specs that filter `beforeTabFileRead` or `afterTabFileEdit` no longer raise LINT005, since the vendor's matcher table documents both (#860).
 
 ### Site
 
