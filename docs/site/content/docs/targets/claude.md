@@ -64,6 +64,8 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.rules-mode` | unset | set to `import` to also wire `.claude/rules/*.md` into `CLAUDE.md` via `@`-imports, only needed on Claude Code versions without native rules loading |
 | `outputs.claude.rules-file` | unset | switches to legacy concatenated single-file layout, typically `CLAUDE.md` |
 | `outputs.claude.commands-dir` | `.claude/commands` | |
+| `outputs.claude.agents-dir` | `.claude/agents` | |
+| `outputs.claude.skills-dir` | `.claude/skills` | |
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 

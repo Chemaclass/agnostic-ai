@@ -129,3 +129,72 @@ func TestTargetVarPaths_CoverEveryRegisteredTarget(t *testing.T) {
 		}
 	}
 }
+
+// perKindDirKey maps a declared *_DIR variable to the
+// `outputs.<target>.<key>` field that overrides it.
+var perKindDirKey = map[string]func(*config.Output, string){
+	emit.VarSkillsDir:   func(o *config.Output, v string) { o.SkillsDir = v },
+	emit.VarAgentsDir:   func(o *config.Output, v string) { o.AgentsDir = v },
+	emit.VarCommandsDir: func(o *config.Output, v string) { o.CommandsDir = v },
+	emit.VarRulesDir:    func(o *config.Output, v string) { o.RulesDir = v },
+}
+
+// perTargetDirKey overrides perKindDirKey where a target's native name
+// for a directory differs: Copilot calls its rules directory
+// `instructions-dir`, so that is the key `{{rules_dir}}` must follow.
+var perTargetDirKey = map[string]map[string]func(*config.Output, string){
+	"copilot": {emit.VarRulesDir: func(o *config.Output, v string) { o.InstructionsDir = v }},
+}
+
+// A per-kind directory override must move the emitted files, not only
+// the variable a spec body expands. The claude adapter resolved
+// `{{agents_dir}}` from `outputs.claude.agents-dir` while writing the
+// agent to the hardcoded `.claude/agents/`, so a spec body pointed at a
+// directory the sync never wrote to.
+func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
+	probes := map[string]spec.Entry{
+		emit.VarSkillsDir:   {Kind: spec.KindSkill, Name: "probe", Path: "skills/probe/SKILL.md", Body: "b"},
+		emit.VarAgentsDir:   {Kind: spec.KindAgent, Name: "probe", Path: "agents/probe.md", Body: "b"},
+		emit.VarCommandsDir: {Kind: spec.KindCommand, Name: "probe", Path: "commands/probe.md", Body: "b"},
+		emit.VarRulesDir:    {Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b"},
+	}
+
+	for target, declared := range targetVarPaths {
+		adapter, err := Resolve(target)
+		if err != nil {
+			continue
+		}
+		for name := range declared {
+			set, ok := perTargetDirKey[target][name]
+			if !ok {
+				set, ok = perKindDirKey[name]
+			}
+			if !ok {
+				continue
+			}
+			moved := "custom/" + strings.TrimSuffix(strings.ToLower(name), "_dir")
+			out := config.Output{}
+			set(&out, moved)
+			cfg := &config.Config{Outputs: map[string]config.Output{target: out}}
+
+			if got := varsFor(cfg, target)[name]; got != moved {
+				t.Errorf("%s: %s resolves to %q under its per-kind override, want %q", target, name, got, moved)
+			}
+
+			sess := NewSession()
+			sess.StartCapture()
+			if err := EmitWithProvenance(sess, adapter, spec.NewBundle([]spec.Entry{probes[name]}), cfg, true); err != nil {
+				sess.StopCapture()
+				t.Errorf("%s/%s: emit failed: %v", target, name, err)
+				continue
+			}
+			var paths []string
+			for _, f := range sess.StopCapture() {
+				paths = append(paths, f.Path)
+			}
+			if !writesUnder(paths, name, moved) {
+				t.Errorf("%s ignores its %s override: emitted to %v, want under %q", target, name, paths, moved)
+			}
+		}
+	}
+}

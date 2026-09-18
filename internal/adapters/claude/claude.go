@@ -63,6 +63,8 @@ const (
 	defaultDir         = ".claude"
 	defaultRulesDir    = ".claude/rules"
 	defaultCommandsDir = ".claude/commands"
+	defaultAgentsDir   = ".claude/agents"
+	defaultSkillsDir   = ".claude/skills"
 	defaultMCPFile     = ".mcp.json"
 	// settingsOverlayPath is the project-relative path to the captured
 	// non-hooks portion of `.claude/settings.json`. `agnostic-ai import
@@ -118,16 +120,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	dir := emit.OutputDir(cfg, target, defaultDir)
 
+	agentsDir := emit.OutputAgentsDir(cfg, target, emit.OutputSubDir(cfg, target, "agents", defaultAgentsDir))
 	for _, a := range b.Agents {
-		path := filepath.Join(dir, "agents", a.Name+".md")
+		path := filepath.Join(agentsDir, a.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
 
+	skillsDir := emit.OutputSkillsDir(cfg, target, emit.OutputSubDir(cfg, target, "skills", defaultSkillsDir))
 	for _, s := range b.Skills {
-		folder := filepath.Join(dir, "skills", s.Name)
+		folder := filepath.Join(skillsDir, s.Name)
 		path := filepath.Join(folder, "SKILL.md")
 		body := emit.WithHeader(emit.DocumentStyled(s.Meta, s.MetaKeys, s.MetaStyles, s.Body, target), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {

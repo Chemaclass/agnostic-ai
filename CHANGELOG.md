@@ -10,6 +10,16 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Fixed
+
+- `outputs.claude.agents-dir` and `outputs.claude.skills-dir` now move the emitted agents and skills instead of being silently ignored.
+- `{{rules_dir}}` resolves from `outputs.copilot.instructions-dir` on Copilot, so a spec body names the directory sync writes to.
+
+### Site
+
+- The target filter on `/updates/` closes on a click outside it, on Escape, and when focus leaves it.
+- The docs drop throat-clearing, thesis sentences, and facts repeated on the same page.
+
 ## v0.60.0 - 2026-09-18
 
 ### Added

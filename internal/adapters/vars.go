@@ -122,6 +122,13 @@ var dirRelativeVars = map[string]map[string]string{
 	},
 }
 
+// rulesDirIsInstructionsDir lists targets whose native name for the
+// rules directory is `instructions-dir`. Copilot writes
+// `*.instructions.md` and reads `outputs.copilot.instructions-dir`, so
+// `{{rules_dir}}` must resolve from that key; `rules-dir` would expand
+// to a directory the sync never writes to.
+var rulesDirIsInstructionsDir = map[string]bool{"copilot": true}
+
 // varsFor resolves the variable table for target, letting an
 // outputs.<target>.<field> override win over the declared default so a
 // spec body and the emitted tree never disagree about where files land.
@@ -144,6 +151,10 @@ func varsFor(cfg *config.Config, target string) map[string]string {
 		case emit.VarCommandsDir:
 			out[name] = emit.OutputCommandsDir(cfg, target, fallback)
 		case emit.VarRulesDir:
+			if rulesDirIsInstructionsDir[target] {
+				out[name] = emit.OutputInstructionsDir(cfg, target, fallback)
+				break
+			}
 			out[name] = emit.OutputRulesDir(cfg, target, fallback)
 		case emit.VarMCPFile:
 			out[name] = emit.OutputMCPFile(cfg, target, fallback)
