@@ -120,7 +120,7 @@ const (
 // channel trusted to already speak Factory's own vocabulary, so it
 // reaches the frontmatter through the passthrough rather than the
 // translation table (see tools.go).
-var droidHandBuiltKeys = []string{"name", "description", "model"}
+var droidHandBuiltKeys = []string{"name", "description", "model", "mcpServers", "effort", "reasoningEffort"}
 
 var caps = emit.Capabilities{
 	Target: target,
@@ -153,7 +153,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
-	noteDroppedAgentMCPScope(b.Agents)
+	noteUnsupportedEffort(b.Agents)
 	if err := emitDroids(sess, b.Agents, dir, dryRun); err != nil {
 		return err
 	}
@@ -272,6 +272,14 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
 			// even when each dropped name was an always-on one.
 			hasDroppedTools = dropped || len(mapped) == 0
 		}
+	}
+	if servers := emit.StringSlice(resolved["mcpServers"]); len(servers) > 0 {
+		meta["mcpServers"] = servers
+		keys = append(keys, "mcpServers")
+	}
+	if effort, ok := droidReasoningEffort(resolved); ok {
+		meta["reasoningEffort"] = effort
+		keys = append(keys, "reasoningEffort")
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, droidHandBuiltKeys...)
 	front := emit.FrontmatterOrdered(meta, keys)

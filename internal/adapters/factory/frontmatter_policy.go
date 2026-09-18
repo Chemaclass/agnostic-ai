@@ -5,35 +5,49 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// mcpScopeField is the frontmatter key Factory documents for narrowing
-// which MCP servers a droid may reach: "Use `mcpServers` to limit which
-// MCP servers a droid can reach". Claude, Junie, and Qoder accept the
-// same server-name list and receive it today, because each renders its
-// own agent frontmatter.
-const mcpScopeField = "mcpServers"
-
-// noteDroppedAgentMCPScope surfaces the portable `mcpServers` list
-// Factory documents but never receives. Agents are written into the
-// shared `.agents/agents/` tree, byte-identical across every co-writer,
-// and OpenHands and Antigravity take inline server objects there rather
-// than names, so one file cannot satisfy both shapes. Losing the list
-// in silence widens a droid's tool surface past what the author wrote
-// (target-audit 2026-09-18, #812).
-func noteDroppedAgentMCPScope(agents []spec.Entry) {
-	dropped := 0
-	for _, agent := range agents {
-		if emit.SharedSkillFieldDropped(agent, target, mcpScopeField) {
-			dropped++
-		}
-	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, mcpScopeField, dropped,
-		"`.agents/agents/<name>.md` is shared byte-for-byte with targets that take inline server objects instead of names; set x-"+target+".mcpServers to emit the list for factory only")
-}
-
 // manualOnlyField is the frontmatter key this vendor documents for
 // keeping a skill out of automatic model invocation. Claude, Cursor,
 // Crush, and Factory all spell it the same way and mean the same thing.
 const manualOnlyField = "disable-model-invocation"
+
+// droidEffortLevels is Factory's own value space for reasoning effort:
+// "`low`, `medium`, or `high` for models that support it". The portable
+// `effort` field is wider, since Qoder and Claude Code also document
+// `xhigh`, `max`, and (on Qoder) a positive integer budget, so a value
+// outside this set is reported rather than written.
+var droidEffortLevels = map[string]bool{"low": true, "medium": true, "high": true}
+
+// droidReasoningEffort maps the portable `effort` onto Factory's
+// `reasoningEffort`, and reports whether the value is one Factory
+// accepts. A native `reasoningEffort` wins when the author wrote one.
+func droidReasoningEffort(resolved map[string]any) (string, bool) {
+	if native, _ := resolved["reasoningEffort"].(string); native != "" {
+		return native, droidEffortLevels[native]
+	}
+	portable, _ := resolved["effort"].(string)
+	if portable == "" {
+		return "", false
+	}
+	return portable, droidEffortLevels[portable]
+}
+
+// noteUnsupportedEffort reports a portable `effort` Factory cannot
+// honor. Its enum stops at `high`, so `xhigh`, `max`, and Qoder's
+// integer budgets have no Factory spelling, and the vendor also ignores
+// the field entirely under `model: inherit`. Writing an out-of-range
+// value would fail Droid CLI's load-time validation the same way an
+// unknown tool ID does (target-audit 2026-09-18, #824).
+func noteUnsupportedEffort(agents []spec.Entry) {
+	unsupported := 0
+	for _, agent := range agents {
+		value, ok := droidReasoningEffort(emit.ResolveMeta(agent.Meta, target))
+		if value != "" && !ok {
+			unsupported++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", unsupported,
+		"Factory documents `low`, `medium`, and `high` only, so `xhigh`, `max`, and integer budgets are dropped; set x-factory.reasoningEffort to one it accepts")
+}
 
 // noteDroppedManualOnly surfaces the portable `disable-model-invocation`
 // this target documents but never receives. Skills are written into the
