@@ -280,6 +280,13 @@ test("plurals fold onto the singular in both directions", function () {
   assert.equal(firstUrl("hook"), firstUrl("hooks"));
 });
 
+test("a snippet highlights a result that matched on the stem", function () {
+  const segments = teaser("Hooks run after each tool call.", ["hooks"].map(stem));
+  assert.deepEqual(segments.filter(function (segment) {
+    return segment.mark;
+  }), [{ text: "Hook", mark: true }]);
+});
+
 test("a section inherits only a little of its page title", function () {
   const found = urls(search(ranked, "rules"));
   assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#rules");

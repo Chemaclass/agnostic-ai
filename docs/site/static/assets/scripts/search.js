@@ -410,7 +410,9 @@
         return;
       }
       const found = search(prepared, query, RESULT_LIMIT);
-      render(found, tokenize(query));
+      // Stems, not raw terms: a result can match on "hook" while the
+      // reader typed "hooks", and the snippet should still find it.
+      render(found, tokenize(query).map(stem));
       if (found.length === 0) {
         setStatus("Nothing found. Try another word.");
       } else {
