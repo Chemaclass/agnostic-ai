@@ -16,8 +16,8 @@ import (
 // codex agent is absent there, the captured spec gains `target: claude`
 // frontmatter so the next sync does not cross-emit a claude-only agent
 // into `.codex/`.
-func importClaudeAgents(root, dstDir string) (int, error) {
-	src := filepath.Join(root, claudeDir, "agents")
+func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
+	src := filepath.Join(root, layout.agents)
 	if !dirExists(src) {
 		return 0, nil
 	}
@@ -61,8 +61,8 @@ func importClaudeAgents(root, dstDir string) (int, error) {
 // preserves the full skill payload. SKILL.md gains `target: claude`
 // frontmatter when the project has a codex tree but no matching codex
 // skill (auto-scoping per #299).
-func importClaudeSkills(root, dstDir string) (int, error) {
-	src := filepath.Join(root, claudeDir, "skills")
+func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
+	src := filepath.Join(root, layout.skills)
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil

@@ -13,7 +13,7 @@ func TestImportFromClaude_NoCodexTree_NoTargetTag(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nname: explorer\nmodel: sonnet\n---\nbody\n"
 	writeFile(t, filepath.Join(dir, ".claude", "agents", "explorer.md"), body)
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "agents", "explorer.md"))
@@ -32,7 +32,7 @@ func TestImportFromClaude_CodexLacksAgent_AddsTargetClaude(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "agents", "phel.toml"),
 		"name = \"phel\"\ndeveloper_instructions = \"x\"\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "agents", "explorer.md"))
@@ -51,7 +51,7 @@ func TestImportFromClaude_CodexHasAgent_NoTargetTag(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "agents", "changelog_keeper.toml"),
 		"name = \"changelog_keeper\"\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "agents", "changelog-keeper.md"))
@@ -68,7 +68,7 @@ func TestImportFromClaude_CodexLacksSkill_AddsTargetClaude(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "other", "SKILL.md"),
 		"---\nname: other\n---\nx\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "skills", "validator", "SKILL.md"))
@@ -84,7 +84,7 @@ func TestImportFromClaude_CodexHasSkill_NoTargetTag(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "shared", "SKILL.md"),
 		"---\nname: shared\n---\nx\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))

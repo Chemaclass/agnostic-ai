@@ -18,7 +18,7 @@ func TestImportFromClaude_WalksNestedRuleSubdirectories(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, ".claude/rules/backend/api/auth.md"), "---\nname: auth\n---\n\nbackend rule\n")
 	mustWrite(t, filepath.Join(dir, ".claude/rules/top.md"), "---\nname: top\n---\n\ntop rule\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules/backend/api/auth.md")); err != nil {

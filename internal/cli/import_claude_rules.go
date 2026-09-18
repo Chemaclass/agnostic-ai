@@ -12,8 +12,8 @@ import (
 // copy). Falls back to slicing CLAUDE.md on `## ` headings when the
 // directory is absent. Without headings the slicer writes a single
 // rule named after the project directory.
-func importClaudeRules(root, dstDir string) (int, error) {
-	rulesDir := filepath.Join(root, claudeDir, "rules")
+func importClaudeRules(root, dstDir string, layout claudeLayout) (int, error) {
+	rulesDir := filepath.Join(root, layout.rules)
 	if dirExists(rulesDir) {
 		return copyMarkdownTree(rulesDir, dstDir)
 	}

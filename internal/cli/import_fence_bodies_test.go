@@ -135,7 +135,7 @@ func TestImportFromCodex_SkillBodyDiverges_AddsFences(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "test", "SKILL.md"),
 		"---\nname: test\n---\n# Test\n\nShared intro.\n\n## Scope\n- codex only\n\nShared outro.\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -169,7 +169,7 @@ codex step.
 
 Shared outro."""`+"\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -200,7 +200,7 @@ func TestImportFromCodex_AgentDescriptionDiverges_RoutesViaXCodex(t *testing.T) 
 			`description = "codex says Y"`+"\n"+
 			`developer_instructions = "body"`+"\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -231,7 +231,7 @@ func TestImportFromCodex_SkillMerge_PreservesScalarStyle(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "test", "SKILL.md"),
 		"---\nname: test\ndescription: codex says Y\n---\nbody\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -253,7 +253,7 @@ func TestImportFromCodex_SkillDescriptionDiverges_RoutesViaXCodex(t *testing.T) 
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "test", "SKILL.md"),
 		"---\nname: test\ndescription: codex says Y\n---\nbody\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -276,7 +276,7 @@ func TestImportFromCodex_AgentBodyIdentical_NoFences(t *testing.T) {
 		`name = "explorer"`+"\n"+
 			`developer_instructions = "Shared body."`+"\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {

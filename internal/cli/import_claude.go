@@ -32,20 +32,20 @@ type importCounts struct{ rules, agents, skills, hooks, mcps, commands int }
 // importFromClaude reads existing Claude Code config (CLAUDE.md and
 // .claude/) under root and writes specs into the configured source
 // directories.
-func importFromClaude(root string, src config.Sources) error {
+func importFromClaude(root string, src config.Sources, layout claudeLayout) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
 
 	c := importCounts{}
 	var err error
-	if c.rules, err = importClaudeRules(root, filepath.Join(root, src.Rules)); err != nil {
+	if c.rules, err = importClaudeRules(root, filepath.Join(root, src.Rules), layout); err != nil {
 		return err
 	}
-	if c.agents, err = importClaudeAgents(root, filepath.Join(root, src.Agents)); err != nil {
+	if c.agents, err = importClaudeAgents(root, filepath.Join(root, src.Agents), layout); err != nil {
 		return err
 	}
-	if c.skills, err = importClaudeSkills(root, filepath.Join(root, src.Skills)); err != nil {
+	if c.skills, err = importClaudeSkills(root, filepath.Join(root, src.Skills), layout); err != nil {
 		return err
 	}
 	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
@@ -72,7 +72,7 @@ func importFromClaude(root string, src config.Sources) error {
 	if c.mcps, err = importClaudeMCP(root, filepath.Join(root, src.MCPs)); err != nil {
 		return err
 	}
-	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands)); err != nil {
+	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {
 		return err
 	}
 	overlaySeeded, err := importClaudeSettingsOverlay(root)

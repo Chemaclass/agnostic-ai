@@ -63,9 +63,9 @@ type unmanagedFinding struct {
 // exist but carry no agnostic-ai provenance marker. Returns findings
 // sorted by path. Read errors on individual files are skipped: doctor is
 // advisory and a single unreadable file should not abort the scan.
-func findUnmanagedConfig(root string) ([]unmanagedFinding, error) {
+func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, error) {
 	var out []unmanagedFinding
-	for _, c := range unmanagedConfigGlobs {
+	for _, c := range claudeGlobsFor(cfg, unmanagedConfigGlobs) {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
 		if err != nil {
 			// Only ErrBadPattern, which our static globs never trigger.
@@ -100,7 +100,7 @@ func findUnmanagedConfig(root string) ([]unmanagedFinding, error) {
 // sync.unmanaged are user-owned by choice, so they are left out. Returns
 // the number of findings so callers can fold the count into a summary.
 func reportUnmanagedConfig(cmd *cobra.Command, root string, cfg *config.Config) int {
-	all, err := findUnmanagedConfig(root)
+	all, err := findUnmanagedConfig(root, cfg)
 	if err != nil {
 		return 0
 	}
@@ -146,4 +146,29 @@ func reportUserOwned(cmd *cobra.Command, cfg *config.Config) {
 	for _, p := range cfg.Sync.Unmanaged {
 		cmd.Printf("  ~ %s\n", p)
 	}
+}
+
+// claudeGlobsFor rewrites the static Claude Code globs onto the
+// directory sync actually writes. `outputs.claude.dir` and the per-kind
+// keys move the tree, and a glob pinned to `.claude/` then reports
+// nothing there, so unmanaged files under a moved directory went
+// unseen (#852).
+func claudeGlobsFor(cfg *config.Config, globs []struct{ glob, target string }) []struct{ glob, target string } {
+	layout := claudeLayoutFor(cfg)
+	if layout == defaultClaudeLayout() {
+		return globs
+	}
+	moved := map[string]string{
+		".claude/agents/*.md":       filepath.ToSlash(layout.agents) + "/*.md",
+		".claude/commands/*.md":     filepath.ToSlash(layout.commands) + "/*.md",
+		".claude/skills/*/SKILL.md": filepath.ToSlash(layout.skills) + "/*/SKILL.md",
+	}
+	out := make([]struct{ glob, target string }, 0, len(globs))
+	for _, g := range globs {
+		if replacement, ok := moved[g.glob]; ok {
+			g.glob = replacement
+		}
+		out = append(out, g)
+	}
+	return out
 }

@@ -424,7 +424,7 @@ func TestImportFromCodex_RecordCodexSkillAssets_PreservesScalarStyle(t *testing.
 		"---\nname: probe\ndescription: claude desc\n---\nbody\n")
 	writeFile(t, filepath.Join(dir, ".codex/skills/probe/scripts/run.sh"), "#!/bin/sh\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
@@ -452,7 +452,7 @@ func TestImportFromCodex_MergesSkillAndRecordsCodexOnlyAssets(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".codex/skills/probe/scripts/run.sh"), "#!/bin/sh\n")
 	writeFile(t, filepath.Join(dir, ".codex/skills/probe/agents/openai.yaml"), "interface: cli\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {
