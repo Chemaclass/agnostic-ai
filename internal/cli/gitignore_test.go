@@ -448,7 +448,7 @@ func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) 
 	cfg := &config.Config{}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
 	block := buildManagedBlock(cfg, hints)
-	for _, want := range []string{"/.claude/agent-memory/", "/.claude/settings.local.json"} {
+	for _, want := range []string{"/.claude/agent-memory-local/", "/.claude/settings.local.json"} {
 		found := false
 		for _, e := range block {
 			if e == want {
@@ -457,6 +457,25 @@ func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) 
 		}
 		if !found {
 			t.Errorf("managed block missing claude hint %q, got %v", want, block)
+		}
+	}
+	for _, e := range block {
+		if e == "/.claude/agent-memory/" {
+			t.Errorf("shareable agent memory store ignored: %v", block)
+		}
+	}
+}
+
+func TestGitignoreHintsForTargets_ClaudeLocalArtifactsFollowDirOverride(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
+	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json"}
+	if len(hints) != len(want) {
+		t.Fatalf("hints = %v, want %v", hints, want)
+	}
+	for i := range want {
+		if hints[i] != want[i] {
+			t.Errorf("hints[%d] = %q, want %q", i, hints[i], want[i])
 		}
 	}
 }

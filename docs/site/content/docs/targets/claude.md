@@ -67,7 +67,7 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 
-With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory/` and `/.claude/settings.local.json`, following `outputs.claude.dir`.
+With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local.
 
 ## Claude settings
 
