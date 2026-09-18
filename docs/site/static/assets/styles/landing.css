@@ -41,12 +41,12 @@ main > section[id] {
 
 .lead,
 .section-lead {
-  max-width: 44rem;
   color: var(--ink-soft);
   font-size: clamp(1.04rem, 2vw, 1.18rem);
 }
 
 .lead {
+  max-width: 44rem;
   margin-top: 1.5rem;
 }
 
@@ -265,7 +265,9 @@ main > section[id] {
   color: var(--muted);
 }
 
+/* Capped in em so the measure stays near 74 characters at every step of the fluid font size. */
 .section-lead {
+  max-width: 37em;
   margin-top: 1rem;
 }
 
@@ -344,7 +346,7 @@ main > section[id] {
   background: var(--surface-quiet);
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -390,11 +392,11 @@ main > section[id] {
 }
 
 .mission-question {
-  max-width: 46rem;
+  max-width: 37em;
   margin-top: 2rem;
   padding: 1rem 1.25rem;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 10px 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink-soft);
 }
@@ -464,7 +466,7 @@ main > section[id] {
   align-items: center;
   gap: 0.7rem;
   min-width: 0;
-  padding: 0.62rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--paper);
@@ -484,9 +486,14 @@ main > section[id] {
   white-space: pre;
 }
 
+/* 2rem keeps the tap target at 32px on touch, where this button is always visible. */
 .command button {
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
-  padding: 0.3rem 0.5rem;
+  padding: 0.3rem 0.6rem;
   border: 0;
   border-radius: 6px;
   background: var(--surface-quiet);
@@ -635,6 +642,14 @@ main > section[id] {
   }
 }
 
+/* Below the two-column hero the diagram sits under the copy, where the full row width stretches its short file rows. */
+@media (max-width: 959px) {
+  .transform {
+    width: min(100%, 30rem);
+    margin-inline: auto;
+  }
+}
+
 @media (max-width: 560px) {
   .command {
     font-size: 0.72rem;
@@ -707,7 +722,7 @@ main > section[id] {
     display: inline;
     color: var(--muted);
     font-family: var(--mono);
-    font-size: 0.68rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
