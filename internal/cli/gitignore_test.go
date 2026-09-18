@@ -605,23 +605,42 @@ func TestBuildManagedBlock_NestedKindDirCollapsesAtTheDir(t *testing.T) {
 }
 
 // The #414 guard still applies below a nested dir: a user-owned path under
-// `sync.unmanaged` keeps its directory expanded.
+// `sync.unmanaged` keeps its directory expanded. Both halves run, because
+// asserting only the expanded case would pass just as well if collapsing
+// never happened here at all (#850).
 func TestBuildManagedBlock_NestedOutputDirRespectsUnmanaged(t *testing.T) {
-	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
-	cfg.Sync.Unmanaged = []string{"vendor/.claude/agents/hand-*.md"}
-
-	block := buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"})
-
-	has := map[string]bool{}
-	for _, e := range block {
-		has[e] = true
+	newCfg := func() *config.Config {
+		return &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
 	}
-	if !has["/vendor/.claude/agents/scout.md"] {
-		t.Errorf("block missing the precise generated file: %v", block)
+	entries := func(cfg *config.Config) map[string]bool {
+		has := map[string]bool{}
+		for _, e := range buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"}) {
+			has[e] = true
+		}
+		return has
+	}
+
+	// Without a user-owned sibling, the generated subdirectory collapses.
+	// It stops there rather than at the tool dir, so siblings such as
+	// settings.json stay visible.
+	plain := entries(newCfg())
+	if !plain["/vendor/.claude/agents/"] {
+		t.Fatalf("a nested output dir with no unmanaged sibling should collapse: %v", plain)
+	}
+	if plain["/vendor/.claude/"] {
+		t.Errorf("collapsed past the generated subdirectory: %v", plain)
+	}
+
+	// With one, it must not, or the block would ignore a file the user owns.
+	cfg := newCfg()
+	cfg.Sync.Unmanaged = []string{"vendor/.claude/agents/hand-*.md"}
+	guarded := entries(cfg)
+	if !guarded["/vendor/.claude/agents/scout.md"] {
+		t.Errorf("block missing the precise generated file: %v", guarded)
 	}
 	for _, unwanted := range []string{"/vendor/.claude/agents/", "/vendor/.claude/"} {
-		if has[unwanted] {
-			t.Errorf("directory holding a user-owned file collapsed, %q: %v", unwanted, block)
+		if guarded[unwanted] {
+			t.Errorf("directory holding a user-owned file collapsed, %q: %v", unwanted, guarded)
 		}
 	}
 }
