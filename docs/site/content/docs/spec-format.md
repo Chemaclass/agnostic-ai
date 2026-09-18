@@ -147,6 +147,20 @@ Only the targets listed were checked. A top-level `effort` on an agent asks for 
 
 Cursor is the reason this is not one key everywhere. It encodes per-model options inside the model string rather than as a field, so the same intent is a frontmatter key on three targets and a model-id transformation on the fourth. Factory also ignores the field entirely under `model: inherit`.
 
+### `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
+
+Only the targets listed were checked. Both fields narrow one delegated agent: `permissionMode` sets its approval boundary, `hooks` scopes lifecycle hooks to it. Omitting either inherits the parent session.
+
+| Target | `permissionMode` | Agent `hooks` |
+|--------|------------------|---------------|
+| [Claude Code](@/docs/targets/claude.md) | Seven values, `manual` aliases `default` | Written to the agent file |
+| [Qoder](@/docs/targets/qoder.md) | Six values, another one is reported | Seven events, a wider one is reported |
+| [OpenHands](@/docs/targets/openhands.md) | Different names entirely. Set `x-openhands` | Six snake_case events, command handlers only. Set `x-openhands` |
+
+OpenHands names the same intent `always_confirm`, `never_confirm`, and `confirm_risky`, so there is no shared value space to translate into, and its agent file is the shared `.agents/agents/` tree besides. Its route stays `x-openhands`.
+
+Two Qoder behaviors worth knowing before relying on either field. `bypassPermissions` is not always what runs: "Skip permission prompts. If security policy disables it, it is demoted to `acceptEdits`." And a subagent runs a narrower event set than the project hook file's 27, so an event valid at project scope can be inert at agent scope.
+
 ### `color` support by target
 
 Only the targets listed were checked. agnostic-ai writes `color` verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.

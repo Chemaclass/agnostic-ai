@@ -186,6 +186,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	noteAgentPolicyGaps(b.Agents)
 	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
@@ -242,14 +243,14 @@ func agentMarkdown(a spec.Entry) string {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
-	for _, k := range []string{"color", "skills", "mcpServers", "effort"} {
+	for _, k := range []string{"color", "skills", "mcpServers", "effort", "permissionMode", "hooks"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)
 		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target,
-		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort")
+		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort", "permissionMode", "hooks")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {

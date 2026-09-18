@@ -18,6 +18,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- A portable `permissionMode` and agent-scoped `hooks` now reach Qoder's agent file, with a note for a value or event it does not run (#825, #826).
 - A portable `effort` on an agent reaches Qoder and, as `reasoningEffort`, Factory, which reports a note for the levels its enum does not cover (#824).
 - An agent's `mcpServers` list now reaches Factory's droid file instead of being dropped, so a narrowed tool surface survives the sync (#812).
 - A skill carrying `disable-model-invocation` reports a coverage note on Crush and Factory instead of silently becoming model-invocable there (#811).
