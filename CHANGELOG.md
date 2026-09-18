@@ -2,7 +2,9 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Entry style: one line per change. Lead with what changed, not how. State the user-facing effect. Link the issue (`#NNN`) when one exists. No em dashes, no filler.
+Entry style: one sentence per change, around 150 characters. Lead with the user-facing effect, name the flag or path a reader can check, and link the issue (`#NNN`). No em dashes, no filler.
+
+The entry is the headline, not the full account. Migration steps belong in the release briefing's `## What to do`, the reasoning belongs in the issue, and the reference detail belongs on the docs page. An entry that needs a second sentence to stay true may have one; an entry that needs four is hiding a docs gap.
 
 Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `### Removed` carry changes to the tool: what it reads, what it writes, what it refuses. Changes to agnostic-ai.org and the documentation go last, under `### Site`, grouped into a few lines rather than one per commit. A release with ten site lines and two product lines tells a reader the wrong thing about the release.
 
@@ -12,87 +14,87 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
-- A `memory-curator` skill, scoped to Claude Code and Qoder, audits an agent memory store in place and proposes merges and deletions, applying nothing until you confirm. `agnostic-ai init --demo` seeds it in a new project (#842, #843).
+- `agnostic-ai init --demo` seeds a `memory-curator` skill for Claude Code and Qoder, which audits an agent memory store and proposes merges and deletions, applying nothing until you confirm (#842, #843).
 
 ### Fixed
 
-- `agnostic-ai import crush` no longer lets a hook name steer where its spec is written. A Crush hook named `../escape` wrote outside the hooks directory; such a name now falls back to the deterministic filename and stays in the spec's `name:` field (#831).
-- `outputs.claude.dir` moves rules and commands with the rest of the tool directory, and `{{rules_dir}}` and the other path variables resolve to the moved paths. With `dir: vendor/.claude`, rules landed in `.claude/rules/` at the project root while agents and settings moved, so one target wrote into two trees. A per-kind key such as `rules-dir` still wins. If you already set `dir`, the next full sync writes rules and commands under it and sweeps the old files as orphans; Claude Code auto-loads only a project-root `.claude/rules/`, so set `rules-mode: import` if it should still load them from the moved directory (#849).
-- A nested `outputs.<target>.dir` such as `vendor/.claude` no longer collapses the managed `.gitignore` block to `/vendor/.claude/`, which ignored the whole tool directory including hand-authored files and the shareable `agent-memory/` store. The block now collapses at the generated subdirectory below the configured dir, as it already did for the default `.claude` (#846).
-- The managed `.gitignore` block ignores Claude Code's `agent-memory-local/` instead of `agent-memory/`, matching the documented scopes: `memory: project` is shareable via version control, `memory: local` is not. A previously hidden `.claude/agent-memory/` starts appearing in `git status`, and an already tracked `agent-memory-local/` stays tracked until `git rm -r --cached` removes it, since a new ignore line does not untrack files. Nothing is deleted or committed automatically (#841).
+- `import crush` no longer writes a hook spec outside the hooks directory when a hook is named `../escape` (#831).
+- `outputs.claude.dir` now moves rules, commands, and the `{{rules_dir}}` path variables with the rest of the tool directory (#849).
+- A nested `outputs.<target>.dir` such as `vendor/.claude` no longer ignores that whole directory in the managed `.gitignore` block (#846).
+- The managed `.gitignore` block ignores Claude Code's machine-local `agent-memory-local/` instead of the shareable `agent-memory/` (#841).
 
 ### Site
 
-- The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
-- The targets reference is one page per target at `/docs/targets/<id>/`, each carrying the same sections (Output, Config keys, Import where it applies, Verify). The index keeps the capability matrix and the cross-target notes, and older deep links such as `#claude-code-claude` redirect to the new page.
-- The spec format, CLI, and configuration references are roughly half their former length, with detail that applies to one target moved onto that target's page. The docs also cover agent memory and the memory boundary: the three `memory` scopes an agent spec can set, which one git carries, and why the Claude Code and Qoder auto memory stores are tool-owned and never synced.
-- The landing page states what agnostic-ai is for, with four principles and an answer to "why not just symlink one file?", and embeds the talk demo behind a click-to-play poster that loads YouTube only after the click, through youtube-nocookie.com.
-- Layout and navigation fixes: a readable measure that no longer narrows as the window widens, long inline code that no longer pushes a page sideways, tap targets at 32px with no text below 11px, the sitemap listing `/docs/targets/` and every target page again, and search working against a local `zola serve`.
+- Search across every guide, target page, and update, on Cmd/Ctrl+K or `/`.
+- The targets reference is one page per target at `/docs/targets/<id>/`, with the capability matrix on the index and old deep links redirecting.
+- The spec format, CLI, and configuration references are half their former length, and agent memory and the memory boundary are documented.
+- The landing page states the four principles, answers "why not just symlink one file?", and plays the talk demo behind a click-to-play poster.
+- Layout fixes: a readable measure, no sideways scroll from long inline code, 32px tap targets, the full sitemap, and search against a local `zola serve`.
 
 ## v0.59.0 - 2026-09-16
 
 ### Added
 
-- `agnostic-ai verify` blocks stale generated output, fingerprints the selected harness, and sends versioned JSON with the configured model and detectable CLI identity to a project-owned verifier. Output and non-zero exit codes pass through to CI (#834).
-- Portable model settings round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo. Qoder also supports shared allow, deny, and ask permissions. Target-specific settings, unrelated keys, and Codex overlay precedence remain intact (#806, #827).
-- Goose and OpenHands emit project agents to their shared `.agents/agents/<name>.md` path with portable name, description, model, and prompt content; generic tool lists raise a coverage note instead of silently using the wrong vocabulary. Goose hook specs emit a complete Open Plugins package: manifest, 12 lifecycle events, regex matchers, seconds-based timeouts, and `x-goose.on_failure` policy (#631, #629).
-- Amp environment specs emit dependency setup as executable `.agents/setup` scripts and long-running terminals as supervised `.amp/services.yaml` services. Amp's wake-time `.agents/resume` lifecycle stays intentionally unmapped (#637).
-- More native surfaces: Augment and Factory emit Markdown commands preserving documented frontmatter and `$ARGUMENTS`, with nested command namespaces on Augment; Augment ignore specs emit to `.augmentignore` and `import augment` preserves pattern order and negations; directory-scoped skills stay scoped through emit and import on Codex, Cursor, Warp, and OpenCode (#630, #808, #805).
+- `agnostic-ai verify` fails CI on stale generated output and fingerprints the harness for a project-owned verifier (#834).
+- Portable model settings round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo, with shared allow, deny, and ask permissions on Qoder (#806, #827).
+- Goose and OpenHands emit project agents to `.agents/agents/<name>.md`, and Goose hook specs emit a full Open Plugins package across 12 lifecycle events (#631, #629).
+- Amp environment specs emit `.agents/setup` scripts and supervised `.amp/services.yaml` services (#637).
+- Augment and Factory emit native commands, Augment ignore specs emit to `.augmentignore`, and directory-scoped skills stay scoped on Codex, Cursor, Warp, and OpenCode (#630, #808, #805).
 
 ### Changed
 
-- Antigravity agents use the documented `.agents/agents/<name>/agent.md` layout, avoiding collisions with Goose and OpenHands. Import prefers nested profiles, and sync migrates managed legacy flat files (#717).
+- Antigravity agents move to the documented `.agents/agents/<name>/agent.md` layout, and sync migrates managed legacy flat files (#717).
 
 ### Fixed
 
-- Codex imports package-style MCP server names containing `/` into one safe source file and preserves the exact name through sync; shared MCP importers and Continue per-server output use the same filename rule (#711).
-- Amp, Cline, and Windsurf import every documented project skill path with explicit collision precedence, bundled assets, and file modes. Windsurf also preserves native `triggers` invocation policy through import and sync (#821, #823).
-- Hooks keep their native handlers: Claude prompt hooks preserve `continueOnBlock`, Copilot preserves HTTP and `sessionStart` prompt handlers through emit and import, and Zed maps `WorktreeCreate` hooks to native `create_worktree` task hooks and restores the event on import (#804, #629, #817).
-- Factory and Windsurf skip unsupported WebSocket MCP entries with a coverage note instead of writing invalid native configuration (#809, #816).
-- Kiro preserves an explicit `x-kiro.name` display name while keeping the canonical spec name as the filename. Amp verification uses the current installer and npm package, and Copilot audits track its canonical repository settings and model policy reference (#807, #822).
+- Codex imports package-style MCP server names containing `/` without splitting them across files (#711).
+- Amp, Cline, and Windsurf import every documented skill path, with bundled assets, file modes, and Windsurf `triggers` preserved (#821, #823).
+- Hooks keep their native handlers: Claude `continueOnBlock`, Copilot HTTP and `sessionStart`, and Zed `create_worktree` (#804, #629, #817).
+- Factory and Windsurf skip unsupported WebSocket MCP entries instead of writing invalid native configuration (#809, #816).
+- Kiro keeps an `x-kiro.name` display name alongside the canonical filename, and Amp and Copilot audits track their current upstream sources (#807, #822).
 
 ### Site
 
-- `agnostic-ai.org` is the canonical GitHub Pages site, built with Zola 0.22.0 from shared templates and Markdown content: one responsive navbar, theme control, and header across every page including the playground, consistent assets, social previews, release links, discovery files, and Cronitor RUM coverage. Legacy URLs and feed identifiers remain stable.
-- User guides live at `/docs/` with task-based navigation, page outlines, mobile browsing, and source links, sharing one Markdown source with the repository and `llms-full.txt`. Coding agents can follow `/agent-setup.txt` to install, import, configure, sync, and verify agnostic-ai safely, and the website and README expose the same ready-to-paste prompt.
-- The landing page leads with a platform-matched, copy-ready install command, a three-step activation path, a ten-target integration comparison across rules, agents, skills, MCP, hooks, commands, and portable permissions, and the latest ecosystem briefing. The README keeps installation and core task guides one click away, and the site shell, playground, and favicons share the `aⁱ` brand mark. The coding-agent setup guide opens with a copy-ready TL;DR prompt above the full safety and validation workflow.
-- The capability matrix shows clear support states, filters by target name or selection, preserves comparisons in shareable URLs, keeps context visible on desktop, and switches to a vertical target summary on mobile, with CI checking every status against adapter capability declarations. The playground exposes all ten portable spec kinds, opens on an agent spec targeting Claude, Codex, and Gemini, marks unsupported targets before rendering, reads capability support from adapter declarations, and preserves user-edited source when the kind changes.
-- Release briefings ship with each release and keep the exact project changelog separate from verified upstream CLI and model news, high-impact changes first, each item stating agnostic-ai support. `target-audit` produces the evidence-backed reports and issues behind them, and `--compare-models <model>` adds a bounded challenge pass without treating model agreement as proof. The updates archive filters whole editions by target and search term, keeps applied filters in shareable URLs, and serves the complete date-ordered archive without JavaScript.
+- `agnostic-ai.org` is the canonical site, built with Zola 0.22.0 from shared templates, with legacy URLs and feed identifiers stable.
+- User guides live at `/docs/`, sharing one Markdown source with the repository and `llms-full.txt`, and `/agent-setup.txt` gives a coding agent a safe setup path.
+- The landing page leads with a copy-ready install command, a three-step activation path, and a ten-target comparison.
+- The capability matrix filters and shares comparisons by URL, and the playground covers all ten spec kinds with CI checking both against adapter declarations.
+- Release briefings ship with each release, keeping the changelog separate from verified upstream news, and the updates archive filters editions by target and search term.
 
 ## v0.58.0 - 2026-09-14
 
 ### Added
 
-- `agnostic-ai upgrade --version v0.56.1` installs one named release instead of the latest, downgrades included, so a project pinned to an older version no longer needs the install script re-run by hand. Standalone binary installs only; the tag is validated before it reaches a release URL (#800).
-- Hook specs reach Antigravity's `.agents/hooks.json`. The file is keyed by hook definition name rather than by event, so each spec becomes its own definition and `disabled: true` writes that definition's `enabled: false`; `validate` now checks Antigravity's five event names (#629).
+- `agnostic-ai upgrade --version v0.56.1` installs one named release instead of the latest, downgrades included, for standalone binary installs (#800).
+- Hook specs reach Antigravity's `.agents/hooks.json`, keyed by definition name, and `validate` checks its five event names (#629).
 - `agnostic-ai update` is an alias for `upgrade`, with the same `--run` and `--check` flags.
 - The `agent-context` skill works globally without project agents and guides root setup and context reviews (#793).
 
 ### Changed
 
-- `make tools` installs the golangci-lint version CI runs, and `make lint` stops with a named message when the installed binary is missing or stale instead of failing with an export-data decode error against untouched files (#749).
+- `make tools` installs the golangci-lint version CI runs, and `make lint` names a stale binary instead of failing with a decode error (#749).
 
 ### Fixed
 
-- `agnostic-ai upgrade` and `update` now install the latest release by default. Standalone macOS and Linux binaries are checksum-verified and replaced in place; `--check` remains read-only.
+- `agnostic-ai upgrade` and `update` install the latest release by default, checksum-verified and replaced in place; `--check` stays read-only.
 
 ## v0.57.0 - 2026-09-14
 
 ### Added
 
-- `sync.unmanaged` lists user-owned output paths (exact, `path.Match` glob, or `dir/`) that sync never writes, merges, copies, or removes. Skips print as `~ skip (unmanaged)`, `sync --check` and `doctor` ignore them, the ledger and `.gitignore` block leave them alone, and `revert` never touches them (#781).
-- `::target` / `::targets` fences work in `.agnostic-ai/AGNOSTIC_AI.md`: a fenced paragraph reaches only the entry-point files a listed target reads. `validate` flags a fence naming an unknown target, and `import` keeps a fenced source when the imported entry point matches its rendered view (#781).
-- Claude emits and imports stable HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
-- Ignore specs reach Crush's `.crushignore` and Kilo's compatibility `.kilocodeignore`, with native ignore imports for both targets, and review specs reach Goose's root and scoped `.agents/REVIEW.md` files (#770, #773, #771).
-- Continue imports JSONC MCP maps and bare server files; Zed, Warp, and Antigravity import native skill folders with bundled assets (#764, #765).
+- `sync.unmanaged` lists user-owned output paths that sync never writes, copies, or removes, and that `doctor`, the ledger, the `.gitignore` block, and `revert` all leave alone (#781).
+- `::target` fences work in `.agnostic-ai/AGNOSTIC_AI.md`, so a fenced paragraph reaches only the entry-point files a listed target reads (#781).
+- Claude emits and imports HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
+- Ignore specs reach Crush's `.crushignore` and Kilo's `.kilocodeignore`, and review specs reach Goose's `.agents/REVIEW.md` (#770, #773, #771).
+- Continue imports JSONC MCP maps, and Zed, Warp, and Antigravity import native skill folders with bundled assets (#764, #765).
 
 ### Fixed
 
-- Hook scripts materialized from `.agnostic-ai/scripts/` go through the sync session: `sync.unmanaged` protects them, a failed sync rolls them back, `--backup` covers them, `sync --check` reports hand edits, and deleting the hook sweeps its script (#789).
-- Stale generated files stop surviving a sweep. Deleting a skill removes its bundled reference files and empty folders from every target, and turning `sync.shared-skills` off no longer aborts the orphan sweep with "is a directory". Sync proves ownership of header-less outputs by content hash, keeps and reports an orphan edited since sync (`~ kept orphan`), and `sync --dry-run` no longer reports every prior output as an orphan. `sync --check` and `doctor` flag a kept orphan as drift, so delete it to clear the report (#781, #785).
-- `::target` fences survive a round trip. `import` keeps a fenced `AGNOSTIC_AI.md` when the entry point matches the view sync renders for the enabled targets and `outputs.<target>.file` overrides, so projects that enable a subset of targets or move a target's entry point no longer lose their blocks, and `import claude` reports the kept source as unchanged. `validate` accepts fences for external adapters listed in `targets` and flags fences for built-in targets that read no entry-point file, such as `cursor` or a target on the legacy rules-file layout. A fence dropped from the start of a spec body no longer leaves a leading blank line (#781, #790).
-- Sync leaves alone the parts of a file it does not own. VS Code MCP preserves `inputs`, `sandbox`, and other sibling settings while replacing the managed `servers` map, and remote servers retain `dev.watch`. Continue MCP connection options survive import and sync, Factory and Kilo preserve their documented timeout and OAuth controls, and `sync` protects hand-authored ignore files against reordered patterns, added negations, and changed whitespace, with order and whitespace intact after import followed by sync on every ignore-capable target (#757, #769, #763, #774, #775, #761).
-- Native output matches what each tool loads. Gemini hooks use the nested command format its loader requires, and import preserves distinct native handler groups, environment variables, and timeouts while accepting old flat hook files. Zed sync rejects invalid native skill names with an actionable error, and Kiro preserves zero timeouts and emits validated native actions without a fallback command (#762, #766, #772).
+- Hook scripts from `.agnostic-ai/scripts/` go through the sync session, so a failed sync rolls them back and deleting the hook sweeps the script (#789).
+- Deleting a skill removes its bundled files from every target, and sync no longer leaves stale output behind or reports every prior output as an orphan (#781, #785).
+- `::target` fences survive a round trip: `import` keeps a fenced entry point, `validate` accepts external adapters, and a dropped fence leaves no blank line (#781, #790).
+- Sync preserves what it does not own: VS Code `inputs` and `sandbox`, Continue, Factory, and Kilo MCP options, and hand-authored ignore file order (#757, #769, #763, #774, #775, #761).
+- Native output matches what each tool loads, on Gemini hooks, Zed skill names, and Kiro timeouts and actions (#762, #766, #772).
 
 ## v0.56.1 - 2026-09-12
 

@@ -27,7 +27,8 @@ When invoked:
 4. Keep `### Site` short and last. Group a release's site work into a few lines by theme, not one line per commit, and fold a docs change into the product entry it documents rather than repeating it. Ten site lines against two product lines misrepresents the release.
 5. Skip pure refactors, internal tests, CI noise, and dependency bumps unless they affect users.
 6. Reference the PR with `(#N)` when known.
-7. Keep entries one short sentence each. Lead with the effect a user can observe, not the mechanism that produced it. "Rules land under the configured dir" beats "OutputSubDir resolves the per-kind default".
+7. Keep an entry to one sentence, around 150 characters. Lead with the effect a user can observe, not the mechanism that produced it. "Rules land under the configured dir" beats "OutputSubDir resolves the per-kind default".
+8. The entry is a headline, not the full account. Migration steps go in the release briefing's `## What to do`, reasoning stays in the issue, and reference detail goes on the docs page. Before trimming detail out of an entry, confirm it exists in one of those three places; if it does not, that is a docs gap to fix, not a reason to keep a four-sentence bullet.
 
 Rank each section by consequence and cap it at five lines. A sixth line means two entries should be grouped by theme, not that the list grows. When an entry requires the reader to do something, end it with that action in the imperative, naming the command or key.
 

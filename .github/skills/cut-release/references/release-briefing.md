@@ -31,9 +31,13 @@ Four more rules keep a briefing scannable:
    never pad it to look thorough.
 2. Rank every list by consequence and cap it at five visible lines. More than
    five means grouping by theme, not a longer list.
-3. State the win concretely. "Rules land under the configured dir" is a win a
+3. Keep shipped and site entries at the length the changelog uses, one sentence
+   of about 150 characters. They are copied from the changelog, so a bloated
+   article means the changelog was bloated first. The `## What to do` section is
+   where migration detail belongs, which is what lets the entries stay short.
+4. State the win concretely. "Rules land under the configured dir" is a win a
    reader can check; "improved path resolution" is not.
-4. No preamble and no closing pleasantry. The dek is the summary; each section
+5. No preamble and no closing pleasantry. The dek is the summary; each section
    starts with substance.
 
 ## Research inputs
