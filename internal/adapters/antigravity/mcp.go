@@ -48,7 +48,7 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 }
 
 // buildMCPServer renders one `mcpServers` entry with the fields
-// Antigravity's own doc confirms (antigravity.google/docs/ide/mcp): stdio
+// Antigravity's own doc confirms (antigravity.google/docs/mcp?tab=ide): stdio
 // carries `command` plus optional `args` / `env` / `cwd`; remote
 // transports carry `serverUrl` plus optional `headers`. Both transports
 // accept `disabled` as its own boolean, the vendor's documented name for

@@ -11,9 +11,10 @@ import (
 
 const defaultHooksFile = ".agents/hooks.json"
 
-// hookEvents is the closed set from antigravity.google/docs/ide/hooks'
-// own Hook Event Names list. A spec naming anything else earns a
-// coverage note rather than a key the vendor documents no handler for.
+// hookEvents is the closed set listed under Hook Event Names on
+// antigravity.google/docs/hooks?tab=ide. A spec naming anything else
+// earns a coverage note rather than a key the vendor documents no
+// handler for.
 var hookEvents = map[string]bool{
 	"PreToolUse": true, "PostToolUse": true,
 	"PreInvocation": true, "PostInvocation": true, "Stop": true,
@@ -139,7 +140,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 // outputs.antigravity.hooks-file), the file Antigravity reads at
 // workspace scope: "Hooks are configured in a `hooks.json` file located
 // in your customization directory (e.g., `.agents/` in your workspace)"
-// (antigravity.google/docs/ide/hooks, #629). No-op when no hooks emit.
+// (antigravity.google/docs/hooks?tab=ide, #629). No-op when no hooks emit.
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	doc := buildHooks(hooks)
 	if doc == nil {

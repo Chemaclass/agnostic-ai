@@ -12,10 +12,11 @@ import (
 )
 
 // antigravityRulesDirs lists the rules directories Antigravity reads,
-// preferred first: "Antigravity now defaults to `.agents/rules`, but
-// still maintains backward support for `.agent/rules`"
-// (antigravity.google/docs/rules-workflows). Import walks the first one
-// that exists so both pre- and post-plural-default projects round-trip.
+// preferred first: "Antigravity defaults to `.agents/rules`, but still
+// maintains backward compatibility for `.agent/rules`"
+// (antigravity.google/docs/rules-workflows?tab=ide). Import walks the
+// first one that exists so both pre- and post-plural-default projects
+// round-trip.
 var antigravityRulesDirs = []string{
 	filepath.Join(".agents", "rules"),
 	filepath.Join(".agent", "rules"),
@@ -39,7 +40,7 @@ const antigravityMCPKey = "mcpServers"
 // antigravityMCPTopLevel are the mcp_config.json server keys captured
 // as first-class MCP spec fields: stdio's `command`/`args`/`env`/`cwd`,
 // remote's `headers`, and the shared `disabled` flag
-// (antigravity.google/docs/ide/mcp). `serverUrl` is also a known field
+// (antigravity.google/docs/mcp?tab=ide). `serverUrl` is also a known field
 // but renames to the spec's generic `url` before writing, since
 // buildMCPServer reads `url`, not `serverUrl` (the vendor's own doc
 // states "Legacy fields like `url` or `httpUrl` are not supported" for

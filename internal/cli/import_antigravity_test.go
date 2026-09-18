@@ -222,7 +222,7 @@ func TestImportFromAntigravity_MCPRemoteRenamesServerURLToURL(t *testing.T) {
 }
 
 // A field beyond the ones this adapter maps explicitly (authProviderType,
-// oauth, disabledTools: antigravity.google/docs/ide/mcp) round-trips
+// oauth, disabledTools: antigravity.google/docs/mcp?tab=ide) round-trips
 // through x-antigravity, the same escape hatch mcp.go's buildMCPServer
 // emits it through on the way out (#588, #589).
 func TestImportFromAntigravity_MCPUnknownFieldRoundTripsUnderXAntigravity(t *testing.T) {

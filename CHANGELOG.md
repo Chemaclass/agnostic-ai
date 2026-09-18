@@ -31,11 +31,14 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - An `outputs.kilo.skills-dir` outside the three trees Kilo Code scans by itself is now listed in `kilo.jsonc`'s `skills.paths`, so those skills load (#861).
 - Goose writes the `plugin.json` manifest for a skills-only bundle too, so `outputs.goose.skills-dir` under `.agents/plugins/<name>/skills` is discoverable (#862).
 - Windsurf ignore specs also write `.windsurfignore`, which the Devin agent respects when accessing files, next to `.devinignore` for indexing (#863).
+- A rule carrying `globs` or `alwaysApply: false` now reports a coverage note on Antigravity, which documents no frontmatter key for its four activation modes and reads the emitted file as always-on (#865).
 
 ### Site
 
 - The target filter on `/updates/` closes on a click outside it, on Escape, and when focus leaves it.
 - The docs drop throat-clearing, thesis sentences, and facts repeated on the same page.
+- Cursor runs `.claude/settings.json` hooks by default now that both opt-in gates are gone, so a repo syncing claude and cursor runs every hook twice (#865).
+- The Antigravity page cites the vendor's moved doc URLs, stops claiming `.agent/AGENTS.md` is a documented read path, and the Amp page lists the `platforms` service field (#865).
 
 ## v0.60.0 - 2026-09-18
 

@@ -85,9 +85,10 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Stop", "PostCompaction",
 		"SessionStart", "SessionEnd",
 	),
-	// The five in antigravity.google/docs/ide/hooks' own Hook Event
-	// Names list. PreToolUse and PostToolUse take a matcher; the other
-	// three take a handler list directly and ignore it (#629).
+	// The five under Hook Event Names on
+	// antigravity.google/docs/hooks?tab=ide. PreToolUse and PostToolUse
+	// take a matcher; the other three take a handler list directly and
+	// ignore it (#629).
 	"antigravity": setOf(
 		"PreToolUse", "PostToolUse",
 		"PreInvocation", "PostInvocation",
