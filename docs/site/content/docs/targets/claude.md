@@ -69,6 +69,28 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local. A store already committed before this changed stays tracked until `git rm -r --cached .claude/agent-memory-local` removes it, because an ignore line does not untrack files.
 
+## Agent memory
+
+An agent spec gives a subagent a directory that survives across sessions with a top-level `memory` key. Claude Code is the only target that acts on it. Junie copies the key into its own agent file unchanged, and every other adapter drops it, so the same spec stays portable.
+
+```yaml
+---
+name: code-reviewer
+description: Reviews diffs for bugs and style.
+memory: project
+---
+```
+
+| Scope | Directory | Git |
+|---|---|---|
+| `user` | `~/.claude/agent-memory/<name>/` | outside the repository, so git never sees it |
+| `project` | `.claude/agent-memory/<name>/` | documented as shareable via version control, so commit it if the team wants it shared |
+| `local` | `.claude/agent-memory-local/<name>/` | documented as not to be checked into version control |
+
+Claude Code creates and writes the directory itself, on first use. agnostic-ai only emits the frontmatter key, and never reads or writes the store.
+
+This is subagent memory. It writes to its own directory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
+
 ## Claude settings
 
 The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers, so partial adoption works.

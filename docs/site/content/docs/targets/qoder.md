@@ -71,6 +71,12 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
 | `outputs.qoder.commands-dir` | `.qoder/commands` |
 | `outputs.qoder.mcp-file` | `.qoder/settings.json` (also the hooks path since the two share one file) |
 
+## Auto memory
+
+Qoder keeps an automatic memory store it writes for itself ([docs.qoder.com/cli/memory](https://docs.qoder.com/cli/memory)): a project store at `~/.qoder/projects/<project>/memory/` and a user store at `~/.qoder/memory/`. Each one is a `MEMORY.md` index plus one file per topic. Run `/memory` for the overview and `/memory manage` to view, edit, or delete a topic file. A session loads the first 200 lines or about 25KB of each active `MEMORY.md` and drops everything past that.
+
+Auto memory is off until you enable it, and agnostic-ai never reads or writes the store. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
+
 ## Verify
 
 1. Install Qoder from [qoder.com](https://qoder.com).

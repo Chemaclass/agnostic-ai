@@ -15,7 +15,7 @@ Turns a project with no shared AI config into one where a single set of specs dr
 
    ```bash
    agnostic-ai init --all      # every target, no prompt
-   agnostic-ai init --demo     # plus one example spec per kind
+   agnostic-ai init --demo     # plus example specs to start from
    ```
 
    `init` alone opens a target picker when stdin is a TTY. In a non-interactive session, pass `--all` or pipe a list: `echo "claude,codex" | agnostic-ai init`.

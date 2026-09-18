@@ -63,7 +63,8 @@ type scaffoldOptions struct {
 	// Preset, when set, seeds idiomatic specs for a stack ("go",
 	// "ts-react", "python"). Composes with Demo.
 	Preset string
-	// Demo seeds one minimal example spec per source folder.
+	// Demo seeds example specs: a minimal one per source folder,
+	// plus the memory-curator skill.
 	Demo bool
 	// DryRun prints the planned filesystem changes without touching
 	// disk.
@@ -163,7 +164,7 @@ func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
 		}
 	}
 	if opts.Demo {
-		summaryf("seeded one example spec per source folder. delete or edit to taste.\n")
+		summaryf("seeded example specs, one per source folder plus the memory-curator skill. delete or edit to taste.\n")
 	}
 	if opts.Preset != "" {
 		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", opts.Preset)
