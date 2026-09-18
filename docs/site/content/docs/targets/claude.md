@@ -69,6 +69,8 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 
+`import claude` and `agnostic-ai doctor` read the same resolved paths, so a moved directory round-trips and an unmanaged file under it is still reported (#852).
+
 `dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/` and commands in `vendor/.claude/commands/`, and `{{rules_dir}}` and the other path variables resolve there too. A per-kind key overrides that path on its own. Moving `dir` after a sync leaves the old rules and commands behind until the next full sync sweeps them as orphans, and Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import` to reach the session.
 
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local. A store already committed before this changed stays tracked until `git rm -r --cached .claude/agent-memory-local` removes it, because an ignore line does not untrack files.

@@ -21,7 +21,7 @@ func TestImportFromClaude_WarnsAboutDivergentSiblingEntryPoint(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Claude guide\n\nFull instructions.\n")
 	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Agents\n\nUnique codex-only notes.\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,7 +48,7 @@ func TestImportFromClaude_NoWarnWhenSiblingMatches(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), body)
 	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "unique content") {

@@ -91,7 +91,7 @@ func runImport(root, source string, cfg *config.Config) error {
 	case "all":
 		return importAll(root, cfg)
 	case "claude":
-		return importFromClaude(root, src)
+		return importFromClaude(root, src, claudeLayoutFor(cfg))
 	case "codex":
 		return importFromCodexWithOpts(root, src, importCodexOpts{
 			Shred:     cfg.Import.Codex.Shred,

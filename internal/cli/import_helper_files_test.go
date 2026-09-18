@@ -54,7 +54,7 @@ func TestImportClaude_NestedMainFilePromotedToSharedBody(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".claude/CLAUDE.md"), body)
 	writeFile(t, filepath.Join(dir, ".claude/README.md"), "operator docs\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,7 +85,7 @@ func TestImportClaudeNestedThenSync_PropagatesToCodex(t *testing.T) {
 	body := "# phel-doom\n\nNested instructions body for every tool.\n"
 	writeFile(t, filepath.Join(dir, ".claude/CLAUDE.md"), body)
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	writeMinimalConfig(t, dir, ".agnostic-ai")
@@ -140,7 +140,7 @@ func TestImportClaudeThenSync_HelperFilesRoundTrip(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n")
 
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 

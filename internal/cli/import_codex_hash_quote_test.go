@@ -118,7 +118,7 @@ func TestImportFromCodex_MergedSkillDescriptionWithHash_NotTruncated(t *testing.
 		"---\nname: gh-issue\ndescription: claude version\n---\n\nclaude body.\n")
 	writeFile(t, filepath.Join(dir, ".codex", "skills", "gh-issue", "SKILL.md"),
 		"---\nname: gh-issue\ndescription: End-to-end. Use when given #number or URL.\n---\n\ncodex body.\n")
-	if err := importFromClaude(dir, rootSources()); err != nil {
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
 	if err := importFromCodex(dir, rootSources()); err != nil {

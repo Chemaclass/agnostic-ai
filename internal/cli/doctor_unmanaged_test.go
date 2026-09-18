@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // A hand-authored config file (no provenance marker) is reported as
@@ -17,7 +18,7 @@ func TestFindUnmanagedConfig_FlagsOnlyUnmarkedFiles(t *testing.T) {
 	// Generated: carries the marker -> managed, must not be flagged.
 	mustWriteFile(t, filepath.Join(dir, "GEMINI.md"), "<!-- "+header.Marker+" -->\npointer body\n")
 
-	got, err := findUnmanagedConfig(dir)
+	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
 		t.Fatalf("findUnmanagedConfig: %v", err)
 	}
@@ -41,7 +42,7 @@ func TestFindUnmanagedConfig_FlagsOnlyUnmarkedFiles(t *testing.T) {
 
 // A clean tree with no known config files yields no findings.
 func TestFindUnmanagedConfig_EmptyTree(t *testing.T) {
-	got, err := findUnmanagedConfig(t.TempDir())
+	got, err := findUnmanagedConfig(t.TempDir(), &config.Config{})
 	if err != nil {
 		t.Fatalf("findUnmanagedConfig: %v", err)
 	}
