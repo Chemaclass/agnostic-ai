@@ -29,6 +29,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindIgnore, []string{".devinignore", ".windsurfignore"}},
 		{spec.KindMCP, []string{".devin/mcp_config.json"}},
 		{spec.KindHook, []string{".devin/hooks.v1.json"}},
+		{spec.KindSettings, []string{".devin/config.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

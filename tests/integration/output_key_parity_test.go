@@ -66,6 +66,21 @@ var documentedNoOpKeys = map[string]string{
 	"windsurf.workflows-dir": "Devin Desktop removed Cascade, the only agent that read a Workflow file",
 }
 
+// probeKinds overrides the spec kind a key's probe uses where one
+// config field serves a different surface on a different target.
+// `conf-file` carries Aider's model settings out of a rule sync, but
+// Devin's project permission policy out of a settings spec.
+var probeKinds = map[string]string{
+	"windsurf.conf-file": "settings",
+}
+
+func probeKind(target, key, fallback string) string {
+	if kind, ok := probeKinds[target+"."+key]; ok {
+		return kind
+	}
+	return fallback
+}
+
 // overrideValues holds the value to probe with where a target
 // validates the shape of the path it accepts.
 var overrideValues = map[string]string{
@@ -97,6 +112,11 @@ func outputKeyProbeEntry(kind string) spec.Entry {
 		return spec.Entry{Kind: spec.KindIgnore, Name: "probe", Body: "node_modules/"}
 	case "review":
 		return spec.Entry{Kind: spec.KindReview, Name: "probe", Path: "reviews/probe.md", Body: "b"}
+	case "settings":
+		return spec.Entry{Kind: spec.KindSettings, Name: "probe", Path: "settings/probe.yaml", Meta: map[string]any{
+			"model":       "probe-model",
+			"permissions": map[string]any{"deny": []any{"Bash(rm:*)"}},
+		}}
 	case "environment":
 		return spec.Entry{Kind: spec.KindEnvironment, Name: "probe", Meta: map[string]any{
 			"install":   "echo hi",
@@ -169,7 +189,7 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 				t.Errorf("%s documents outputs.%s.%s, which this test cannot probe; add it to outputKeyProbes or valueOutputKeys", target, target, key)
 				continue
 			}
-			entry := outputKeyProbeEntry(probe.kind)
+			entry := outputKeyProbeEntry(probeKind(target, key, probe.kind))
 			before := emittedPaths(t, target, &config.Config{}, entry)
 
 			out := config.Output{}

@@ -18,7 +18,7 @@ AGENTS.md                     # canonical entry-point pointer body + inlined rul
 ├── rules/<name>.md           # one per rule
 ├── agents/<name>.md          # one per agent
 ├── commands/<name>.md        # one per command; nested source scope becomes a namespace
-└── settings.json             # mcpServers + hooks, merged; only present with MCP or hook specs
+└── settings.json             # mcpServers + hooks + toolPermissions, merged; only present with MCP, hook, or settings specs
 .agents/skills/<name>/SKILL.md  # one folder per skill (shared cross-tool tree)
 .augmentignore                # workspace indexing exclusions
 .augment-guidelines           # opt-in legacy concatenated rules, only when rules-file is set
@@ -38,6 +38,12 @@ Hooks merge into that same `.augment/settings.json`, under a `hooks` key, in the
 
 `command` must be a path ending in `.sh`, `.ps1`, `.cmd`, or `.bat`: "Path to the script to execute (must use a supported script extension: .ps1, .cmd, .bat, or .sh)". Unlike Claude Code, Codex, and Qoder, Augment never runs an inline shell string; a command missing one of the four extensions still emits verbatim (no guessed rename) but surfaces a coverage note. `matcher` is optional even on `PreToolUse`/`PostToolUse` (vendor default `.*`) and omitted entirely on the three session events, which the vendor documents as not using it at all. Augment's own PreToolUse/PostToolUse matcher vocabulary is its own tool names (`launch-process`, `str-replace-editor`, `save-file`, ...), the same set `x-augment.tools` already documents above, so a Claude-style matcher (`Bash`, `Write`, ...) parses and then matches nothing; that case surfaces a coverage note too.
 
+Settings specs merge into that same file under `toolPermissions`, in the same one write: "`toolPermissions` is honored by the Auggie CLI and by Cosmos cloud agents", and "Committing a `.augment/settings.json` to your repository is the recommended way to enforce an organizational policy (for example, blocking `git merge`) on every cloud agent that runs there" ([docs.augmentcode.com/cli/permissions](https://docs.augmentcode.com/cli/permissions), #856).
+
+The shape is an ordered array, and one rule's `permission` is an **object**: "`permission` must be an object with a `type` field, `{ "type": "deny" }`, not the bare string `"deny"`. A rule with a bare-string permission is malformed and is dropped." Order decides the outcome ("Rules are evaluated in order from top to bottom" and "The first matching rule determines the permission"), so deny rules emit ahead of allow rules. A bare tool name maps onto Augment's own six (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, and so on), `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`, an exact `Bash(command)` anchors both ends, and `mcp__<server>__<tool>` becomes the documented `{tool-name}_{server-name}` spelling.
+
+Three portable things reach nothing here, each with a coverage note rather than a guess. `model` has no documented key in this file. The `ask` list has no Augment permission type: the four are `allow`, `deny`, `webhook-policy`, and `script-policy`, and none of them prompts. And a path- or URL-scoped rule such as `Read(src/**)` has no Augment matcher, since only `terminal` takes one, so flattening it onto a bare `read` would widen it to every file on disk. Set `x-augment.toolPermissions` to write Augment's own rule objects; they pass through verbatim, ahead of the translated ones.
+
 Commands emit to `.augment/commands/<scope>/<name>.md`; a source-layout scope becomes a nested command namespace, while `description`, `argument-hint`, and `model` stay in frontmatter. Ignore specs emit to `.augmentignore`, and `import augment` restores a hand-authored file without changing pattern order or negation semantics.
 
 ## Config keys
@@ -50,11 +56,12 @@ Commands emit to `.augment/commands/<scope>/<name>.md`; a source-layout scope be
 | `outputs.augment.commands-dir` | `.augment/commands` | |
 | `outputs.augment.ignore-file` | `.augmentignore` | |
 | `outputs.augment.rules-file` | unset | opt-in, writes the legacy concatenated `.augment-guidelines` document |
-| `outputs.augment.mcp-file` | `.augment/settings.json` | also the hooks file, since both merge into the same document |
+| `outputs.augment.mcp-file` | `.augment/settings.json` | also the hooks and permissions file, since all three merge into the same document |
 
 ## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
-2. Check the tree: `ls AGENTS.md .augment/rules/ .augment/agents/ .agents/skills/`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set and `.augment/settings.json` when MCP or hook specs are present.
+2. Check the tree: `ls AGENTS.md .augment/rules/ .augment/agents/ .agents/skills/`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set and `.augment/settings.json` when MCP, hook, or settings specs are present.
 3. Open the project; Augment reads `AGENTS.md`, `.augment/rules/`, `.augment/agents/`, `.agents/skills/`, and (via Auggie CLI) `.augment/settings.json` (and `.augment-guidelines` when present).
 4. When hook specs exist, confirm each `.augment/settings.json` `hooks.<Event>` entry loads. `auggie` prints no "invalid hook" warning at startup, and a `PreToolUse` hook against a script ending in `.sh`/`.ps1`/`.cmd`/`.bat` actually runs on the matching tool call.
+5. When settings specs exist, `auggie` prints no dropped-rule warning at startup (the vendor warns on a malformed rule), a tool covered by a `deny` rule is blocked, and one covered by `allow` runs without approval.

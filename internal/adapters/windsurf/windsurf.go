@@ -133,6 +133,32 @@
 // file back the same way it already does for rules, agents, skills,
 // and MCP: see internal/cli/import_windsurf_hooks.go.
 //
+// Settings specs merge into `.devin/config.json` (override via
+// outputs.windsurf.conf-file) under `permissions`, the committed
+// project policy Devin's own approval prompts write to: "Allow for
+// project | `.devin/config.json` | Yes"
+// (docs.devin.ai/cli/reference/permissions). Only that one key is set,
+// so `read_config_from`, `hooks`, and any sibling inside `permissions`
+// itself survive the sync; those three are the only keys Devin accepts
+// there anyway ("Only `permissions`, `read_config_from`, and `hooks`
+// are available in project configs",
+// docs.devin.ai/cli/reference/configuration/config-file).
+//
+// A portable `model` deliberately stays out: the same page marks the
+// `agent` block user only, so writing `agent.model` into a project
+// config would reach nothing. It surfaces a coverage note instead.
+//
+// Devin's rule vocabulary is its own, so each rule translates the same
+// way `allowed-tools` already does on an agent; see
+// devinPermissionRule for the table. A `Bash(...)` rule is never
+// written verbatim: Devin spells shell execution `Exec(...)`. An exact
+// `Bash(cmd)` has no faithful form at all, since Devin's `Exec` only
+// ever prefix-matches, so it drops into a coverage note rather than
+// widening an allow rule the author never wrote.
+// `x-windsurf.permissions` passes through untranslated for an author
+// who already knows Devin's spelling. See settings.go (target-audit
+// 2026-09-18, #856).
+//
 // Ignore specs emit as both `.devinignore` (override via
 // outputs.windsurf.ignore-file) and `.windsurfignore`, gitignore syntax
 // under a `#` provenance header. The two names are not one path and its
@@ -191,11 +217,15 @@ const (
 	// reads. The legacy Cascade agent has no project-tier MCP file of
 	// its own to preserve compatibility with.
 	defaultMCPFile = ".devin/mcp_config.json"
+	// defaultConfigFile is Devin's committed project config, the file
+	// its permission prompts write an "Allow for project" grant to.
+	// This adapter only ever sets the `permissions` key on it.
+	defaultConfigFile = ".devin/config.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP, spec.KindHook},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP, spec.KindHook, spec.KindSettings},
 }
 
 // Adapter emits Windsurf configs.
@@ -264,6 +294,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitConfig(sess, b.Settings, emit.OutputConfFile(cfg, target, defaultConfigFile), dryRun); err != nil {
 		return err
 	}
 	warnWorkflowsDirRemoved(sess, cfg)

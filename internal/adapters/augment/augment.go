@@ -122,12 +122,39 @@
 // same treatment openhands and windsurf give their own mismatched tool
 // vocabularies. See hooks.go for the field-level detail.
 //
+// Settings specs merge into that same file under `toolPermissions`, in
+// the same one emitSettings write: "`toolPermissions` is honored by the
+// Auggie CLI and by Cosmos cloud agents", and "Committing a
+// `.augment/settings.json` to your repository is the recommended way to
+// enforce an organizational policy (for example, blocking `git merge`)
+// on every cloud agent that runs there"
+// (docs.augmentcode.com/cli/permissions, target-audit 2026-09-18,
+// #856).
+//
+// The shape is an ordered array, not a map, and one rule's `permission`
+// is an **object**: "`permission` must be an object with a `type`
+// field, `{ "type": "deny" }`, not the bare string `"deny"`. A rule
+// with a bare-string permission is malformed and is dropped." Order is
+// load-bearing too ("first match wins"), so deny rules emit ahead of
+// allow rules; see buildToolPermissions.
+//
+// Three portable things reach nothing here and each surfaces a
+// coverage note rather than a guess. `model` has no documented key in
+// this file. The `ask` list has no Augment permission type: the four
+// are allow, deny, webhook-policy, and script-policy, and none of them
+// prompts. And a path- or URL-scoped rule such as `Read(src/**)` has
+// no Augment matcher, since only `terminal` takes one
+// (`shellInputRegex`), so flattening it onto a bare `read` would widen
+// it to every file on disk. `x-augment.toolPermissions` passes an
+// author's own native rules through verbatim, ahead of the translated
+// ones. See settings.go.
+//
 // Commands emit at `.augment/commands/<name>.md`, and ignore specs emit
 // at the project-root `.augmentignore`. Both paths respect their output
 // overrides.
 //
 // caps.Supports declares KindRule, KindAgent, KindSkill, KindMCP,
-// KindHook, KindCommand, and KindIgnore.
+// KindHook, KindCommand, KindIgnore, and KindSettings.
 package augment
 
 import (
@@ -151,15 +178,16 @@ const (
 	defaultCommandsDir = ".augment/commands"
 	defaultIgnoreFile  = ".augmentignore"
 	// defaultSettingsFile is the project-tier settings file (see the
-	// package doc). This adapter only sets the `mcpServers` and `hooks`
-	// keys on it; every other key (shell, startupScript, theme, plugin
-	// keys, and tool permissions) is left alone by emit.MergeJSONFile.
+	// package doc). This adapter sets the `mcpServers`, `hooks`, and
+	// `toolPermissions` keys on it; every other key (shell,
+	// startupScript, theme, plugin keys) is left alone by
+	// emit.MergeJSONFile.
 	defaultSettingsFile = ".augment/settings.json"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 }
 
 // Adapter emits Augment configs.
@@ -216,7 +244,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
-	return emitSettings(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
+	return emitSettings(sess, b.MCPs, b.Hooks, b.Settings, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun)
 }
 
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
@@ -242,11 +270,12 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 
 // emitSettings merges MCP servers under `mcpServers` (the exact shape
 // emit.MCPSchemaServersMap already produces for Claude Code, Cursor,
-// Qoder, and Factory) and hooks under `hooks` (see hooks.go) into
-// `.augment/settings.json` in one `MergeJSONFile` call. Routes through
-// emit.MergeJSONFile so the file's other keys (shell, startupScript,
-// theme, plugin keys, tool permissions) survive the sync untouched;
-// only `mcpServers` and `hooks` are ever set here.
+// Qoder, and Factory), hooks under `hooks` (see hooks.go), and the
+// portable permission policy under `toolPermissions` (see settings.go)
+// into `.augment/settings.json` in one `MergeJSONFile` call. Routes
+// through emit.MergeJSONFile so the file's other keys (shell,
+// startupScript, theme, plugin keys) survive the sync untouched; only
+// those three are ever set here.
 //
 // That file is JSONC: "The files support JSON with Comments (JSONC),
 // allowing comments and trailing commas for better documentation"
@@ -264,7 +293,7 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 // the collision check as though two targets disagreed on the file's
 // content, when only this adapter writes it (qoder hit exactly this,
 // #629, #718).
-func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
+func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
 	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
 	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	keys := map[string]any{}
@@ -273,6 +302,11 @@ func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dry
 	}
 	if block := buildHooksBlock(hooks); block != nil {
 		keys[hooksKey] = block
+	}
+	rules, droppedRules := buildToolPermissions(settings)
+	noteSettingsGaps(settings, droppedRules)
+	if len(rules) > 0 {
+		keys[toolPermissionsKey] = rules
 	}
 	if len(keys) == 0 {
 		return nil

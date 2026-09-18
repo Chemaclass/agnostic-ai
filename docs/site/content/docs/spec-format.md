@@ -126,8 +126,11 @@ Only the targets listed were checked. agnostic-ai writes `color` verbatim and do
 | [Augment](@/docs/targets/augment.md) | Free text, an ANSI color name |
 | [Kilo Code](@/docs/targets/kilo.md) | Hex or a theme token |
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
+| [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
 `color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token.
+
+OpenHands documents `color` on a project agent, but its agent files live in `.agents/agents/`, a tree it shares byte-for-byte with [Goose](@/docs/targets/goose.md), whose frontmatter has no such key. A portable `color` prints a coverage note there instead of reaching the file.
 
 ## Skills
 

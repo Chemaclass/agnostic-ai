@@ -25,5 +25,27 @@
       ],
       "command": "npx"
     }
-  }
+  },
+  "toolPermissions": [
+    {
+      "permission": {
+        "type": "deny"
+      },
+      "shellInputRegex": "^rm",
+      "toolName": "terminal"
+    },
+    {
+      "permission": {
+        "type": "allow"
+      },
+      "toolName": "read"
+    },
+    {
+      "permission": {
+        "type": "allow"
+      },
+      "shellInputRegex": "^npm test",
+      "toolName": "terminal"
+    }
+  ]
 }

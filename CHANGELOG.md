@@ -10,6 +10,12 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Added
+
+- Settings specs reach Windsurf: the portable permission lists merge into `.devin/config.json` under `permissions`, translated onto Devin's own rule vocabulary (#856).
+- Settings specs reach Augment: the portable permission lists merge into `.augment/settings.json` under `toolPermissions`, in the object form the vendor requires (#856).
+- A portable `color` on an OpenHands agent now prints a coverage note naming `x-openhands.color` instead of being dropped in silence (#864).
+
 ### Fixed
 
 - `outputs.claude.agents-dir` and `outputs.claude.skills-dir` now move the emitted agents and skills instead of being silently ignored.

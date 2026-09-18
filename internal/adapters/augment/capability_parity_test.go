@@ -41,6 +41,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindHook, []string{".augment/settings.json"}},
 		{spec.KindCommand, []string{".augment/commands/review.md"}},
 		{spec.KindIgnore, []string{".augmentignore"}},
+		{spec.KindSettings, []string{".augment/settings.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -77,24 +78,27 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for a
-// kind augment does not declare in caps.Supports. Settings remains
-// unsupported because Augment's ordered first-match permission rules
-// cannot be represented losslessly by the shared grouped lists. A future caps.Supports expansion needs to
-// delete the matching row here and demonstrate the emit path that
-// backs the new claim.
+// kind augment does not declare in caps.Supports (Review). Settings
+// moved out of this set in #856: the ordered first-match array is not
+// losslessly interchangeable with the shared grouped lists, but the
+// parts that do not survive (the ask list, a path-scoped rule) each
+// raise a coverage note now, which is the same bar every other
+// partial mapping in this repo meets. A future caps.Supports expansion
+// needs to delete the matching row here and demonstrate the emit path
+// that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example"}},
+		{Kind: spec.KindReview, Name: "review", Path: "reviews/review.md", Body: "Review changes."},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (settings), got %d", got)
+		t.Errorf("expected 1 capability warning (review), got %d", got)
 	}
 }
 

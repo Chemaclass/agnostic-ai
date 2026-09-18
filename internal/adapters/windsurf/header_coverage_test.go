@@ -127,6 +127,14 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "fmt-go",
 			Meta: map[string]any{"event": "PostToolUse", "matcher": "edit", "command": "gofmt -w"},
 		},
+		{
+			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",
+			Meta: map[string]any{"permissions": map[string]any{
+				"allow": []any{"Read(**)", "Bash(go test:*)"},
+				"deny":  []any{"Bash(rm:*)"},
+				"ask":   []any{"Write(.env*)"},
+			}},
+		},
 	}
 	return spec.NewBundle(entries)
 }
