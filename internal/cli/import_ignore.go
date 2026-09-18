@@ -29,6 +29,16 @@ var ignoreFileByTarget = map[string]string{
 	"windsurf": ".devinignore",
 }
 
+// fallbackIgnoreFiles are further files a target emits from the same
+// Ignore spec, read only when the primary file above is absent. Devin
+// reads `.devinignore` for indexing and `.windsurfignore` for agent
+// file access, and sync writes both, so a project that hand-authored
+// only the second one still has its patterns read back before sync
+// takes the file over (#863).
+var fallbackIgnoreFiles = map[string][]string{
+	"windsurf": {".windsurfignore"},
+}
+
 // importIgnoreFile reads the target's hand-authored ignore file and
 // writes its patterns into `<src.Ignore>/<target>.md`, so a project
 // that kept credentials out of agent context by hand keeps doing so
@@ -38,7 +48,8 @@ var ignoreFileByTarget = map[string]string{
 // A file carrying the agnostic-ai provenance header imports nothing:
 // the specs that produced it are already the source of truth, and
 // reading it back would emit every pattern twice on the next sync.
-// A missing or empty file imports nothing either.
+// A missing or empty file imports nothing either. A target emitting a
+// second file from the same spec falls back to it, first match wins.
 //
 // The imported spec is unscoped, so all ignore-capable targets receive
 // it. The overwrite guard still checks each target's existing patterns.
@@ -47,13 +58,23 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	if !ok || src.Ignore == "" {
 		return 0, nil
 	}
-	path := filepath.Join(root, filepath.FromSlash(name))
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
+	var (
+		data []byte
+		err  error
+	)
+	for _, candidate := range append([]string{name}, fallbackIgnoreFiles[target]...) {
+		path := filepath.Join(root, filepath.FromSlash(candidate))
+		data, err = os.ReadFile(path)
+		if err == nil {
+			name = candidate
+			break
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return 0, fmt.Errorf("read %s: %w", path, err)
+		}
 	}
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", path, err)
+		return 0, nil
 	}
 	if header.Has(string(data)) {
 		return 0, nil

@@ -258,10 +258,9 @@ func TestEmit_RulesDirOverride_KeepsLegacyWindsurfTree(t *testing.T) {
 	}
 }
 
-// .devinignore is the vendor-documented current ignore-file path
-// (docs.devin.ai/desktop/context-awareness/windsurf-ignore); the legacy
-// `.codeiumignore` and `.windsurfignore` filenames stay reader-side
-// only, so this adapter never writes either.
+// `.devinignore` is what Devin Desktop Indexing skips. `.codeiumignore`
+// is its legacy alias, reachable through the ignore-file override
+// (docs.devin.ai/desktop/context-awareness/windsurf-ignore).
 func TestEmit_IgnoreFile_WritesDevinignore(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -299,6 +298,74 @@ func TestEmit_IgnoreFileOverride(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".devinignore")); !os.IsNotExist(err) {
 		t.Errorf("override must not also write the default, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".windsurfignore")); err != nil {
+		t.Errorf("the agent ignore file is a separate surface and survives the override: %v", err)
+	}
+}
+
+// `.windsurfignore` is not a legacy alias for `.devinignore`. The vendor
+// gives the two files different jobs: "The agent additionally respects
+// `.windsurfignore` files when accessing files." One Ignore spec writes
+// both, so a pattern reaches the indexer and the agent (target-audit
+// 2026-09-18, #863).
+func TestEmit_IgnoreFile_AlsoWritesWindsurfignoreForTheAgent(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env\nsecrets/"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".windsurfignore"))
+	if err != nil {
+		t.Fatalf("missing .windsurfignore: %v", err)
+	}
+	body := string(got)
+	for _, want := range []string{"*.env", "secrets/"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+	if !strings.HasPrefix(body, "#") {
+		t.Errorf("expected shell-style (#) provenance header, got:\n%s", body)
+	}
+}
+
+// Pointed at `.windsurfignore` itself, the one file covers both
+// surfaces and is written once.
+func TestEmit_IgnoreFileOverriddenToWindsurfignore_WritesOneFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {IgnoreFile: ".windsurfignore"}},
+	}
+	entries := []spec.Entry{{Kind: spec.KindIgnore, Name: "secrets", Body: "*.env"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".windsurfignore")); err != nil {
+		t.Errorf("expected .windsurfignore: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".devinignore")); !os.IsNotExist(err) {
+		t.Errorf("override must not also write the default, err=%v", err)
+	}
+}
+
+// No Ignore spec means no ignore file at either path.
+func TestEmit_NoIgnoreSpecs_WritesNeitherIgnoreFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "rule body"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{".devinignore", ".windsurfignore"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+			t.Errorf("unexpected %s, err=%v", name, err)
+		}
 	}
 }
 

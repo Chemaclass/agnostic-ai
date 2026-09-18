@@ -46,6 +46,18 @@
 // `hooks/hooks.json`. `outputs.goose.hooks-file` can move the hook file;
 // the manifest follows at the parent plugin root.
 //
+// Skills are the plugin's other component: "A plugin can provide skills,
+// hooks, or both", and "A plugin is a directory with a plugin manifest
+// and optional component directories"
+// (documentation/docs/guides/context-engineering/plugins.md). So
+// `outputs.goose.skills-dir: .agents/plugins/<name>/skills` writes the
+// same manifest, with or without a hook spec. Until this fix the
+// manifest existed only as a side effect of emitting hooks, and a
+// skills-only bundle was undiscoverable (target-audit 2026-09-18,
+// #862). Goose namespaces a plugin's skills: "The `review` skill in
+// `my-plugin` is loaded as `my-plugin:review`". One plugin carrying
+// both components gets one manifest.
+//
 // Reviews emit plain bodies to .agents/REVIEW.md at the root and in each
 // scope, with same-scope specs concatenated. goose review composes changed-
 // file directories and their ancestors. outputs.goose.review-file overrides
@@ -115,10 +127,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitScopedRulesFiles(sess, scoped, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
+	hooksPlugin, err := emitHooks(sess, b.Hooks, cfg, dryRun)
+	if err != nil {
 		return err
 	}
-	return emitReviews(sess, b.Reviews, cfg, dryRun)
+	if err := emitReviews(sess, b.Reviews, cfg, dryRun); err != nil {
+		return err
+	}
+	var skillsPlugin string
+	if len(b.Skills) > 0 {
+		skillsPlugin = pluginSkillsRoot(skillsDir)
+	}
+	return writePluginManifests(sess, []string{hooksPlugin, skillsPlugin}, dryRun)
 }
 
 func noteDroppedAgentTools(agents []spec.Entry) {

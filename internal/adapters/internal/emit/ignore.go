@@ -28,7 +28,7 @@ func IgnoreBody(ignores []spec.Entry) string {
 // WriteIgnoreFile writes the combined ignore patterns to path with a
 // shell-style (`#`) provenance header, matching the comment syntax
 // every gitignore-style ignore file understands: cursor `.cursorignore`,
-// gemini `.geminiignore`, aider `.aiderignore`, windsurf `.devinignore`,
+// gemini `.geminiignore`, aider `.aiderignore`, windsurf `.devinignore` and `.windsurfignore`,
 // kiro `.kiroignore`, trae `.trae/.ignore`, junie `.aiignore`. No-op
 // when the patterns are empty so a target never writes a surprise empty
 // ignore file.

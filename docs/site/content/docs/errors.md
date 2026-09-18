@@ -76,7 +76,7 @@ Two or more enabled targets would write to the same path (commonly the root `AGE
 
 ### AAI-103: Hand-authored ignore file cannot be safely overwritten
 
-A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, so `sync` cannot prove its exclusions survive and leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
+A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.windsurfignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, so `sync` cannot prove its exclusions survive and leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
 
 **Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format.md#overwrite-behaviour).
 

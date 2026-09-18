@@ -22,6 +22,9 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
 - OpenCode skill names and Junie agent names that break the vendor's documented regex now fail sync, instead of writing a file the tool never loads (#857).
 - Cursor hook specs that filter `beforeTabFileRead` or `afterTabFileEdit` no longer raise LINT005, since the vendor's matcher table documents both (#860).
+- An `outputs.kilo.skills-dir` outside the three trees Kilo Code scans by itself is now listed in `kilo.jsonc`'s `skills.paths`, so those skills load (#861).
+- Goose writes the `plugin.json` manifest for a skills-only bundle too, so `outputs.goose.skills-dir` under `.agents/plugins/<name>/skills` is discoverable (#862).
+- Windsurf ignore specs also write `.windsurfignore`, which the Devin agent respects when accessing files, next to `.devinignore` for indexing (#863).
 
 ### Site
 
