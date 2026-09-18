@@ -84,6 +84,8 @@ Devin Local does not pick the surface back up: "Workflows are not available with
 
 ## Import
 
+`import windsurf` also reads `permissions` back from `.devin/config.json`. Devin's `Exec` is a prefix matcher with no exact-command form, so it imports as the portable prefix spelling `Bash(<cmd>:*)` rather than the narrower `Bash(<cmd>)`.
+
 `agnostic-ai import windsurf` reads rules from `.devin/rules/`, falling back to legacy `.windsurf/rules/`, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
 
 Skills import from `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`. The first same-name skill wins. Bundled assets and executable modes survive, and native `triggers` move under `x-windsurf` as described under **Skills**.

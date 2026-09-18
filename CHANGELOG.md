@@ -12,6 +12,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
+- `import windsurf` and `import augment` read back the committed permission policy sync writes, so a project that already had one keeps it (#872).
 - Antigravity ships a workspace plugin when a per-kind output key points into `.agents/plugins/<name>/`: the required `plugin.json` manifest is written for you (#810).
 - Portable permission lists reach Windsurf's `.devin/config.json` and Augment's `.augment/settings.json`, translated onto each vendor's rule shape (#856).
 - A portable `color` on an OpenHands agent reports a coverage note naming `x-openhands.color` instead of disappearing (#864).
