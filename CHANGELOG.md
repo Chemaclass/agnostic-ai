@@ -12,6 +12,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
+- Antigravity ships a workspace plugin when a per-kind output key points into `.agents/plugins/<name>/`: the required `plugin.json` manifest is written for you (#810).
 - Portable permission lists reach Windsurf's `.devin/config.json` and Augment's `.augment/settings.json`, translated onto each vendor's rule shape (#856).
 - A portable `color` on an OpenHands agent reports a coverage note naming `x-openhands.color` instead of disappearing (#864).
 

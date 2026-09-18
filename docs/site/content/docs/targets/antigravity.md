@@ -18,9 +18,12 @@ target_id = "antigravity"
 .agents/agents/<name>/agent.md # one per agent (custom subagent)
 .agents/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
 .agents/mcp_config.json        # when MCP entries exist
+.agents/plugins/<name>/plugin.json  # only when a per-kind dir points into a plugin
 ```
 
 Antigravity reads per-rule files under `.agents/rules/` and custom subagents under `.agents/agents/`. The adapter emits both.
+
+Point any per-kind output key at `.agents/plugins/<name>/` to ship those specs as a workspace plugin: "place your plugin folder in `.agents/plugins/` at the root of your workspace. The plugin activates only when working in that project" ([plugins](https://antigravity.google/docs/plugins)). The manifest is written for you, because "Every plugin requires a `plugin.json` file at its root to identify the directory as a plugin and define its metadata". The five documented components are `skills/`, `agents/`, `rules/`, `mcp_config.json`, and `hooks.json`; one plugin carrying several of them gets one manifest. A path inside a component, such as `.agents/plugins/team/skills/extra`, is not itself a component and gets none.
 
 `.agent/AGENTS.md` is an agnostic-ai convention, not a documented Antigravity read path. No vendor page names an AGENTS.md-family project instruction file. The path keeps the entry-point clear of the project-root `AGENTS.md` that codex, amp, and warp own, and every rule body still lands in the documented `.agents/rules/` tree either way.
 
