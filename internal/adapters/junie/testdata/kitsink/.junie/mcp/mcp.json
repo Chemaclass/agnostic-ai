@@ -1,5 +1,8 @@
 {
   "mcpServers": {
+    "annotated-server": {
+      "command": "x"
+    },
     "stdio-server": {
       "args": [
         "-y",

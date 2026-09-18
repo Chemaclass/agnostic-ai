@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "disabled-server": {
+      "args": [],
       "command": "x"
     },
     "http-server": {

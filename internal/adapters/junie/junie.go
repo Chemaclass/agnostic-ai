@@ -94,7 +94,20 @@
 // junie.jetbrains.com/docs/agent-skills.html, target-audit 2026-08-01).
 //
 // MCP servers write to `.junie/mcp/mcp.json` using the standard
-// `mcpServers` map schema (the same shape Claude Code and Cursor use).
+// `mcpServers` map schema (the same shape Claude Code and Cursor use),
+// minus two keys no Junie page documents. The vendor's own structure
+// block for that file carries `command`/`args`/`env` on a local server
+// and `url`/`headers` on a remote one, with no per-server `disabled`
+// or `description` anywhere
+// (junie.jetbrains.com/docs/junie-cli-mcp-configuration.html). Worse
+// than inert, `disabled` reverses meaning on arrival: "Manually added
+// configurations are imported to the list of MCP servers and enabled
+// by default. To disable a server, list all the configured servers
+// with the `/mcp` command, select the necessary server, and then
+// select the `-> Disable` action." Both keys are stripped with a
+// coverage note rather than written (target-audit 2026-09-18, #858),
+// the same choice warp.go makes for its own two closed tables.
+//
 // Settings specs merge their last non-empty `model` into
 // `.junie/config.json`, preserving unrelated native project settings.
 //
@@ -169,6 +182,18 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// mcpDisabledNoOpReason and mcpDescriptionNoOpReason explain, in the
+// flushed coverage notes, why neither key reaches `.junie/mcp/mcp.json`.
+// The vendor's mcp.json structure block documents neither, and a server
+// imported from that file "is enabled by default" whatever the file
+// says, so a written `disabled: true` would claim a state Junie never
+// enters (junie.jetbrains.com/docs/junie-cli-mcp-configuration.html,
+// target-audit 2026-09-18, #858).
+const (
+	mcpDisabledNoOpReason    = "no per-server disable key in .junie/mcp/mcp.json; imported servers start enabled, so disable the server with /mcp -> Disable"
+	mcpDescriptionNoOpReason = "no per-server description key in .junie/mcp/mcp.json; the server name is the only label Junie shows"
+)
+
 // Emit writes the `.junie/AGENTS.md` entry-point (pointer body plus
 // inlined rules), one native file per agent under the agents directory,
 // one folder per skill under the skills directory (Junie's native
@@ -209,7 +234,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 			return err
 		}
 	}
-	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,
+	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
+	mcps = emit.StripMCPDescription(target, mcps, mcpDescriptionNoOpReason)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 

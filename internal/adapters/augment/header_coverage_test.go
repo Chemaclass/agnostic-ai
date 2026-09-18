@@ -109,6 +109,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
 		},
+		// Absent from the golden tree on purpose: Augment's CLI closes
+		// the transport set at stdio, sse, and http, so a ws entry is
+		// dropped with a coverage note (#855).
+		{
+			Kind: spec.KindMCP, Name: "ws-server",
+			Meta: map[string]any{"type": "ws", "url": "wss://example.test/mcp"},
+		},
 		{
 			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "launch-process", "command": "hooks/guard.sh", "timeout": 10},

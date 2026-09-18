@@ -293,7 +293,10 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		// same transport. Before it shared this branch, a `ws` entry
 		// matched no case at all and was written with no command, no
 		// url, and no type: a malformed server object, emitted with no
-		// warning.
+		// warning. That `url` shape is Claude Code's, not every
+		// caller's: a target whose vendor documents no WebSocket
+		// transport filters those entries out through
+		// DropMCPWebSocket before calling this builder (#855).
 		//
 		// MCPSchemaServersMapNoType opts out: see its doc comment.
 		if schema != MCPSchemaServersMapNoType {
@@ -533,25 +536,76 @@ func scopeList(m map[string]any, key string) ([]string, bool) {
 // flushed note, e.g. "no file-based way to pre-disable a project-scoped
 // MCP server".
 func StripMCPDisabled(target string, mcps []spec.Entry, reason string) []spec.Entry {
+	return stripMCPField(target, mcps, "disabled", reason, func(v any) bool {
+		disabled, _ := v.(bool)
+		return disabled
+	})
+}
+
+// StripMCPDescription returns mcps with any `description` meta value
+// removed, under the same non-mutating contract and the same
+// NoteFieldNoOp report as StripMCPDisabled.
+//
+// Call this before WriteMCPFile for a target whose MCP schema documents
+// no per-server description. The field is pure documentation on the
+// spec side, so the note points the author at the key that was dropped
+// rather than leaving a vendor-unknown key in a file the tool parses
+// against its own field list.
+func StripMCPDescription(target string, mcps []spec.Entry, reason string) []spec.Entry {
+	return stripMCPField(target, mcps, "description", reason, func(v any) bool {
+		desc, _ := v.(string)
+		return desc != ""
+	})
+}
+
+// stripMCPField drops field from every entry whose value for it
+// satisfies set, and buffers one NoteFieldNoOp counting them.
+func stripMCPField(target string, mcps []spec.Entry, field, reason string, set func(any) bool) []spec.Entry {
 	out := make([]spec.Entry, len(mcps))
 	count := 0
 	for i, e := range mcps {
-		disabled, _ := e.Meta["disabled"].(bool)
-		if !disabled {
+		if !set(e.Meta[field]) {
 			out[i] = e
 			continue
 		}
 		count++
 		meta := make(map[string]any, len(e.Meta))
 		for k, v := range e.Meta {
-			if k != "disabled" {
+			if k != field {
 				meta[k] = v
 			}
 		}
 		e.Meta = meta
 		out[i] = e
 	}
-	NoteFieldNoOp(target, spec.KindMCP, "disabled", count, reason)
+	NoteFieldNoOp(target, spec.KindMCP, field, count, reason)
+	return out
+}
+
+// DropMCPWebSocket returns mcps without its `type: ws` entries and
+// buffers one NoteCoverageGap counting the drops. The input slice is
+// not mutated.
+//
+// Call this for a target whose vendor documents no WebSocket transport,
+// or documents one the spec's `url` cannot describe. The shared builder
+// renders `ws` as `{type, url}` because Claude Code documents that
+// exact shape; a target inheriting it from there gets a server entry
+// that looks configured and cannot connect, with the transport's one
+// documented parameter absent (#809, #855). Dropping the entry with a
+// note says so instead. reason is the note's user-facing phrase, e.g.
+// "WebSocket transport is not supported; Factory documents only stdio,
+// http, and sse".
+func DropMCPWebSocket(target string, mcps []spec.Entry, reason string) []spec.Entry {
+	out := make([]spec.Entry, 0, len(mcps))
+	dropped := 0
+	for _, e := range mcps {
+		if transport, _ := e.Meta["type"].(string); transport == "ws" {
+			dropped++
+			continue
+		}
+		out = append(out, e)
+	}
+	NoteCoverageGap(target, spec.KindMCP, dropped, reason)
 	return out
 }
 

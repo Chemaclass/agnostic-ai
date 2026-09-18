@@ -16,6 +16,9 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `{{rules_dir}}` resolves from `outputs.copilot.instructions-dir` on Copilot, so a spec body names the directory sync writes to.
 - Every documented `outputs.<target>.<key>` is now covered by a test that emits a spec and checks the file moved, so a key cannot be accepted and ignored.
 - Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, instead of the unread `.cline/rules/` (#853).
+- A `type: ws` MCP spec no longer writes a dead `{"type": "ws", "url": ...}` entry on Augment or Qoder, whose vendors document no such server; the entry is dropped with a note (#855).
+- Junie MCP entries no longer carry `disabled` or `description`, two keys no Junie page documents, so a disabled server no longer imports as enabled (#858).
+- Warp stdio MCP entries carry `"args": []` when the spec sets no arguments, the key Warp's CLI Server table marks required (#859).
 
 ### Site
 

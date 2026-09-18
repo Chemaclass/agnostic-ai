@@ -372,6 +372,86 @@ func TestStripMCPDisabled_DoesNotMutateInput(t *testing.T) {
 	}
 }
 
+// StripMCPDescription backs the junie fix: no Junie page documents a
+// per-server description, so the key is inert in a file the tool parses
+// against its own field list (#858).
+func TestStripMCPDescription_RemovesKeyAndNotes(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "description": "local files"}},
+		{Kind: spec.KindMCP, Name: "db", Meta: map[string]any{"command": "pg"}},
+	}
+	out := StripMCPDescription("junie", mcps, "no per-server description key")
+
+	got, err := MCPDocument(out, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, "description") || strings.Contains(got, "local files") {
+		t.Errorf("description must not reach the emitted document: %s", got)
+	}
+	if !strings.Contains(got, `"command": "pg"`) {
+		t.Errorf("untouched entries must survive unchanged: %s", got)
+	}
+
+	FlushCoverageNotes()
+	want := "  note: `description` on 1 mcp has no effect on junie (no per-server description key)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected field no-op note, got %q", got)
+	}
+}
+
+// Same non-mutating contract as StripMCPDisabled: one bundle is shared
+// across every target in a sync.
+func TestStripMCPDescription_DoesNotMutateInput(t *testing.T) {
+	swapWarnerForNotes(t)
+	original := map[string]any{"command": "npx", "description": "local files"}
+	mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "fs", Meta: original}}
+	StripMCPDescription("junie", mcps, "reason")
+	if _, ok := original["description"]; !ok {
+		t.Errorf("caller's Meta map must not be mutated, description key was removed from it")
+	}
+}
+
+// DropMCPWebSocket keeps the builder's `ws` branch honest: it renders
+// Claude Code's documented `{type, url}` shape, so a target whose
+// vendor documents no WebSocket transport (augment) or a differently
+// shaped one (qoder's `tcp` object) drops the entry with a note instead
+// of inheriting a server that cannot connect (#855).
+func TestDropMCPWebSocket_DropsEntryAndNotes(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "socket", Meta: map[string]any{"type": "ws", "url": "wss://example.test/mcp"}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"}},
+	}
+	out := DropMCPWebSocket("augment", mcps, "WebSocket transport is not supported")
+	if len(out) != 1 || out[0].Name != "remote" {
+		t.Fatalf("expected only the http entry to survive, got %+v", out)
+	}
+	if len(mcps) != 2 {
+		t.Errorf("caller's slice must not be mutated, got %+v", mcps)
+	}
+
+	FlushCoverageNotes()
+	want := "  note: 1 mcp reaches augment only in the source dir (WebSocket transport is not supported)\n"
+	if got := buf.String(); got != want {
+		t.Errorf("expected coverage gap note, got %q", got)
+	}
+}
+
+// No ws entry means no drop and no note.
+func TestDropMCPWebSocket_NoOpWithoutWebSocketEntries(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}}}
+	if out := DropMCPWebSocket("qoder", mcps, "reason"); len(out) != 1 {
+		t.Errorf("expected the single entry to pass through, got %+v", out)
+	}
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no note when nothing was dropped, got: %s", buf)
+	}
+}
+
 // TestMCPDocument_WSTransport guards audit finding B8. Before `ws`
 // shared the remote branch, a WebSocket entry matched neither the
 // "stdio" nor the "http", "sse" case, so it was written with no

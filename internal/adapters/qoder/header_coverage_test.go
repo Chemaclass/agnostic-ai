@@ -128,6 +128,13 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
 		},
+		// Absent from the golden tree on purpose: Qoder's ws table
+		// takes a `tcp` host/port object and no `url`, so the entry is
+		// dropped with a coverage note (#855).
+		{
+			Kind: spec.KindMCP, Name: "ws-server",
+			Meta: map[string]any{"type": "ws", "url": "wss://example.test/mcp"},
+		},
 		{
 			Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml",
 			Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "hooks/guard.sh", "timeout": 10},

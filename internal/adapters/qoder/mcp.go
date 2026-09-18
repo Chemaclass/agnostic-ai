@@ -11,6 +11,17 @@ const qoderMCPKey = "mcpServers"
 // qoderHooksKey is the settings.json key holding the hooks block.
 const qoderHooksKey = "hooks"
 
+// mcpWebSocketGapReason explains, in the flushed coverage note, why a
+// `type: ws` MCP spec never reaches `.qoder/settings.json`. Qoder does
+// document the transport, but on its own terms: the "ws Type (TCP)"
+// field table on docs.qoder.com/cli/mcp-reference has exactly two rows,
+// `tcp` ("TCP connection parameters (host/port)") and `type` ("ws").
+// `url` belongs to the `sse` and `http` tables only, and the spec has
+// no field carrying a host and port, so a `{"type": "ws", "url": ...}`
+// entry would name the one transport whose documented parameter it
+// cannot supply (target-audit 2026-09-18, #855).
+const mcpWebSocketGapReason = "WebSocket transport is not supported; Qoder's ws entries take a tcp host/port object, which the spec has no field for"
+
 // emitSettings merges the `mcpServers` map and the `hooks` block into
 // `.qoder/settings.json` (default; override via outputs.qoder.mcp-file)
 // in one write. Routes through MergeJSONFile so the rest of that file
@@ -41,6 +52,7 @@ const qoderHooksKey = "hooks"
 // No file is written when MCP, hook, and settings inputs all render empty.
 func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
+	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	if servers := buildMCPMap(mcps); len(servers) > 0 {
 		keys[qoderMCPKey] = servers
 	}
@@ -78,7 +90,10 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // set docs.qoder.com/cli/mcp-reference publishes. The stdio table adds
 // `cwd` ("/path/to/dir" in the vendor's own example) on top of
 // `command`/`args`/`env`; the http and sse tables carry `url` plus
-// `headers` and an explicit `type`. The page's "Common Optional Fields"
+// `headers` and an explicit `type`. A fourth table, "ws Type (TCP)",
+// carries `tcp` and `type` and no `url` at all, so emitSettings drops
+// those entries before they reach here (see mcpWebSocketGapReason).
+// The page's "Common Optional Fields"
 // table then adds nine more, every one of which reached the emitted
 // file by no route before #641: `timeout` ("Connection/request timeout
 // (in milliseconds)"), `description` ("Server description, displayed in
@@ -104,7 +119,7 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	out := map[string]any{}
 
 	switch transport {
-	case "http", "sse", "streamable-http", "ws":
+	case "http", "sse", "streamable-http":
 		url, _ := e.Meta["url"].(string)
 		if url == "" {
 			return nil

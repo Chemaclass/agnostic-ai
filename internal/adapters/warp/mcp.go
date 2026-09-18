@@ -84,6 +84,14 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 // file through `x-warp` for anyone who wants them written anyway, the
 // same escape hatch warp.go's workflow renderer already offers.
 //
+// The CLI Server table marks `args` required too ("| `args` |
+// string[] | Yes | Array of command-line arguments passed to
+// `command`"), so a stdio entry with no arguments emits `"args": []`
+// rather than dropping the key. The entry is not declined the way a
+// missing `command` is: the command is valid and the author's intent
+// is unambiguous, so the empty array states it in the shape the
+// vendor's own table asks for (target-audit 2026-09-18, #859).
+//
 // Returns nil when the transport's required field is missing, so
 // buildMCPDocument drops the entry instead of writing a server object
 // Warp cannot run: the CLI Server table marks `command` required and
@@ -114,9 +122,11 @@ func buildMCPServer(e spec.Entry) map[string]any {
 			return nil
 		}
 		out["command"] = cmd
-		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
-			out["args"] = args
+		args := emit.StringSlice(e.Meta["args"])
+		if args == nil {
+			args = []string{}
 		}
+		out["args"] = args
 		if cwd, _ := e.Meta["cwd"].(string); cwd != "" {
 			out["working_directory"] = cwd
 		}
