@@ -36,6 +36,36 @@
   color: var(--accent);
 }
 
+/* The briefing is the prose; the GitHub release holds the binaries and
+   checksums. Sits in the edition row because that row already answers
+   "which version is this", which is the question the link follows. */
+.release-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-underline-offset: 0.25em;
+}
+
+.release-link svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  transition: transform 160ms ease-out;
+}
+
+.release-link:hover svg,
+.release-link:focus-visible svg {
+  transform: translate(1px, -1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .release-link svg {
+    transition: none;
+  }
+}
+
 .latest {
   border-block: 1px solid var(--line);
   background: var(--surface);

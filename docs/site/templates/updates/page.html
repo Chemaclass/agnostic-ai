@@ -18,7 +18,7 @@
   <article>
     {% if page.extra.kind == "audit" %}<!-- {{ page.extra.audit_marker }} -->{% endif %}
     <header class="article-header">
-      <div class="edition"><strong>{% if page.extra.kind == "release" %}Release briefing{% else %}Target update{% endif %}</strong><time datetime="{{ page.date | date(format='%Y-%m-%d') }}">{{ page.date | date(format='%d %B %Y') }}</time><span>{% if page.extra.kind == "release" %}{{ page.extra.version }}{% else %}Audit briefing{% endif %}</span></div>
+      <div class="edition"><strong>{% if page.extra.kind == "release" %}Release briefing{% else %}Target update{% endif %}</strong><time datetime="{{ page.date | date(format='%Y-%m-%d') }}">{{ page.date | date(format='%d %B %Y') }}</time><span>{% if page.extra.kind == "release" %}{{ page.extra.version }}{% else %}Audit briefing{% endif %}</span>{% if page.extra.kind == "release" %}<a class="release-link" href="{{ config.extra.repository_url }}/releases/tag/{{ page.extra.version }}" aria-label="{{ page.extra.version }} downloads and checksums on GitHub">Downloads and checksums<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>{% endif %}</div>
       <h1>{{ page.title }}</h1>
       <p class="dek">{{ page.extra.dek }}</p>
       {% if page.extra.kind == "audit" %}
@@ -35,7 +35,7 @@
     </div>
 
     <footer class="article-end">
-      {% if page.extra.kind == "audit" %}<span>Report digest <code>{{ page.extra.report_digest }}</code></span>{% else %}<span>{{ page.extra.version }} release briefing</span>{% endif %}
+      {% if page.extra.kind == "audit" %}<span>Report digest <code>{{ page.extra.report_digest }}</code></span>{% else %}<span>{{ page.extra.version }} release briefing. <a href="{{ config.extra.repository_url }}/releases/tag/{{ page.extra.version }}">Get the binaries</a></span>{% endif %}
       <a href="{{ get_url(path='@/updates/_index.md') }}">Browse all updates</a>
     </footer>
   </article>
