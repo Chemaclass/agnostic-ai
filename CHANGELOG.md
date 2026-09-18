@@ -6,6 +6,8 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ## [Unreleased]
 
+## v0.60.0 - 2026-09-18
+
 ### Added
 
 - The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
