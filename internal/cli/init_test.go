@@ -174,7 +174,7 @@ func TestInitCmd_RejectsExtraArgs(t *testing.T) {
 	}
 }
 
-func TestScaffold_Demo_SeedsOneFilePerKind(t *testing.T) {
+func TestScaffold_Demo_SeedsExampleSpecs(t *testing.T) {
 	dir := t.TempDir()
 	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
@@ -536,7 +536,7 @@ func TestScaffold_DemoAndPresetLinesPrintBeforeNextSteps(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	demoIdx := strings.Index(out, "seeded one example spec")
+	demoIdx := strings.Index(out, "seeded example specs")
 	presetIdx := strings.Index(out, `seeded preset "go"`)
 	nextIdx := strings.Index(out, "next steps:")
 	if demoIdx < 0 || presetIdx < 0 || nextIdx < 0 {

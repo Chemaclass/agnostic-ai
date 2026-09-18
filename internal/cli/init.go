@@ -13,9 +13,9 @@ import (
 // folders (agents, skills, rules, hooks, mcps, commands).
 const defaultBaseDir = ".agnostic-ai"
 
-// demoFS holds one minimal sample spec per source kind. Used by
-// `init --demo` to seed a fresh project so the user can run `sync`
-// immediately and see what each adapter produces.
+// demoFS holds the example specs `init --demo` seeds: one minimal sample
+// per source kind, plus the memory-curator skill. A fresh project can run
+// `sync` immediately and see what each adapter produces.
 //
 //go:embed initdata/agents/* initdata/skills/* initdata/rules/* initdata/hooks/* initdata/mcps/*
 var demoFS embed.FS
@@ -34,7 +34,7 @@ func newInitCmd() *cobra.Command {
 			"pipe a comma-separated list to skip the target prompt, or pass --all / -a " +
 			"to skip both prompts and enable every supported target. " +
 			"The managed .gitignore block is on by default; pass --gitignore=false to commit generated outputs instead. " +
-			"Pass --demo to seed each source folder with a minimal example spec. " +
+			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
 		Example: `  # Default: scaffold under .agnostic-ai/, prompt for targets when TTY
@@ -55,7 +55,7 @@ func newInitCmd() *cobra.Command {
   # Commit generated outputs instead of ignoring them
   agnostic-ai init --all --gitignore=false
 
-  # Seed each source folder with one minimal example spec
+  # Seed example specs, one per source folder plus the memory-curator skill
   agnostic-ai init --demo
 
   # Seed idiomatic specs for a stack
@@ -117,7 +117,7 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
-		"Seed each source folder with a minimal example spec.")
+		"Seed example specs, one per source folder plus the memory-curator skill.")
 	cmd.Flags().BoolVarP(&all, "all", "a", false,
 		"Skip the target picker and enable every supported target.")
 	cmd.Flags().StringVar(&preset, "preset", "",

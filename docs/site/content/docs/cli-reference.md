@@ -42,14 +42,14 @@ For a walkthrough, use [Getting started](@/docs/getting-started.md) or [Migratio
 Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/` under `.agnostic-ai/` by default. Errors if `agnostic-ai.yaml` exists.
 
 ```bash
-agnostic-ai init specs --demo     # base dir specs/, one example spec per folder
+agnostic-ai init specs --demo     # base dir specs/, example specs to start from
 echo "claude,codex" | agnostic-ai init
 ```
 
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths. |
-| `--demo` | Seed each source folder with one example spec so the first `sync` produces output. Never overwrites files. |
+| `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore` | On by default: generated outputs go into a managed `.gitignore` block, without a prompt when non-interactive. `--gitignore=false` commits them instead. |

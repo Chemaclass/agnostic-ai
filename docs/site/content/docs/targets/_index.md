@@ -76,7 +76,7 @@ agnostic-ai does not sync them, and will not. Claude Code can move its store wit
 
 Durable team knowledge belongs in a spec instead. Use a [rule](@/docs/spec-format.md#rules) for a convention that must be in context every session, a [skill](@/docs/spec-format.md#skills) for a procedure that loads on demand, and an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) when one subagent should accumulate project knowledge in a directory git carries.
 
-To curate a store in place, use the `memory-curator` skill. It runs inside the tool and edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder.
+To curate a store in place, use the `memory-curator` skill. It runs inside the tool and edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. In a new project, `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder. `init` refuses to run where `agnostic-ai.yaml` already exists, so in a project that already has one, run `agnostic-ai new skill memory-curator` and paste the body from [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md).
 
 ## Per-target output
 
