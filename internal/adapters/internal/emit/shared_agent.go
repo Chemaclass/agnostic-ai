@@ -79,3 +79,17 @@ func SharedAgentFieldDropped(agent spec.Entry, target, field string) bool {
 	_, explicit := custom[field]
 	return !explicit
 }
+
+// SharedSkillFieldDropped reports whether a portable frontmatter field
+// set on a skill is omitted for target because SkillMarkdown writes
+// only name and description. An explicit x-<target> entry, including a
+// nil delete marker, means the author already chose the target
+// behavior and suppresses the coverage note.
+func SharedSkillFieldDropped(skill spec.Entry, target, field string) bool {
+	if _, set := skill.Meta[field]; !set {
+		return false
+	}
+	custom, _ := skill.Meta[XPrefix+target].(map[string]any)
+	_, explicit := custom[field]
+	return !explicit
+}

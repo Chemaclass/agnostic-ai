@@ -139,6 +139,21 @@ Two layouts:
 - **Flat:** `skills/yaml-validator.md`
 - **Nested**, for skills with attached resources: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
 
+### `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
+
+Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's own default, which is model-invocable everywhere below.
+
+| Target | Behavior |
+|--------|----------|
+| [Claude Code](@/docs/targets/claude.md) | Written to `SKILL.md` |
+| [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
+| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
+| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
+
+Crush and Factory document the field, but their skills land in the shared `.agents/skills/` tree, written byte-for-byte across every co-writer. Emitting the key for them would also hand it to the targets sharing that path whose frontmatter has no such field, so the drop is reported instead of hidden. A skill marked manual-only becoming model-invocable is a safety boundary, not a cosmetic loss.
+
+Do not confuse this with OpenHands' `triggers`, which is a keyword list that injects a skill when a phrase appears in a user message, not a restriction on who may invoke it. Devin spells the same restriction `triggers: [user]`, so the word means opposite things on the two targets.
+
 Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset: scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`. Assets copy verbatim to the same relative path under each target's skills dir. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the body references. Import and sync preserve executable bits.
 
 ```markdown
