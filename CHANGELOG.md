@@ -18,6 +18,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- A skill carrying `disable-model-invocation` reports a coverage note on Crush and Factory instead of silently becoming model-invocable there (#811).
 - Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, not the unread `.cline/rules/` (#853).
 - Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
 - Per-kind output keys move the files they name: `outputs.claude.agents-dir`, `outputs.claude.skills-dir`, and Copilot's `{{rules_dir}}` were accepted and ignored.
