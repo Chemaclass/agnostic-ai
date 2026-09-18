@@ -219,6 +219,10 @@ var matcherAcceptingEvents = setOf(
 	// subagentStart is already listed above, added for copilot.
 	"subagentStop", "beforeSubmitPrompt",
 	"stop", "afterAgentResponse", "afterAgentThought",
+	// The same table's two Tab hooks, verified 2026-09-18 (#860):
+	// beforeTabFileRead matches TabRead, afterTabFileEdit matches
+	// TabWrite.
+	"beforeTabFileRead", "afterTabFileEdit",
 	// copilot: matcher-accepting events per
 	// docs.github.com/en/copilot/reference/hooks-reference's own
 	// matcher-filtering table (notification, permissionRequest,

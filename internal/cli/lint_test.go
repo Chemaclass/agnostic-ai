@@ -142,12 +142,13 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 }
 
 // cursor.com/docs/hooks' own "Available matchers by hook" table lists
-// these five alongside the tool and shell events already covered:
+// these alongside the tool and shell events already covered:
 // subagentStart/subagentStop filter by subagent type, beforeSubmitPrompt
 // matches UserPromptSubmit, stop matches Stop, afterAgentResponse
 // matches AgentResponse, and afterAgentThought matches AgentThought
-// (verified 2026-09-11). Flagging any of them tells a Cursor user to
-// delete a filter Cursor honors (#734).
+// (verified 2026-09-11, #734). The two Tab hooks sit in the same table,
+// matching TabRead and TabWrite (verified 2026-09-18, #860). Flagging any
+// of them tells a Cursor user to delete a filter Cursor honors.
 func TestLintHookMatcherMisuse_CursorMatcherEventsStayClean(t *testing.T) {
 	cases := map[string]string{
 		"subagentStart":      "explore",
@@ -156,6 +157,8 @@ func TestLintHookMatcherMisuse_CursorMatcherEventsStayClean(t *testing.T) {
 		"stop":               "Stop",
 		"afterAgentResponse": "AgentResponse",
 		"afterAgentThought":  "AgentThought",
+		"beforeTabFileRead":  "TabRead",
+		"afterTabFileEdit":   "TabWrite",
 	}
 	for event, matcher := range cases {
 		t.Run(event, func(t *testing.T) {

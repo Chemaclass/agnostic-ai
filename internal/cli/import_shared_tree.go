@@ -52,17 +52,38 @@ func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
 }
 
 func importScopedSkillFolders(root, nativeDir, dstDir string) (int, error) {
-	dirs, err := findScopedSkillDirs(root, nativeDir)
-	if err != nil {
-		return 0, err
-	}
+	return importScopedSkillFoldersFrom(root, []string{nativeDir}, dstDir)
+}
+
+// importScopedSkillFoldersFrom scans every directory in nativeDirs, at
+// the repository root and below every project subdirectory. Earlier
+// entries win: when the same skill name appears at the same scope under
+// two of them, the first is imported and the rest are skipped. Each
+// target lists its own emit path first so an emit then import reads back
+// the tree the adapter wrote. Precedence is tracked per scope, since the
+// same name at two different scopes is two different skills.
+func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir string) (int, error) {
 	count := 0
-	for _, dir := range dirs {
-		imported, err := importSkillFolders(dir.path, filepath.Join(dstDir, filepath.FromSlash(dir.scope)))
+	seen := map[string]map[string]bool{}
+	for _, nativeDir := range nativeDirs {
+		dirs, err := findScopedSkillDirs(root, nativeDir)
 		if err != nil {
 			return count, err
 		}
-		count += imported
+		for _, dir := range dirs {
+			if seen[dir.scope] == nil {
+				seen[dir.scope] = map[string]bool{}
+			}
+			imported, err := importSkillFoldersWith(
+				dir.path,
+				filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
+				skillFolderImportOpts{SkipNames: seen[dir.scope]},
+			)
+			if err != nil {
+				return count, err
+			}
+			count += imported
+		}
 	}
 	return count, nil
 }

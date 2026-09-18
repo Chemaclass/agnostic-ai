@@ -596,3 +596,35 @@ func TestEmit_Agent_AgentsDirOverride(t *testing.T) {
 		t.Errorf("expected custom/agents/ag.md: %v", err)
 	}
 }
+
+// opencode.ai/docs/skills documents `^[a-z0-9]+(-[a-z0-9]+)*$` for a
+// skill name. A folder that breaks it never loads and never reaches the
+// `skill` tool catalog, so emit fails instead of writing it (#857).
+func TestEmit_Skill_RejectsNameBreakingVendorRegex(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "My_Skill", Body: "body"}}
+	err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false)
+	if err == nil {
+		t.Fatal("expected an error for a skill name breaking the vendor regex")
+	}
+	for _, want := range []string{"opencode", "skill", "My_Skill"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must name %q, got: %v", want, err)
+		}
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".opencode/skills/My_Skill/SKILL.md")); !os.IsNotExist(statErr) {
+		t.Errorf("invalid skill folder must not be written, err=%v", statErr)
+	}
+}
+
+func TestEmit_Skill_AcceptsValidVendorNames(t *testing.T) {
+	testutil.TempCwd(t)
+
+	for _, name := range []string{"deploy", "deploy-web", "a1", "x2-y3-z4"} {
+		entries := []spec.Entry{{Kind: spec.KindSkill, Name: name, Body: "body"}}
+		if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+			t.Errorf("valid skill name %q rejected: %v", name, err)
+		}
+	}
+}
