@@ -9,6 +9,14 @@ on:
 permissions:
   contents: read
 
+# One in-flight run per pull request: a follow-up push cancels the previous
+# run instead of paying for a second full 11-check matrix that nobody reads.
+# Pushes to main never cancel, so every commit on the default branch keeps
+# its own complete run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Test
