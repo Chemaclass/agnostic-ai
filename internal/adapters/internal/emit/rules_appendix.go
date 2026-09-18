@@ -83,7 +83,7 @@ func StripGeneratedAppendices(body string) string {
 // no native rules directory: their only always-on context surface is the
 // single entry-point file, so sync inlines rule bodies there. Targets
 // that emit a real per-rule destination (claude .claude/rules/, cursor
-// .cursor/rules/, cline .cline/rules/, qoder .qoder/rules/,
+// .cursor/rules/, cline .clinerules/, qoder .qoder/rules/,
 // continue/windsurf/antigravity rules dirs) are absent: they deliver
 // rules without polluting the pointer. Zed inlines since 1.4.2 retired
 // its rules library, leaving instruction files as its only always-on

@@ -16,7 +16,7 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 		{"claude", ".claude/rules/services/payments/payments.md", "services/payments/**"},
 		{"cursor", ".cursor/rules/services/payments/payments.mdc", "alwaysApply: false"},
 		{"copilot", ".github/instructions/payments.instructions.md", "services/payments/**"},
-		{"cline", ".cline/rules/services/payments/payments.md", "services/payments/**"},
+		{"cline", ".clinerules/services/payments/payments.md", "services/payments/**"},
 		{"continue", ".continue/rules/services/payments/payments.md", "services/payments/**"},
 		{"windsurf", "services/payments/.devin/rules/payments.md", "services/payments/**"},
 		{"kiro", ".kiro/steering/payments.md", "services/payments/**"},

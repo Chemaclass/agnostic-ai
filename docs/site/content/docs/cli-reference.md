@@ -80,7 +80,7 @@ Each target page lists what `import <target>` reads: [Claude](@/docs/targets/cla
 
 | Target | Rules directory |
 |--------|-----------------|
-| `cline` | `.cline/rules/`, with `.clinerules/` fallback |
+| `cline` | `.clinerules/`, with `.cline/rules/` fallback |
 | `windsurf` | `.devin/rules/`, with `.windsurf/rules/` fallback |
 | `trae` | `.trae/rules/` |
 | `qoder` | `.qoder/rules/` |

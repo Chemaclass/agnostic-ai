@@ -12,7 +12,7 @@ import (
 // TestImportCline_RoundTripFixedPoint emits a bundle to cline, wipes the
 // source specs, imports the emitted tree back, then re-emits. The
 // second emit must byte-match the first: import reconstructs rules
-// (from `.cline/rules/`), agents (from `.cline/agents/`, native
+// (from `.clinerules/`), agents (from `.cline/agents/`, native
 // per-file), and skills (from `.cline/skills/`, Cline's native
 // SKILL.md folder tree).
 func TestImportCline_RoundTripFixedPoint(t *testing.T) {
@@ -33,7 +33,7 @@ func TestImportCline_RoundTripFixedPoint(t *testing.T) {
 	if _, ok := first[".cline/skills/my-skill/SKILL.md"]; !ok {
 		t.Fatalf("first emit produced no skill folder: %v", keys(first))
 	}
-	if _, ok := first[".cline/rules/r1.md"]; !ok {
+	if _, ok := first[".clinerules/r1.md"]; !ok {
 		t.Fatalf("first emit produced no rule file: %v", keys(first))
 	}
 	if _, ok := first[".cline/agents/reviewer.md"]; !ok {
@@ -132,22 +132,23 @@ func TestImportFromCline_ReadsLegacyClinerulesWhenNewAbsent(t *testing.T) {
 	}
 }
 
-// TestImportFromCline_PrefersNewRulesDirOverLegacy asserts `.cline/
-// rules/` wins when both it and the legacy `.clinerules/` exist,
-// matching the preference order windsurf's and antigravity's importers
-// already use for their own post-migration / pre-migration pairs.
-func TestImportFromCline_PrefersNewRulesDirOverLegacy(t *testing.T) {
+// TestImportFromCline_PrefersTheRulesDirClineReads asserts
+// `.clinerules/` wins when both it and the unread `.cline/rules/`
+// exist. A project synced between #534 and #853 carries both, and the
+// one Cline loads is the one that reflects what the user actually ran
+// against (#853).
+func TestImportFromCline_PrefersTheRulesDirClineReads(t *testing.T) {
 	dir := t.TempDir()
-	newDir := filepath.Join(dir, ".cline", "rules")
-	legacyDir := filepath.Join(dir, ".clinerules")
-	if err := os.MkdirAll(newDir, 0o755); err != nil {
+	readDir := filepath.Join(dir, ".clinerules")
+	unreadDir := filepath.Join(dir, ".cline", "rules")
+	if err := os.MkdirAll(readDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+	if err := os.MkdirAll(unreadDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(newDir, "current.md"), "# current\n\nfrom the new dir.\n")
-	writeFile(t, filepath.Join(legacyDir, "stale.md"), "# stale\n\nfrom the legacy dir.\n")
+	writeFile(t, filepath.Join(readDir, "current.md"), "# current\n\nfrom the dir Cline reads.\n")
+	writeFile(t, filepath.Join(unreadDir, "stale.md"), "# stale\n\nfrom the unread dir.\n")
 
 	if err := importFromCline(dir, rootSources()); err != nil {
 		t.Fatal(err)
@@ -157,7 +158,7 @@ func TestImportFromCline_PrefersNewRulesDirOverLegacy(t *testing.T) {
 		t.Errorf("missing rules/current.md: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "stale.md")); !os.IsNotExist(err) {
-		t.Errorf("rules/stale.md should not be imported when .cline/rules exists, err=%v", err)
+		t.Errorf("rules/stale.md should not be imported when .clinerules exists, err=%v", err)
 	}
 }
 

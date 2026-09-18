@@ -6,21 +6,21 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// clineRulesDirs lists the rules directories Cline reads, preferred
-// first: the current config reference
-// (docs.cline.bot/getting-started/config) lists `.cline/rules/` and
-// does not mention `.clinerules/` anywhere, but the older
-// docs.cline.bot/customization/cline-rules page still calls
-// `.clinerules/` the "Primary rule format" (target-audit 2026-08-01,
-// #534). Import walks the first one that exists so both pre- and
-// post-migration projects round-trip. A pre-migration `.clinerules/`
-// tree may still hold `agent-<name>.md` files (the old combined
-// rules-and-agents convention); importRulesDirectory already
-// reclassifies those by filename prefix, so they come back as agents
-// exactly as they always did.
+// clineRulesDirs lists the candidate rules directories, preferred
+// first. `.clinerules` is the only one any Cline surface reads
+// (GlobalFileNames.clineRules in the VS Code extension, resolved
+// against the workspace root); `.cline/rules` shows up only in the
+// project tree on docs.cline.bot/getting-started/config, which
+// releases #534 through #853 defaulted to (target-audit 2026-09-18,
+// #853). Import walks the first one that exists so a project synced by
+// either release round-trips. A `.clinerules/` tree may hold
+// `agent-<name>.md` files (the pre-#534 combined rules-and-agents
+// convention); importRulesDirectory already reclassifies those by
+// filename prefix, so they come back as agents exactly as they always
+// did.
 var clineRulesDirs = []string{
-	filepath.Join(".cline", "rules"),
 	".clinerules",
+	filepath.Join(".cline", "rules"),
 }
 
 const (
@@ -30,9 +30,10 @@ const (
 	clineAgentsDir = ".cline/agents"
 )
 
-// clineSkillsDirs lists every documented project skill path in precedence
-// order. `.cline/skills/` is the recommended location, followed by the
-// legacy `.clinerules/skills/` tree and Claude-compatible skills.
+// clineSkillsDirs lists every documented project skill path in
+// precedence order. `.cline/skills/` is the recommended location and is
+// confirmed by GlobalFileNames.clineSkillsDir, followed by
+// `.clinerules/skills/` and Claude-compatible skills.
 var clineSkillsDirs = []string{
 	filepath.Join(".cline", "skills"),
 	filepath.Join(".clinerules", "skills"),
@@ -40,7 +41,7 @@ var clineSkillsDirs = []string{
 }
 
 // clineImportDir returns the first existing candidate rules dir under
-// root, defaulting to the preferred `.cline/rules` when neither exists
+// root, defaulting to the preferred `.clinerules` when neither exists
 // yet.
 func clineImportDir(root string) string {
 	for _, d := range clineRulesDirs {
@@ -54,12 +55,13 @@ func clineImportDir(root string) string {
 // importFromCline reads an existing Cline project and writes specs into
 // the configured source directories, reversing the cline emit:
 //
-//   - `.cline/rules/*.md` (or the legacy `.clinerules/*.md`) walks via
-//     the shared rules-directory importer. A `skill-<name>.md` there
-//     still imports as a skill too, covering projects synced before
-//     skills moved to a native folder; a legacy `agent-<name>.md`
-//     there reclassifies as an agent, covering projects synced before
-//     agents moved to their own directory (#534).
+//   - `.clinerules/*.md` (or `.cline/rules/*.md`, for a project synced
+//     between #534 and #853) walks via the shared rules-directory
+//     importer. A `skill-<name>.md` there still imports as a skill too,
+//     covering projects synced before skills moved to a native folder;
+//     an `agent-<name>.md` there reclassifies as an agent, covering
+//     projects synced before agents moved to their own directory
+//     (#534).
 //   - `.cline/agents/*.md` (the native agents directory) reconstructs
 //     agents, byte-for-byte minus the provenance header.
 //   - `.cline/skills/`, `.clinerules/skills/`, and `.claude/skills/`

@@ -35,18 +35,18 @@ func TestEmit_RulePathsFrontmatter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	globbed := readRuleFile(t, filepath.Join(dir, ".cline/rules/components.md"))
+	globbed := readRuleFile(t, filepath.Join(dir, ".clinerules/components.md"))
 	if !strings.Contains(globbed, "paths:\n  - src/components/**\n") {
 		t.Errorf("expected a paths array from globs:\n%s", globbed)
 	}
-	scoped := readRuleFile(t, filepath.Join(dir, ".cline/rules/backend/scoped.md"))
+	scoped := readRuleFile(t, filepath.Join(dir, ".clinerules/backend/scoped.md"))
 	if !strings.Contains(scoped, "paths:\n  - backend/**\n") {
 		t.Errorf("expected a paths array from the source-layout scope:\n%s", scoped)
 	}
 	// An always-on rule stays bare: Cline reads a file with no
 	// frontmatter as always active, so writing an empty block would
 	// churn every existing file for no behavior change.
-	always := readRuleFile(t, filepath.Join(dir, ".cline/rules/always.md"))
+	always := readRuleFile(t, filepath.Join(dir, ".clinerules/always.md"))
 	if strings.Contains(always, "paths:") {
 		t.Errorf("expected no frontmatter on an always-on rule:\n%s", always)
 	}
@@ -66,7 +66,7 @@ func TestEmit_RuleWithNoScopeStaysBare(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readRuleFile(t, filepath.Join(dir, ".cline/rules/api.md"))
+	got := readRuleFile(t, filepath.Join(dir, ".clinerules/api.md"))
 	if strings.Contains(got, "paths:") {
 		t.Errorf("expected no paths key with nothing to scope to:\n%s", got)
 	}

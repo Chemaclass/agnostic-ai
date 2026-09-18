@@ -10,7 +10,7 @@ Captures what one tool already knows and makes it drive all of them, without ret
 ## Steps
 
 1. Confirm the CLI is present: `agnostic-ai --version`. If missing, run the `install` skill first.
-2. Inventory what exists. Check for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.cursor/rules/`, `.cline/rules/`, `.devin/rules/`, `.continue/rules/`, `.github/copilot-instructions.md`, and any `.claude/{agents,skills,settings.json}`.
+2. Inventory what exists. Check for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.cursor/rules/`, `.clinerules/`, `.devin/rules/`, `.continue/rules/`, `.github/copilot-instructions.md`, and any `.claude/{agents,skills,settings.json}`.
 3. Scaffold the config if absent: `agnostic-ai init`.
 4. Import each source you found, one command per tool:
 
@@ -18,7 +18,7 @@ Captures what one tool already knows and makes it drive all of them, without ret
    agnostic-ai import claude     # CLAUDE.md + .claude/{agents,skills,settings.json}
    agnostic-ai import codex      # AGENTS.md, root and nested
    agnostic-ai import cursor     # .cursor/rules/*.mdc
-   agnostic-ai import cline      # .cline/rules/, .cline/agents/
+   agnostic-ai import cline      # .clinerules/, .cline/agents/
    agnostic-ai import windsurf   # .devin/rules/
    agnostic-ai import continue   # .continue/rules/
    ```
