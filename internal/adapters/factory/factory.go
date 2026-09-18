@@ -153,6 +153,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
+	noteDroppedAgentMCPScope(b.Agents)
 	if err := emitDroids(sess, b.Agents, dir, dryRun); err != nil {
 		return err
 	}

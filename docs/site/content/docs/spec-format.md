@@ -117,6 +117,23 @@ Only the targets listed were checked. `tools: [Read, Bash]` does not restrict ev
 
 Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
 
+### `mcpServers` support by target {#mcpservers-support-by-target}
+
+Only the targets listed were checked. A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set on every target below.
+
+| Target | Behavior |
+|--------|----------|
+| [Claude Code](@/docs/targets/claude.md) | Server names, written to the agent file |
+| [Junie](@/docs/targets/junie.md) | Server names, written to the agent file |
+| [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
+| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.mcpServers` |
+| [OpenHands](@/docs/targets/openhands.md) | Inline server definitions only. Set `x-openhands.mcp_servers` |
+| [Antigravity](@/docs/targets/antigravity.md) | Inline server objects only. Set `x-antigravity.mcpServers` |
+
+Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
+
+**An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
+
 ### `color` support by target
 
 Only the targets listed were checked. agnostic-ai writes `color` verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.
