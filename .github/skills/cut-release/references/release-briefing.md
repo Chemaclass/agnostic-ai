@@ -21,9 +21,25 @@ so the words after the colon have to work harder.
   change that will surprise someone. A four-fix release titled as four fixes
   keeps its credibility; one inflated into a design thesis loses it.
 
-The dek names the change in its first sentence. What it now does comes second,
-reasons come third or not at all. Order by blast radius: the item most people
-will notice leads, whatever changelog section it sits in.
+The dek is two sentences and at most 280 characters. The first names the change,
+the second gives its consequence. It is not a summary of the release: the
+inventory is the shipped section's job, and the reader is one scroll away from
+it. Order by blast radius, so the item most people will notice leads whatever
+changelog section it sits in.
+
+Each fact appears in exactly one layer:
+
+| Layer | Owns |
+|---|---|
+| `dek` | the single highest-consequence change, and what it means |
+| `## What to do` | every imperative and command in the article |
+| `## Shipped` | the inventory, one line per change |
+| `## Site and docs` | website and documentation work |
+| `## Upstream` | what changed outside this project |
+
+A dek that restates `## What to do`, or a shipped entry that repeats the dek,
+is the same fact told twice. That repetition, not sentence length, is what makes
+a release article feel long.
 
 Banned openers, no exceptions:
 
@@ -112,9 +128,21 @@ The shipped section must reproduce the final dated release changelog content
 exactly, including its subsection order and bullets, which puts the product
 sections first and `### Site` last. Curate in the changelog, then copy; never
 curate only in the article, or the two disagree. Do not paraphrase, merge,
-or omit entries. The upstream section describes external changes only. For
-every item, state the affected product, source date, user consequence, source
-link, and agnostic-ai support state. Use `supported`, `target extension`,
+or omit entries. The upstream section describes external changes only, as a list of one item per
+line, at most five lines. Each line carries the affected product and version,
+the source date, the user consequence, the state here, and the source links:
+
+```
+- **<product> <version>** (<date>): <what changed and what it means for a
+  reader>. <One sentence on what this project does about it, when relevant.>
+  State: <supported | target extension | workaround | adapter gap | design
+  candidate | watch>. [<source>](<url>)
+```
+
+Group by theme when there are more than five, for instance several CLIs that
+all shipped security fixes in the same week. Vendor-side specifics that a reader
+would only act on through the vendor's own page stay on that page, behind the
+link. Use `supported`, `target extension`,
 `workaround`, `adapter gap`, `design candidate`, or `watch` as appropriate.
 
 Never imply that upstream availability means agnostic-ai support. If a shipped
