@@ -23,12 +23,15 @@ func OutputDir(cfg *config.Config, target, fallback string) string {
 	return fallback
 }
 
-// OutputSubDir returns sub joined under the target's resolved output
-// dir. Per-kind defaults go through it so a bare `outputs.<target>.dir`
-// moves the whole tool directory instead of leaving some kinds behind at
-// the project root (#849).
-func OutputSubDir(cfg *config.Config, target, defaultDir, sub string) string {
-	return path.Join(filepath.ToSlash(OutputDir(cfg, target, defaultDir)), sub)
+// OutputSubDir returns sub under cfg.Outputs[target].Dir, or def when no
+// dir override is set. Per-kind defaults resolve through it so a bare
+// `outputs.<target>.dir` moves the whole tool directory instead of
+// leaving some kinds behind at the project root (#849).
+func OutputSubDir(cfg *config.Config, target, sub, def string) string {
+	if o, ok := cfg.Outputs[target]; ok && o.Dir != "" {
+		return path.Join(filepath.ToSlash(o.Dir), sub)
+	}
+	return def
 }
 
 // OutputRulesDir returns cfg.Outputs[target].RulesDir when set, otherwise fallback.

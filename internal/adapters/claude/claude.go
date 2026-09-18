@@ -59,9 +59,11 @@ import (
 )
 
 const (
-	target         = "claude"
-	defaultDir     = ".claude"
-	defaultMCPFile = ".mcp.json"
+	target             = "claude"
+	defaultDir         = ".claude"
+	defaultRulesDir    = ".claude/rules"
+	defaultCommandsDir = ".claude/commands"
+	defaultMCPFile     = ".mcp.json"
 	// settingsOverlayPath is the project-relative path to the captured
 	// non-hooks portion of `.claude/settings.json`. `agnostic-ai import
 	// claude` writes this file; the emitter loads it and layers the
@@ -136,7 +138,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		}
 	}
 
-	commandsDir := emit.OutputCommandsDir(cfg, target, emit.OutputSubDir(cfg, target, defaultDir, "commands"))
+	commandsDir := emit.OutputCommandsDir(cfg, target, emit.OutputSubDir(cfg, target, "commands", defaultCommandsDir))
 	for _, c := range b.Commands {
 		path := filepath.Join(commandsDir, c.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(c.Meta, c.MetaKeys, c.MetaStyles, c.Body, target), emit.FormatMarkdown)
@@ -463,7 +465,7 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		}
 		return sess.WriteFile(rulesFile, sb.String(), dryRun)
 	}
-	rulesDir := emit.OutputRulesDir(cfg, target, emit.OutputSubDir(cfg, target, defaultDir, "rules"))
+	rulesDir := emit.OutputRulesDir(cfg, target, emit.OutputSubDir(cfg, target, "rules", defaultRulesDir))
 	for _, r := range rules {
 		path := filepath.Join(rulesDir, r.EffectiveScope(), r.Name+".md")
 		meta, keys := ruleMetaWithPaths(r.Meta, r.MetaKeys)
