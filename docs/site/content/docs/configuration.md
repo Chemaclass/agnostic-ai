@@ -286,7 +286,7 @@ An existing config with no `gitignore` key stays `false`. `sync --gitignore` and
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept, and an unchanged sync keeps the file mtime. Its header says to edit specs, and that a fresh clone or `git worktree` lacks these paths until `sync` runs (see [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)).
 
 - Entries are root-anchored (`/AGENTS.md`, not `AGENTS.md`), so nested same-named files are not ignored.
-- Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` or `.claude/hooks/` stay visible.
+- Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` or `.claude/hooks/` stay visible. The subdirectory is measured below the resolved output dir, so a nested `outputs.<target>.dir: vendor/.claude` collapses to `/vendor/.claude/rules/`. A nested per-kind dir such as `outputs.<target>.rules-dir` is generated end to end, so it collapses at the dir itself.
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, and `/.agnostic-ai/packs/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings and agent memory.
 

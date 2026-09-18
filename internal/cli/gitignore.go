@@ -113,10 +113,49 @@ func normalizeGitignorePath(p string) string {
 	return "/" + p
 }
 
+// outputDirs are the generated directories a config pins explicitly. The
+// two shapes collapse differently: a tool root also holds hand-authored
+// files, so collapsing stops one level below it, while a nested per-kind
+// dir is generated end to end and collapses at the dir itself.
+type outputDirs struct {
+	roots  []string
+	leaves []string
+}
+
+// configuredOutputDirs resolves the output dirs across every configured
+// target. Only overrides appear: a target left on its default dir needs
+// no entry, since the default is a single segment and the top segment of
+// its entries already names it.
+func configuredOutputDirs(cfg *config.Config) outputDirs {
+	var d outputDirs
+	for _, o := range cfg.Outputs {
+		d.roots = appendGitignoreDir(d.roots, o.Dir)
+		d.leaves = appendGitignoreDir(d.leaves,
+			o.RulesDir, o.AgentsDir, o.SkillsDir, o.InstructionsDir,
+			o.CommandsDir, o.ChatmodesDir, o.WorkflowsDir, o.AssistantsDir,
+			o.MCPDir, o.HooksDir,
+		)
+	}
+	sort.Strings(d.roots)
+	sort.Strings(d.leaves)
+	return d
+}
+
+func appendGitignoreDir(dst []string, dirs ...string) []string {
+	for _, dir := range dirs {
+		dir = strings.Trim(strings.TrimPrefix(filepath.ToSlash(dir), "./"), "/")
+		if dir == "" || dir == "." {
+			continue
+		}
+		dst = append(dst, dir)
+	}
+	return dst
+}
+
 // collapseManagedEntries folds entries that live under a generated output
 // subdirectory into a single `/dir/sub/` rule, so the managed block reads
 // `/.claude/rules/` instead of one line per emitted file. Collapsing stops at
-// the generated subdirectory rather than the tool's top-level dir, so a
+// the generated subdirectory rather than the tool's output dir, so a
 // hand-authored sibling (e.g. `.claude/settings.json`, `.claude/hooks/`) is
 // never swallowed by a `/.claude/` ignore (#414). Four kinds of entry are
 // kept verbatim so collapsing never ignores a committed file:
@@ -124,14 +163,18 @@ func normalizeGitignorePath(p string) string {
 //   - files sitting directly under a tool dir (e.g. `/.claude/CLAUDE.md`);
 //   - entries under a protected source directory, where tracked specs live
 //     alongside generated state (e.g. `/.agnostic-ai/.sync-state`);
-//   - entries under a `/top/sub/` directory that holds, or could hold, a
-//     path matching the sync.unmanaged patterns. A `/top/sub/` rule would
+//   - entries under a collapse directory that holds, or could hold, a path
+//     matching the sync.unmanaged patterns. Such a directory rule would
 //     hide the user's file from git, and no `!` line can re-include a file
 //     under an excluded directory. The patterns decide, not this run's
 //     skips, so a hand-written file no spec renders is covered too.
 //
+// The tool dir comes from dirs, not from the entry's first path segment:
+// a nested `outputs.<target>.dir` such as `vendor/.claude` sits two
+// segments deep, and guessing one collapsed the whole tool dir (#846).
+//
 // Input entries are already root-anchored and sorted (normalizeAndSort).
-func collapseManagedEntries(entries, protectedTopDirs, unmanaged []string) []string {
+func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs, unmanaged []string) []string {
 	protected := make(map[string]struct{}, len(protectedTopDirs))
 	for _, d := range protectedTopDirs {
 		protected[d] = struct{}{}
@@ -147,26 +190,61 @@ func collapseManagedEntries(entries, protectedTopDirs, unmanaged []string) []str
 	}
 	for _, e := range entries {
 		rel := strings.TrimPrefix(e, "/")
-		segs := strings.SplitN(rel, "/", 3)
-		switch {
-		case len(segs) < 2:
+		top, _, nested := strings.Cut(rel, "/")
+		if !nested {
 			add(e) // root-level file: nothing to collapse into
-		case len(segs) == 2:
-			add(e) // file directly under a tool dir: keep precise
-		default:
-			if _, isProtected := protected[segs[0]]; isProtected {
-				add(e) // source dir: keep the precise file
-				continue
-			}
-			if config.MatchUnmanagedDir(unmanaged, segs[0]+"/"+segs[1]) {
-				add(e) // may hold a user-owned file: keep the precise file
-				continue
-			}
-			add("/" + segs[0] + "/" + segs[1] + "/")
+			continue
 		}
+		if _, isProtected := protected[top]; isProtected {
+			add(e) // source dir: keep the precise file
+			continue
+		}
+		dir := collapseDirFor(rel, dirs)
+		if dir == "" {
+			add(e) // file directly under a tool dir: keep precise
+			continue
+		}
+		if config.MatchUnmanagedDir(unmanaged, dir) {
+			add(e) // may hold a user-owned file: keep the precise file
+			continue
+		}
+		add("/" + dir + "/")
 	}
 	sort.Strings(out)
 	return out
+}
+
+// collapseDirFor returns the directory rel collapses into, or "" when rel
+// must stay listed precisely because it sits directly under its tool dir.
+func collapseDirFor(rel string, dirs outputDirs) string {
+	// A one-segment per-kind dir (`rules-dir: .clinerules`) is also the tool
+	// dir a user drops hand-written files into, so only a nested one is
+	// generated end to end and safe to collapse at.
+	if leaf := deepestDirPrefix(dirs.leaves, rel); leaf != "" && strings.Contains(leaf, "/") {
+		return leaf
+	}
+	root := deepestDirPrefix(dirs.roots, rel)
+	if root == "" {
+		root, _, _ = strings.Cut(rel, "/")
+	}
+	sub, _, nested := strings.Cut(strings.TrimPrefix(rel, root+"/"), "/")
+	if !nested || sub == "" {
+		return ""
+	}
+	return root + "/" + sub
+}
+
+// deepestDirPrefix returns the longest dir in dirs that strictly contains
+// rel, "" when none does. Longest wins so a per-kind dir nested inside a
+// tool dir is matched by the dir that actually generated the entry.
+func deepestDirPrefix(dirs []string, rel string) string {
+	best := ""
+	for _, d := range dirs {
+		if len(d) > len(best) && strings.HasPrefix(rel, d+"/") {
+			best = d
+		}
+	}
+	return best
 }
 
 // protectedSourceTopDirs returns the top-level directory of every spec
@@ -212,7 +290,7 @@ func gitignoreTopSegment(p string) string {
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
 func buildManagedBlock(cfg *config.Config, entries []string) []string {
 	entries = append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)
-	block := collapseManagedEntries(normalizeAndSort(entries), protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
+	block := collapseManagedEntries(normalizeAndSort(entries), configuredOutputDirs(cfg), protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
 }
 

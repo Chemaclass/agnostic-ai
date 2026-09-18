@@ -22,6 +22,7 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 ### Fixed
 
+- A nested `outputs.<target>.dir` such as `vendor/.claude` no longer collapses the managed `.gitignore` block to `/vendor/.claude/`, which ignored the whole tool directory including hand-authored files and the shareable `agent-memory/` store. The block now collapses at the generated subdirectory below the configured dir, as it already did for the default `.claude` (#846).
 - The managed `.gitignore` block ignores Claude Code's `agent-memory-local/` instead of `agent-memory/`, matching the documented scopes: `memory: project` is shareable via version control, `memory: local` is not. A previously hidden `.claude/agent-memory/` starts appearing in `git status`, and an already tracked `agent-memory-local/` stays tracked until `git rm -r --cached` removes it, since a new ignore line does not untrack files. Nothing is deleted or committed automatically (#841).
 - Long inline code, such as a file path, no longer pushes a docs page sideways.
 - The sitemap lists `/docs/targets/` and every target page again, after the reference was split.

@@ -10,6 +10,28 @@ on:
   push:
     branches:
       - main
+    # This job rebuilds the Zola site and an 8.3MB WebAssembly binary, so it
+    # only runs when a push can change one of them. The list is deliberately
+    # wide: a missed deploy leaves the published site wrong until someone
+    # notices, which costs more than a build that had nothing to publish. It
+    # covers every input `make site-test`, `make site-build`, and
+    # `make playground-build` read, including the files the site tests assert
+    # against (README.md, CHANGELOG.md, Makefile, both workflows). Add a path
+    # here whenever a new build input appears. workflow_dispatch stays
+    # unfiltered so a manual deploy is always possible.
+    paths:
+      - .github/workflows/ci.yml
+      - .github/workflows/playground.yml
+      - CHANGELOG.md
+      - Makefile
+      - README.md
+      - cmd/**
+      - docs/**
+      - go.mod
+      - go.sum
+      - internal/**
+      - scripts/**
+      - tests/**
   workflow_dispatch:
 
 permissions:
