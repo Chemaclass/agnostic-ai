@@ -72,11 +72,11 @@ Cross-cutting kind notes:
 
 Two targets keep an automatic memory store the tool writes for itself: [Claude Code](@/docs/targets/claude.md) under `~/.claude/projects/<project>/memory/` and [Qoder](@/docs/targets/qoder.md) under `~/.qoder/projects/<project>/memory/`. Each store is a `MEMORY.md` index plus one topic file per memory, and each is machine-local.
 
-agnostic-ai does not sync them, and will not. The store is keyed by a project directory name neither vendor documents, so any path agnostic-ai derived would be a guess that breaks on the next release, and Qoder offers no setting to point the store somewhere else. The contents are also the wrong shape to share: they are one person's corrections and session context, not a project convention that should land in a teammate's checkout.
+agnostic-ai does not sync them, and will not. Claude Code can move its store with `autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_CODE_PROJECT_DIR_NAME`, and Qoder offers no equivalent setting, so a path agnostic-ai derived would be wrong for anyone who moved it and a guess everywhere else. The contents are also the wrong shape to share: they are one person's corrections and session context, not a project convention that should land in a teammate's checkout.
 
 Durable team knowledge belongs in a spec instead. Use a [rule](@/docs/spec-format.md#rules) for a convention that must be in context every session, a [skill](@/docs/spec-format.md#skills) for a procedure that loads on demand, and an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) when one subagent should accumulate project knowledge in a directory git carries.
 
-To curate a store in place, the [`memory-curator` skill](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md) runs inside the tool and edits only that tool's own memory, during that tool's own session.
+To curate a store in place, use the `memory-curator` skill. It runs inside the tool and edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder.
 
 ## Per-target output
 

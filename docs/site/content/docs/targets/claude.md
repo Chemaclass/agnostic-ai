@@ -71,7 +71,7 @@ With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/ag
 
 ## Agent memory
 
-An agent spec gives a subagent a directory that survives across sessions with a top-level `memory` key. Claude Code is the only target that reads it; every other adapter drops the key, so the same spec stays portable.
+An agent spec gives a subagent a directory that survives across sessions with a top-level `memory` key. Claude Code is the only target that acts on it. Junie copies the key into its own agent file unchanged, and every other adapter drops it, so the same spec stays portable.
 
 ```yaml
 ---
@@ -84,12 +84,12 @@ memory: project
 | Scope | Directory | Git |
 |---|---|---|
 | `user` | `~/.claude/agent-memory/<name>/` | outside the repository, so git never sees it |
-| `project` | `.claude/agent-memory/<name>/` | committed, documented as shareable via version control |
-| `local` | `.claude/agent-memory-local/<name>/` | not committed, documented as personal to one machine |
+| `project` | `.claude/agent-memory/<name>/` | documented as shareable via version control, so commit it if the team wants it shared |
+| `local` | `.claude/agent-memory-local/<name>/` | documented as not to be checked into version control |
 
 Claude Code creates and writes the directory itself, on first use. agnostic-ai only emits the frontmatter key, and never reads or writes the store.
 
-This is subagent memory. It is a different feature from auto memory, the notes Claude Code keeps for the whole session under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
+This is subagent memory. It writes to its own directory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
 
 ## Claude settings
 

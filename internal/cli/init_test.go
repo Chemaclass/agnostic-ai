@@ -182,6 +182,7 @@ func TestScaffold_Demo_SeedsOneFilePerKind(t *testing.T) {
 	wantFiles := map[string]string{
 		"agents/code-reviewer.md":       "name: code-reviewer",
 		"skills/yaml-validator.md":      "name: yaml-validator",
+		"skills/memory-curator.md":      "name: memory-curator",
 		"rules/conventional-commits.md": "name: conventional-commits",
 		"hooks/format-on-save.yaml":     "event: PostToolUse",
 		"mcps/filesystem.yaml":          "command: npx",

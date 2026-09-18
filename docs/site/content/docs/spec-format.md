@@ -80,7 +80,7 @@ Report concise findings with `file:line` references.
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) consumes it today, where `project` is the scope git carries; every other adapter drops the key.
+`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) acts on it today, where `project` is the scope git carries. Junie copies the key through unchanged, and every other adapter drops it.
 
 ### Per-target models
 
