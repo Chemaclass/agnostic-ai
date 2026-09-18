@@ -10,6 +10,7 @@ const {
   scoreEntry,
   search,
   shortcutHint,
+  stem,
   teaser,
   tokenize
 } = require("./search.js");
@@ -122,4 +123,211 @@ test("parses the index with or without the dev server's live-reload script", fun
   assert.equal(parseIndex(json)[0].title, "Docs [start]");
   const served = json + '\n<script src="/livereload.js?port=1111&amp;mindelay=10"></script>';
   assert.deepEqual(parseIndex(served), parseIndex(json));
+});
+
+// A second corpus for the ranking rules. The fixture above asserts exact
+// URL lists, so adding entries to it would churn those assertions.
+const corpus = [
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/",
+    title: "Spec format",
+    heading: "",
+    group: "Docs",
+    body: "Every spec kind lives under .agnostic-ai/. Rules, hooks, and skills all sync."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/#hooks",
+    title: "Spec format",
+    heading: "Hooks",
+    group: "Docs",
+    body: "A hook runs a command on a lifecycle event."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/#rules",
+    title: "Spec format",
+    heading: "Rules",
+    group: "Docs",
+    body: "A rule is a markdown file with frontmatter."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/#commands",
+    title: "Spec format",
+    heading: "Commands",
+    group: "Docs",
+    body: "One markdown file per command."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/#settings",
+    title: "Spec format",
+    heading: "Settings",
+    group: "Docs",
+    body: "Settings carry permissions and a model."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/spec-format/#agent-policy-support-by-target",
+    title: "Spec format",
+    heading: "permissionMode and agent hooks support by target",
+    group: "Docs",
+    body: "Hooks reach some targets. Hooks drop on others. Hooks vary. Hooks differ."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/git-hooks/",
+    title: "Git hooks",
+    heading: "",
+    group: "Docs",
+    body: "Regenerate outputs on commit."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/git-hooks/#lefthook",
+    title: "Git hooks",
+    heading: "lefthook",
+    group: "Docs",
+    body: "Add a pre-commit hook that runs sync --check."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/migration/",
+    title: "Import existing tool configuration",
+    heading: "",
+    group: "Docs",
+    body: "Move an existing setup into .agnostic-ai/."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/errors/",
+    title: "Error codes",
+    heading: "",
+    group: "Docs",
+    body: "Every AAI diagnostic and its fix."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/installation/",
+    title: "Installation",
+    heading: "",
+    group: "Docs",
+    body: "Download the binary."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/getting-started/#install",
+    title: "Getting started",
+    heading: "Install",
+    group: "Docs",
+    body: "Install the CLI first."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/targets/claude/",
+    title: "Claude Code",
+    heading: "",
+    group: "Targets",
+    body: "How agnostic-ai emits Claude Code configuration."
+  },
+  {
+    url: "https://agnostic-ai.org/docs/targets/claude/#claude-settings",
+    title: "Claude Code",
+    heading: "Claude settings",
+    group: "Targets",
+    body: "Claude settings hold permissions. Claude reads them. Claude merges them."
+  },
+  {
+    url: "https://agnostic-ai.org/updates/2026-09-18-v0.61.0/",
+    title: "agnostic-ai v0.61.0: Cline rules land where Cline reads them",
+    heading: "",
+    group: "Updates",
+    body: "Cline rules move to .clinerules."
+  },
+  {
+    url: "https://agnostic-ai.org/updates/2026-09-18-v0.61.0/#fixed",
+    title: "agnostic-ai v0.61.0: Cline rules land where Cline reads them",
+    heading: "Fixed",
+    group: "Updates",
+    body: "Cline rules now land in .clinerules."
+  }
+];
+
+const ranked = prepare(corpus);
+
+function firstUrl(query) {
+  const found = search(ranked, query);
+  return found.length === 0 ? "" : found[0].url;
+}
+
+function rankOf(query, url) {
+  return urls(search(ranked, query)).indexOf(url) + 1;
+}
+
+test("a heading the query covers outranks a longer one with more body hits", function () {
+  const found = urls(search(ranked, "hooks"));
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#hooks");
+  const table = found.indexOf("https://agnostic-ai.org/docs/spec-format/#agent-policy-support-by-target");
+  assert.ok(table > 0, "the six-word heading still matches");
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/git-hooks/") < table);
+});
+
+test("a page the query names beats its own sections", function () {
+  const found = urls(search(ranked, "claude"));
+  assert.equal(found[0], "https://agnostic-ai.org/docs/targets/claude/");
+  assert.equal(found[1], "https://agnostic-ai.org/docs/targets/claude/#claude-settings");
+});
+
+test("the slug carries the topic when the title does not", function () {
+  assert.equal(firstUrl("migration"), "https://agnostic-ai.org/docs/migration/");
+});
+
+test("plurals fold onto the singular in both directions", function () {
+  assert.equal(stem("hooks"), "hook");
+  assert.equal(stem("class"), "class");
+  assert.equal(stem("as"), "as");
+  assert.equal(stem("v0.61.0"), "v0.61.0");
+  assert.equal(firstUrl("errors"), "https://agnostic-ai.org/docs/errors/");
+  assert.equal(firstUrl("hook"), firstUrl("hooks"));
+});
+
+test("a section inherits only a little of its page title", function () {
+  const found = urls(search(ranked, "rules"));
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#rules");
+  const briefing = found.indexOf("https://agnostic-ai.org/updates/2026-09-18-v0.61.0/");
+  assert.ok(briefing > 0, "the briefing whose title says rules still matches");
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/spec-format/#rules") < briefing);
+});
+
+test("Updates rank below Docs and Targets on equal evidence", function () {
+  const twins = prepare([
+    {
+      url: "https://agnostic-ai.org/updates/2026-09-18-v0.61.0/#fixed",
+      title: "Release",
+      heading: "Telemetry",
+      group: "Updates",
+      body: "Telemetry never leaves the machine."
+    },
+    {
+      url: "https://agnostic-ai.org/docs/telemetry/",
+      title: "Release",
+      heading: "Telemetry",
+      group: "Docs",
+      body: "Telemetry never leaves the machine."
+    }
+  ]);
+  assert.ok(scoreEntry(twins[1], ["telemetry"]) > scoreEntry(twins[0], ["telemetry"]));
+  assert.equal(search(twins, "telemetry")[0].group, "Docs", "the Docs twin wins despite coming second");
+});
+
+test("at most three entries of one page reach the results", function () {
+  const found = urls(search(ranked, "spec"));
+  const sameSpecPage = found.filter(function (url) {
+    return url.indexOf("/docs/spec-format/") !== -1;
+  });
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/");
+  assert.equal(sameSpecPage.length, 3, "the page contributes at most three entries");
+});
+
+test("typing a prefix keeps the same top result", function () {
+  assert.equal(firstUrl("instal"), "https://agnostic-ai.org/docs/installation/");
+  assert.equal(firstUrl("install"), "https://agnostic-ai.org/docs/installation/");
+  assert.equal(rankOf("install", "https://agnostic-ai.org/docs/getting-started/#install"), 2);
+});
+
+test("scoreEntry stems the terms it is handed", function () {
+  const hooks = ranked.find(function (item) {
+    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/#hooks";
+  });
+  assert.equal(scoreEntry(hooks, tokenize("hooks")), scoreEntry(hooks, tokenize("hook")));
+  assert.equal(scoreEntry(hooks, tokenize("xyzzy")), 0);
 });
