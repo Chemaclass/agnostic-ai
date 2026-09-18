@@ -63,6 +63,36 @@ func TestImportIgnore_NormalizesBOMAndWindowsLineEndings(t *testing.T) {
 	}
 }
 
+// Devin reads `.devinignore` for indexing and `.windsurfignore` for
+// agent file access, and sync writes both. A project that hand-authored
+// only the second one must still have its patterns read back before
+// sync takes the file over (#863).
+func TestImportIgnore_WindsurfFallsBackToWindsurfignore(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	const handAuthored = "# hand-authored by the team\nmy-secrets/\n*.key\n"
+	writeFile(t, filepath.Join(dir, ".windsurfignore"), handAuthored)
+
+	execCLI(t, "import", "windsurf")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "windsurf.md"))
+	for _, want := range []string{".windsurfignore", "my-secrets/", "*.key"} {
+		if !strings.Contains(spec, want) {
+			t.Errorf("imported ignore spec missing %q:\n%s", want, spec)
+		}
+	}
+
+	execCLI(t, "sync", "-t", "windsurf")
+	for _, name := range []string{".windsurfignore", ".devinignore"} {
+		if got := readFile(t, filepath.Join(dir, name)); !strings.HasSuffix(got, handAuthored) {
+			t.Errorf("sync changed imported patterns in %s: %q", name, got)
+		}
+	}
+}
+
 // A file agnostic-ai generated is not user content: the specs behind it
 // are already the source of truth. Re-importing it would emit every
 // pattern twice on the next sync.

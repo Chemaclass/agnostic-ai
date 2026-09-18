@@ -133,18 +133,24 @@
 // file back the same way it already does for rules, agents, skills,
 // and MCP: see internal/cli/import_windsurf_hooks.go.
 //
-// Ignore specs emit as `.devinignore` (override via
-// outputs.windsurf.ignore-file), gitignore syntax under a `#`
-// provenance header: "you can add a `.devinignore` file to your repo
-// root, with the same syntax as .gitignore" (docs.devin.ai/desktop/
-// context-awareness/windsurf-ignore). Devin Desktop also still respects
-// the legacy `.codeiumignore` filename and `.windsurfignore`, but
-// `.devinignore` is the vendor-documented current path, so it is the
-// one this adapter writes.
+// Ignore specs emit as both `.devinignore` (override via
+// outputs.windsurf.ignore-file) and `.windsurfignore`, gitignore syntax
+// under a `#` provenance header. The two names are not one path and its
+// legacy alias; they cover different things. "you can add a
+// `.devinignore` file to your repo root, with the same syntax as
+// .gitignore" governs Devin Desktop Indexing, while "The agent
+// additionally respects `.windsurfignore` files when accessing files"
+// (docs.devin.ai/desktop/context-awareness/windsurf-ignore). Only
+// `.codeiumignore` is legacy on that page, and it is an alias for the
+// indexing file, reachable through the ignore-file override. Writing
+// just the indexing file put a user's `secrets/**` out of the index and
+// left the agent free to read and edit it (target-audit 2026-09-18,
+// #863).
 package windsurf
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -172,11 +178,15 @@ const (
 	// Desktop scans; codex, amp, zed, crush, and openhands already
 	// write here, so identical skill folders dedupe.
 	defaultSkillsDir = ".agents/skills"
-	// defaultIgnoreFile is the vendor-documented current ignore-file
-	// path. Devin Desktop also still reads the legacy `.codeiumignore`
-	// and `.windsurfignore` filenames, but this adapter only writes the
-	// current one.
+	// defaultIgnoreFile is the file Devin Desktop Indexing reads. Its
+	// legacy sibling is `.codeiumignore`, which the vendor says "can be
+	// used together" with this one.
 	defaultIgnoreFile = ".devinignore"
+	// agentIgnoreFile is the second, differently-scoped ignore file:
+	// "The agent additionally respects `.windsurfignore` files when
+	// accessing files." Indexing and file access are separate surfaces,
+	// so one ignore spec writes both.
+	agentIgnoreFile = ".windsurfignore"
 	// defaultMCPFile is the project-scoped MCP config Devin Local
 	// reads. The legacy Cascade agent has no project-tier MCP file of
 	// its own to preserve compatibility with.
@@ -208,7 +218,8 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // cross-agent-compatibility SKILL.md tree behind its own
 // `.windsurf/skills/`; a flat file there never loads as a skill).
 // Ignore specs merge into `.devinignore` (default; override via
-// outputs.windsurf.ignore-file). MCP servers merge into
+// outputs.windsurf.ignore-file) for indexing and `.windsurfignore` for
+// agent file access. MCP servers merge into
 // `.devin/mcp_config.json` (default; override via
 // outputs.windsurf.mcp-file), the file Devin Local reads. Hooks merge
 // into `.devin/hooks.v1.json` (default; override via
@@ -246,7 +257,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
 	}
-	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+	if err := emitIgnores(sess, b.Ignores, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
@@ -257,6 +268,28 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	warnWorkflowsDirRemoved(sess, cfg)
 	return nil
+}
+
+// emitIgnores writes one Ignore spec to both files Devin reads, because
+// they cover different things: `.devinignore` is what Devin Desktop
+// Indexing skips, and "The agent additionally respects
+// `.windsurfignore` files when accessing files"
+// (docs.devin.ai/desktop/context-awareness/windsurf-ignore). Writing
+// only the indexing file left the agent free to read and edit
+// everything a user had excluded (target-audit 2026-09-18, #863).
+//
+// outputs.windsurf.ignore-file moves the indexing file, including onto
+// the legacy `.codeiumignore` name. Pointed at `.windsurfignore`
+// itself, the one file covers both surfaces and is written once.
+func emitIgnores(sess *emit.Session, ignores []spec.Entry, cfg *config.Config, dryRun bool) error {
+	indexFile := emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile)
+	if err := sess.WriteIgnoreFile(ignores, target, indexFile, dryRun); err != nil {
+		return err
+	}
+	if filepath.Clean(indexFile) == agentIgnoreFile {
+		return nil
+	}
+	return sess.WriteIgnoreFile(ignores, target, agentIgnoreFile, dryRun)
 }
 
 // The activation modes agnostic-ai emits through the `trigger`

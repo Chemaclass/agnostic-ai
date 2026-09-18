@@ -60,33 +60,27 @@ func (d hooksDoc) MarshalJSON() ([]byte, error) {
 	return []byte(body.String()), nil
 }
 
-func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+// emitHooks writes the plugin's `hooks/hooks.json` and returns the
+// plugin root the manifest belongs at, or "" when no hook spec
+// contributes. The caller writes the manifest, so one plugin carrying
+// both skills and hooks gets a single `plugin.json` (#862).
+func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) (string, error) {
 	doc := buildHooks(hooks)
 	if doc == nil {
-		return nil
+		return "", nil
 	}
 	hooksBody, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return err
+		return "", err
 	}
 	hooksPath := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	if filepath.Base(hooksPath) != "hooks.json" || filepath.Base(filepath.Dir(hooksPath)) != "hooks" {
-		return fmt.Errorf("goose: hooks file %s must end in hooks/hooks.json so Goose can discover the plugin", hooksPath)
+		return "", fmt.Errorf("goose: hooks file %s must end in hooks/hooks.json so Goose can discover the plugin", hooksPath)
 	}
-	pluginDir := filepath.Dir(filepath.Dir(hooksPath))
-	pluginName := filepath.Base(pluginDir)
-	manifestBody, err := json.MarshalIndent(map[string]string{
-		"name":        pluginName,
-		"version":     "1.0.0",
-		"description": "Hooks managed by agnostic-ai",
-	}, "", "  ")
-	if err != nil {
-		return err
+	if err := sess.WriteFile(hooksPath, string(hooksBody)+"\n", dryRun); err != nil {
+		return "", err
 	}
-	if err := sess.WriteFile(filepath.Join(pluginDir, "plugin.json"), string(manifestBody)+"\n", dryRun); err != nil {
-		return err
-	}
-	return sess.WriteFile(hooksPath, string(hooksBody)+"\n", dryRun)
+	return filepath.ToSlash(filepath.Dir(filepath.Dir(hooksPath))), nil
 }
 
 func buildHooks(hooks []spec.Entry) *hooksDoc {

@@ -64,6 +64,16 @@
 // openhands, windsurf, and augment already write byte-identically, so
 // pointing here dedupes instead of adding a second on-disk copy.
 //
+// Kilo Code scans exactly three project skill trees without
+// configuration: `.kilo/skills/`, `.agents/skills/`, and
+// `.claude/skills/`. An outputs.kilo.skills-dir pointing anywhere else
+// is listed in `kilo.jsonc`'s `skills.paths`, which "accepts absolute
+// paths, `~/` home-relative paths, or paths relative to the project
+// root" (packages/kilo-docs/pages/customize/skills.md). Without that
+// entry the folders were written where nothing reads them (target-audit
+// 2026-09-18, #861). Entries a user put there themselves are carried
+// over, and `skills.urls` is left alone.
+//
 // Commands emit as one Markdown file per command spec at
 // `.kilo/commands/<name>.md` (override via outputs.kilo.commands-dir),
 // the new Kilo Code extension's slash-command path: "Workflows are
@@ -158,6 +168,17 @@ const (
 
 const defaultIgnoreFile = ".kilocodeignore"
 
+// scannedSkillTrees are the only project directories Kilo Code loads
+// skills from without configuration: its own `.kilo/skills/`, the
+// shared `.agents/skills/` ("Open agent standard, loaded by default"),
+// and `.claude/skills/`. A skills dir outside all three reaches Kilo
+// Code only through `skills.paths` in kilo.jsonc (#861).
+var scannedSkillTrees = map[string]bool{
+	".kilo/skills":   true,
+	".agents/skills": true,
+	".claude/skills": true,
+}
+
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
@@ -179,10 +200,11 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // `.agents/skills/<name>/SKILL.md` folder per skill, one command
 // Markdown file per command spec under `.kilo/commands/`, plus a
 // merged `kilo.jsonc` carrying the `instructions` array (one entry per
-// rule file), the `mcp` map, and a portable default `model`. The
-// project-root AGENTS.md (still
-// read, but lower priority than `instructions`; see the package doc)
-// is written by `sync`, not here.
+// rule file), the `mcp` map, a `skills.paths` entry when the skills dir
+// is outside the trees Kilo Code scans by itself, and a portable
+// default `model`. The project-root AGENTS.md (still read, but lower
+// priority than `instructions`; see the package doc) is written by
+// `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -210,7 +232,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	return emitKiloJSONC(sess, b.Rules, rulesDir, b.MCPs, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
@@ -277,27 +299,55 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 	return front + "\n" + trimmed + "\n", hadTools
 }
 
-// emitKiloJSONC merges the `instructions` and `mcp` keys into
-// kilo.jsonc in a single read-modify-write. Routes through
+// emitKiloJSONC merges the `instructions`, `mcp`, `skills`, and `model`
+// keys into kilo.jsonc in a single read-modify-write. Routes through
 // emit.MergeJSONFile so any pre-existing user-managed keys (providers,
 // themes, ...) survive the sync, in JSONC form as well as plain JSON
-// (see the package doc). Each key is set only when its source contributes,
-// and no file is written when all three sources are empty.
-func emitKiloJSONC(sess *emit.Session, rules []spec.Entry, rulesDir string, mcps, settings []spec.Entry, path string, dryRun bool) error {
+// (see the package doc). `skills` merges one level deep so a user's own
+// `skills.urls` survives alongside the managed `skills.paths`. Each key
+// is set only when its source contributes, and no file is written when
+// every source is empty.
+func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path string, dryRun bool) error {
 	keys := map[string]any{}
-	if instructions := ruleInstructions(rules, rulesDir); len(instructions) > 0 {
+	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
 	}
-	if servers := buildMCPMap(mcps); len(servers) > 0 {
+	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
+		keys["skills"] = map[string]any{"paths": paths}
+	}
+	if model := emit.LastSettingsModel(b.Settings); model != "" {
 		keys["model"] = model
 	}
 	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, keys, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"skills"}, dryRun)
+}
+
+// skillsPaths returns the `skills.paths` list kilo.jsonc needs so Kilo
+// Code scans the configured skills directory, or nil when the directory
+// is one Kilo Code already scans. Vendor: "The `skills.paths` key
+// accepts absolute paths, `~/` home-relative paths, or paths relative to
+// the project root" (packages/kilo-docs/pages/customize/skills.md).
+//
+// Any path the user already listed is carried over: the merge replaces
+// the whole array, so dropping them here would delete their skills from
+// the next sync.
+func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string, dryRun bool) []string {
+	dir := filepath.ToSlash(filepath.Clean(skillsDir))
+	if len(skills) == 0 || scannedSkillTrees[dir] {
+		return nil
+	}
+	paths := sess.ExistingNestedStrings(path, "skills", "paths", dryRun)
+	for _, p := range paths {
+		if filepath.ToSlash(filepath.Clean(p)) == dir {
+			return paths
+		}
+	}
+	return append(paths, dir)
 }
 
 // ruleInstructions returns one `instructions` entry per rule spec: the
