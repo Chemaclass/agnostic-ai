@@ -126,13 +126,26 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 | [Claude Code](@/docs/targets/claude.md) | Server names, written to the agent file |
 | [Junie](@/docs/targets/junie.md) | Server names, written to the agent file |
 | [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
-| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.mcpServers` |
+| [Factory](@/docs/targets/factory.md) | Server names, written to the droid file |
 | [OpenHands](@/docs/targets/openhands.md) | Inline server definitions only. Set `x-openhands.mcp_servers` |
 | [Antigravity](@/docs/targets/antigravity.md) | Inline server objects only. Set `x-antigravity.mcpServers` |
 
-Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
+Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
 
 **An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
+
+### `effort` support by target {#effort-support-by-target}
+
+Only the targets listed were checked. A top-level `effort` on an agent asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere below.
+
+| Target | Values |
+|--------|--------|
+| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent |
+| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget |
+| [Factory](@/docs/targets/factory.md) | Emitted as `reasoningEffort`. Only `low`, `medium`, `high`; anything wider is dropped with a note |
+| [Cursor](@/docs/targets/cursor.md) | No frontmatter key. Write it into the model id: `model: claude-opus-5[effort=high]` |
+
+Cursor is the reason this is not one key everywhere. It encodes per-model options inside the model string rather than as a field, so the same intent is a frontmatter key on three targets and a model-id transformation on the fourth. Factory also ignores the field entirely under `model: inherit`.
 
 ### `color` support by target
 

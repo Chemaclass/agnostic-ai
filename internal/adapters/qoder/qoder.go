@@ -242,14 +242,14 @@ func agentMarkdown(a spec.Entry) string {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
-	for _, k := range []string{"color", "skills", "mcpServers"} {
+	for _, k := range []string{"color", "skills", "mcpServers", "effort"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)
 		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target,
-		"name", "description", "model", "tools", "color", "skills", "mcpServers")
+		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {

@@ -18,7 +18,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
-- An agent carrying `mcpServers` reports a coverage note on Factory instead of silently widening the droid's tool surface (#812).
+- A portable `effort` on an agent reaches Qoder and, as `reasoningEffort`, Factory, which reports a note for the levels its enum does not cover (#824).
+- An agent's `mcpServers` list now reaches Factory's droid file instead of being dropped, so a narrowed tool surface survives the sync (#812).
 - A skill carrying `disable-model-invocation` reports a coverage note on Crush and Factory instead of silently becoming model-invocable there (#811).
 - Cline rules reach the model again: they emit to `.clinerules/`, the only path Cline reads, not the unread `.cline/rules/` (#853).
 - Copilot and Cursor import every project skill directory their vendors document, so a repo on the shared `.agents/skills` layout no longer loses skills silently (#854).
