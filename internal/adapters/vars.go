@@ -41,7 +41,7 @@ var targetVarPaths = map[string]map[string]string{
 	},
 	"cline": {
 		emit.VarSkillsDir: ".cline/skills", emit.VarAgentsDir: ".cline/agents",
-		emit.VarRulesDir: ".cline/rules",
+		emit.VarRulesDir: ".clinerules",
 	},
 	"windsurf": {
 		emit.VarSkillsDir: ".agents/skills", emit.VarRulesDir: ".devin/rules",

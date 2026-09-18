@@ -81,7 +81,7 @@ Mappings checked against vendor documentation on 2026-09-09. Tests verify genera
 | Gemini | `<scope>/GEMINI.md` | [Context](https://geminicli.com/docs/cli/gemini-md/) |
 | Cursor | `.cursor/rules/<scope>/<name>.mdc`, conditional `globs`; shared nested `AGENTS.md` when compatible peers use it | [Rules](https://cursor.com/docs/context/rules) |
 | Copilot | `.github/instructions/<name>.instructions.md`, `applyTo` | [Host support](https://docs.github.com/en/copilot/reference/custom-instructions-support) |
-| Cline | `.cline/rules/<scope>/<name>.md`, `paths` | [Rules](https://docs.cline.bot/customization/cline-rules) |
+| Cline | `.clinerules/<scope>/<name>.md`, `paths` | [Rules](https://docs.cline.bot/customization/cline-rules) |
 | Windsurf / Devin | `<scope>/.devin/rules/<name>.md`, glob trigger | [Rules](https://docs.devin.ai/cli/extensibility/rules) |
 | Continue | `.continue/rules/<scope>/<name>.md`, `globs` without `alwaysApply` | [Rules](https://github.com/continuedev/continue/blob/main/docs/customize/deep-dives/rules.mdx) |
 | Amp | `<scope>/AGENTS.md` | [Instructions](https://ampcode.com/docs/customize/agents-md) |
@@ -103,7 +103,7 @@ Runtime limits:
 
 - Codex and OpenCode use working-directory ancestry. Warp documents root/current-directory loading and best-effort cross-directory discovery. Gemini discovers context as files are accessed.
 - Copilot support varies by host. OpenHands path injection supports local conversations, not ACP.
-- Cline's `.cline/rules` versus `.clinerules`, Qoder Desktop parity, and Kiro custom-agent resource loading still need product-specific runtime checks.
+- Cline's `.cline/agents`, Qoder Desktop parity, and Kiro custom-agent resource loading still need product-specific runtime checks.
 
 ## Shared files and safe updates
 
