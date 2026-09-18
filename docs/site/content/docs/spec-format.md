@@ -320,8 +320,8 @@ A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai l
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier and key in the generated config. |
-| `description` | no | empty | Free-form documentation. |
-| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. |
+| `description` | no | empty | Free-form documentation. Dropped on a target whose MCP schema has no such key (Junie, Warp). |
+| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder, whose vendors document no WebSocket transport carrying a `url`. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables for the server. |
@@ -360,7 +360,7 @@ Only the targets listed were checked. Native booleans default to `false`.
 | [Antigravity](@/docs/targets/antigravity.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Qoder](@/docs/targets/qoder.md), [Windsurf](@/docs/targets/windsurf.md) | Native `disabled` |
 | [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md), [Augment](@/docs/targets/augment.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
 
 ## Commands
 

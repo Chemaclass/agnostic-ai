@@ -179,6 +179,44 @@ func TestEmit_MCP_StdioWithoutCommandIsSkipped(t *testing.T) {
 	}
 }
 
+// The CLI Server (Command) table marks `args` required as firmly as
+// `command`: "| `args` | string[] | Yes | Array of command-line
+// arguments passed to `command`". A stdio server that takes no
+// arguments is still a valid command, so the key emits as an empty
+// array instead of going missing (#859), unlike `command`, whose
+// absence drops the entry.
+func TestEmit_MCP_StdioWithoutArgsEmitsEmptyArray(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "/usr/local/bin/my-server"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	if !strings.Contains(got, `"args": []`) {
+		t.Errorf("stdio entry must carry both required keys, got:\n%s", got)
+	}
+}
+
+// A remote entry has no `args` row on its own table, so the empty array
+// stays on the CLI Server side.
+func TestEmit_MCP_RemoteNeverCarriesArgs(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".warp/.mcp.json"))
+	if strings.Contains(got, `"args"`) {
+		t.Errorf("args is a CLI Server key only, got:\n%s", got)
+	}
+}
+
 // Same rule on the other table: the Streamable HTTP or SSE Server (URL)
 // table marks `url` required, so a remote entry carrying only `headers`
 // is dropped too.

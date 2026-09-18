@@ -78,7 +78,12 @@
 // `disabled` key is documented here, so a spec's `disabled: true` is
 // stripped with a coverage note (the same choice claude.go and
 // qoder.go make for their own MCP files) rather than writing a key
-// Auggie would silently ignore. This surface reaches Auggie CLI: the
+// Auggie would silently ignore. The transport set is closed at those
+// three names ("-t, --transport <transport> - stdio|sse|http (default:
+// "stdio")"), so a `type: ws` spec emits no server at all and raises
+// its own coverage note: the shared builder's `ws` branch is Claude
+// Code's shape, and Augment names no WebSocket transport on any CLI
+// page (target-audit 2026-09-18, #855). This surface reaches Auggie CLI: the
 // settings-file hierarchy and the `mcpServers` shape both live under
 // the "Auggie CLI" docs section, distinct from the VS Code / JetBrains
 // extension's own Settings Panel GUI for MCP configuration
@@ -261,6 +266,7 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 // #629, #718).
 func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
 	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
+	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	keys := map[string]any{}
 	if servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap); servers != nil {
 		keys["mcpServers"] = servers
@@ -279,6 +285,17 @@ func emitSettings(sess *emit.Session, mcps, hooks []spec.Entry, path string, dry
 // no per-server disable key is documented there (see the package doc),
 // the same choice claude.go and qoder.go make for their own MCP files.
 const mcpDisabledNoOpReason = "no confirmed per-server disable key in .augment/settings.json; use auggie mcp remove to drop the entry instead"
+
+// mcpWebSocketGapReason explains, in the flushed coverage note, why a
+// `type: ws` MCP spec never reaches `.augment/settings.json`. Augment
+// publishes a closed transport set for `auggie mcp add`, "-t,
+// --transport <transport> - stdio|sse|http (default: "stdio")"
+// (docs.augmentcode.com/cli/integrations), and names no WebSocket
+// transport anywhere in its CLI docs. The shared builder's `ws` branch
+// was confirmed against Claude Code, so an inherited `{"type": "ws",
+// "url": ...}` here asserts support no Augment sentence backs
+// (target-audit 2026-09-18, #855).
+const mcpWebSocketGapReason = "WebSocket transport is not supported; Augment documents only stdio, sse, and http"
 
 // ruleMarkdown renders one `.augment/rules/<name>.md` file. `type`
 // stays absent for the vendor default (`always_apply`); setting the

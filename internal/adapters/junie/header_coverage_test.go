@@ -94,6 +94,14 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
 		},
+		// Emits in the golden tree as `command` alone: Junie documents
+		// neither `disabled` nor `description` for mcp.json, and a
+		// server read from that file starts enabled whatever it says
+		// (#858).
+		{
+			Kind: spec.KindMCP, Name: "annotated-server",
+			Meta: map[string]any{"command": "x", "disabled": true, "description": "notes for humans"},
+		},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)

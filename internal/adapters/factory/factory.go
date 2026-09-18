@@ -194,19 +194,8 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 }
 
 func factoryMCPs(entries []spec.Entry) []spec.Entry {
-	out := make([]spec.Entry, 0, len(entries))
-	dropped := 0
-	for _, entry := range entries {
-		transport, _ := entry.Meta["type"].(string)
-		if transport == "ws" {
-			dropped++
-			continue
-		}
-		out = append(out, entry)
-	}
-	emit.NoteCoverageGap(target, spec.KindMCP, dropped,
+	return emit.DropMCPWebSocket(target, entries,
 		"WebSocket transport is not supported; Factory documents only stdio, http, and sse")
-	return out
 }
 
 // emitDroids writes one `<dir>/<name>.md` per agent spec whose body is
