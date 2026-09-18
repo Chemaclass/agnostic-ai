@@ -14,6 +14,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 - `outputs.claude.agents-dir` and `outputs.claude.skills-dir` now move the emitted agents and skills instead of being silently ignored.
 - `{{rules_dir}}` resolves from `outputs.copilot.instructions-dir` on Copilot, so a spec body names the directory sync writes to.
+- Every documented `outputs.<target>.<key>` is now covered by a test that emits a spec and checks the file moved, so a key cannot be accepted and ignored.
 
 ### Site
 
