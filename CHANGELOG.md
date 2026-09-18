@@ -10,11 +10,23 @@ Entry style: one line per change. Lead with what changed, not how. State the use
 
 - The site has a keyboard-friendly search (Cmd/Ctrl+K or /) over every guide, target page, and update, with results that link to the matching section. The index is generated at build time and loaded on first use.
 - The landing page embeds the talk demo behind a click-to-play poster; YouTube loads only after the click, through youtube-nocookie.com.
+- The landing page states what agnostic-ai is for: four principles, and an answer to "why not just symlink one file?".
 - The docs cover agent memory and the memory boundary: the three `memory` scopes an agent spec can set, which one git carries, and why the Claude Code and Qoder auto memory stores are tool-owned and never synced. A new `memory-curator` skill, scoped to those two targets, audits a store in place and proposes merges and deletions, applying nothing until you confirm. `agnostic-ai init --demo` seeds the skill in a new project (#842, #843).
+
+### Changed
+
+- The targets reference is one page per target at `/docs/targets/<id>/`, with the index keeping the capability matrix and the cross-target notes. Older deep links such as `#claude-code-claude` redirect to the new page.
+- Every target page carries the same sections: Output, Config keys, Import where it applies, and Verify.
+- The spec format, CLI, and configuration references are roughly half their former length. Detail that applies to one target moved onto that target's page.
+- Docs pages keep a readable measure: the content column no longer narrows as the window widens, and prose lines stop near 83 characters.
 
 ### Fixed
 
 - The managed `.gitignore` block ignores Claude Code's `agent-memory-local/` instead of `agent-memory/`, matching the documented scopes: `memory: project` is shareable via version control, `memory: local` is not. A previously hidden `.claude/agent-memory/` starts appearing in `git status`, and an already tracked `agent-memory-local/` stays tracked until `git rm -r --cached` removes it, since a new ignore line does not untrack files. Nothing is deleted or committed automatically (#841).
+- Long inline code, such as a file path, no longer pushes a docs page sideways.
+- The sitemap lists `/docs/targets/` and every target page again, after the reference was split.
+- Search works against a local `zola serve`, which appends a live-reload script to the index.
+- Phone layouts meet minimum sizes: tap targets reach 32px and no text renders below 11px.
 
 ## v0.59.0 - 2026-09-16
 
