@@ -29,6 +29,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `agnostic-ai import antigravity codex` works: multi-source validation reads the same list as the help text, so a source the error message calls supported is no longer rejected (#905).
 - `validate` flags a kiro hook spelled `AgentSpawn`, which Kiro CLI 3.0 documents nowhere, and accepts `Manual`, which it does (#907).
 - `import augment` reads your permission policy again: it looked for `tool-name` where Augment and our own emitter write `toolName`, so every rule was skipped (#912).
+- `sync` no longer fails on Windows when two targets write the same shared directory: pruning a legacy tree treated the platform's "directory is not empty" refusal as an error instead of a lost race (#918).
 
 ### Site
 
