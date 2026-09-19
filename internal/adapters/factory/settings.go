@@ -27,26 +27,10 @@ const permissionsNoKeyReason = "Factory documents commandAllowlist, commandDenyl
 // every other key Droid CLI or a maintainer puts there, `disabledSkills`
 // among them. Only `model` is ever set.
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
-	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", specsWithPermissions(settings), permissionsNoKeyReason)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(settings), permissionsNoKeyReason)
 	model := emit.LastSettingsModel(settings)
 	if model == "" {
 		return nil
 	}
 	return sess.MergeJSONFile(path, map[string]any{"model": model}, dryRun)
-}
-
-// specsWithPermissions counts the settings specs carrying at least one
-// permission list, so the caller folds them into one coverage note.
-func specsWithPermissions(settings []spec.Entry) int {
-	n := 0
-	for _, entry := range settings {
-		permissions, _ := entry.Meta["permissions"].(map[string]any)
-		for _, list := range []string{"allow", "deny", "ask"} {
-			if len(emit.StringSlice(permissions[list])) > 0 {
-				n++
-				break
-			}
-		}
-	}
-	return n
 }
