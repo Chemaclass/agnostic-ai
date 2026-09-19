@@ -11,6 +11,12 @@
 // the conventions document auto-loads. Optional `outputs.aider.model`
 // and `outputs.aider.weak-model` keys propagate into the same file.
 // Unrelated keys in a pre-existing config are preserved.
+//
+// Ignore entries write `.aiderignore` in the project root, Aider's own
+// default: "Specify the aider ignore file (default: .aiderignore in git
+// root)" (aider.chat/docs/config/aider_conf.html). Aider reads it with
+// no wiring. Point `outputs.aider.ignore-file` elsewhere and the config
+// file's `aiderignore:` key has to name it.
 package aider
 
 import (

@@ -1,26 +1,35 @@
 // Package cline emits configs for the Cline VSCode extension and CLI.
 //
-// Rules emit as Markdown files under `.clinerules/`, the only project
-// rules path any Cline surface reads. The shipping VS Code extension
-// hardcodes it in `GlobalFileNames` (`clineRules: ".clinerules"`,
-// apps/vscode/src/core/storage/disk.ts) and resolves it against the
-// workspace root, and the README puts the CLI and the JetBrains plugin
-// on the same path. `.cline/rules/` appears only in the project tree on
-// docs.cline.bot/getting-started/config, which is the outlier: it
-// disagrees with the extension it documents, and no loader in
-// cline/cline reads it. Releases #534 through #853 defaulted there on
-// that page alone, so every rule landed where nothing loaded it
-// (target-audit 2026-09-18, #853). Set `outputs.cline.rules-dir:
-// .cline/rules` to keep emitting at the documented-but-unread path; a
-// stale managed tree there is swept on sync unless that override is
-// set.
+// Rules emit as Markdown files under `.clinerules/`. Cline reads two
+// project rules layouts, not one: `resolveWorkspaceRulesConfigPaths`
+// (sdk/packages/shared/src/storage/paths.ts) returns both
+// `<workspace>/.clinerules` and `<workspace>/.cline/rules`, over a
+// comment reading "Every Cline surface (CLI, VS Code extension,
+// desktop app) must honor both". The docs agree: "Both layouts are
+// supported by VS Code, Desktop, and the CLI" and "Both directories
+// are searched when present"
+// (docs.cline.bot/customization/cline-rules). `.clinerules/` stays the
+// default here because the VS Code Rules panel still creates there.
+// Set `outputs.cline.rules-dir: .cline/rules` to emit at the other
+// layout, which is read just as well; a stale managed tree at the
+// layout you are not using is swept on sync.
 //
-// Agents stay at `.cline/agents/`, now on positive source evidence:
+// An earlier version of this doc called `.cline/rules` a path no Cline
+// surface reads (target-audit 2026-09-18, #853). That was wrong. It
+// came from counting `GlobalFileNames` hits in the VS Code extension,
+// and `GlobalFileNames.clineRules` now has zero call sites, so the
+// count measured nothing (target-audit 2026-09-19). Note also that
+// `.clinerules` is not deprecated: the SDK spells its constant
+// `DEPRECATED_CONFIG_DIR`, but docs.cline.bot/resources/deprecations
+// lists only `.clineignore`, "Explain Changes" and "Focus Chain".
+//
+// Agents stay at `.cline/agents/`, on positive source evidence:
 // `resolveAgentConfigSearchPaths` returns `<workspace>/.cline/agents`
 // (sdk/packages/shared/src/storage/paths.ts:476), and all three
 // shipping readers resolve the directory through it. Skills stay at
-// `.cline/skills/` on the same footing: `clineSkillsDir:
-// ".cline/skills"` sits in the `GlobalFileNames` block.
+// `.cline/skills/`, confirmed by `resolveSkillsConfigSearchPaths` in
+// the same file, which also scans `.clinerules/skills` and
+// `.agents/skills`.
 //
 // An agent file is `<name>.yml` carrying `---`-delimited frontmatter
 // over a Markdown system prompt. Every part of that is load-bearing in
@@ -100,12 +109,12 @@ const (
 	defaultRulesDir  = ".clinerules"
 	defaultAgentsDir = ".cline/agents"
 	defaultSkillsDir = ".cline/skills"
-	// unreadRulesDir is the path the vendor config page shows and no
-	// Cline loader reads (see the package doc). Releases #534 through
-	// #853 defaulted there, so a sync that lands on the real path
-	// sweeps a stale managed copy here, unless the user opted into it
-	// explicitly via outputs.cline.rules-dir.
-	unreadRulesDir = ".cline/rules"
+	// altRulesDir is the second project rules layout Cline reads (see
+	// the package doc). Only one of the two layouts is written at a
+	// time, so a sync that lands on the default sweeps a stale managed
+	// copy here, unless the user opted into it explicitly via
+	// outputs.cline.rules-dir.
+	altRulesDir = ".cline/rules"
 	// agentExt is the only extension the agent loader accepts besides
 	// `.yaml` (isYamlFile, configured-agent-config.ts L113-115).
 	agentExt = ".yml"
@@ -157,11 +166,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	emit.NoteFieldNoOp(target, spec.KindRule, "alwaysApply", unscopableRules(b.Rules),
 		"Cline's only conditional is `paths`; a rule with no globs and no scope stays always-active")
-	// Sweep managed leftovers at the path no Cline surface reads unless
-	// the user explicitly opted to keep emitting there. Hand-authored
-	// files (no provenance marker) survive.
-	if rulesDir != unreadRulesDir {
-		if err := sess.RemoveGeneratedTree(unreadRulesDir, dryRun); err != nil {
+	// Sweep managed leftovers at the other rules layout unless the user
+	// explicitly opted to emit there. Both layouts are read, so leaving
+	// a stale managed copy behind would load the rules twice.
+	// Hand-authored files (no provenance marker) survive.
+	if rulesDir != altRulesDir {
+		if err := sess.RemoveGeneratedTree(altRulesDir, dryRun); err != nil {
 			return err
 		}
 	}

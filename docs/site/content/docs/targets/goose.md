@@ -24,7 +24,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 <scope>/.agents/REVIEW.md          # directory-specific review instructions
 ```
 
-Block [Goose](https://goose-docs.ai) reads both the root `AGENTS.md` and a `.goosehints` file. By default rule bodies inline into the shared `AGENTS.md` `## Rules` block, so Goose needs no extra file for rules. Set `outputs.goose.rules-file: .goosehints` to also write a concatenated `.goosehints` document.
+Block [Goose](https://goose-docs.ai) reads both the root `AGENTS.md` and a `.goosehints` file. By default rule bodies inline into the shared `AGENTS.md` `## Rules` block, so Goose needs no extra file for rules. Set `outputs.goose.rules-file: .goosehints` to also write a concatenated `.goosehints` document. That file needs one thing on the Goose side to do anything: ":::info Developer extension required / To make use of the hints file, you need to have the `Developer` extension enabled" ([using-goosehints.md](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)). With the extension off the file is written and inert.
 
 Project agents load from `.agents/agents/<name>.md` with `name`, `description`, optional free-form `model`, and the prompt body. OpenHands reads the same primary path and fields, so both adapters use one byte-identical renderer and sync dedupes their writes. A generic `tools` list is omitted with a coverage note because Goose's documented project-agent fields do not include it. Target-specific `x-goose` fields remain available; set a different `outputs.goose.agents-dir` if they make the file differ from another target sharing the default path.
 

@@ -4,8 +4,13 @@
 // ByteDance's AI IDE.
 //
 // Trae reads project rules from `.trae/rules/*.md` as persistent
-// behavioral constraints; it also applies `.trae/rules/` folders found
-// in subdirectories, but this adapter targets the project root only.
+// behavioral constraints, and it also applies `.trae/rules/` folders
+// found in subdirectories: "To configure rules for a specific module,
+// you can directly place the rule files in that module's folder"
+// (docs.trae.ai/ide/rules). This adapter emits both. A scoped rule
+// routes to `<scope>/.trae/rules/<name>.md` through `ScopeAtRoot`
+// below, which docs/site/content/docs/scoped-context.md already
+// documents.
 // `project_rules.md` is the older single-file location and is not
 // emitted here. Every rule file carries `description` / `globs` /
 // `alwaysApply` YAML frontmatter: docs.trae.ai/ide/rules documents all

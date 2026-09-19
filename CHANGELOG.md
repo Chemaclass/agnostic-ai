@@ -35,6 +35,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Site
 
 - Site search ranks the page a query names ahead of that page's own sections, finds a page by text anywhere in it, folds plurals, and caps one page at three of the ten result slots.
+- Target pages drop stale claims: Cline reads both `.clinerules/` and `.cline/rules/`, Trae emits scoped rules, Junie also loads `.agents/skills/`, aider writes `.aiderignore`, and goose's `.goosehints` needs the Developer extension (#897).
+- The target-audit source list names the live authority for cline, kilo, factory and codex, after four entries with working URLs hid real findings (#897).
 
 ## v0.61.0 - 2026-09-18
 

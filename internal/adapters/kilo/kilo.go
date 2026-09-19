@@ -73,12 +73,17 @@
 // openhands, windsurf, and augment already write byte-identically, so
 // pointing here dedupes instead of adding a second on-disk copy.
 //
-// Kilo Code scans exactly three project skill trees without
-// configuration: `.kilo/skills/`, `.agents/skills/`, and
-// `.claude/skills/`. An outputs.kilo.skills-dir pointing anywhere else
-// is listed in `kilo.jsonc`'s `skills.paths`, which "accepts absolute
-// paths, `~/` home-relative paths, or paths relative to the project
-// root" (packages/kilo-docs/pages/customize/skills.md). Without that
+// Kilo Code scans three project skill trees without configuration:
+// `.kilo/skills/`, `.agents/skills/`, and `.claude/skills/`. The third
+// carries a condition on the VS Code tab, "`.claude/skills/` - Claude
+// Code compatibility, loaded when Claude Code Compatibility is
+// enabled", while the CLI tab still lists it unconditionally. Nothing
+// here depends on it: this adapter writes `.agents/skills/`, which is
+// unconditional on both tabs. An outputs.kilo.skills-dir pointing
+// anywhere else is listed in `kilo.jsonc`'s `skills.paths`, which
+// "accepts absolute paths, `~/` home-relative paths, or paths relative
+// to the project root"
+// (packages/kilo-docs/pages/customize/skills.md). Without that
 // entry the folders were written where nothing reads them (target-audit
 // 2026-09-18, #861). Entries a user put there themselves are carried
 // over, and `skills.urls` is left alone.
