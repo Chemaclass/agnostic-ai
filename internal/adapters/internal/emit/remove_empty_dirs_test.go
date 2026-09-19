@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -67,7 +68,7 @@ func TestRemoveEmptyDirs_SurvivesAConcurrentWrite(t *testing.T) {
 		root := t.TempDir()
 		var names []string
 		for i := range 20 {
-			name := filepath.Join(root, "agent-"+string(rune('a'+i)))
+			name := filepath.Join(root, fmt.Sprintf("agent-%d", i))
 			if err := os.MkdirAll(name, 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -86,9 +87,12 @@ func TestRemoveEmptyDirs_SurvivesAConcurrentWrite(t *testing.T) {
 			}
 		}()
 
-		if err := removeEmptyDirs(root); err != nil {
+		err := removeEmptyDirs(root)
+		// Wait before asserting: a t.Fatalf here would otherwise leave
+		// the writer running into the next iteration's TempDir.
+		wg.Wait()
+		if err != nil {
 			t.Fatalf("removeEmptyDirs raced with a concurrent write: %v", err)
 		}
-		wg.Wait()
 	}
 }
