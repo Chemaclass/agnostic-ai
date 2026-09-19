@@ -303,7 +303,9 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 `sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/targets/_index.md#entry-point-files).
 
-Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>` and sync skips the pointer body for that target. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
+Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
+
+Sync skips the pointer body only when `<path>` is the target's own entry-point file (`outputs.claude.rules-file: CLAUDE.md`, `outputs.codex.rules-file: AGENTS.md`), since the adapter already owns that exact write. Point it anywhere else and the target keeps its entry-point file, with rule bodies delivered by the adapter alone. For `claude` the pointer body also gains an `@<path>` import, because a merged file outside `.claude/rules/` is on no Claude Code auto-load path.
 
 ### Per-target paragraphs
 

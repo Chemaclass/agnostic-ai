@@ -495,6 +495,12 @@ func warnLegacyOnce(path string) {
 // still picks only Codex (which also emits .codex/config.toml) and leaves Amp
 // and Warp out, since they add no new entry-point. A real collision needs two
 // targets to set a conflicting `outputs.<target>.rules-file: AGENTS.md`.
+//
+// Claude Code is a fourth reader of that file since v2.1.277, but not a
+// writer: it reads AGENTS.md only when no CLAUDE.md sits at or above the
+// working directory, and this repo always writes CLAUDE.md for claude. The
+// dedup reasoning above is about writers contending for one path, so it is
+// unchanged by that reader.
 func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "cursor",

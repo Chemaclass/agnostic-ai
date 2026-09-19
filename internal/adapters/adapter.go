@@ -167,6 +167,14 @@ func HasLegacyRulesFile(cfg *config.Config, target string) bool {
 	return emit.HasLegacyRulesFile(cfg, target)
 }
 
+// LegacyRulesFileOwnsEntryPoint reports whether target's legacy
+// concatenated rules-file is the target's own entry-point file, in
+// which case the adapter owns that write and sync skips the pointer
+// body (re-exported from the emit layer).
+func LegacyRulesFileOwnsEntryPoint(cfg *config.Config, target string) bool {
+	return emit.LegacyRulesFileOwnsEntryPoint(cfg, target)
+}
+
 // EntryPointBody returns the raw (no header) pointer body for entry-point
 // files. Use when the caller needs to prepend its own header or compare
 // against existing content.
@@ -295,6 +303,13 @@ func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
 // from the emit layer).
 func RenderRulesImportAppendix(cfg *config.Config, target string, b spec.Bundle) string {
 	return emit.RenderRulesImportAppendix(cfg, target, b)
+}
+
+// RenderLegacyRulesFileImportAppendix renders the sentinel-marked
+// one-line `@`-import block pointing at a target's legacy concatenated
+// rules-file (re-exported from the emit layer).
+func RenderLegacyRulesFileImportAppendix(cfg *config.Config, target string) string {
+	return emit.RenderLegacyRulesFileImportAppendix(cfg, target)
 }
 
 // AppendRulesAppendix appends a rendered rules block to body, stripping

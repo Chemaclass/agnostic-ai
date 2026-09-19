@@ -13,6 +13,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Fixed
 
 - Cline agents load again: they emit as `.cline/agents/<name>.yml` with the `name` and `description` frontmatter the loader requires, and `import` reads both that and the old `.md` (#886).
+- `CLAUDE.md` is always written for `claude`, so an `outputs.claude.rules-file` override no longer leaves Claude Code reading codex's `AGENTS.md` (#885).
+- `import claude` reads `AGENTS.md` and `.claude/AGENTS.md` when no `CLAUDE.md` exists, the files Claude Code itself loads in that repo (#893).
 
 ### Site
 

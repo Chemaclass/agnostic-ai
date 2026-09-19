@@ -22,9 +22,10 @@ import (
 //   - If it is absent, the generated template body is written to
 //     AGNOSTIC_AI.md first, then distributed to targets.
 //
-// Targets that opted into the legacy concatenated rules-file layout
-// via `outputs.<target>.rules-file` are skipped: the adapter owns the
-// entry-point write in that case.
+// A target whose `outputs.<target>.rules-file` names its own
+// entry-point file is skipped: the adapter owns that write. A
+// rules-file pointing anywhere else is not a collision, so the target
+// keeps its entry-point file.
 //
 // A hand-authored entry-point file (no agnostic-ai provenance marker)
 // triggers a one-line warning before the overwrite so the user knows
@@ -87,7 +88,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
-		if adapters.HasLegacyRulesFile(cfg, t) {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
 			continue
 		}
 		path := adapters.EntryPointPath(cfg, t)
@@ -110,9 +111,9 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 			content = resolved
 		}
-		if pathInlinesRules(consumers[path]) {
+		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
 			var rulesAppendix string
-			for i, target := range consumers[path] {
+			for i, target := range inliners {
 				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(b, target))
 				if i > 0 && next != rulesAppendix {
 					return nil, fmt.Errorf("%s: target-specific root rules differ between readers; use compatible target conditions or separate worktrees", path)
@@ -122,6 +123,8 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer)))
+		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
+			content = adapters.AppendRulesAppendix(content, adapters.RenderLegacyRulesFileImportAppendix(cfg, importer))
 		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
@@ -148,16 +151,37 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 	return files, nil
 }
 
-// pathInlinesRules reports whether any target consuming an entry-point
-// path inlines rule bodies into it. A shared path (AGENTS.md) inlines
+// pathRuleInliners returns the targets consuming an entry-point path
+// that inline rule bodies into it. A shared path (AGENTS.md) inlines
 // when at least one consumer needs it; the block is identical for all.
-func pathInlinesRules(consumers []string) bool {
+//
+// A consumer on the legacy concatenated rules-file layout is excluded:
+// its adapter already owns rule delivery, so inlining the same bodies
+// into the entry point would ship every rule twice. Mirrors the same
+// predicate in render.go's entryPointRuleFile so `render` and `sync`
+// never disagree on what the file holds.
+func pathRuleInliners(cfg *config.Config, consumers []string) []string {
+	var out []string
 	for _, t := range consumers {
-		if adapters.InlinesRulesIntoEntryPoint(t) {
-			return true
+		if adapters.InlinesRulesIntoEntryPoint(t) && !adapters.HasLegacyRulesFile(cfg, t) {
+			out = append(out, t)
 		}
 	}
-	return false
+	return out
+}
+
+// pathLegacyRulesFileImporter returns the first consumer of an
+// entry-point path whose legacy concatenated rules-file sits off that
+// path and whose CLI resolves `@`-imports (claude), or "" when none
+// does. Without the import line the concatenated file reaches no
+// session: `.claude/RULES.md` is on no documented Claude Code load path.
+func pathLegacyRulesFileImporter(cfg *config.Config, consumers []string) string {
+	for _, t := range consumers {
+		if adapters.RenderLegacyRulesFileImportAppendix(cfg, t) != "" {
+			return t
+		}
+	}
+	return ""
 }
 
 // pathSupportsFileImports reports whether every target consuming an
@@ -190,16 +214,17 @@ func pathRulesImporter(cfg *config.Config, consumers []string) string {
 // entryPointPaths returns the entry-point files sync distributes: the
 // canonical AGNOSTIC_AI.md plus each enabled target's native file
 // (CLAUDE.md, AGENTS.md, GEMINI.md, ...), deduplicated and in target order.
-// Targets on the legacy concatenated rules-file layout are skipped because
-// the adapter owns that write. Mirrors writeAgnosticEntryPoints' path
-// selection so revert and check stay symmetric with sync (#389).
+// A target whose legacy concatenated rules-file names its own
+// entry-point file is skipped because the adapter owns that write.
+// Mirrors writeAgnosticEntryPoints' path selection so revert and check
+// stay symmetric with sync (#389).
 // User-owned paths (sync.unmanaged) are excluded so revert and cleanup
 // never touch them.
 func entryPointPaths(cfg *config.Config, targets []string) []string {
 	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
 	paths := []string{adapters.AgnosticEntryPointPath}
 	for _, t := range targets {
-		if adapters.HasLegacyRulesFile(cfg, t) {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
 			continue
 		}
 		path := adapters.EntryPointPath(cfg, t)

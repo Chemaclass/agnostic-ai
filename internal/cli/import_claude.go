@@ -19,6 +19,12 @@ const (
 	claudeDir = ".claude"
 	// claudeMainFile is the project-root Claude Code instructions file.
 	claudeMainFile = "CLAUDE.md"
+	// claudeAgentsMainFile is the shared cross-tool instructions file
+	// Claude Code falls back to. Since v2.1.277 a session with no
+	// CLAUDE.md at or above the working directory reads AGENTS.md and
+	// .claude/AGENTS.md instead, so in that repo shape this file, not
+	// CLAUDE.md, is what the user's session is actually loading.
+	claudeAgentsMainFile = "AGENTS.md"
 	// agnosticMainFile is the CLI-agnostic instructions file. Lives
 	// under the managed .agnostic-ai/ directory and holds a verbatim
 	// copy of the source CLI's top-level instructions (CLAUDE.md,
@@ -107,30 +113,96 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 // instructions when no root CLAUDE.md exists.
 var nestedClaudeMainFile = filepath.Join(claudeDir, claudeMainFile)
 
+// nestedClaudeAgentsMainFile is the nested half of the AGENTS.md
+// fallback. code.claude.com/docs/en/memory: "At session start: every
+// AGENTS.md and .claude/AGENTS.md in your working directory and the
+// directories above it."
+var nestedClaudeAgentsMainFile = filepath.Join(claudeDir, claudeAgentsMainFile)
+
+// claudeMainFileRung is one step of the precedence chain
+// mirrorClaudeMainFile walks.
+type claudeMainFileRung struct {
+	// name is the project-relative path of the candidate file.
+	name string
+	// nested marks the .claude/CLAUDE.md rung, whose promotion tells the
+	// caller not to also capture the same file as a claude-private
+	// helper overlay.
+	nested bool
+	// sharedEntryPoint marks a rung another importer owns outright (the
+	// root AGENTS.md is codex's, amp's, and warp's own main file). The
+	// rung is skipped when such an importer runs in the same invocation.
+	sharedEntryPoint bool
+}
+
+// claudeMainFileChain is the order `import claude` looks for the
+// project's Claude Code instructions, mirroring the vendor's own read
+// order: a CLAUDE.md anywhere suppresses the AGENTS.md fallback
+// entirely ("By default, Claude reads AGENTS.md only when you have no
+// CLAUDE.md in your working directory or above it"), and the nested
+// copy of each pair is the lower-ranked one here because the root file
+// is the conventional home.
+var claudeMainFileChain = []claudeMainFileRung{
+	{name: claudeMainFile},
+	{name: nestedClaudeMainFile, nested: true},
+	{name: claudeAgentsMainFile, sharedEntryPoint: true},
+	{name: nestedClaudeAgentsMainFile},
+}
+
+// agentsMainFileImporters names every import source whose own top-level
+// instructions file is the root AGENTS.md. When one of them runs in the
+// same invocation as claude it mirrors that file itself (and codex also
+// shreds it into rule specs), so claude must not claim it too.
+var agentsMainFileImporters = map[string]bool{
+	"codex": true, "amp": true, "warp": true,
+	"crush": true, "kiro": true, "opencode": true,
+}
+
 // mirrorClaudeMainFile mirrors the project's Claude main instructions to
 // <root>/.agnostic-ai/AGNOSTIC_AI.md so `sync` distributes the body to
 // every target's native entry-point (AGENTS.md, GEMINI.md, ...).
 //
-// Source precedence: the project-root CLAUDE.md wins; when it is absent
-// the nested .claude/CLAUDE.md is promoted to the shared body. Promoting
-// the nested file is what lets a project that keeps its instructions
-// under .claude/ (a documented Claude Code location) still feed codex,
-// gemini, and the rest — without it, those targets receive only the
-// generic pointer template.
+// Source precedence is claudeMainFileChain: CLAUDE.md, then
+// .claude/CLAUDE.md, then AGENTS.md, then .claude/AGENTS.md. Promoting
+// a lower rung is what lets a project that keeps its instructions
+// somewhere other than the root CLAUDE.md (all three are documented
+// Claude Code read paths) still feed codex, gemini, and the rest.
+// Without it, those targets receive only the generic pointer template.
+//
+// The root AGENTS.md rung is skipped when codex, amp, warp, crush,
+// kiro, or opencode imports in the same invocation: that file is their
+// own main file, and reading one file from two importers would slice
+// the same rules twice.
 //
 // Returns (result, srcName, promotedNested, err): result is mirrorAbsent
 // on a project with no Claude instructions at all (callers suppress the
 // summary line); srcName names the file the body came from; promotedNested
-// is true when the nested file was used, written or kept unchanged,
-// signaling the caller to skip capturing it as a claude-private helper
-// overlay.
+// is true when the nested .claude/CLAUDE.md was used, written or kept
+// unchanged, signaling the caller to skip capturing it as a
+// claude-private helper overlay.
 func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, promotedNested bool, err error) {
-	if _, statErr := os.Stat(filepath.Join(root, claudeMainFile)); statErr == nil {
-		result, err = mirrorMainFile(root, claudeMainFile)
-		return result, claudeMainFile, false, err
+	claimed := rootAgentsMainFileClaimedByPeer()
+	for _, rung := range claudeMainFileChain {
+		if rung.sharedEntryPoint && claimed {
+			continue
+		}
+		if _, statErr := os.Stat(filepath.Join(root, rung.name)); statErr != nil {
+			continue
+		}
+		result, err = mirrorMainFile(root, rung.name)
+		return result, rung.name, rung.nested && result != mirrorAbsent, err
 	}
-	result, err = mirrorMainFile(root, nestedClaudeMainFile)
-	return result, nestedClaudeMainFile, result != mirrorAbsent, err
+	return mirrorAbsent, claudeMainFile, false, nil
+}
+
+// rootAgentsMainFileClaimedByPeer reports whether another source in the
+// current `import` run owns the root AGENTS.md.
+func rootAgentsMainFileClaimedByPeer() bool {
+	for _, s := range importRunSources {
+		if agentsMainFileImporters[s] {
+			return true
+		}
+	}
+	return false
 }
 
 // mirrorResult is what mirrorMainFile did with the imported entry point.
