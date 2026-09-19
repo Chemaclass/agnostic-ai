@@ -22,10 +22,9 @@ import (
 // skipped and the unit test passed because its fixture carried the
 // same wrong key.
 //
-// Nothing else guards this. There is no settings spec in the golden
-// tree (tests/integration/fixtures/golden/.agnostic-ai/ has no
-// settings/ directory), so no target's permission output is snapshotted
-// anywhere, and the per-adapter unit tests each build their own input.
+// This is the only test that runs a policy through both sides. The
+// per-adapter unit tests each build their own input and assert one
+// direction, so neither side can notice the other drifting away.
 //
 // Lossy edges are asserted, not tolerated. Where a vendor's vocabulary
 // cannot express the portable rule, the documented widening is written
@@ -153,7 +152,7 @@ func readPermissionsSpecs(t *testing.T, dir string) map[string][]string {
 	out := map[string][]string{}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		t.Fatalf("no settings specs written to %s: %v", dir, err)
+		t.Fatalf("read imported settings specs in %s: %v", dir, err)
 	}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
