@@ -67,10 +67,10 @@ func TestImportAugmentPermissions_SkipsWhatCannotRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".augment", "settings.json"), `{
 	  "toolPermissions": [
-	    {"tool-name": "terminal", "permission": {"type": "deny"}, "shellInputRegex": "^git push"},
-	    {"tool-name": "read", "permission": {"type": "allow"}},
-	    {"tool-name": "write", "permission": {"type": "deny"}},
-	    {"tool-name": "terminal", "permission": "deny"}
+	    {"toolName": "terminal", "permission": {"type": "deny"}, "shellInputRegex": "^git push"},
+	    {"toolName": "read", "permission": {"type": "allow"}},
+	    {"toolName": "write", "permission": {"type": "deny"}},
+	    {"toolName": "terminal", "permission": "deny"}
 	  ]
 	}`)
 
