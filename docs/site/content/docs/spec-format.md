@@ -473,7 +473,18 @@ model: claude-opus-4-8
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `model` | no | empty | Default model. |
 
-Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins. Claude Code and Qoder take `permissions` and `model`; Codex, Copilot, OpenCode, Junie, and Kilo Code take `model` only. A field a target cannot represent produces a coverage note while the others still emit. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
+
+Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins.
+
+| Target | `permissions` | `model` |
+|---|---|---|
+| Claude Code, Qoder, Kilo Code | yes | yes |
+| Windsurf | yes | no |
+| Augment | `allow` and `deny` only | no |
+| Codex, Copilot, OpenCode, Junie, Factory | no | yes |
+
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached and Windsurf reports its `model`. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
 
 ## Reviews
 
