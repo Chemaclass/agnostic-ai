@@ -32,9 +32,8 @@ const disabledMcpServersKey = "disabledMcpServers"
 // repository-settings table is closed: "Only the keys listed in the
 // following table are supported at the repository level. Any other
 // keys, including keys that are valid in the user configuration file,
-// are silently ignored" (docs.github.com/en/copilot/reference/
-// copilot-cli-reference/cli-config-dir-reference). Its fourteen keys
-// name no `permissions`.
+// are silently ignored". Its fourteen keys name no `permissions`
+// (docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference).
 //
 // Copilot does publish a deny/ask/allow rule grammar close to this
 // project's own (`Bash(...)`, `Read(...)`, `Edit(...)`, `Domain(...)`),
