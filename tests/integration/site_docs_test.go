@@ -314,10 +314,7 @@ func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 }
 
 func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
-	zolaPath, err := exec.LookPath("zola")
-	if err != nil {
-		t.Skip("zola is not installed")
-	}
+	zolaPath := lookupPinnedZola(t)
 
 	outputDir := t.TempDir()
 	command := exec.Command(zolaPath, "--root", "../../docs/site", "build", "--force", "--output-dir", outputDir)
@@ -455,10 +452,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 }
 
 func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
-	zolaPath, err := exec.LookPath("zola")
-	if err != nil {
-		t.Skip("zola is not installed")
-	}
+	zolaPath := lookupPinnedZola(t)
 
 	outputDir := t.TempDir()
 	command := exec.Command(zolaPath, "--root", "../../docs/site", "build", "--force", "--output-dir", outputDir)
