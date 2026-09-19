@@ -5,18 +5,19 @@ import "strings"
 // MCPToolPrefix marks a permission rule naming one MCP server tool.
 const MCPToolPrefix = "mcp__"
 
-// SplitPermissionRule parses the `Scope(argument)` form a Settings spec
-// writes its permission lists in, documented under Settings in
-// spec-format.md. A bare tool name is a whole-tool rule and not one of
-// these, so it reports false rather than an empty argument.
+// SplitPermissionRule parses the `Scope(argument)` form a Settings
+// spec writes its permission lists in, as in `Bash(go test:*)`. A bare
+// tool name is a whole-tool rule and not one of these, so it reports
+// false rather than an empty argument.
 //
 // The scope ends at the first `(` and the argument runs to the trailing
 // `)`, so a nested paren stays inside the argument.
 //
 // This lives here, rather than in the adapters' shared emit package,
 // because the importers under internal/cli parse the same grammar and
-// cannot reach internal/adapters/internal/emit. Four byte-identical
-// copies existed before this one.
+// cannot reach internal/adapters/internal/emit. spec-format.md shows
+// the form in its Settings examples without stating it, so this is the
+// only place it is written down.
 func SplitPermissionRule(rule string) (scope, arg string, ok bool) {
 	scope, rest, found := strings.Cut(rule, "(")
 	if !found || scope == "" || !strings.HasSuffix(rest, ")") {
