@@ -45,13 +45,16 @@ const (
 //     natively, with bundled sibling assets copied byte-for-byte.
 //   - `.trae/commands/*.md` copies byte-for-byte into the commands
 //     source dir.
+//   - `.trae/hooks.json` reconstructs one hook spec per matcher group,
+//     carrying Trae's group-level `loop_limit`. See
+//     import_trae_hooks.go.
 //   - a hand-authored `.trae/.ignore` reconstructs an ignore spec (#754).
 //   - `.trae/mcp.json`'s `mcpServers` map writes one yaml per server.
 //     Trae's schema has no `type` key, so a `url`-only entry infers
 //     `type: http` on the way in (see importJSONMCPMap) the same way a
 //     freshly emitted file would round-trip.
 func importFromTrae(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importRulesDirectory(root, traeRulesDir, src)
@@ -72,6 +75,10 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	hooks, err := importTraeHooks(root, filepath.Join(root, src.Hooks))
+	if err != nil {
+		return err
+	}
 	mcps, err := importTraeMCP(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
@@ -80,7 +87,7 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d ignores (from trae)\n", c.rules, c.agents, c.skills, commands, mcps, ignores)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d hooks, %d mcps, %d ignores (from trae)\n", c.rules, c.agents, c.skills, commands, hooks, mcps, ignores)
 	printImportNextSteps(root, "trae")
 	return nil
 }

@@ -59,6 +59,24 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.t
   - Unlike every other ignore target, it does not apply on save: "The `.ignore` file will take effect after re-indexing is complete", so a freshly synced pattern needs a Build under Settings > Indexing & Docs before it holds.
   - Multiple specs concatenate. Override via `outputs.trae.ignore-file`.
 
+## Import
+
+`agnostic-ai import trae` reverses the Trae layout:
+
+| Source | Becomes |
+|--------|---------|
+| `.trae/rules/*.md` | rules, agents, and skills by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification) |
+| `.trae/agents/<name>.md` | `<agents>/<name>.md`, byte-for-byte minus the provenance header |
+| `.trae/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
+| `.trae/commands/<name>.md` | `<commands>/<name>.md` |
+| `.trae/hooks.json` | one hook spec per matcher group, carrying `loop_limit` |
+| `.trae/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml`, a `url`-only entry inferring `type: http` |
+| `.trae/.ignore` | an ignore spec |
+
+Commands sharing an event and a matcher collapse into one spec whose `command:` is a list, because the emit side merges them back into one group. The `version` envelope is read past: the vendor pegs it at 1, so a spec field would have nothing to vary. A `loop_limit` of 0 does not reach the spec either, since Trae treats it and an absent key identically.
+
+The global hook tier (`~/.trae/hooks.json`) sits outside the project and is not read.
+
 ## Config keys
 
 | Key | Default |

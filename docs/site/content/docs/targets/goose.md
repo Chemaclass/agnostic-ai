@@ -38,6 +38,27 @@ Goose discovers additional context files (any of `CONTEXT_FILE_NAMES`, default `
 
 `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from directories containing changed files and their ancestors, so root and scoped guidance compose. Same-scope bodies concatenate, and routing frontmatter is omitted because the loader reads plain text. The [v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md) documents this surface. Agent-shaped check files remain outside this adapter.
 
+## Import
+
+`agnostic-ai import goose` reverses the Goose layout. Goose has no per-rule directory, so rules ride inside the shared `AGENTS.md`:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.goosehints` | the same, read only when `AGENTS.md` carried no rules |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md`, byte-for-byte minus the provenance header |
+| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
+| `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every plugin in the project |
+| `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group, `on_failure` under `x-goose` |
+| `.agents/REVIEW.md` | `<reviews>/review.md` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+The `.goosehints` fallback is one-way rather than additive. With `outputs.goose.rules-file` set, sync writes the same rule bodies to both files, so reading both would import every rule twice.
+
+Every plugin is read, not just the `agnostic-ai` package this tool writes: a hand-installed one is exactly the configuration a migrating project wants picked up.
+
+Lossy fields, none of which change Goose's output on the next sync: rules reach Goose through one inlined block per scope and only the root block is read back, the same line `import claude` holds on nested `CLAUDE.md` files; review specs sharing a scope concatenate into one file on emit and re-import as a single spec; a scoped `<scope>/.agents/REVIEW.md` is not read back for the same reason. See [scoped context](@/docs/scoped-context.md).
+
 ## Config keys
 
 | Key | Default | Notes |
