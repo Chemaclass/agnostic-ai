@@ -27,13 +27,18 @@ concurrency:
 jobs:
   changes:
     name: Detect changes
-    # Cheap gate so a docs-only PR does not spin up the 11-check matrix.
-    # Job-level `if` rather than a workflow-level `paths` filter: a filtered
-    # workflow never reports at all, which blocks a merge the moment any of
-    # these is made a required check. A skipped job still reports.
+    # Cheap gate so every other job runs only when the paths it guards
+    # actually moved. Job-level `if` rather than a workflow-level `paths`
+    # filter: a filtered workflow never reports, which blocks a merge the
+    # moment any of these is made a required check. A skipped job reports.
     runs-on: ubuntu-latest
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      go: ${{ steps.filter.outputs.go }}
+      specs: ${{ steps.filter.outputs.specs }}
+      schema: ${{ steps.filter.outputs.schema }}
+      shell: ${{ steps.filter.outputs.shell }}
+      vscode: ${{ steps.filter.outputs.vscode }}
+      jetbrains: ${{ steps.filter.outputs.jetbrains }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -46,11 +51,19 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -eu
+
+          all_on() {
+            for k in go specs schema shell vscode jetbrains; do
+              echo "$k=true" >> "$GITHUB_OUTPUT"
+            done
+          }
+
           # Pushes to main always run in full. The default branch is what
           # releases are cut from, so it does not trade coverage for minutes.
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "push to main, running everything"
-            echo "code=true" >> "$GITHUB_OUTPUT"
+            all_on
             exit 0
           fi
 
@@ -61,48 +74,56 @@ jobs:
 
           if [ -z "$changed" ]; then
             echo "no changed files resolved, running everything"
-            echo "code=true" >> "$GITHUB_OUTPUT"
+            all_on
             exit 0
           fi
 
           echo "changed files:"; echo "$changed"
 
-          # A file counts as docs only if it cannot affect behaviour. The two
-          # carve-outs matter more than the allow list:
-          #   tests/**, testdata/**, **/fixtures/**
-          #                     golden trees and fixtures are assertions even
-          #                     when they are .md. 14 of 25 targets have a
-          #                     golden tree and no round-trip test, so that
-          #                     tree is their only guard.
-          #   docs/schemas/**   generated, guarded by the schema-drift job
-          # Specs under .agnostic-ai/ are .md and so count as docs here. The
-          # speclint job is deliberately left ungated to cover them.
-          # Leading `(` on each case pattern: bash 3.2 (still the macOS
-          # default) mis-parses an unbalanced `)` inside $( ).
-          non_docs=$(printf '%s\n' "$changed" | while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            case "$f" in
-              (tests/*|testdata/*|*/testdata/*|*/fixtures/*|docs/schemas/*)
-                echo "$f"; continue ;;
-            esac
-            case "$f" in
-              (*.md|docs/*|LICENSE|.github/ISSUE_TEMPLATE/*) ;;
-              (*) echo "$f" ;;
-            esac
-          done)
-
-          if [ -z "$non_docs" ]; then
-            echo "docs-only change, skipping build, test, lint and packaging"
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "code paths touched:"; echo "$non_docs"
-            echo "code=true" >> "$GITHUB_OUTPUT"
+          # A change to CI itself runs the whole suite. Narrowing the very
+          # thing under test is how a broken gate ships green.
+          if printf '%s\n' "$changed" | grep -q '^\.github/workflows/'; then
+            echo "workflow changed, running everything"
+            all_on
+            exit 0
           fi
+
+          has() { printf '%s\n' "$changed" | grep -qE "$1"; }
+          out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "  $1=$2"; }
+
+          # Go covers the binary and everything asserted against it.
+          # tests/, testdata/ and **/fixtures/ are code whatever the
+          # extension: a golden .md is an assertion, and 14 of 25 targets
+          # have a golden tree and no round-trip test, so that tree is
+          # their only guard.
+          if has '\.go$' || has '^go\.(mod|sum)$' \
+            || has '(^|/)testdata/' || has '^tests/' || has '(^|/)fixtures/' \
+            || has '^\.golangci\.yml$' || has '^(Makefile|Taskfile\.yml)$'; then
+            go=true
+          else
+            go=false
+          fi
+
+          has '^\.agnostic-ai/' && specs=true || specs=false
+          has '^(internal/config/|cmd/schemagen/|docs/schemas/)' && schema=true || schema=false
+          has '^(scripts/|.*\.sh$|.*\.bash$)' && shell=true || shell=false
+          has '^editors/vscode/' && vscode=true || vscode=false
+          has '^editors/jetbrains/' && jetbrains=true || jetbrains=false
+
+          echo "decisions:"
+          out go "$go"
+          # The spec linter is a Go program, so Go changes re-run it.
+          out specs "$([ "$specs" = true ] || [ "$go" = true ] && echo true || echo false)"
+          out schema "$([ "$schema" = true ] || [ "$go" = true ] && echo true || echo false)"
+          # make test-shell depends on build, so it exercises the binary.
+          out shell "$([ "$shell" = true ] || [ "$go" = true ] && echo true || echo false)"
+          out vscode "$vscode"
+          out jetbrains "$jetbrains"
 
   test:
     name: Test
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -135,7 +156,7 @@ jobs:
   lint:
     name: Lint
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -155,7 +176,7 @@ jobs:
   build:
     name: Build
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -176,7 +197,7 @@ jobs:
   schema:
     name: Schema drift
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.schema == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -196,6 +217,8 @@ jobs:
 
   speclint:
     name: Spec lint
+    needs: changes
+    if: needs.changes.outputs.specs == 'true'
     # Runs against this repo's own specs under .agnostic-ai/. Note there is no
     # `sync --check` counterpart: the managed .gitignore block deliberately
     # leaves emitted output uncommitted, so a fresh checkout has nothing to
@@ -256,7 +279,7 @@ jobs:
   shell:
     name: Shell tests
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -272,7 +295,7 @@ jobs:
   vscode:
     name: VS Code extension
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.vscode == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -298,7 +321,7 @@ jobs:
   jetbrains:
     name: JetBrains plugin
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.jetbrains == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
