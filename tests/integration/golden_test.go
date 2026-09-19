@@ -42,6 +42,16 @@ var goldenTargets = []string{
 // TestGolden runs a sync against a shared fixture for each built-in target
 // and compares the emitted files against committed golden snapshots.
 //
+// The fixture's settings spec is deliberately awkward. Its permission
+// lists exercise the branches adapters disagree on rather than a policy
+// anyone would write: a path-scoped rule, which most vendors' read and
+// write tools have no matcher for; a prefix command rule; an exact
+// command rule, which #887 used to drop on windsurf and leave the
+// command unblocked; and an `ask` entry, which Augment has no
+// permission type for. Permissions had no snapshot at all until #912,
+// where the Augment importer drifted from the emitter unnoticed because
+// each side was only ever tested against its own input.
+//
 // Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden
 func TestGolden(t *testing.T) {
 	for _, target := range goldenTargets {
