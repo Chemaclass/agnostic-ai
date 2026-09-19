@@ -273,3 +273,40 @@ func TestEmit_ExecPolicies_InlineSuppressesOverlay(t *testing.T) {
 		t.Errorf("overlay should be suppressed when inline entries set:\n%s", out)
 	}
 }
+
+// TestEmit_NotesPermissionsPointAtExecPolicies covers the last of the
+// four silent adapters from #917. Codex is the one where "no key here"
+// would be false: it has three permission surfaces, and this project
+// already writes one of them through outputs.codex.exec-policies. The
+// note has to send the reader there rather than deny the feature.
+func TestEmit_NotesPermissionsPointAtExecPolicies(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash(go test:*)"},
+			"deny":  []any{"Read(secrets/**)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	for _, want := range []string{"`permissions`", "codex", "exec-policies"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+	// The note must not claim Codex has no permission surface at all.
+	// It has three; only none of them is a drop-in for these lists.
+	if strings.Contains(note, "no permission surface") {
+		t.Errorf("note overclaims: Codex has three permission surfaces\n%s", note)
+	}
+}
