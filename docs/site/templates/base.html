@@ -48,7 +48,10 @@
   <a class="skip-link" href="{% block skip_target %}#content{% endblock skip_target %}">{% block skip_label %}Skip to content{% endblock skip_label %}</a>
   <header class="site-header">
     <div class="wrap site-bar">
-      <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
+      <div class="brand-group">
+        <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
+        <a class="brand-version" href="{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}" aria-label="Latest stable release {{ config.extra.version }}, downloads and release notes on GitHub">{{ config.extra.version }}</a>
+      </div>
       <nav class="site-nav" aria-label="Primary">
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with('/updates') %} aria-current="page"{% endif %}>Updates</a>
