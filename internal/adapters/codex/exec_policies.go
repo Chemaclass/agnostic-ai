@@ -11,6 +11,31 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
+// permissionsUseExecPoliciesReason explains, in the flushed coverage
+// note, why a portable permission policy does not reach Codex on its
+// own. It deliberately does not claim Codex has no permission surface,
+// because Codex has three and none of them is a drop-in
+// (target-audit 2026-09-19, #923):
+//
+//   - `approval_policy` in `config.toml` is one global mode, never a
+//     per-rule list.
+//   - Beta Permission Profiles, `[permissions.<name>]`, map filesystem
+//     paths and network domains, and have no ask verb at all.
+//   - Exec-policy `prefix_rule(pattern=[...], decision=...)` under
+//     `.codex/rules/` really is allow, prompt and forbidden, and it is
+//     the one this project already writes, through
+//     `outputs.codex.exec-policies`.
+//
+// The portable lists are not translated into `prefix_rule` because its
+// `pattern` is a token list, `["gh","pr","view"]`, not a single-string
+// glob. Splitting a command into tokens would guess at quoting, and
+// only Bash-shaped rules would have anywhere to go: exec policies are
+// shell-only, so Read, Edit and mcp__ rules have no Codex target on any
+// of the three surfaces. Pointing at the field that does work beats
+// guessing, and matches how Augment's note points at
+// x-augment.toolPermissions.
+const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, whose prefix_rule patterns are token lists rather than globs, so set outputs.codex.exec-policies for shell rules"
+
 const (
 	defaultExecPoliciesFile = ".codex/rules/default.rules"
 
