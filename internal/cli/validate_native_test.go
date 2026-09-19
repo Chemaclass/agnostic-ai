@@ -451,6 +451,29 @@ func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
 	}
 }
 
+// validateKiroHookEvent writes a one-hook kiro project, runs `validate`
+// in it, and returns the command output. Shared by the two #907 tests,
+// which differ only in the event name and the expectation.
+func validateKiroHookEvent(t *testing.T, event string) string {
+	t.Helper()
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - kiro\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+		"name: h\nevent: "+event+"\ncommand: \"echo hi\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	// validate exits non-zero once it reports an issue (#617), so the
+	// error is not checked here; callers assert on the output instead.
+	_ = root.Execute()
+	return out.String()
+}
+
 // TestValidate_FlagsKiroAgentSpawn covers #907, and replaces a test
 // that asserted the opposite.
 //
@@ -465,44 +488,20 @@ func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
 // So the old test was right when written and its premise expired. A
 // spec carrying `AgentSpawn` now emits a `trigger` Kiro never fires.
 func TestValidate_FlagsKiroAgentSpawn(t *testing.T) {
-	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
-		"version: 1\ntargets:\n  - kiro\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
-		"name: spawn\nevent: AgentSpawn\ncommand: \"echo hi\"\n")
-	testutil.Chdir(t, dir)
-
-	root := NewRootCmd("test")
-	root.SetArgs([]string{"validate"})
-	out := &bytes.Buffer{}
-	root.SetOut(out)
-	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err == nil {
-		t.Error("validate accepted AgentSpawn on kiro and exited 0")
-	}
-	if got := out.String(); !strings.Contains(got, "AgentSpawn") {
-		t.Errorf("expected AgentSpawn to be flagged, got: %s", got)
+	if got := validateKiroHookEvent(t, "AgentSpawn"); !strings.Contains(got, "unknown hook event") ||
+		!strings.Contains(got, "AgentSpawn") {
+		t.Errorf("expected AgentSpawn to be flagged as unknown, got: %s", got)
 	}
 }
 
 // TestValidate_AcceptsKiroManualTrigger covers the other half of #907.
-// `Manual` is in Kiro's 3.0 trigger table ("User-triggered on demand")
-// and we rejected it, so an on-demand hook could not be expressed.
+// `Manual` is a current v1 trigger on Kiro's CLI page, listed both in
+// the trigger table ("User-triggered on demand") and in the matcher
+// table. The "Legacy manual Hook" wording on /docs/hooks/types/ is
+// about IDE 0.x hooks in the Agent Hooks panel, a different surface
+// from the v1 JSON file schema this adapter writes.
 func TestValidate_AcceptsKiroManualTrigger(t *testing.T) {
-	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
-		"version: 1\ntargets:\n  - kiro\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "manual.yaml"),
-		"name: manual\nevent: Manual\ncommand: \"echo hi\"\n")
-	testutil.Chdir(t, dir)
-
-	root := NewRootCmd("test")
-	root.SetArgs([]string{"validate"})
-	out := &bytes.Buffer{}
-	root.SetOut(out)
-	root.SetErr(&bytes.Buffer{})
-	err := root.Execute()
-	if got := out.String(); strings.Contains(got, "unknown hook event") {
-		t.Errorf("validate rejected the documented Manual trigger: %s (err=%v)", got, err)
+	if got := validateKiroHookEvent(t, "Manual"); strings.Contains(got, "unknown hook event") {
+		t.Errorf("validate rejected the documented Manual trigger: %s", got)
 	}
 }
