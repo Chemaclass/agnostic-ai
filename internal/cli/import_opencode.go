@@ -76,6 +76,11 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	permissions, err := importOpencodePermissions(root, filepath.Join(root, src.Settings))
+	if err != nil {
+		return err
+	}
+	settings += permissions
 	if _, err := mirrorMainFile(root, opencodeMainFile(root)); err != nil {
 		return err
 	}
