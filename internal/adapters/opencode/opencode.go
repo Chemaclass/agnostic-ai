@@ -27,6 +27,18 @@
 // Settings specs merge their last non-empty `model` into the project
 // `opencode.json` file without replacing unrelated native keys.
 //
+// Hooks are the one surface here that is codegen rather than a config
+// key. opencode.ai/docs/plugins documents `.opencode/plugins/` as a
+// project-level plugin directory whose JavaScript and TypeScript files
+// load at startup, so each hook spec emits one `<name>.ts` module
+// exporting a plugin function that returns the hook object. PreToolUse
+// and PostToolUse map onto the `tool.execute.before` and
+// `tool.execute.after` keys; every other documented event rides the
+// single `event` hook with an `event.type` guard. The command runs
+// through Bun's injected `$` helper. The generated module is one-way:
+// `import opencode` does not read `.opencode/plugins/` back, since
+// recovering a spec would mean parsing TypeScript.
+//
 // Skill names must contain 1-64 lowercase alphanumeric characters
 // separated by single hyphens, per opencode.ai/docs/skills. Invalid
 // names fail before output is written: OpenCode skips such a folder, so
@@ -66,7 +78,7 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindHook},
 }
 
 // skillNameRule is the regex opencode.ai/docs/skills states for a skill
@@ -91,9 +103,9 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one native agent definition per agent, one native skill
 // folder per skill (plus the command form when opted in), one command
-// file per command spec, `opencode.json` for MCP servers, and—when
-// opted in via outputs.opencode.rules-file—a legacy concatenated rules
-// document. The root `AGENTS.md` entry-point is written by `sync`, not
+// file per command spec, one plugin module per hook spec,
+// `opencode.json` for MCP servers, and—when opted in via
+// outputs.opencode.rules-file—a legacy concatenated rules document. The root `AGENTS.md` entry-point is written by `sync`, not
 // here; this Emit only sweeps the stale `.opencode/AGENTS.md` a
 // pre-#623 sync left behind.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -112,6 +124,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	if err := emitHooks(sess, b.Hooks, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

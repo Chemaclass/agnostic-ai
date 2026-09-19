@@ -93,6 +93,16 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
+		// Both plugin shapes: a tool hook keyed directly on the returned
+		// object, and a bus event routed through the single `event` hook.
+		{
+			Kind: spec.KindHook, Name: "fmt-go", Path: "hooks/fmt-go.yaml",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "edit", "command": "gofmt -w ."},
+		},
+		{
+			Kind: spec.KindHook, Name: "notify-idle", Path: "hooks/notify-idle.yaml",
+			Meta: map[string]any{"event": "session.idle", "command": "echo done"},
+		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{
