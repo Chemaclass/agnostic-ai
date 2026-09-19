@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -23,14 +24,20 @@ import (
 // agents from `.qoder/agents/`.
 var rulesDirImporters = map[string]string{}
 
+// importSourceNames lists every source runImport dispatches. Both the
+// help text and multi-source validation read it, so the two cannot
+// disagree: when they were separate lists, `import antigravity codex`
+// failed with an error that named antigravity as supported (#905).
+var importSourceNames = []string{
+	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
+	"copilot", "crush", "cursor", "gemini", "goose", "junie", "kilo", "kiro",
+	"opencode", "qoder", "trae", "warp", "windsurf", "zed",
+}
+
 // importSources lists every source the import command accepts, used in
 // help text and error messages.
 func importSources() string {
-	names := []string{
-		"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
-		"copilot", "crush", "cursor", "gemini", "goose", "junie", "kilo", "kiro",
-		"opencode", "qoder", "trae", "warp", "windsurf", "zed",
-	}
+	names := append([]string(nil), importSourceNames...)
 	for k := range rulesDirImporters {
 		names = append(names, k)
 	}
@@ -178,10 +185,7 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 
 // isKnownImportSource reports whether source is dispatched by runImport.
 func isKnownImportSource(source string) bool {
-	switch source {
-	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
-		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush",
-		"trae", "junie", "qoder", "kilo", "augment", "goose":
+	if slices.Contains(importSourceNames, source) {
 		return true
 	}
 	_, ok := rulesDirImporters[source]

@@ -25,6 +25,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - An exact `Bash(cmd)` in a `deny` list now blocks the command on Windsurf instead of being dropped and leaving it unblocked (#887).
 - Emitted config matches what each vendor documents: Cursor stdio MCP entries carry the required `"type": "stdio"`, and `validate` flags a copilot hook spelled `SubagentStart`, an event no Copilot page names (#888, #895).
 - Antigravity stops writing to a legacy path and past a documented limit: `sync --global` writes skills to `~/.gemini/config/skills/`, and a rule over the 12,000-character cap reports a coverage note (#896).
+- `agnostic-ai import antigravity codex` works: multi-source validation reads the same list as the help text, so a source the error message calls supported is no longer rejected (#905).
 
 ### Site
 
