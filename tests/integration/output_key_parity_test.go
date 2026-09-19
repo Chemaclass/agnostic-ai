@@ -72,6 +72,7 @@ var documentedNoOpKeys = map[string]string{
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
 	"windsurf.conf-file": "settings",
+	"factory.conf-file":  "settings",
 }
 
 func probeKind(target, key, fallback string) string {

@@ -25,6 +25,15 @@
 // scoped to cursor.com/docs/mcp.md's own emission path (target-audit
 // 2026-09-03, #661).
 //
+// A stdio server also carries an explicit `"type": "stdio"`. Cursor's
+// stdio field table marks the discriminant required ("**type** | Yes |
+// Server connection type"), and every JSON example on that page has
+// it. This one is cursor-scoped in the other direction: Claude Code
+// documents that "Claude Code reads an entry with no `type` as a stdio
+// server", so pushing the key onto every target sharing the builder
+// would write a field those vendors never document (target-audit
+// 2026-09-19, #895).
+//
 // Prompt hooks emit type, prompt, optional model, and common native options.
 // Command hooks retain their existing shape. The dedicated MCP file is
 // managed as a whole document.

@@ -43,18 +43,27 @@
 // provider-scaled tuning knobs besides, so all five stay reachable only
 // through `x-kilo` (e.g. `x-kilo: {temperature: 0.1, steps: 15}`) rather
 // than a generic top-level key. Every other arbitrary `x-kilo`
-// key passes through the same way. `tools` is never written under any
-// key, including `x-kilo`: Kilo Code's full agent option table has no
-// `tools` field, so a spec's `tools` allowlist would be a silent no-op
-// there, and the agent would keep its default (typically full)
-// permissions while looking restricted. Kilo Code's real access control
-// is a per-tool `permission` map (`allow` / `ask` / `deny`), but this
-// adapter has no vendor-confirmed mapping from agnostic-ai's generic
-// tool names onto Kilo's own tool identifiers, so it does not guess
-// one. An author who needs per-tool restriction writes
-// `x-kilo: {permission: {...}}` directly; an agent spec that sets
-// `tools` instead surfaces a coverage note rather than silently
-// dropping the restriction.
+// key passes through the same way. `tools` is never written under that
+// spelling, or under `x-kilo`: Kilo Code's full agent option table has
+// no `tools` field, so the key itself would be a silent no-op.
+//
+// The list behind it does reach Kilo Code now. Its real access control
+// is a per-tool `permission` map (`allow` / `ask` / `deny`), and both
+// halves of the translation are published: the permission table on
+// kilo.ai/docs/getting-started/settings/auto-approving-actions and the
+// tool-group table on kilo.ai/docs/automate/tools. A `tools` allowlist
+// becomes `permission: {"*": deny, <tool>: allow, ...}`, the shape
+// kilo.ai/docs/customize/agent-permissions documents outright: "Top
+// level permission keys follow the same rule", with the example
+// `permission: {"*": ask, bash: allow}`. The catch-all comes first
+// because "the last matching rule wins". A name with no row in Kilo's
+// table drops and folds into one coverage note per sync; if no name
+// translates at all, no map is written, since a bare `{"*": deny}`
+// would lock the agent out of everything nobody asked to restrict.
+// `x-kilo: {permission: {...}}` still wins outright for an author who
+// already knows Kilo's spelling (target-audit 2026-09-19, #890). The
+// premise recorded here before that audit, that no vendor-confirmed
+// mapping existed, had expired; see permission.go.
 //
 // Skills emit into the shared `.agents/skills/<name>/SKILL.md` tree
 // (override via outputs.kilo.skills-dir): Kilo Code documents its own
@@ -135,9 +144,27 @@
 // permission denials; this adapter does not translate patterns itself.
 // Settings specs merge their last non-empty model into top-level `model` in
 // `kilo.jsonc`, alongside the instructions and MCP keys.
+//
+// The portable `allow`, `deny`, and `ask` lists merge into the same
+// file's `permission` key, the map the vendor names outright:
+// "Permissions are configured under the `permission` key in
+// `kilo.jsonc`". Each rule becomes one glob pattern under one tool
+// key, since Kilo matches "against the tool's arguments (command
+// strings, file paths, etc.)": `Bash(git:*)` becomes
+// `bash: {"git *": "allow"}`, `Read(docs/*)` becomes
+// `read: {"docs/*": "allow"}`, and a bare `Bash` becomes
+// `bash: {"*": "allow"}`. The emitted key order is alphabetical, which
+// puts `*` ahead of every exception, the order Kilo asks for: "Put
+// broad fallbacks first and exceptions after them", since "the last
+// matching rule wins". One rule repeated across two lists resolves to
+// the stricter action. Anything with no key in Kilo's table drops with
+// a coverage note, and `x-kilo.permission` on a settings spec wins
+// outright for the tool keys it names (target-audit 2026-09-19, #890).
+// See permission.go.
+//
 // MCP entries preserve timeout in milliseconds, including zero, and remote
-// oauth:false, with x-kilo overrides. import kilo reads the ignore file and
-// portable default model.
+// oauth:false, with x-kilo overrides. import kilo reads the ignore file, the
+// portable default model, and the `permission` map.
 package kilo
 
 import (
@@ -235,45 +262,52 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
-// spec declares `tools` get no restriction on Kilo Code (see
-// agentMarkdown), so the whole batch surfaces one coverage note
-// instead of a silent drop.
+// emitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
+// `tools` allowlist becomes Kilo's own `permission` frontmatter (see
+// agentMarkdown); only the names outside Kilo's vocabulary drop, and
+// the whole batch surfaces one coverage note for those instead of a
+// silent loss.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	withTools := 0
+	unmapped := 0
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		md, hadTools := agentMarkdown(a)
-		if hadTools {
-			withTools++
+		md, hadUnmapped := agentMarkdown(a)
+		if hadUnmapped {
+			unmapped++
 		}
 		body := emit.WithHeader(md, emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
-	emit.NoteCoverageGap(target, spec.KindAgent, withTools,
-		"tools has no Kilo Code key; use x-kilo.permission for native per-tool access control")
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmapped, agentToolsUntranslatedReason)
 	return nil
 }
 
 // agentMarkdown renders a single agent definition: `description`
 // (falls back to the spec name) plus `color`, `mode`, and `model` when
-// set, followed by arbitrary x-kilo passthrough and the spec body as
-// the agent's system prompt. Kilo Code takes the agent name from the
-// filename, so `name` is never written; `tools` is never written
-// either (see the package doc). Both stay excluded from the x-kilo
-// passthrough too, so an escape-hatch attempt cannot reintroduce a
-// confirmed no-op key. `color` and `mode` are also excluded from the
-// x-kilo passthrough below: ResolveMeta already flattens any
-// `x-kilo.color` / `x-kilo.mode` onto `resolved` before this function
-// runs, so the top-level loop above already carries an override
-// through, and re-merging the same key from raw `e.Meta` would only be
-// redundant, not additive.
-// hadTools reports whether the spec declared a tools list, so the
-// caller can fold it into one coverage note per sync instead of a
-// silent drop.
-func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
+// set, then the `permission` map a `tools` allowlist translates into,
+// followed by arbitrary x-kilo passthrough and the spec body as the
+// agent's system prompt. Kilo Code takes the agent name from the
+// filename, so `name` is never written; `tools` is never written under
+// that spelling either, since Kilo Code's agent option table has no
+// such key. Both stay excluded from the x-kilo passthrough too, so an
+// escape-hatch attempt cannot reintroduce a confirmed no-op key.
+// `color` and `mode` are also excluded from the x-kilo passthrough
+// below: ResolveMeta already flattens any `x-kilo.color` /
+// `x-kilo.mode` onto `resolved` before this function runs, so the
+// top-level loop above already carries an override through, and
+// re-merging the same key from raw `e.Meta` would only be redundant,
+// not additive.
+//
+// An `x-kilo.permission` wins outright: it reaches the frontmatter
+// through the passthrough and the translated map is not built at all,
+// so the two never fight over one key.
+//
+// unmapped reports whether the spec named at least one tool Kilo Code
+// has no permission key for, so the caller can fold those into one
+// coverage note per sync instead of losing them silently.
+func agentMarkdown(e spec.Entry) (body string, unmapped bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -289,14 +323,34 @@ func agentMarkdown(e spec.Entry) (body string, hadTools bool) {
 			keys = append(keys, k)
 		}
 	}
-	hadTools = len(emit.StringSlice(resolved["tools"])) > 0
+	if !hasNativePermission(e) {
+		var permission map[string]any
+		permission, unmapped = agentPermission(emit.StringSlice(resolved["tools"]))
+		if len(permission) > 0 {
+			meta[permissionKey] = permission
+			keys = append(keys, permissionKey)
+		}
+	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(e.Body)
 	if trimmed == "" {
-		return front + "\n", hadTools
+		return front + "\n", unmapped
 	}
-	return front + "\n" + trimmed + "\n", hadTools
+	return front + "\n" + trimmed + "\n", unmapped
+}
+
+// hasNativePermission reports whether the spec already carries an
+// `x-kilo.permission` object. That object wins outright over the
+// translated form, so the translation is skipped entirely rather than
+// written and then overwritten by the passthrough.
+func hasNativePermission(e spec.Entry) bool {
+	custom, _ := emit.CustomTargetMeta(e.Meta, target)
+	if custom == nil {
+		return false
+	}
+	_, ok := custom[permissionKey]
+	return ok
 }
 
 // emitKiloJSONC merges the `instructions`, `mcp`, `skills`, and `model`
@@ -321,10 +375,15 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if model := emit.LastSettingsModel(b.Settings); model != "" {
 		keys["model"] = model
 	}
+	permission, dropped := settingsPermission(b.Settings)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUntranslatedReason)
+	if len(permission) > 0 {
+		keys[permissionKey] = permission
+	}
 	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFileNested(path, keys, []string{"skills"}, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"skills", permissionKey}, dryRun)
 }
 
 // skillsPaths returns the `skills.paths` list kilo.jsonc needs so Kilo

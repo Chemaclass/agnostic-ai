@@ -165,9 +165,13 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// this repo's other hook emitters already share (Claude Code,
 	// Codex, OpenHands, Windsurf, Qoder) and Copilot's own camelCase
 	// form; this adapter passes `event:` through verbatim (#629), so
-	// both spellings are listed. `userPromptTransformed` has no
-	// PascalCase pairing documented on that page, so only its camelCase
-	// spelling is valid.
+	// both spellings are listed. Two of the 14 rows have no PascalCase
+	// pairing documented on that page, `userPromptTransformed` and
+	// `subagentStart`, so only their camelCase spellings are valid.
+	// `SubagentStart` was listed here until #888: the adapter already
+	// knew better (see copilot/hooks.go), but this table is a second,
+	// separate list and only the other one carried the caveat, so
+	// `validate` vouched for a key Copilot parses and never fires.
 	"copilot": setOf(
 		"SessionStart", "sessionStart",
 		"SessionEnd", "sessionEnd",
@@ -177,7 +181,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PostToolUse", "postToolUse",
 		"PostToolUseFailure", "postToolUseFailure",
 		"Stop", "agentStop",
-		"SubagentStart", "subagentStart",
+		"subagentStart",
 		"SubagentStop", "subagentStop",
 		"ErrorOccurred", "errorOccurred",
 		"PreCompact", "preCompact",
@@ -282,7 +286,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder", "augment", "factory"),
-	spec.KindSettings:    setOf("claude", "codex", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment"),
+	spec.KindSettings:    setOf("claude", "codex", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory"),
 	spec.KindReview:      setOf("cursor", "goose"),
 	spec.KindEnvironment: setOf("cursor", "openhands", "amp"),
 	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),

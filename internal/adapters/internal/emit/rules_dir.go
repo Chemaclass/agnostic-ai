@@ -139,6 +139,13 @@ func ScopeEscapesRoot(scope string) bool {
 	return clean == ".." || strings.HasPrefix(clean, "../")
 }
 
+// DefaultRuleFile returns the exact text RulesDirectory writes for one
+// rule when the caller supplies no FormatRule override. Exported so an
+// adapter whose vendor caps a rules file by length can measure what
+// actually lands on disk, provenance header and heading included,
+// instead of the spec body alone.
+func DefaultRuleFile(e spec.Entry) string { return defaultFormatRule(e) }
+
 func defaultFormatRule(e spec.Entry) string {
 	var b strings.Builder
 	b.WriteString(Header(FormatMarkdown) + "\n")

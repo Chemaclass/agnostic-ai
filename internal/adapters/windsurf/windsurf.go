@@ -153,8 +153,13 @@
 // devinPermissionRule for the table. A `Bash(...)` rule is never
 // written verbatim: Devin spells shell execution `Exec(...)`. An exact
 // `Bash(cmd)` has no faithful form at all, since Devin's `Exec` only
-// ever prefix-matches, so it drops into a coverage note rather than
-// widening an allow rule the author never wrote.
+// ever prefix-matches, so the translation widens. Which way that cuts
+// depends on the list. On `allow` and `ask` it approves commands the
+// author never wrote, so the rule drops into a coverage note. On `deny`
+// it blocks more than was asked for, and Devin's changelog for
+// v3000.10.31 states a command deny outranks a broader allow or ask, so
+// the widened `Exec(cmd)` is written rather than leaving the command
+// unblocked (target-audit 2026-09-19, #887).
 // `x-windsurf.permissions` passes through untranslated for an author
 // who already knows Devin's spelling. See settings.go (target-audit
 // 2026-09-18, #856).

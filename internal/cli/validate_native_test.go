@@ -429,3 +429,51 @@ func TestInstallHint_KnownCommands(t *testing.T) {
 		}
 	}
 }
+
+// docs.github.com/en/copilot/reference/hooks-reference carries
+// `SubagentStart` zero times. The camelCase row exists
+// ("subagentStart | A subagent is spawned (before it runs).") but has
+// no PascalCase pairing under "Hook event input payloads", unlike the
+// ten events that do. The adapter already knew that; this table did
+// not, so `validate` vouched for a key Copilot parses and never fires
+// (#888).
+func TestValidate_FlagsCopilotSubagentStartPascalCase(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - copilot\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
+		"name: spawn\nevent: SubagentStart\ncommand: \"echo hi\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	if err := root.Execute(); err == nil {
+		t.Error("validate vouched for an event the vendor documents nowhere")
+	}
+	if got := out.String(); !strings.Contains(got, "SubagentStart") {
+		t.Errorf("expected the offending event echoed, got: %s", got)
+	}
+}
+
+// The camelCase spelling is the documented one and still validates.
+func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - copilot\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
+		"name: spawn\nevent: subagentStart\ncommand: \"echo hi\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	_ = root.Execute()
+	if got := out.String(); strings.Contains(got, "unknown hook event") {
+		t.Errorf("subagentStart is documented and must validate, got: %s", got)
+	}
+}

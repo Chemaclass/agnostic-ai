@@ -19,7 +19,9 @@ const modelUserOnlyReason = "Devin marks the agent.model block user only; a proj
 // some rules did not reach the file. Devin's Exec is a prefix matcher
 // with no exact-command form, so an exact `Bash(git status)` would
 // widen into `Exec(git status)` and auto-approve `git status --short`
-// too; that is the fail-open direction, so the rule drops instead.
+// too; that is the fail-open direction on allow and ask, so the rule
+// drops there. On deny the same widening blocks more than was asked
+// for, which is fail-safe, so a deny rule keeps it.
 const rulesUntranslatedReason = "rule(s) outside Devin's Read/Write/Exec/Fetch/mcp__ vocabulary have no faithful spelling there; set x-windsurf.permissions with Devin's own rules for those"
 
 // emitConfig merges the portable allow, deny, and ask lists into
@@ -71,7 +73,7 @@ func devinPermissions(settings []spec.Entry) (map[string]any, int) {
 			for _, rule := range rules {
 				mapped := rule
 				if !native {
-					translated, ok := devinPermissionRule(rule)
+					translated, ok := devinPermissionRule(rule, list)
 					if !ok {
 						dropped[i] = true
 						continue
@@ -123,10 +125,14 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 //	Read/Bash/...     -> read/exec/..., the bare tool names in devinTool
 //	mcp__server__tool -> unchanged, the spelling Devin documents too
 //
-// An exact `Bash(cmd)` has no entry: Devin's Exec matches any command
-// starting with the prefix, so translating one would silently widen an
-// allow rule into commands the author never approved.
-func devinPermissionRule(rule string) (string, bool) {
+// An exact `Bash(cmd)` turns on which list holds it, because Devin has
+// no exact-command form: Exec matches any command starting with the
+// prefix, so the translation always widens. On allow and ask that
+// approves commands the author never listed, so the rule drops. On deny
+// it blocks more than was asked for, which is the safe direction, and
+// Devin's changelog for v3000.10.31 states a command deny outranks a
+// broader allow or ask, so deny takes `Exec(cmd)` over nothing at all.
+func devinPermissionRule(rule, list string) (string, bool) {
 	if strings.HasPrefix(rule, mcpToolPrefix) {
 		return rule, true
 	}
@@ -140,10 +146,16 @@ func devinPermissionRule(rule string) (string, bool) {
 			return "Fetch(" + arg + ")", true
 		case "Bash":
 			prefix, isPrefixRule := strings.CutSuffix(arg, ":*")
-			if !isPrefixRule || prefix == "" {
+			if isPrefixRule {
+				if prefix == "" {
+					return "", false
+				}
+				return "Exec(" + prefix + ")", true
+			}
+			if list != "deny" {
 				return "", false
 			}
-			return "Exec(" + prefix + ")", true
+			return "Exec(" + arg + ")", true
 		}
 		return "", false
 	}

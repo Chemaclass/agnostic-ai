@@ -119,6 +119,10 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "fmt-go",
 			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w"},
 		},
+		{
+			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",
+			Meta: map[string]any{"model": "claude-sonnet-4-5"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

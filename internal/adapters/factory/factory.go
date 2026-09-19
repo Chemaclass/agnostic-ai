@@ -95,6 +95,27 @@
 // Commands emit at `.factory/commands/<name>.md` with the documented
 // description and argument-hint frontmatter. Factory recommends Skills for
 // new reusable workflows, but continues to load this project command surface.
+//
+// Settings specs merge into `.factory/settings.json` (override via
+// outputs.factory.conf-file). Factory documents the project tier on its
+// hierarchical-settings page rather than the CLI settings page, whose
+// "Where settings live" table lists `~/.factory/settings.json` alone:
+// "Settings are authored in `.factory/` folders, using the same schema
+// at every level", levels table row "**Project** |
+// `<git-root>/.factory/`", and "Each `.factory/` folder can contain:
+// `settings.json`: general settings (models, safety, preferences,
+// telemetry)"
+// (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+// The skills page names the same file: "the **Project** tab writes to
+// `<project>/.factory/settings.json`" (docs.factory.ai/harness/skills).
+// Only `model` is set, and through MergeJSONFile, so `disabledSkills`
+// and every other key in that file survive the sync.
+//
+// The portable permission lists stop at a coverage note. Factory's
+// settings reference names `commandAllowlist`, `commandDenylist`, and
+// `commandBlocklist`, but gives no rule grammar and no stated
+// difference between the two deny-shaped keys, so translating one would
+// be a guess (target-audit 2026-09-19, #891). See settings.go.
 package factory
 
 import (
@@ -112,6 +133,13 @@ const (
 	defaultSkillsDir   = ".agents/skills"
 	defaultCommandsDir = ".factory/commands"
 	defaultMCPFile     = ".factory/mcp.json"
+
+	// defaultSettingsFile is the project tier of Factory's settings
+	// hierarchy: "Settings are authored in `.factory/` folders, using
+	// the same schema at every level", levels table row "**Project** |
+	// `<git-root>/.factory/`"
+	// (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+	defaultSettingsFile = ".factory/settings.json"
 )
 
 // droidHandBuiltKeys names the frontmatter keys this adapter builds
@@ -127,7 +155,7 @@ var caps = emit.Capabilities{
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -144,8 +172,9 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
 // `.agents/skills/`, a managed `.factory/mcp.json` for MCP servers,
-// `.factory/hooks.json` for hook specs, and one native command file per
-// command spec. The project-root
+// `.factory/hooks.json` for hook specs, one native command file per
+// command spec, and a merged `.factory/settings.json` for settings
+// specs. The project-root
 // AGENTS.md (rules' single source of truth for Droid CLI) is written
 // by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -166,6 +195,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitSettings(sess, b.Settings, emit.OutputConfFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
 		return err
 	}
 	// Factory's schema documents a working `disabled` key (unlike

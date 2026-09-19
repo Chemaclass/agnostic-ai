@@ -18,7 +18,11 @@ func importKiloIgnore(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d ignores, %d settings (other Kilo configuration is not imported)\n", ignores, settings)
+	permissions, err := importKiloPermissions(root, filepath.Join(root, src.Settings))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d ignores, %d settings (other Kilo configuration is not imported)\n", ignores, settings+permissions)
 	printImportNextSteps(root, "kilo")
 	return nil
 }
