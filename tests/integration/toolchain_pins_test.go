@@ -2,8 +2,10 @@ package integration
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -54,5 +56,54 @@ func TestZolaPin_MatchesPagesWorkflow(t *testing.T) {
 	if local != workflow {
 		t.Errorf("Makefile pins Zola %s but %s pins %s; bump both together so local and Pages builds match",
 			local, pagesWorkflowPath, workflow)
+	}
+}
+
+// lookupPinnedZola returns the zola binary only when it matches the
+// Makefile pin. A missing binary or a different version is a skip, not a
+// fail: CI installs 0.22.0, and a contributor with another zola on PATH
+// should still run the rest of the suite. Matching the Makefile gate here
+// stops a newer zola from reporting a template parse error in a file that
+// is valid under the pin.
+func lookupPinnedZola(t *testing.T) string {
+	t.Helper()
+	zolaPath, err := exec.LookPath("zola")
+	if err != nil {
+		t.Skip("zola is not installed")
+	}
+	pin := pinFrom(t, makefilePath, zolaMakefilePinRE)
+	out, err := exec.Command(zolaPath, "--version").CombinedOutput()
+	have := strings.TrimSpace(string(out))
+	if err != nil {
+		t.Skipf("zola --version failed: %v\n%s", err, have)
+	}
+	want := "zola " + pin
+	if have != want {
+		t.Skipf("skipping: this test needs zola %s (the Makefile pin), found %s", pin, zolaVersionFromLine(have))
+	}
+	return zolaPath
+}
+
+func zolaVersionFromLine(have string) string {
+	have = strings.TrimSpace(have)
+	if have == "" {
+		return "nothing"
+	}
+	return strings.TrimPrefix(have, "zola ")
+}
+
+func TestZolaVersionFromLine(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"zola 0.22.0", "0.22.0"},
+		{"zola 0.23.6\n", "0.23.6"},
+		{"", "nothing"},
+		{"  ", "nothing"},
+	}
+	for _, tc := range tests {
+		if got := zolaVersionFromLine(tc.in); got != tc.want {
+			t.Errorf("zolaVersionFromLine(%q) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
