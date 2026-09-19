@@ -15,7 +15,7 @@ target_id = "cline"
 ```
 AGENTS.md                            # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
 .clinerules/<name>.md
-.cline/agents/<name>.md
+.cline/agents/<name>.yml             # frontmatter over a Markdown system prompt
 .cline/workflows/<name>.md           # one per agent, only when workflows-dir is set
 .cline/skills/<name>/SKILL.md        # one folder per skill (Cline's recommended skills path)
 ```
@@ -24,14 +24,18 @@ Cline reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared po
 
 `.cline/rules/` appears only in the project tree on the [config reference](https://docs.cline.bot/getting-started/config), which disagrees with the extension it documents. Releases before this one defaulted there on that page alone, so every rule landed where nothing loaded it (target-audit 2026-09-18). Set `outputs.cline.rules-dir: .cline/rules` if you want that path anyway; otherwise a stale managed tree there is swept on sync.
 
-Agents always emit at `.cline/agents/`, independent of that override. That path is absent from `GlobalFileNames` too, but only the config page's rules entry has been contradicted by source, so agents stay where they are until a runtime check settles them. Cline's own file format for that directory has no dedicated doc page, so this adapter writes the spec body verbatim, with no synthesized heading and no invented frontmatter.
+Agents always emit at `.cline/agents/`, independent of that override. `resolveAgentConfigSearchPaths` in `cline/cline` returns `<workspace>/.cline/agents`, and all three shipping readers resolve the directory through it, so the path is source-confirmed.
+
+Each agent is a `<name>.yml` file: `---`-delimited frontmatter carrying the required `name` and `description`, then the spec body as the system prompt. The loader accepts only `.yml` and `.yaml`, throws unless the content opens with `---`, and rejects an empty `name` or `description`, so a spec with no description falls back to its name. The provenance comment sits below the closing delimiter, inside the prompt; above it, it would break the anchor and the file would not load. `tools`, `skills`, `providerId`, `modelId`, and `maxIterations` go in through `x-cline`. No heading is synthesized above the body.
+
+Releases before this one wrote `<name>.md` with no frontmatter, which every shipping Cline surface skipped (target-audit 2026-09-19). A stale managed `.md` there is swept on sync; hand-authored files stay.
 
 - **Rule activation**: scoped rules emit conditional `paths` constrained to the directory, even when the source sets `alwaysApply: true`. For unscoped rules, `alwaysApply: false` enables native `paths` derived from the file selector; without a usable selector, the adapter reports a coverage note. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend and the extension confirms as `GlobalFileNames.clineSkillsDir`. A flat file directly under the rules directory never loads as a skill, so this is a folder, not a rule-form file. The SKILL.md frontmatter carries `name` + `description`; sibling assets next to the source SKILL.md are copied byte-for-byte.
 
 When `outputs.cline.workflows-dir` is set, each agent also emits as a Markdown file at `<dir>/<name>.md`, invokable from chat as `/<name>.md`, with the italic description prefixing the body when present. Cline's doc for this feature, `docs.cline.bot/features/workflows`, 404s, and `llms.txt` lists no project-scoped replacement in the current `customization/` tree (Rules, `.clineignore`, Hooks, Plugins, Skills; no Workflows entry, target-audit 2026-08-08, #563).
 
-Treat this as an unconfirmed export rather than a vendor-documented surface until a current doc backs it. The native `.cline/agents/<name>.md` emission still happens either way.
+Treat this as an unconfirmed export rather than a vendor-documented surface until a current doc backs it. The native `.cline/agents/<name>.yml` emission still happens either way.
 
 ## Config keys
 
@@ -46,7 +50,7 @@ Treat this as an unconfirmed export rather than a vendor-documented surface unti
 
 `agnostic-ai import cline` reads rules from `.clinerules/`, falling back to `.cline/rules/` for a project synced by an earlier release, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
 
-It reconstructs agents from `.cline/agents/<name>.md`, Cline's native per-agent directory (#534). Each file copies byte-for-byte minus the provenance header. There is no `agent-` prefix to strip and no synthesized heading, since sync no longer writes one there. The `agent-<name>.md` prefix only fires when a project still carries the pre-#534 layout, where rules and agents shared `.clinerules/`.
+It reconstructs agents from `.cline/agents/<name>.yml`, Cline's native per-agent directory. Each file becomes a `<name>.md` spec, byte-for-byte minus the provenance header: frontmatter and body carry across unchanged, so only the extension moves. `.yaml` is read too, and `.md` last, so a project synced before the format fix still round-trips; a `.yml` wins a same-name collision. There is no `agent-` prefix to strip and no synthesized heading, since sync no longer writes one there. The `agent-<name>.md` prefix only fires when a project still carries the pre-#534 layout, where rules and agents shared `.clinerules/`.
 
 Skills import from all three documented project paths, in this order: `.cline/skills/`, `.clinerules/skills/`, then `.claude/skills/`. The first same-name skill wins. Bundled assets and executable modes survive. `.clinerules/skills/` is excluded from the rules walk, so a skill folder there never imports as a rule.
 
@@ -54,5 +58,5 @@ Skills import from all three documented project paths, in this order: `.cline/sk
 
 1. Install the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) in VS Code.
 2. Check the tree: `ls .clinerules/ .cline/agents/ .cline/skills/`, `grep "Generated by agnostic-ai" .clinerules/*.md` for the provenance header, `test -f .cline/skills/*/SKILL.md`.
-3. Open the project, open the Cline panel. Cline loads every `.clinerules/*.md`; each appears in the rules list with no "failed to parse" warnings. Each `.cline/agents/<name>.md` appears wherever Cline surfaces project agent definitions, and each `.cline/skills/<name>/` loads as a skill. Open a file matching a `paths` rule and the "Conditional rules applied: workspace:&lt;name&gt;.md" notification names it; open an unrelated file and it stays out.
+3. Open the project, open the Cline panel. Cline loads every `.clinerules/*.md`; each appears in the rules list with no "failed to parse" warnings. Each `.cline/agents/<name>.yml` appears wherever Cline surfaces project agent definitions (`cline config`, Agent Teams via `--team-name`, the hub's agent list), and each `.cline/skills/<name>/` loads as a skill. Open a file matching a `paths` rule and the "Conditional rules applied: workspace:&lt;name&gt;.md" notification names it; open an unrelated file and it stays out.
 4. If `outputs.cline.workflows-dir` is set, each `<workflows-dir>/<name>.md` is invokable as `/<name>.md`; the italic description previews the workflow.

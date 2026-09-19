@@ -28,7 +28,7 @@ func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	if err := a.Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".clinerules/r1.md", ".cline/agents/ag1.md", ".cline/skills/sk1/SKILL.md"} {
+	for _, p := range []string{".clinerules/r1.md", ".cline/agents/ag1.yml", ".cline/skills/sk1/SKILL.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}
@@ -121,7 +121,7 @@ func TestEmit_WorkflowsDirEmitsAgentsAsWorkflows(t *testing.T) {
 	}
 
 	// The native agent file still emits alongside the workflow.
-	if _, err := os.Stat(filepath.Join(dir, ".cline/agents/ship-it.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".cline/agents/ship-it.yml")); err != nil {
 		t.Errorf("agent file missing: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".clinerules/r1.md")); err != nil {
@@ -167,7 +167,7 @@ func TestEmit_RulesCarryProvenanceHeader(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".clinerules/r1.md", ".cline/agents/ag1.md"} {
+	for _, p := range []string{".clinerules/r1.md", ".cline/agents/ag1.yml"} {
 		got, err := os.ReadFile(filepath.Join(dir, p))
 		if err != nil {
 			t.Fatalf("read %s: %v", p, err)
@@ -318,10 +318,10 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "custom/agents/a1.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "custom/agents/a1.yml")); err != nil {
 		t.Errorf("expected override dir to hold the agent file: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".cline/agents/a1.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".cline/agents/a1.yml")); !os.IsNotExist(err) {
 		t.Errorf("expected no output at the default agents dir, err=%v", err)
 	}
 }

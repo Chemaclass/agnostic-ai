@@ -103,7 +103,7 @@ Runtime limits:
 
 - Codex and OpenCode use working-directory ancestry. Warp documents root/current-directory loading and best-effort cross-directory discovery. Gemini discovers context as files are accessed.
 - Copilot support varies by host. OpenHands path injection supports local conversations, not ACP.
-- Cline's `.cline/agents`, Qoder Desktop parity, and Kiro custom-agent resource loading still need product-specific runtime checks.
+- Qoder Desktop parity and Kiro custom-agent resource loading still need product-specific runtime checks.
 
 ## Shared files and safe updates
 

@@ -15,22 +15,37 @@
 // stale managed tree there is swept on sync unless that override is
 // set.
 //
-// Agents stay at `.cline/agents/`. That path is absent from
-// `GlobalFileNames` too, but no source evidence contradicts the config
-// page for it, and one page being wrong about rules does not settle
-// agents. It needs its own runtime check before it moves. Skills stay
-// at `.cline/skills/` on positive evidence: `clineSkillsDir:
-// ".cline/skills"` sits in the same `GlobalFileNames` block.
+// Agents stay at `.cline/agents/`, now on positive source evidence:
+// `resolveAgentConfigSearchPaths` returns `<workspace>/.cline/agents`
+// (sdk/packages/shared/src/storage/paths.ts:476), and all three
+// shipping readers resolve the directory through it. Skills stay at
+// `.cline/skills/` on the same footing: `clineSkillsDir:
+// ".cline/skills"` sits in the `GlobalFileNames` block.
 //
-// `.cline/agents/` has no dedicated file-format doc page either (the
-// "Subagents" feature is an unrelated, ephemeral parallel-research
-// tool, not a file-backed profile), so this adapter writes the spec
-// body verbatim: no synthesized heading, and no invented frontmatter
-// keys with no vendor confirmation behind them. A synthesized "# Agent:
-// <name>" heading (the pre-#534 rule-form shape) would round-trip back
-// into the body on the next `import cline` and double itself on the
-// next sync, since nothing downstream of a native, un-prefixed agent
-// file expects to strip one back out.
+// An agent file is `<name>.yml` carrying `---`-delimited frontmatter
+// over a Markdown system prompt. Every part of that is load-bearing in
+// `configured-agent-config.ts`: `isYamlFile` accepts only `.yml` and
+// `.yaml` (L113-115) and the directory scan skips everything else
+// (L176-178); the content must match /^(---)[^\S\r\n]*(?:\r?\n|$)/ or
+// the loader throws "Missing YAML frontmatter block in agent config
+// file." (L49-52); and the schema requires `name` and `description`,
+// both `z.string().trim().min(1)` (L8-10). A spec with no description
+// falls back to its name, since an empty one fails the schema and
+// drops the agent. The five optional keys (`tools`, `skills`,
+// `providerId`, `modelId`, `maxIterations`) go in through `x-cline`.
+//
+// The provenance comment sits below the closing delimiter, inside the
+// system prompt. Above it, it would break the `^---` anchor and the
+// file would not load at all. Releases #534 through #886 wrote
+// `<name>.md` with no frontmatter and a leading HTML comment, so every
+// agent was invisible to `cline config`, to Agent Teams, and to the
+// hub (target-audit 2026-09-19, #886). A stale managed `.md` there is
+// swept on sync; hand-authored files survive.
+//
+// No heading is synthesized above the body. A "# Agent: <name>" line
+// (the pre-#534 rule-form shape) would round-trip back into the body
+// on the next `import cline` and double itself on the next sync, since
+// nothing downstream of a native agent file expects to strip one out.
 //
 // A rule that declares `alwaysApply: false` narrows through Cline's one
 // conditional, `paths`: "Currently, `paths` is the supported
@@ -91,6 +106,12 @@ const (
 	// sweeps a stale managed copy here, unless the user opted into it
 	// explicitly via outputs.cline.rules-dir.
 	unreadRulesDir = ".cline/rules"
+	// agentExt is the only extension the agent loader accepts besides
+	// `.yaml` (isYamlFile, configured-agent-config.ts L113-115).
+	agentExt = ".yml"
+	// legacyAgentExt is what releases #534 through #886 wrote there.
+	// The loader skips it, so a managed leftover is swept.
+	legacyAgentExt = ".md"
 )
 
 var caps = emit.Capabilities{
@@ -110,7 +131,7 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one .md per rule under the rules directory (default
-// `.clinerules`), one .md per agent under the agents directory
+// `.clinerules`), one .yml per agent under the agents directory
 // (default `.cline/agents`), and one folder per skill under the skills
 // directory (Cline's native SKILL.md layout; a flat file there never
 // loads as a skill). A stale managed tree at the unread `.cline/rules`
@@ -157,20 +178,45 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitWorkflows(sess, b, cfg, dryRun)
 }
 
-// emitAgentFiles writes one `<dir>/<name>.md` per agent spec: the spec
-// body verbatim, no synthesized heading (see the package doc for why).
+// emitAgentFiles writes one `<dir>/<name>.yml` per agent spec and
+// sweeps the `<name>.md` files earlier releases left there, which no
+// Cline surface reads (see the package doc).
 func emitAgentFiles(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	if err := sess.RemoveGeneratedTreeExt(dir, legacyAgentExt, dryRun); err != nil {
+		return err
+	}
 	for _, a := range agents {
-		path := filepath.Join(dir, a.Name+".md")
-		if err := sess.WriteFile(path, emit.WithHeader(agentFileMarkdown(a), emit.FormatMarkdown), dryRun); err != nil {
+		path := filepath.Join(dir, a.Name+agentExt)
+		if err := sess.WriteFile(path, emit.WithHeader(agentFile(a), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func agentFileMarkdown(a spec.Entry) string {
-	return strings.TrimSpace(a.Body) + "\n"
+// agentFile renders one agent config: required `name` + `description`
+// frontmatter, the five optional vendor keys through `x-cline`, and the
+// spec body as the system prompt. The header format is Markdown, not
+// YAML, because emit.WithHeader places a Markdown header below the
+// closing delimiter; a `#` line above it would break the `^---` anchor
+// the loader requires.
+func agentFile(a spec.Entry) string {
+	desc, _ := emit.ResolveMeta(a.Meta, target)["description"].(string)
+	if desc == "" {
+		// `description` is z.string().trim().min(1): an empty one
+		// throws and the agent never loads. Mirror the skill emitter
+		// and fall back to the name.
+		desc = a.Name
+	}
+	meta := map[string]any{"name": a.Name, "description": desc}
+	keys := []string{"name", "description"}
+	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description")
+	front := emit.FrontmatterOrdered(meta, keys)
+	body := strings.TrimSpace(a.Body)
+	if body == "" {
+		return front + "\n"
+	}
+	return front + "\n" + body + "\n"
 }
 
 // emitWorkflows writes one workflow per agent under the configured
