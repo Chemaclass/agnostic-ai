@@ -183,6 +183,18 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // when at least one of its markers exists. Markers are chosen to be
 // exclusive (no shared root files like AGENTS.md) so detection does not
 // over-tick.
+//
+// Exclusivity is why goose's markers look thin. `.goosehints` is
+// written only under the `outputs.goose.rules-file` opt-in, so a
+// default goose project carried no marker at all and `import all`
+// skipped it (#906). `.agents/REVIEW.md` is goose-only, and goose
+// writes `.agents/plugins/` by default while Antigravity reaches it
+// only through an explicit output key, where its own `.agent` and
+// `.agents/rules` markers fire regardless. The obvious wider choices
+// are not available: `.agents/agents/` is already codex's here, and
+// `.agents/skills/` is shared across most of the registry. So a goose
+// project carrying rules and nothing else stays undetected, and needs
+// an explicit `import goose`.
 var targetMarkers = map[string][]string{
 	"claude":      {".claude"},
 	"codex":       {".codex", ".agents/agents"},
@@ -206,7 +218,7 @@ var targetMarkers = map[string][]string{
 	"openhands":   {".openhands"},
 	"factory":     {".factory"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
-	"goose":       {".goosehints"},
+	"goose":       {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
 	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},
 }
 
