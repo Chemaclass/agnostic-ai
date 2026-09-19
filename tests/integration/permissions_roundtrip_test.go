@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chemaclass/agnostic-ai/internal/testutil"
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy binds each
