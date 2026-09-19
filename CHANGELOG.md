@@ -12,34 +12,24 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
-- Hook specs reach OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, with `PreToolUse` and `PostToolUse` mapped onto its tool hooks (#892).
-- `agnostic-ai import goose` reads Goose's agents, skills, plugin hooks, reviews and rules, so the target is no longer emit-only (#894).
-- `agnostic-ai import trae` reads `.trae/hooks.json`, so Trae project hooks round-trip instead of being dropped (#894).
-- Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, and `import kilo` reads it back (#890).
-- An agent's `tools` list now restricts the agent on Kilo Code, translated into its native per-tool `permission` frontmatter (#890).
+- Hook specs reach two more targets: OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, and Cline as one executable script per event under `.cline/hooks/` (#889, #892).
+- Import catches up with what sync writes: `import goose` reads Goose's agents, skills, plugin hooks, reviews and rules, `import trae` reads `.trae/hooks.json`, and `import cline` reads `.agents/skills/` (#889, #894).
+- Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, an agent's `tools` list translates into the same per-tool shape, and `import kilo` reads both back (#890).
+- Copilot reaches three more documented keys: `disabledMcpServers` in `.github/copilot/settings.json`, `cwd` and `env` on hooks, and a per-server `tools` allowlist on Copilot CLI MCP entries (#888).
 - A settings `model` reaches Factory at `<project>/.factory/settings.json`, the documented project tier (#891).
-- An MCP server marked `disabled: true` is listed in `disabledMcpServers` in `.github/copilot/settings.json`, so Copilot CLI leaves it stopped (#888).
-- Copilot hooks accept `cwd` and `env`, and Copilot CLI MCP servers accept a `tools` allowlist (#888).
-- Hook specs reach Cline as one executable script per event under `.cline/hooks/`, the file-based surface `listHookConfigFiles` scans and runs (#889).
-- `import cline` reads `.agents/skills/`, the fourth project skills directory Cline scans, so those skills no longer come back empty (#889).
 
 ### Fixed
 
 - Cline agents load again: they emit as `.cline/agents/<name>.yml` with the `name` and `description` frontmatter the loader requires, and `import` reads both that and the old `.md` (#886).
-- `CLAUDE.md` is always written for `claude`, so an `outputs.claude.rules-file` override no longer leaves Claude Code reading codex's `AGENTS.md` (#885).
-- `import claude` reads `AGENTS.md` and `.claude/AGENTS.md` when no `CLAUDE.md` exists, the files Claude Code itself loads in that repo (#893).
+- Claude Code's AGENTS.md fallback no longer leaks routing: `CLAUDE.md` is always written, so an `outputs.claude.rules-file` override cannot hand Claude Code codex's `AGENTS.md`, and `import claude` reads the same fallback files the tool itself loads (#885, #893).
 - An exact `Bash(cmd)` in a `deny` list now blocks the command on Windsurf instead of being dropped and leaving it unblocked (#887).
-- Cursor stdio MCP entries carry the `"type": "stdio"` its field table marks required (#895).
-- `sync --global` writes Antigravity skills to `~/.gemini/config/skills/`, not the path the vendor now labels legacy (#896).
-- `validate` flags a copilot hook spelled `SubagentStart`, an event the vendor documents nowhere (#888).
-- A rule over Antigravity's 12,000-character cap reports a coverage note instead of emitting silently over the limit (#896).
+- Emitted config matches what each vendor documents: Cursor stdio MCP entries carry the required `"type": "stdio"`, and `validate` flags a copilot hook spelled `SubagentStart`, an event no Copilot page names (#888, #895).
+- Antigravity stops writing to a legacy path and past a documented limit: `sync --global` writes skills to `~/.gemini/config/skills/`, and a rule over the 12,000-character cap reports a coverage note (#896).
 
 ### Site
 
 - Site search ranks the page a query names ahead of that page's own sections, finds a page by text anywhere in it, folds plurals, and caps one page at three of the ten result slots.
 - Target pages drop stale claims: Cline reads both `.clinerules/` and `.cline/rules/`, Trae emits scoped rules, Junie also loads `.agents/skills/`, aider writes `.aiderignore`, and goose's `.goosehints` needs the Developer extension (#897).
-- The target-audit source list names the live authority for cline, kilo, factory and codex, after four entries with working URLs hid real findings (#897).
-- The Cline page documents the hooks surface and names `.clinerules/workflows` as the workflows path to set, the only one the VS Code extension reads (#889).
 
 ## v0.61.0 - 2026-09-18
 
@@ -1266,7 +1256,3 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `x-<target>` frontmatter namespace.
 - Docs, examples, integration tests, dogfood specs.
 - OSS scaffolding: CONTRIBUTING, COC, GOVERNANCE, issue/PR templates, CI, GoReleaser, golangci-lint, Dockerfile, lefthook, Taskfile, dependabot/renovate.
-
-[Unreleased]: https://github.com/Chemaclass/agnostic-ai/compare/v0.52.1...HEAD
-[v0.51.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.50.0...v0.51.0
-[v0.18.0]: https://github.com/Chemaclass/agnostic-ai/compare/v0.17.0...v0.18.0
