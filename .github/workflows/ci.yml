@@ -25,8 +25,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    # Cheap gate so a docs-only PR does not spin up the 11-check matrix.
+    # Job-level `if` rather than a workflow-level `paths` filter: a filtered
+    # workflow never reports at all, which blocks a merge the moment any of
+    # these is made a required check. A skipped job still reports.
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Pushes to main always run in full. The default branch is what
+          # releases are cut from, so it does not trade coverage for minutes.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "push to main, running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Merge base, not the base tip: another PR's code landing on main
+          # must not read as this PR's work (same reasoning as the plugin job).
+          base=$(git merge-base "$BASE" "$HEAD")
+          changed=$(git diff --name-only "$base" "$HEAD")
+
+          if [ -z "$changed" ]; then
+            echo "no changed files resolved, running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "changed files:"; echo "$changed"
+
+          # A file counts as docs only if it cannot affect behaviour. The two
+          # carve-outs matter more than the allow list:
+          #   tests/**, testdata/**, **/fixtures/**
+          #                     golden trees and fixtures are assertions even
+          #                     when they are .md. 14 of 25 targets have a
+          #                     golden tree and no round-trip test, so that
+          #                     tree is their only guard.
+          #   docs/schemas/**   generated, guarded by the schema-drift job
+          # Specs under .agnostic-ai/ are .md and so count as docs here. The
+          # speclint job is deliberately left ungated to cover them.
+          # Leading `(` on each case pattern: bash 3.2 (still the macOS
+          # default) mis-parses an unbalanced `)` inside $( ).
+          non_docs=$(printf '%s\n' "$changed" | while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              (tests/*|testdata/*|*/testdata/*|*/fixtures/*|docs/schemas/*)
+                echo "$f"; continue ;;
+            esac
+            case "$f" in
+              (*.md|docs/*|LICENSE|.github/ISSUE_TEMPLATE/*) ;;
+              (*) echo "$f" ;;
+            esac
+          done)
+
+          if [ -z "$non_docs" ]; then
+            echo "docs-only change, skipping build, test, lint and packaging"
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code paths touched:"; echo "$non_docs"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: Test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +134,8 @@ jobs:
 
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -76,6 +154,8 @@ jobs:
 
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -95,6 +175,8 @@ jobs:
 
   schema:
     name: Schema drift
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -173,6 +255,8 @@ jobs:
 
   shell:
     name: Shell tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -187,6 +271,8 @@ jobs:
 
   vscode:
     name: VS Code extension
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -211,6 +297,8 @@ jobs:
 
   jetbrains:
     name: JetBrains plugin
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
