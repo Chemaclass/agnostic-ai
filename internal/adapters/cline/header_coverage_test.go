@@ -15,14 +15,14 @@ import (
 )
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the cline adapter's
-// header-coverage contract: every Markdown file the adapter writes
-// must carry the agnostic-ai provenance marker. Cline emits no JSON
-// so there are no header exemptions.
+// header-coverage contract: every file the adapter writes must carry
+// the agnostic-ai provenance marker, Markdown, YAML and hook script
+// alike. Cline emits no JSON so there are no header exemptions.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"cline": {WorkflowsDir: ".cline/workflows"},
+			"cline": {WorkflowsDir: recommendedWorkflowsDir},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
@@ -64,8 +64,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the cline
-// adapter declares in caps.Supports (Agent, Skill, Rule) with three
-// specimens per kind.
+// adapter declares in caps.Supports (Agent, Skill, Rule, Hook) with
+// three specimens per kind.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
@@ -90,6 +90,18 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
+		{
+			Kind: spec.KindHook, Name: "fmt-go", Path: "hooks/fmt-go.yaml",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w ."},
+		},
+		{
+			Kind: spec.KindHook, Name: "lint-go", Path: "hooks/lint-go.yaml",
+			Meta: map[string]any{"event": "posttooluse", "command": "go vet ./..."},
+		},
+		{
+			Kind: spec.KindHook, Name: "greet", Path: "hooks/greet.yaml",
+			Meta: map[string]any{"event": "TaskStart", "command": "echo start", "timeout": 30},
+		},
 	}
 	return spec.NewBundle(entries)
 }

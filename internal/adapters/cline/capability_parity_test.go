@@ -32,6 +32,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".clinerules/r1.md", ".clinerules/r2.md", ".clinerules/r3.md"}},
 		{spec.KindAgent, []string{".cline/agents/alpha.yml", ".cline/agents/beta.yml", ".cline/agents/gamma.yml"}},
 		{spec.KindSkill, []string{".cline/skills/uno/SKILL.md", ".cline/skills/dos/SKILL.md", ".cline/skills/tres/SKILL.md"}},
+		{spec.KindHook, []string{".cline/hooks/PostToolUse.sh", ".cline/hooks/TaskStart.sh"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -69,8 +70,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind cline does not declare in caps.Supports (Hook, Command,
-// MCP).
+// every kind cline does not declare in caps.Supports (Command, MCP).
+// Hooks are native since #889, so a hook spec must not warn here.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
@@ -84,8 +85,8 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (hook/command/mcp), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (command/mcp), got %d", got)
 	}
 }
 

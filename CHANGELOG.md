@@ -20,6 +20,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - A settings `model` reaches Factory at `<project>/.factory/settings.json`, the documented project tier (#891).
 - An MCP server marked `disabled: true` is listed in `disabledMcpServers` in `.github/copilot/settings.json`, so Copilot CLI leaves it stopped (#888).
 - Copilot hooks accept `cwd` and `env`, and Copilot CLI MCP servers accept a `tools` allowlist (#888).
+- Hook specs reach Cline as one executable script per event under `.cline/hooks/`, the file-based surface `listHookConfigFiles` scans and runs (#889).
+- `import cline` reads `.agents/skills/`, the fourth project skills directory Cline scans, so those skills no longer come back empty (#889).
 
 ### Fixed
 
@@ -37,6 +39,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Site search ranks the page a query names ahead of that page's own sections, finds a page by text anywhere in it, folds plurals, and caps one page at three of the ten result slots.
 - Target pages drop stale claims: Cline reads both `.clinerules/` and `.cline/rules/`, Trae emits scoped rules, Junie also loads `.agents/skills/`, aider writes `.aiderignore`, and goose's `.goosehints` needs the Developer extension (#897).
 - The target-audit source list names the live authority for cline, kilo, factory and codex, after four entries with working URLs hid real findings (#897).
+- The Cline page documents the hooks surface and names `.clinerules/workflows` as the workflows path to set, the only one the VS Code extension reads (#889).
 
 ## v0.61.0 - 2026-09-18
 

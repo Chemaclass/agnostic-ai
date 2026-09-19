@@ -106,7 +106,7 @@ statuses = ["source", "source", "native", "no", "no", "no", "no", "no", "no", "n
 id = "cline"
 name = "Cline"
 href = "@/docs/targets/cline.md"
-statuses = ["native", "native", "native", "no", "no", "no", "no", "no", "no", "no"]
+statuses = ["native", "native", "native", "native", "no", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "windsurf"
