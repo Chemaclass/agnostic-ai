@@ -113,3 +113,54 @@ jobs:
       - name: Report skipped publish
         if: env.NPM_TOKEN_CONFIGURED != 'true'
         run: echo "::notice::NPM_TOKEN is not configured; skipping npm publish"
+
+  distribution:
+    name: Distribution channels
+    # Every package-manager push in this pipeline is skipped when its token
+    # is absent, by design, so a fork or a local run still releases. That
+    # also means a token going empty is indistinguishable from a fork build
+    # in the goreleaser log, and the release still reports success. It hid a
+    # stale Homebrew cask for ten releases (#920).
+    #
+    # This job is the check nobody had: ask each published channel what
+    # version it actually serves and compare it against the tag.
+    needs: [goreleaser, npm]
+    if: always() && github.repository == 'Chemaclass/agnostic-ai' && needs.goreleaser.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Homebrew cask serves this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          if [ "$TAP_CONFIGURED" != "true" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is empty, so the cask was never pushed and brew still serves the previous release. Set the secret and re-run."
+            exit 0
+          fi
+          cask=$(gh api repos/Chemaclass/homebrew-tap/contents/Casks/agnostic-ai.rb \
+            --jq '.content' | base64 -d)
+          got=$(grep -m1 -oE 'version "[^"]+"' <<<"$cask" | cut -d'"' -f2)
+          echo "tag=$want cask=$got"
+          if [ "$got" != "$want" ]; then
+            echo "::error::the tap serves agnostic-ai $got but this release is $want; the cask push did not land"
+            exit 1
+          fi
+
+      - name: npm serves this tag
+        env:
+          NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          if [ "$NPM_TOKEN_CONFIGURED" != "true" ]; then
+            echo "::warning::NPM_TOKEN is empty, so nothing was published to npm. Set the secret and re-run."
+            exit 0
+          fi
+          got=$(npm view "agnostic-ai@${want}" version 2>/dev/null || true)
+          echo "tag=$want npm=${got:-<absent>}"
+          if [ "$got" != "$want" ]; then
+            echo "::error::npm does not serve agnostic-ai@${want}; the publish did not land"
+            exit 1
+          fi

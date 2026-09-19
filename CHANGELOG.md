@@ -33,6 +33,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - A permission policy no longer vanishes without a word on Copilot and Junie: both report a coverage note naming where each vendor keeps its rules instead, since neither has a project-tier key for them (#917).
 - OpenCode reads your permission policy: the portable `allow`, `deny`, and `ask` lists translate into the `permission` map in `opencode.json`, and `import opencode` reads them back (#922).
 - Codex reports what a permission policy does there instead of dropping it: a coverage note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes (#923).
+- A release now checks that Homebrew and npm actually serve the tag it just cut, instead of reporting success when a missing token silently skipped the push (#920).
 
 ### Site
 
