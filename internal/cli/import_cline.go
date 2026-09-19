@@ -45,14 +45,26 @@ const (
 // synced by one of those still round-trips.
 var clineAgentExts = []string{".yml", ".yaml", ".md"}
 
-// clineSkillsDirs lists every documented project skill path in
+// clineSkillsDirs lists every project skill path Cline scans, in
 // precedence order. `.cline/skills/` is the recommended location and is
 // confirmed by GlobalFileNames.clineSkillsDir, followed by
-// `.clinerules/skills/` and Claude-compatible skills.
+// `.clinerules/skills/`, Claude-compatible skills, and `.agents/skills`.
+//
+// `.agents/skills` is source-confirmed and doc-unconfirmed:
+// `getWorkspaceSkillDirectories` (sdk/packages/shared/src/storage/
+// paths.ts:461) maps `.clinerules`, `.cline` and `.agents` onto
+// `<dir>/skills`, and the VS Code extension agrees independently
+// (`getSkillsDirectoriesForScan` in apps/vscode/src/core/storage/
+// skill-directories.ts returns `agentsSkillsDir: ".agents/skills"`).
+// docs.cline.bot/customization/skills still lists only the first three.
+// Without it, importing a project whose skills live in the shared
+// `.agents/skills` tree (amp, codex, windsurf, zed) returned nothing
+// for cline (target-audit 2026-09-19, #889).
 var clineSkillsDirs = []string{
 	filepath.Join(".cline", "skills"),
 	filepath.Join(".clinerules", "skills"),
 	filepath.Join(".claude", "skills"),
+	filepath.Join(".agents", "skills"),
 }
 
 // clineImportDir returns the first existing candidate rules dir under

@@ -31,6 +31,18 @@
 // the same file, which also scans `.clinerules/skills` and
 // `.agents/skills`.
 //
+// Emission stays at `.cline/skills/` even though `.agents/skills` is
+// now scanned too. `.cline/skills` is the path the docs recommend, the
+// one the VS Code extension lists first among its own project entries,
+// and the current default that `outputs.cline.skills-dir` overrides.
+// `.agents/skills` is the tree amp, codex, windsurf and zed write, so
+// moving cline onto it would put two adapters' renders in one folder
+// and change every existing user's layout. A project that wants one
+// on-disk copy has two supported ways to get it: `sync.shared-skills:
+// true`, which links byte-identical trees, or
+// `outputs.cline.skills-dir: .agents/skills`. Import reads
+// `.agents/skills` either way.
+//
 // An agent file is `<name>.yml` carrying `---`-delimited frontmatter
 // over a Markdown system prompt. Every part of that is load-bearing in
 // `configured-agent-config.ts`: `isYamlFile` accepts only `.yml` and
@@ -84,15 +96,48 @@
 // `.clinerules/`); the SKILL.md frontmatter carries `name` +
 // `description` and sibling assets copy byte-for-byte.
 //
+// Hooks emit as one executable script per event under `.cline/hooks/`,
+// named after the event. Cline discovers a hook by file name and
+// nothing else: `HookConfigFileName` declares ten names
+// (sdk/packages/core/src/hooks/hook-file-config.ts:17), an extension
+// allowlist gates the file (L49), and `listHookConfigFiles` (L81) scans
+// `resolveHooksConfigSearchPaths`, which at paths.ts:487-500 pushes
+// `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`. The
+// scripts are run, not merely listed: `hook-file-hooks.ts` builds a
+// command per file with `inferHookCommand` and `parseShebangCommand`,
+// then runs it through `runSubprocessEvent`.
+//
+// This is source-confirmed and doc-unconfirmed.
+// docs.cline.bot/customization/hooks is still a one-line stub pointing
+// at SDK Plugins, where hooks are a TypeScript `AgentPlugin` API rather
+// than shell-command-on-event; that stub is why this adapter declined
+// hooks until now. docs.cline.bot/getting-started/config corroborates
+// the directory, showing `.cline/  hooks/  # Lifecycle hooks` in its
+// project tree and warning "Hooks and plugins can execute code."
+//
+// The shape has no matcher and no JSON wrapper, so a Claude-style
+// `matcher` is inert and earns a note. So is `timeout`: Cline times
+// hook subprocesses out on a runtime setting, not per file. Two specs
+// on one event share one script, since the file name is the event and
+// there is no second slot. `PreCompact` is a name Cline lists but maps
+// to no runtime event today (hook-file-config.ts:40), so its script is
+// written, reported, and never run until Cline wires the event up.
+//
 // When `outputs.cline.workflows-dir` is set, each agent additionally
 // emits as a Markdown file at `<dir>/<name>.md`, in the shape this
-// adapter calls a Workflow: invokable in chat as `/<name>.md`. Cline's
-// own doc for this feature, docs.cline.bot/features/workflows, 404s,
-// and `llms.txt` lists no project-scoped replacement: the current
-// `customization/` tree covers Rules, `.clineignore`, Hooks, Plugins,
-// and Skills only, no Workflows entry (target-audit 2026-08-08, #563).
-// Treat this output as an unconfirmed export rather than a documented
-// Cline surface until a current doc says otherwise.
+// adapter calls a Workflow: invokable in chat as `/<name>.md`. The
+// surface is confirmed in source even though
+// docs.cline.bot/features/workflows still 404s:
+// `resolveWorkflowsConfigSearchPaths` (paths.ts:595) returns
+// `<workspace>/.clinerules/workflows` and `<workspace>/.cline/workflows`.
+// Set the key to `.clinerules/workflows`. That is the only one of the
+// two the VS Code extension resolves (`GlobalFileNames.workflows` in
+// disk.ts:24, read by workflows.ts), and the extension excludes it from
+// the rules scan, so a workflow there never doubles as an always-on
+// rule. Pointing the key at `.cline/workflows` reaches the CLI and SDK
+// only, and says so in a note. The key stays opt-in either way: a
+// workflow is a second copy of an agent already emitted at
+// `.cline/agents/<name>.yml`.
 package cline
 
 import (
@@ -121,11 +166,19 @@ const (
 	// legacyAgentExt is what releases #534 through #886 wrote there.
 	// The loader skips it, so a managed leftover is swept.
 	legacyAgentExt = ".md"
+	// recommendedWorkflowsDir is the workflows path both Cline hosts
+	// read. `resolveWorkflowsConfigSearchPaths` (paths.ts:595) returns
+	// it first, and it is the only one the VS Code extension resolves
+	// (`GlobalFileNames.workflows` in disk.ts:24).
+	recommendedWorkflowsDir = ".clinerules/workflows"
+	// cliOnlyWorkflowsDir is the second path that resolver returns.
+	// The CLI and the SDK read it; the VS Code extension does not.
+	cliOnlyWorkflowsDir = ".cline/workflows"
 )
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook},
 }
 
 // Adapter emits Cline configs.
@@ -143,14 +196,17 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // `.clinerules`), one .yml per agent under the agents directory
 // (default `.cline/agents`), and one folder per skill under the skills
 // directory (Cline's native SKILL.md layout; a flat file there never
-// loads as a skill). A stale managed tree at the unread `.cline/rules`
-// path is swept unless the user explicitly opted into it via
-// outputs.cline.rules-dir. When
+// loads as a skill). A stale managed tree at the rules layout not in
+// use is swept unless the user explicitly opted into it via
+// outputs.cline.rules-dir; Cline reads both layouts, so leaving one
+// behind would load the rules twice. Hooks emit as one executable script per
+// event under the hooks directory (default `.cline/hooks`), named
+// after the event, which is how Cline discovers them. When
 // `outputs.cline.workflows-dir` is set, each agent additionally emits
 // as a Markdown file at `<dir>/<name>.md` in the shape this adapter
-// calls a Workflow (see the package doc: the vendor doc for that
-// surface is currently dead with no confirmed replacement); the native
-// agent file emission stays in place either way.
+// calls a Workflow (see the package doc for why `.clinerules/workflows`
+// is the path to set); the native agent file emission stays in place
+// either way.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -183,6 +239,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+		return err
+	}
+
+	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
 	return emitWorkflows(sess, b, cfg, dryRun)
@@ -230,11 +290,23 @@ func agentFile(a spec.Entry) string {
 }
 
 // emitWorkflows writes one workflow per agent under the configured
-// workflows directory. No-op when the dir is unset.
+// workflows directory. No-op when the dir is unset: a workflow is a
+// second copy of an agent this adapter already emits natively, so it
+// stays opt-in rather than doubling every agent by default.
+//
+// `.clinerules/workflows` is the path to set. Both hosts read it, and
+// the VS Code extension excludes it from the rules scan
+// (`CLINERULES_EXCLUDED_SUBDIRECTORIES` in cline-rules.ts:11-15), so a
+// workflow there never doubles as an always-on rule. `.cline/workflows`
+// resolves in the CLI and SDK only, and earns a surface note.
 func emitWorkflows(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputWorkflowsDir(cfg, target, "")
 	if dir == "" {
 		return nil
+	}
+	if filepath.ToSlash(filepath.Clean(dir)) == cliOnlyWorkflowsDir {
+		emit.NoteSurfaceGap(target, spec.KindAgent, len(b.Agents), "the Cline VS Code extension",
+			"it resolves workflows at `"+recommendedWorkflowsDir+"` only; set `outputs.cline.workflows-dir` there to reach both hosts")
 	}
 	for _, a := range b.Agents {
 		path := filepath.Join(dir, a.Name+".md")

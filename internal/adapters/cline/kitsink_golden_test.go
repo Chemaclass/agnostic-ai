@@ -26,7 +26,7 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
 		Outputs: map[string]config.Output{
-			"cline": {WorkflowsDir: ".cline/workflows"},
+			"cline": {WorkflowsDir: recommendedWorkflowsDir},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {

@@ -190,6 +190,11 @@ func TestImportFromCline_ReadsNativeAgentsDir(t *testing.T) {
 	}
 }
 
+// Cline scans four project skill directories. `getWorkspaceSkillDirectories`
+// (paths.ts:461) maps `.clinerules`, `.cline` and `.agents` onto
+// `<dir>/skills`, and the VS Code extension adds `.claude/skills`
+// independently. Import has to read all four or a project whose skills
+// live in the shared `.agents/skills` tree comes back empty (#889).
 func TestImportFromCline_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T) {
 	dir := t.TempDir()
 	paths := []struct {
@@ -199,6 +204,7 @@ func TestImportFromCline_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T
 		{filepath.Join(".cline", "skills"), "preferred"},
 		{filepath.Join(".clinerules", "skills"), "legacy"},
 		{filepath.Join(".claude", "skills"), "compatible"},
+		{filepath.Join(".agents", "skills"), "shared-tree"},
 	}
 	for _, path := range paths {
 		writeFile(t, filepath.Join(dir, path.dir, path.name, "SKILL.md"),
