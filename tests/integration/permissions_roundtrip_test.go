@@ -97,6 +97,26 @@ func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 			},
 			absent: []string{"Bash(rm -rf /)", "Edit(src/**)"},
 		},
+		{
+			// OpenCode's `edit` covers Edit and Write both, so Write
+			// returns as Edit. Its vocabulary has no MCP key and types
+			// webfetch as a bare action with no pattern object, so a
+			// scoped rule on either has no form and drops with a
+			// coverage note rather than being widened onto the whole
+			// tool (#922).
+			target: "opencode",
+			spec: map[string][]string{
+				"allow": {"Read", "Bash(go test:*)"},
+				"deny":  {"Bash(rm -rf /)", "Write(.env*)"},
+				"ask":   {"Bash(git push:*)"},
+			},
+			want: map[string][]string{
+				"allow": {"Read", "Bash(go test:*)"},
+				"deny":  {"Bash(rm -rf /)", "Edit(.env*)"},
+				"ask":   {"Bash(git push:*)"},
+			},
+			absent: []string{"Write(.env*)"},
+		},
 	}
 
 	for _, tc := range cases {

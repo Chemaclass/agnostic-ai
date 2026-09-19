@@ -1,4 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "example-model"
+  "model": "example-model",
+  "permission": {
+    "bash": {
+      "go test *": "allow",
+      "rm *": "deny",
+      "rm -rf /": "deny"
+    },
+    "edit": {
+      ".env*": "ask"
+    },
+    "read": {
+      "**": "allow"
+    }
+  }
 }

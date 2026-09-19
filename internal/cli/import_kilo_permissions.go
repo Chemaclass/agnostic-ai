@@ -58,12 +58,12 @@ func importKiloPermissions(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("parse %s: %w", src, err)
 	}
 	lists := map[string][]string{}
-	for _, tool := range sortedKiloTools(doc.Permission) {
+	for _, tool := range sortedPermissionTools(doc.Permission) {
 		scope, known := kiloToolToPortable[tool]
 		if !known {
 			continue
 		}
-		for pattern, action := range kiloToolRules(doc.Permission[tool]) {
+		for pattern, action := range permissionToolRules(doc.Permission[tool]) {
 			if !isPortablePermissionList(action) {
 				continue
 			}
@@ -79,7 +79,7 @@ func importKiloPermissions(root, dstDir string) (int, error) {
 // kiloToolRules normalizes one tool's value into pattern-to-action
 // pairs. Kilo accepts both shapes: "You can write each permission as
 // one action for the whole tool or as a pattern map".
-func kiloToolRules(raw json.RawMessage) map[string]string {
+func permissionToolRules(raw json.RawMessage) map[string]string {
 	var action string
 	if err := json.Unmarshal(raw, &action); err == nil {
 		return map[string]string{"*": action}
@@ -120,7 +120,7 @@ func isPortablePermissionList(action string) bool {
 
 // sortedKiloTools returns the permission map's tool keys in a stable
 // order so two imports of the same file produce the same spec.
-func sortedKiloTools(m map[string]json.RawMessage) []string {
+func sortedPermissionTools(m map[string]json.RawMessage) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)

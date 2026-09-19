@@ -31,6 +31,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `import augment` reads your permission policy again: it looked for `tool-name` where Augment and our own emitter write `toolName`, so every rule was skipped (#912).
 - `sync` no longer fails on Windows when two targets write the same shared directory: pruning a legacy tree treated the platform's "directory is not empty" refusal as an error instead of a lost race (#918).
 - A permission policy no longer vanishes without a word on Copilot and Junie: both report a coverage note naming where each vendor keeps its rules instead, since neither has a project-tier key for them (#917).
+- OpenCode reads your permission policy: the portable `allow`, `deny`, and `ask` lists translate into the `permission` map in `opencode.json`, and `import opencode` reads them back (#922).
 
 ### Site
 

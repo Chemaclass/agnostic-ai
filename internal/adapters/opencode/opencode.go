@@ -167,7 +167,9 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 // pre-existing user-managed keys (theme, small_model, ...) survive the
 // sync; only `$schema`, `mcp`, and the portable `model` field are owned.
 func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path string, dryRun bool) error {
-	if len(mcps) == 0 && emit.LastSettingsModel(settings) == "" {
+	permissions, dropped := buildPermissions(settings)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
+	if len(mcps) == 0 && len(permissions) == 0 && emit.LastSettingsModel(settings) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
@@ -176,6 +178,9 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	}
 	if model := emit.LastSettingsModel(settings); model != "" {
 		keys["model"] = model
+	}
+	if len(permissions) > 0 {
+		keys[permissionKey] = permissions
 	}
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
