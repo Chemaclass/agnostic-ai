@@ -3,6 +3,7 @@ package cline
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -70,7 +71,12 @@ func TestEmit_Hook_WritesOneExecutableScriptPerEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("stat %s: %v", path, err)
 		}
-		if info.Mode().Perm()&0o100 == 0 {
+		// Windows has no POSIX execute bit: Go reports 0o666 for every
+		// file it writes there, so this assertion can only hold on
+		// unix. Emission still chmods, and Cline runs a `.sh` hook as
+		// `bash <path>` via inferHookCommand, which needs no exec bit
+		// on any platform.
+		if runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 			t.Errorf("%s must be executable, mode = %v", path, info.Mode().Perm())
 		}
 	}
