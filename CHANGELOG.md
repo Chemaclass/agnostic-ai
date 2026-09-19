@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Fixed
+
+- `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
+
 ## v0.62.0 - 2026-09-19
 
 ### Added
