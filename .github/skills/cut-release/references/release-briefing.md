@@ -75,7 +75,7 @@ Two rules follow from that:
 If a release is mostly site work, say so plainly in the dek rather than padding
 the product sections to hide it.
 
-Four more rules keep a briefing scannable:
+Six more rules keep a briefing scannable:
 
 1. Open the article with `## What to do {#actions}`: a numbered list of what a
    reader upgrading must actually do, each item one bounded action, ordered by
@@ -92,6 +92,13 @@ Four more rules keep a briefing scannable:
    reader can check; "improved path resolution" is not.
 5. No preamble and no closing pleasantry. The dek is the summary; each section
    starts with substance.
+6. Give every `## What to do` item an effort estimate in concrete units, in
+   parentheses at the end: `(one line in your config)`, `(a rename per spec)`,
+   `(about 10 minutes on a large repo)`. "A small change" and "some work" read
+   the same to a reader deciding whether to upgrade now or after lunch, so they
+   do not count. Estimate the work the reader does, not the work the release
+   did. Omit it only when the action is literally "run `agnostic-ai sync`", and
+   never guess a number for a migration nobody has run.
 
 ## Research inputs
 
