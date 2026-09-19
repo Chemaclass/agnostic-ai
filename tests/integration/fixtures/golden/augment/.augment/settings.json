@@ -11,5 +11,28 @@
         ]
       }
     ]
-  }
+  },
+  "toolPermissions": [
+    {
+      "permission": {
+        "type": "deny"
+      },
+      "shellInputRegex": "^rm",
+      "toolName": "terminal"
+    },
+    {
+      "permission": {
+        "type": "deny"
+      },
+      "shellInputRegex": "^rm -rf /$",
+      "toolName": "terminal"
+    },
+    {
+      "permission": {
+        "type": "allow"
+      },
+      "shellInputRegex": "^go test",
+      "toolName": "terminal"
+    }
+  ]
 }

@@ -1,0 +1,10 @@
+permissions:
+  allow:
+    - Read(**)
+    - Bash(go test:*)
+  deny:
+    - Bash(rm:*)
+    - Bash(rm -rf /)
+  ask:
+    - Write(.env*)
+model: example-model

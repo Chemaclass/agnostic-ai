@@ -1,5 +1,19 @@
 {
   "instructions": [
     ".kilo/rules/sample-rule.md"
-  ]
+  ],
+  "model": "example-model",
+  "permission": {
+    "bash": {
+      "go test *": "allow",
+      "rm *": "deny",
+      "rm -rf /": "deny"
+    },
+    "read": {
+      "**": "allow"
+    },
+    "write": {
+      ".env*": "ask"
+    }
+  }
 }

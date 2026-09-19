@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Exec(go test)"
+    ],
+    "ask": [
+      "Write(.env*)"
+    ],
+    "deny": [
+      "Exec(rm)",
+      "Exec(rm -rf /)"
+    ]
+  }
+}

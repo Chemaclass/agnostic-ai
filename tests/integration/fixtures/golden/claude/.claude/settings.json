@@ -1,4 +1,18 @@
 {
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Bash(go test:*)"
+    ],
+    "ask": [
+      "Write(.env*)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(rm -rf /)"
+    ]
+  },
+  "model": "example-model",
   "hooks": {
     "PostToolUse": [
       {
