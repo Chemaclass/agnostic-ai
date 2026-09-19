@@ -804,13 +804,30 @@ func removeEmptyDirs(dir string) error {
 		}
 		// A concurrent write from another target can land between the
 		// ReadDir above and this Remove, and then the directory is no
-		// longer ours to prune. Windows reports that as "The directory
-		// is not empty"; treat it as the success it effectively is.
-		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) && !errors.Is(err, syscall.ENOTEMPTY) {
+		// longer ours to prune. Treat that as the success it
+		// effectively is.
+		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) && !isDirNotEmpty(err) {
 			return fmt.Errorf("remove %s: %w", dirs[i], err)
 		}
 	}
 	return nil
+}
+
+// isDirNotEmpty reports whether err is the platform's "directory not
+// empty" refusal from removing a directory that gained an entry.
+//
+// It tests fs.ErrExist rather than syscall.ENOTEMPTY because that is
+// the only spelling both platforms answer to. Unix maps ENOTEMPTY onto
+// fs.ErrExist, and Windows maps ERROR_DIR_NOT_EMPTY (145) onto it too,
+// while Windows' own syscall.ENOTEMPTY is a synthetic APPLICATION_ERROR
+// value that nothing returns. Testing ENOTEMPTY directly therefore
+// worked on Unix and was dead code on Windows, which is where the race
+// it guards actually surfaced (#918).
+//
+// os.Remove has no path that reports an existing file, so matching
+// fs.ErrExist here cannot mask an unrelated failure.
+func isDirNotEmpty(err error) bool {
+	return err != nil && errors.Is(err, fs.ErrExist)
 }
 
 // CopyTree mirrors the regular files under srcDir into dstDir,
