@@ -802,3 +802,40 @@ func TestMCPDocument_VSCodeExtras_OAuthOnRemoteServers(t *testing.T) {
 		t.Errorf("stdio server must not carry oauth (http/sse-only per vendor doc): %s", got)
 	}
 }
+
+// Cursor's own stdio table marks `type` required: "**type** | Yes |
+// Server connection type | `"stdio"`" (cursor.com/docs/mcp.md), and
+// every JSON example on that page carries it. Claude Code documents the
+// opposite ("Claude Code reads an entry with no `type` as a stdio
+// server", code.claude.com/docs/en/mcp), so this stays behind the
+// cursor option rather than becoming a schema-wide default (#895).
+func TestMCPDocument_CursorExtras_StdioCarriesType(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap, WithCursorMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `"type": "stdio"`) {
+		t.Errorf("expected an explicit stdio type for cursor: %s", got)
+	}
+}
+
+// Without the cursor option a stdio entry stays type-less, which is
+// what Claude Code, Kiro, Junie, Qoder, Factory, and Copilot's root
+// mirror all read as stdio already.
+func TestMCPDocument_StdioTypeStaysOffByDefault(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx"}},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaServersMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, `"type"`) {
+		t.Errorf("stdio must stay type-less without the cursor option: %s", got)
+	}
+}

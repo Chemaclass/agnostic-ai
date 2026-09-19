@@ -18,8 +18,9 @@
 // surfaces Copilot discovers directly.
 //
 // Portable Settings model values merge into
-// `.github/copilot/settings.json`, Copilot CLI's trusted-repository config.
-// Unrelated repository settings remain untouched.
+// `.github/copilot/settings.json`, Copilot CLI's trusted-repository config,
+// alongside `disabledMcpServers` (see below). Unrelated repository
+// settings remain untouched.
 //
 // MCP servers emit twice, because Copilot has two readers that
 // disagree on the file. `.vscode/mcp.json` is VS Code's, and VS Code
@@ -41,12 +42,34 @@
 // is shared ground with Claude Code and Qoder rather than Copilot's own
 // directory.
 //
-// An MCP spec's `disabled: true` has no file-based equivalent here:
+// An MCP spec's `disabled: true` has no equivalent in either MCP file:
 // VS Code's own docs state the enable/disable state "is stored
 // separately from the server configuration in mcp.json, so it does not
 // affect shared configuration files" (code.visualstudio.com/docs/agent-customization/mcp-servers).
-// The emitter drops the field rather than write one Copilot ignores, and
-// buffers a coverage note so the drop is loud, not silent.
+// The emitter drops the field there rather than write one Copilot
+// ignores, and buffers a coverage note so the drop is loud.
+//
+// Copilot CLI does have a file-based route, in a file this adapter
+// already merges into. The repository-settings table on
+// docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference
+// rows "`disabledMcpServers` | `string[]` | Union—repository can add
+// entries, never remove | MCP servers configured but not started",
+// under "Only the keys listed in the following table are supported at
+// the repository level." Every MCP spec marked `disabled: true` has
+// its name written there, sorted. Until #888 a user who wrote
+// `disabled: true` got the server started anyway under Copilot CLI,
+// and the coverage note told them no file-based route existed. The
+// note now covers the VS Code half only, which stays correct.
+//
+// The two Copilot CLI MCP files also carry a per-server `tools`
+// allowlist: "Enter `*` to include all tools, or provide a
+// comma-separated list of tool names"
+// (docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers),
+// whose own configuration-file example has `"tools": ["*"]` on both a
+// local and an http server. It stays off `.vscode/mcp.json`, whose
+// reference documents no such key, and off every other target sharing
+// the builder: codex has a `tools` key too, and it is a map of
+// per-tool sub-tables, a different shape entirely (#888).
 //
 // `.vscode/mcp.json` also carries five fields the plain mcpServers map
 // does not: `cwd`, `envFile`, and `sandboxEnabled` on a stdio server,
@@ -85,7 +108,16 @@
 // subagent is spawned (before it runs)."). Neither has a PascalCase
 // pairing anywhere on the page, so a spec spelling either one in
 // PascalCase (`SubagentStart` is legal on claude and codex) emits a key
-// Copilot parses and never fires.
+// Copilot parses and never fires. `validate` vouched for
+// `SubagentStart` until #888: the event table in
+// internal/cli/native_capabilities.go is a second, separate list from
+// hookLifecycle in hooks.go, and only the latter carried this caveat.
+//
+// A command hook also carries `cwd` and `env`, Copilot's own two
+// command-hook fields ("Working directory for the command", and
+// "Environment variables to set (supports variable expansion)"). Both
+// are copilot-scoped: Claude Code's command-hook field table has
+// neither. Read from the spec's top level or from `x-copilot` (#888).
 //
 // A hook spec that sets `args` emits `exec` plus `args` in place of
 // `command`, Copilot's own shell-free form, which is not Claude Code's
@@ -177,7 +209,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitSettings(sess, b.Settings, dryRun); err != nil {
+	if err := emitSettings(sess, b.Settings, b.MCPs, dryRun); err != nil {
 		return err
 	}
 	return emitMCP(sess, b, cfg, dryRun)
@@ -204,22 +236,28 @@ func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool)
 			return err
 		}
 	}
+	// The `tools` allowlist rides the two Copilot CLI files only. VS
+	// Code's own MCP reference documents no such per-server key, and
+	// `.vscode/mcp.json` above is its file.
 	if err := sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
-		emit.OutputCLIMCPFile(cfg, target, defaultCLIMCPFile), dryRun); err != nil {
+		emit.OutputCLIMCPFile(cfg, target, defaultCLIMCPFile), dryRun, emit.WithCopilotCLIMCPExtras()); err != nil {
 		return err
 	}
 	root := emit.OutputRootMCPFile(cfg, target)
 	if root == "" {
 		return nil
 	}
-	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, root, dryRun)
+	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap, root, dryRun, emit.WithCopilotCLIMCPExtras())
 }
 
 // mcpDisabledNoOpReason explains, in the flushed coverage note, why
-// `disabled: true` on an MCP spec never reaches the emitted MCP file:
-// Copilot's enable/disable state lives outside the file entirely. See
-// the package doc comment for the vendor source.
-const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; the enable/disable state is stored outside mcp.json"
+// `disabled: true` on an MCP spec never reaches the emitted MCP files:
+// no MCP schema here has a per-server disable key. It is narrower than
+// it was: Copilot CLI does have a file-based route, the repository-level
+// `disabledMcpServers` array in `.github/copilot/settings.json`, which
+// this adapter now writes (see settings.go, #888). The note is about
+// the VS Code side, whose reader has no equivalent key.
+const mcpDisabledNoOpReason = "the .vscode/mcp.json reader has no per-server disable key; toggle the server in VS Code (Copilot CLI is covered by disabledMcpServers in .github/copilot/settings.json)"
 
 // emitChatmodes writes one `.chatmode.md` per agent under the
 // configured chat-modes directory. No-op when the dir is unset, so

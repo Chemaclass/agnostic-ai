@@ -15,12 +15,22 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Hook specs reach OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, with `PreToolUse` and `PostToolUse` mapped onto its tool hooks (#892).
 - `agnostic-ai import goose` reads Goose's agents, skills, plugin hooks, reviews and rules, so the target is no longer emit-only (#894).
 - `agnostic-ai import trae` reads `.trae/hooks.json`, so Trae project hooks round-trip instead of being dropped (#894).
+- Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, and `import kilo` reads it back (#890).
+- An agent's `tools` list now restricts the agent on Kilo Code, translated into its native per-tool `permission` frontmatter (#890).
+- A settings `model` reaches Factory at `<project>/.factory/settings.json`, the documented project tier (#891).
+- An MCP server marked `disabled: true` is listed in `disabledMcpServers` in `.github/copilot/settings.json`, so Copilot CLI leaves it stopped (#888).
+- Copilot hooks accept `cwd` and `env`, and Copilot CLI MCP servers accept a `tools` allowlist (#888).
 
 ### Fixed
 
 - Cline agents load again: they emit as `.cline/agents/<name>.yml` with the `name` and `description` frontmatter the loader requires, and `import` reads both that and the old `.md` (#886).
 - `CLAUDE.md` is always written for `claude`, so an `outputs.claude.rules-file` override no longer leaves Claude Code reading codex's `AGENTS.md` (#885).
 - `import claude` reads `AGENTS.md` and `.claude/AGENTS.md` when no `CLAUDE.md` exists, the files Claude Code itself loads in that repo (#893).
+- An exact `Bash(cmd)` in a `deny` list now blocks the command on Windsurf instead of being dropped and leaving it unblocked (#887).
+- Cursor stdio MCP entries carry the `"type": "stdio"` its field table marks required (#895).
+- `sync --global` writes Antigravity skills to `~/.gemini/config/skills/`, not the path the vendor now labels legacy (#896).
+- `validate` flags a copilot hook spelled `SubagentStart`, an event the vendor documents nowhere (#888).
+- A rule over Antigravity's 12,000-character cap reports a coverage note instead of emitting silently over the limit (#896).
 
 ### Site
 

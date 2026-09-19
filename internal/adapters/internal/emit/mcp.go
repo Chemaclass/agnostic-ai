@@ -42,15 +42,41 @@ const (
 type MCPOption func(*mcpOptions)
 
 type mcpOptions struct {
-	cursorExtras  bool
-	claudeExtras  bool
-	kiroExtras    bool
-	vscodeExtras  bool
-	factoryExtras bool
+	cursorExtras     bool
+	claudeExtras     bool
+	kiroExtras       bool
+	vscodeExtras     bool
+	factoryExtras    bool
+	copilotCLIExtras bool
+}
+
+// WithCopilotCLIMCPExtras turns on the per-server `tools` allowlist
+// Copilot CLI documents for its own MCP config:
+//
+//	"Next to Tools, specify which tools from the server should be
+//	available. Enter `*` to include all tools, or provide a
+//	comma-separated list of tool names (no quotes needed). The default
+//	is `*`."
+//
+// (docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers),
+// whose configuration-file example carries `"tools": ["*"]` on both
+// the local and the http server. Without a route here a user could not
+// narrow a 40-tool server down to the two tools they want, and
+// `.github/mcp.json` is a whole-document write, so a hand-added array
+// was deleted by the next sync (target-audit 2026-09-19, #888).
+//
+// Copilot-scoped, and the key name is the reason. Codex also has a
+// `tools` key and it is a different thing entirely: a map of per-tool
+// sub-tables carrying `output_token_limit` and `approval_mode`, not a
+// list of names. Sharing this would put one shape under the other's
+// key.
+func WithCopilotCLIMCPExtras() MCPOption {
+	return func(o *mcpOptions) { o.copilotCLIExtras = true }
 }
 
 // WithCursorMCPExtras turns on Cursor-only MCP fields (`envFile` on
-// stdio servers, an `auth` object on remote servers) in the shared
+// stdio servers, an `auth` object on remote servers, and an explicit
+// `"type": "stdio"` discriminant) in the shared
 // MCPSchemaServersMap builder. This builder also serves Claude Code,
 // Kiro, Junie, Qoder, Factory, and Copilot's root-mcp-file mirror; none
 // of their vendor docs mention either field, so the option keeps them
@@ -58,7 +84,10 @@ type mcpOptions struct {
 // target. cursor.com/docs/mcp.md: "envFile ... Path to an environment
 // file to load more variables" (stdio only) and "Add an `auth` object
 // to remote server entries that use `url`" (target-audit 2026-09-03,
-// #661).
+// #661). The same page's stdio field table marks `type` required
+// ("**type** | Yes | Server connection type"), while Claude Code
+// documents the opposite, so the discriminant rides this option too
+// (target-audit 2026-09-19, #895).
 func WithCursorMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.cursorExtras = true }
 }
@@ -339,6 +368,27 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	}
 	if schema == MCPSchemaVSCodeServers {
 		out["type"] = transport
+	}
+	// Cursor's stdio field table marks the discriminant required
+	// ("type | Yes | Server connection type | stdio",
+	// cursor.com/docs/mcp.md) and every example on that page carries
+	// it. Remote transports already got one above. Every other caller
+	// of this builder reads a type-less entry as stdio, and Claude Code
+	// documents that outright ("Claude Code reads an entry with no type
+	// as a stdio server", code.claude.com/docs/en/mcp), so this stays
+	// behind the cursor option rather than going schema-wide (#895).
+	// Guarded on a non-empty entry so a server that rendered nothing
+	// still drops in buildServersMap instead of shipping a lone type.
+	if o.cursorExtras && transport == "stdio" && len(out) > 0 {
+		out["type"] = transport
+	}
+	// Copilot CLI documents `tools` on both its local and its http
+	// example server, so it is transport-independent. See
+	// WithCopilotCLIMCPExtras for why it is not shared with codex.
+	if o.copilotCLIExtras {
+		if tools := stringSlice(e.Meta, "tools"); len(tools) > 0 {
+			out["tools"] = tools
+		}
 	}
 	if o.vscodeExtras && (transport == "stdio" || transport == "http" || transport == "sse") {
 		if dev := buildVSCodeMCPDev(e.Meta, transport == "stdio"); len(dev) > 0 {

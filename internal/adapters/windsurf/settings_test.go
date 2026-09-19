@@ -176,3 +176,59 @@ func TestEmit_SettingsLayersInSourceOrder(t *testing.T) {
 		t.Errorf("allow = %#v", permissions["allow"])
 	}
 }
+
+// An exact `Bash(cmd)` has no exact Devin spelling, but the safe
+// direction differs by list. Devin's changelog for v3000.10.31 states
+// "A command deny such as `Exec(rm)` blocks the command even when a
+// broader `ask` or `allow` rule covers the whole tool", so widening a
+// deny is strictly more restrictive and must not drop. The same
+// widening on `allow` or `ask` approves commands the author never
+// listed, so those keep dropping.
+func TestEmit_SettingsExactBashDenyWidensInsteadOfDropping(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny":  []any{"Bash(rm -rf /)"},
+			"allow": []any{"Bash(git status)"},
+			"ask":   []any{"Bash(docker run)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	permissions, _ := settingsDoc(t, dir)["permissions"].(map[string]any)
+	if !reflect.DeepEqual(permissions["deny"], []any{"Exec(rm -rf /)"}) {
+		t.Errorf("deny = %#v, want the widened Exec rule", permissions["deny"])
+	}
+	if _, ok := permissions["allow"]; ok {
+		t.Errorf("allow = %#v, want an exact Bash rule dropped", permissions["allow"])
+	}
+	if _, ok := permissions["ask"]; ok {
+		t.Errorf("ask = %#v, want an exact Bash rule dropped", permissions["ask"])
+	}
+}
+
+// A deny rule that widened still reports nothing missing, while an
+// allow rule outside the vocabulary still folds into the coverage note.
+func TestEmit_SettingsExactBashDenyRaisesNoCoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny": []any{"Bash(rm -rf /)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if note := buf.String(); strings.Contains(note, "`permissions`") {
+		t.Errorf("a widened deny must not report a gap, got: %s", note)
+	}
+}

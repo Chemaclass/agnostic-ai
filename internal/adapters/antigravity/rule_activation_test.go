@@ -101,3 +101,69 @@ func TestEmit_Rule_TargetOverrideClearsGlobs(t *testing.T) {
 		t.Errorf("expected no coverage note when the target override clears globs, got %d", n)
 	}
 }
+
+// "Rules files are limited to 12,000 characters each"
+// (antigravity.google/docs/rules-workflows?tab=ide). The vendor does
+// not say whether it truncates or rejects past that, so the rule still
+// emits; what must not happen is emitting over the cap in silence
+// (#896).
+func TestEmit_Rule_OverCharacterCapNotesSurfaceGap(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "huge", Body: strings.Repeat("x", 12001)},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	for _, want := range []string{"antigravity", "12,000 characters", "rules loader"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected the cap note to mention %q, got: %s", want, note)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents", "rules", "huge.md")); err != nil {
+		t.Errorf("an over-cap rule must still emit: %v", err)
+	}
+}
+
+// The cap is measured on the file that lands, not on the spec body, so
+// a body just under 12,000 that the provenance header and heading push
+// over still reports.
+func TestEmit_Rule_CapCountsTheProvenanceHeader(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	body := strings.Repeat("x", 11999)
+	if len(emit.DefaultRuleFile(spec.Entry{Kind: spec.KindRule, Name: "edge", Body: body})) <= 12000 {
+		t.Fatalf("fixture no longer straddles the cap; adjust the body length")
+	}
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "edge", Body: body}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "12,000 characters") {
+		t.Errorf("a body under the cap whose emitted file is over must report: %s", buf.String())
+	}
+}
+
+// A rule comfortably under the cap stays quiet.
+func TestEmit_Rule_UnderCharacterCapIsSilent(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "small", Body: strings.Repeat("x", 100)},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "12,000 characters") {
+		t.Errorf("a rule under the cap must not report: %s", buf.String())
+	}
+}

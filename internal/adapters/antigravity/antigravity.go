@@ -24,6 +24,20 @@
 // `alwaysApply: false` has nowhere to land and drops with a coverage
 // note (see rule.go).
 //
+// The same page caps the file: "Rules files are limited to 12,000
+// characters each". An over-cap rule still emits, since the vendor does
+// not say whether it truncates or rejects, but it reports a coverage
+// note so the author hears it from `sync` rather than from agent
+// behavior. The count is taken on the text that lands, provenance
+// header and heading included (target-audit 2026-09-19, #896).
+//
+// `sync --global` writes skills to `~/.gemini/config/skills/`. The
+// vendor's IDE tab rows that path as the global scope and calls
+// `~/.gemini/antigravity/skills/` legacy, while its Antigravity 2.0 tab
+// names the config path with no legacy alternative at all
+// (antigravity.google/docs/skills?tab=ide). See
+// internal/cli/global_targets.go.
+//
 // Agents emit as native subagent profiles at
 // `.agents/agents/<name>/agent.md`, one of the two workspace forms in
 // Antigravity's subagent reference. The nested form avoids colliding
@@ -160,6 +174,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	noteRuleActivation(b.Rules)
+	noteOversizedRules(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
 			return err

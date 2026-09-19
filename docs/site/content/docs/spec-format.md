@@ -407,7 +407,7 @@ Some fields apply only to certain targets and are ignored elsewhere.
 | [Factory](@/docs/targets/factory.md) | `disabledTools`, `connectTimeout` |
 | [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `headersHelper` |
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
-| [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` |
+| [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }` |
 
@@ -422,7 +422,8 @@ Only the targets listed were checked. Native booleans default to `false`.
 | [Antigravity](@/docs/targets/antigravity.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Qoder](@/docs/targets/qoder.md), [Windsurf](@/docs/targets/windsurf.md) | Native `disabled` |
 | [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
+| [Copilot](@/docs/targets/copilot.md) | Written as a `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Stripped from both MCP files with a note, since neither reader has a per-server key; disable the server in VS Code for that half. |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
 
 ## Commands
 

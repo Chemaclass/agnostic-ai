@@ -190,7 +190,7 @@ statuses = ["native", "native", "native", "native", "native", "no", "no", "no", 
 id = "factory"
 name = "Factory"
 href = "@/docs/targets/factory.md"
-statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "no"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
 [[targets]]
 id = "kilo"

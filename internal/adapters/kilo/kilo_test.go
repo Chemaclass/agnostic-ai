@@ -325,23 +325,23 @@ func TestEmit_Agent_XKiloCannotReintroduceNameOrTools(t *testing.T) {
 	}
 }
 
-// An agent spec that sets tools surfaces a coverage note: Kilo Code
-// has no tools key and this adapter does not guess a permission
-// mapping (see the package doc), so the gap must not stay silent.
-func TestEmit_Agent_ToolsSurfacesCoverageNote(t *testing.T) {
+// A tools name Kilo Code has no permission key for still surfaces a
+// coverage note. Only the unmapped name drops; the ones that do
+// translate still reach the frontmatter (#890).
+func TestEmit_Agent_UnmappedToolSurfacesCoverageNote(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read"}}, Body: "body"},
-		{Kind: spec.KindAgent, Name: "a2", Body: "body"},
+		{Kind: spec.KindAgent, Name: "a1", Meta: map[string]any{"tools": []any{"Read", "NotebookEdit"}}, Body: "body"},
+		{Kind: spec.KindAgent, Name: "a2", Meta: map[string]any{"tools": []any{"Read"}}, Body: "body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if n := emit.PendingCoverageNotesCount(); n != 1 {
-		t.Errorf("expected one coverage note (only a1 declares tools), got %d", n)
+		t.Errorf("expected one coverage note (only a1 names an unmapped tool), got %d", n)
 	}
 }
 

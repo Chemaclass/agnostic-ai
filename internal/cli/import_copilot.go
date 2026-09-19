@@ -160,7 +160,9 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 		kind = "command"
 	}
 	doc := map[string]any{"event": event, "type": kind}
-	for _, key := range []string{"matcher", "url", "headers", "allowedEnvVars", "prompt"} {
+	// `cwd` and `env` are Copilot's own command-hook fields, emitted
+	// since #888 and read back here so the round trip is closed.
+	for _, key := range []string{"matcher", "url", "headers", "allowedEnvVars", "prompt", "cwd", "env"} {
 		if value, exists := native[key]; exists {
 			doc[key] = value
 		}

@@ -128,7 +128,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 | **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
 | **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
 | **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` |
-| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/antigravity/skills/<name>/` |
+| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` |
 | **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` |
 | **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` |
 | **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` |

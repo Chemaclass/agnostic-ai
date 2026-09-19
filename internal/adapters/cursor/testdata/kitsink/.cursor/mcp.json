@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "disabled-server": {
-      "command": "x"
+      "command": "x",
+      "type": "stdio"
     },
     "http-server": {
       "auth": {
@@ -19,7 +20,8 @@
         "@modelcontextprotocol/server-filesystem"
       ],
       "command": "npx",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "type": "stdio"
     }
   }
 }

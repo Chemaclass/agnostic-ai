@@ -19,6 +19,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 .factory/commands/<name>.md        # one Markdown slash command per command spec
 .factory/hooks.json                # when hook entries exist
 .factory/mcp.json                  # when MCP entries exist
+.factory/settings.json             # when a settings entry carries a model
 ```
 
 Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` natively and loads custom droids from `.factory/droids/`. Each agent emits as one `<name>.md` profile with `name`, `description`, and optional `model` / `tools` frontmatter (`tools` translates onto Droid CLI's own tool IDs, see below); arbitrary `x-factory` keys pass through. A portable `mcpServers` list emits as-is, narrowing which servers the droid may reach: "Setting `mcpServers: []` excludes every MCP server, even globally configured ones", so write the servers you want rather than an empty list. A portable `effort` emits as Factory's own `reasoningEffort`, which documents `low`, `medium`, and `high` only; `xhigh`, `max`, and Qoder's integer budgets are dropped with a coverage note, and the vendor ignores the field entirely under `model: inherit`. See [`mcpServers`](@/docs/spec-format.md#mcpservers-support-by-target) and [`effort` support by target](@/docs/spec-format.md#effort-support-by-target).
@@ -45,6 +46,9 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
   - Both transports preserve `disabledTools`, `timeout`, and `connectTimeout` (milliseconds), including explicit zero timeouts.
   - Remote HTTP/SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
   - `x-factory` overrides each top-level option. These fields stay scoped to Factory. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target). A `type: ws` spec emits no server and raises a coverage note because Factory documents only stdio, HTTP, and SSE.
+- **Settings**: a portable `model` merges into `<git-root>/.factory/settings.json`. Factory documents that project tier on its hierarchical-settings page, not on the CLI settings page whose "Where settings live" table lists `~/.factory/settings.json` alone: "Settings are authored in `.factory/` folders, using the same schema at every level", with the levels table rowing "**Project** | `<git-root>/.factory/` | Repo maintainers" and "Each `.factory/` folder can contain: `settings.json`: general settings (models, safety, preferences, telemetry)" ([docs.factory.ai/enterprise/hierarchical-settings-and-org-control](https://docs.factory.ai/enterprise/hierarchical-settings-and-org-control)). The skills page names the same file: "the **Project** tab writes to `<project>/.factory/settings.json`" ([docs.factory.ai/harness/skills](https://docs.factory.ai/harness/skills)).
+  - The file is merged, not overwritten, unlike `.factory/hooks.json` and `.factory/mcp.json`. Only `model` is ever set, so `disabledSkills` and anything else in that file survives the sync.
+  - The portable `allow`, `deny`, and `ask` lists stop at a coverage note. Factory's key list names `commandAllowlist`, `commandDenylist`, and `commandBlocklist` without publishing a rule grammar or saying how the two deny-shaped keys differ, so agnostic-ai does not guess a spelling. Write those keys by hand in `.factory/settings.json`; the merge leaves them alone (#891).
 
 ## Config keys
 
@@ -55,6 +59,7 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
 | `outputs.factory.commands-dir` | `.factory/commands` |
 | `outputs.factory.hooks-file` | `.factory/hooks.json` |
 | `outputs.factory.mcp-file` | `.factory/mcp.json` |
+| `outputs.factory.conf-file` | `.factory/settings.json` |
 
 ## Verify
 

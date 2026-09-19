@@ -98,12 +98,25 @@ var hookLifecycle = []string{
 // (#732's, still live here for any command carrying a space) for that
 // inertness, and writing what the spec asked for wins: dropping `args`
 // loses the field in silence, which is the state #755 found.
+// `cwd` and `env` are copilot-scoped, and deliberately so. The
+// command-hook field table reads "`cwd` | string | No | Working
+// directory for the command (relative to repository root or
+// absolute)." and "`env` | object | No | Environment variables to set
+// (supports variable expansion).", and the page's own exec-form
+// example carries both. Claude Code's command-hook field table has
+// neither, so nothing generalizes (target-audit 2026-09-19, #888).
+// Before that, `hookEntry` was a fixed struct with no passthrough, so
+// neither a top-level spec field nor an `x-copilot` key could reach
+// the emitted JSON, and `.github/hooks/agnostic-ai.json` is wholly
+// managed, so hand-adding them was wiped on the next sync.
 type hookEntry struct {
 	Type           string            `json:"type"`
 	Matcher        string            `json:"matcher,omitempty"`
 	Command        string            `json:"command,omitempty"`
 	Exec           string            `json:"exec,omitempty"`
 	Args           []string          `json:"args,omitempty"`
+	Cwd            string            `json:"cwd,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
 	URL            string            `json:"url,omitempty"`
 	Headers        map[string]string `json:"headers,omitempty"`
 	AllowedEnvVars []string          `json:"allowedEnvVars,omitempty"`
@@ -200,8 +213,15 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			if len(args) > 0 {
 				execForm++
 			}
+			// Resolved rather than read raw, so `x-copilot.cwd` and
+			// `x-copilot.env` reach the file as well as the top-level
+			// fields. Command-hook only: the vendor documents both on
+			// that field table and on no other.
+			resolved := emit.ResolveMeta(h.Meta, target)
+			cwd, _ := resolved["cwd"].(string)
+			env := emit.StringMap(resolved["env"])
 			for _, command := range commands {
-				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout}
+				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
 				if len(args) > 0 {
 					entry.Exec = emit.RewriteHookPath(command, target)
 					entry.Args = args
