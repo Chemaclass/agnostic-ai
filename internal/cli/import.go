@@ -28,8 +28,8 @@ var rulesDirImporters = map[string]string{}
 func importSources() string {
 	names := []string{
 		"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
-		"copilot", "crush", "cursor", "gemini", "junie", "kilo", "kiro", "opencode",
-		"qoder", "trae", "warp", "windsurf", "zed",
+		"copilot", "crush", "cursor", "gemini", "goose", "junie", "kilo", "kiro",
+		"opencode", "qoder", "trae", "warp", "windsurf", "zed",
 	}
 	for k := range rulesDirImporters {
 		names = append(names, k)
@@ -135,6 +135,8 @@ func runImport(root, source string, cfg *config.Config) error {
 		return importFromJunie(root, src)
 	case "qoder":
 		return importFromQoder(root, src)
+	case "goose":
+		return importFromGoose(root, src)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)
@@ -179,7 +181,7 @@ func isKnownImportSource(source string) bool {
 	switch source {
 	case "claude", "codex", "cursor", "cline", "aider", "amp", "warp",
 		"gemini", "copilot", "opencode", "zed", "windsurf", "kiro", "crush",
-		"trae", "junie", "qoder", "kilo", "augment":
+		"trae", "junie", "qoder", "kilo", "augment", "goose":
 		return true
 	}
 	_, ok := rulesDirImporters[source]

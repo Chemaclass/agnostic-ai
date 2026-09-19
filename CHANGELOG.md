@@ -13,6 +13,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Added
 
 - Hook specs reach OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, with `PreToolUse` and `PostToolUse` mapped onto its tool hooks (#892).
+- `agnostic-ai import goose` reads Goose's agents, skills, plugin hooks, reviews and rules, so the target is no longer emit-only (#894).
+- `agnostic-ai import trae` reads `.trae/hooks.json`, so Trae project hooks round-trip instead of being dropped (#894).
 
 ### Fixed
 
