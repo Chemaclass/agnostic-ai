@@ -55,6 +55,8 @@ Goose discovers additional context files (any of `CONTEXT_FILE_NAMES`, default `
 
 The `.goosehints` fallback is one-way rather than additive. With `outputs.goose.rules-file` set, sync writes the same rule bodies to both files, so reading both would import every rule twice.
 
+`agnostic-ai import all` detects Goose from `.goosehints`, `.agents/plugins/`, or `.agents/REVIEW.md`. These stay deliberately narrow because `.agents/` is a shared convention: `.agents/agents/` and `.agents/skills/` would also match OpenHands, Antigravity and most of the registry. One gap follows from that. A project that syncs Goose with rules and nothing else writes only the shared `AGENTS.md`, carries no Goose-specific marker, and is not detected; run `agnostic-ai import goose` directly for it.
+
 Every plugin is read, not just the `agnostic-ai` package this tool writes: a hand-installed one is exactly the configuration a migrating project wants picked up.
 
 Lossy fields, none of which change Goose's output on the next sync: rules reach Goose through one inlined block per scope and only the root block is read back, the same line `import claude` holds on nested `CLAUDE.md` files; review specs sharing a scope concatenate into one file on emit and re-import as a single spec; a scoped `<scope>/.agents/REVIEW.md` is not read back for the same reason. See [scoped context](@/docs/scoped-context.md).

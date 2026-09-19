@@ -206,8 +206,20 @@ var targetMarkers = map[string][]string{
 	"openhands":   {".openhands"},
 	"factory":     {".factory"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
-	"goose":       {".goosehints"},
-	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},
+	// `.goosehints` is written only under the
+	// `outputs.goose.rules-file` opt-in, so a default goose project
+	// carried no marker and `import all` always skipped it (#906).
+	// The two additions are narrow on purpose. `.agents/` is a
+	// shared convention, so a marker under it must not claim a
+	// neighbor: `.agents/REVIEW.md` is goose-only, and goose writes
+	// `.agents/plugins/` by default while Antigravity reaches it only
+	// when a user points an output key there, in which case its own
+	// `.agent` / `.agents/rules` markers fire anyway. A goose project
+	// with rules and nothing else stays undetected; claiming
+	// `.agents/agents/` or `.agents/skills/` to cover it would
+	// mis-claim openhands and half the registry.
+	"goose":   {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
+	"augment": {".augment", ".augment-guidelines", ".augmentignore"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of

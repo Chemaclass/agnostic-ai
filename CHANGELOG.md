@@ -17,6 +17,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, an agent's `tools` list translates into the same per-tool shape, and `import kilo` reads both back (#890).
 - Copilot reaches three more documented keys: `disabledMcpServers` in `.github/copilot/settings.json`, `cwd` and `env` on hooks, and a per-server `tools` allowlist on Copilot CLI MCP entries (#888).
 - A settings `model` reaches Factory at `<project>/.factory/settings.json`, the documented project tier (#891).
+- `agnostic-ai import all` detects a Goose project from `.agents/plugins/` or `.agents/REVIEW.md`, not just the opt-in `.goosehints`, so a default Goose sync is no longer skipped (#906).
 
 ### Fixed
 

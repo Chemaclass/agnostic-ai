@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -176,4 +177,49 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// TestDetectExistingTargets_GooseWithoutHintsFile covers #906. Goose's
+// only marker was `.goosehints`, which sync writes only when the
+// `outputs.goose.rules-file` opt-in is set. A project agnostic-ai had
+// synced for goose with the default config therefore carried no goose
+// marker at all, so `import all` skipped the target every time.
+func TestDetectExistingTargets_GooseWithoutHintsFile(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		create func(t *testing.T, dir string)
+	}{
+		{"review file", func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, ".agents", "REVIEW.md"), "# review\n")
+		}},
+		{"plugin package", func(t *testing.T, dir string) {
+			if err := os.MkdirAll(filepath.Join(dir, ".agents", "plugins", "agnostic-ai"), 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			tc.create(t, dir)
+			if got := detectExistingTargets(dir); !slices.Contains(got, "goose") {
+				t.Errorf("goose not detected from its %s, got %v", tc.name, got)
+			}
+		})
+	}
+}
+
+// TestDetectExistingTargets_GooseMarkersDoNotClaimNeighbors guards the
+// narrow-marker choice behind #906. `.agents/` is a shared convention,
+// so a marker under it must not make an openhands or antigravity
+// project look like a goose one.
+func TestDetectExistingTargets_GooseMarkersDoNotClaimNeighbors(t *testing.T) {
+	dir := t.TempDir()
+	for _, sub := range []string{".openhands", ".agent", filepath.Join(".agents", "rules")} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	if got := detectExistingTargets(dir); slices.Contains(got, "goose") {
+		t.Errorf("goose claimed an openhands/antigravity project: %v", got)
+	}
 }
