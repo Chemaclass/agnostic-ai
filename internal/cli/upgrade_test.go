@@ -170,7 +170,15 @@ func TestVersionsEqual(t *testing.T) {
 	}
 }
 
-func TestOtherInstancesOnPATH_FindsShadow(t *testing.T) {
+// TestOtherInstancesOnPATH_OnlyReportsEarlierCopies pins what a shadow
+// is. A copy that sits AFTER the running binary on PATH never wins a
+// lookup, so it shadows nothing and must not be reported.
+//
+// This used to report every other copy regardless of order, which told
+// a Homebrew user on a healthy install to delete a stale ~/.local/bin
+// file "so agnostic-ai --version resolves to the upgraded binary" when
+// it already did. The advice was to remove a file that changed nothing.
+func TestOtherInstancesOnPATH_OnlyReportsEarlierCopies(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PATH separator + exe extension differ on windows")
 	}
@@ -182,19 +190,50 @@ func TestOtherInstancesOnPATH_FindsShadow(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	self := filepath.Join(dirA, "agnostic-ai")
-	other := filepath.Join(dirB, "agnostic-ai")
-	if err := os.WriteFile(self, []byte("x"), 0o755); err != nil {
+	inA := filepath.Join(dirA, "agnostic-ai")
+	inB := filepath.Join(dirB, "agnostic-ai")
+	if err := os.WriteFile(inA, []byte("x"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(other, []byte("y"), 0o755); err != nil {
+	if err := os.WriteFile(inB, []byte("y"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dirA+string(os.PathListSeparator)+dirB)
 
-	got := otherInstancesOnPATH(self)
-	if len(got) != 1 || got[0] != other {
-		t.Errorf("shadows = %v, want [%s]", got, other)
+	t.Run("a copy earlier on PATH is a shadow", func(t *testing.T) {
+		got := otherInstancesOnPATH(inB)
+		if len(got) != 1 || got[0] != inA {
+			t.Errorf("shadows = %v, want [%s]", got, inA)
+		}
+	})
+
+	t.Run("a copy later on PATH is not", func(t *testing.T) {
+		if got := otherInstancesOnPATH(inA); len(got) != 0 {
+			t.Errorf("shadows = %v, want none: %s wins the lookup already", got, inA)
+		}
+	})
+}
+
+// TestOtherInstancesOnPATH_SelfOffPATH covers the case where the
+// running binary is not on PATH at all. Then whatever is on PATH does
+// win the lookup, so it is a genuine shadow.
+func TestOtherInstancesOnPATH_SelfOffPATH(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH semantics differ on windows")
+	}
+	tmp := t.TempDir()
+	onPath := filepath.Join(tmp, "agnostic-ai")
+	if err := os.WriteFile(onPath, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := filepath.Join(t.TempDir(), "agnostic-ai")
+	if err := os.WriteFile(elsewhere, []byte("y"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp)
+	got := otherInstancesOnPATH(elsewhere)
+	if len(got) != 1 || got[0] != onPath {
+		t.Errorf("shadows = %v, want [%s]", got, onPath)
 	}
 }
 

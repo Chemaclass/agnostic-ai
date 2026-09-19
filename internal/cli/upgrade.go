@@ -403,10 +403,20 @@ var pathMarkers = []struct {
 }
 
 // otherInstancesOnPATH returns absolute paths of every agnostic-ai
-// binary on PATH that is not the running one. A non-empty result hints
-// at a shadowing problem: PATH lookup may pick an older copy even after
-// the brew install is up-to-date. Paths are resolved through symlinks
-// so a symlink + its target collapse to one entry.
+// binary that wins a PATH lookup ahead of the running one, so a
+// non-empty result means `agnostic-ai` really does resolve to another
+// copy. Paths are resolved through symlinks so a symlink and its
+// target collapse to one entry.
+//
+// Order is the whole point. A copy sitting after the running binary
+// never wins a lookup and shadows nothing, so it is not reported. This
+// used to return every other copy: a Homebrew user with a stale
+// ~/.local/bin file was told to delete it "so `agnostic-ai --version`
+// resolves to the upgraded binary" when /opt/homebrew/bin came first
+// and it already did.
+//
+// A running binary that is not on PATH at all stops nothing, so every
+// copy found is reported: one of them is what the name resolves to.
 func otherInstancesOnPATH(self string) []string {
 	binFile := binaryName
 	if runtime.GOOS == "windows" {
@@ -430,6 +440,11 @@ func otherInstancesOnPATH(self string) []string {
 		resolved, err := filepath.EvalSymlinks(candidate)
 		if err != nil {
 			resolved = candidate
+		}
+		if resolved == selfResolved {
+			// Reached the running binary; anything further down PATH
+			// loses the lookup to it.
+			break
 		}
 		if seen[resolved] {
 			continue
