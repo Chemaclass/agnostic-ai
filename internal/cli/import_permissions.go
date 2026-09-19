@@ -114,7 +114,7 @@ var augmentBareTool = map[string]string{
 func importAugmentPermissions(root, dstDir string) (int, error) {
 	var doc struct {
 		ToolPermissions []struct {
-			ToolName   string          `json:"tool-name"`
+			ToolName   string          `json:"toolName"`
 			Permission json.RawMessage `json:"permission"`
 			ShellRegex string          `json:"shellInputRegex"`
 		} `json:"toolPermissions"`
