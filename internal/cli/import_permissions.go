@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // devinScopeToPortable reverses the vocabulary the windsurf adapter
@@ -37,10 +39,10 @@ var devinBareTool = map[string]string{
 // portableDevinRule turns one Devin rule back into the portable
 // spelling, or reports that it has none.
 func portableDevinRule(rule string) (string, bool) {
-	if strings.HasPrefix(rule, "mcp__") {
+	if strings.HasPrefix(rule, spec.MCPToolPrefix) {
 		return rule, true
 	}
-	if scope, arg, ok := splitRuleCall(rule); ok {
+	if scope, arg, ok := spec.SplitPermissionRule(rule); ok {
 		if build, known := devinScopeToPortable[scope]; known {
 			return build(arg), true
 		}
@@ -50,20 +52,6 @@ func portableDevinRule(rule string) (string, bool) {
 		return name, true
 	}
 	return "", false
-}
-
-// splitRuleCall parses the `Scope(argument)` form both vocabularies
-// share. A bare tool name, or an argument-less `Scope()`, is not one.
-func splitRuleCall(rule string) (scope, arg string, ok bool) {
-	scope, rest, found := strings.Cut(rule, "(")
-	if !found || scope == "" || !strings.HasSuffix(rest, ")") {
-		return "", "", false
-	}
-	arg = strings.TrimSuffix(rest, ")")
-	if arg == "" {
-		return "", "", false
-	}
-	return scope, arg, true
 }
 
 // importWindsurfPermissions reads the committed project policy from

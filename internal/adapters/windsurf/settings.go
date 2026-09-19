@@ -133,10 +133,10 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 // Devin's changelog for v3000.10.31 states a command deny outranks a
 // broader allow or ask, so deny takes `Exec(cmd)` over nothing at all.
 func devinPermissionRule(rule, list string) (string, bool) {
-	if strings.HasPrefix(rule, mcpToolPrefix) {
+	if strings.HasPrefix(rule, spec.MCPToolPrefix) {
 		return rule, true
 	}
-	if scope, arg, ok := splitScopedRule(rule); ok {
+	if scope, arg, ok := spec.SplitPermissionRule(rule); ok {
 		switch scope {
 		case "Read":
 			return "Read(" + arg + ")", true
@@ -163,18 +163,4 @@ func devinPermissionRule(rule, list string) (string, bool) {
 		return name, true
 	}
 	return "", false
-}
-
-// splitScopedRule parses the `Scope(argument)` form both vocabularies
-// share. A bare tool name, or an argument-less `Scope()`, is not one.
-func splitScopedRule(rule string) (scope, arg string, ok bool) {
-	scope, rest, found := strings.Cut(rule, "(")
-	if !found || scope == "" || !strings.HasSuffix(rest, ")") {
-		return "", "", false
-	}
-	arg = strings.TrimSuffix(rest, ")")
-	if arg == "" {
-		return "", "", false
-	}
-	return scope, arg, true
 }

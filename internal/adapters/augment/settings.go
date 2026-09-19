@@ -27,9 +27,6 @@ var augmentTool = map[string]string{
 	"WebSearch": "web-search",
 }
 
-// mcpToolPrefix marks a rule naming one MCP server tool.
-const mcpToolPrefix = "mcp__"
-
 // mcpToolNameLimit is the length Augment truncates an MCP tool name to:
 // "Truncated to 64 characters if longer". A composed name past it would
 // never match the tool it was written for.
@@ -124,7 +121,7 @@ func augmentRule(rule, permissionType string) (map[string]any, bool) {
 	if name, ok := mcpToolName(rule); ok {
 		return map[string]any{"toolName": name, "permission": permission}, true
 	}
-	if scope, arg, ok := splitScopedRule(rule); ok {
+	if scope, arg, ok := spec.SplitPermissionRule(rule); ok {
 		if scope != "Bash" {
 			return nil, false
 		}
@@ -154,11 +151,8 @@ func augmentRule(rule, permissionType string) (map[string]any, bool) {
 // `mcp__*`) names no single tool and Augment documents no wildcard, so
 // it is not one.
 func mcpToolName(rule string) (string, bool) {
-	if !strings.HasPrefix(rule, mcpToolPrefix) {
-		return "", false
-	}
-	server, tool, found := strings.Cut(strings.TrimPrefix(rule, mcpToolPrefix), "__")
-	if !found || server == "" || tool == "" || strings.Contains(rule, "*") {
+	server, tool, ok := spec.SplitMCPPermissionRule(rule)
+	if !ok || strings.Contains(rule, "*") {
 		return "", false
 	}
 	name := tool + "_" + server
@@ -166,20 +160,6 @@ func mcpToolName(rule string) (string, bool) {
 		name = name[:mcpToolNameLimit]
 	}
 	return name, true
-}
-
-// splitScopedRule parses the `Scope(argument)` form. A bare tool name,
-// or an argument-less `Scope()`, is not one.
-func splitScopedRule(rule string) (scope, arg string, ok bool) {
-	scope, rest, found := strings.Cut(rule, "(")
-	if !found || scope == "" || !strings.HasSuffix(rest, ")") {
-		return "", "", false
-	}
-	arg = strings.TrimSuffix(rest, ")")
-	if arg == "" {
-		return "", "", false
-	}
-	return scope, arg, true
 }
 
 // noteSettingsGaps records the portable settings fields that reach
