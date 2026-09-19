@@ -8,7 +8,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/cli"
 )
 
-var version = "0.61.0"
+var version = "0.62.0"
 
 func main() {
 	if err := cli.NewRootCmd(version).Execute(); err != nil {

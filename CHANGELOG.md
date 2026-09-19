@@ -10,11 +10,14 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+## v0.62.0 - 2026-09-19
+
 ### Added
 
+- OpenCode reads your permission policy: the portable `allow`, `deny`, and `ask` lists translate into the `permission` map in `opencode.json`, and `import opencode` reads them back (#922).
+- Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, an agent's `tools` list translates into the same per-tool shape, and `import kilo` reads both back (#890).
 - Hook specs reach two more targets: OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, and Cline as one executable script per event under `.cline/hooks/` (#889, #892).
 - Import catches up with what sync writes: `import goose` reads Goose's agents, skills, plugin hooks, reviews and rules, `import trae` reads `.trae/hooks.json`, and `import cline` reads `.agents/skills/` (#889, #894).
-- Kilo Code reads your permission policy: portable `allow`, `deny`, and `ask` lists reach `kilo.jsonc`'s `permission` map, an agent's `tools` list translates into the same per-tool shape, and `import kilo` reads both back (#890).
 - Copilot reaches three more documented keys: `disabledMcpServers` in `.github/copilot/settings.json`, `cwd` and `env` on hooks, and a per-server `tools` allowlist on Copilot CLI MCP entries (#888).
 - A settings `model` reaches Factory at `<project>/.factory/settings.json`, the documented project tier (#891).
 - `agnostic-ai import all` detects a Goose project from `.agents/plugins/` or `.agents/REVIEW.md`, not just the opt-in `.goosehints`, so a default Goose sync is no longer skipped (#906).
@@ -24,21 +27,20 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Cline agents load again: they emit as `.cline/agents/<name>.yml` with the `name` and `description` frontmatter the loader requires, and `import` reads both that and the old `.md` (#886).
 - Claude Code's AGENTS.md fallback no longer leaks routing: `CLAUDE.md` is always written, so an `outputs.claude.rules-file` override cannot hand Claude Code codex's `AGENTS.md`, and `import claude` reads the same fallback files the tool itself loads (#885, #893).
 - An exact `Bash(cmd)` in a `deny` list now blocks the command on Windsurf instead of being dropped and leaving it unblocked (#887).
+- `import augment` reads your permission policy again: it looked for `tool-name` where Augment and our own emitter write `toolName`, so every rule was skipped (#912).
+- `sync` no longer fails on Windows when two targets write the same shared directory: pruning a legacy tree treated the platform's "directory is not empty" refusal as an error instead of a lost race (#918).
+- Copilot, Junie, and Codex say what a permission policy does there instead of dropping it in silence: each reports a coverage note naming where that vendor keeps its rules, and Codex's points at `outputs.codex.exec-policies` (#917, #923).
 - Emitted config matches what each vendor documents: Cursor stdio MCP entries carry the required `"type": "stdio"`, and `validate` flags a copilot hook spelled `SubagentStart`, an event no Copilot page names (#888, #895).
 - Antigravity stops writing to a legacy path and past a documented limit: `sync --global` writes skills to `~/.gemini/config/skills/`, and a rule over the 12,000-character cap reports a coverage note (#896).
 - `agnostic-ai import antigravity codex` works: multi-source validation reads the same list as the help text, so a source the error message calls supported is no longer rejected (#905).
 - `validate` flags a kiro hook spelled `AgentSpawn`, which Kiro CLI 3.0 documents nowhere, and accepts `Manual`, which it does (#907).
-- `import augment` reads your permission policy again: it looked for `tool-name` where Augment and our own emitter write `toolName`, so every rule was skipped (#912).
-- `sync` no longer fails on Windows when two targets write the same shared directory: pruning a legacy tree treated the platform's "directory is not empty" refusal as an error instead of a lost race (#918).
-- A permission policy no longer vanishes without a word on Copilot and Junie: both report a coverage note naming where each vendor keeps its rules instead, since neither has a project-tier key for them (#917).
-- OpenCode reads your permission policy: the portable `allow`, `deny`, and `ask` lists translate into the `permission` map in `opencode.json`, and `import opencode` reads them back (#922).
-- Codex reports what a permission policy does there instead of dropping it: a coverage note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes (#923).
 - A release now checks that Homebrew and npm actually serve the tag it just cut, instead of reporting success when a missing token silently skipped the push (#920).
 
 ### Site
 
 - Site search ranks the page a query names ahead of that page's own sections, finds a page by text anywhere in it, folds plurals, and caps one page at three of the ten result slots.
 - Target pages drop stale claims: Cline reads both `.clinerules/` and `.cline/rules/`, Trae emits scoped rules, Junie also loads `.agents/skills/`, aider writes `.aiderignore`, and goose's `.goosehints` needs the Developer extension (#897).
+- The Claude Code plugin carries a README covering both install commands, its four skills, and updating; the settings spec page names the right targets for `permissions` and `model` and states the rule grammar it uses in every example.
 
 ## v0.61.0 - 2026-09-18
 
