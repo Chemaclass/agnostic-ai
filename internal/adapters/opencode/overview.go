@@ -18,8 +18,14 @@ func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		arts = append(arts, emit.NativeArtifact{Label: "Skill commands", Location: commandsDir + "/", Note: skillFilenamePrefix + "* commands"})
 	}
-	arts = append(arts, emit.NativeArtifact{
-		Label: "MCP servers", Location: emit.OutputMCPFile(cfg, target, defaultMCPFile),
-	})
+	arts = append(arts,
+		emit.NativeArtifact{
+			Label:    "Hooks",
+			Location: emit.OutputHooksDir(cfg, target, defaultPluginsDir) + "/",
+			Note:     "one plugin module per hook",
+		},
+		emit.NativeArtifact{
+			Label: "MCP servers", Location: emit.OutputMCPFile(cfg, target, defaultMCPFile),
+		})
 	return arts
 }

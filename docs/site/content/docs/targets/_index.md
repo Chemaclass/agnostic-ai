@@ -167,7 +167,7 @@ The other seventeen are declined for a stated reason, not for lack of a project 
 - Goose needs a wrapping plugin directory plus a manifest.
 - Junie's hooks are Early Access.
 - Kiro uses a `{"version": "v1", "hooks": [...]}` array.
-- Amp, OpenCode, and Cline expose hooks only as TypeScript plugin modules.
+- Amp, OpenCode, and Cline expose hooks only as TypeScript plugin modules. OpenCode's project-level directory (`.opencode/plugins/`) is emitted as codegen since #892; its user-level twin stays out of this user-scope pass.
 
 Copilot also documents a user-level hooks directory (`~/.copilot/hooks/`), left for a future user-scope pass; its `{"version": 1, "hooks": {...}}` shape and `timeoutSec` field are already implemented at project scope. Issue #629 is complete and covers project scope only.
 

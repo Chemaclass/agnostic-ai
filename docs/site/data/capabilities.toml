@@ -142,7 +142,7 @@ statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "no"
 id = "opencode"
 name = "OpenCode"
 href = "@/docs/targets/opencode.md"
-statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
 [[targets]]
 id = "antigravity"

@@ -52,6 +52,10 @@ const (
 	FormatYAML     = header.FormatYAML
 	FormatShell    = header.FormatShell
 	FormatJSON     = header.FormatJSON
+	// FormatJavaScript marks generated .js / .ts modules with a `//`
+	// comment. OpenCode's plugin surface is the first codegen target
+	// that needs it.
+	FormatJavaScript = header.FormatJavaScript
 )
 
 // Header returns the comment line that marks a generated file in the

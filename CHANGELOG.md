@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Added
+
+- Hook specs reach OpenCode as plugin modules at `.opencode/plugins/<name>.ts`, with `PreToolUse` and `PostToolUse` mapped onto its tool hooks (#892).
+
 ### Fixed
 
 - Cline agents load again: they emit as `.cline/agents/<name>.yml` with the `name` and `description` frontmatter the loader requires, and `import` reads both that and the old `.md` (#886).

@@ -32,6 +32,12 @@ const (
 	// FormatJSON returns empty from Line (JSON has no comment syntax).
 	// Adapters writing JSON should skip the header.
 	FormatJSON
+	// FormatJavaScript selects a `//` line comment. Use for generated
+	// .js / .ts modules such as OpenCode's `.opencode/plugins/<name>.ts`.
+	// A `#` comment would be a syntax error there and an HTML comment
+	// would not parse, so codegen targets need their own format rather
+	// than borrowing FormatShell.
+	FormatJavaScript
 )
 
 // Marker is the substring agnostic-ai writes into every generated
@@ -58,6 +64,8 @@ func Line(format Format) string {
 		return "<!-- " + payloadText + " -->\n"
 	case FormatTOML, FormatYAML, FormatShell:
 		return "# " + payloadText + "\n"
+	case FormatJavaScript:
+		return "// " + payloadText + "\n"
 	default:
 		return ""
 	}
@@ -174,6 +182,9 @@ func looksLikeHeaderLine(line string) bool {
 		return true
 	}
 	if strings.HasPrefix(t, "#") {
+		return true
+	}
+	if strings.HasPrefix(t, "//") {
 		return true
 	}
 	return false
