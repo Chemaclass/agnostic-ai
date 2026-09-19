@@ -20,9 +20,9 @@ AGENTS.md                            # canonical entry-point pointer body (writt
 .cline/skills/<name>/SKILL.md        # one folder per skill (Cline's recommended skills path)
 ```
 
-Cline reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared pointer body there (deduplicated with the other AGENTS.md consumers). Rules emit per file into `.clinerules/`, the only project rules path any Cline surface reads: the VS Code extension hardcodes it as `GlobalFileNames.clineRules` and resolves it against the workspace root, and Cline's README puts the CLI and the JetBrains plugin on the same path. The [cline-rules page](https://docs.cline.bot/customization/cline-rules) agrees.
+Cline reads the cross-tool root `AGENTS.md`, so `sync` distributes the shared pointer body there (deduplicated with the other AGENTS.md consumers). Rules emit per file into `.clinerules/`. Cline reads two project rules layouts, `.clinerules/` and `.cline/rules/`, and the [cline-rules page](https://docs.cline.bot/customization/cline-rules) is explicit about it: "Both layouts are supported by VS Code, Desktop, and the CLI" and "Both directories are searched when present". The SDK resolver says the same, and adds why it matters: "Every Cline surface (CLI, VS Code extension, desktop app) must honor both."
 
-`.cline/rules/` appears only in the project tree on the [config reference](https://docs.cline.bot/getting-started/config), which disagrees with the extension it documents. Releases before this one defaulted there on that page alone, so every rule landed where nothing loaded it (target-audit 2026-09-18). Set `outputs.cline.rules-dir: .cline/rules` if you want that path anyway; otherwise a stale managed tree there is swept on sync.
+`.clinerules/` is the default here because the VS Code Rules panel still creates there. Set `outputs.cline.rules-dir: .cline/rules` to use the other layout, which Cline reads just as well. Only one layout is written at a time: a stale managed tree at the layout you are not using is swept on sync, so the same rules never load twice. Neither layout is deprecated. Cline's [deprecations page](https://docs.cline.bot/resources/deprecations) lists `.clineignore`, "Explain Changes" and "Focus Chain", and no rules directory.
 
 Agents always emit at `.cline/agents/`, independent of that override. `resolveAgentConfigSearchPaths` in `cline/cline` returns `<workspace>/.cline/agents`, and all three shipping readers resolve the directory through it, so the path is source-confirmed.
 
@@ -41,14 +41,14 @@ Treat this as an unconfirmed export rather than a vendor-documented surface unti
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `outputs.cline.rules-dir` | `.clinerules` | set to `.cline/rules` to emit at the config page's path, which no Cline surface reads |
+| `outputs.cline.rules-dir` | `.clinerules` | set to `.cline/rules` for the other layout Cline reads; both are searched when present |
 | `outputs.cline.agents-dir` | `.cline/agents` | |
 | `outputs.cline.skills-dir` | `.cline/skills` | |
 | `outputs.cline.workflows-dir` | empty | opt-in |
 
 ## Import
 
-`agnostic-ai import cline` reads rules from `.clinerules/`, falling back to `.cline/rules/` for a project synced by an earlier release, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+`agnostic-ai import cline` reads rules from `.clinerules/`, falling back to `.cline/rules/`, the other layout Cline reads, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
 
 It reconstructs agents from `.cline/agents/<name>.yml`, Cline's native per-agent directory. Each file becomes a `<name>.md` spec, byte-for-byte minus the provenance header: frontmatter and body carry across unchanged, so only the extension moves. `.yaml` is read too, and `.md` last, so a project synced before the format fix still round-trips; a `.yml` wins a same-name collision. There is no `agent-` prefix to strip and no synthesized heading, since sync no longer writes one there. The `agent-<name>.md` prefix only fires when a project still carries the pre-#534 layout, where rules and agents shared `.clinerules/`.
 
