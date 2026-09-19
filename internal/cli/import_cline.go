@@ -1,8 +1,14 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -24,11 +30,20 @@ var clineRulesDirs = []string{
 }
 
 const (
-	// clineAgentsDir is Cline's native per-agent directory
-	// (docs.cline.bot/getting-started/config); files there are flat
-	// `<name>.md`, not the pre-migration `agent-<name>.md` rule-form.
+	// clineAgentsDir is Cline's native per-agent directory, confirmed
+	// by resolveAgentConfigSearchPaths in cline/cline
+	// (sdk/packages/shared/src/storage/paths.ts:476). Files there are
+	// flat `<name>.yml`, not the pre-migration `agent-<name>.md`
+	// rule-form.
 	clineAgentsDir = ".cline/agents"
 )
+
+// clineAgentExts lists the agent-file extensions import accepts, in
+// precedence order. `.yml` and `.yaml` are the two the loader reads
+// (isYamlFile, configured-agent-config.ts L113-115); `.md` is what
+// releases #534 through #886 wrote there and is read last so a project
+// synced by one of those still round-trips.
+var clineAgentExts = []string{".yml", ".yaml", ".md"}
 
 // clineSkillsDirs lists every documented project skill path in
 // precedence order. `.cline/skills/` is the recommended location and is
@@ -62,8 +77,10 @@ func clineImportDir(root string) string {
 //     an `agent-<name>.md` there reclassifies as an agent, covering
 //     projects synced before agents moved to their own directory
 //     (#534).
-//   - `.cline/agents/*.md` (the native agents directory) reconstructs
-//     agents, byte-for-byte minus the provenance header.
+//   - `.cline/agents/*.yml` (the native agents directory) reconstructs
+//     agents as `<name>.md` specs, byte-for-byte minus the provenance
+//     header. `.yaml` is read too, and `.md` last, so a project synced
+//     before #886 still round-trips.
 //   - `.cline/skills/`, `.clinerules/skills/`, and `.claude/skills/`
 //     reconstruct native skill folders with bundled assets. Earlier paths
 //     win same-name collisions.
@@ -80,7 +97,7 @@ func importFromCline(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, clineAgentsDir), filepath.Join(root, src.Agents))
+	nativeAgents, err := importClineAgents(filepath.Join(root, clineAgentsDir), filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -96,4 +113,47 @@ func importFromCline(root string, src config.Sources) error {
 	summaryf("imported %d rules, %d agents, %d skills (from cline)\n", c.rules, c.agents, c.skills)
 	printImportNextSteps(root, "cline")
 	return nil
+}
+
+// importClineAgents copies every top-level agent file in src into
+// dstDir as `<name>.md`, stripping the provenance header. Cline's agent
+// files are frontmatter over a Markdown system prompt, so the body
+// carries across unchanged and only the extension moves: source specs
+// are always `.md`. Extensions are walked in clineAgentExts order and
+// the first file to claim a name wins, so a `.yml` written by the
+// current release beats a `.md` left by an older one. A missing
+// directory is a no-op.
+func importClineAgents(src, dstDir string) (int, error) {
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	seen := map[string]bool{}
+	for _, ext := range clineAgentExts {
+		for _, e := range entries {
+			if e.IsDir() || filepath.Ext(e.Name()) != ext {
+				continue
+			}
+			name := strings.TrimSuffix(e.Name(), ext)
+			if name == "" || seen[name] {
+				continue
+			}
+			seen[name] = true
+			srcPath := filepath.Join(src, e.Name())
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return count, fmt.Errorf("read %s: %w", srcPath, err)
+			}
+			dstPath := filepath.Join(dstDir, name+".md")
+			if err := importWriteFile(dstPath, []byte(header.Strip(string(data))), 0o644); err != nil {
+				return count, fmt.Errorf("write %s: %w", dstPath, err)
+			}
+			count++
+		}
+	}
+	return count, nil
 }
