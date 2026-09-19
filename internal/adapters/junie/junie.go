@@ -208,6 +208,24 @@ const (
 	mcpDescriptionNoOpReason = "no per-server description key in .junie/mcp/mcp.json; the server name is the only label Junie shows"
 )
 
+// permissionsUserTierOnlyReason explains why a portable permission
+// policy reaches nothing on Junie. Its one rule-based approvals file is
+// documented at the home tier alone: "You can manually add or remove
+// allowed commands by editing the `~/.junie/allowlist.json` file"
+// (junie.jetbrains.com/docs/action-allowlist-junie-cli.html). No
+// project-root variant is named, and no flag relocates it, unlike
+// `--config-location` for the config file.
+//
+// The project tier is real for other fields, which is what makes the
+// absence a checked fact rather than an unresearched one: the CLI
+// configuration page lists both "User scope: ~/.junie/config.json" and
+// "Project scope: <project-root>/.junie/config.json", then tables that
+// file's supported fields. None is an allow, deny, or ask list. The
+// nearest knob there is `brave`, one boolean that skips every prompt.
+// The IDE plugin's Action Allowlist is a settings panel, not a file
+// (target-audit 2026-09-19, #917).
+const permissionsUserTierOnlyReason = "Junie documents its allowlist.json at ~/.junie/ only, and the project-tier .junie/config.json field list has no allow, deny, or ask key"
+
 // Emit writes the `.junie/AGENTS.md` entry-point (pointer body plus
 // inlined rules), one native file per agent under the agents directory,
 // one folder per skill under the skills directory (Junie's native
@@ -246,6 +264,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
+		emit.SpecsWithPermissions(b.Settings), permissionsUserTierOnlyReason)
 	if model := emit.LastSettingsModel(b.Settings); model != "" {
 		if err := sess.MergeJSONFile(defaultConfigFile, map[string]any{"model": model}, dryRun); err != nil {
 			return err

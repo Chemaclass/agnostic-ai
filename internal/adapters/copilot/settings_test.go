@@ -240,3 +240,44 @@ func TestEmit_HookWithoutCwdOrEnvWritesNeitherKey(t *testing.T) {
 		t.Errorf("unset fields must stay out of the file:\n%s", got)
 	}
 }
+
+// TestEmit_SettingsNotesPermissionsAreMDMOnly covers the gap #917
+// filed: a portable permission policy reached nothing here and said
+// nothing either, so a user's allow and deny lists vanished in silence.
+//
+// Copilot's repository-settings table is closed and names no
+// `permissions` key. Its deny/ask/allow grammar exists, but only in
+// device-level MDM managed settings, which no project-tier tool can
+// write. The note has to say that rather than imply the vendor has no
+// such feature at all.
+func TestEmit_SettingsNotesPermissionsAreMDMOnly(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Read(**)"},
+			"deny":  []any{"Bash(rm:*)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	for _, want := range []string{"`permissions`", "copilot", "MDM"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+	// A permissions-only spec must not create the settings file: there
+	// is no key to put the policy under.
+	if _, err := os.Stat(filepath.Join(".github", "copilot", "settings.json")); err == nil {
+		t.Error("a permissions-only settings spec wrote a settings file")
+	}
+}
