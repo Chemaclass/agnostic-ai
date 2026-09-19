@@ -183,6 +183,18 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // when at least one of its markers exists. Markers are chosen to be
 // exclusive (no shared root files like AGENTS.md) so detection does not
 // over-tick.
+//
+// Exclusivity is why goose's markers look thin. `.goosehints` is
+// written only under the `outputs.goose.rules-file` opt-in, so a
+// default goose project carried no marker at all and `import all`
+// skipped it (#906). `.agents/REVIEW.md` is goose-only, and goose
+// writes `.agents/plugins/` by default while Antigravity reaches it
+// only through an explicit output key, where its own `.agent` and
+// `.agents/rules` markers fire regardless. The obvious wider choices
+// are not available: `.agents/agents/` is already codex's here, and
+// `.agents/skills/` is shared across most of the registry. So a goose
+// project carrying rules and nothing else stays undetected, and needs
+// an explicit `import goose`.
 var targetMarkers = map[string][]string{
 	"claude":      {".claude"},
 	"codex":       {".codex", ".agents/agents"},
@@ -206,20 +218,8 @@ var targetMarkers = map[string][]string{
 	"openhands":   {".openhands"},
 	"factory":     {".factory"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
-	// `.goosehints` is written only under the
-	// `outputs.goose.rules-file` opt-in, so a default goose project
-	// carried no marker and `import all` always skipped it (#906).
-	// The two additions are narrow on purpose. `.agents/` is a
-	// shared convention, so a marker under it must not claim a
-	// neighbor: `.agents/REVIEW.md` is goose-only, and goose writes
-	// `.agents/plugins/` by default while Antigravity reaches it only
-	// when a user points an output key there, in which case its own
-	// `.agent` / `.agents/rules` markers fire anyway. A goose project
-	// with rules and nothing else stays undetected; claiming
-	// `.agents/agents/` or `.agents/skills/` to cover it would
-	// mis-claim openhands and half the registry.
-	"goose":   {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
-	"augment": {".augment", ".augment-guidelines", ".augmentignore"},
+	"goose":       {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
+	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
