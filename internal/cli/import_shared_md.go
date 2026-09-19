@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // reduceToGeneratedRules returns the inner content of the sync-generated
@@ -271,4 +272,23 @@ func writeAgentMD(path, name, description string, tags []string, body string) er
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// isGeneratedPointerBody reports whether root/name is an entry-point
+// file agnostic-ai generated that carries no rules sentinel, so it holds
+// no rule bodies at all.
+//
+// Only a caller that knows the file's role may use this. A generated
+// entry-point without the sentinel is a pointer body, and slicing it
+// imports its own scaffolding headings ("Workflow", "Where the specs
+// live") as rules. A generated legacy rules-file is byte-shaped the
+// same way and does hold the bodies, so the test cannot live inside
+// sliceMainFileByH2, which sees both.
+func isGeneratedPointerBody(root, name string) bool {
+	data, err := os.ReadFile(filepath.Join(root, name))
+	if err != nil {
+		return false
+	}
+	raw := string(data)
+	return header.Has(raw) && !strings.Contains(raw, adapters.RulesStartMarker)
 }

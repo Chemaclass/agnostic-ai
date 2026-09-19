@@ -117,9 +117,15 @@ func importFromGoose(root string, src config.Sources) error {
 // bodies to both files, so reading both would import every rule twice
 // and report a doubled count.
 func importGooseRules(root, dstDir string) (int, error) {
-	rules, err := sliceMainFileByH2(root, gooseMainFile, dstDir)
-	if err != nil || rules > 0 {
-		return rules, err
+	// With the `outputs.goose.rules-file` opt-in set, sync writes the
+	// rule bodies to `.goosehints` and leaves AGENTS.md a pointer body
+	// with no sentinel. Slicing that would import its scaffolding
+	// headings as rules and never reach the hints file (#894).
+	if !isGeneratedPointerBody(root, gooseMainFile) {
+		rules, err := sliceMainFileByH2(root, gooseMainFile, dstDir)
+		if err != nil || rules > 0 {
+			return rules, err
+		}
 	}
 	return sliceMainFileByH2(root, gooseHintsFile, dstDir)
 }
