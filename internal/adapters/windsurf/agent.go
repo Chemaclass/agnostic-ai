@@ -25,11 +25,6 @@ var devinTool = map[string]string{
 	"Edit":  "edit",
 }
 
-// mcpToolPrefix marks a tool name that addresses one MCP server tool.
-// Devin documents the same `mcp__<server>__<tool>` spelling this repo
-// uses, so those names pass through the translation untouched.
-const mcpToolPrefix = "mcp__"
-
 // emitAgents writes one native `<dir>/<name>.md` per agent spec and
 // sweeps the rule-form file a prior sync left behind for the same name
 // (both the flat and the scoped copy, since windsurf routes scoped
@@ -125,7 +120,9 @@ func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 	seen := make(map[string]bool, len(names))
 	for _, n := range names {
 		out := devinTool[n]
-		if out == "" && strings.HasPrefix(n, mcpToolPrefix) {
+		// Devin documents the same `mcp__<server>__<tool>` spelling
+		// this repo uses, so those names pass through untouched.
+		if out == "" && strings.HasPrefix(n, spec.MCPToolPrefix) {
 			out = n
 		}
 		if out == "" {

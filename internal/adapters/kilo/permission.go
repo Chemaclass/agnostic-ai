@@ -52,9 +52,6 @@ var kiloPermissionTool = map[string]string{
 	"TodoWrite": "todowrite",
 }
 
-// mcpToolPrefix marks a rule addressing one MCP server tool.
-const mcpToolPrefix = "mcp__"
-
 // permissionUntranslatedReason explains, in the flushed coverage note,
 // why some rules did not reach `kilo.jsonc`.
 const permissionUntranslatedReason = "rule(s) outside Kilo Code's own permission vocabulary have no key there; set x-kilo.permission with Kilo's own rules for those"
@@ -86,10 +83,10 @@ const agentToolsUntranslatedReason = "tool name(s) outside Kilo Code's own permi
 // Kilo matches "the tool's arguments", so a literal `domain:` prefix
 // would match no URL and the rule would be inert. It drops instead.
 func permissionRule(rule string) (tool, pattern string, ok bool) {
-	if server, name, found := splitMCPRule(rule); found {
+	if server, name, found := spec.SplitMCPPermissionRule(rule); found {
 		return server + "_" + name, anyPattern, true
 	}
-	if scope, arg, found := splitScopedRule(rule); found {
+	if scope, arg, found := spec.SplitPermissionRule(rule); found {
 		key, known := kiloPermissionTool[scope]
 		if !known {
 			return "", "", false
@@ -111,35 +108,6 @@ func permissionRule(rule string) (tool, pattern string, ok bool) {
 		return key, anyPattern, true
 	}
 	return "", "", false
-}
-
-// splitMCPRule parses `mcp__<server>__<tool>` into Kilo's own key
-// halves: "Each MCP tool's permission key is its namespaced name:
-// `{server}_{tool}`".
-func splitMCPRule(rule string) (server, name string, ok bool) {
-	rest, found := strings.CutPrefix(rule, mcpToolPrefix)
-	if !found {
-		return "", "", false
-	}
-	server, name, found = strings.Cut(rest, "__")
-	if !found || server == "" || name == "" {
-		return "", "", false
-	}
-	return server, name, true
-}
-
-// splitScopedRule parses the `Scope(argument)` form. A bare tool name,
-// or an argument-less `Scope()`, is not one.
-func splitScopedRule(rule string) (scope, arg string, ok bool) {
-	scope, rest, found := strings.Cut(rule, "(")
-	if !found || scope == "" || !strings.HasSuffix(rest, ")") {
-		return "", "", false
-	}
-	arg = strings.TrimSuffix(rest, ")")
-	if arg == "" {
-		return "", "", false
-	}
-	return scope, arg, true
 }
 
 // settingsPermission builds the `permission` map from the portable
@@ -232,7 +200,7 @@ func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
 	for _, name := range tools {
 		key, known := kiloPermissionTool[name]
 		if !known {
-			if server, tool, isMCP := splitMCPRule(name); isMCP {
+			if server, tool, isMCP := spec.SplitMCPPermissionRule(name); isMCP {
 				allowed[server+"_"+tool] = "allow"
 				continue
 			}
