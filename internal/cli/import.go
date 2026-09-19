@@ -158,6 +158,8 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 				"unknown source: %q (supported: %s, all)", s, importSources())
 		}
 	}
+	setImportRunSources(sources)
+	defer setImportRunSources(nil)
 	var failed []string
 	for _, s := range sources {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
@@ -191,6 +193,8 @@ func importAll(root string, cfg *config.Config) error {
 		fmt.Println("no known AI CLI configs detected")
 		return nil
 	}
+	setImportRunSources(detected)
+	defer setImportRunSources(nil)
 	var errs []string
 	for _, t := range detected {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)

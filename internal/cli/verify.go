@@ -282,7 +282,7 @@ func captureVerifyFiles(cfg *config.Config, b spec.Bundle, target string, adapte
 func configuredEntryPointConsumers(cfg *config.Config, selected []string) []string {
 	selectedPaths := map[string]bool{}
 	for _, target := range selected {
-		if adapters.HasLegacyRulesFile(cfg, target) {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, target) {
 			continue
 		}
 		if path := adapters.EntryPointPath(cfg, target); path != "" && path != adapters.AgnosticEntryPointPath {
@@ -291,7 +291,7 @@ func configuredEntryPointConsumers(cfg *config.Config, selected []string) []stri
 	}
 	var consumers []string
 	for _, target := range cfg.Targets {
-		if adapters.HasLegacyRulesFile(cfg, target) {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, target) {
 			continue
 		}
 		if selectedPaths[normalizeFingerprintPath(adapters.EntryPointPath(cfg, target))] {

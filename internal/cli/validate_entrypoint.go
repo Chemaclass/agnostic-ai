@@ -15,8 +15,8 @@ import (
 // .agnostic-ai/AGNOSTIC_AI.md whose block reaches no file: a name that
 // matches no built-in or configured target (a typo drops the paragraph
 // everywhere with no other signal), or a built-in target that reads no
-// pointer entry point (cursor, or any target on the legacy rules-file
-// layout). A configured name outside the registry is an external
+// pointer entry point (cursor, or a target whose legacy rules-file is
+// its own entry point). A configured name outside the registry is an external
 // adapter and passes. A missing file is not an issue: sync seeds it on
 // the first run.
 func lintEntryPointFences(root string, cfg *config.Config) []validationIssue {
@@ -31,7 +31,7 @@ func lintEntryPointFences(root string, cfg *config.Config) []validationIssue {
 		var msg string
 		switch {
 		case contains(builtin, name):
-			if adapters.EntryPointPath(cfg, name) == "" || adapters.HasLegacyRulesFile(cfg, name) {
+			if adapters.EntryPointPath(cfg, name) == "" || adapters.LegacyRulesFileOwnsEntryPoint(cfg, name) {
 				msg = fmt.Sprintf("target %q reads no entry-point file; the ::target block reaches no file", name)
 			}
 		case !contains(cfg.Targets, name):

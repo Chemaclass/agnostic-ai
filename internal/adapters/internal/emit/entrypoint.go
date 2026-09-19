@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -90,15 +91,43 @@ func EntryPointPath(cfg *config.Config, target string) string {
 
 // HasLegacyRulesFile reports whether the user opted into the legacy
 // concatenated rules-file layout for target. When true, the adapter
-// owns the entry-point write (it concatenates rule bodies into
-// outputs.<target>.rules-file) and the central sync layer skips the
-// pointer-body write so the two do not collide.
+// owns rule delivery: it concatenates rule bodies into
+// outputs.<target>.rules-file and the central sync layer neither
+// inlines nor `@`-imports them anywhere else.
 func HasLegacyRulesFile(cfg *config.Config, target string) bool {
 	if cfg == nil {
 		return false
 	}
 	o, ok := cfg.Outputs[target]
 	return ok && o.RulesFile != ""
+}
+
+// LegacyRulesFileOwnsEntryPoint reports whether target's legacy
+// concatenated rules-file is the target's own entry-point file, the
+// documented form (`outputs.claude.rules-file: CLAUDE.md`,
+// `outputs.codex.rules-file: AGENTS.md`). Two writers on one path
+// collide, so the central sync layer skips the pointer-body write and
+// lets the adapter own the file.
+//
+// A rules-file pointing anywhere else is not a collision, and skipping
+// the entry-point write for it left the target with no entry-point file
+// at all. On claude that is a routing inversion, not a cosmetic gap:
+// Claude Code reads AGENTS.md as project instructions whenever no
+// CLAUDE.md exists at or above the working directory, so a project with
+// codex enabled handed Claude Code the rule bodies its own config had
+// routed away from claude.
+func LegacyRulesFileOwnsEntryPoint(cfg *config.Config, target string) bool {
+	if !HasLegacyRulesFile(cfg, target) {
+		return false
+	}
+	entry := EntryPointPath(cfg, target)
+	return entry != "" && samePath(cfg.Outputs[target].RulesFile, entry)
+}
+
+// samePath compares two project-relative output paths the way the
+// filesystem does, so `./CLAUDE.md` and `CLAUDE.md` are one file.
+func samePath(a, b string) bool {
+	return filepath.Clean(filepath.FromSlash(a)) == filepath.Clean(filepath.FromSlash(b))
 }
 
 // EntryPointBody renders the canonical pointer body shared by

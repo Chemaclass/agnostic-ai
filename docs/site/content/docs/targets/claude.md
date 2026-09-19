@@ -24,7 +24,7 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 ```
 
 - **Rules**: one file per spec under `.claude/rules/`. Claude Code discovers every `.md` file under that directory (recursively) at session start, so emitted rules load with no extra wiring. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files.
-- **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, round-trip-stripped on `import`. It predates native rules loading, so keep it only for Claude Code versions older than the `.claude/rules/` rollout. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file instead, and skips the pointer-body write for `claude`.
+- **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, round-trip-stripped on `import`. It predates native rules loading, so keep it only for Claude Code versions older than the `.claude/rules/` rollout. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file instead, and skips the pointer-body write for `claude` because the adapter owns that exact path. Point `rules-file` at any other path and `CLAUDE.md` is still written, with an `@<path>` import wiring the merged file in: a file outside `.claude/rules/` is on no Claude Code auto-load path, and a project with no `CLAUDE.md` at all makes Claude Code read `AGENTS.md` instead.
 - **Skills**: one folder per skill at `.claude/skills/<name>/SKILL.md`. The adapter manages no frontmatter keys, so every `x-claude` key passes through, for example `disable-model-invocation: true`.
 - **Commands**: one file per spec at `.claude/commands/<name>.md`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; body is the prompt template.
 - **MCP**: written into `.mcp.json` under the standard `mcpServers` map. Stdio entries use `command`/`args`/`env` with no `type`; remote entries use `type` plus `url`/`headers`. Every entry also accepts `timeout` (per-tool-call execution timeout in milliseconds; values under 1000 are ignored) and `alwaysLoad` (load the server's tools at session start instead of deferring them behind tool search, "available on all server types").
@@ -62,7 +62,7 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.dir` | `.claude` | |
 | `outputs.claude.rules-dir` | `.claude/rules` | auto-loaded by Claude Code |
 | `outputs.claude.rules-mode` | unset | set to `import` to also wire `.claude/rules/*.md` into `CLAUDE.md` via `@`-imports, only needed on Claude Code versions without native rules loading |
-| `outputs.claude.rules-file` | unset | switches to legacy concatenated single-file layout, typically `CLAUDE.md` |
+| `outputs.claude.rules-file` | unset | switches to legacy concatenated single-file layout, typically `CLAUDE.md`; any other path keeps `CLAUDE.md` and wires the file in with an `@`-import |
 | `outputs.claude.commands-dir` | `.claude/commands` | |
 | `outputs.claude.agents-dir` | `.claude/agents` | |
 | `outputs.claude.skills-dir` | `.claude/skills` | |
@@ -162,6 +162,7 @@ Any setting not declared here round-trips through the overlay captured during `a
 | `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
+| `AGENTS.md` or `.claude/AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` (only when no `CLAUDE.md` exists) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
@@ -170,6 +171,8 @@ Any setting not declared here round-trips through the overlay captured during `a
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
 When `.claude/rules/` exists (even if empty), slicing `CLAUDE.md` is skipped so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` to keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+
+The instructions file is looked up in the order Claude Code itself reads: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so a repo set up for other coding agents has its real instructions captured instead of the generic pointer template. The root `AGENTS.md` rung is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same invocation, since that file is their own main file and only one importer may slice it.
 
 The settings overlay captures every non-`hooks` key of `.claude/settings.json` (statusLine, enabledPlugins, model overrides, any other top-level key). `sync -t claude` layers the spec-derived `hooks` key on top, so it reproduces the full settings.json after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence against `outputs.claude.settings`, see [Claude settings](#claude-settings).
 

@@ -38,6 +38,19 @@
 // older Claude Code versions. Set `outputs.claude.rules-file: CLAUDE.md`
 // to fall back to the legacy concatenated single-file layout instead.
 //
+// CLAUDE.md is written for this target in every layout, including a
+// `rules-file` pointed somewhere else. Claude Code v2.1.277 reads
+// AGENTS.md as project instructions when no CLAUDE.md sits at or above
+// the working directory, so a project that emitted no CLAUDE.md handed
+// Claude Code the AGENTS.md codex, amp, or warp wrote, rule bodies
+// routed away from claude included. The user-facing toggle for that
+// fallback (`agents-md@builtin` `instructionFiles`) is user or managed
+// scope and "Claude Code ignores it in project and local settings
+// files", so this repo cannot turn it off; writing CLAUDE.md is the only
+// lever it has. A `rules-file` off the entry point additionally gets an
+// `@<path>` import in the pointer body, since a merged file outside
+// `.claude/rules/` is on no documented auto-load path.
+//
 // Hooks support command, http, mcp_tool, and prompt handlers. Non-command
 // payloads retain common filters and timeouts without command-only options.
 // Import preserves these stable handlers; experimental agent hooks are excluded.

@@ -12,6 +12,19 @@ import (
 // (non-parallel) test use.
 var importDryRun bool
 
+// importRunSources names every source of a multi-source `import` run
+// (`import claude codex`, `import all`). Empty for a single-source run.
+// An importer reads it to leave a file another source in the same run
+// owns: the root AGENTS.md is claude's documented fallback and codex's
+// own main file, so only one of the two may claim it. Set before the
+// first importer call, cleared afterward. Sequential test use only.
+var importRunSources []string
+
+// setImportRunSources records the sources of the current `import` run.
+func setImportRunSources(sources []string) {
+	importRunSources = append([]string(nil), sources...)
+}
+
 // importDryRunPaths collects every path importWriteFile / importMkdirAll
 // would have touched in dry-run mode. Drained and printed as a planning
 // summary by reportImportDryRun. Sequential test use only — `import`

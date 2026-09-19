@@ -2,6 +2,7 @@ package emit
 
 import (
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -168,6 +169,28 @@ func ImportsRulesIntoEntryPoint(cfg *config.Config, target string) bool {
 	}
 	o, ok := cfg.Outputs[target]
 	return ok && o.RulesMode == "import"
+}
+
+// RenderLegacyRulesFileImportAppendix renders a one-line `@`-import
+// block pointing at the legacy concatenated rules-file, for a target
+// whose CLI auto-loads its entry-point file but not that path. Returns
+// "" unless target sets outputs.<target>.rules-file to something other
+// than its own entry point, which is the only case where the entry
+// point is written by sync and the rule bodies live elsewhere.
+//
+// Without it the concatenated file reaches no session at all:
+// `.claude/RULES.md` is on no documented Claude Code load path. Reuses
+// the rules sentinel markers so import strips the block on round-trip.
+func RenderLegacyRulesFileImportAppendix(cfg *config.Config, target string) string {
+	if importRulesDir[target].def == "" || LegacyRulesFileOwnsEntryPoint(cfg, target) {
+		return ""
+	}
+	rulesFile := OutputRulesFile(cfg, target, "")
+	if rulesFile == "" {
+		return ""
+	}
+	return wrapRulesBlock("These rule files are loaded into context on every session:\n\n" +
+		"@" + filepath.ToSlash(rulesFile) + "\n")
 }
 
 // RenderRulesImportAppendix renders the sentinel-marked block of Claude
