@@ -203,33 +203,6 @@ func TestValidate_AcceptsCodexInterruptHookEvent(t *testing.T) {
 	}
 }
 
-// kiro.dev/docs/hooks/types.md documents Agent Spawn as a CLI-only
-// trigger distinct from Session Start, spelled `AgentSpawn` in the
-// file-schema `trigger` field (kiro.dev/docs/hooks/actions.md: "AgentSpawn
-// hooks are never cached"). hookEventsByTarget tracked only 10 kiro
-// events. The emitter passes `event:` through verbatim, so AgentSpawn
-// already worked and validate flagged it as unknown by mistake (#660).
-func TestValidate_AcceptsKiroAgentSpawnHookEvent(t *testing.T) {
-	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
-		"version: 1\ntargets:\n  - kiro\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
-		"name: h\nevent: AgentSpawn\ncommand: \"true\"\n")
-	testutil.Chdir(t, dir)
-
-	root := NewRootCmd("test")
-	root.SetArgs([]string{"validate"})
-	out := &bytes.Buffer{}
-	root.SetOut(out)
-	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("validate: %v", err)
-	}
-	if strings.Contains(out.String(), "unknown hook event") {
-		t.Errorf("AgentSpawn is a documented Kiro event: %s", out.String())
-	}
-}
-
 // docs.qoder.com/cli/hooks-reference's own Event Types table carries 27
 // rows; hookEventsByTarget tracked the 23 on the older grouped
 // `/cli/hooks` page. The emitter passes `event:` through verbatim, so
@@ -475,5 +448,61 @@ func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
 	_ = root.Execute()
 	if got := out.String(); strings.Contains(got, "unknown hook event") {
 		t.Errorf("subagentStart is documented and must validate, got: %s", got)
+	}
+}
+
+// TestValidate_FlagsKiroAgentSpawn covers #907, and replaces a test
+// that asserted the opposite.
+//
+// #660 accepted `AgentSpawn` on good evidence: kiro.dev then documented
+// it, and quoted "AgentSpawn hooks are never cached" from
+// /docs/hooks/actions/. Kiro CLI 3.0 removed it. That sentence is gone
+// and the name now returns zero matches across /docs/hooks/,
+// /docs/hooks/types/ and /docs/hooks/actions/. Only the 2.x camelCase
+// `agentSpawn` survives, in a legacy payload example, and its
+// documented 3.0 successor is `SessionStart`.
+//
+// So the old test was right when written and its premise expired. A
+// spec carrying `AgentSpawn` now emits a `trigger` Kiro never fires.
+func TestValidate_FlagsKiroAgentSpawn(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - kiro\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
+		"name: spawn\nevent: AgentSpawn\ncommand: \"echo hi\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	if err := root.Execute(); err == nil {
+		t.Error("validate accepted AgentSpawn on kiro and exited 0")
+	}
+	if got := out.String(); !strings.Contains(got, "AgentSpawn") {
+		t.Errorf("expected AgentSpawn to be flagged, got: %s", got)
+	}
+}
+
+// TestValidate_AcceptsKiroManualTrigger covers the other half of #907.
+// `Manual` is in Kiro's 3.0 trigger table ("User-triggered on demand")
+// and we rejected it, so an on-demand hook could not be expressed.
+func TestValidate_AcceptsKiroManualTrigger(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets:\n  - kiro\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "manual.yaml"),
+		"name: manual\nevent: Manual\ncommand: \"echo hi\"\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	err := root.Execute()
+	if got := out.String(); strings.Contains(got, "unknown hook event") {
+		t.Errorf("validate rejected the documented Manual trigger: %s (err=%v)", got, err)
 	}
 }

@@ -59,13 +59,19 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	"zed": setOf(
 		"WorktreeCreate",
 	),
+	// The eleven triggers in Kiro CLI 3.0's own table
+	// (kiro.dev/docs/cli/v3/hooks/). `AgentSpawn` used to sit here and
+	// does not: it is the PascalCase form of 2.x's `agentSpawn`, whose
+	// documented 3.0 successor is `SessionStart`, and it appears on no
+	// Kiro 3.0 page. Vouching for it emitted a `trigger` Kiro never
+	// fires (#907). `Manual` is documented and was missing.
 	"kiro": setOf(
 		"SessionStart", "Stop",
 		"PreToolUse", "PostToolUse",
 		"PreTaskExec", "PostTaskExec",
 		"UserPromptSubmit",
 		"PostFileCreate", "PostFileSave", "PostFileDelete",
-		"AgentSpawn",
+		"Manual",
 	),
 	// The six in the vendor's own Hook Types table. OpenHands names
 	// them in snake_case natively and documents these PascalCase keys as
