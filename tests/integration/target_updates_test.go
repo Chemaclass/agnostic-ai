@@ -179,10 +179,7 @@ func TestTargetUpdates_CriticalSignalsCarryDurableEvidence(t *testing.T) {
 }
 
 func TestTargetUpdates_PostAloneUpdatesSiteOutputs(t *testing.T) {
-	zolaPath, err := exec.LookPath("zola")
-	if err != nil {
-		t.Skip("zola is not installed")
-	}
+	zolaPath := lookupPinnedZola(t)
 
 	siteDir := t.TempDir()
 	if err := os.CopyFS(siteDir, os.DirFS("../../docs/site")); err != nil {
