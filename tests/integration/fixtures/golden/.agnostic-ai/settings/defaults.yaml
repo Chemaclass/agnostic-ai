@@ -1,0 +1,20 @@
+# A settings spec in the shared golden fixture, so every target's
+# permission and model output is snapshotted. Before this file existed
+# no golden tree held one, and `import augment` shipped in v0.61.0
+# reading a key the emitter never wrote with nothing to catch it (#912).
+#
+# The lists are chosen to exercise each translation branch that adapters
+# actually disagree on: a path-scoped rule (no matcher on most vendors'
+# read/write tools), a prefix command rule, an exact command rule (the
+# one Windsurf dropped in #887), and an `ask` entry (which Augment has
+# no permission type for).
+permissions:
+  allow:
+    - Read(**)
+    - Bash(go test:*)
+  deny:
+    - Bash(rm:*)
+    - Bash(rm -rf /)
+  ask:
+    - Write(.env*)
+model: example-model
