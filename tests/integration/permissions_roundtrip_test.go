@@ -61,6 +61,42 @@ func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 			},
 			absent: []string{"Bash(go test:*)", "Bash"},
 		},
+		{
+			// Kilo spells an exact command as its own pattern, and
+			// every tool in the policy has a portable name, so this
+			// row is a fixed point: what goes in comes back out.
+			target: "kilo",
+			spec: map[string][]string{
+				"allow": {"Read(docs/*)", "Bash(npm run:*)"},
+				"deny":  {"Bash(rm -rf /)"},
+			},
+			want: map[string][]string{
+				"allow": {"Read(docs/*)", "Bash(npm run:*)"},
+				"deny":  {"Bash(rm -rf /)"},
+			},
+		},
+		{
+			// Two documented widenings, asserted so that changing
+			// either one fails here. Devin's Exec is a prefix matcher
+			// with no exact-command form, so an exact deny comes back
+			// as the prefix spelling rather than narrowing a rule the
+			// project already applies more widely (devinScopeToPortable
+			// in internal/cli/import_permissions.go). And Devin's
+			// `write` covers both portable Write and Edit, so Edit
+			// reads back as Write, the wider of the two.
+			target: "windsurf",
+			spec: map[string][]string{
+				"allow": {"Read(**)", "Bash(go test:*)"},
+				"deny":  {"Bash(rm:*)", "Bash(rm -rf /)"},
+				"ask":   {"Write(.env*)", "Edit(src/**)"},
+			},
+			want: map[string][]string{
+				"allow": {"Read(**)", "Bash(go test:*)"},
+				"deny":  {"Bash(rm:*)", "Bash(rm -rf /:*)"},
+				"ask":   {"Write(.env*)", "Write(src/**)"},
+			},
+			absent: []string{"Bash(rm -rf /)", "Edit(src/**)"},
+		},
 	}
 
 	for _, tc := range cases {
