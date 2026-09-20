@@ -5,15 +5,26 @@
   "keywords": [
     "ai",
     "cli",
+    "agents",
+    "skills",
+    "rules",
+    "hooks",
+    "mcp",
+    "prompts",
+    "agents-md",
     "claude",
+    "claude-code",
     "codex",
     "cursor",
     "copilot",
-    "agents",
-    "skills",
-    "mcp"
+    "gemini",
+    "windsurf",
+    "cline",
+    "opencode",
+    "ai-tools",
+    "developer-tools"
   ],
-  "homepage": "https://github.com/Chemaclass/agnostic-ai#readme",
+  "homepage": "https://agnostic-ai.org",
   "bugs": {
     "url": "https://github.com/Chemaclass/agnostic-ai/issues"
   },

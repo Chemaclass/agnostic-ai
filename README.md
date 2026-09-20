@@ -35,7 +35,15 @@ The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) explains the 
 
 ### Manually
 
-[Install agnostic-ai](https://agnostic-ai.org/docs/installation/), then run:
+Install the CLI with whichever route fits the machine:
+
+| Route | Command |
+|---|---|
+| Homebrew on macOS and Linux | `brew install --cask Chemaclass/tap/agnostic-ai` |
+| npm on any platform with Node 18 or newer | `npm install -g agnostic-ai` |
+| Install script on macOS and Linux | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
+
+Windows, Go, and manual download are in [all install options](https://agnostic-ai.org/docs/installation/). Then run:
 
 ```console
 agnostic-ai init --demo

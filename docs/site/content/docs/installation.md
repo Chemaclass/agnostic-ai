@@ -10,15 +10,27 @@ group = "Start"
 # Installation
 
 
-The install scripts download a prebuilt release for your OS and CPU, then verify it against the release checksums. You do not need Go.
+Every route installs the same prebuilt binary for your OS and CPU. You do not need Go.
 
-## macOS and Linux
+Homebrew on macOS, the install script on Linux and Windows, npm wherever Node already is.
+
+## Homebrew
+
+macOS and Linux.
+
+```bash
+brew install --cask Chemaclass/tap/agnostic-ai
+```
+
+Upgrade with `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`.
+
+## Install script, macOS and Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
 ```
 
-The binary goes to `/usr/local/bin` when writable, otherwise `~/.local/bin`. Add the destination to `PATH` if needed. Set `AGNOSTIC_AI_INSTALL_DIR` to choose a directory or `AGNOSTIC_AI_VERSION` to pin a version.
+The script picks the archive for your OS and CPU, then verifies it against the release checksums. The binary goes to `/usr/local/bin` when writable, otherwise `~/.local/bin`. Add the destination to `PATH` if needed. Set `AGNOSTIC_AI_INSTALL_DIR` to choose a directory or `AGNOSTIC_AI_VERSION` to pin a version.
 
 ## Windows
 
@@ -30,6 +42,22 @@ irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/instal
 
 The default destination is `%LOCALAPPDATA%\Programs\agnostic-ai`. Open a new terminal if the command is not found. Download the [script](https://github.com/Chemaclass/agnostic-ai/blob/main/scripts/install.ps1) for its `-InstallDir` and `-Version` options.
 
+## npm
+
+Node 18 or newer, on macOS, Linux, or Windows.
+
+```bash
+npm install -g agnostic-ai
+```
+
+Run it once without installing:
+
+```bash
+npx agnostic-ai sync
+```
+
+The package is a wrapper. It downloads the binary for your platform and verifies it against the release checksums. That normally happens on install. npm 11 prompts before running install scripts, and `--ignore-scripts` blocks them. Decline or block, and the download happens on first run instead.
+
 ## Other install options
 
 | Method | Instructions |
@@ -37,7 +65,7 @@ The default destination is `%LOCALAPPDATA%\Programs\agnostic-ai`. Open a new ter
 | Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` (Go version from [go.mod](https://github.com/Chemaclass/agnostic-ai/blob/main/go.mod) or newer; put `$(go env GOPATH)/bin` on `PATH`) |
 | Manual download | Download your OS/CPU archive and `checksums.txt` from [GitHub Releases](https://github.com/Chemaclass/agnostic-ai/releases), verify the checksum, and extract the binary into a directory on `PATH` |
 
-Package-manager publishing is maintained separately from release archives. See [release distribution](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/release-process.md#distribution) for the configured channels.
+winget and Scoop are built by the release pipeline but not published yet, so `winget install Chemaclass.agnostic-ai` and `scoop install agnostic-ai` both fail today. See [release distribution](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/release-process.md#distribution) for every configured channel.
 
 ## Verify the install
 
