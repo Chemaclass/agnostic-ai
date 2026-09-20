@@ -41,13 +41,6 @@ function entryPoint(platform) {
   return `${packageName(platform)}/${binaryName(platform)}`
 }
 
-// The release archive the binary comes out of, named the way .goreleaser.yml
-// templates it.
-function archiveName(platform) {
-  const ext = platform.goos === 'windows' ? 'zip' : 'tar.gz'
-  return `${BINARY}_${platform.goos}_${platform.goarch}.${ext}`
-}
-
 function platformFor(nodeOs, nodeCpu) {
   return PLATFORMS.find((p) => p.os === nodeOs && p.cpu === nodeCpu)
 }
@@ -59,10 +52,7 @@ function optionalDependencies(version) {
 }
 
 module.exports = {
-  BINARY,
   PLATFORMS,
-  SCOPE,
-  archiveName,
   binaryName,
   entryPoint,
   optionalDependencies,

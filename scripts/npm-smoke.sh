@@ -46,6 +46,7 @@ build_binaries() {
 # npm's own spelling of this machine, which is the platform package to install
 # next to the parent.
 host_package() {
+  # shellcheck disable=SC2016  # the script is node's, not the shell's
   node -e '
     const { packageName, platformFor } = require(process.argv[1])
     const p = platformFor(process.platform, process.arch)

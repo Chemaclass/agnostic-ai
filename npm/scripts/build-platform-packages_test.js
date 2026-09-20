@@ -12,7 +12,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { PLATFORMS, binaryName, packageName } = require('../lib/platforms')
-const { build, manifest, parseArgs, sourceBinary } = require('./build-platform-packages')
+const { build, parseArgs, sourceBinary } = require('./build-platform-packages')
 
 const PARENT_MANIFEST = path.join(__dirname, '..', 'package.json')
 
@@ -91,6 +91,7 @@ const tests = {
         assert.strictEqual(pkg.name, packageName(p))
         assert.deepStrictEqual(pkg.os, [p.os], `${pkg.name} os`)
         assert.deepStrictEqual(pkg.cpu, [p.cpu], `${pkg.name} cpu`)
+        assert.match(pkg.description, new RegExp(`${p.os}-${p.cpu}`))
       }
     })
   },
@@ -234,9 +235,16 @@ const tests = {
     assert.match(thrown(() => build({})).message, /--binaries is required/)
   },
 
-  'the emitted manifest describes the platform in its description'() {
-    const pkg = manifest({ license: 'MIT' }, PLATFORMS[0], '1.2.3')
-    assert.match(pkg.description, /darwin-arm64/)
+  // A recursive delete per platform directory, so the destination must not be
+  // somewhere a typo can point.
+  'it refuses to write platform packages at a filesystem root'() {
+    withWorkspace(undefined, (ws) => {
+      const err = thrown(() =>
+        build({ binaries: ws.binaries, manifest: ws.manifest, out: path.parse(ws.root).root })
+      )
+      assert.match(err.message, /refusing to write platform packages/)
+    })
+    assert.match(thrown(() => build({ binaries: 'x', out: '' })).message, /--out cannot be empty/)
   },
 }
 

@@ -101,8 +101,19 @@ function readme(platform) {
   ].join('\n')
 }
 
+// A rerun has to replace the previous output, and replacing means a recursive
+// delete. Keep it to a path that can only be one platform directory: named
+// <os>-<cpu>, below a non-empty --out, and never a filesystem root.
+function platformDir(out, platform) {
+  const resolved = path.resolve(out)
+  if (resolved === path.parse(resolved).root) {
+    throw new Error(`--out resolves to ${resolved}; refusing to write platform packages there`)
+  }
+  return path.join(resolved, `${platform.os}-${platform.cpu}`)
+}
+
 function emit(parent, platform, { binaries, out, version }) {
-  const dir = path.join(out, `${platform.os}-${platform.cpu}`)
+  const dir = platformDir(out, platform)
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(dir, { recursive: true })
 
@@ -121,6 +132,7 @@ function emit(parent, platform, { binaries, out, version }) {
 
 function build({ binaries, manifest: manifestPath = PARENT_MANIFEST, out = DEFAULT_OUT, version }) {
   if (!binaries) throw new Error('--binaries is required: the directory holding the built binaries')
+  if (!out) throw new Error('--out cannot be empty')
   const parent = readJson(manifestPath)
   const resolved = version || parent.version
 
@@ -148,4 +160,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { build, manifest, parseArgs, sourceBinary }
+module.exports = { build, parseArgs, sourceBinary }

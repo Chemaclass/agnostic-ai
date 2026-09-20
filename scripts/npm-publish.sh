@@ -79,6 +79,21 @@ wait_for() {
   return 1
 }
 
+# Every name the parent pins has to be one of the packages about to be
+# published. A pin with no package is a parent that installs nothing on that
+# platform, and it is the one mistake ordering alone does not catch.
+require_every_pin() {
+  local parent="$1" names="$2" pinned pin
+  pinned="$(node -p "Object.keys(require('$parent/package.json').optionalDependencies||{}).join('\n')")"
+  while IFS= read -r pin; do
+    [[ -n "$pin" ]] || continue
+    if ! grep -qxF "$pin" <<< "$names"; then
+      err "the parent pins $pin but no package directory builds it"
+      return 1
+    fi
+  done <<< "$pinned"
+}
+
 main() {
   local version="${1:-}" platforms="${2:-$ROOT/npm/platforms}" parent="${3:-$ROOT/npm}"
   if [[ -z "$version" ]]; then
@@ -86,15 +101,19 @@ main() {
     return 2
   fi
 
-  local dirs=() dir name
+  # Parallel arrays rather than one associative array: macOS still ships
+  # bash 3.2, which has no associative arrays.
+  local dirs=() names=() dir i
   for dir in "$platforms"/*/; do
     [[ -f "$dir/package.json" ]] || continue
     dirs+=("${dir%/}")
+    names+=("$(package_name "${dir%/}")")
   done
   if [[ "${#dirs[@]}" -eq 0 ]]; then
     err "no platform packages in $platforms; run npm/scripts/build-platform-packages.js first"
     return 1
   fi
+  require_every_pin "$parent" "$(printf '%s\n' "${names[@]}")"
 
   for dir in "${dirs[@]}"; do
     publish_package "$dir" "$version"
@@ -102,10 +121,9 @@ main() {
 
   # The parent is unusable without all six, so do not publish it until the
   # registry serves every one of them.
-  for dir in "${dirs[@]}"; do
-    name="$(package_name "$dir")"
-    if ! wait_for "$name" "$version"; then
-      printf '::error::%s@%s never appeared; not publishing the parent, which would pin a package nobody can install\n' "$name" "$version"
+  for i in "${!names[@]}"; do
+    if ! wait_for "${names[$i]}" "$version"; then
+      printf '::error::%s@%s never appeared; not publishing the parent, which would pin a package nobody can install\n' "${names[$i]}" "$version"
       return 1
     fi
   done

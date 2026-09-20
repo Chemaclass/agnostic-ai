@@ -25,7 +25,16 @@ NPM_PUBLISH_FIRST_DELAY=0
 function fake_tree() {
   local root="$1" name
   mkdir -p "$root/npm/platforms/darwin-arm64" "$root/npm/platforms/linux-x64"
-  printf '{"name":"agnostic-ai","version":"1.2.3"}\n' > "$root/npm/package.json"
+  cat > "$root/npm/package.json" <<'JSON'
+{
+  "name": "agnostic-ai",
+  "version": "1.2.3",
+  "optionalDependencies": {
+    "@agnostic-ai/darwin-arm64": "1.2.3",
+    "@agnostic-ai/linux-x64": "1.2.3"
+  }
+}
+JSON
   for name in darwin-arm64 linux-x64; do
     printf '{"name":"@agnostic-ai/%s","version":"1.2.3"}\n' "$name" \
       > "$root/npm/platforms/$name/package.json"
@@ -222,6 +231,21 @@ function test_it_fails_when_the_generator_has_not_run() {
   rm -rf "$tmp"
 
   assert_contains "no platform packages" "$out"
+}
+
+# Ordering does not help when the parent pins a package no directory builds:
+# the six publish, the parent publishes, and one platform installs nothing.
+function test_it_refuses_when_the_parent_pins_a_package_that_was_not_built() {
+  local tmp out
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  rm -rf "${tmp:?}/npm/platforms/linux-x64"
+  stub_npm "$tmp/log"
+  out="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" 2>&1 || true)"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_contains "pins @agnostic-ai/linux-x64 but no package directory builds it" "$out"
 }
 
 function test_it_needs_a_version() {

@@ -17,7 +17,6 @@ const os = require('node:os')
 const path = require('node:path')
 const {
   PLATFORMS,
-  archiveName,
   binaryName,
   entryPoint,
   optionalDependencies,
@@ -102,12 +101,6 @@ const tests = {
     const p = platformFor('win32', 'x64')
     assert.strictEqual(entryPoint(p), '@agnostic-ai/win32-x64/agnostic-ai.exe')
     assert.strictEqual(entryPoint(platformFor('linux', 'arm64')), '@agnostic-ai/linux-arm64/agnostic-ai')
-  },
-
-  'archive names match the release assets goreleaser uploads'() {
-    assert.strictEqual(archiveName(platformFor('darwin', 'arm64')), 'agnostic-ai_darwin_arm64.tar.gz')
-    assert.strictEqual(archiveName(platformFor('linux', 'x64')), 'agnostic-ai_linux_amd64.tar.gz')
-    assert.strictEqual(archiveName(platformFor('win32', 'x64')), 'agnostic-ai_windows_amd64.zip')
   },
 
   'an unsupported pair resolves to nothing'() {

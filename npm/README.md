@@ -29,7 +29,7 @@ Windows, Go, and manual download are covered in [all install options](https://ag
 
 This package is a thin wrapper around the prebuilt Go binary. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
 
-Nothing is downloaded and no install script runs, so the package works under `--ignore-scripts`, behind a proxy, and from an offline npm mirror. To pin a version, pin the package: `npm install -g agnostic-ai@0.62.0`.
+Nothing is downloaded and no install script runs, so the package works under `--ignore-scripts`, behind a proxy, and from an offline npm mirror. To pin a version, pin the package: `npm install -g agnostic-ai@<version>`.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary this package does not ship, such as one you built yourself.
 

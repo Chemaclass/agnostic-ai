@@ -48,8 +48,9 @@ jobs:
     # The platform packages carry the release binaries, so this job can only
     # run once GoReleaser has uploaded them. It runs even when the GoReleaser
     # job failed: assets upload before the Homebrew, Scoop, and winget pushes,
-    # so a package-manager token going stale must not also hold back npm. The
-    # asset check below is the real gate, rather than the job result.
+    # so a package-manager token going stale must not also hold back npm.
+    # scripts/npm-binaries.sh is the real gate, rather than the job result: it
+    # fails when an archive is missing or does not match its checksum.
     needs: goreleaser
     if: always() && needs.goreleaser.result != 'cancelled' && needs.goreleaser.result != 'skipped'
     runs-on: ubuntu-latest
@@ -89,26 +90,13 @@ jobs:
           npm install -g "npm@${NPM_CLI_VERSION}"
           npm --version
 
-      - name: Require the release archives the platform packages ship
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
-          echo "$assets"
-          for want in \
-            agnostic-ai_darwin_amd64.tar.gz agnostic-ai_darwin_arm64.tar.gz \
-            agnostic-ai_linux_amd64.tar.gz agnostic-ai_linux_arm64.tar.gz \
-            agnostic-ai_windows_amd64.zip agnostic-ai_windows_arm64.zip \
-            checksums.txt; do
-            if ! grep -qx "$want" <<<"$assets"; then
-              echo "::error::release ${GITHUB_REF_NAME} is missing $want; not publishing to npm"
-              exit 1
-            fi
-          done
-
       # Both steps run without NPM_TOKEN too. A fork then proves the generator
       # still works, which is the part of this job nothing else exercises.
+      #
+      # Collecting the binaries is also the gate on the release being
+      # complete: the script downloads all six archives, verifies them against
+      # checksums.txt, and refuses a partial set, so a missing asset stops the
+      # publish here.
       - name: Collect the release binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
