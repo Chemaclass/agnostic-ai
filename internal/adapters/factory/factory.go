@@ -108,14 +108,18 @@
 // (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
 // The skills page names the same file: "the **Project** tab writes to
 // `<project>/.factory/settings.json`" (docs.factory.ai/harness/skills).
-// Only `model` is set, and through MergeJSONFile, so `disabledSkills`
+// `model`, the three command lists, and any key written under
+// `x-factory` are set, and through MergeJSONFile, so `disabledSkills`
 // and every other key in that file survive the sync.
 //
-// The portable permission lists stop at a coverage note. Factory's
-// settings reference names `commandAllowlist`, `commandDenylist`, and
-// `commandBlocklist`, but gives no rule grammar and no stated
-// difference between the two deny-shaped keys, so translating one would
-// be a guess (target-audit 2026-09-19, #891). See settings.go.
+// The portable permission lists reach Factory's three command lists,
+// which the vendor now types as `string[]` of "Shell command patterns"
+// and gives examples for in both spellings, bare and `prefix *`. The
+// mapping is not the one the names suggest: `commandDenylist` prompts
+// and can be approved, so portable `ask` lands there and portable
+// `deny` lands in `commandBlocklist`, the key with no approval path.
+// Rules outside `Bash` have no spelling among the three and raise a
+// coverage note (target-audit 2026-09-20, #948). See settings.go.
 package factory
 
 import (

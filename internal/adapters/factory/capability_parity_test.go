@@ -144,39 +144,6 @@ func TestEmit_SettingsWritesProjectTierModelAndPreservesSiblings(t *testing.T) {
 	}
 }
 
-// A settings spec carrying only permission lists writes no file at all,
-// and says why. Factory names `commandAllowlist`, `commandDenylist`,
-// and `commandBlocklist` without a rule grammar or a stated difference
-// between the two deny keys, so the rules are not guessed at (#891).
-func TestEmit_SettingsPermissionsSurfaceCoverageNote(t *testing.T) {
-	dir := testutil.TempCwd(t)
-	emit.ResetCoverageNotes()
-	t.Cleanup(emit.ResetCoverageNotes)
-	buf := &strings.Builder{}
-	prev := emit.Warner
-	emit.Warner = buf
-	t.Cleanup(func() { emit.Warner = prev })
-
-	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
-			"deny": []any{"Bash(rm -rf /)"},
-		}}},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatalf("emit: %v", err)
-	}
-	emit.FlushCoverageNotes()
-	note := buf.String()
-	for _, want := range []string{"`permissions`", "factory", "commandAllowlist"} {
-		if !strings.Contains(note, want) {
-			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
-		}
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".factory", "settings.json")); !os.IsNotExist(err) {
-		t.Errorf("a permissions-only settings spec must write no file, got err=%v", err)
-	}
-}
-
 // The file path honors outputs.factory.conf-file, so the key the
 // target page documents actually moves the write.
 func TestEmit_SettingsHonorsConfFileOverride(t *testing.T) {
@@ -248,5 +215,178 @@ func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 	}
 	if _, hasX := got["x-factory"]; hasX {
 		t.Errorf("the x-factory wrapper must not be written: %#v", got)
+	}
+}
+
+// The three command lists carry the portable policy, in the vendor's
+// own grammar. docs.factory.ai/enterprise/hierarchical-settings-and-org-control
+// types each as `string[]` of "Shell command patterns", and both
+// spellings appear in vendor examples: bare
+// (`"commandAllowlist": ["ls", "pwd", "dir"]`, /droid-cli/settings)
+// and prefix-glob (`"commandAllowlist": ["npm *", "pnpm *", "make *"]`,
+// /enterprise/llm-safety-and-agent-controls). So `Bash(npm:*)` becomes
+// `"npm *"` and `Bash(curl)` becomes `"curl"` (#948).
+func TestEmit_SettingsWritesTheThreeCommandLists(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash(npm:*)", "Bash(ls)"},
+			"ask":   []any{"Bash(sudo:*)"},
+			"deny":  []any{"Bash(curl)", "Bash(rm -rf:*)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var got map[string]any
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parse settings: %v", err)
+	}
+	want := map[string][]string{
+		"commandAllowlist": {"npm *", "ls"},
+		"commandDenylist":  {"sudo *"},
+		"commandBlocklist": {"curl", "rm -rf *"},
+	}
+	for key, patterns := range want {
+		list, _ := got[key].([]any)
+		if len(list) != len(patterns) {
+			t.Errorf("%s = %#v, want %v", key, got[key], patterns)
+			continue
+		}
+		for i, pattern := range patterns {
+			if list[i] != pattern {
+				t.Errorf("%s[%d] = %#v, want %q", key, i, list[i], pattern)
+			}
+		}
+	}
+}
+
+// The trap this issue exists to avoid: portable `deny` must not land
+// in `commandDenylist` on name similarity. Factory's denylist prompts,
+// and "A denied command can still be run if you explicitly approve it"
+// (/droid-cli/settings), asserted again on
+// /enterprise/hierarchical-settings-and-org-control ("always require
+// confirmation ... use commandBlocklist for a hard block") and
+// /enterprise/llm-safety-and-agent-controls ("A denylisted command can
+// still run if the user approves it"). A hard deny is the blocklist,
+// which has "no prompt and no way to approve them" (#948).
+func TestEmit_SettingsDenyGoesToTheBlocklistNotTheDenylist(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny": []any{"Bash(rm -rf /)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var got map[string]any
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parse settings: %v", err)
+	}
+	if _, wrong := got["commandDenylist"]; wrong {
+		t.Errorf("a portable deny reached commandDenylist, which prompts and can be approved: %#v", got)
+	}
+	block, _ := got["commandBlocklist"].([]any)
+	if len(block) != 1 || block[0] != "rm -rf /" {
+		t.Errorf("commandBlocklist = %#v, want the deny rule", got["commandBlocklist"])
+	}
+}
+
+// Rules merge across settings specs in source order and emit once.
+func TestEmit_SettingsCommandListsMergeAcrossSpecsDeduped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash(go test:*)", "Bash(ls)"},
+		}}},
+		{Kind: spec.KindSettings, Name: "project", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash(ls)", "Bash(make:*)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var got map[string]any
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parse settings: %v", err)
+	}
+	want := []string{"go test *", "ls", "make *"}
+	list, _ := got["commandAllowlist"].([]any)
+	if len(list) != len(want) {
+		t.Fatalf("commandAllowlist = %#v, want %v", got["commandAllowlist"], want)
+	}
+	for i, pattern := range want {
+		if list[i] != pattern {
+			t.Errorf("commandAllowlist[%d] = %#v, want %q", i, list[i], pattern)
+		}
+	}
+}
+
+// The coverage note narrows to the scopes with no Factory spelling.
+// These three keys are shell-command patterns, so `Read(src/**)` still
+// reaches nothing and still says so (#948).
+func TestEmit_SettingsNonBashRulesSurfaceCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash(go test:*)", "Read(src/**)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	note := buf.String()
+	for _, want := range []string{"`permissions`", "factory", "shell-command"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("the Bash rule must still emit: %v", err)
+	}
+	if !strings.Contains(string(data), "go test *") {
+		t.Errorf("the Bash rule did not reach the file: %s", data)
+	}
+}
+
+// A spec whose every rule is out of scope raises the note and writes
+// no file, the same as before the three lists existed.
+func TestEmit_SettingsAllRulesOutOfScopeWritesNoFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny": []any{"Read(src/**)", "mcp__github__create_issue"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".factory", "settings.json")); !os.IsNotExist(err) {
+		t.Errorf("a spec with no translatable rule must write no file, got err=%v", err)
 	}
 }

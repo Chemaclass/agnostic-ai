@@ -121,7 +121,15 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",
-			Meta: map[string]any{"model": "claude-sonnet-4-5"},
+			Meta: map[string]any{
+				"model": "claude-sonnet-4-5",
+				"permissions": map[string]any{
+					"allow": []any{"Bash(npm:*)"},
+					"ask":   []any{"Bash(sudo:*)"},
+					"deny":  []any{"Bash(curl)"},
+				},
+				"x-factory": map[string]any{"sandbox": map[string]any{"enabled": true}},
+			},
 		},
 	}
 	return spec.NewBundle(entries)
