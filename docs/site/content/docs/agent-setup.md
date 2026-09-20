@@ -1,6 +1,6 @@
 +++
 title = "Set up agnostic-ai with a coding agent"
-description = "A safe workflow for a coding agent to install, import, configure, sync, and verify agnostic-ai in any repository."
+description = "A safe workflow for a coding agent to set up agnostic-ai in any repository."
 weight = 15
 
 [extra]

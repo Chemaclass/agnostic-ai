@@ -425,11 +425,6 @@ main > section[id] {
   font-weight: 700;
 }
 
-.agent-shortcut span {
-  max-width: 38rem;
-  color: var(--muted);
-}
-
 /* Its own section now, not a hero column, so it gets a real measure. */
 .transform {
   width: min(100%, 42rem);
@@ -1055,6 +1050,9 @@ main > section[id] {
   }
 }
 
+/* On a phone the six-column matrix becomes thirty labelled rows, which is far
+   more than the section is worth there. Collapse it to the five target names
+   as chips; the full matrix is one tap away under the table. */
 @media (max-width: 760px) {
   .capability-table-wrap {
     overflow: visible;
@@ -1064,11 +1062,10 @@ main > section[id] {
   }
 
   .capability-table,
-  .capability-table tbody,
   .capability-table tr {
+    display: block;
     width: 100%;
     min-width: 0;
-    display: block;
   }
 
   .capability-table thead {
@@ -1082,49 +1079,40 @@ main > section[id] {
     border: 0;
   }
 
+  .capability-table tbody {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
   .capability-table tr {
-    margin-bottom: 0.75rem;
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--surface);
-  }
-
-  .capability-table tbody tr:hover th,
-  .capability-table tbody tr:hover td {
-    background: transparent;
-  }
-
-  .capability-table th:first-child {
-    position: static;
     width: auto;
-    padding: 0 0 0.6rem;
-    border-bottom: 1px solid var(--line-soft);
-    background: transparent;
-    font-size: 0.95rem;
   }
 
   .capability-table td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.32rem 0;
-    border: 0;
+    display: none;
   }
 
-  .capability-table tbody tr:last-child th {
-    border-bottom: 1px solid var(--line-soft);
+  .capability-table th:first-child {
+    display: block;
+    position: static;
+    width: auto;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.82rem;
+    font-weight: 600;
   }
 
-  .capability-mobile-label {
-    display: inline;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+  .capability-table tbody tr:hover th {
+    background: var(--surface);
+  }
+
+  /* No matrix on a phone, so its legend has nothing to explain. */
+  .capability-legend {
+    display: none;
   }
 }
 

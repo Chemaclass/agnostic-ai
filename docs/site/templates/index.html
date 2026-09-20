@@ -83,7 +83,7 @@
           {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
-        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
+        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a></p>
       </div>
     </div>
   </section>
@@ -169,7 +169,7 @@
   <section id="targets">
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.targets.body | markdown | safe }}</div>
+      <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
       {% set capabilities = load_data(path="data/capabilities.toml") %}
       {% set_global capability_columns = [] %}
       {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set_global capability_columns = capability_columns | concat(with=loop.index0) %}{% endif %}{% endfor %}
