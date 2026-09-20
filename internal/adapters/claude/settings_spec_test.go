@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -235,5 +236,47 @@ func TestEmit_SettingsCustomTargetKeysAloneWriteTheFile(t *testing.T) {
 	}
 	if days, _ := got["cleanupPeriodDays"].(float64); days != 30 {
 		t.Errorf("x-claude.cleanupPeriodDays never reached the file: %s", raw)
+	}
+}
+
+// An `x-claude.permissions.deny` rule joins the translated deny list
+// rather than replacing the whole block. The author wrote one more
+// rule, not a smaller policy, and a deny rule that leaves the file
+// without a word is the failure this guards (#966).
+func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{settingsEntry(map[string]any{
+		"permissions": map[string]any{
+			"deny":  []any{"Bash(rm:*)", "Read(secret/**)"},
+			"allow": []any{"Bash(go test:*)"},
+		},
+		"x-claude": map[string]any{
+			"permissions": map[string]any{
+				"deny":        []any{"AuthorOnly"},
+				"defaultMode": "plan",
+			},
+		},
+	})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	wantDeny := []any{"Bash(rm:*)", "Read(secret/**)", "AuthorOnly"}
+	if !reflect.DeepEqual(perms["deny"], wantDeny) {
+		t.Errorf("deny = %#v, want %#v", perms["deny"], wantDeny)
+	}
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("allow = %#v, want the translated allow list kept", perms["allow"])
+	}
+	if perms["defaultMode"] != "plan" {
+		t.Errorf("defaultMode = %#v, want the hatch sibling key kept", perms["defaultMode"])
 	}
 }

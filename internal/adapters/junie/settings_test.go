@@ -100,3 +100,25 @@ func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 		t.Errorf("the x-junie wrapper must not be written: %#v", got)
 	}
 }
+
+// `model` is the one key this adapter manages here, and a scalar has
+// no parts to keep, so `x-junie.model` still replaces it outright. A
+// list or an object written under the hatch would merge instead; this
+// pins the half of the rule that applies to Junie (#966).
+func TestEmit_SettingsCustomModelReplacesThePortableOne(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":   "sonnet",
+		"x-junie": map[string]any{"model": "junie-native"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".junie/config.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["model"] != "junie-native" {
+		t.Errorf("model = %#v, want the x-junie value to win", got["model"])
+	}
+}

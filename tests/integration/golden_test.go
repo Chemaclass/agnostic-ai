@@ -60,6 +60,13 @@ var goldenTargets = []string{
 // carried. Reading one diff across all targets is what makes a lone
 // drop stand out.
 //
+// The spec also carries two `x-<target>` keys that collide with a key
+// the adapter writes itself, `x-factory.commandBlocklist` and
+// `x-claude.permissions.deny`, so the snapshot holds the translated
+// rules and the author's side by side. #966 shipped a hatch that
+// replaced the whole key, deleting a deny tier in silence, and no
+// snapshot moved. Two files here now do.
+//
 // Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden
 func TestGolden(t *testing.T) {
 	for _, target := range goldenTargets {

@@ -82,6 +82,13 @@ const permissionsNonShellReason = "Factory's commandAllowlist, commandDenylist, 
 // `sandbox` is the case that earned it: kernel-enforced isolation whose
 // `denyWrite` overrides `allowWrite`, with no `ask` tier and an egress
 // filter no portable field matches (#949).
+//
+// An author writing one of the three command lists there adds to it:
+// MergeSettingsCustomKeys unions two lists rather than replacing one
+// with the other, so a pattern the portable policy translated into
+// `commandBlocklist`, the tier with no approval path, cannot fall out
+// of the file because a Factory-only pattern was added beside it
+// (#966).
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if model := emit.LastSettingsModel(settings); model != "" {

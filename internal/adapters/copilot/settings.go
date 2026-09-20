@@ -72,7 +72,12 @@ func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) 
 	}
 	// The `x-copilot` block on a settings spec carries the repository
 	// keys this adapter does not model, `respectGitignore` among the
-	// fourteen that table lists. Without it they are unreachable (#949).
+	// fourteen that table lists. Without it they are unreachable
+	// (#949). It merges with the managed keys rather than replacing
+	// them, matching how the vendor merges the repository tier itself:
+	// `disabledMcpServers` and `deniedUrls` are both "Union, repository
+	// can add entries, never remove", so a hatch entry joins the list
+	// the MCP specs produced instead of erasing it (#966).
 	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {
 		return nil

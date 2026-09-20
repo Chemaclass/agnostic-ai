@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -215,6 +216,37 @@ func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 	}
 	if _, hasX := got["x-factory"]; hasX {
 		t.Errorf("the x-factory wrapper must not be written: %#v", got)
+	}
+}
+
+// A Factory-only pattern under `x-factory.commandBlocklist` joins the
+// translated ones instead of erasing them. The blocklist is the tier
+// with no approval path, the one that "can never run ... even under
+// full autonomy, auto-run, or --skip-permissions-unsafe", so a
+// portable deny dropping out of it is the worst silent edit this
+// adapter can make (#966).
+func TestEmit_SettingsCustomCommandListJoinsTheTranslatedOne(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{
+			"permissions": map[string]any{"deny": []any{"Bash(rm:*)", "Bash(curl)"}},
+			"x-factory":   map[string]any{"commandBlocklist": []any{"author-only"}},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parse settings: %v", err)
+	}
+	want := []any{"rm *", "curl", "author-only"}
+	if !reflect.DeepEqual(got["commandBlocklist"], want) {
+		t.Errorf("commandBlocklist = %#v, want %#v", got["commandBlocklist"], want)
 	}
 }
 
