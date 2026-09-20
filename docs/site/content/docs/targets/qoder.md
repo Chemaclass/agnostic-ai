@@ -27,11 +27,12 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
 
 `import qoder` reads rules, agents, skill folders, commands, and portable settings fields. It does not yet read hooks or MCP servers back out of `.qoder/settings.json`.
 
-- **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`, one file per agent. `name` and `description` are required frontmatter; `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, and `hooks` are optional. See [`effort`](@/docs/spec-format.md#effort-support-by-target) and [agent policy support by target](@/docs/spec-format.md#agent-policy-support-by-target). See [`effort` support by target](@/docs/spec-format.md#effort-support-by-target).
+- **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`, one file per agent. `name` and `description` are required frontmatter; `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. See [`effort`](@/docs/spec-format.md#effort-support-by-target) and [agent policy support by target](@/docs/spec-format.md#agent-policy-support-by-target). See [`effort` support by target](@/docs/spec-format.md#effort-support-by-target).
   - `color` (one of eight named values: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`) is documented on the [CLI field reference](https://docs.qoder.com/cli/subagent) rather than the smaller extensions page, which defers to the CLI page as "the complete guide" for the identical path. It is a shared portable field Augment and Kilo Code already promote the same way.
   - `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), the only form the vendor doc shows, not a YAML list. `import qoder` splits it back into agnostic-ai's generic list form so the spec stays usable by every other target.
   - Qoder's built-in tool vocabulary is Claude-style (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), which is what makes passing agnostic-ai's generic `tools` list straight through safe here, unlike Kilo Code and Augment, whose own vocabularies differ and which drop the field with a coverage note instead.
   - `skills` and `mcpServers` have no agnostic-ai-native shape and pass through whatever the spec declares via `x-qoder`.
+  - `memory` passes through unchanged. See [Subagent memory](#subagent-memory).
   - The adapter manages `name`, `description`, `model`, `tools`, `skills`, and `mcpServers`. Any other `x-qoder` key passes through into the agent frontmatter.
 - **Skills**: [Qoder Skills](https://docs.qoder.com/extensions/skills) reads a folder per skill at `.qoder/skills/<name>/SKILL.md`. Frontmatter is plain `name` + `description`, the only keys the vendor doc shows. Bundled sibling files (scripts, references, templates) copy byte-for-byte alongside `SKILL.md`, the same folder-layout render every other Agent Skills target here uses.
 - **Commands**: one Markdown file per command spec at `.qoder/commands/<name>.md`.
@@ -72,7 +73,17 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
 | `outputs.qoder.commands-dir` | `.qoder/commands` |
 | `outputs.qoder.mcp-file` | `.qoder/settings.json` (also the hooks path since the two share one file) |
 
+## Subagent memory
+
+The portable `memory` field reaches `.qoder/agents/<name>.md` unchanged. Qoder's [subagent field reference](https://docs.qoder.com/cli/subagent) gives it the same three scopes agnostic-ai does: "| `memory` | No | `user`, `project`, `local` | Persistent memory scope for this Subagent." The same page makes markdown the only way in, listing `memory` among the fields the `--agents` JSON schema does not carry.
+
+The vendor attaches a condition: "Only active when global automatic memory is enabled". That is top-level `autoMemoryEnabled` in [settings](https://docs.qoder.com/cli/settings-reference), which defaults to `false`. With it off, the key is inert.
+
+This is documented, not runtime-verified. No Qoder CLI run has confirmed a per-subagent store appears. Claude Code remains the one target confirmed to act on `memory`.
+
 ## Auto memory
+
+Separate mechanism from the field above. This one is Qoder's own store, written by the tool rather than declared by a spec.
 
 Qoder keeps an automatic memory store it writes for itself ([docs.qoder.com/cli/memory](https://docs.qoder.com/cli/memory)): a project store at `~/.qoder/projects/<project>/memory/` and a user store at `~/.qoder/memory/`. Each one is a `MEMORY.md` index plus one file per topic. Run `/memory` for the overview and `/memory manage` to view, edit, or delete a topic file. A session loads the first 200 lines or about 25KB of each active `MEMORY.md` and drops everything past that.
 

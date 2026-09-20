@@ -224,6 +224,15 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 // same way (#588). `skills` and `mcpServers` pass through whatever
 // shape the spec declares, since Qoder defines no agnostic-ai-native
 // format for either.
+//
+// `memory` passes through too (#953). Qoder's field reference gives it
+// this project's exact enum, "| `memory` | No | `user`, `project`,
+// `local` | Persistent memory scope for this Subagent. Only active
+// when global automatic memory is enabled", and reaches it only
+// through this file: "Use Markdown configuration when you need
+// `timeoutMins`, `temperature`, `hooks`, `memory`, `background`, or
+// `isolation`". No translation, the values match. The vendor's
+// conditional is top-level `autoMemoryEnabled`, default false.
 func agentMarkdown(a spec.Entry) string {
 	resolved := emit.ResolveMeta(a.Meta, target)
 	desc, _ := resolved["description"].(string)
@@ -243,14 +252,14 @@ func agentMarkdown(a spec.Entry) string {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
-	for _, k := range []string{"color", "skills", "mcpServers", "effort", "permissionMode", "hooks"} {
+	for _, k := range []string{"color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)
 		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target,
-		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort", "permissionMode", "hooks")
+		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {
