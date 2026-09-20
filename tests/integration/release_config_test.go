@@ -191,7 +191,7 @@ func TestReleaseWorkflow_PublishesWithProvenance(t *testing.T) {
 	if job.Permissions["id-token"] != "write" {
 		t.Errorf("the npm job needs `id-token: write` to mint the OIDC token a provenance statement is signed against, got %q", job.Permissions["id-token"])
 	}
-	if publish := workflowStep(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, npmPublishScript) {
+	if publish := workflowRun(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, npmPublishScript) {
 		t.Errorf("the Publish step no longer runs %s:\n%s", npmPublishScript, publish)
 	}
 	script := readRepoFile(t, npmPublishScript)

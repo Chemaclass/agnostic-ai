@@ -227,7 +227,7 @@ func TestReleaseWorkflow_PublishesPlatformPackagesBeforeTheParent(t *testing.T) 
 // correctly. That is the new way a release looks green and installs
 // nothing on some platform.
 func TestReleaseWorkflow_DistributionChecksEveryNpmPackage(t *testing.T) {
-	step := workflowStep(t, releaseWorkflowPath, "distribution", "npm serves this tag")
+	step := workflowRun(t, releaseWorkflowPath, "distribution", "npm serves this tag")
 	for _, p := range npmPlatforms(t) {
 		if !strings.Contains(step, p.pkg()) {
 			t.Errorf("the distribution guard never asks the registry for %s:\n%s", p.pkg(), step)
@@ -272,7 +272,7 @@ func TestNpmPublish_TagsEveryPublishAttempt(t *testing.T) {
 // because a second copy is how the guard ends up asserting a tag nobody
 // published.
 func TestReleaseWorkflow_DistributionChecksTheDistTag(t *testing.T) {
-	step := workflowStep(t, releaseWorkflowPath, "distribution", "npm serves this tag")
+	step := workflowRun(t, releaseWorkflowPath, "distribution", "npm serves this tag")
 	if !strings.Contains(step, ". "+npmPublishScript) {
 		t.Errorf("the guard does not source %s, so its dist-tag can drift from the published one:\n%s",
 			npmPublishScript, step)
