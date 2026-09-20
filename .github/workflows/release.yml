@@ -78,11 +78,12 @@ jobs:
 
   npm:
     name: npm
-    # The wrapper downloads release assets on install, so it can only publish
-    # once GoReleaser has uploaded them. It runs even when the GoReleaser job
-    # failed: assets upload before the Homebrew, Scoop, and winget pushes, so
-    # a package-manager token going stale must not also hold back npm. The
-    # asset check below is the real gate, rather than the job result.
+    # The platform packages carry the release binaries, so this job can only
+    # run once GoReleaser has uploaded them. It runs even when the GoReleaser
+    # job failed: assets upload before the Homebrew, Scoop, and winget pushes,
+    # so a package-manager token going stale must not also hold back npm.
+    # scripts/npm-binaries.sh is the real gate, rather than the job result: it
+    # fails when an archive is missing or does not match its checksum.
     needs: goreleaser
     if: always() && needs.goreleaser.result != 'cancelled' && needs.goreleaser.result != 'skipped'
     runs-on: ubuntu-latest
@@ -122,75 +123,32 @@ jobs:
           npm install -g "npm@${NPM_CLI_VERSION}"
           npm --version
 
-      - name: Require the release archives the wrapper downloads
+      # Both steps run without NPM_TOKEN too. A fork then proves the generator
+      # still works, which is the part of this job nothing else exercises.
+      #
+      # Collecting the binaries is also the gate on the release being
+      # complete: the script downloads all six archives, verifies them against
+      # checksums.txt, and refuses a partial set, so a missing asset stops the
+      # publish here.
+      - name: Collect the release binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/npm-binaries.sh "${GITHUB_REF_NAME}" "${RUNNER_TEMP}/npm-binaries"
+
+      - name: Build the platform packages
         run: |
           set -euo pipefail
-          assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
-          echo "$assets"
-          for want in \
-            agnostic-ai_darwin_amd64.tar.gz agnostic-ai_darwin_arm64.tar.gz \
-            agnostic-ai_linux_amd64.tar.gz agnostic-ai_linux_arm64.tar.gz \
-            agnostic-ai_windows_amd64.zip agnostic-ai_windows_arm64.zip \
-            checksums.txt; do
-            if ! grep -qx "$want" <<<"$assets"; then
-              echo "::error::release ${GITHUB_REF_NAME} is missing $want; not publishing to npm"
-              exit 1
-            fi
-          done
-
-      - name: Version the package from the tag
-        working-directory: npm
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
-
-      - name: Skip when this version is already on the registry
-        id: published
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          # `npm view` exits non-zero for a package that has never been
-          # published, which is the first-release case, not an error.
-          if npm view "agnostic-ai@${version}" version >/dev/null 2>&1; then
-            echo "::notice::agnostic-ai@${version} is already published; nothing to do"
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          node npm/scripts/build-platform-packages.js \
+            --binaries "${RUNNER_TEMP}/npm-binaries" \
+            --version "${GITHUB_REF_NAME#v}"
+          cat npm/package.json
 
       - name: Publish
         # Skipped until NPM_TOKEN exists, so a release never fails over it.
         # setup-node replaces an empty NODE_AUTH_TOKEN with a placeholder, so
         # test the secret-presence flag captured before setup instead.
-        if: env.NPM_TOKEN_CONFIGURED == 'true' && steps.published.outputs.exists == 'false'
-        working-directory: npm
-        run: |
-          set -uo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          if npm publish --access public --provenance; then
-            exit 0
-          fi
-          # Provenance is signed through Sigstore, a service outside this
-          # release. Shipping the tag matters more than the attestation, so a
-          # provenance failure downgrades to a plain publish rather than
-          # leaving a tag unpublished: this job exists to guarantee the
-          # package reaches npm, and a new dependency must not become a new
-          # way to miss that. The warning is the signal to investigate, and
-          # `npm view --json agnostic-ai@<version>` shows whether the version
-          # carries an attestation.
-          echo "::warning::npm publish --provenance failed; retrying without provenance, so this version ships without an attestation"
-          if npm publish --access public; then
-            exit 0
-          fi
-          # The first attempt can upload the tarball and still fail while
-          # attaching the attestation, which makes the retry a version
-          # conflict rather than a real error.
-          if npm view "agnostic-ai@${version}" version >/dev/null 2>&1; then
-            echo "::warning::agnostic-ai@${version} is already on the registry; the failed retry was a version conflict"
-            exit 0
-          fi
-          echo "::error::npm publish failed both with and without provenance"
-          exit 1
+        if: env.NPM_TOKEN_CONFIGURED == 'true'
+        run: scripts/npm-publish.sh "${GITHUB_REF_NAME#v}"
 
       - name: Report skipped publish
         if: env.NPM_TOKEN_CONFIGURED != 'true'
@@ -251,6 +209,17 @@ jobs:
           echo "::error::the tap serves agnostic-ai ${got:-<absent>} but this release is $want; the cask push did not land"
           exit 1
 
+      # Seven packages now, not one. The parent pins exact versions of the six
+      # platform packages, so a parent that published while one of them did
+      # not leaves `npm install` broken on that platform until the next
+      # release, with the registry reporting the release as fine.
+      #
+      # Each package is checked twice: the version exists, and the dist-tag
+      # this version was meant to publish under resolves to it. Version
+      # alone is not enough. An untagged `npm publish` writes `latest`, so a
+      # prerelease could land correctly at its version while silently
+      # replacing the stable release every unpinned `npm install agnostic-ai`
+      # resolves, and a version-only guard would report that as a success.
       - name: npm serves this tag
         env:
           NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
@@ -261,17 +230,42 @@ jobs:
             echo "::warning::NPM_TOKEN is empty, so nothing was published to npm. Set the secret and re-run."
             exit 0
           fi
-          delay=5
-          for attempt in 1 2 3 4 5 6; do
-            got=$(npm view "agnostic-ai@${want}" version 2>/dev/null || true)
-            echo "attempt $attempt: tag=$want npm=${got:-<absent>}"
-            if [ "$got" = "$want" ]; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 6 ]; then
-              sleep "$delay"
-              delay=$((delay * 2))
+          # Sourced, not restated: the publish step derives the tag from the
+          # same helper, so the guard cannot assert a tag nobody published.
+          # shellcheck source=scripts/npm-publish.sh
+          . scripts/npm-publish.sh
+          dist_tag="$(npm_dist_tag "$want")"
+          echo "expecting dist-tag $dist_tag to resolve to $want"
+          missing=0
+          for pkg in agnostic-ai \
+            @agnostic-ai/darwin-arm64 @agnostic-ai/darwin-x64 \
+            @agnostic-ai/linux-arm64 @agnostic-ai/linux-x64 \
+            @agnostic-ai/win32-arm64 @agnostic-ai/win32-x64; do
+            delay=5
+            found=""
+            for attempt in 1 2 3 4 5 6; do
+              got=$(npm view "${pkg}@${want}" version 2>/dev/null || true)
+              tagged=$(npm view "${pkg}@${dist_tag}" version 2>/dev/null || true)
+              echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>} ${dist_tag}=${tagged:-<absent>}"
+              if [ "$got" = "$want" ] && [ "$tagged" = "$want" ]; then
+                found=yes
+                break
+              fi
+              if [ "$attempt" -lt 6 ]; then
+                sleep "$delay"
+                delay=$((delay * 2))
+              fi
+            done
+            if [ -z "$found" ]; then
+              if [ "$got" = "$want" ]; then
+                echo "::error::npm serves ${pkg}@${want} but its ${dist_tag} dist-tag points at ${tagged:-<absent>}"
+              else
+                echo "::error::npm does not serve ${pkg}@${want}"
+              fi
+              missing=1
             fi
           done
-          echo "::error::npm does not serve agnostic-ai@${want}; the publish did not land"
-          exit 1
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::the npm release is incomplete; installs break on any platform whose package is missing, and an unpinned install resolves whatever ${dist_tag} still points at"
+            exit 1
+          fi

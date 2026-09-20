@@ -58,7 +58,11 @@ Run it once without installing:
 npx agnostic-ai sync
 ```
 
-The package is a wrapper. It downloads the binary for your platform and verifies it against the release checksums. That normally happens on install. npm 11 prompts before running install scripts, and `--ignore-scripts` blocks them. Decline or block, and the download happens on first run instead.
+The package is a wrapper. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), and npm installs the one matching your OS and CPU. Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
+
+Pin a version by pinning the package: `npm install -g agnostic-ai@<version>`. Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
+
+If the CLI reports a missing platform package, npm skipped the optional dependency. That happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with `npm install -g agnostic-ai --force --include=optional` for a global install, or the same command without `-g` for a project one. `--include=optional` is what overrides an `omit=optional` left in your npm config, and the wrapper's error message already names the right form for your install.
 
 ## Other install options
 

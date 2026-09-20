@@ -12,6 +12,11 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Changed
 
+- `AGNOSTIC_AI_VERSION` no longer applies to the npm package: the npm version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it. `AGNOSTIC_AI_BINARY` points the wrapper at a binary of your own, and both install scripts keep `AGNOSTIC_AI_VERSION` (#942).
+- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@agnostic-ai/darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy (#942).
+- The release publishes the six npm platform packages before the parent that pins them, and the distribution guard checks all seven, so a partial publish fails the release instead of breaking installs on one platform (#942).
+- Cutting a prerelease no longer hands it npm's `latest`: every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), and the distribution guard checks the dist-tag on all seven packages, not just the version (#942).
+- The npm wrapper's repair hint now fits the install it runs from: a global copy is told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` sitting in your npm config (#942).
 - The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
 
 ## v0.63.0 - 2026-09-20
@@ -44,6 +49,9 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - The release's distribution guard retries `npm view` and the Homebrew contents API with backoff, so a registry replica that lags the publish by seconds no longer reports a good release as failed (#937).
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
+
+### Removed
+
 
 ### Site
 

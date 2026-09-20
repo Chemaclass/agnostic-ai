@@ -80,6 +80,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
@@ -87,38 +93,32 @@ jobs:
 
       - name: Unit tests
         working-directory: npm
-        run: node lib/download_test.js
-
-      - name: Pack
-        working-directory: npm
-        run: npm pack --pack-destination .
-
-      # npm 11 blocks unapproved install scripts by default, so the lazy path
-      # is the one most users hit: install with scripts off, then prove the bin
-      # shim fetches the binary on first run.
-      - name: Install with scripts blocked
-        working-directory: npm
-        run: npm install -g --ignore-scripts ./agnostic-ai-0.0.0-dev.tgz
-
-      - name: Binary runs anyway (shim fetches it)
-        run: agnostic-ai --version
-
-      - name: Reinstall with the postinstall hook allowed
-        working-directory: npm
         run: |
-          npm uninstall -g agnostic-ai
-          npm install -g ./agnostic-ai-0.0.0-dev.tgz
+          node lib/platforms_test.js
+          node scripts/build-platform-packages_test.js
 
-      - name: Binary runs from the postinstall download
-        run: agnostic-ai --version
+      # The whole install path a user takes, minus the registry: build the six
+      # binaries, generate the six platform packages, pack all seven, and
+      # install the parent plus this machine's platform package from the
+      # tarballs. Nothing here needs a published release.
+      - name: Packages resolve and the binary runs
+        shell: bash
+        run: scripts/npm-smoke.sh
+
+      # The reason the postinstall download is gone. npm 11 prompts before
+      # running install scripts and plenty of organizations block them
+      # outright; with the binary in a platform package there is nothing to
+      # block.
+      - name: The same install works with scripts blocked
+        shell: bash
+        run: NPM_CONFIG_IGNORE_SCRIPTS=true scripts/npm-smoke.sh
 
   published:
     name: published package (${{ matrix.os }})
-    # The `npm` job above packs the working tree, and a packed tree carries
-    # the 0.0.0-dev placeholder, which sends resolveVersion down its "fall
-    # back to the latest release" branch. A published package carries a real
-    # version and takes the package.json branch instead, so the path every
-    # user hits had no coverage at all (#937).
+    # The `npm` job above resolves the platform packages from local tarballs
+    # it just built. Only an install from the registry proves the published
+    # parent pins names and versions that exist there, which is the failure
+    # a partial publish leaves behind (#942).
     #
     # Only this repository publishes agnostic-ai. After a failed release the
     # wait below would burn its whole window on three runners to rediscover

@@ -57,7 +57,7 @@ safe retry, then watch the manual run to completion.
 | Install scripts | `scripts/install.sh`, `scripts/install.ps1`, served raw from `main`. No release step: they resolve the latest tag at runtime |
 | Scoop | manifest pushed to `Chemaclass/scoop-bucket` (`SCOOP_BUCKET_TOKEN`) |
 | winget | manifest branch in `Chemaclass/winget-pkgs`, PR opened against `microsoft/winget-pkgs` (`WINGET_TOKEN`) |
-| npm | `agnostic-ai` package publishing the platform binaries (`NPM_TOKEN`) |
+| npm | seven packages: `agnostic-ai` plus one `@agnostic-ai/<os>-<cpu>` per platform, all at the tag version (`NPM_TOKEN`) |
 
 ### One-time setup per channel
 
@@ -66,7 +66,35 @@ Every publisher is gated on its credential: with the secret absent, GoReleaser b
 - **Homebrew**: the cask is not pushed from this repository, and needs no secret here. `Chemaclass/homebrew-tap` runs its own `Update agnostic-ai cask` workflow every half hour: it resolves the latest release, rewrites `Casks/agnostic-ai.rb` from `checksums.txt`, checks all four archives return 200, and commits with the `GITHUB_TOKEN` that workflow already has. Writing to another repository is what needs a credential, and GitHub has no API to mint one, since creating a GitHub App and creating a PAT are both browser flows. That is why ten releases went out with a stale cask (#943, #920). A release can therefore lag brew by up to half an hour; dispatch that workflow to pull it forward. The release job still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` or `HOMEBREW_TAP_TOKEN` if you ever want the push to happen at tag time, and the generated file is byte-identical either way, so the two never fight. Scoop and winget still have no route and stay skipped.
 - **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
 - **winget**: fork `microsoft/winget-pkgs` to `Chemaclass/winget-pkgs`, then add `WINGET_TOKEN` (PAT with `contents: write` on the fork and `pull_requests: write` upstream). Microsoft reviews each PR, so a new version lands in `winget search` hours to days after the GitHub release.
-- **npm**: `npm/` holds the wrapper package. Add `NPM_TOKEN` (automation token on the `agnostic-ai` package).
+- **npm**: `npm/` holds the parent package. Add `NPM_TOKEN` (automation token). The token has to be able to publish the `agnostic-ai` package *and* create packages under the `agnostic-ai` npm organization, which must exist before the first release that ships platform packages.
+
+### npm publish order
+
+The parent pins exact versions of six platform packages, so the release publishes them first and the parent last:
+
+1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one binary per target.
+2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
+3. `scripts/npm-publish.sh <x.y.z>` publishes the six, waits until the registry serves every one, then publishes the parent.
+
+The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder.
+
+### npm dist-tags
+
+`npm publish` with no `--tag` writes `latest`, and `latest` is what an unpinned `npm install agnostic-ai` resolves. The release workflow fires on every `v*` tag and `scripts/release.sh` accepts a prerelease, so an untagged prerelease publish would replace the stable release for everyone.
+
+`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and both the provenance publish and the plain retry pass it:
+
+| Version | dist-tag |
+|---|---|
+| `0.64.0` | `latest` |
+| `0.64.0-beta.1` | `beta` |
+| `0.64.0-rc.2` | `rc` |
+| `0.64.0-alpha.0` | `alpha` |
+| `0.64.0-20260101`, anything else | `next` |
+
+The `distribution` job sources the same helper and asserts, per package, that the version exists *and* that the dist-tag resolves to it. Install a prerelease with `npm install -g agnostic-ai@beta`.
+
+`scripts/npm-smoke.sh` runs the same generator against locally cross-compiled binaries and installs the result from tarballs. Use it to check a change to any of the three scripts without cutting a release.
 
 ## Backporting
 
