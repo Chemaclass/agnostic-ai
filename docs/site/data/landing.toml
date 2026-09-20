@@ -156,7 +156,7 @@ link_label = "See how the formats diverge"
 [targets]
 title = "One source of truth,"
 muted_title = "every tool native."
-body = "The five most complete integrations."
+body = "The five most complete integrations, across six of the ten portable spec kinds. The other four are [settings](@/docs/spec-format.md#settings), [review](@/docs/spec-format.md#reviews), [environment](@/docs/spec-format.md#environments) and [ignore](@/docs/spec-format.md#ignore), which on its own writes a native exclusion file for ten targets."
 # The legend only means something next to the matrix, which a phone does not
 # render, so it sits in its own element the phone rules hide.
 legend = "**Native** writes that spec kind by default, **opt-in** you turn on."

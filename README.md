@@ -79,6 +79,8 @@ Keep the subject under 72 characters.
 
 Sync writes the rule to each selected tool's native location. Edit the source spec, then sync again. The [spec format](https://agnostic-ai.org/docs/spec-format/) covers rules, skills, agents, hooks, MCP servers, commands, settings, reviews, environments, and ignore files.
 
+Three of those ten do more than carry instructions. A [review](https://agnostic-ai.org/docs/spec-format/#reviews) spec is guidance for a code-review bot, which Cursor Bugbot and Goose read. An [environment](https://agnostic-ai.org/docs/spec-format/#environments) spec says how an agent boots your dev environment, for Cursor, Amp, and OpenHands. An [ignore](https://agnostic-ai.org/docs/spec-format/#ignore) spec holds gitignore-syntax patterns an agent must not read or index, and writes a native exclusion file for ten targets.
+
 ## Supported targets
 
 agnostic-ai supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [20 more targets](https://agnostic-ai.org/docs/targets/#capability-matrix). Support varies by spec kind. The target reference lists every capability, native path, and opt-in setting.
@@ -94,6 +96,7 @@ The [AI tooling updates](https://agnostic-ai.org/updates/) explain important ups
 | Sync my first rule | [Getting started](https://agnostic-ai.org/docs/getting-started/) |
 | Bring existing tool config into one source | [Migration](https://agnostic-ai.org/docs/migration/) |
 | Write a skill, agent, hook, or MCP spec | [Spec format](https://agnostic-ai.org/docs/spec-format/) |
+| Keep an agent out of build output and secrets | [Ignore specs](https://agnostic-ai.org/docs/spec-format/#ignore) |
 | Change targets or output paths | [Configuration](https://agnostic-ai.org/docs/configuration/) |
 | Automate sync for a team | [CI](https://agnostic-ai.org/docs/ci/) and [Git hooks](https://agnostic-ai.org/docs/git-hooks/) |
 | Run a project-owned harness test | [Verification gate](https://agnostic-ai.org/docs/cli-reference/#verify) |

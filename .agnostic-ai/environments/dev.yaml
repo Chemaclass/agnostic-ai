@@ -1,0 +1,10 @@
+name: dev
+description: Boots a working Go toolchain for this repo, with the linter and git hooks the local gate needs.
+install: |
+  go mod download
+  make tools
+  make hooks
+  make build
+terminals:
+  - name: gate
+    command: make ci-local SKIP_JETBRAINS=1
