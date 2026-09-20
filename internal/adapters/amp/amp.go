@@ -9,6 +9,17 @@
 // Skills emit as a folder per skill under `.agents/skills/<name>/SKILL.md`
 // (Amp's native skills layout).
 //
+// Settings merge into `.amp/settings.json`, the workspace-tier file
+// this adapter already writes for MCP servers, found as "the nearest
+// `.amp/settings.json` or `.amp/settings.jsonc`, searched upward from
+// your current working directory to the repository root"
+// (ampcode.com/docs/cli/settings). Only the keys an author writes
+// under `x-amp` land there. No portable permission list translates:
+// Amp is deny-only and publishes its tool names only through
+// `amp tools list`, so each portable field reports a coverage note
+// instead of a guessed name (target-audit 2026-09-20, #950). See
+// settings.go.
+//
 // Environments split by lifecycle: dependency installation emits as the
 // executable `.agents/setup`, while long-running terminals emit as supervised
 // services in `.amp/services.yaml`. `.agents/resume` is not equivalent to
@@ -87,7 +98,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindEnvironment},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindSettings, spec.KindEnvironment},
 }
 
 // Adapter emits Amp configs.
@@ -102,10 +113,11 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes a folder per skill under `.agents/skills/<name>/SKILL.md`,
-// `.amp/settings.json` for MCP servers, Amp's two environment files, and, when
-// opted in via outputs.amp.rules-file, a legacy concatenated rules document
-// that also carries the agent bodies. Agents get no file of their own; see the
-// package doc. The project-root AGENTS.md is written by `sync`, not here.
+// `.amp/settings.json` for MCP servers and settings, Amp's two
+// environment files, and, when opted in via outputs.amp.rules-file, a
+// legacy concatenated rules document that also carries the agent
+// bodies. Agents get no file of their own; see the package doc. The
+// project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -127,7 +139,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitMCPSettings(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+	if err := emitSettingsFile(sess, b.MCPs, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
 		return err
 	}
 	return emitEnvironment(sess, b.Environments, cfg, dryRun)
@@ -151,79 +163,4 @@ func warnCommandsDirRemoved(sess *emit.Session, cfg *config.Config) {
 	_, _ = fmt.Fprintf(emit.Warner,
 		"%s: outputs.amp.commands-dir (%s) is set, but Amp removed custom commands on 2026-01-29 and its migration steps end with \"Delete the original command file\". Nothing is written there anymore. Remove outputs.amp.commands-dir to silence this.\n",
 		target, dir)
-}
-
-// emitMCPSettings writes (or merges into) `.amp/settings.json` with the
-// `amp.mcpServers` map. Routes through emit.MergeJSONFile so any
-// pre-existing user-managed keys (theme, editor settings, ...) survive
-// the sync; only `amp.mcpServers` is overwritten.
-func emitMCPSettings(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	if len(mcps) == 0 {
-		return nil
-	}
-	return sess.MergeJSONFile(path, map[string]any{
-		ampMCPKey: buildMCPMap(mcps),
-	}, dryRun)
-}
-
-func buildMCPMap(mcps []spec.Entry) map[string]any {
-	out := map[string]any{}
-	for _, e := range mcps {
-		if e.Name == "" {
-			continue
-		}
-		entry := buildMCPEntry(e)
-		if len(entry) == 0 {
-			continue
-		}
-		out[e.Name] = entry
-	}
-	return out
-}
-
-// buildMCPEntry renders a single MCP server in Amp's settings shape.
-// Amp accepts the standard `command`/`args`/`env` for stdio and
-// `url`/`headers` for HTTP transports (ampcode.com/docs/customize/mcp).
-//
-// Any field beyond that set reaches the entry through `x-amp`
-// (emit.MergeCustomTargetMeta), the same passthrough the skill
-// renderer already gives its own surface. The field this
-// unblocks today is `includeTools`, which ampcode.com/docs/customize/skills
-// lists under "Common fields": "includeTools (string[], optional but
-// recommended) contains tool names or glob patterns used to choose
-// which tools are exposed". It stays namespaced rather than mapped
-// top-level because ampcode.com/docs/customize/mcp says MCP servers
-// "use the same configuration fields as MCP servers in skills" and
-// then enumerates without naming it: the clause implies the field, the
-// enumeration does not, and a namespaced key is correct either way
-// (target-audit 2026-08-27, #634).
-func buildMCPEntry(e spec.Entry) map[string]any {
-	transport, _ := e.Meta["type"].(string)
-	if transport == "" {
-		transport = "stdio"
-	}
-	entry := map[string]any{}
-	switch transport {
-	case "stdio":
-		if cmd, _ := e.Meta["command"].(string); cmd != "" {
-			entry["command"] = cmd
-		}
-		if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
-			entry["args"] = args
-		}
-	case "http", "sse":
-		if url, _ := e.Meta["url"].(string); url != "" {
-			entry["url"] = url
-		}
-		if h := emit.StringMap(e.Meta["headers"]); len(h) > 0 {
-			entry["headers"] = h
-		}
-	}
-	if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-		entry["env"] = env
-	}
-	var keys []string
-	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
-		"command", "args", "url", "headers", "env")
-	return entry
 }
