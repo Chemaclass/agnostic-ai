@@ -94,6 +94,16 @@ publish_package() {
     return 0
   fi
   printf '::error::npm publish failed for %s@%s both with and without provenance\n' "$name" "$version"
+  # A scoped name cannot be created until its org exists, and npm reports
+  # that as a plain 404 or 403 on the first publish, which reads the same as
+  # a bad token. Name the likely cause once rather than leaving six identical
+  # failures to interpret at release time.
+  case "$name" in
+    @*/*)
+      printf '::error::%s is scoped. If this is the first release to publish it, check the npm org %s exists and that NPM_TOKEN can create packages in it; a token scoped to the agnostic-ai package alone cannot.\n' \
+        "$name" "${name%%/*}"
+      ;;
+  esac
   return 1
 }
 
