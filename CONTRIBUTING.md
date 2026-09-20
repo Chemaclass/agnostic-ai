@@ -42,17 +42,20 @@ Keep each change independently usable and focused on one outcome. Add tests for 
 
 ## Preview the site
 
-The docs site is [Zola](https://www.getzola.org/), pinned to the version in
-[Makefile](Makefile) (`ZOLA_VERSION`). Install that exact version:
+The docs site is [Zola](https://www.getzola.org/). Install it with whichever
+method suits your platform: [Zola installation](https://www.getzola.org/documentation/getting-started/installation/).
+
+The version has to match the pin in [Makefile](Makefile) (`ZOLA_VERSION`)
+exactly:
 
 ```bash
-brew install zola          # then check the version below
-zola --version             # must match ZOLA_VERSION exactly
+zola --version
 ```
 
-Homebrew tracks the newest release, so it can be ahead of the pin. To run the
-pinned build without changing the system install, download it and put it first
-on `PATH` for the command:
+Package managers track the newest release, so yours may well be ahead of the
+pin. To run the pinned build without touching your install, fetch that release
+and put it first on `PATH` for one command (swap the pattern for your
+platform's asset):
 
 ```bash
 gh release download v0.22.0 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
