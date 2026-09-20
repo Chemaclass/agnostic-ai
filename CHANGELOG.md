@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Changed
+
+- The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
+
 ## v0.63.0 - 2026-09-20
 
 ### Added
