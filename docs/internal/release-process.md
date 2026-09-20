@@ -53,7 +53,7 @@ safe retry, then watch the manual run to completion.
 | Channel | Notes |
 |---|---|
 | GitHub Releases | raw binaries, primary |
-| Homebrew tap | `chemaclass/tap/agnostic-ai`, cask auto-updated by CI (`HOMEBREW_TAP_TOKEN`) |
+| Homebrew tap | `chemaclass/tap/agnostic-ai`, cask auto-updated by CI (GitHub App, `HOMEBREW_TAP_TOKEN` until it exists) |
 | `go install` | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 | Install scripts | `scripts/install.sh`, `scripts/install.ps1`, served raw from `main`. No release step: they resolve the latest tag at runtime |
 | Scoop | manifest pushed to `Chemaclass/scoop-bucket` (`SCOOP_BUCKET_TOKEN`) |
@@ -62,8 +62,9 @@ safe retry, then watch the manual run to completion.
 
 ### One-time setup per channel
 
-Both Windows publishers are gated on their token: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup.
+Every publisher is gated on its credential: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup. That is also why the `distribution` job exists. A skipped push and a successful one look the same in the GoReleaser log, so only that job proves the channel serves the new version (#920).
 
+- **Homebrew**: the release mints a per-run installation token from a GitHub App. Register an App owned by `Chemaclass` with `contents: write`, install it on `Chemaclass/homebrew-tap` alone, and store `HOMEBREW_TAP_APP_ID` and `HOMEBREW_TAP_APP_PRIVATE_KEY`. The private key does not expire, so nothing is on a rotation timer. Until both secrets exist the release falls back to the `HOMEBREW_TAP_TOKEN` PAT, which is the credential that went stale unnoticed for ten releases (#943, #920). The same App can later cover the Scoop bucket and the winget fork, one installation per target repository.
 - **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
 - **winget**: fork `microsoft/winget-pkgs` to `Chemaclass/winget-pkgs`, then add `WINGET_TOKEN` (PAT with `contents: write` on the fork and `pull_requests: write` upstream). Microsoft reviews each PR, so a new version lands in `winget search` hours to days after the GitHub release.
 - **npm**: `npm/` holds the wrapper package. Add `NPM_TOKEN` (automation token on the `agnostic-ai` package).
