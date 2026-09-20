@@ -493,7 +493,6 @@ main > section[id] {
    the reader never sees the line that carries the point. */
 .transform pre {
   margin: 0;
-  overflow-x: auto;
   padding: 0.75rem;
   color: var(--ink-soft);
   font-size: 0.73rem;
@@ -655,11 +654,8 @@ main > section[id] {
 
 .output-panel pre {
   padding: 0;
-  overflow-x: visible;
   font-size: 0.66rem;
   line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .section-title {
