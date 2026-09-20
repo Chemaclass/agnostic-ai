@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -552,16 +553,53 @@ func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
 	}
 }
 
+// landingVerbatimKeys hold bytes copied out of a real `agnostic-ai sync` rather
+// than prose someone wrote. The generated-by banner in every Markdown output
+// ends with `-->`, so the house style rules below do not apply to them.
+var landingVerbatimKeys = map[string]bool{"source": true, "body": true}
+
 func TestSiteDocs_LandingCopyAvoidsDashesAndExclamations(t *testing.T) {
-	data, err := os.ReadFile("../../docs/site/data/landing.toml")
-	if err != nil {
-		t.Fatalf("read landing data: %v", err)
+	var landing map[string]any
+	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
+		t.Fatalf("parse landing data: %v", err)
 	}
-	for _, forbidden := range []string{"\u2014", "\u2013", "!"} {
-		if strings.Contains(string(data), forbidden) {
-			t.Errorf("landing copy contains %q", forbidden)
+	for path, copy := range landingProse(landing, "") {
+		for _, forbidden := range []string{"\u2014", "\u2013", "!"} {
+			if strings.Contains(copy, forbidden) {
+				t.Errorf("landing copy at %s contains %q", path, forbidden)
+			}
 		}
 	}
+}
+
+// landingProse flattens every authored string in the landing data, keyed by its
+// dotted path, and drops the verbatim generated file bodies.
+func landingProse(value any, path string) map[string]string {
+	prose := map[string]string{}
+	switch typed := value.(type) {
+	case string:
+		prose[path] = typed
+	case []any:
+		for index, item := range typed {
+			for key, copy := range landingProse(item, fmt.Sprintf("%s[%d]", path, index)) {
+				prose[key] = copy
+			}
+		}
+	case map[string]any:
+		for name, item := range typed {
+			if landingVerbatimKeys[name] {
+				continue
+			}
+			child := name
+			if path != "" {
+				child = path + "." + name
+			}
+			for key, copy := range landingProse(item, child) {
+				prose[key] = copy
+			}
+		}
+	}
+	return prose
 }
 
 func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {

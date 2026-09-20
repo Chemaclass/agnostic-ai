@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, embedURL } = require("./landing.js");
+const { detectOS, embedURL, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -34,4 +34,22 @@ test("rejects video ids that are not plain YouTube ids", function () {
   assert.equal(embedURL("../evil"), null);
   assert.equal(embedURL(""), null);
   assert.equal(embedURL("uEG6ITlqyHU/x"), null);
+});
+
+test("moves the output tablist selection with the arrow keys, wrapping at both ends", function () {
+  assert.equal(nextTabIndex("ArrowDown", 0, 5), 1);
+  assert.equal(nextTabIndex("ArrowRight", 4, 5), 0);
+  assert.equal(nextTabIndex("ArrowUp", 0, 5), 4);
+  assert.equal(nextTabIndex("ArrowLeft", 3, 5), 2);
+});
+
+test("jumps the output tablist to the first and last file", function () {
+  assert.equal(nextTabIndex("Home", 3, 5), 0);
+  assert.equal(nextTabIndex("End", 1, 5), 4);
+});
+
+test("leaves keys the output tablist does not own to the browser", function () {
+  assert.equal(nextTabIndex("Tab", 2, 5), -1);
+  assert.equal(nextTabIndex("a", 2, 5), -1);
+  assert.equal(nextTabIndex("ArrowDown", 0, 0), -1);
 });

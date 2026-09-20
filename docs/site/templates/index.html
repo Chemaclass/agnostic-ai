@@ -86,17 +86,29 @@
         <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
       </div>
 
-      <div class="transform" aria-label="One portable rule becomes native configuration files">
-        <div class="transform-caption"><span>one spec</span><span>native output</span></div>
+      <div class="transform" aria-label="One portable agent spec becomes a different native file for every target">
+        <div class="transform-caption"><span>{{ landing.hero.diagram.caption_source }}</span><span>{{ landing.hero.diagram.caption_output }}</span></div>
         <div class="spec-card">
           <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.hero.diagram.source_name }}</div>
-          <pre><code>{{ landing.hero.diagram.source }}</code></pre>
+          <pre><code>{{ landing.hero.diagram.source | trim }}</code></pre>
         </div>
         <svg class="transform-arrow" viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg>
-        <div class="output-files">
-          {% for output in landing.hero.diagram.outputs %}
-          <div class="output-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>{{ output }}</span></div>
-          {% endfor %}
+        <div class="output-switch" data-output-switch>
+          <div class="output-files" role="tablist" aria-orientation="vertical" aria-label="{{ landing.hero.diagram.panel_label }}">
+            {% for output in landing.hero.diagram.outputs %}
+            <button type="button" class="output-file" role="tab" id="output-tab-{{ output.id }}" aria-controls="output-panel-{{ output.id }}" aria-selected="{{ output.selected | default(value=false) }}" tabindex="{% if output.selected %}0{% else %}-1{% endif %}" data-output-tab>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>{{ output.path }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="output-panels">
+            {% for output in landing.hero.diagram.outputs %}
+            <div class="output-panel" role="tabpanel" id="output-panel-{{ output.id }}" aria-labelledby="output-tab-{{ output.id }}" tabindex="0" data-output-panel{% if not output.selected %} hidden{% endif %}>
+              <p class="output-note">{{ output.note | markdown(inline=true) | safe }}</p>
+              <pre><code>{{ output.body | trim }}</code></pre>
+            </div>
+            {% endfor %}
+          </div>
         </div>
       </div>
     </div>

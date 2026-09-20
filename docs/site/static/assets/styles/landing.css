@@ -177,6 +177,11 @@ main > section[id] {
   transform: rotate(90deg);
 }
 
+.output-switch {
+  display: grid;
+  gap: 0.7rem;
+}
+
 .output-files {
   display: grid;
   gap: 0.45rem;
@@ -217,21 +222,26 @@ main > section[id] {
 }
 
 .output-file:nth-child(2) {
-  animation-delay: 560ms;
+  animation-delay: 530ms;
 }
 
 .output-file:nth-child(3) {
-  animation-delay: 700ms;
+  animation-delay: 640ms;
 }
 
 .output-file:nth-child(4) {
-  animation-delay: 840ms;
+  animation-delay: 750ms;
+}
+
+.output-file:nth-child(5) {
+  animation-delay: 860ms;
 }
 
 .output-file {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  width: 100%;
   min-width: 0;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--line);
@@ -240,6 +250,9 @@ main > section[id] {
   color: var(--ink-soft);
   font-family: var(--mono);
   font-size: 0.72rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
 }
 
 .output-file svg {
@@ -253,6 +266,63 @@ main > section[id] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Selection follows click and arrow keys only. Hover must not switch the pane,
+   or dragging the pointer across the list flickers through five files. */
+.output-file[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.output-file[aria-selected="true"] svg {
+  color: var(--accent);
+}
+
+/* Every pane shares one grid cell, so the card keeps the height of the tallest
+   file no matter which target is selected. A hidden pane stays laid out and is
+   only made invisible, which also keeps it out of the accessibility tree. */
+.output-panels {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-quiet);
+}
+
+.output-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+  padding: 0.7rem 0.75rem 0.8rem;
+}
+
+.output-panel[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
+.output-note {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.output-note code {
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.output-panel pre {
+  padding: 0;
+  overflow-x: visible;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .section-title {
