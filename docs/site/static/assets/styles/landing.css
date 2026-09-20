@@ -165,8 +165,13 @@ main > section[id] {
   background: var(--accent);
 }
 
-/* One layer, not two. The comet's tail parks on the rail when the head lands,
-   so the lit route and the pulse are the same gradient. */
+/* Two layers. This one is the route: the comet head sweeps it once and its
+   tail parks as the lit rail, which then stays for good. `forwards` is what
+   holds it, so nothing here ever returns to `opacity: 0`. The repeating pulse
+   is a second layer on `::before`, over the top.
+
+   --d is the rail's place in the stagger. The dot, the label and the pulse all
+   read it, so one number per rail keeps the four in step. */
 .rails i {
   position: absolute;
   left: 3px;
@@ -178,7 +183,22 @@ main > section[id] {
   transform: rotate(var(--a));
   background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 20%), transparent) 28%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent) 88%, transparent 100%) 120% 0 / 62% 100% no-repeat;
   opacity: 0;
-  animation: travel 6.4s cubic-bezier(0.33, 0.03, 0.18, 1) infinite;
+  animation: travel 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
+}
+
+/* The life the fan keeps after it is drawn: a bright band running the route,
+   origin to endpoint, on its own loop. It carries no text and no dot, so the
+   names never ride on it. Brightest against the faint origin end of the rail
+   and swallowed by the lit end, which reads as the signal being absorbed.
+
+   It starts once the slowest rail has landed (0.56s of stagger plus a 1.28s
+   draw), then keeps the rail's own place in the stagger. */
+.rails i::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent 100%) -45% 0 / 30% 100% no-repeat;
+  animation: pulse 4s ease-in-out calc(1.9s + var(--d, 0s)) infinite;
 }
 
 /* The endpoint names the directory that tool's config lands in. Directories,
@@ -208,7 +228,7 @@ main > section[id] {
   letter-spacing: 0.02em;
   white-space: nowrap;
   opacity: 0;
-  animation: tag 6.4s cubic-bezier(0.33, 0.03, 0.18, 1) infinite;
+  animation: tag 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
 }
 
 .rails i em b {
@@ -216,8 +236,8 @@ main > section[id] {
   font-weight: 400;
 }
 
-/* The destination dot. It holds rather than breathing, because held means
-   synced. */
+/* The destination dot. It pops once and then holds, because held means
+   synced. It sits out the pulse for the same reason the label does. */
 .rails i::after {
   content: "";
   position: absolute;
@@ -229,7 +249,7 @@ main > section[id] {
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent);
   opacity: 0;
-  animation: land 6.4s cubic-bezier(0.33, 0.03, 0.18, 1) infinite;
+  animation: land 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
 }
 
 /* nth-of-type, not nth-child: `.origin` is the first child, so nth-child is
@@ -244,46 +264,22 @@ main > section[id] {
    middle outward, not left to right. */
 .rails i:nth-of-type(1) {
   --a: -52deg;
-
-  animation-delay: 0.56s;
-}
-
-.rails i:nth-of-type(1)::after,
-.rails i:nth-of-type(1) em {
-  animation-delay: 0.56s;
+  --d: 0.56s;
 }
 
 .rails i:nth-of-type(2) {
   --a: -35.8deg;
-
-  animation-delay: 0.28s;
-}
-
-.rails i:nth-of-type(2)::after,
-.rails i:nth-of-type(2) em {
-  animation-delay: 0.28s;
+  --d: 0.28s;
 }
 
 .rails i:nth-of-type(3) {
   --a: -19.5deg;
-
-  animation-delay: 0s;
-}
-
-.rails i:nth-of-type(3)::after,
-.rails i:nth-of-type(3) em {
-  animation-delay: 0s;
+  --d: 0s;
 }
 
 .rails i:nth-of-type(4) {
   --a: -3.2deg;
-
-  animation-delay: 0.14s;
-}
-
-.rails i:nth-of-type(4)::after,
-.rails i:nth-of-type(4) em {
-  animation-delay: 0.14s;
+  --d: 0.14s;
 }
 
 /* The fifth rail carries no target of its own: it stands for the twenty-one
@@ -291,89 +287,74 @@ main > section[id] {
    endpoint is the same dot. */
 .rails i:nth-of-type(5) {
   --a: 13deg;
-
-  animation-delay: 0.42s;
-}
-
-.rails i:nth-of-type(5)::after,
-.rails i:nth-of-type(5) em {
-  animation-delay: 0.42s;
+  --d: 0.42s;
 }
 
 /* Percent background-position is relative to (rail minus image), not the rail,
    so with a 62% image the usable range is 38%. -144% puts the bright head on
    the origin and 120% puts it on the endpoint, where the tail parks as the lit
-   route. Rewriting these as 0% to 100% parks the pulse mid-rail.
+   route. Rewriting these as 0% to 100% parks the head mid-rail.
 
-   Sweep and fade keep their durations in seconds and the extra time all goes
-   to the hold: the finished fan, with every filename on it, sits complete for
-   about 3.7s of the 6.4s loop. */
+   The three draw-in keyframes share one 1.28s clock so their percentages read
+   against each other: rail at 0.90s, dot at 0.96s, label at 1.15s. Every one
+   of them ends on the state it keeps, and `forwards` is what keeps it. There
+   is no fade at the end any more, so the fan is only ever drawn once. */
 @keyframes travel {
   0% {
     background-position: -144% 0;
     opacity: 1;
   }
 
-  14% {
-    background-position: 120% 0;
-    opacity: 1;
-  }
-
-  85% {
-    background-position: 120% 0;
-    opacity: 1;
-  }
-
+  70%,
   100% {
     background-position: 120% 0;
-    opacity: 0;
+    opacity: 1;
   }
 }
 
 @keyframes land {
   0%,
-  12% {
+  60% {
     opacity: 0;
     transform: scale(0.55);
   }
 
-  15% {
+  75% {
     opacity: 1;
     transform: scale(1.45);
   }
 
-  19% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-
-  85% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-
+  95%,
   100% {
-    opacity: 0;
+    opacity: 0.9;
     transform: scale(1);
   }
 }
 
 @keyframes tag {
   0%,
-  13% {
+  65% {
     opacity: 0;
   }
 
-  18% {
-    opacity: 1;
-  }
-
-  85% {
-    opacity: 1;
-  }
-
+  90%,
   100% {
-    opacity: 0;
+    opacity: 1;
+  }
+}
+
+/* The pulse runs on a 30% image, so the usable position range is 70%: -45%
+   holds it clear of the origin and 145% clear of the endpoint. It crosses in
+   the first 1.6s and waits out the rest of the loop parked off the far end,
+   which is why it needs no opacity of its own. */
+@keyframes pulse {
+  0% {
+    background-position: -45% 0;
+  }
+
+  40%,
+  100% {
+    background-position: 145% 0;
   }
 }
 
@@ -1201,15 +1182,17 @@ main > section[id] {
     animation: none;
   }
 
-  /* Park the same gradient and hold it: the picture the animation rests on.
-     The rail recedes through --rail-op, never through opacity on the arm.
-     The arm is the label's parent, so dimming it composites onto the text and
-     no opacity on the label itself can win that back. */
+  /* Jump straight to the finished fan and drop the pulse: the rest state the
+     animation would have reached, reached without any of it. The rail recedes
+     through --rail-op, never through opacity on the arm. The arm is the
+     label's parent, so dimming it composites onto the text and no opacity on
+     the label itself can win that back. */
   .rails {
     --rail-op: 0.34;
   }
 
   .rails i,
+  .rails i::before,
   .rails i::after,
   .rails i em {
     animation: none;
