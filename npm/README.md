@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts
 
 Windows, Go, and manual download are covered in [all install options](https://agnostic-ai.org/docs/installation/).
 
-This package is a thin wrapper around the prebuilt Go binary. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
+This package is a thin wrapper around the prebuilt Go binary. The binary ships inside a platform package (`@chemaclass/agnostic-ai-darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
 
 Nothing is downloaded and no install script runs, so the package works under `--ignore-scripts`, behind a proxy, and from an offline npm mirror. To pin a version, pin the package: `npm install -g agnostic-ai@<version>`.
 
