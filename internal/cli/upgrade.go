@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,10 +24,15 @@ const (
 	binaryName      = "agnostic-ai"
 	tapPackage      = repoOwner + "/tap/" + repoName
 	wingetPackage   = repoOwner + "." + repoName
-	releasesAPIURL  = "https://api.github.com/repos/" + repoOwner + "/" + repoName + "/releases/latest"
 	releasesHTMLURL = "https://github.com/" + repoOwner + "/" + repoName + "/releases"
 	releasesBaseURL = releasesHTMLURL + "/download"
-	userAgent       = repoName + "-upgrade"
+	// releasesLatestURL is the HTML endpoint, not api.github.com. The API
+	// allows 60 unauthenticated requests per hour per IP, which shared
+	// egress (CI runners, VPNs, an office) exhausts without anyone doing
+	// anything wrong. This one 302s straight to the tag page and carries
+	// no API rate limit.
+	releasesLatestURL = releasesHTMLURL + "/latest"
+	userAgent         = repoName + "-upgrade"
 )
 
 // installMethod identifies how the running agnostic-ai binary was
@@ -467,45 +472,71 @@ func sameDir(a, b string) bool {
 	return filepath.Clean(ap) == filepath.Clean(bp)
 }
 
-// fetchLatestRelease queries the GitHub releases API for the tag of the
-// latest published release. Best-effort: a network failure returns an
-// error and the caller proceeds without a "Latest" hint.
+// Resolution failures the user can act on, kept as sentinels so callers
+// and tests can tell "GitHub throttled us" from "there is no release".
+var (
+	errReleaseRateLimited = errors.New("github is rate limiting this network; wait a minute and retry, or pin a version")
+	errNoPublishedRelease = errors.New("no published release found")
+)
+
+// fetchLatestRelease resolves the tag of the latest published release.
+// Best-effort: a network failure returns an error and the caller proceeds
+// without a "Latest" hint.
 func fetchLatestRelease(timeout time.Duration) (string, error) {
-	return fetchLatestReleaseFrom(releasesAPIURL, timeout)
+	return fetchLatestReleaseFrom(releasesLatestURL, timeout)
 }
 
 // fetchLatestReleaseFrom is the testable form of fetchLatestRelease. It
 // accepts an explicit URL so tests can point at an httptest.Server.
 //
-// A User-Agent header is set because the GitHub API rejects unidentified
-// clients with HTTP 403 under load.
+// The tag is the Location header of a single 302, so the redirect is
+// deliberately not followed: the page behind it is a few hundred kilobytes
+// of HTML, and the default client would fetch all of it to tell us
+// something we already have. A User-Agent is set because GitHub answers
+// unidentified clients with 403 under load.
 func fetchLatestReleaseFrom(url string, timeout time.Duration) (string, error) {
-	client := &http.Client{Timeout: timeout}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
+	client := &http.Client{
+		Timeout:       timeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", url, err)
+	}
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("github releases api: %s", resp.Status)
+
+	switch {
+	case resp.StatusCode == http.StatusForbidden, resp.StatusCode == http.StatusTooManyRequests:
+		return "", fmt.Errorf("%s: %w", url, errReleaseRateLimited)
+	case resp.StatusCode == http.StatusNotFound:
+		return "", fmt.Errorf("%s: %w", url, errNoPublishedRelease)
+	case resp.StatusCode < 300 || resp.StatusCode > 399:
+		return "", fmt.Errorf("%s: unexpected response %s", url, resp.Status)
 	}
-	var body struct {
-		TagName string `json:"tag_name"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", err
-	}
-	tag := strings.TrimPrefix(strings.TrimSpace(body.TagName), "v")
+
+	tag := tagFromReleaseLocation(resp.Header.Get("Location"))
 	if tag == "" {
-		return "", fmt.Errorf("github releases api: latest release has no tag")
+		return "", fmt.Errorf("%s: %w", url, errNoPublishedRelease)
 	}
 	return tag, nil
+}
+
+// tagFromReleaseLocation pulls the tag out of a /releases/tag/<tag>
+// redirect target, in the prefix-less form version comparisons use. It
+// returns "" for any location that is not a tag page, which is what a
+// repository with no releases redirects to.
+func tagFromReleaseLocation(location string) string {
+	const marker = "/releases/tag/"
+	i := strings.LastIndex(location, marker)
+	if i < 0 {
+		return ""
+	}
+	return strings.TrimPrefix(strings.TrimSpace(location[i+len(marker):]), "v")
 }
 
 func versionsEqual(a, b string) bool {
@@ -534,8 +565,13 @@ func printUpgradeInfo(out io.Writer, info upgradeInfo, requested string) {
 	if info.Version != "" {
 		_, _ = fmt.Fprintf(out, "Installed:      %s\n", info.Version)
 	}
-	if info.Latest != "" {
+	switch {
+	case info.Latest != "":
 		_, _ = fmt.Fprintf(out, "Latest:         %s\n", info.Latest)
+	case info.LatestError != nil:
+		// Not silence: an unresolved tag on a throttled network reads as
+		// "up to date" otherwise.
+		_, _ = fmt.Fprintf(out, "Latest:         unknown (%v)\n", info.LatestError)
 	}
 	if requested != "" {
 		_, _ = fmt.Fprintf(out, "Requested:      %s\n", requested)

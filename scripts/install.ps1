@@ -46,10 +46,52 @@ function Get-Architecture {
 }
 
 function Get-LatestVersion {
-    $api = "https://api.github.com/repos/$repo/releases/latest"
-    $tag = (Invoke-RestMethod -Uri $api -UseBasicParsing).tag_name
-    if (-not $tag) { throw "could not resolve the latest release from $api" }
-    return $tag
+    # Resolved from a redirect, not from the API.
+    #
+    # https://api.github.com/repos/<repo>/releases/latest allows 60
+    # unauthenticated requests per hour per IP, which shared egress (CI
+    # runners behind NAT, a VPN, an office) exhausts without anyone doing
+    # anything wrong; the install then dies on a bare 403 that never says
+    # "rate limit". https://github.com/<repo>/releases/latest answers 302
+    # to /releases/tag/<tag>, is outside the API, and carries no such limit.
+    $url = "https://github.com/$repo/releases/latest"
+
+    # HttpWebRequest, not Invoke-RestMethod. Invoke-RestMethod follows the
+    # redirect and discards the Location header we came for, and turning
+    # that off with -MaximumRedirection 0 reads differently per host:
+    # Windows PowerShell 5.1 raises a terminating WebException on the 3xx,
+    # PowerShell 7 hands back the 3xx response instead. This works the same
+    # on both, and 5.1 is what ships with Windows.
+    $request = [Net.WebRequest]::Create($url)
+    $request.AllowAutoRedirect = $false
+    $request.UserAgent = 'agnostic-ai-install'
+    $request.Timeout = 15000
+
+    try {
+        $response = $request.GetResponse()
+    } catch [Net.WebException] {
+        # 4xx and 5xx arrive as an exception; the response rides along.
+        $response = $_.Exception.Response
+        if (-not $response) { throw "could not reach ${url}: $($_.Exception.Message)" }
+    }
+
+    try {
+        $status = [int]$response.StatusCode
+        $location = $response.Headers['Location']
+    } finally {
+        $response.Close()
+    }
+
+    if ($status -eq 403 -or $status -eq 429) {
+        throw ("github rate limited this network while resolving the latest release. " +
+               "Wait a minute and retry, or pass -Version vX.Y.Z")
+    }
+    if ($status -eq 404) { throw "no published release at $url" }
+    if ($status -lt 300 -or $status -gt 399) { throw "unexpected HTTP $status from $url" }
+
+    if ($location -match '/releases/tag/(?<tag>[^/?#]+)/?$') { return $Matches['tag'] }
+    $target = if ($location) { $location } else { 'nowhere' }
+    throw "no published release: $url redirected to $target"
 }
 
 function Get-DownloadUrl($tag, $asset) {
