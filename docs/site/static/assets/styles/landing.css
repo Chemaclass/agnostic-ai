@@ -71,7 +71,15 @@ main > section[id] {
 }
 
 .hero-install {
+  /* Capped so the fan has somewhere to go. The recommended macOS command fits
+     whole at this width; the longer ones already scrolled inside `.command`
+     at every viewport before the cap, and still scroll. */
+  width: min(100%, 30rem);
   margin-top: 1.35rem;
+}
+
+.hero-install .command {
+  position: relative;
 }
 
 .hero-install > p {
@@ -87,6 +95,181 @@ main > section[id] {
 
 .hero-install a {
   color: var(--accent);
+}
+
+/* Hero fan: pulses leave the install command's right edge and land on five
+   labelled endpoints, one per target. Pure CSS, no script, no image.
+   Off by default; the media queries at the end of this file switch it on only
+   at the widths where the endpoints have room to be seen. */
+.hero-fan {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: none;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.fan-arm {
+  position: absolute;
+  top: 0;
+  left: 0.45rem;
+  width: var(--fan-rail);
+  height: 1px;
+  transform-origin: 0 50%;
+  rotate: var(--fan-angle);
+  background: linear-gradient(90deg, transparent, var(--line) 22%, var(--line));
+}
+
+.fan-arm:nth-child(1) {
+  --fan-angle: -26deg;
+}
+
+.fan-arm:nth-child(2) {
+  --fan-angle: -13deg;
+}
+
+.fan-arm:nth-child(3) {
+  --fan-angle: 0deg;
+}
+
+.fan-arm:nth-child(4) {
+  --fan-angle: 13deg;
+}
+
+.fan-arm:nth-child(5) {
+  --fan-angle: 26deg;
+}
+
+/* The pulse is a background image 62% as wide as the rail, with its bright head
+   at 90% of the image. background-position percentages resolve against
+   (rail - image), not against the rail, so with a 62% image the usable range is
+   the remaining 38%. That is why the keyframes read -144%, 120% and 263%
+   instead of 0% to 100%:
+     head_x = position * 0.38 + 0.90 * 0.62
+     -144% puts the head on the origin, 120% puts it on the endpoint,
+     263% clears the whole image off the rail so the loop can restart unseen.
+   Rewriting these as 0% to 100% parks the pulse in the middle of the rail. */
+.fan-arm::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(90deg, transparent 0%, var(--accent-soft) 58%, var(--accent) 86%, var(--accent) 92%, transparent 95%);
+  background-repeat: no-repeat;
+  background-size: 62% 100%;
+  animation: fan-pulse 3200ms cubic-bezier(0.32, 0, 0.36, 1) infinite;
+}
+
+.fan-arm::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 0.3rem;
+  height: 0.3rem;
+  margin: -0.15rem 0 0 -0.15rem;
+  border-radius: 50%;
+  background: var(--line);
+  animation: fan-land 3200ms linear infinite;
+}
+
+/* The label counter-rotates about its own left edge. transform-origin 0 50%
+   with the individual translate and rotate properties keeps that left edge
+   pinned beside the endpoint dot at every angle; rotating about the default
+   centre swings the text off the rail on the steep arms. */
+.fan-label {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform-origin: 0 50%;
+  translate: 0.5rem -50%;
+  rotate: calc(-1 * var(--fan-angle));
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@keyframes fan-pulse {
+  0%,
+  4% {
+    background-position: -144% 50%;
+    opacity: 0;
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  58% {
+    background-position: 120% 50%;
+    opacity: 1;
+  }
+
+  70% {
+    background-position: 120% 50%;
+    opacity: 0;
+  }
+
+  100% {
+    background-position: 263% 50%;
+    opacity: 0;
+  }
+}
+
+@keyframes fan-land {
+  0%,
+  54% {
+    background-color: var(--line);
+    scale: 1;
+  }
+
+  61% {
+    background-color: var(--accent);
+    scale: 2;
+  }
+
+  82%,
+  100% {
+    background-color: var(--line);
+    scale: 1;
+  }
+}
+
+.fan-arm:nth-child(1)::before,
+.fan-arm:nth-child(1)::after {
+  animation-delay: 0ms;
+}
+
+.fan-arm:nth-child(2)::before,
+.fan-arm:nth-child(2)::after {
+  animation-delay: 240ms;
+}
+
+.fan-arm:nth-child(3)::before,
+.fan-arm:nth-child(3)::after {
+  animation-delay: 480ms;
+}
+
+.fan-arm:nth-child(4)::before,
+.fan-arm:nth-child(4)::after {
+  animation-delay: 720ms;
+}
+
+.fan-arm:nth-child(5)::before,
+.fan-arm:nth-child(5)::after {
+  animation-delay: 960ms;
+}
+
+/* The hero copy paints above the fan, so an arm never crosses a line of text. */
+.hero-install > p,
+.hero-facts,
+.agent-shortcut {
+  position: relative;
+  z-index: 1;
 }
 
 .agent-shortcut {
@@ -858,6 +1041,32 @@ main > section[id] {
   border: 0;
 }
 
+/* The fan needs clear space to the right of the install command, and the hero
+   only has it in two bands. Between 960px and 1183px the transform card sits in
+   exactly the space the arms would use, and below 760px the command box is
+   540px wide at a 597px viewport with 57px of margin left, so the fan is off in
+   both. Measured in a browser at the 72rem page width with the 30rem cap on
+   the install block; re-measure before moving either breakpoint. */
+@media (min-width: 760px) and (max-width: 959px) {
+  .hero-fan {
+    display: block;
+    /* Clamped so the outermost label still lands inside the viewport. */
+    --fan-rail: clamp(4rem, 13vw, 8rem);
+  }
+}
+
+/* 1184px, not 1152px: the 72rem page is `min(100% - 2rem, 72rem)`, so the wrap
+   only reaches its cap once the viewport clears 72rem plus the 2rem gutter.
+   At 1152px the wrap is still 1120px and the outermost label touches the card. */
+@media (min-width: 1184px) {
+  .hero-fan {
+    display: block;
+    /* At the capped page width the command's right edge and the card's left
+       edge are 163px apart, and the rail plus its label needs 147px. */
+    --fan-rail: 6rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .demo-play {
     transition: none;
@@ -866,6 +1075,18 @@ main > section[id] {
   .transform-arrow path,
   .output-file {
     animation: none;
+  }
+
+  /* Rest state is the finished fan, faint, rather than five empty rails. */
+  .fan-arm::before {
+    animation: none;
+    background-position: 120% 50%;
+    opacity: 0.4;
+  }
+
+  .fan-arm::after {
+    animation: none;
+    background: var(--accent);
   }
 
   .button svg,
