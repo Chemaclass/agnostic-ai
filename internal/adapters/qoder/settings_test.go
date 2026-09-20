@@ -119,3 +119,50 @@ func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
 		t.Errorf("allow = %#v, want the translated allow list kept", perms["allow"])
 	}
 }
+
+// A server the MCP specs already named is taken from the hatch whole.
+// The general settings merge went field by field, which put the
+// hatch's `command` beside the spec's `args` and ran the author's
+// binary with the previous binary's flags (#974).
+func TestEmit_SettingsCustomMCPServerReplacesTheWholeRecord(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "foo", Meta: map[string]any{"command": "old-binary", "args": []any{"--from-spec"}}},
+		{Kind: spec.KindMCP, Name: "keepme", Meta: map[string]any{"command": "spec-only"}},
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{
+				"foo":       map[string]any{"url": "https://example.test/mcp"},
+				"hatchonly": map[string]any{"command": "author"},
+			},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".qoder/settings.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	servers, ok := got["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("mcpServers = %#v, want a map", got["mcpServers"])
+	}
+	foo, ok := servers["foo"].(map[string]any)
+	if !ok {
+		t.Fatalf("foo = %#v, want a map", servers["foo"])
+	}
+	for _, stale := range []string{"command", "args"} {
+		if _, held := foo[stale]; held {
+			t.Errorf("%q from the spec survived onto an HTTP record: %#v", stale, foo)
+		}
+	}
+	if foo["url"] != "https://example.test/mcp" {
+		t.Errorf("url = %#v, want the hatch's", foo["url"])
+	}
+	// The registry-level union is the #966 fix and must survive it.
+	for _, name := range []string{"keepme", "hatchonly"} {
+		if _, held := servers[name]; !held {
+			t.Errorf("%q missing from the union: %#v", name, servers)
+		}
+	}
+}

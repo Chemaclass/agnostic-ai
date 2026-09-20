@@ -104,6 +104,50 @@ func MergeSettingsCustomValue(target, key string, managed, custom any) any {
 	return merged
 }
 
+// MergeSettingsCustomRecordMap merges the `x-<target>.<key>` map onto the
+// record map the adapter already put under the same key, by name rather
+// than by field: a name only one side carries is kept, and a name both
+// sides carry is taken from the hatch whole.
+//
+// A record is not a property bag. An MCP server's transport fields have
+// to agree with each other or the vendor rejects the entry, so the
+// general field-by-field merge produced `command` from the hatch beside
+// `args` from the spec, which runs the author's binary with the previous
+// binary's flags, and a `url` beside a `command`, which is no transport
+// at all (#974).
+//
+// Union at the registry level is still what an author wants, so this is
+// not a return to replacing the whole map: that was the #966 bug. The
+// boundary is one level down. An adapter excludes the key from
+// MergeSettingsCustomKeys and calls this instead, the way the four
+// hand-wired permission hatches already do for their own key.
+func MergeSettingsCustomRecordMap(keys map[string]any, settings []spec.Entry, target, key string) {
+	custom, ok := SettingsCustomKeys(settings, target)[key]
+	if !ok {
+		return
+	}
+	managed, held := keys[key]
+	if !held || managed == nil {
+		keys[key] = custom
+		return
+	}
+	managedMap, managedIsMap := managed.(map[string]any)
+	customMap, customIsMap := custom.(map[string]any)
+	if !managedIsMap || !customIsMap {
+		NoteFieldNoOp(target, spec.KindSettings, "translated "+key, 1, settingsCustomConflictReason(target, key))
+		keys[key] = custom
+		return
+	}
+	out := make(map[string]any, len(managedMap)+len(customMap))
+	for name, record := range managedMap {
+		out[name] = record
+	}
+	for name, record := range customMap {
+		out[name] = record
+	}
+	keys[key] = out
+}
+
 // settingsCustomConflictReason names the hatch key, since the note's
 // own sentence cannot say which half of a conflict was kept.
 func settingsCustomConflictReason(target, key string) string {

@@ -70,9 +70,14 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	// straight into the same write (#949). It merges with the managed
 	// keys above rather than replacing them, so an author's
 	// `x-qoder.permissions.deny` entry joins the translated deny list
-	// and an `x-qoder.mcpServers` entry joins the servers the MCP
-	// specs contributed (#966).
-	emit.MergeSettingsCustomKeys(keys, settings, target)
+	// (#966).
+	//
+	// `mcpServers` is excluded from that merge and unioned by server
+	// name instead. A server definition is one record: merging inside
+	// one put the hatch's `command` beside the spec's `args`, and a
+	// `url` beside a `command` (#974).
+	emit.MergeSettingsCustomKeys(keys, settings, target, qoderMCPKey)
+	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
 	if len(keys) == 0 {
 		return nil
 	}
