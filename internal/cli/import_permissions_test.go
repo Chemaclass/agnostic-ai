@@ -15,7 +15,7 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 	  "read_config_from": {"claude": true},
 	  "permissions": {
 	    "allow": ["Read(src/**)", "Exec(git)", "mcp__slack__post"],
-	    "deny": ["Write(secrets/**)"],
+	    "deny": ["Write(secrets/**)", "web_search"],
 	    "ask": ["Fetch(https://example.com)"]
 	  }
 	}`)
@@ -37,6 +37,10 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 		"mcp__slack__post",
 		"Write(secrets/**)",
 		"WebFetch(https://example.com)",
+		// Devin takes `web_search` in all three lists since
+		// v3000.10.21, so a hand-written rule has to survive the
+		// round trip (#951).
+		"WebSearch",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("spec missing %q:\n%s", want, got)

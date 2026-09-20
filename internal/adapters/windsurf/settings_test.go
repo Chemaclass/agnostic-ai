@@ -57,6 +57,65 @@ func TestEmit_SettingsTranslatesPortableRules(t *testing.T) {
 	}
 }
 
+// Devin accepts `web_search` in the three permission lists as of
+// v3000.10.21 (2026-09-10): "`web_search` can now be used as a tool
+// name in `permissions.deny` / `permissions.ask` / `permissions.allow`;
+// previously it was rejected and web searches were always
+// auto-approved." A portable `WebSearch` deny reached nothing before
+// that mapping existed (#951).
+func TestEmit_SettingsTranslatesWebSearch(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny": []any{"WebSearch"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	permissions, _ := settingsDoc(t, dir)["permissions"].(map[string]any)
+	if !reflect.DeepEqual(permissions["deny"], []any{"web_search"}) {
+		t.Errorf("deny = %#v, want [web_search]", permissions["deny"])
+	}
+}
+
+// `webfetch` stays out of the permission vocabulary on purpose. It
+// appears in the lifecycle-hooks tool table and a user-tier
+// `disabled_tools` example, neither of which governs `permissions`.
+// `web_search` is the proof: it was a live tool from May 2026 and
+// `permissions` still rejected it until September. Only a sentence
+// about `permissions` licenses a permissions entry.
+func TestEmit_SettingsDropsBareWebFetch(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"deny": []any{"WebFetch", "Read"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	permissions, _ := settingsDoc(t, dir)["permissions"].(map[string]any)
+	if !reflect.DeepEqual(permissions["deny"], []any{"read"}) {
+		t.Errorf("deny = %#v, want only [read]", permissions["deny"])
+	}
+}
+
+// The subagent `allowed-tools` vocabulary is keyed separately from the
+// permission vocabulary. `/cli/subagents` enumerates no tool list at
+// all, so nothing there licenses `web_search` either way, and one
+// shared map would let a future edit for one surface change the other.
+func TestAgent_AllowedToolsExcludesWebSearch(t *testing.T) {
+	if _, ok := devinTool["WebSearch"]; ok {
+		t.Errorf("devinTool must not carry WebSearch: the subagent docs enumerate no tool vocabulary")
+	}
+	if _, ok := devinPermissionTool["WebSearch"]; !ok {
+		t.Errorf("devinPermissionTool must carry WebSearch")
+	}
+}
+
 // A rule with no faithful Devin spelling is never guessed at. Devin's
 // Exec is a prefix matcher with no exact-command form, so an exact
 // Bash rule would widen; it drops and folds into one coverage note.
