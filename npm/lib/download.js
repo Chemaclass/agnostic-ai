@@ -7,6 +7,7 @@
 const { execFileSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
+const http = require('node:http')
 const https = require('node:https')
 const os = require('node:os')
 const path = require('node:path')
@@ -16,6 +17,21 @@ const BINARY = process.platform === 'win32' ? 'agnostic-ai.exe' : 'agnostic-ai'
 
 const PLATFORMS = { darwin: 'darwin', linux: 'linux', win32: 'windows' }
 const ARCHS = { x64: 'amd64', arm64: 'arm64' }
+
+// GitHub redirects a release asset to object storage exactly once, so five hops
+// is slack for a proxy in the way while still ending a redirect loop.
+const MAX_REDIRECTS = 5
+
+// Silence, not slowness, is what this catches: the archives are a few MB, so 30
+// seconds without a single byte means the connection is wedged. Left unbounded,
+// the OS connect timeout alone runs to 75 seconds, and a server that accepts and
+// never answers never times out at all. This runs inside postinstall, where a
+// stall blocks `npm install` for the whole project.
+const TIMEOUT_MS = 30_000
+
+const INSTALL_ALTERNATIVES =
+  'go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest, ' +
+  'or the routes at https://agnostic-ai.org/docs/installation/'
 
 function target() {
   const goos = PLATFORMS[process.platform]
@@ -38,42 +54,135 @@ function binaryPath() {
   return path.join(__dirname, '..', 'bin', BINARY)
 }
 
-function get(url) {
+// Node throws an AggregateError with an empty `message` when a host resolves to
+// several addresses and every connection fails, which is the ordinary shape of
+// github.com behind a firewall. Printing `err.message` then prints nothing, so
+// rebuild a message out of what the error does carry.
+function describeError(err) {
+  if (!err || err.message) return err
+
+  const codes = new Set()
+  const causes = new Set()
+  if (err.code) codes.add(err.code)
+  for (const cause of Array.isArray(err.errors) ? err.errors : []) {
+    if (!cause) continue
+    if (cause.code) codes.add(cause.code)
+    if (cause.message) causes.add(cause.message)
+  }
+
+  const summary = codes.size ? [...codes].join(', ') : `${err.name || 'Error'} with no message`
+  const described = new Error(causes.size ? `${summary}: ${[...causes].join('; ')}` : summary)
+  described.cause = err
+  return described
+}
+
+function agent(url) {
+  if (url.startsWith('https:')) return https
+  // Only reachable through a redirect; kept so a local test server and a plain
+  // http hop report something readable instead of ERR_INVALID_PROTOCOL.
+  if (url.startsWith('http:')) return http
+  throw new Error(`GET ${url} uses an unsupported protocol`)
+}
+
+// Resolves with the response, headers only: the caller decides whether to read
+// the body, follow the redirect, or give up.
+function request(url, timeoutMs) {
   return new Promise((resolve, reject) => {
-    https
-      .get(url, { headers: { 'user-agent': 'agnostic-ai-npm' } }, (res) => {
-        // GitHub redirects release assets to a signed object-store URL.
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume()
-          resolve(get(res.headers.location))
-          return
-        }
-        if (res.statusCode !== 200) {
-          res.resume()
-          reject(new Error(`GET ${url} failed with HTTP ${res.statusCode}`))
-          return
-        }
-        const chunks = []
-        res.on('data', (c) => chunks.push(c))
-        res.on('end', () => resolve(Buffer.concat(chunks)))
-        res.on('error', reject)
+    const req = agent(url)
+      .get(url, { headers: { 'user-agent': 'agnostic-ai-npm' }, timeout: timeoutMs }, resolve)
+      .on('timeout', () => {
+        // The socket timeout only fires the event; the request has to be torn
+        // down by hand, and destroy(err) is what surfaces as a rejection here.
+        req.destroy(new Error(`GET ${url} timed out after ${timeoutMs / 1000}s with no response`))
       })
-      .on('error', reject)
+      .on('error', (err) => reject(describeError(err)))
   })
+}
+
+function body(res) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    res.on('data', (c) => chunks.push(c))
+    res.on('end', () => resolve(Buffer.concat(chunks)))
+    res.on('error', (err) => reject(describeError(err)))
+  })
+}
+
+function redirectTo(res) {
+  const { statusCode, headers } = res
+  return statusCode >= 300 && statusCode < 400 && headers.location ? headers.location : ''
+}
+
+async function get(url, { redirects = 0, timeoutMs = TIMEOUT_MS } = {}) {
+  const res = await request(url, timeoutMs)
+
+  // GitHub redirects release assets to a signed object-store URL.
+  const next = redirectTo(res)
+  if (next) {
+    res.resume()
+    if (redirects >= MAX_REDIRECTS) {
+      throw new Error(`GET ${url} still redirecting after ${MAX_REDIRECTS} hops`)
+    }
+    if (url.startsWith('https:') && next.startsWith('http:')) {
+      throw new Error(`GET ${url} redirects to plain http (${next}); refusing`)
+    }
+    return get(next, { redirects: redirects + 1, timeoutMs })
+  }
+
+  if (res.statusCode !== 200) {
+    res.resume()
+    throw new Error(`GET ${url} failed with HTTP ${res.statusCode}`)
+  }
+  return body(res)
+}
+
+// Release tags carry the `v`, but `npm view` and package.json print the bare
+// number, so both spellings of AGNOSTIC_AI_VERSION have to reach the same tag.
+// Anything that does not start with a digit is passed through untouched.
+function releaseTag(version) {
+  const trimmed = version.trim()
+  return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
+}
+
+// `releases/latest` on github.com answers 302 to the tag page, so the tag is in
+// the Location header. That keeps release resolution off api.github.com, which
+// allows 60 unauthenticated requests an hour per IP: a shared CI address burns
+// through that and every install then fails with HTTP 403 (#940). The redirect
+// target is what this wants, so it reads the response itself instead of going
+// through get(), which exists to follow the redirect and hand back a body.
+async function latestTag(url = `https://github.com/${REPO}/releases/latest`) {
+  const res = await request(url, TIMEOUT_MS)
+  res.resume()
+
+  const location = redirectTo(res)
+  if (location) {
+    const tag = decodeURIComponent(location.split('/').pop() || '')
+    if (/^v?\d/.test(tag)) return tag
+    throw new Error(`could not read a release tag out of ${location}`)
+  }
+  if (res.statusCode === 403 || res.statusCode === 429) {
+    throw new Error(
+      `GitHub rate-limited the release lookup (HTTP ${res.statusCode}). Retry in a few ` +
+        'minutes, or pin the binary with AGNOSTIC_AI_VERSION=vX.Y.Z'
+    )
+  }
+  if (res.statusCode === 404) {
+    throw new Error(
+      `${REPO} reports no published release (HTTP 404). Pin one with AGNOSTIC_AI_VERSION=vX.Y.Z`
+    )
+  }
+  throw new Error(`could not resolve the latest agnostic-ai release: HTTP ${res.statusCode}`)
 }
 
 // The published package carries the release version; a checkout carries the
 // 0.0.0-dev placeholder, which has no matching release, so fall back to latest.
 async function resolveVersion() {
-  if (process.env.AGNOSTIC_AI_VERSION) return process.env.AGNOSTIC_AI_VERSION
+  if (process.env.AGNOSTIC_AI_VERSION) return releaseTag(process.env.AGNOSTIC_AI_VERSION)
 
   const { version } = require('../package.json')
-  if (version && !version.startsWith('0.0.0')) return `v${version}`
+  if (version && !version.startsWith('0.0.0')) return releaseTag(version)
 
-  const body = await get(`https://api.github.com/repos/${REPO}/releases/latest`)
-  const tag = JSON.parse(body.toString('utf8')).tag_name
-  if (!tag) throw new Error('could not resolve the latest agnostic-ai release')
-  return tag
+  return latestTag()
 }
 
 function downloadUrl(version, asset) {
@@ -90,6 +199,20 @@ async function verifyChecksum(archive, asset, version) {
   if (actual !== expected) throw new Error(`checksum mismatch for ${asset}`)
 }
 
+function extract(archive, dir) {
+  // bsdtar reads both tar.gz and zip, and ships with macOS and Windows 10
+  // 1803+; Linux only ever gets the tar.gz here, so GNU tar is fine too.
+  try {
+    execFileSync('tar', ['-xf', archive, '-C', dir, BINARY], { stdio: 'ignore' })
+  } catch (err) {
+    const reason = err.code === 'ENOENT' ? 'tar is not installed' : describeError(err).message
+    throw new Error(
+      `could not extract ${path.basename(archive)}: ${reason}. ` +
+        `Install agnostic-ai another way instead: ${INSTALL_ALTERNATIVES}`
+    )
+  }
+}
+
 async function ensureBinary({ log = () => {} } = {}) {
   const dest = binaryPath()
   if (fs.existsSync(dest)) return dest
@@ -103,10 +226,7 @@ async function ensureBinary({ log = () => {} } = {}) {
     const archive = path.join(work, asset)
     fs.writeFileSync(archive, await get(downloadUrl(version, asset)))
     await verifyChecksum(archive, asset, version)
-
-    // bsdtar reads both tar.gz and zip, and ships with macOS and Windows 10
-    // 1803+; Linux only ever gets the tar.gz here, so GNU tar is fine too.
-    execFileSync('tar', ['-xf', archive, '-C', work, BINARY], { stdio: 'ignore' })
+    extract(archive, work)
 
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.copyFileSync(path.join(work, BINARY), dest)
@@ -119,4 +239,15 @@ async function ensureBinary({ log = () => {} } = {}) {
   return dest
 }
 
-module.exports = { assetName, binaryPath, downloadUrl, ensureBinary, resolveVersion, target }
+module.exports = {
+  assetName,
+  binaryPath,
+  describeError,
+  downloadUrl,
+  ensureBinary,
+  extract,
+  get,
+  latestTag,
+  resolveVersion,
+  target,
+}
