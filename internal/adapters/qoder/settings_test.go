@@ -84,3 +84,38 @@ func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 		t.Errorf("the x-qoder wrapper must not be written: %#v", got)
 	}
 }
+
+// An `x-qoder.permissions` block joins the translated one key by key,
+// so a Qoder-only deny rule adds to the deny list instead of taking
+// the translated rules with it (#966).
+func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"permissions": map[string]any{
+			"deny":  []any{"Bash(rm:*)"},
+			"allow": []any{"Bash(go test:*)"},
+		},
+		"x-qoder": map[string]any{
+			"permissions": map[string]any{"deny": []any{"AuthorOnly"}},
+		},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".qoder/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	wantDeny := []any{"Bash(rm:*)", "AuthorOnly"}
+	if !reflect.DeepEqual(perms["deny"], wantDeny) {
+		t.Errorf("deny = %#v, want %#v", perms["deny"], wantDeny)
+	}
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("allow = %#v, want the translated allow list kept", perms["allow"])
+	}
+}

@@ -172,9 +172,12 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	// An `x-opencode` block on a settings spec carries the keys this
 	// adapter does not model into the same write, and is reason enough
 	// to write the file on its own. `permission` is excluded:
-	// buildPermissions already merges that one tool by tool with the
-	// translated rules, and a blanket set here would replace the whole
-	// object instead (#949).
+	// buildPermissions already merges that one tool by tool and spec
+	// by spec, so a native tool key wins over a translated rule for
+	// the same tool while a sibling spec's rules for other tools stay.
+	// The general key-by-key merge cannot express that (#949, #966).
+	// The block is read twice, once to decide whether the file is
+	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
 	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && emit.LastSettingsModel(settings) == "" {
 		return nil
@@ -189,9 +192,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	if len(permissions) > 0 {
 		keys[permissionKey] = permissions
 	}
-	for key, value := range custom {
-		keys[key] = value
-	}
+	emit.MergeSettingsCustomKeys(keys, settings, target, permissionKey)
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 

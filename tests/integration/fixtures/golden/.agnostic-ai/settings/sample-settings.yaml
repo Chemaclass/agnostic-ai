@@ -10,3 +10,10 @@ permissions:
   ask:
     - Write(.env*)
 model: example-model
+x-factory:
+  commandBlocklist:
+    - author-only
+x-claude:
+  permissions:
+    deny:
+      - AuthorOnly

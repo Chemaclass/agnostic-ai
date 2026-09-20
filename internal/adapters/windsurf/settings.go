@@ -47,8 +47,9 @@ func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun b
 	// this adapter does not model, `read_config_from` and `hooks`, into
 	// the same write, and is reason enough to write the file on its
 	// own. `permissions` is excluded: entryRules already reads that one
-	// per spec and per list, so a blanket set here would drop the
-	// translated rules a sibling spec contributed (#949).
+	// per spec and per list, taking an author's rules as Devin's own
+	// vocabulary for that spec while a sibling spec still translates.
+	// The general key-by-key merge cannot express that (#949, #966).
 	emit.MergeSettingsCustomKeys(keys, settings, target, permissionsKey)
 	if len(keys) == 0 {
 		return nil

@@ -290,7 +290,10 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //     every key in that file this adapter does not model. It is
 //     applied last because it is the most specific statement of
 //     intent: an author writing Claude Code's own spelling means that
-//     key, so it wins over the translated layers above (#949).
+//     key (#949). It merges with the layers above rather than
+//     replacing them, so an `x-claude.permissions.deny` entry joins
+//     the translated deny list instead of erasing it; a scalar, which
+//     has no parts to keep, is still replaced (#966).
 //
 // Short-circuit: all layers empty -> write nothing.
 func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
@@ -352,7 +355,7 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 		doc.Delete("hooks")
 	}
 	for _, k := range orderedConfigKeys(custom) {
-		if err := doc.Set(k, custom[k]); err != nil {
+		if err := doc.Set(k, mergeCustomKey(doc, k, custom[k])); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
 	}
@@ -362,6 +365,28 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 		return err
 	}
 	return sess.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+// mergeCustomKey merges one `x-claude` value onto whatever the layers
+// below already put under that key instead of replacing it: a list
+// unions, an object merges key by key, and a scalar is replaced
+// because it has no parts to keep. The same rule every other settings
+// target follows, spelled against the ordered document this adapter
+// writes. Before it, an `x-claude.permissions.deny` entry erased the
+// translated deny list and said nothing (#966).
+//
+// A value the document holds in a form this cannot parse falls back to
+// the hatch alone, which is what the write did before either way.
+func mergeCustomKey(doc *emit.OrderedJSON, key string, value any) any {
+	raw, ok := doc.Get(key)
+	if !ok {
+		return value
+	}
+	var existing any
+	if err := json.Unmarshal(raw, &existing); err != nil {
+		return value
+	}
+	return emit.MergeSettingsCustomValue(target, key, existing, value)
 }
 
 // detectSettingsIndent sniffs the indent style of the overlay (preferred,

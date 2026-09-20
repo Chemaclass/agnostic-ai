@@ -367,7 +367,10 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 //
 // The `x-junie` block is the settings-kind escape hatch: Junie's
 // project config carries fields this project does not model, and
-// without the hatch they reach nothing and say nothing (#949).
+// without the hatch they reach nothing and say nothing (#949). It
+// merges with the managed keys rather than replacing them; `model` is
+// the only one this adapter writes, and a scalar has no parts to keep,
+// so `x-junie.model` still wins outright (#966).
 // No file is written when neither source contributes.
 func emitProjectConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
 	keys := map[string]any{}

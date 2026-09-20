@@ -314,3 +314,34 @@ func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 		t.Errorf("the x-copilot wrapper must not be written: %#v", got)
 	}
 }
+
+// An `x-copilot.disabledMcpServers` entry joins the names the MCP
+// specs contributed instead of replacing them, which is also how the
+// vendor merges that key: "Union, repository can add entries, never
+// remove" (#966).
+func TestEmit_SettingsCustomDisabledServersJoinTheManagedOnes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "github", Meta: map[string]any{
+			"command": "gh-mcp", "disabled": true,
+		}},
+		{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+			"x-copilot": map[string]any{"disabledMcpServers": []any{"author-only"}},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, defaultSettingsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []any{"github", "author-only"}
+	if !reflect.DeepEqual(got["disabledMcpServers"], want) {
+		t.Errorf("disabledMcpServers = %#v, want %#v", got["disabledMcpServers"], want)
+	}
+}

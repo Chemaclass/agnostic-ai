@@ -67,7 +67,11 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	}
 	// An `x-qoder` block on a settings spec carries the keys this
 	// adapter does not model, the `mcp` group's own flags among them,
-	// straight into the same write (#949).
+	// straight into the same write (#949). It merges with the managed
+	// keys above rather than replacing them, so an author's
+	// `x-qoder.permissions.deny` entry joins the translated deny list
+	// and an `x-qoder.mcpServers` entry joins the servers the MCP
+	// specs contributed (#966).
 	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {
 		return nil
