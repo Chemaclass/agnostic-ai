@@ -15,8 +15,17 @@ import (
 
 // opencodeToolToPortable reverses the vocabulary the opencode adapter
 // emits. Keys outside this table (`list`, `lsp`, `question`,
-// `todowrite`, `external_directory`, `doom_loop`) have no portable
-// spelling and are left where they are rather than guessed at.
+// `todowrite`, `external_directory`, `doom_loop`, and any namespaced
+// `<server>_<tool>` MCP key) have no portable spelling and are left
+// where they are rather than guessed at.
+//
+// The MCP form is asymmetric on purpose (#947). Emit writes
+// `mcp__github__list_issues` out as `github_list_issues`, but nothing
+// in that key says where the server name ends and the tool name
+// starts, and both halves may carry underscores. Reading it back would
+// invent an `mcp__` rule the author never wrote, so the key stays in
+// `opencode.json` untouched. Kilo's importer declines the same join
+// for the same reason.
 //
 // OpenCode's `edit` covers the portable Edit and Write both. It reads
 // back as Edit, which re-emits to the same `edit` key, so the pair is

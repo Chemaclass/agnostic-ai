@@ -16,8 +16,18 @@ main > section[id] {
   background: var(--surface);
 }
 
+/* The rails overshoot the hero on purpose; the hero clips them. That is the
+   answer at every width, instead of switching the fan off in bands. */
 .hero {
+  position: relative;
+  overflow: hidden;
   padding-block: clamp(3.25rem, 7vw, 5.5rem);
+}
+
+/* Holds the copy above the rails, which sit at z-index -1 inside the command. */
+.hero > .wrap {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-grid {
@@ -70,8 +80,18 @@ main > section[id] {
   font-variant-numeric: tabular-nums;
 }
 
+/* 32.5rem is the command width the rail geometry below is derived from, not a
+   clearance hack. Change it and --ox changes with it. */
 .hero-install {
+  width: min(100%, 32.5rem);
   margin-top: 1.35rem;
+}
+
+/* The fan is a child of the command, so its origin IS the command's right
+   edge, in both axes, at every width. No tuned percentage and no guess at
+   where the command sits vertically. */
+.hero-install .command {
+  position: relative;
 }
 
 .hero-install > p {
@@ -89,12 +109,310 @@ main > section[id] {
   color: var(--accent);
 }
 
+/* Rail opacity is the one token base.css does not expose. It lives here rather
+   than in base.css because nothing outside the landing hero reads it, and it
+   mirrors the three theme selectors base.css already uses.
+
+   It dims the rails and the endpoint dots only, through the colours they are
+   painted with. It is never applied to the group, because the label text is
+   the payload of this animation and has to read as text. */
+:root {
+  --rail-op: 0.72;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --rail-op: 0.62;
+  }
+}
+
+:root[data-theme="dark"] {
+  --rail-op: 0.62;
+}
+
+:root[data-theme="light"] {
+  --rail-op: 0.72;
+}
+
+/* --ox is the origin's distance from the left of the viewport, which is what
+   the rail lengths are subtracted from. Our `.wrap` is
+   `min(100% - 2rem, 72rem)` with `margin-inline: auto`, so its left edge is
+   `max(1rem, (100vw - 72rem) / 2)`, and the install block adds its own width.
+   Derived from this shell, not copied: change either and recompute. */
+.rails {
+  --ox: calc(max(1rem, (100vw - 72rem) / 2) + 32.5rem);
+  --reach: 76vw;
+
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* The source: the heaviest mark in the diagram, because it is the subject. */
+.rails .origin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Two layers. This one is the route: the comet head sweeps it once and its
+   tail parks as the lit rail, which then stays for good. `forwards` is what
+   holds it, so nothing here ever returns to `opacity: 0`. The repeating pulse
+   is a second layer on `::before`, over the top.
+
+   --d is the rail's place in the stagger. The dot, the label and the pulse all
+   read it, so one number per rail keeps the four in step. */
+.rails i {
+  position: absolute;
+  left: 3px;
+  top: 0;
+  display: block;
+  width: calc(var(--reach) - var(--ox));
+  height: 1px;
+  transform-origin: 0 50%;
+  transform: rotate(var(--a));
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 20%), transparent) 28%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent) 88%, transparent 100%) 120% 0 / 62% 100% no-repeat;
+  opacity: 0;
+  animation: travel 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
+}
+
+/* The life the fan keeps after it is drawn: a bright band running the route,
+   origin to endpoint, on its own loop. It carries no text and no dot, so the
+   names never ride on it. Brightest against the faint origin end of the rail
+   and swallowed by the lit end, which reads as the signal being absorbed.
+
+   It starts once the slowest rail has landed (0.56s of stagger plus a 1.28s
+   draw), then keeps the rail's own place in the stagger. */
+.rails i::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent 100%) -45% 0 / 30% 100% no-repeat;
+  animation: pulse 4s ease-in-out calc(1.9s + var(--d, 0s)) infinite;
+}
+
+/* The endpoint names the directory that tool's config lands in. Directories,
+   not single files: a full sync writes CLAUDE.md and .claude/agents,
+   .claude/rules, .claude/skills, while Cursor gets no root file at all. One
+   root filename per target would have been picking one of four. */
+.rails i em {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+
+  /* Translate first, then rotate about the left edge. Counter-rotating about
+     the default centre swings the label away from the dot on a steep rail;
+     pivoting at 0 50% keeps its left edge pinned 8px past the endpoint, on
+     the rail's own axis, whatever the angle. */
+  transform-origin: 0 50%;
+  translate: 8px -50%;
+  rotate: calc(-1 * var(--a));
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0;
+  animation: tag 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
+}
+
+.rails i em b {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+/* The destination dot. It pops once and then holds, because held means
+   synced. It sits out the pulse for the same reason the label does. */
+.rails i::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px -3.5px 0 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent);
+  opacity: 0;
+  animation: land 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
+}
+
+/* nth-of-type, not nth-child: `.origin` is the first child, so nth-child is
+   off by one and silently mis-assigns every angle.
+
+   Four rails name a target, so an endpoint is a place and not a dot, and a
+   fifth counts the rest. Which targets get a rail comes from the data: an
+   output sets `rail = false` to keep its tab and stay out of the fan, which
+   junie does because its rail crossed into the section under the hero. 65deg
+   of spread: across a span near the horizontal an equal-radius arc is nearly
+   vertical, and a narrow fan reads as a column. The delays fire from the
+   middle outward, not left to right. */
+.rails i:nth-of-type(1) {
+  --a: -52deg;
+  --d: 0.56s;
+}
+
+.rails i:nth-of-type(2) {
+  --a: -35.8deg;
+  --d: 0.28s;
+}
+
+.rails i:nth-of-type(3) {
+  --a: -19.5deg;
+  --d: 0s;
+}
+
+.rails i:nth-of-type(4) {
+  --a: -3.2deg;
+  --d: 0.14s;
+}
+
+/* The fifth rail carries no target of its own: it stands for the twenty-one
+   the other four are a sample of, so its label has no directory and its
+   endpoint is the same dot. */
+.rails i:nth-of-type(5) {
+  --a: 13deg;
+  --d: 0.42s;
+}
+
+/* Percent background-position is relative to (rail minus image), not the rail,
+   so with a 62% image the usable range is 38%. -144% puts the bright head on
+   the origin and 120% puts it on the endpoint, where the tail parks as the lit
+   route. Rewriting these as 0% to 100% parks the head mid-rail.
+
+   The three draw-in keyframes share one 1.28s clock so their percentages read
+   against each other: rail at 0.90s, dot at 0.96s, label at 1.15s. Every one
+   of them ends on the state it keeps, and `forwards` is what keeps it. There
+   is no fade at the end any more, so the fan is only ever drawn once. */
+@keyframes travel {
+  0% {
+    background-position: -144% 0;
+    opacity: 1;
+  }
+
+  70%,
+  100% {
+    background-position: 120% 0;
+    opacity: 1;
+  }
+}
+
+@keyframes land {
+  0%,
+  60% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+
+  75% {
+    opacity: 1;
+    transform: scale(1.45);
+  }
+
+  95%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+@keyframes tag {
+  0%,
+  65% {
+    opacity: 0;
+  }
+
+  90%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The pulse runs on a 30% image, so the usable position range is 70%: -45%
+   holds it clear of the origin and 145% clear of the endpoint. It crosses in
+   the first 1.6s and waits out the rest of the loop parked off the far end,
+   which is why it needs no opacity of its own. */
+@keyframes pulse {
+  0% {
+    background-position: -45% 0;
+  }
+
+  40%,
+  100% {
+    background-position: 145% 0;
+  }
+}
+
+/* Tablet keeps the origin on the command and aims into whatever right margin
+   is left, instead of dragging the whole group across the copy. The rail is
+   clamped so the label always lands inside the viewport.
+
+   The allowance is measured, not assumed: our widest endpoint label renders at
+   112px, and the arm sits 3px out with an 8px gap before the text. A flat 60px
+   allowance leaves the label hanging past the right edge at 860px and at
+   760px. The hero clips it, so there is no page scroll either way, but a
+   filename cut in half is not the finished fan. */
+@media (max-width: 1023px) {
+  /* Recede the rails, never the labels: --rail-op is what the gradient and the
+     endpoint dot are painted with, so dropping it here dims the lines alone. */
+  .rails {
+    --rail-op: 0.5;
+    --label: 112px;
+  }
+
+  .rails i {
+    width: clamp(90px, calc(94vw - var(--ox) - var(--label) - 11px), 240px);
+  }
+
+  .rails i:nth-of-type(1) {
+    --a: -50deg;
+  }
+
+  .rails i:nth-of-type(2) {
+    --a: -32.5deg;
+  }
+
+  .rails i:nth-of-type(3) {
+    --a: -15deg;
+  }
+
+  .rails i:nth-of-type(4) {
+    --a: 2.5deg;
+  }
+
+  .rails i:nth-of-type(5) {
+    --a: 20deg;
+  }
+}
+
+/* Phone: the command box is the full column, so there is no right margin to
+   aim into. 57px at 597px wide. A squeezed fan under the copy is worse than
+   none, so it goes. */
+@media (max-width: 759px) {
+  .rails {
+    display: none;
+  }
+}
+
 .agent-shortcut {
   display: grid;
   gap: 0.15rem;
-  margin: 1rem 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  margin: 1.35rem 0 0;
   font-size: 0.86rem;
 }
 
@@ -104,16 +422,14 @@ main > section[id] {
   font-weight: 700;
 }
 
-.agent-shortcut span {
-  max-width: 38rem;
-  color: var(--muted);
-}
-
+/* Its own section now, not a hero column, so it gets a real measure. */
 .transform {
+  width: min(100%, 42rem);
+  margin: 2rem auto 0;
   padding: 1.2rem;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--surface);
+  background: var(--paper);
 }
 
 .transform-caption {
@@ -153,13 +469,16 @@ main > section[id] {
   background: var(--accent);
 }
 
+/* Wrap rather than scroll. A hidden horizontal scrollbar inside the card means
+   the reader never sees the line that carries the point. */
 .transform pre {
   margin: 0;
-  overflow-x: auto;
   padding: 0.75rem;
   color: var(--ink-soft);
   font-size: 0.73rem;
   line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .transform pre code {
@@ -175,6 +494,11 @@ main > section[id] {
   margin: 0.7rem auto;
   color: var(--accent);
   transform: rotate(90deg);
+}
+
+.output-switch {
+  display: grid;
+  gap: 0.7rem;
 }
 
 .output-files {
@@ -209,29 +533,10 @@ main > section[id] {
 }
 
 .output-file {
-  animation: sync-file 360ms ease-out both;
-}
-
-.output-file:nth-child(1) {
-  animation-delay: 420ms;
-}
-
-.output-file:nth-child(2) {
-  animation-delay: 560ms;
-}
-
-.output-file:nth-child(3) {
-  animation-delay: 700ms;
-}
-
-.output-file:nth-child(4) {
-  animation-delay: 840ms;
-}
-
-.output-file {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  width: 100%;
   min-width: 0;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--line);
@@ -240,6 +545,30 @@ main > section[id] {
   color: var(--ink-soft);
   font-family: var(--mono);
   font-size: 0.72rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+  animation: sync-file 360ms ease-out both;
+}
+
+.output-file:nth-child(1) {
+  animation-delay: 420ms;
+}
+
+.output-file:nth-child(2) {
+  animation-delay: 530ms;
+}
+
+.output-file:nth-child(3) {
+  animation-delay: 640ms;
+}
+
+.output-file:nth-child(4) {
+  animation-delay: 750ms;
+}
+
+.output-file:nth-child(5) {
+  animation-delay: 860ms;
 }
 
 .output-file svg {
@@ -253,6 +582,60 @@ main > section[id] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Selection follows click and arrow keys only. Hover must not switch the pane,
+   or dragging the pointer across the list flickers through five files. */
+.output-file[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.output-file[aria-selected="true"] svg {
+  color: var(--accent);
+}
+
+/* Every pane shares one grid cell, so the card keeps the height of the tallest
+   file no matter which target is selected. A hidden pane stays laid out and is
+   only made invisible, which also keeps it out of the accessibility tree. */
+.output-panels {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-quiet);
+}
+
+.output-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+  padding: 0.7rem 0.75rem 0.8rem;
+}
+
+.output-panel[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
+.output-note {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.output-note code {
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.output-panel pre {
+  padding: 0;
+  font-size: 0.66rem;
+  line-height: 1.5;
 }
 
 .section-title {
@@ -636,17 +1019,25 @@ main > section[id] {
   }
 }
 
+/* Source left, generated right, once there is width for both. */
 @media (min-width: 960px) {
-  .hero-grid {
-    grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.95fr);
-  }
-}
-
-/* Below the two-column hero the diagram sits under the copy, where the full row width stretches its short file rows. */
-@media (max-width: 959px) {
   .transform {
-    width: min(100%, 30rem);
-    margin-inline: auto;
+    width: min(100%, 64rem);
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) auto minmax(0, 7fr);
+    align-items: start;
+    gap: 0 1.1rem;
+  }
+
+  .transform-caption {
+    grid-column: 1 / -1;
+  }
+
+  .transform-arrow {
+    width: 2.6rem;
+    margin: 0;
+    align-self: center;
+    transform: none;
   }
 }
 
@@ -656,6 +1047,9 @@ main > section[id] {
   }
 }
 
+/* On a phone the six-column matrix becomes thirty labelled rows, which is far
+   more than the section is worth there. Collapse it to the five target names
+   as chips; the full matrix is one tap away under the table. */
 @media (max-width: 760px) {
   .capability-table-wrap {
     overflow: visible;
@@ -665,11 +1059,10 @@ main > section[id] {
   }
 
   .capability-table,
-  .capability-table tbody,
   .capability-table tr {
+    display: block;
     width: 100%;
     min-width: 0;
-    display: block;
   }
 
   .capability-table thead {
@@ -683,119 +1076,64 @@ main > section[id] {
     border: 0;
   }
 
+  .capability-table tbody {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
   .capability-table tr {
-    margin-bottom: 0.75rem;
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--surface);
-  }
-
-  .capability-table tbody tr:hover th,
-  .capability-table tbody tr:hover td {
-    background: transparent;
-  }
-
-  .capability-table th:first-child {
-    position: static;
     width: auto;
-    padding: 0 0 0.6rem;
-    border-bottom: 1px solid var(--line-soft);
-    background: transparent;
-    font-size: 0.95rem;
   }
 
   .capability-table td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.32rem 0;
-    border: 0;
+    display: none;
   }
 
-  .capability-table tbody tr:last-child th {
-    border-bottom: 1px solid var(--line-soft);
+  .capability-table th:first-child {
+    display: block;
+    position: static;
+    width: auto;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.82rem;
+    font-weight: 600;
   }
 
-  .capability-mobile-label {
-    display: inline;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+  .capability-table tbody tr:hover th {
+    background: var(--surface);
   }
-}
 
-.demo-frame {
-  position: relative;
-  width: min(100%, 56rem);
-  margin: 2rem auto 0;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface-quiet);
-}
-
-.demo-poster {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  text-decoration: none;
-}
-
-.demo-poster img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.demo-play {
-  position: relative;
-  width: 4.5rem;
-  height: 4.5rem;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  transition: transform 160ms ease-out;
-}
-
-.demo-play svg {
-  width: 1.7rem;
-  height: 1.7rem;
-  margin-left: 0.2rem;
-}
-
-.demo-poster:hover .demo-play,
-.demo-poster:focus-visible .demo-play {
-  transform: scale(1.06);
-}
-
-.demo-frame iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
+  /* No matrix on a phone, so its legend has nothing to explain. */
+  .capability-legend {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .demo-play {
-    transition: none;
-  }
-
   .transform-arrow path,
   .output-file {
     animation: none;
+  }
+
+  /* Jump straight to the finished fan and drop the pulse: the rest state the
+     animation would have reached, reached without any of it. The rail recedes
+     through --rail-op, never through opacity on the arm. The arm is the
+     label's parent, so dimming it composites onto the text and no opacity on
+     the label itself can win that back. */
+  .rails {
+    --rail-op: 0.34;
+  }
+
+  .rails i,
+  .rails i::before,
+  .rails i::after,
+  .rails i em {
+    animation: none;
+    opacity: 1;
   }
 
   .button svg,

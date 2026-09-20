@@ -102,15 +102,23 @@ Multiple specs concatenate. Override via `outputs.kiro.ignore-file`.
 | `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
 | `.kiro/steering/agent-<name>.md` (legacy, pre-native sync) | `<agents>/<name>.md`, body only |
 | `.kiro/steering/skill-<name>.md` (legacy, pre-native sync) | `<skills>/<name>/SKILL.md`, body only |
+| `.kiro/hooks/<id>.json` (`hooks[]`) | one hook spec per group of entries that differ only in `action.command` |
 | `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 The native rows run after the legacy steering sweep, so a name present under both wins on the native copy.
 
+Hooks read back the whole vendor field table, not just the keys `sync` writes. `trigger` becomes `event` verbatim, `matcher`, `description` and `timeout` map straight across (including an explicit `timeout: 0`), and `enabled: false` becomes `disabled: true`. An `action.type: "agent"` action lands under `x-kiro.action` rather than the portable prompt handler, which [spec-format.md](@/docs/spec-format.md#hooks) scopes to Claude Code, Cursor and Copilot. `confirm` and every other key the vendor has not closed off land under `x-kiro` too, so a future field is kept rather than dropped.
+
+Four shapes a hand-authored file can hold that `sync` never writes are handled explicitly. One file carrying several `trigger` values splits into one spec per trigger, since a spec holds exactly one `event`. Entries that differ only in `action.command` recombine into one spec with a `command:` list, dropping the `-2`/`-3` suffixes emit added, so a spec carrying three commands does not return as three specs. A name the vendor writes for humans ("Lint on save" is its own example) slugs into the spec filename and stays intact on `name:`. An action the vendor marks conditional but leaves unset (`type: "command"` with no `command`, `type: "agent"` with no `prompt`) is skipped with a warning instead of becoming a spec that fails the next sync.
+
 Some data is lossy on round-trip. Kiro's emit cannot carry it, so the reconstructed spec drops it without changing Kiro's output:
 
 - A rule's source-layout scope collapses into an equivalent `globs:`.
 - A legacy flattened steering agent or skill keeps only its body. That flattened form never carried a description, model, or bundled sibling assets in the first place.
+- A hook's explicit `enabled: true` leaves no key. It is the vendor default, and emit writes nothing for it.
+- Two hook files declaring the same `name` keep both hooks, but the second takes a deterministic generated name: a spec name is unique across the bundle, and emit derives the hook filename from it.
+- `{{filePath}}` inside a command survives as literal text. The vendor calls it "new in 3.0 and only available in the new format", so it means nothing on any other target.
 
 ## Verify
 

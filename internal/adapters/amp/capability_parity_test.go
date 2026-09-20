@@ -43,13 +43,18 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		kind     spec.Kind
 		matchers []string
 		inBody   []string
+		inFile   map[string]string
 	}
 	cases := []expect{
-		{spec.KindAgent, nil, []string{"<!-- source: agents/alpha.md -->", "<!-- source: agents/beta.md -->", "<!-- source: agents/gamma.md -->"}},
-		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}, nil},
-		{spec.KindRule, []string{"AGENTS-rules.md"}, nil},
-		{spec.KindMCP, []string{".amp/settings.json"}, nil},
-		{spec.KindEnvironment, []string{".agents/setup", ".amp/services.yaml"}, nil},
+		{spec.KindAgent, nil, []string{"<!-- source: agents/alpha.md -->", "<!-- source: agents/beta.md -->", "<!-- source: agents/gamma.md -->"}, nil},
+		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}, nil, nil},
+		{spec.KindRule, []string{"AGENTS-rules.md"}, nil, nil},
+		{spec.KindMCP, nil, nil, map[string]string{".amp/settings.json": ampMCPKey}},
+		{spec.KindEnvironment, []string{".agents/setup", ".amp/services.yaml"}, nil, nil},
+		// Settings share `.amp/settings.json` with MCP servers, so a
+		// path match would pass on the MCP write alone. Match the key
+		// the settings hatch contributes instead.
+		{spec.KindSettings, nil, nil, map[string]string{".amp/settings.json": toolsDisableKey}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -65,6 +70,13 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 			}
 			for _, s := range c.inBody {
 				if strings.Contains(body, s) {
+					found = true
+					break
+				}
+			}
+			for path, needle := range c.inFile {
+				data, _ := os.ReadFile(filepath.Join(dir, filepath.FromSlash(path)))
+				if strings.Contains(string(data), needle) {
 					found = true
 					break
 				}
@@ -103,12 +115,18 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind amp does not declare in caps.Supports (Hook, Settings,
-// Command). Command joined this list because Amp's manual documents
-// no file-based command surface: commands register programmatically
-// via amp.registerCommand(...) in plugin TypeScript, and the vendor's
+// every kind amp does not declare in caps.Supports (Hook, Command).
+// Command is on this list because Amp's manual documents no
+// file-based command surface: commands register programmatically via
+// amp.registerCommand(...) in plugin TypeScript, and the vendor's
 // migration guidance is to delete the old command file rather than
 // point at a replacement path. See #553.
+//
+// Settings left this list in #950: `.amp/settings.json` is a
+// documented workspace-tier surface this adapter already writes, so a
+// settings spec now reaches it through the `x-amp` hatch instead of
+// being refused wholesale. The portable permission lists still report
+// a field-level coverage note; see settings.go.
 // A future caps.Supports expansion needs to delete the matching row
 // here and demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
@@ -124,8 +142,8 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (hook/settings/command), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (hook/command), got %d", got)
 	}
 }
 

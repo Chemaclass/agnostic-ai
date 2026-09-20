@@ -12,6 +12,13 @@ jobs:
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
+    # The `secrets` context is not available in a step `if:`, so record the
+    # App's presence here, where it is. The mint step below calls
+    # `core.setFailed` when its identifier or its key is empty, which would
+    # fail the whole release over a credential that does not exist yet, and
+    # no missing credential is allowed to do that in this workflow.
+    env:
+      HOMEBREW_TAP_APP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -30,6 +37,27 @@ jobs:
           echo "--- NOTES.md ---"
           cat NOTES.md
 
+      - name: Mint the Homebrew tap token from the GitHub App
+        id: tap_token
+        # Skipped until the App exists, so a release never fails over it,
+        # and skipped on every fork, which cannot read the secrets anyway.
+        # A skipped step leaves its outputs empty, which is what the
+        # fallback below reads.
+        if: env.HOMEBREW_TAP_APP_CONFIGURED == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          # v3 deprecated `app-id` in favor of `client-id`, but the action
+          # sends whichever is set as the JWT issuer and GitHub accepts the
+          # App ID there. #943 stores the App ID, so name that input.
+          app-id: ${{ secrets.HOMEBREW_TAP_APP_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          # Without these the token is scoped to this repository, which is
+          # not the one the cask is pushed to. Naming the tap alone also
+          # bounds a leak to it, which a classic PAT with `repo` never did.
+          owner: Chemaclass
+          repositories: homebrew-tap
+          permission-contents: write
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -37,7 +65,12 @@ jobs:
           args: release --clean --release-notes=NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # An installation token that expires in an hour when the App is
+          # set up, the stored PAT while it is not, and empty when neither
+          # exists, which is the case goreleaser skips the cask push on. The
+          # App's private key does not expire, so once it is in place there
+          # is nothing left to rotate (#943).
+          HOMEBREW_TAP_TOKEN: ${{ steps.tap_token.outputs.token || secrets.HOMEBREW_TAP_TOKEN }}
           # Both optional: the matching publisher builds its manifest and skips
           # the push when its secret is absent, so the release still succeeds.
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
@@ -146,12 +179,15 @@ jobs:
       - name: Homebrew cask serves this tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+          # Either credential pushes the cask: the App mints a token per run
+          # and the PAT is the fallback until the App exists (#943). Only
+          # when both are absent was there no push to verify.
+          TAP_CONFIGURED: ${{ (secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '') || secrets.HOMEBREW_TAP_TOKEN != '' }}
         run: |
           set -euo pipefail
           want="${GITHUB_REF_NAME#v}"
           if [ "$TAP_CONFIGURED" != "true" ]; then
-            echo "::warning::HOMEBREW_TAP_TOKEN is empty, so the cask was never pushed and brew still serves the previous release. Set the secret and re-run."
+            echo "::notice::no tap credential here, which is expected. Chemaclass/homebrew-tap updates its own cask on a half-hourly schedule with its own GITHUB_TOKEN, so brew catches up within the hour and this repository holds no secret for it. Run that repository's 'Update agnostic-ai cask' workflow to pull it forward."
             exit 0
           fi
           delay=5

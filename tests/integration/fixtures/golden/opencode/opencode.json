@@ -10,8 +10,10 @@
     "edit": {
       ".env*": "ask"
     },
+    "github_create_issue": "deny",
     "read": {
       "**": "allow"
-    }
+    },
+    "websearch": "deny"
   }
 }

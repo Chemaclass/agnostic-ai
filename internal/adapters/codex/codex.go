@@ -169,6 +169,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 		emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
+	emit.NoteFieldNoOp(target, spec.KindSettings, emit.XPrefix+target,
+		specsWithCustomSettings(b.Settings), customSettingsNoRouteReason)
 
 	if codexEmitsSkills(cfg) {
 		for _, s := range b.Skills {

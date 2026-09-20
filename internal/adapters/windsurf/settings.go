@@ -39,10 +39,21 @@ func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun b
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", specsWithModel(settings), modelUserOnlyReason)
 	permissions, dropped := devinPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, permissionsKey, dropped, rulesUntranslatedReason)
-	if permissions == nil {
+	keys := map[string]any{}
+	if permissions != nil {
+		keys[permissionsKey] = permissions
+	}
+	// An `x-windsurf` block on a settings spec carries the Devin keys
+	// this adapter does not model, `read_config_from` and `hooks`, into
+	// the same write, and is reason enough to write the file on its
+	// own. `permissions` is excluded: entryRules already reads that one
+	// per spec and per list, taking an author's rules as Devin's own
+	// vocabulary for that spec while a sibling spec still translates.
+	// The general key-by-key merge cannot express that (#949, #966).
+	emit.MergeSettingsCustomKeys(keys, settings, target, permissionsKey)
+	if len(keys) == 0 {
 		return nil
 	}
-	keys := map[string]any{permissionsKey: permissions}
 	return sess.MergeJSONFileNested(path, keys, []string{permissionsKey}, dryRun)
 }
 
@@ -103,13 +114,41 @@ func devinPermissions(settings []spec.Entry) (map[string]any, int) {
 // `x-windsurf.allowed-tools` gets on an agent: an author writing under
 // the windsurf namespace is presumed to know Devin's spelling.
 func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
-	if custom, _ := emit.CustomTargetMeta(entry.Meta, target); custom != nil {
-		if permissions, ok := custom[permissionsKey].(map[string]any); ok {
-			return emit.StringSlice(permissions[list]), true
-		}
+	if custom, ok := emit.SettingsCustomObject(entry, target, permissionsKey); ok {
+		return emit.StringSlice(custom[list]), true
 	}
 	permissions, _ := entry.Meta[permissionsKey].(map[string]any)
 	return emit.StringSlice(permissions[list]), false
+}
+
+// devinPermissionTool maps agnostic-ai's Claude-style tool identifiers
+// onto the bare tool names Devin's `permissions` lists accept. It is
+// keyed separately from the subagent map in agent.go: the two surfaces
+// draw their vocabularies from different pages and have already moved
+// apart once (#951).
+//
+// `/cli/reference/permissions` enumerates five names, "**Available
+// tool names:** `read`, `edit`, `grep`, `glob`, `exec`", and lags its
+// own changelog. The CLI changelog's v3000.10.21 entry (2026-09-10)
+// adds a sixth under `### Fixed`: "`web_search` can now be used as a
+// tool name in `permissions.deny` / `permissions.ask` /
+// `permissions.allow`; previously it was rejected and web searches
+// were always auto-approved."
+//
+// `webfetch` stays out. It is a real tool name, but only in the
+// lifecycle-hooks tool table and a user-tier `disabled_tools` example,
+// and neither governs `permissions`. `web_search` itself is the proof:
+// it shipped as a tool in May 2026 and `permissions` rejected it until
+// September. Only a sentence about `permissions` licenses an entry
+// here.
+var devinPermissionTool = map[string]string{
+	"Read":      "read",
+	"Grep":      "grep",
+	"Glob":      "glob",
+	"Bash":      "exec",
+	"Write":     "edit",
+	"Edit":      "edit",
+	"WebSearch": "web_search",
 }
 
 // devinPermissionRule translates one agnostic-ai permission rule onto
@@ -122,7 +161,8 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 //	Edit(glob)        -> Write(glob), Devin's one file-mutation scope
 //	Bash(prefix:*)    -> Exec(prefix), both prefix matchers
 //	WebFetch(pattern) -> Fetch(pattern), same `domain:` shorthand
-//	Read/Bash/...     -> read/exec/..., the bare tool names in devinTool
+//	Read/Bash/...     -> read/exec/..., the bare names in devinPermissionTool
+//	WebSearch         -> web_search
 //	mcp__server__tool -> unchanged, the spelling Devin documents too
 //
 // An exact `Bash(cmd)` turns on which list holds it, because Devin has
@@ -159,7 +199,7 @@ func devinPermissionRule(rule, list string) (string, bool) {
 		}
 		return "", false
 	}
-	if name, ok := devinTool[rule]; ok {
+	if name, ok := devinPermissionTool[rule]; ok {
 		return name, true
 	}
 	return "", false

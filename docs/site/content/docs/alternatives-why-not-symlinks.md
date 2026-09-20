@@ -7,7 +7,7 @@ weight = 170
 group = "Reference"
 +++
 
-# Why agnostic-ai instead of symlinks or manual copies
+# Why agnostic-ai instead of symlinks
 
 You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. The instinct is to symlink one file into each path, or copy it on every change.
 

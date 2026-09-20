@@ -74,35 +74,71 @@ Report concise findings with `file:line` references.
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
-| `model` | no | unset | Preferred model: a string for every target, or a map per target. |
+| `model` | no | unset | Preferred model: a string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
+| `effort` | no | unset | Reasoning effort: a string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
 | `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) acts on it today, where `project` is the scope git carries. Junie passes the key through; every other adapter drops it.
+`memory` gives the agent a directory that survives across sessions. [Claude Code](@/docs/targets/claude.md#agent-memory) is the one target confirmed to act on it, where `project` is the scope git carries. [Qoder](@/docs/targets/qoder.md#subagent-memory) documents the same three scopes on its project subagent file, so the key is written there too, but no run has confirmed the CLI acts on it. Junie passes the key through; every other adapter drops it.
 
-### Per-target models
+### Per-target `model` and `effort` {#per-target-model-and-effort}
 
-`model:` takes a string or a map keyed by target name, with an optional `default`.
-
-```yaml
----
-name: code-reviewer
-model:
-  claude: opus
-  codex: gpt-5.5
-  default: gpt-4o
----
-```
-
-For each target, the matching key wins, then `default`. With neither, no `model` line is written and the tool uses its own default. `x-<target>.model` beats the map, and `x-<target>.model: null` deletes it.
+`model:` and `effort:` each take a plain scalar or a map keyed by target name, with an optional `default`. Precedence runs `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written at all and the tool uses its own default. `x-<target>.<key>: null` deletes it. A value under a target key that is not a scalar (a nested map, a list, a null) falls through to `default` the same way an absent key does.
 
 | Want | Write |
 |------|-------|
 | Same model everywhere | `model: sonnet` |
 | Per target, with a fallback | `model: {claude: sonnet, default: gpt-4o}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
+| Different effort per target | `effort: {claude: xhigh, default: high}` |
+
+Both keys in one agent, and what each target writes:
+
+```yaml
+---
+name: architect
+description: Designs the change before anyone codes it.
+model:
+  claude: opus
+  cursor: "claude-opus-5[effort=high]"
+  default: gpt-5.5
+effort:
+  claude: xhigh
+  qoder: 8000
+  factory: max
+  default: high
+x-codex:
+  model_reasoning_effort: high
+---
+```
+
+| Target | Emits |
+|--------|-------|
+| [Claude Code](@/docs/targets/claude.md) | `model: opus`, `effort: xhigh` |
+| [Qoder](@/docs/targets/qoder.md) | `model: gpt-5.5`, `effort: 8000` |
+| [Factory](@/docs/targets/factory.md) | `model: gpt-5.5`, no `reasoningEffort`, and one coverage note: `max` is outside Factory's enum |
+| [Junie](@/docs/targets/junie.md) | `model: gpt-5.5`, `effort: high` |
+| [Cursor](@/docs/targets/cursor.md) | `model: claude-opus-5[effort=high]`. The resolved `high` is discarded |
+| [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "high"` from `x-codex`. The portable `high` is discarded |
+| [Trae](@/docs/targets/trae.md) | `model` dropped with a coverage note, `effort` dropped without one |
+
+**`effort` values by target.** Only the targets listed were checked. A top-level `effort` asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere.
+
+| Target | `effort` values | How it lands |
+|--------|-----------------|--------------|
+| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | Written verbatim as `effort`. Not validated |
+| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget | Written verbatim as `effort` |
+| [Junie](@/docs/targets/junie.md) | The vendor documents `effort` as an alias of `reasoningLevel` | Written verbatim as `effort` |
+| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
+| [Cursor](@/docs/targets/cursor.md) | none | No frontmatter key. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Codex](@/docs/targets/codex.md) | none | Not written. Set `x-codex.model_reasoning_effort` |
+| [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written |
+
+The "How it lands" column is the point: on Claude Code, Qoder, and Junie agnostic-ai writes the value and validates nothing, and on Cursor it does nothing at all.
+
+Two targets couple the two keys, in opposite directions. Cursor encodes per-model options inside the model string rather than as a field, so its effort rides on the `model` map and never on the `effort` map. Factory goes the other way: it ignores `reasoningEffort` when `model` resolves to `inherit`, so both keys are written and the vendor drops one.
 
 ### `tools` support by target
 
@@ -133,19 +169,6 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
 
 **An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
-
-### `effort` support by target {#effort-support-by-target}
-
-Only the targets listed were checked. A top-level `effort` on an agent asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere below.
-
-| Target | Values |
-|--------|--------|
-| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent |
-| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget |
-| [Factory](@/docs/targets/factory.md) | Emitted as `reasoningEffort`. Only `low`, `medium`, `high`; anything wider is dropped with a note |
-| [Cursor](@/docs/targets/cursor.md) | No frontmatter key. Write it into the model id: `model: claude-opus-5[effort=high]` |
-
-Cursor is the reason this is not one key everywhere. It encodes per-model options inside the model string rather than as a field, so the same intent is a frontmatter key on three targets and a model-id transformation on the fourth. Factory also ignores the field entirely under `model: inherit`.
 
 ### `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
@@ -480,11 +503,24 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 | Target | `permissions` | `model` |
 |---|---|---|
 | Claude Code, Qoder, Kilo Code, OpenCode | yes | yes |
+| Factory | `Bash` rules only | yes |
 | Windsurf | yes | no |
 | Augment | `allow` and `deny` only | no |
-| Codex, Copilot, Junie, Factory | no | yes |
+| Codex, Copilot, Junie | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, Codex, and Factory report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, and Codex report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Factory's three command lists take shell-command patterns, so a `Bash` rule translates and a `Read(src/**)` raises a note. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+
+A list does not always land in the key its name matches. Factory's `commandDenylist` prompts and can still be approved, so portable `ask` goes there and portable `deny` goes to `commandBlocklist`, the key with no approval path. Read the target page before assuming a name match.
+
+Target-specific settings keys go under `x-<target>`, the same escape hatch agents and commands have. The block merges into that target's own settings file, so `x-factory.sandbox` reaches `.factory/settings.json` and `x-kilo.sandbox` reaches `kilo.jsonc`. Use it for surfaces no portable field models. Codex is the exception: `.codex/config.toml` is TOML rendered from the captured overlay plus `outputs.codex.config`, so an `x-codex` block on a settings spec raises a coverage note naming both routes instead of emitting.
+
+On a key this tool also writes, the two values merge rather than one replacing the other. Two lists union, translated entries first; two objects merge key by key and recurse; a scalar such as `model` is replaced, since it has no parts to keep. So `x-factory.commandBlocklist: ["author-only"]` beside a portable `deny: ["Bash(rm:*)"]` writes both patterns, and a translated deny rule never leaves the file because an author added one of their own. Two shapes that cannot merge, a list against a string, keep the `x-<target>` value and print a coverage note naming the key.
+
+One exception: a map of whole records merges by name, not by field. `x-qoder.mcpServers` and `x-augment.mcpServers` union with the servers the MCP specs contributed, and a server both sides name is taken from the `x-<target>` block entire. A server definition is one record whose transport fields have to agree with each other, so merging inside one would put your `command` beside the spec's `args`, or a `url` beside a `command` (#974).
+
+Key order is part of the merge. A block this tool writes in a fixed order, `x-qoder.hooks` and `x-augment.hooks` against a generated hook block, keeps that order: the translated events stay where the vendor's lifecycle puts them, an event you also name merges under it, and an event only you name is appended (#976).
+
+The four keys with their own handling take one shape each, and a value of another shape cannot be read at all. `x-augment.toolPermissions` takes a list; `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` take an object. Write one of those under the wrong shape and the hatch is skipped, the translated rules ship in its place, and a coverage note names the key and both shapes. Before #976 that skip was silent, which is the worst version of the failure this tool exists to prevent: a permission policy that does nothing and says nothing.
 
 ## Reviews
 
@@ -601,3 +637,5 @@ For each target, all `x-*` keys are dropped, then the matching `x-<target>` bloc
 Any other key under `x-<target>` emits verbatim into that target's output. That block is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
 
 Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
+
+On a settings spec the block merges into the target's own settings file, key by key, with the keys this tool manages there: lists union, objects recurse, and only a scalar is replaced outright. A map of whole records, `mcpServers` on qoder and augment, unions by name and replaces a colliding entry whole. See [Settings](@/docs/spec-format.md#settings) for the full rule. Four targets keep their own handling for one key each, where the author's rules merge with the translated ones on that target's own terms: `x-augment.toolPermissions` (a list), `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` (objects). Each reads only its own shape, and another shape is skipped under a coverage note. Codex takes no settings block at all and says so in a coverage note.

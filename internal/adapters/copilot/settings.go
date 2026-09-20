@@ -44,7 +44,21 @@ const disabledMcpServersKey = "disabledMcpServers"
 // vendor states it "doesn't support deny rules, 'ask' rules, default
 // modes, URL rules, tool filtering, or repository-local shared policy"
 // (target-audit 2026-09-19, #917).
-const permissionsMDMOnlyReason = "Copilot's deny/ask/allow rule grammar exists only in device-level MDM managed settings; the repository-settings table for .github/copilot/settings.json names no permissions key"
+//
+// The repository table does carry one deny route, though it is not a
+// permission rule: `deniedUrls`, "URLs or domains blocked", merged as
+// "Union, repository can add entries, never remove". It refuses a tool
+// call rather than filtering egress, since the vendor documents
+// "accessing URLs" among the actions requiring approval and makes
+// `allowedUrls` the persisted "allowed without prompting" list. No
+// portable rule reaches it: this project has no domain scope, and the
+// nearest spelling, Claude's `WebFetch(domain:...)`, has no confirmed
+// form here because the vendor documents wildcard support on
+// `allowedUrls` alone. `allowedUrls` is also user-tier only, so allow
+// can never reach the repository file. Write it through
+// `x-copilot.deniedUrls`, which the settings hatch carries verbatim
+// (target-audit 2026-09-20, #959).
+const permissionsMDMOnlyReason = "Copilot's deny/ask/allow rule grammar exists only in device-level MDM managed settings; the repository-settings table for .github/copilot/settings.json names no permissions key, though its deniedUrls key does block URLs and domains, reachable with x-copilot.deniedUrls"
 
 func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) error {
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
@@ -56,6 +70,15 @@ func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) 
 	if names := disabledMCPNames(mcps); len(names) > 0 {
 		keys[disabledMcpServersKey] = names
 	}
+	// The `x-copilot` block on a settings spec carries the repository
+	// keys this adapter does not model, `respectGitignore` among the
+	// fourteen that table lists. Without it they are unreachable
+	// (#949). It merges with the managed keys rather than replacing
+	// them, matching how the vendor merges the repository tier itself:
+	// `disabledMcpServers` and `deniedUrls` are both "Union, repository
+	// can add entries, never remove", so a hatch entry joins the list
+	// the MCP specs produced instead of erasing it (#966).
+	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {
 		return nil
 	}

@@ -49,7 +49,7 @@ write_url() {
     docs/site/templates/base.html docs/site/templates/docs/section.html \
     docs/site/templates/docs/page.html docs/site/templates/macros/docs.html \
     docs/site/static/assets/styles/base.css docs/site/static/assets/styles/docs.css \
-    docs/site/static/assets/scripts/theme.js
+    docs/site/static/assets/scripts/theme.js docs/site/static/assets/scripts/video.js
   write_url /updates/ weekly 0.9 \
     docs/site/content/updates/_index.md docs/site/content/updates/[0-9]*.md \
     docs/site/data/updates.toml \

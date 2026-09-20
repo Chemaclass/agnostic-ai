@@ -50,16 +50,18 @@
     <div class="wrap site-bar">
       <div class="brand-group">
         <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
-        <a class="brand-version" href="{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}" aria-label="Latest stable release {{ config.extra.version }}, downloads and release notes on GitHub">{{ config.extra.version }}</a>
+        <a class="brand-version" href="{{ config.extra.repository_url }}/releases/tag/{{ config.extra.version }}" target="_blank" rel="noopener noreferrer" aria-label="Latest stable release {{ config.extra.version }}, downloads and release notes on GitHub, opens in a new tab">{{ config.extra.version }}</a>
       </div>
       <nav class="site-nav" aria-label="Primary">
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with('/updates') %} aria-current="page"{% endif %}>Updates</a>
         <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
         <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with('/docs') %} aria-current="page"{% endif %}>Docs</a>
-        <a href="{{ config.extra.repository_url }}">GitHub</a>
       </nav>
       <div class="site-actions">
+        <a class="site-external" href="{{ config.extra.repository_url }}" target="_blank" rel="noopener noreferrer" aria-label="agnostic-ai on GitHub, opens in a new tab" title="GitHub">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
+        </a>
         <button class="search-trigger" type="button" data-search-open aria-haspopup="dialog" aria-controls="site-search" aria-keyshortcuts="Meta+K Control+K /" aria-label="Search docs and updates" title="Search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <span class="search-trigger-label">Search</span>
@@ -91,13 +93,13 @@
         <a class="brand footer-brand" href="{{ get_url(path='@/_index.md') }}"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
         <p class="footer-tagline">Write the rule once. Keep the differences visible.</p>
         <div class="footer-social">
-          <a class="footer-social-link" href="{{ config.extra.repository_url }}" aria-label="agnostic-ai on GitHub">
+          <a class="footer-social-link" href="{{ config.extra.repository_url }}" target="_blank" rel="noopener noreferrer" aria-label="agnostic-ai on GitHub, opens in a new tab">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
           </a>
           <a class="footer-social-link" href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}" aria-label="Target updates RSS feed">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 11.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5ZM1 6.6a8.4 8.4 0 0 1 8.4 8.4h2.3A10.7 10.7 0 0 0 1 4.3v2.3ZM1 2a13 13 0 0 1 13 13h2.3C16.3 6.6 10.4 0 1 0v2Z"/></svg>
           </a>
-          <a class="footer-sponsor" href="{{ config.extra.sponsor_url }}">
+          <a class="footer-sponsor" href="{{ config.extra.sponsor_url }}" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 14.3 6.8 13.2C2.7 9.5.9 7.9.9 5.8.9 3.7 2.5 2.2 4.5 2.2c1.2 0 2.3.5 3 1.4h1c.7-.9 1.8-1.4 3-1.4 2 0 3.6 1.5 3.6 3.6 0 2.1-1.8 3.7-5.9 7.4L8 14.3Z"/></svg>
             <span>Donate</span>
           </a>
@@ -125,7 +127,7 @@
         <div class="footer-col">
           <h2 class="footer-col-title">Project</h2>
           <ul>
-            <li><a href="{{ config.extra.repository_url }}">GitHub</a></li>
+            <li><a href="{{ config.extra.repository_url }}" target="_blank" rel="noopener noreferrer">GitHub</a></li>
             <li><a href="{{ config.extra.repository_url }}/releases">Releases</a></li>
             <li><a href="{{ config.extra.repository_url }}/issues">Issues</a></li>
             <li><a href="{{ config.extra.repository_url }}/blob/main/LICENSE">MIT License</a></li>

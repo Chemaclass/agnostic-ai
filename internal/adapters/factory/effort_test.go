@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -47,6 +48,18 @@ func TestDroidReasoningEffort_RejectsValuesOutsideFactorysEnum(t *testing.T) {
 	}
 }
 
+// A YAML integer budget is the shape the string form misses. yaml.v3
+// hands it over as int, int64, or float64 depending on the scalar, and
+// every one of them has to reach the note rather than read as absent.
+func TestDroidReasoningEffort_CountsIntegerBudget(t *testing.T) {
+	for _, value := range []any{8000, int64(8000), float64(8000)} {
+		got, ok := droidReasoningEffort(map[string]any{"effort": value})
+		if got != "8000" || ok {
+			t.Errorf("droidReasoningEffort(%T %v) = (%q, %v), want (\"8000\", false)", value, value, got, ok)
+		}
+	}
+}
+
 // A native reasoningEffort the author wrote wins over the portable one.
 func TestDroidReasoningEffort_NativeKeyWins(t *testing.T) {
 	got, ok := droidReasoningEffort(map[string]any{"effort": "max", "reasoningEffort": "medium"})
@@ -59,5 +72,27 @@ func TestDroidReasoningEffort_NativeKeyWins(t *testing.T) {
 func TestDroidReasoningEffort_AbsentIsQuiet(t *testing.T) {
 	if got, ok := droidReasoningEffort(map[string]any{}); got != "" || ok {
 		t.Errorf("got (%q, %v), want (\"\", false)", got, ok)
+	}
+}
+
+// A per-target `effort` map collapses in emit before Factory ever sees
+// it, so the note path reads the same scalar it always did. This guards
+// the seam: the collapser is generic, and nothing in this adapter knows
+// the map form exists (#968).
+func TestDroidReasoningEffort_ReadsThroughThePerTargetMap(t *testing.T) {
+	meta := map[string]any{
+		"effort": map[string]any{"factory": "max", "default": "high"},
+	}
+	got, ok := droidReasoningEffort(emit.ResolveMeta(meta, target))
+	if got != "max" || ok {
+		t.Errorf("got (%q, %v), want (\"max\", false)", got, ok)
+	}
+	// The same spec on a target the map does not name falls back to
+	// `default`, which Factory does accept.
+	fallback := map[string]any{
+		"effort": map[string]any{"claude": "xhigh", "default": "high"},
+	}
+	if got, ok := droidReasoningEffort(emit.ResolveMeta(fallback, target)); got != "high" || !ok {
+		t.Errorf("got (%q, %v), want (\"high\", true)", got, ok)
 	}
 }

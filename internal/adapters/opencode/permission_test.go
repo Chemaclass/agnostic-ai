@@ -106,9 +106,36 @@ func TestBuildPermissions(t *testing.T) {
 			want:    map[string]any{"webfetch": "allow"},
 		},
 		{
-			// OpenCode's vocabulary has no MCP-scoped key at all.
-			name:    "an MCP rule has no key",
+			// OpenCode matches permission keys as wildcard patterns
+			// against the underlying tool name, and registers an MCP
+			// tool under its server name as prefix.
+			name:    "an MCP rule maps onto the namespaced tool key",
 			entries: []spec.Entry{settingsEntry("a", map[string]any{"deny": []any{"mcp__github__list_issues"}})},
+			want:    map[string]any{"github_list_issues": "deny"},
+		},
+		{
+			// The vendor's own glob example matches `my-mcp_search`,
+			// so a hyphenated server name passes through verbatim.
+			name:    "a hyphenated MCP server name passes through",
+			entries: []spec.Entry{settingsEntry("a", map[string]any{"ask": []any{"mcp__my-mcp__search"}})},
+			want:    map[string]any{"my-mcp_search": "ask"},
+		},
+		{
+			// An MCP tool claimed by two lists resolves the same way a
+			// built-in does.
+			name: "the most restrictive action wins an MCP collision",
+			entries: []spec.Entry{settingsEntry("a", map[string]any{
+				"allow": []any{"mcp__github__create_issue"},
+				"deny":  []any{"mcp__github__create_issue"},
+			})},
+			want: map[string]any{"github_create_issue": "deny"},
+		},
+		{
+			// `mcp__github` names no tool, so it is not a portable MCP
+			// rule at all. Whole-server denial needs OpenCode's own
+			// `github_*` wildcard through x-opencode.permission.
+			name:    "a whole-server MCP rule has no portable form",
+			entries: []spec.Entry{settingsEntry("a", map[string]any{"deny": []any{"mcp__github"}})},
 			want:    nil,
 			dropped: 1,
 		},
@@ -123,7 +150,7 @@ func TestBuildPermissions(t *testing.T) {
 			// the coverage note reads per file rather than per rule.
 			name: "a spec with several unmappable rules counts once",
 			entries: []spec.Entry{settingsEntry("a", map[string]any{
-				"allow": []any{"Telepathy", "mcp__x__y"},
+				"allow": []any{"Telepathy", "WebSearch(kittens)"},
 				"deny":  []any{"Read(src/**)"},
 			})},
 			want:    map[string]any{"read": map[string]any{"src/**": "deny"}},
@@ -214,6 +241,46 @@ func TestEmit_WritesPermissionIntoProjectConfig(t *testing.T) {
 	}
 }
 
+// TestEmit_WritesMCPDenyIntoProjectConfig is the end-to-end form of
+// #947: the deny the user committed has to reach opencode.json, not a
+// coverage note. OpenCode defaults most permissions to allow, so a
+// dropped rule leaves the MCP tool runnable.
+func TestEmit_WritesMCPDenyIntoProjectConfig(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	t.Cleanup(emit.ResetCoverageNotes)
+	entries := []spec.Entry{settingsEntry("base", map[string]any{
+		"allow": []any{"Read"},
+		"deny":  []any{"mcp__github__create_issue"},
+	})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	perms, ok := projectConfig(t, dir)["permission"].(map[string]any)
+	if !ok {
+		t.Fatalf("no permission key in opencode.json")
+	}
+	if perms["github_create_issue"] != "deny" {
+		t.Errorf("github_create_issue = %#v, want deny", perms["github_create_issue"])
+	}
+}
+
+// TestPermissionNote_DoesNotClaimOpenCodeLacksAnMCPKey guards the
+// regression #947 was filed for. The note used to read "including
+// every mcp__ rule", which is false: OpenCode matches permission keys
+// as wildcard patterns against the underlying tool name, so
+// `<server>_<tool>` is a key. Only a whole-server rule stays out of
+// reach, and the note has to say that much and no more.
+func TestPermissionNote_DoesNotClaimOpenCodeLacksAnMCPKey(t *testing.T) {
+	if strings.Contains(permissionUnmappableReason, "every mcp__ rule") {
+		t.Errorf("note still claims every mcp__ rule drops: %s", permissionUnmappableReason)
+	}
+	for _, want := range []string{"whole-server", "x-opencode.permission"} {
+		if !strings.Contains(permissionUnmappableReason, want) {
+			t.Errorf("expected note to mention %q, got: %s", want, permissionUnmappableReason)
+		}
+	}
+}
+
 // TestEmit_NotesRulesWithNoOpenCodeKey keeps the unmappable rules
 // visible instead of dropping them in silence, the failure #917 was
 // filed for.
@@ -226,7 +293,7 @@ func TestEmit_NotesRulesWithNoOpenCodeKey(t *testing.T) {
 	t.Cleanup(func() { emit.Warner = prev })
 
 	entries := []spec.Entry{settingsEntry("base", map[string]any{
-		"deny": []any{"mcp__github__list_issues"},
+		"deny": []any{"WebSearch(kittens)"},
 	})}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)

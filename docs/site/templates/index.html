@@ -8,7 +8,6 @@
 {% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/landing.css', trailing_slash=false) }}">{% endblock styles %}
 {% block structured_data %}
-{% set landing = load_data(path="data/landing.toml") %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -44,17 +43,6 @@
         "Round-trip safe import then sync",
         "sync --check CI drift detection"
       ]
-    },
-    {
-      "@type": "VideoObject",
-      "@id": "{{ config.base_url }}/#demo",
-      "name": {{ landing.demo.video_title | json_encode | safe }},
-      "description": {{ landing.demo.body | json_encode | safe }},
-      "thumbnailUrl": "{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}",
-      "uploadDate": "{{ landing.demo.upload_date }}",
-      "duration": "{{ landing.demo.duration }}",
-      "contentUrl": "https://www.youtube.com/watch?v={{ landing.demo.video_id }}",
-      "embedUrl": "https://www.youtube-nocookie.com/embed/{{ landing.demo.video_id }}"
     }
   ]
 }
@@ -64,6 +52,7 @@
 {% block content %}
 {% set landing = load_data(path="data/landing.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
+{% set capabilities = load_data(path="data/capabilities.toml") %}
 {% set default_installer = landing.workflow.installers | filter(attribute="id", value="script") | first %}
 {% set updates_section = get_section(path="updates/_index.md") %}
 {% set latest_update = updates_section.pages | first %}
@@ -79,24 +68,41 @@
         </div>
         <div class="hero-install" data-hero-installer>
           <p><span data-hero-installer-label>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
-          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
+          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button><div class="rails" aria-hidden="true"><span class="origin"></span>{% set_global rail_count = 0 %}{% for output in landing.hero.diagram.outputs %}{% if output.rail | default(value=true) %}{% set_global rail_count = rail_count + 1 %}<i><em><b>{{ output.id }}</b>{{ output.path | split(pat="/") | first }}/</em></i>{% endif %}{% endfor %}<i><em>+{{ capabilities.targets | length - rail_count }} more</em></i></div></div>
           {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
-        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
+        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a></p>
       </div>
+    </div>
+  </section>
 
-      <div class="transform" aria-label="One portable rule becomes native configuration files">
-        <div class="transform-caption"><span>one spec</span><span>native output</span></div>
+  <section class="section-band" id="transform">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.transform.title }} <span>{{ landing.transform.muted_title }}</span></h2>
+      <div class="transform reveal-group" aria-label="One portable agent spec becomes a different native file for every target">
+        <div class="transform-caption"><span>{{ landing.hero.diagram.caption_source }}</span><span>{{ landing.hero.diagram.caption_output }}</span></div>
         <div class="spec-card">
           <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.hero.diagram.source_name }}</div>
-          <pre><code>{{ landing.hero.diagram.source }}</code></pre>
+          <pre><code>{{ landing.hero.diagram.source | trim }}</code></pre>
         </div>
         <svg class="transform-arrow" viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg>
-        <div class="output-files">
-          {% for output in landing.hero.diagram.outputs %}
-          <div class="output-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>{{ output }}</span></div>
-          {% endfor %}
+        <div class="output-switch" data-output-switch>
+          <div class="output-files" role="tablist" aria-orientation="vertical" aria-label="{{ landing.hero.diagram.panel_label }}">
+            {% for output in landing.hero.diagram.outputs %}
+            <button type="button" class="output-file" role="tab" id="output-tab-{{ output.id }}" aria-controls="output-panel-{{ output.id }}" aria-selected="{{ output.selected | default(value=false) }}" tabindex="{% if output.selected %}0{% else %}-1{% endif %}" data-output-tab>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>{{ output.path }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="output-panels">
+            {% for output in landing.hero.diagram.outputs %}
+            <div class="output-panel" role="tabpanel" id="output-panel-{{ output.id }}" aria-labelledby="output-tab-{{ output.id }}" tabindex="0" data-output-panel{% if not output.selected %} hidden{% endif %}>
+              <p class="output-note">{{ output.note | markdown(inline=true) | safe }}</p>
+              <pre><code>{{ output.body | trim }}</code></pre>
+            </div>
+            {% endfor %}
+          </div>
         </div>
       </div>
     </div>
@@ -136,24 +142,10 @@
     </div>
   </section>
 
-  <section id="demo">
-    <div class="wrap">
-      <h2 class="section-title">{{ landing.demo.title }} <span>{{ landing.demo.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.demo.body | markdown | safe }}</div>
-      <div class="demo-frame reveal-group" data-video-facade data-video-id="{{ landing.demo.video_id }}" data-video-title="{{ landing.demo.video_title }}">
-        <a class="demo-poster" href="https://www.youtube.com/watch?v={{ landing.demo.video_id }}" data-video-play aria-label="{{ landing.demo.play_label }}">
-          <img src="{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}" width="1280" height="720" alt="" loading="lazy" decoding="async">
-          <span class="demo-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
-        </a>
-      </div>
-    </div>
-  </section>
-
   <section id="targets">
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.targets.body | markdown | safe }}</div>
-      {% set capabilities = load_data(path="data/capabilities.toml") %}
+      <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
       {% set_global capability_columns = [] %}
       {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set_global capability_columns = capability_columns | concat(with=loop.index0) %}{% endif %}{% endfor %}
       <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">

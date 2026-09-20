@@ -9,7 +9,10 @@
     ],
     "deny": [
       "Bash(rm:*)",
-      "Bash(rm -rf /)"
+      "Bash(rm -rf /)",
+      "WebSearch",
+      "mcp__github__create_issue",
+      "AuthorOnly"
     ]
   },
   "model": "example-model",

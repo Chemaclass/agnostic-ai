@@ -1,3 +1,11 @@
 {
+  "commandAllowlist": [
+    "go test *"
+  ],
+  "commandBlocklist": [
+    "rm *",
+    "rm -rf /",
+    "author-only"
+  ],
   "model": "example-model"
 }

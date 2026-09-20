@@ -102,6 +102,13 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
+		// delta pins the per-target `effort` map in emitted bytes. Qoder
+		// is the one target documenting an integer budget, so the golden
+		// proves the pick keeps the number a number (#968).
+		{
+			Kind: spec.KindAgent, Name: "delta", Path: "agents/delta.md", Body: "delta body",
+			Meta: map[string]any{"effort": map[string]any{"claude": "xhigh", "qoder": 8000, "factory": "high"}},
+		},
 		{Kind: spec.KindSkill, Name: "uno", Meta: map[string]any{"description": "Uno skill description."}, Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Meta: map[string]any{"description": "Dos skill description."}, Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Meta: map[string]any{"description": "Tres skill description."}, Body: "tres skill body"},

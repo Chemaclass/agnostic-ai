@@ -48,3 +48,121 @@ func TestEmit_SettingsWritesModelPermissionsAndPreservesKeys(t *testing.T) {
 		t.Errorf("allow = %#v", permissions["allow"])
 	}
 }
+
+// An `x-qoder` key on a settings spec reaches `.qoder/settings.json`
+// untouched, and leaves the managed `model` and `permissions` alone (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":       "qoder-max",
+		"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}},
+		"x-qoder":     map[string]any{"enableAllProjectMcpServers": true},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".qoder/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["enableAllProjectMcpServers"] != true {
+		t.Errorf("x-qoder.enableAllProjectMcpServers never reached the file: %#v", got)
+	}
+	model, _ := got["model"].(map[string]any)
+	if model["name"] != "qoder-max" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("permissions = %#v, want the managed key untouched", got["permissions"])
+	}
+	if _, hasX := got["x-qoder"]; hasX {
+		t.Errorf("the x-qoder wrapper must not be written: %#v", got)
+	}
+}
+
+// An `x-qoder.permissions` block joins the translated one key by key,
+// so a Qoder-only deny rule adds to the deny list instead of taking
+// the translated rules with it (#966).
+func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"permissions": map[string]any{
+			"deny":  []any{"Bash(rm:*)"},
+			"allow": []any{"Bash(go test:*)"},
+		},
+		"x-qoder": map[string]any{
+			"permissions": map[string]any{"deny": []any{"AuthorOnly"}},
+		},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".qoder/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	wantDeny := []any{"Bash(rm:*)", "AuthorOnly"}
+	if !reflect.DeepEqual(perms["deny"], wantDeny) {
+		t.Errorf("deny = %#v, want %#v", perms["deny"], wantDeny)
+	}
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("allow = %#v, want the translated allow list kept", perms["allow"])
+	}
+}
+
+// A server the MCP specs already named is taken from the hatch whole.
+// The general settings merge went field by field, which put the
+// hatch's `command` beside the spec's `args` and ran the author's
+// binary with the previous binary's flags (#974).
+func TestEmit_SettingsCustomMCPServerReplacesTheWholeRecord(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "foo", Meta: map[string]any{"command": "old-binary", "args": []any{"--from-spec"}}},
+		{Kind: spec.KindMCP, Name: "keepme", Meta: map[string]any{"command": "spec-only"}},
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{
+				"foo":       map[string]any{"url": "https://example.test/mcp"},
+				"hatchonly": map[string]any{"command": "author"},
+			},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".qoder/settings.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	servers, ok := got["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("mcpServers = %#v, want a map", got["mcpServers"])
+	}
+	foo, ok := servers["foo"].(map[string]any)
+	if !ok {
+		t.Fatalf("foo = %#v, want a map", servers["foo"])
+	}
+	for _, stale := range []string{"command", "args"} {
+		if _, held := foo[stale]; held {
+			t.Errorf("%q from the spec survived onto an HTTP record: %#v", stale, foo)
+		}
+	}
+	if foo["url"] != "https://example.test/mcp" {
+		t.Errorf("url = %#v, want the hatch's", foo["url"])
+	}
+	// The registry-level union is the #966 fix and must survive it.
+	for _, name := range []string{"keepme", "hatchonly"} {
+		if _, held := servers[name]; !held {
+			t.Errorf("%q missing from the union: %#v", name, servers)
+		}
+	}
+}

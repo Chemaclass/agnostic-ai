@@ -40,6 +40,51 @@ Keep each change independently usable and focused on one outcome. Add tests for 
 | Browser playground | [Playground development](docs/playground/README.md) |
 | Editor extensions | [Editors](editors/README.md) |
 
+## Preview the site
+
+The docs site is [Zola](https://www.getzola.org/). Install it with whichever
+method suits your platform: [Zola installation](https://www.getzola.org/documentation/getting-started/installation/).
+
+The version has to match the pin in [Makefile](Makefile) (`ZOLA_VERSION`)
+exactly:
+
+```bash
+zola --version
+```
+
+Package managers track the newest release, so yours may well be ahead of the
+pin. To run the pinned build without touching your install, fetch that release
+and put it first on `PATH` for one command (swap the pattern for your
+platform's asset):
+
+```bash
+gh release download v0.22.0 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
+tar xzf zola-v0.22.0-aarch64-apple-darwin.tar.gz
+PATH="$PWD:$PATH" make site-serve
+```
+
+Then:
+
+```bash
+make site-serve            # live reload on http://127.0.0.1:1111
+make site-check            # internal links
+make site-build            # what Pages publishes, into _site/
+make site-test             # site JS tests plus the Go site tests
+```
+
+`site-serve`, `site-check` and `site-build` all refuse to run on the wrong Zola
+version and print what they found.
+
+**A mismatched Zola does not fail `go test ./...`, it silently skips.**
+`TestSiteDocs_BuildsBrowsablePublicGuides`, `TestSiteDocs_BuildsSiteSearchIndex`
+and `TestTargetUpdates_PostAloneUpdatesSiteOutputs` call `t.Skip` when the
+version does not match, so a green run proves nothing about a change under
+`docs/site/`. Read the skip count, or run `make site-test` with the pinned
+binary, before trusting a site change.
+
+Never edit `docs/site/templates/` to satisfy a newer Zola. That breaks the
+pinned build CI and Pages actually use.
+
 ## Check and submit
 
 Install the pinned development tools once. Ensure `$(go env GOPATH)/bin` is on `PATH` first:

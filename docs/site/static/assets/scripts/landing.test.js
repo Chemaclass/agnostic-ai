@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, embedURL } = require("./landing.js");
+const { detectOS, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -26,12 +26,20 @@ test("leaves unknown platforms on the neutral fallback", function () {
   assert.equal(detectOS("FreeBSD amd64", "Mozilla/5.0", 0), "other");
 });
 
-test("builds a privacy-enhanced autoplay embed URL for valid video ids", function () {
-  assert.equal(embedURL("uEG6ITlqyHU"), "https://www.youtube-nocookie.com/embed/uEG6ITlqyHU?autoplay=1&rel=0");
+test("moves the output tablist selection with the arrow keys, wrapping at both ends", function () {
+  assert.equal(nextTabIndex("ArrowDown", 0, 5), 1);
+  assert.equal(nextTabIndex("ArrowRight", 4, 5), 0);
+  assert.equal(nextTabIndex("ArrowUp", 0, 5), 4);
+  assert.equal(nextTabIndex("ArrowLeft", 3, 5), 2);
 });
 
-test("rejects video ids that are not plain YouTube ids", function () {
-  assert.equal(embedURL("../evil"), null);
-  assert.equal(embedURL(""), null);
-  assert.equal(embedURL("uEG6ITlqyHU/x"), null);
+test("jumps the output tablist to the first and last file", function () {
+  assert.equal(nextTabIndex("Home", 3, 5), 0);
+  assert.equal(nextTabIndex("End", 1, 5), 4);
+});
+
+test("leaves keys the output tablist does not own to the browser", function () {
+  assert.equal(nextTabIndex("Tab", 2, 5), -1);
+  assert.equal(nextTabIndex("a", 2, 5), -1);
+  assert.equal(nextTabIndex("ArrowDown", 0, 0), -1);
 });

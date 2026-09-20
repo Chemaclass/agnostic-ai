@@ -35,9 +35,11 @@
 // change in future releases."
 //
 // `allowed-tools` translates agnostic-ai's Claude-style names onto the
-// five Devin publishes as its complete set, `read`, `edit`, `grep`,
-// `glob`, `exec` (docs.devin.ai/cli/reference/permissions); see
-// devinTool for what each collapses onto. A name outside that table is
+// five Devin publishes, `read`, `edit`, `grep`, `glob`, `exec`
+// (docs.devin.ai/cli/reference/permissions); see devinTool for what
+// each collapses onto. The subagent docs enumerate no vocabulary of
+// their own, so that list is the only documented one for this key, and
+// it is not the `permissions` vocabulary. A name outside that table is
 // never guessed at: it drops from the list and folds into one coverage
 // note per sync. `x-windsurf.allowed-tools` wins outright over the
 // translated form for an author who already knows Devin's vocabulary,
@@ -148,13 +150,17 @@
 // `agent` block user only, so writing `agent.model` into a project
 // config would reach nothing. It surfaces a coverage note instead.
 //
-// Devin's rule vocabulary is its own, so each rule translates the same
-// way `allowed-tools` already does on an agent; see
-// devinPermissionRule for the table. A `Bash(...)` rule is never
-// written verbatim: Devin spells shell execution `Exec(...)`. An exact
-// `Bash(cmd)` has no faithful form at all, since Devin's `Exec` only
-// ever prefix-matches, so the translation widens. Which way that cuts
-// depends on the list. On `allow` and `ask` it approves commands the
+// Devin's rule vocabulary is its own, so each rule translates rather
+// than copies; see devinPermissionRule for the table. Its bare tool
+// names are keyed separately from the subagent `allowed-tools` map,
+// because the two vocabularies come from different pages and have
+// already moved apart: `permissions` accepts `web_search` since CLI
+// v3000.10.21 while the subagent docs enumerate no list at all (#951).
+// A `Bash(...)` rule is never written verbatim: Devin spells shell
+// execution `Exec(...)`. An exact `Bash(cmd)` has no faithful form at
+// all, since Devin's `Exec` only ever prefix-matches, so the
+// translation widens. Which way that cuts depends on the list.
+// On `allow` and `ask` it approves commands the
 // author never wrote, so the rule drops into a coverage note. On `deny`
 // it blocks more than was asked for, and Devin's changelog for
 // v3000.10.31 states a command deny outranks a broader allow or ask, so

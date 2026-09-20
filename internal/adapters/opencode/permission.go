@@ -58,7 +58,12 @@ var permissionSeverity = map[string]int{"allow": 1, "ask": 2, "deny": 3}
 
 // permissionUnmappableReason explains, in the flushed coverage note,
 // why some rules did not reach `opencode.json`.
-const permissionUnmappableReason = "rule(s) outside OpenCode's permission vocabulary have no key there, including every mcp__ rule and any path- or URL-scoped webfetch or websearch rule; set x-opencode.permission for those"
+//
+// This used to claim every `mcp__` rule had no key, which was false
+// and stopped users looking further (#947). A single MCP tool maps
+// onto `<server>_<tool>`; only whole-server denial has no portable
+// spelling here, because `mcp__<server>` names no tool.
+const permissionUnmappableReason = "rule(s) outside OpenCode's permission vocabulary have no key there, including any path- or URL-scoped webfetch or websearch rule, and whole-server MCP denial, since a portable mcp__ rule names one tool; set x-opencode.permission for those"
 
 // buildPermissions renders the portable allow, deny, and ask lists as
 // OpenCode's `permission` map, and reports how many settings specs
@@ -133,11 +138,7 @@ func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 // nativePermission returns one settings spec's `x-opencode.permission`
 // map, or nil when it has none.
 func nativePermission(entry spec.Entry) map[string]any {
-	custom, _ := emit.CustomTargetMeta(entry.Meta, target)
-	if custom == nil {
-		return nil
-	}
-	native, _ := custom[permissionKey].(map[string]any)
+	native, _ := emit.SettingsCustomObject(entry, target, permissionKey)
 	return native
 }
 
@@ -147,11 +148,16 @@ func nativePermission(entry spec.Entry) map[string]any {
 // A bare tool name covers the whole tool, so it becomes the catch-all
 // pattern and collapses back to a bare action when nothing narrows it.
 func translateRule(rule string) (tool, pattern string, ok bool) {
-	// OpenCode's vocabulary has no MCP-scoped key, so these have
-	// nowhere to go even though every other target in this registry
-	// accepts the spelling.
-	if _, _, isMCP := spec.SplitMCPPermissionRule(rule); isMCP {
-		return "", "", false
+	// An MCP tool is a permission key like any other: "Permission keys
+	// are matched as wildcard patterns against the underlying tool
+	// name, so the same syntax works for built-ins, custom tools, and
+	// MCP tools" (opencode.ai/docs/agents), and "MCP server tools are
+	// registered with server name as prefix"
+	// (opencode.ai/docs/mcp-servers). The server name passes through
+	// verbatim, hyphens included: the same page's glob section reads
+	// `"my-mcp*"` matches `my-mcp_search`. Same join kilo makes.
+	if server, name, isMCP := spec.SplitMCPPermissionRule(rule); isMCP {
+		return server + "_" + name, catchAllPattern, true
 	}
 	scope, arg, scoped := spec.SplitPermissionRule(rule)
 	if !scoped {

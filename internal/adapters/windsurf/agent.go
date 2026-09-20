@@ -9,13 +9,20 @@ import (
 )
 
 // devinTool maps agnostic-ai's Claude-style tool identifiers onto the
-// five names Devin publishes as its complete vocabulary: "**Available
-// tool names:** `read`, `edit`, `grep`, `glob`, `exec`"
+// subagent `allowed-tools` vocabulary: "**Available tool names:**
+// `read`, `edit`, `grep`, `glob`, `exec`"
 // (docs.devin.ai/cli/reference/permissions). `Write` and `Edit` both
 // collapse onto `edit`, which is Devin's single file-mutation tool, so
 // an agent declaring only `Write` also gains edit capability. Names
 // outside this table are never guessed at: they drop and fold into one
 // coverage note per sync.
+//
+// This is keyed separately from devinPermissionTool in settings.go
+// (#951). `/cli/subagents` enumerates no vocabulary for
+// `allowed-tools` at all: it defaults to "all tools" and names only
+// `ask_user_question` as never grantable. Nothing there licenses the
+// names `permissions` has grown, so one shared map would let an edit
+// for one surface silently change the other.
 var devinTool = map[string]string{
 	"Read":  "read",
 	"Grep":  "grep",

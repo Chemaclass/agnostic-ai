@@ -17,5 +17,8 @@
       ],
       "command": "npx"
     }
-  }
+  },
+  "amp.tools.disable": [
+    "builtin:oracle"
+  ]
 }

@@ -294,3 +294,76 @@ func toAnyMap(in map[string]any) map[string]any {
 	}
 	return out
 }
+
+// An `x-kilo` key on a settings spec reaches kilo.jsonc untouched, and
+// leaves the managed `model` and `permission` alone. Kilo's own
+// sandbox block is the worked example: it has no portable counterpart,
+// and its overlap with Factory's is one boolean (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":       "openai/example",
+		"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}},
+		"x-kilo": map[string]any{"sandbox": map[string]any{
+			"enabled":        true,
+			"writable_paths": []any{"build"},
+		}},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "kilo.jsonc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	sandbox, ok := got["sandbox"].(map[string]any)
+	if !ok || sandbox["enabled"] != true {
+		t.Errorf("x-kilo.sandbox never reached the file: %#v", got)
+	}
+	if got["model"] != "openai/example" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	if perms, _ := got["permission"].(map[string]any); len(perms) == 0 {
+		t.Errorf("permission = %#v, want the managed key untouched", got["permission"])
+	}
+	if _, hasX := got["x-kilo"]; hasX {
+		t.Errorf("the x-kilo wrapper must not be written: %#v", got)
+	}
+}
+
+// The general hatch does not disturb the hand-wired `x-kilo.permission`
+// one: that key still merges tool by tool with the translated rules
+// rather than replacing the whole object (#949).
+func TestEmit_SettingsCustomPermissionKeepsPerToolMerge(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "portable", Meta: map[string]any{
+			"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}},
+		}},
+		{Kind: spec.KindSettings, Name: "native", Meta: map[string]any{
+			"x-kilo": map[string]any{"permission": map[string]any{"browser": "deny"}},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "kilo.jsonc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	perms, _ := got["permission"].(map[string]any)
+	if perms["browser"] != "deny" {
+		t.Errorf("native permission key lost: %#v", perms)
+	}
+	if _, ok := perms["bash"]; !ok {
+		t.Errorf("translated permission key lost: %#v", perms)
+	}
+}

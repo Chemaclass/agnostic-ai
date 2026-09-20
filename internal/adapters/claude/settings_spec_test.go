@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -175,4 +176,107 @@ func readSettings(t *testing.T, dir string) map[string]any {
 		t.Fatalf("parse settings.json: %v", err)
 	}
 	return doc
+}
+
+// An `x-claude` key on a settings spec reaches `.claude/settings.json`
+// untouched, and leaves the managed `model` and `permissions` alone.
+// Claude Code's settings file carries keys this project does not
+// model, `cleanupPeriodDays` among them, and the hatch is how an
+// author reaches them from a spec (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{settingsEntry(map[string]any{
+		"model":       "claude-opus-4-8",
+		"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}},
+		"x-claude":    map[string]any{"cleanupPeriodDays": 30},
+	})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if days, _ := got["cleanupPeriodDays"].(float64); days != 30 {
+		t.Errorf("x-claude.cleanupPeriodDays never reached the file: %s", raw)
+	}
+	if got["model"] != "claude-opus-4-8" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("permissions = %#v, want the managed key untouched", got["permissions"])
+	}
+	if _, hasX := got["x-claude"]; hasX {
+		t.Errorf("the x-claude wrapper must not be written: %s", raw)
+	}
+}
+
+// A settings spec carrying only an `x-claude` key still writes the
+// file, the same as one carrying only a portable model (#949).
+func TestEmit_SettingsCustomTargetKeysAloneWriteTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{settingsEntry(map[string]any{
+		"x-claude": map[string]any{"cleanupPeriodDays": 30},
+	})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("hatch-only settings spec wrote no file: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if days, _ := got["cleanupPeriodDays"].(float64); days != 30 {
+		t.Errorf("x-claude.cleanupPeriodDays never reached the file: %s", raw)
+	}
+}
+
+// An `x-claude.permissions.deny` rule joins the translated deny list
+// rather than replacing the whole block. The author wrote one more
+// rule, not a smaller policy, and a deny rule that leaves the file
+// without a word is the failure this guards (#966).
+func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{settingsEntry(map[string]any{
+		"permissions": map[string]any{
+			"deny":  []any{"Bash(rm:*)", "Read(secret/**)"},
+			"allow": []any{"Bash(go test:*)"},
+		},
+		"x-claude": map[string]any{
+			"permissions": map[string]any{
+				"deny":        []any{"AuthorOnly"},
+				"defaultMode": "plan",
+			},
+		},
+	})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	wantDeny := []any{"Bash(rm:*)", "Read(secret/**)", "AuthorOnly"}
+	if !reflect.DeepEqual(perms["deny"], wantDeny) {
+		t.Errorf("deny = %#v, want %#v", perms["deny"], wantDeny)
+	}
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("allow = %#v, want the translated allow list kept", perms["allow"])
+	}
+	if perms["defaultMode"] != "plan" {
+		t.Errorf("defaultMode = %#v, want the hatch sibling key kept", perms["defaultMode"])
+	}
 }

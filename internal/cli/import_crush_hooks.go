@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -80,7 +78,7 @@ func importCrushHooks(root, dstDir string) (int, error) {
 		if h.Timeout != 0 {
 			docMap["timeout"] = h.Timeout
 		}
-		if err := writeCrushHookSpec(dstDir, fileName, docMap); err != nil {
+		if err := writeHookSpecFile(dstDir, fileName, docMap); err != nil {
 			return count, err
 		}
 		count++
@@ -98,16 +96,4 @@ func crushHookFileName(name, matcher, command string) string {
 		return name
 	}
 	return hookSpecName(crushPreToolUseEvent, matcher, []string{command})
-}
-
-func writeCrushHookSpec(dstDir, name string, docMap map[string]any) error {
-	raw, err := yaml.Marshal(docMap)
-	if err != nil {
-		return fmt.Errorf("marshal hook %s: %w", name, err)
-	}
-	path := filepath.Join(dstDir, name+".yaml")
-	if err := importWriteFile(path, raw, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
 }

@@ -23,7 +23,7 @@ import (
 // empty settings file trips here.
 //
 // The kit-sink bundle covers agents, skills, rules (via legacy
-// rules-file), MCPs, and environments.
+// rules-file), MCPs, settings, and environments.
 func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{
@@ -86,7 +86,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle that exercises every kind the amp
 // adapter declares in caps.Supports with three specimens per kind.
 // MCPs span stdio + http + disabled-with-command so transport
-// branches in buildMCPEntry are all exercised.
+// branches in buildMCPEntry are all exercised. The settings spec
+// carries both an `x-amp` block, which lands, and a portable
+// permission list, which only raises a coverage note.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
@@ -112,6 +114,13 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x"},
+		},
+		{
+			Kind: spec.KindSettings, Name: "policy", Path: "settings/policy.yaml",
+			Meta: map[string]any{
+				"permissions": map[string]any{"deny": []any{"Bash(rm:*)"}},
+				"x-amp":       map[string]any{"amp.tools.disable": []any{"builtin:oracle"}},
+			},
 		},
 		{
 			Kind: spec.KindEnvironment, Name: "development",

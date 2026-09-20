@@ -1,6 +1,8 @@
 package factory
 
 import (
+	"strconv"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -20,15 +22,23 @@ var droidEffortLevels = map[string]bool{"low": true, "medium": true, "high": tru
 // droidReasoningEffort maps the portable `effort` onto Factory's
 // `reasoningEffort`, and reports whether the value is one Factory
 // accepts. A native `reasoningEffort` wins when the author wrote one.
+//
+// Qoder's integer budget (`effort: 8000`) decodes from YAML as a Go
+// number, not a string, so a bare string assertion would report it as
+// absent and noteUnsupportedEffort would count nothing. Formatting the
+// number here is what makes the note fire; the value is still never
+// written, since Factory's enum has no integer form (#968).
 func droidReasoningEffort(resolved map[string]any) (string, bool) {
 	if native, _ := resolved["reasoningEffort"].(string); native != "" {
 		return native, droidEffortLevels[native]
 	}
-	portable, _ := resolved["effort"].(string)
-	if portable == "" {
-		return "", false
+	if portable, _ := resolved["effort"].(string); portable != "" {
+		return portable, droidEffortLevels[portable]
 	}
-	return portable, droidEffortLevels[portable]
+	if budget, ok := emit.IntField(resolved, "effort"); ok {
+		return strconv.Itoa(budget), false
+	}
+	return "", false
 }
 
 // noteUnsupportedEffort reports a portable `effort` Factory cannot

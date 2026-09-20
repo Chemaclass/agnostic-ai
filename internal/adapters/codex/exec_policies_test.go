@@ -310,3 +310,32 @@ func TestEmit_NotesPermissionsPointAtExecPolicies(t *testing.T) {
 		t.Errorf("note overclaims: Codex has three permission surfaces\n%s", note)
 	}
 }
+
+// Codex is the one settings target with no `x-<target>` passthrough:
+// `.codex/config.toml` is TOML rendered from the captured overlay plus
+// the first-class `outputs.codex.config` fields, so a JSON-shaped
+// block has no place to land there. The drop is loud rather than
+// silent, which is the whole point of #949.
+func TestEmit_SettingsCustomTargetKeysRaiseACoverageNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"x-codex": map[string]any{"hide_agent_reasoning": true},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	note := buf.String()
+	for _, want := range []string{"x-codex", "codex", "outputs.codex.config"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+}

@@ -53,7 +53,7 @@ safe retry, then watch the manual run to completion.
 | Channel | Notes |
 |---|---|
 | GitHub Releases | raw binaries, primary |
-| Homebrew tap | `chemaclass/tap/agnostic-ai`, cask auto-updated by CI (`HOMEBREW_TAP_TOKEN`) |
+| Homebrew tap | `chemaclass/tap/agnostic-ai`, cask updated by the tap itself on a half-hourly schedule, no credential here |
 | `go install` | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 | Install scripts | `scripts/install.sh`, `scripts/install.ps1`, served raw from `main`. No release step: they resolve the latest tag at runtime |
 | Scoop | manifest pushed to `Chemaclass/scoop-bucket` (`SCOOP_BUCKET_TOKEN`) |
@@ -62,8 +62,9 @@ safe retry, then watch the manual run to completion.
 
 ### One-time setup per channel
 
-Both Windows publishers are gated on their token: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup.
+Every publisher is gated on its credential: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup. That is also why the `distribution` job exists. A skipped push and a successful one look the same in the GoReleaser log, so only that job proves the channel serves the new version (#920).
 
+- **Homebrew**: the cask is not pushed from this repository, and needs no secret here. `Chemaclass/homebrew-tap` runs its own `Update agnostic-ai cask` workflow every half hour: it resolves the latest release, rewrites `Casks/agnostic-ai.rb` from `checksums.txt`, checks all four archives return 200, and commits with the `GITHUB_TOKEN` that workflow already has. Writing to another repository is what needs a credential, and GitHub has no API to mint one, since creating a GitHub App and creating a PAT are both browser flows. That is why ten releases went out with a stale cask (#943, #920). A release can therefore lag brew by up to half an hour; dispatch that workflow to pull it forward. The release job still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` or `HOMEBREW_TAP_TOKEN` if you ever want the push to happen at tag time, and the generated file is byte-identical either way, so the two never fight. Scoop and winget still have no route and stay skipped.
 - **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
 - **winget**: fork `microsoft/winget-pkgs` to `Chemaclass/winget-pkgs`, then add `WINGET_TOKEN` (PAT with `contents: write` on the fork and `pull_requests: write` upstream). Microsoft reviews each PR, so a new version lands in `winget search` hours to days after the GitHub release.
 - **npm**: `npm/` holds the parent package. Add `NPM_TOKEN` (automation token). The token has to be able to publish the `agnostic-ai` package *and* create packages under the `agnostic-ai` npm organization, which must exist before the first release that ships platform packages.

@@ -52,6 +52,21 @@ var goldenTargets = []string{
 // where the Augment importer drifted from the emitter unnoticed because
 // each side was only ever tested against its own input.
 //
+// Two more rules and one agent field joined the fixture with #947,
+// #951, and #953, each a case where one target's drop was invisible
+// next to the others: an `mcp__` rule, which opencode dropped while
+// kilo and windsurf wrote it; a bare `WebSearch`, which windsurf
+// dropped alone; and `memory: project`, which only claude and junie
+// carried. Reading one diff across all targets is what makes a lone
+// drop stand out.
+//
+// The spec also carries two `x-<target>` keys that collide with a key
+// the adapter writes itself, `x-factory.commandBlocklist` and
+// `x-claude.permissions.deny`, so the snapshot holds the translated
+// rules and the author's side by side. #966 shipped a hatch that
+// replaced the whole key, deleting a deny tier in silence, and no
+// snapshot moved. Two files here now do.
+//
 // Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestGolden
 func TestGolden(t *testing.T) {
 	for _, target := range goldenTargets {

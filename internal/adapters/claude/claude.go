@@ -286,6 +286,14 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //  4. Spec-derived `hooks` block, emitted via ordered JSON so
 //     `{type, command}` and `{matcher, hooks}` stay in lifecycle order
 //     instead of alpha-sorted map order.
+//  5. The `x-claude` block on a settings spec, the escape hatch for
+//     every key in that file this adapter does not model. It is
+//     applied last because it is the most specific statement of
+//     intent: an author writing Claude Code's own spelling means that
+//     key (#949). It merges with the layers above rather than
+//     replacing them, so an `x-claude.permissions.deny` entry joins
+//     the translated deny list instead of erasing it; a scalar, which
+//     has no parts to keep, is still replaced (#966).
 //
 // Short-circuit: all layers empty -> write nothing.
 func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
@@ -296,10 +304,11 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 	}
 	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
+	custom := emit.SettingsCustomKeys(settings, target)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 {
 		return nil
 	}
 	doc := overlay
@@ -345,12 +354,39 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 	} else {
 		doc.Delete("hooks")
 	}
+	for _, k := range orderedConfigKeys(custom) {
+		if err := doc.Set(k, mergeCustomKey(doc, k, custom[k])); err != nil {
+			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
+		}
+	}
 	indent := detectSettingsIndent(path)
 	raw, err := emit.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
 		return err
 	}
 	return sess.WriteFile(path, string(raw)+"\n", dryRun)
+}
+
+// mergeCustomKey merges one `x-claude` value onto whatever the layers
+// below already put under that key instead of replacing it: a list
+// unions, an object merges key by key, and a scalar is replaced
+// because it has no parts to keep. The same rule every other settings
+// target follows, spelled against the ordered document this adapter
+// writes. Before it, an `x-claude.permissions.deny` entry erased the
+// translated deny list and said nothing (#966).
+//
+// A value the document holds in a form this cannot parse falls back to
+// the hatch alone, which is what the write did before either way.
+func mergeCustomKey(doc *emit.OrderedJSON, key string, value any) any {
+	raw, ok := doc.Get(key)
+	if !ok {
+		return value
+	}
+	var existing any
+	if err := json.Unmarshal(raw, &existing); err != nil {
+		return value
+	}
+	return emit.MergeSettingsCustomValue(target, key, existing, value)
 }
 
 // detectSettingsIndent sniffs the indent style of the overlay (preferred,

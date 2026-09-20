@@ -310,3 +310,112 @@ func TestResolveMeta_XTargetOverridesPerTargetMap(t *testing.T) {
 		t.Errorf("x-cursor nil delete should drop model, got %v", got)
 	}
 }
+
+// A plain `effort:` scalar reaches every target untouched, in both the
+// string and the bare-integer spelling. Qoder documents an integer
+// budget, so the int must stay an int rather than being stringified or
+// mistaken for a per-target map.
+func TestResolveMeta_ScalarEffortPassesThrough(t *testing.T) {
+	t.Parallel()
+	if got := ResolveMeta(map[string]any{"name": "a", "effort": "high"}, "claude")["effort"]; got != "high" {
+		t.Errorf("string effort should pass through, got %v", got)
+	}
+	got := ResolveMeta(map[string]any{"name": "a", "effort": 8000}, "qoder")["effort"]
+	if n, ok := got.(int); !ok || n != 8000 {
+		t.Errorf("integer effort should pass through as int, got %T %v", got, got)
+	}
+}
+
+func TestResolveMeta_PerTargetEffortPicksTarget(t *testing.T) {
+	t.Parallel()
+	in := map[string]any{
+		"name":   "a",
+		"effort": map[string]any{"claude": "xhigh", "qoder": 8000},
+	}
+	if got := ResolveMeta(in, "claude")["effort"]; got != "xhigh" {
+		t.Errorf("claude got %v", got)
+	}
+	// The pick must not narrow to strings: Qoder's budget is a number.
+	got := ResolveMeta(in, "qoder")["effort"]
+	if n, ok := got.(int); !ok || n != 8000 {
+		t.Errorf("qoder should get the int 8000, got %T %v", got, got)
+	}
+}
+
+func TestResolveMeta_PerTargetEffortFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+	in := map[string]any{
+		"name":   "a",
+		"effort": map[string]any{"claude": "xhigh", "default": "high"},
+	}
+	if got := ResolveMeta(in, "qoder")["effort"]; got != "high" {
+		t.Errorf("unmatched target should use default, got %v", got)
+	}
+}
+
+func TestResolveMeta_PerTargetEffortNoMatchNoDefaultDrops(t *testing.T) {
+	t.Parallel()
+	in := map[string]any{
+		"name":   "a",
+		"effort": map[string]any{"qoder": 8000},
+	}
+	if got, ok := ResolveMeta(in, "claude")["effort"]; ok {
+		t.Errorf("no target match and no default should drop effort, got %v", got)
+	}
+}
+
+func TestResolveMetaOrdered_PerTargetEffortDropKeepsOrderClean(t *testing.T) {
+	t.Parallel()
+	in := map[string]any{
+		"name":   "a",
+		"effort": map[string]any{"qoder": "high"},
+	}
+	_, gotKeys := ResolveMetaOrdered(in, []string{"name", "effort"}, "claude")
+	wantKeys := []string{"name"}
+	if !reflect.DeepEqual(gotKeys, wantKeys) {
+		t.Errorf("got %v, want %v", gotKeys, wantKeys)
+	}
+}
+
+func TestResolveMeta_XTargetOverridesPerTargetEffort(t *testing.T) {
+	t.Parallel()
+	in := map[string]any{
+		"name":     "a",
+		"effort":   map[string]any{"claude": "xhigh", "default": "high"},
+		"x-qoder":  map[string]any{"effort": "medium"},
+		"x-cursor": map[string]any{"effort": nil},
+	}
+	if got := ResolveMeta(in, "qoder")["effort"]; got != "medium" {
+		t.Errorf("x-qoder.effort should win over the map, got %v", got)
+	}
+	if got, ok := ResolveMeta(in, "cursor")["effort"]; ok {
+		t.Errorf("x-cursor nil delete should drop effort, got %v", got)
+	}
+	if got := ResolveMeta(in, "claude")["effort"]; got != "xhigh" {
+		t.Errorf("an untouched target keeps its map pick, got %v", got)
+	}
+}
+
+// A nested map, a list, or a null under the target's own key is not a
+// value any adapter can write. It falls through to `default` the same
+// way an absent key does, rather than reaching the frontmatter as a
+// broken mapping. The rule holds for every collapsed key.
+func TestResolveMeta_NonScalarUnderTargetFallsThrough(t *testing.T) {
+	t.Parallel()
+	for _, key := range []string{"model", "effort"} {
+		in := map[string]any{
+			"name": "a",
+			key:    map[string]any{"claude": map[string]any{"a": "b"}, "default": "high"},
+		}
+		if got := ResolveMeta(in, "claude")[key]; got != "high" {
+			t.Errorf("%s: nested map under the target should fall through to default, got %v", key, got)
+		}
+		bare := map[string]any{
+			"name": "a",
+			key:    map[string]any{"claude": []any{"a"}},
+		}
+		if got, ok := ResolveMeta(bare, "claude")[key]; ok {
+			t.Errorf("%s: a list under the target with no default should drop, got %v", key, got)
+		}
+	}
+}
