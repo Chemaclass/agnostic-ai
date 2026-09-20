@@ -53,16 +53,51 @@ download_url() {
   printf 'https://github.com/%s/releases/download/%s/%s\n' "$REPO" "$1" "$2"
 }
 
-# Parsed with grep, not jq: jq is not installed by default on macOS.
+# Resolved from a redirect, not from the API.
+#
+# https://api.github.com/repos/<repo>/releases/latest allows 60
+# unauthenticated requests per hour per IP. Shared egress (CI runners
+# behind NAT, a VPN, an office, a university) burns that without anyone
+# doing anything wrong, and the install then dies on a bare 403 that never
+# says "rate limit". https://github.com/<repo>/releases/latest answers 302
+# to /releases/tag/<tag>, is outside the API, and carries no such limit.
+#
+# It also removes the JSON parse, and with it the need for jq (absent on
+# macOS) or for grep. The lesson the parse left behind still holds for any
+# future code here: fetch first, then match. Piping curl straight into
+# `grep -m1` makes grep exit on the first match, curl take EPIPE and exit
+# 23, and `pipefail` propagate that, so the tag resolves and the function
+# still dies depending on who finished writing first. Nothing below pipes
+# curl into anything.
 latest_version() {
-  local api="https://api.github.com/repos/$REPO/releases/latest" body tag
-  # Fetch first, then match. Piping curl straight into `grep -m1` makes grep
-  # exit on the first match, curl take EPIPE and exit 23, and `pipefail`
-  # propagate that: the tag resolves and the function still dies, depending
-  # on whether curl finished writing first.
-  body="$(curl -fsSL "$api")" || die "could not reach $api"
-  tag="$(printf '%s\n' "$body" | grep -m1 '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')"
-  [[ -n "$tag" ]] || die "could not resolve the latest release from $api"
+  local url="https://github.com/$REPO/releases/latest" response status location tag
+
+  # No -L: the tag is the redirect target, and following it would fetch a
+  # few hundred kilobytes of HTML to learn what the header already said.
+  response="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$url")" \
+    || { die "could not reach $url"; return 1; }
+  # "<status> <redirect_url>", with the URL empty when there was no redirect.
+  status="${response%% *}"
+  location="${response#* }"
+
+  # `die` returns instead of exiting, so a sourced copy stays testable; every
+  # branch has to stop the function itself. `esac || return 1` does that for
+  # all of them at once, and keeps errexit from firing inside the case.
+  case "$status" in
+    30[1237]) ;;
+    403 | 429)
+      die "github rate limited this network while resolving the latest release.
+    Wait a minute and retry, or pin the version with AGNOSTIC_AI_VERSION=vX.Y.Z"
+      ;;
+    404) die "no published release at $url" ;;
+    *) die "unexpected HTTP $status from $url" ;;
+  esac || return 1
+
+  tag="${location##*/releases/tag/}"
+  if [[ "$location" != */releases/tag/* || -z "$tag" ]]; then
+    die "no published release: $url redirected to ${location:-nowhere}"
+    return 1
+  fi
   printf '%s\n' "$tag"
 }
 

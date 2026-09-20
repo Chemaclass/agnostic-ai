@@ -11,8 +11,10 @@
 #
 # One gap worth naming: `curl` is stubbed as a shell function, so no test
 # here can reproduce curl taking EPIPE from a `grep -m1` further down the
-# pipe. That race broke `latest_version` under /bin/sh and was found by
-# running the real script, not by this suite. Only the parsing is covered.
+# pipe. That race broke an earlier `latest_version` that piped curl into
+# grep, and it was found by running the real script, not by this suite.
+# `latest_version` no longer pipes curl into anything, but the gap stays
+# real for any future code that does: fetch first, then match.
 
 SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
 # shellcheck disable=SC1091
@@ -121,16 +123,106 @@ function test_verify_checksum_accepts_a_matching_digest() {
   rm -rf "$tmp"
 }
 
-function test_latest_version_parses_the_tag_from_the_api_body() {
-  function curl() {
-    printf '{\n  "url": "https://api.github.com/repos/o/r/releases/1",\n  "tag_name": "v0.56.0",\n  "name": "v0.56.0"\n}\n'
-  }
-  assert_equals "v0.56.0" "$(latest_version)"
+# ---- latest_version ----------------------------------------------------------
+#
+# latest_version reads the tag out of a 302 Location, so every stub below
+# prints what `curl -w '%{http_code} %{redirect_url}'` writes: the status,
+# a space, then the redirect target (empty when there is none).
+
+function test_latest_version_reads_the_tag_from_the_redirect() {
+  function curl() { printf '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0'; }
+  assert_equals "v0.62.0" "$(latest_version)"
   unset -f curl
 }
 
-function test_latest_version_dies_when_the_body_carries_no_tag() {
-  function curl() { printf '{"message": "Not Found"}\n'; }
-  assert_contains "could not resolve the latest release" "$(latest_version 2>&1)"
+function test_latest_version_asks_github_com_not_the_rate_limited_api() {
+  local seen url_file
+  url_file="$(mktemp)"
+  function curl() {
+    printf '%s\n' "${@: -1}" > "$URL_FILE"
+    printf '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v1.2.3'
+  }
+  seen="$(URL_FILE="$url_file" latest_version >/dev/null; cat "$url_file")"
   unset -f curl
+  rm -f "$url_file"
+
+  assert_same "https://github.com/Chemaclass/agnostic-ai/releases/latest" "$seen"
+}
+
+function test_latest_version_names_rate_limiting_instead_of_printing_403() {
+  function curl() { printf '403 '; }
+  local out
+  out="$(latest_version 2>&1)"
+  unset -f curl
+
+  assert_contains "rate limit" "$out"
+  assert_not_contains "no published release" "$out"
+}
+
+function test_latest_version_names_rate_limiting_on_429() {
+  function curl() { printf '429 '; }
+  assert_contains "rate limit" "$(latest_version 2>&1)"
+  unset -f curl
+}
+
+function test_latest_version_names_an_absent_release_on_404() {
+  function curl() { printf '404 '; }
+  local out
+  out="$(latest_version 2>&1)"
+  unset -f curl
+
+  assert_contains "no published release" "$out"
+  assert_not_contains "rate limit" "$out"
+}
+
+function test_latest_version_rejects_a_redirect_that_is_not_a_tag_page() {
+  function curl() { printf '302 https://github.com/Chemaclass/agnostic-ai/releases'; }
+  assert_contains "no published release" "$(latest_version 2>&1)"
+  unset -f curl
+}
+
+function test_latest_version_reports_an_unexpected_status_with_its_code() {
+  function curl() { printf '500 '; }
+  assert_contains "HTTP 500" "$(latest_version 2>&1)"
+  unset -f curl
+}
+
+function test_latest_version_reports_a_transport_failure() {
+  function curl() { return 6; }
+  assert_contains "could not reach" "$(latest_version 2>&1)"
+  unset -f curl
+}
+
+# The API endpoint is the bug: 60 unauthenticated requests per hour per IP.
+function test_latest_version_never_touches_the_github_api() {
+  assert_not_contains "api.github.com" "$(declare -f latest_version)"
+}
+
+# ---- install.ps1 -------------------------------------------------------------
+#
+# The Windows installer is exercised for real by .github/workflows/install.yml
+# on windows-latest under `powershell` (5.1). These are text assertions, not a
+# second harness: they run on Linux alongside the rest and stop the API
+# endpoint from creeping back in unnoticed between Windows runs.
+
+# Comments are stripped: they discuss the endpoint that was removed and the
+# cmdlet that was replaced, so matching them would defeat the guard.
+function ps1_code() {
+  grep -v '^[[:space:]]*#' "$SCRIPT_DIR/install.ps1"
+}
+
+function test_ps1_resolves_the_latest_release_without_the_github_api() {
+  assert_not_contains "api.github.com" "$(ps1_code)"
+  assert_contains 'https://github.com/$repo/releases/latest' "$(ps1_code)"
+}
+
+function test_ps1_disables_redirect_following_so_the_location_survives() {
+  # Invoke-RestMethod follows redirects and drops the header we came for.
+  assert_contains 'AllowAutoRedirect = $false' "$(ps1_code)"
+  assert_not_contains "Invoke-RestMethod" "$(ps1_code)"
+}
+
+function test_ps1_names_rate_limiting_rather_than_printing_a_status() {
+  assert_contains "rate limited" "$(ps1_code)"
+  assert_contains "no published release" "$(ps1_code)"
 }

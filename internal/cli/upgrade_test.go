@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -118,12 +120,26 @@ func TestInstallMethodString(t *testing.T) {
 	}
 }
 
-func TestFetchLatestReleaseFrom_SetsHeadersAndStripsV(t *testing.T) {
-	var gotUA, gotAccept string
+// redirectServer stands in for github.com/<owner>/<repo>/releases/latest:
+// it answers with one 302 and never serves a body, exactly as GitHub does.
+func redirectServer(t *testing.T, status int, location string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if location != "" {
+			w.Header().Set("Location", location)
+		}
+		w.WriteHeader(status)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestFetchLatestReleaseFrom_ReadsTheTagFromTheRedirect(t *testing.T) {
+	var gotUA string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotUA = r.Header.Get("User-Agent")
-		gotAccept = r.Header.Get("Accept")
-		_, _ = w.Write([]byte(`{"tag_name":"v9.9.9"}`))
+		w.Header().Set("Location", "https://github.com/Chemaclass/agnostic-ai/releases/tag/v9.9.9")
+		w.WriteHeader(http.StatusFound)
 	}))
 	defer srv.Close()
 
@@ -137,19 +153,128 @@ func TestFetchLatestReleaseFrom_SetsHeadersAndStripsV(t *testing.T) {
 	if gotUA == "" {
 		t.Errorf("User-Agent header was empty")
 	}
-	if gotAccept != "application/vnd.github+json" {
-		t.Errorf("Accept header = %q, want application/vnd.github+json", gotAccept)
-	}
 }
 
-func TestFetchLatestReleaseFrom_PropagatesNon200(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
+// The redirect must not be followed: the tag lives in the Location header,
+// and the page it points at is a few hundred kilobytes of HTML.
+func TestFetchLatestReleaseFrom_DoesNotFollowTheRedirect(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		if r.URL.Path == "/releases/tag/v1.2.3" {
+			_, _ = w.Write([]byte("<html>release page</html>"))
+			return
+		}
+		w.Header().Set("Location", "/releases/tag/v1.2.3")
+		w.WriteHeader(http.StatusFound)
 	}))
 	defer srv.Close()
 
-	if _, err := fetchLatestReleaseFrom(srv.URL, time.Second); err == nil {
-		t.Errorf("expected error for 403, got nil")
+	tag, err := fetchLatestReleaseFrom(srv.URL+"/releases/latest", time.Second)
+	if err != nil {
+		t.Fatalf("fetchLatestReleaseFrom: %v", err)
+	}
+	if tag != "1.2.3" {
+		t.Errorf("tag = %q, want %q", tag, "1.2.3")
+	}
+	if hits != 1 {
+		t.Errorf("server hits = %d, want 1 (the redirect was followed)", hits)
+	}
+}
+
+func TestFetchLatestReleaseFrom_NamesRateLimiting(t *testing.T) {
+	for _, status := range []int{http.StatusForbidden, http.StatusTooManyRequests} {
+		srv := redirectServer(t, status, "")
+		_, err := fetchLatestReleaseFrom(srv.URL, time.Second)
+		if !errors.Is(err, errReleaseRateLimited) {
+			t.Fatalf("status %d: err = %v, want errReleaseRateLimited", status, err)
+		}
+		if !strings.Contains(err.Error(), "rate") {
+			t.Errorf("status %d: %q does not say it was rate limited", status, err)
+		}
+		if strings.Contains(err.Error(), "403 Forbidden") {
+			t.Errorf("status %d: %q still leaks a bare HTTP status", status, err)
+		}
+	}
+}
+
+func TestFetchLatestReleaseFrom_NamesAnAbsentRelease(t *testing.T) {
+	srv := redirectServer(t, http.StatusNotFound, "")
+	_, err := fetchLatestReleaseFrom(srv.URL, time.Second)
+	if !errors.Is(err, errNoPublishedRelease) {
+		t.Fatalf("err = %v, want errNoPublishedRelease", err)
+	}
+	if strings.Contains(err.Error(), "rate") {
+		t.Errorf("%q blames rate limiting for a missing release", err)
+	}
+}
+
+// A 302 that lands anywhere but a tag page means there is nothing tagged
+// yet, which reads the same to the user as an absent release.
+func TestFetchLatestReleaseFrom_RejectsARedirectWithoutATag(t *testing.T) {
+	srv := redirectServer(t, http.StatusFound, "https://github.com/Chemaclass/agnostic-ai/releases")
+	if _, err := fetchLatestReleaseFrom(srv.URL, time.Second); !errors.Is(err, errNoPublishedRelease) {
+		t.Fatalf("err = %v, want errNoPublishedRelease", err)
+	}
+}
+
+func TestFetchLatestReleaseFrom_ReportsAnUnexpectedStatus(t *testing.T) {
+	srv := redirectServer(t, http.StatusInternalServerError, "")
+	_, err := fetchLatestReleaseFrom(srv.URL, time.Second)
+	if err == nil {
+		t.Fatal("expected an error for 500")
+	}
+	if errors.Is(err, errReleaseRateLimited) || errors.Is(err, errNoPublishedRelease) {
+		t.Errorf("%q misclassifies a server error", err)
+	}
+	if !strings.Contains(err.Error(), srv.URL) {
+		t.Errorf("%q does not name the URL it failed on", err)
+	}
+}
+
+// The API endpoint is the whole bug: 60 unauthenticated requests per hour
+// per IP. Nothing may resolve the latest tag through it.
+func TestLatestReleaseURLAvoidsTheRateLimitedAPI(t *testing.T) {
+	if strings.Contains(releasesLatestURL, "api.github.com") {
+		t.Errorf("releasesLatestURL = %q, want the github.com redirect", releasesLatestURL)
+	}
+	if want := "https://github.com/Chemaclass/agnostic-ai/releases/latest"; releasesLatestURL != want {
+		t.Errorf("releasesLatestURL = %q, want %q", releasesLatestURL, want)
+	}
+}
+
+func TestTagFromReleaseLocation(t *testing.T) {
+	cases := map[string]string{
+		"https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0": "0.62.0",
+		"/releases/tag/v1.0.0-rc.1":                                      "1.0.0-rc.1",
+		"https://github.com/Chemaclass/agnostic-ai/releases":             "",
+		"": "",
+	}
+	for location, want := range cases {
+		if got := tagFromReleaseLocation(location); got != want {
+			t.Errorf("tagFromReleaseLocation(%q) = %q, want %q", location, got, want)
+		}
+	}
+}
+
+// A failed resolution used to vanish: printUpgradeInfo simply omitted the
+// "Latest" line, so `upgrade --check` looked normal on a rate-limited
+// network. Say why instead.
+func TestPrintUpgradeInfo_SaysWhyTheLatestReleaseIsUnknown(t *testing.T) {
+	var buf bytes.Buffer
+	printUpgradeInfo(&buf, upgradeInfo{
+		Method:      installBinary,
+		Path:        "/usr/local/bin/agnostic-ai",
+		Version:     "0.62.0",
+		LatestError: fmt.Errorf("%s: %w", releasesLatestURL, errReleaseRateLimited),
+	}, "")
+
+	out := buf.String()
+	if !strings.Contains(out, "Latest:") {
+		t.Fatalf("output has no Latest line:\n%s", out)
+	}
+	if !strings.Contains(out, "rate limiting") {
+		t.Errorf("output does not name rate limiting:\n%s", out)
 	}
 }
 

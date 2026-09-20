@@ -16,6 +16,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- Installing the latest release no longer dies on a shared IP: `scripts/install.sh`, `scripts/install.ps1` and `agnostic-ai upgrade` resolve the tag from the `github.com/.../releases/latest` redirect instead of the API endpoint capped at 60 unauthenticated requests per hour, and a throttled request now says it was rate limited instead of printing a bare 403 (#940).
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 - `AGNOSTIC_AI_VERSION=0.61.0` now installs the same binary as `v0.61.0`: the npm wrapper normalizes the pin instead of building a 404 download URL (#936).
