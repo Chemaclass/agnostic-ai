@@ -107,6 +107,9 @@ Cite every finding with a `file:line` reference.
 id = "junie"
 label = "Junie"
 path = ".junie/agents/reviewer.md"
+# Kept as a tab, dropped from the hero fan: its rail is the lowest of the
+# five and crosses into the section under the hero.
+rail = false
 note = "The tools pass through untranslated. No model line here either, for the same reason as Gemini."
 body = '''
 ---
