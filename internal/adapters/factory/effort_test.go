@@ -47,6 +47,18 @@ func TestDroidReasoningEffort_RejectsValuesOutsideFactorysEnum(t *testing.T) {
 	}
 }
 
+// A YAML integer budget is the shape the string form misses. yaml.v3
+// hands it over as int, int64, or float64 depending on the scalar, and
+// every one of them has to reach the note rather than read as absent.
+func TestDroidReasoningEffort_CountsIntegerBudget(t *testing.T) {
+	for _, value := range []any{8000, int64(8000), float64(8000)} {
+		got, ok := droidReasoningEffort(map[string]any{"effort": value})
+		if got != "8000" || ok {
+			t.Errorf("droidReasoningEffort(%T %v) = (%q, %v), want (\"8000\", false)", value, value, got, ok)
+		}
+	}
+}
+
 // A native reasoningEffort the author wrote wins over the portable one.
 func TestDroidReasoningEffort_NativeKeyWins(t *testing.T) {
 	got, ok := droidReasoningEffort(map[string]any{"effort": "max", "reasoningEffort": "medium"})
