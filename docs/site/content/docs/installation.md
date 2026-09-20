@@ -24,7 +24,9 @@ brew install --cask Chemaclass/tap/agnostic-ai
 
 Upgrade with `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai`.
 
-## Install script, macOS and Linux
+## Install script
+
+macOS and Linux.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
