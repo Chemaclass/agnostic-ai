@@ -47,12 +47,12 @@ build_binaries() {
 # next to the parent.
 host_package() {
   # shellcheck disable=SC2016  # the script is node's, not the shell's
-  node -e '
+  (cd "$ROOT/npm" && node -e '
     const { packageName, platformFor } = require(process.argv[1])
     const p = platformFor(process.platform, process.arch)
     if (!p) { console.error(`no platform package for ${process.platform}/${process.arch}`); process.exit(1) }
     console.log(packageName(p))
-  ' "$ROOT/npm/lib/platforms.js"
+  ' ./lib/platforms.js)
 }
 
 main() {
@@ -63,7 +63,7 @@ main() {
     return 1
   fi
 
-  version="$(node -p "require('$ROOT/npm/package.json').version")"
+  version="$(cd "$ROOT/npm" && node -p "require('./package.json').version")"
   note "building six binaries"
   build_binaries "$work/binaries"
 

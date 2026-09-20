@@ -25,8 +25,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 err() { printf 'npm-publish: %s\n' "$*" >&2; }
 
+# Never hand node an absolute path from this shell. On Windows, Git Bash
+# reports /d/a/... while node wants D:\a\..., so an interpolated path is a
+# module node cannot find. cd first and require relatively: the shell
+# translates the cwd and node inherits it, on every platform.
 package_name() {
-  node -p "require('$1/package.json').name"
+  (cd "$1" && node -p "require('./package.json').name")
 }
 
 published() {
@@ -132,7 +136,7 @@ wait_for() {
 # platform, and it is the one mistake ordering alone does not catch.
 require_every_pin() {
   local parent="$1" names="$2" pinned pin
-  pinned="$(node -p "Object.keys(require('$parent/package.json').optionalDependencies||{}).join('\n')")"
+  pinned="$(cd "$parent" && node -p "Object.keys(require('./package.json').optionalDependencies||{}).join('\n')")"
   while IFS= read -r pin; do
     [[ -n "$pin" ]] || continue
     if ! grep -qxF "$pin" <<< "$names"; then

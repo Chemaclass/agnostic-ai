@@ -79,14 +79,21 @@ verify_checksums() {
   fi
 }
 
-# bsdtar reads zip as well as tar.gz and ships with the runners, so one call
-# covers both formats.
+# Extract by format, not with one call for both. `tar` on macOS is bsdtar,
+# which does read zip, so a single `tar -xf` passes locally and then fails on
+# ubuntu-latest, where `tar` is GNU tar and cannot read zip at all. The
+# windows targets are the only zips, so that failure was four Windows
+# packages missing from an otherwise green release.
 unpack() {
-  local dir="$1" dest="$2" target out
+  local dir="$1" dest="$2" target out archive
   for target in "${TARGETS[@]}"; do
     out="$dest/$target"
+    archive="$dir/$(archive_name "$target")"
     mkdir -p "$out"
-    tar -xf "$dir/$(archive_name "$target")" -C "$out" "$(binary_name "$target")"
+    case "$archive" in
+      *.zip) unzip -q -o -j "$archive" "$(binary_name "$target")" -d "$out" ;;
+      *) tar -xf "$archive" -C "$out" "$(binary_name "$target")" ;;
+    esac
     chmod 0755 "$out/$(binary_name "$target")"
   done
 }
