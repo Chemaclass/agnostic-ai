@@ -221,6 +221,29 @@ func TestImportKiroHooks_KeepsBothHooksOnANameCollision(t *testing.T) {
 	}
 }
 
+// A third file repeating a hook the deterministic fallback already
+// covers is the same hook twice over, so it is skipped rather than
+// written under a third name.
+func TestImportKiroHooks_SkipsAThirdCopyOfTheSameHook(t *testing.T) {
+	dir := t.TempDir()
+	buf := captureSummary(t)
+	for _, f := range []string{"a-first", "b-second", "c-third"} {
+		writeKiroHookFile(t, dir, f, `{
+  "version": "v1",
+  "hooks": [{"name": "lint", "trigger": "PostToolUse",
+    "action": {"type": "command", "command": "run"}}]
+}`)
+	}
+
+	dst, n := importKiroHooksInto(t, dir)
+	if n != 2 {
+		t.Fatalf("imported %d hooks, want 2: %v", n, specNames(t, dst))
+	}
+	if !strings.Contains(buf.String(), "an earlier file declares the same hook") {
+		t.Errorf("expected a duplicate warning, got:\n%s", buf.String())
+	}
+}
+
 // `type: command` with no `command` and `type: agent` with no `prompt`
 // are both "Cond." in the vendor table. Writing either would produce a
 // spec that fails the next sync, so they are skipped with a warning.

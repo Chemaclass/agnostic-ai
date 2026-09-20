@@ -25,7 +25,10 @@ const kiroHooksDir = ".kiro/hooks"
 // so an unrecognized key is future vendor surface, not a typo to drop.
 // `confirm` reaches the spec this way, mirroring the emit side, where
 // `x-kiro.confirm` flattens onto the entry.
-var kiroHookOwnedKeys = []string{"name", "trigger", "matcher", "action", "timeout", "enabled", "description"}
+var kiroHookOwnedKeys = map[string]bool{
+	"name": true, "trigger": true, "matcher": true, "action": true,
+	"timeout": true, "enabled": true, "description": true,
+}
 
 // kiroHookEntry is one decoded object from a file's `hooks` array,
 // split into the fields the portable spec carries and the `native`
@@ -141,14 +144,13 @@ func groupKiroHookEntries(raw []map[string]any, path string) [][]kiroHookEntry {
 }
 
 // kiroHookGroupKey canonicalizes everything about an entry except its
-// name and its command. A marshal failure yields an empty native
-// segment, which can only over-group entries whose passthrough is not
-// JSON-representable; nothing decoded from JSON can reach that state.
+// name and its command. The native half covers the portable/native
+// split too: an entry with no portable command always carries its
+// action under `x-kiro`, so the two never group together.
 func kiroHookGroupKey(e kiroHookEntry) string {
 	native, _ := json.Marshal(e.native)
-	portable := e.command != ""
-	return fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%t\x00%t\x00%t\x00%s",
-		e.trigger, e.matcher, e.description, e.timeout, e.hasTimeout, e.disabled, portable, native)
+	return fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%t\x00%t\x00%s",
+		e.trigger, e.matcher, e.description, e.timeout, e.hasTimeout, e.disabled, native)
 }
 
 // readKiroHookEntry splits one decoded hook object into portable and
@@ -187,7 +189,7 @@ func readKiroHookEntry(raw map[string]any, path string) (kiroHookEntry, bool) {
 		return kiroHookEntry{}, false
 	}
 	for k, v := range raw {
-		if isKiroHookOwnedKey(k) {
+		if kiroHookOwnedKeys[k] {
 			continue
 		}
 		e.native[k] = v
@@ -299,11 +301,12 @@ func resolveKiroHookName(e kiroHookEntry, commands []string, used map[string]boo
 		fileName = fallback
 	}
 	if used[fileName] {
+		if used[fallback] {
+			summaryf("  ! skipping the kiro hook %q: an earlier file declares the same hook\n", e.name)
+			return "", "", false
+		}
 		summaryf("  ! two kiro hook files declare the hook %q; importing the second as %q\n", e.name, fallback)
 		specName, fileName = fallback, fallback
-	}
-	if used[fileName] {
-		return "", "", false
 	}
 	used[fileName] = true
 	return specName, fileName, true
@@ -317,37 +320,23 @@ func kiroHookNameSeed(e kiroHookEntry, commands []string) []string {
 	if len(commands) > 0 {
 		return commands
 	}
-	raw, err := json.Marshal(e.native)
-	if err != nil {
-		return []string{e.name}
-	}
+	raw, _ := json.Marshal(e.native)
 	return []string{string(raw)}
 }
 
 // kiroHookTimeout reads a `timeout` value and reports whether the key
 // was present. An explicit `0` disables the timeout ("`0` disables the
 // timeout"), so it must stay distinguishable from an absent key, which
-// keeps the vendor's 60-second default.
+// keeps the vendor's 60-second default. `encoding/json` decodes every
+// number as a float64, so that is the only numeric case to read.
 func kiroHookTimeout(raw any) (int, bool) {
-	switch v := raw.(type) {
-	case float64:
-		return int(v), true
-	case int:
-		return v, true
-	default:
-		return 0, false
-	}
+	value, ok := raw.(float64)
+	return int(value), ok
 }
 
-func isKiroHookOwnedKey(key string) bool {
-	for _, k := range kiroHookOwnedKeys {
-		if k == key {
-			return true
-		}
-	}
-	return false
-}
-
+// stringField reads one string out of a decoded JSON object, yielding
+// the empty string for a missing key or a value of another type. Same
+// shape as the emit package's helper of the same name.
 func stringField(m map[string]any, key string) string {
 	s, _ := m[key].(string)
 	return s
