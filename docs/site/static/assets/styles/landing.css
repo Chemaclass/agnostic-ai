@@ -235,10 +235,13 @@ main > section[id] {
 /* nth-of-type, not nth-child: `.origin` is the first child, so nth-child is
    off by one and silently mis-assigns every angle.
 
-   Five rails, one per named target, so an endpoint is a place and not a dot.
-   65deg of spread: over a span near the horizontal an equal-radius arc is
-   nearly vertical, and a narrow fan reads as a column. The delays fire from
-   the middle outward, not left to right. */
+   One rail per named target, so an endpoint is a place and not a dot. The
+   count comes from the data: an output sets `rail = false` to keep its tab
+   and stay out of the fan, which junie does because the lowest rail crossed
+   into the section under the hero. 49deg of spread over four: across a span
+   near the horizontal an equal-radius arc is nearly vertical, and a narrow
+   fan reads as a column. The delays fire from the middle outward, not left
+   to right. */
 .rails i:nth-of-type(1) {
   --a: -52deg;
 
@@ -281,17 +284,6 @@ main > section[id] {
 .rails i:nth-of-type(4)::after,
 .rails i:nth-of-type(4) em {
   animation-delay: 0.14s;
-}
-
-.rails i:nth-of-type(5) {
-  --a: 13deg;
-
-  animation-delay: 0.42s;
-}
-
-.rails i:nth-of-type(5)::after,
-.rails i:nth-of-type(5) em {
-  animation-delay: 0.42s;
 }
 
 /* Percent background-position is relative to (rail minus image), not the rail,
@@ -406,10 +398,6 @@ main > section[id] {
 
   .rails i:nth-of-type(4) {
     --a: 2.5deg;
-  }
-
-  .rails i:nth-of-type(5) {
-    --a: 20deg;
   }
 }
 
