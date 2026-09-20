@@ -61,6 +61,8 @@ target_id = "copilot"
 
   Both targets are in the default target list, so this is the out-of-the-box path: a formatter runs twice, an audit hook double-writes, and a blocking `preToolUse` returns two decisions per tool call. Copilot names no toggle for that read, unlike Cursor and Trae, which gate theirs behind an off-by-default switch. Until there is one, give the hook spec a single `target:` rather than both (#755).
 
+  **Hooks are only part of that cross-read.** The [Copilot CLI configuration directory](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference) names a five-key subset: "The CLI also reads `.claude/settings.json` and `.claude/settings.local.json` for the shared cross-tool subset of repository settings (such as `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks`)." Two of the five are keys agnostic-ai writes today: `enabledPlugins`, through `outputs.claude.settings.enabledPlugins`, and `hooks`, through either target. So `outputs.claude.settings.enabledPlugins` sets Copilot CLI's repository plugin policy too, from a file the copilot adapter never touches and `.github/copilot/settings.json` never mentions. Set it deliberately, or drop `claude` from the target list, if the two tools should differ (#956).
+
 ## Config keys
 
 | Key | Default | Notes |
