@@ -11,6 +11,15 @@ generate_sitemap = false
 generate_robots_txt = false
 minify_html = false
 
+# Zola 0.23 templates every content file, so pages that document literal
+# `{{ ... }}` placeholders have to opt out or Tera reads them as expressions.
+skip_content_templating = [
+  "docs/spec-format.md",
+  "docs/targets/claude.md",
+  "docs/targets/kiro.md",
+  "docs/targets/warp.md",
+]
+
 [markdown]
 external_links_target_blank = false
 external_links_no_follow = false

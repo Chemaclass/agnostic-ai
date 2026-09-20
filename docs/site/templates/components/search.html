@@ -1,0 +1,42 @@
+{% component search.entry(url, title, heading, group, text, first) -%}
+{% if not first %},{% endif %}{"url":{{ url | json_encode() | safe }},"title":{{ title | striptags | replace(from="&quot;", to='"') | replace(from="&amp;", to="&") | json_encode() | safe }},"heading":{{ heading | striptags | replace(from="&quot;", to='"') | replace(from="&amp;", to="&") | json_encode() | safe }},"group":{{ group | json_encode() | safe }},"body":{{ text | replace(from="><", to="> <") | striptags | replace(from="&quot;", to='"') | replace(from="&#39;", to="'") | replace(from="&amp;", to="&") | truncate(length=3000, end="") | json_encode() | safe }}}
+{%- endcomponent search.entry %}
+
+{# Tera 2 dropped the `slice` filter. This rebuilds `split | slice(start=1) |
+   join`: everything after the first `sep`, rejoined with `sep`. #}
+{% component search.after_first(src, sep) -%}
+{%- set_global search_tail = "" -%}
+{%- for part in src | split(pat=sep) -%}
+{%- if loop.index0 == 1 -%}{%- set_global search_tail = part -%}
+{%- elif loop.index0 > 1 -%}{%- set_global search_tail = search_tail ~ sep ~ part -%}
+{%- endif -%}
+{%- endfor -%}
+{{- search_tail -}}
+{%- endcomponent search.after_first %}
+
+{% component search.heading(page, group, heading) -%}
+{%- set open = "<h" ~ heading.level ~ ' id="' ~ heading.id ~ '"' -%}
+{%- set close = "</h" ~ heading.level ~ ">" -%}
+{%- set after_open = page.content | split(pat=open) | last -%}
+{%- set after_close = <search.after_first src={after_open} sep={close} /> -%}
+{%- set text = after_close | split(pat="<h2") | first | split(pat="<h3") | first -%}
+{{ <search.entry url={heading.permalink} title={page.title} heading={heading.title} group={group} text={text} first={false} /> }}
+{%- endcomponent search.heading %}
+
+{% component search.page(page, group, first) -%}
+{%- set full = page.content | split(pat="</h1>") | last -%}
+{%- set description = page.description | default(value="") -%}
+{%- set text = description ~ " " ~ full -%}
+{{ <search.entry url={page.permalink} title={page.title} heading="" group={group} text={text} first={first} /> }}
+{%- for h in page.toc -%}
+  {%- if h.level == 1 -%}
+    {%- for child in h.children -%}
+      {{ <search.heading page={page} group={group} heading={child} /> }}
+      {%- for grandchild in child.children -%}{{ <search.heading page={page} group={group} heading={grandchild} /> }}{%- endfor -%}
+    {%- endfor -%}
+  {%- else -%}
+    {{ <search.heading page={page} group={group} heading={h} /> }}
+    {%- for child in h.children -%}{{ <search.heading page={page} group={group} heading={child} /> }}{%- endfor -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- endcomponent search.page %}

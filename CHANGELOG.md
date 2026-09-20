@@ -19,6 +19,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - The npm wrapper's repair hint now fits the install it runs from: a global copy is told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` sitting in your npm config (#942).
 - The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
 
+### Site
+
+- The site builds on Zola 0.23.6 instead of 0.22.0: templates moved to Tera 2 components, shortcodes became components, and the three site tests that silently skipped on a mismatched local Zola now run for anyone on a current release (#970).
+
 ## v0.63.0 - 2026-09-20
 
 ### Added

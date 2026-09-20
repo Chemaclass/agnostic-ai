@@ -54,7 +54,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 
 ## Capability matrix
 
-{{ capability_matrix() }}
+{{ <capability_matrix /> }}
 
 Open a target name for its exact paths, configuration keys, and caveats. `Native` means matching target output is emitted by default. `Mapped` uses another native surface, `Opt-in` requires an output option, and `Source only` keeps the portable spec without default target output. When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
 
@@ -85,7 +85,7 @@ To curate a store in place, use the `memory-curator` skill. It edits only that t
 
 One page per target: emitted tree, capability notes, config keys, and how to verify it against the real tool.
 
-{{ target_pages() }}
+{{ <target_pages /> }}
 
 ## Selecting targets
 

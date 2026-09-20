@@ -8,7 +8,7 @@ PKG := ./cmd/agnostic-ai
 # tests/integration/toolchain_pins_test.go holds them level.
 GOLANGCI_LINT_VERSION := v2.13.2
 LEFTHOOK_VERSION := v1.10.10
-ZOLA_VERSION := 0.22.0
+ZOLA_VERSION := 0.23.6
 
 build:
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
