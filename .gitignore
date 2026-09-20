@@ -104,6 +104,18 @@ desktop.ini
 AGENT.md
 WARP.md
 .rules
+# Ignore specs emit one native exclusion file per supporting target.
+# Windsurf writes two; Trae's lands inside the /.trae/ tree above.
+/.aiderignore
+/.aiignore
+/.augmentignore
+/.crushignore
+/.cursorignore
+/.devinignore
+/.geminiignore
+/.kilocodeignore
+/.kiroignore
+/.windsurfignore
 # Local sync state written by `agnostic-ai sync`.
 .agnostic-ai/.sync-state
 # Per-target audit fixtures need to ship their emitted tree intact so
