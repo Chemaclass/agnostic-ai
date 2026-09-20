@@ -12,12 +12,12 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
-- Amp accepts settings specs instead of refusing them: `x-amp` keys such as `amp.tools.disable` merge into `.amp/settings.json`, and the portable allow, deny, ask, and model fields each report why Amp has nowhere to put them (#950).
-- `agnostic-ai import kiro` now reads `.kiro/hooks/*.json`, so a repo synced to Kiro round-trips its own hooks; entries differing only in `action.command` recombine into one spec (#952).
-- An agent's `memory` scope now reaches Qoder at `.qoder/agents/<name>.md`, the file its subagent reference documents the field on, with the same `user`/`project`/`local` values (#953).
-- The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
 - Settings specs take an `x-<target>` block, so a target-specific key such as `x-factory.sandbox` reaches that target's settings file instead of being dropped without a word (#949).
+- Amp accepts settings specs instead of refusing them: `x-amp` keys such as `amp.tools.disable` merge into `.amp/settings.json`, and the portable allow, deny, ask, and model fields each report why Amp has nowhere to put them (#950).
 - Factory writes the portable permission policy to `commandAllowlist`, `commandDenylist`, and `commandBlocklist` in `.factory/settings.json`. Portable `ask` maps to the denylist, which prompts, and portable `deny` maps to the blocklist, which cannot be approved; rules outside `Bash` still raise a coverage note (#948).
+- An agent's `memory` scope now reaches Qoder at `.qoder/agents/<name>.md`, the file its subagent reference documents the field on, with the same `user`/`project`/`local` values (#953).
+- `agnostic-ai import kiro` now reads `.kiro/hooks/*.json`, so a repo synced to Kiro round-trips its own hooks; entries differing only in `action.command` recombine into one spec (#952).
+- The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
 
 ### Changed
 
@@ -26,35 +26,23 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- An `x-<target>` settings key no longer deletes the translated policy it collides with: lists union and objects merge, so a portable `deny` rule survives an `x-factory.commandBlocklist` or `x-claude.permissions.deny` beside it, and a shape that cannot merge prints a coverage note (#966). A map of whole records is the exception: an `x-qoder.mcpServers` or `x-augment.mcpServers` entry naming a server the MCP specs already emitted replaces that server whole, so one entry can no longer carry your `command` beside the spec's `args`, or a `url` beside a `command` (#974).
 - An integer `effort` on an agent now raises Factory's coverage note instead of vanishing in silence: `effort: 8000` is reported as outside `low`, `medium`, `high`, the way `xhigh` already was (#968).
-- An `x-<target>` settings key no longer deletes the translated policy it collides with: lists union and objects merge, so a portable `deny` rule survives an `x-factory.commandBlocklist` or `x-claude.permissions.deny` beside it, and a shape that cannot merge prints a coverage note (#966).
-- An `x-qoder.mcpServers` or `x-augment.mcpServers` entry naming a server the MCP specs already emitted now replaces that server whole instead of merging into it, so one entry can no longer carry your `command` beside the spec's `args`, or a `url` beside a `command` (#974).
 - An `mcp__<server>__<tool>` permission rule now reaches `opencode.json` as `<server>_<tool>`, the key OpenCode registers that tool under, instead of dropping behind a coverage note claiming the vendor has no MCP key (#947).
 - A `WebSearch` permission rule now reaches `.devin/config.json` as `web_search`, which Devin has accepted in all three lists since CLI v3000.10.21, and `import windsurf` reads it back (#951).
-- Installing the latest release no longer dies on a shared IP: `scripts/install.sh`, `scripts/install.ps1` and `agnostic-ai upgrade` resolve the tag from the `github.com/.../releases/latest` redirect instead of the API endpoint capped at 60 unauthenticated requests per hour, and a throttled request now says it was rate limited instead of printing a bare 403 (#940).
+- Installing the latest release no longer dies on a shared IP. `scripts/install.sh`, `scripts/install.ps1` and `agnostic-ai upgrade` follow the `github.com/.../releases/latest` redirect instead of calling `api.github.com`, whose 60 unauthenticated requests an hour per IP failed installs with HTTP 403. The npm wrapper reads its latest version from that same `releases/latest` route, and a throttled request now says it was rate limited instead of printing a bare 403 (#940).
+- The npm wrapper survives the four ways its download used to fail: `AGNOSTIC_AI_VERSION=0.61.0` installs the same binary as `v0.61.0` rather than building a 404 URL, an empty `AggregateError` prints a real message instead of the bare line `agnostic-ai:`, the request times out after 30 seconds of silence and stops after 5 hops, and a failed `tar` extraction names the archive and points at the install script or `go install`. The bin shim exits `128 + signal` so a killed run is distinguishable (#936).
 - The release's distribution guard retries `npm view` and the Homebrew contents API with backoff, so a registry replica that lags the publish by seconds no longer reports a good release as failed (#937).
-- `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
-- `AGNOSTIC_AI_VERSION=0.61.0` now installs the same binary as `v0.61.0`: the npm wrapper normalizes the pin instead of building a 404 download URL (#936).
-- The npm wrapper prints a real message when every address for github.com fails, instead of the bare line `agnostic-ai:` that an empty `AggregateError` produced (#936).
-- An npm install can no longer hang on the download: the request times out after 30 seconds of silence and stops following redirects after 5 hops (#936).
-- A failed `tar` extraction names the archive and points at the install script or `go install`, and the bin shim exits `128 + signal` so a killed run is distinguishable (#936).
-- The npm wrapper reads the latest release from the `releases/latest` redirect rather than `api.github.com`, whose 60 unauthenticated requests an hour per IP failed installs with HTTP 403 (#940).
+- `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 
 ### Site
 
-- The hero diagram stops claiming a rule becomes `CLAUDE.md`, which carries none of a rule's body. It now shows one agent spec, and the five native files it really produces are pickable: `.codex/agents/reviewer.toml` is TOML with no `tools`, Cursor drops `tools`, Gemini translates the names, and every path and body is copied from a real `sync` (#967).
-- The install command in the hero sends a CSS pulse down five labelled rails to the targets it writes, and rests as a faint finished fan under `prefers-reduced-motion` (#967).
-- The Copilot page and the adapter's coverage note name `deniedUrls`, the one deny route in Copilot's repository settings table, and say it is reachable with `x-copilot.deniedUrls` rather than implying no repository-tier deny exists (#959).
-
-- The Claude page marks `taskOutputMaxChars` deprecated: Claude Code v2.1.277 removed its effect, and the key still emits because the `stable` dist-tag predates that release (#955).
-- The Copilot page says Copilot CLI reads `.claude/settings.json` for a five-key repository subset, so `enabledPlugins` set for claude also sets Copilot policy (#956).
-- The Cursor page says Cursor loads skills from `.claude/skills` and `.codex/skills` as well, read from three roots with precedence undocumented (#957).
-- The Claude, Cursor and Copilot pages stop calling MCP `roots` a documented per-server key; no vendor names one, and the field still emits as passthrough.
-- Installation lists the two package managers that work today, `brew install --cask Chemaclass/tap/agnostic-ai` and `npm install -g agnostic-ai`, and names winget and Scoop as the two that do not (#920).
-- The readme and the plugin install skill offer npm as a route instead of warning that it is unpublished, and the npm readme links the site and drops its pin on a seventeen-release-old tag (#920).
-- The current release shows beside the wordmark on every page and links to its GitHub release, so the version is visible without scrolling to the footer.
+- The hero stops claiming a rule becomes `CLAUDE.md`, which carries none of a rule's body. It shows one agent spec and the five native files it really produces, pickable: `.codex/agents/reviewer.toml` is TOML with no `tools`, Cursor drops `tools`, Gemini translates the names, and every path and body is copied from a real `sync`. The install command sends a CSS pulse down five labelled rails to the targets it writes, and rests as a faint finished fan under `prefers-reduced-motion` (#967).
+- Four target pages drop a claim the vendor does not make. Copilot names `deniedUrls`, its one repository-tier deny route, reachable with `x-copilot.deniedUrls`, rather than implying none exists (#959), and says Copilot CLI reads `.claude/settings.json` for a five-key repository subset, so `enabledPlugins` set for claude also sets Copilot policy (#956). Claude marks `taskOutputMaxChars` deprecated, since v2.1.277 removed its effect and the key still emits because the `stable` dist-tag predates that release (#955). Cursor says it loads skills from `.claude/skills` and `.codex/skills` too, read from three roots with precedence undocumented (#957). Claude, Cursor and Copilot stop calling MCP `roots` a documented per-server key; no vendor names one, and the field still emits as passthrough.
 - The settings spec page names all four targets that report a whole permission policy as unreachable, and the Codex page says a portable `permissions` list raises a note pointing at `outputs.codex.exec-policies`.
+- Installation lists the two package managers that work today, `brew install --cask Chemaclass/tap/agnostic-ai` and `npm install -g agnostic-ai`, and names winget and Scoop as the two that do not. The readme and the plugin install skill offer npm as a route instead of warning that it is unpublished, and the npm readme links the site and drops its pin on a seventeen-release-old tag (#920).
+- The current release shows beside the wordmark on every page and links to its GitHub release, so the version is visible without scrolling to the footer.
 
 ## v0.62.0 - 2026-09-19
 
