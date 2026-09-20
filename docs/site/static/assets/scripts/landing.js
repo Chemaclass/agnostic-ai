@@ -115,9 +115,10 @@
       return false;
     }
 
+    var list = root.querySelector("[data-output-tablist]");
     var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-output-tab]"));
     var panels = Array.prototype.slice.call(root.querySelectorAll("[data-output-panel]"));
-    if (tabs.length < 2 || tabs.length !== panels.length) {
+    if (!list || tabs.length < 2 || tabs.length !== panels.length) {
       return false;
     }
 
@@ -146,13 +147,39 @@
         select(target, true);
       });
     });
+
+    // The template ships the list inert so a reader without this script is
+    // never offered four buttons that cannot be pressed. Every tab is wired by
+    // the time we get here, so the offer is now real. Nothing above this line
+    // may fail without leaving the list inert.
+    list.removeAttribute("inert");
     return true;
   }
 
+  // One broken feature must not take the other two with it. A throw here is a
+  // bug worth seeing in the console, not a reason to leave the rest of the
+  // page dead.
+  function guard(browser, step) {
+    try {
+      return step();
+    } catch (error) {
+      if (browser.console && typeof browser.console.error === "function") {
+        browser.console.error(error);
+      }
+      return false;
+    }
+  }
+
   function init(document, browser) {
-    initHeroInstaller(document, browser);
-    initOutputSwitch(document);
-    initReveal(document, browser);
+    guard(browser, function () {
+      return initHeroInstaller(document, browser);
+    });
+    guard(browser, function () {
+      return initOutputSwitch(document);
+    });
+    guard(browser, function () {
+      return initReveal(document, browser);
+    });
   }
 
   return {
@@ -160,6 +187,7 @@
     init: init,
     initHeroInstaller: initHeroInstaller,
     initOutputSwitch: initOutputSwitch,
+    initReveal: initReveal,
     nextTabIndex: nextTabIndex
   };
 });
