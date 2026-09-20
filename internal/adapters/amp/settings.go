@@ -67,9 +67,9 @@ func emitSettingsFile(sess *emit.Session, mcps, settings []spec.Entry, path stri
 	}
 	// `amp.mcpServers` is excluded from the settings hatch. It is
 	// built from MCP specs, each of which already carries its own
-	// `x-amp` block for the fields this project does not model, so a
-	// blanket set from a settings spec would replace every server
-	// those specs contributed rather than adding to them (#949).
+	// `x-amp` block for the fields this project does not model, so
+	// that is the one route to a server field; a settings spec setting
+	// the same key would be a second, half-merged one (#949, #966).
 	emit.MergeSettingsCustomKeys(keys, settings, target, ampMCPKey)
 	if len(keys) == 0 {
 		return nil

@@ -312,8 +312,9 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	// adapter does not model, `shell` and `startupScript` among them,
 	// into the same write. `toolPermissions` is excluded:
 	// buildToolPermissions already puts an author's native rules at the
-	// head of the array, ahead of the translated ones, and a blanket
-	// set here would drop the translated ones instead (#949).
+	// head of the array, ahead of the translated ones, and Augment
+	// takes the first match, so order decides the policy. The general
+	// merge appends instead, which would move them (#949, #966).
 	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey)
 	if len(keys) == 0 {
 		return nil
