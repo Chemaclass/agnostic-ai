@@ -39,25 +39,22 @@
     "agnostic-ai": "bin/agnostic-ai.js"
   },
   "files": [
-    "bin/",
-    "lib/",
-    "scripts/",
+    "bin/agnostic-ai.js",
+    "lib/platforms.js",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
-    "test": "node lib/download_test.js"
+    "test": "node lib/platforms_test.js && node scripts/build-platform-packages_test.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "os": [
-    "darwin",
-    "linux",
-    "win32"
-  ],
-  "cpu": [
-    "x64",
-    "arm64"
-  ]
+  "optionalDependencies": {
+    "@agnostic-ai/darwin-arm64": "0.0.0-dev",
+    "@agnostic-ai/darwin-x64": "0.0.0-dev",
+    "@agnostic-ai/linux-arm64": "0.0.0-dev",
+    "@agnostic-ai/linux-x64": "0.0.0-dev",
+    "@agnostic-ai/win32-arm64": "0.0.0-dev",
+    "@agnostic-ai/win32-x64": "0.0.0-dev"
+  }
 }

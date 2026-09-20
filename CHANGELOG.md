@@ -16,6 +16,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Changed
 
+- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@agnostic-ai/darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy (#942).
 - The npm package points its homepage at agnostic-ai.org instead of the GitHub readme, and widens its keywords from nine to twenty so npm search surfaces it (#937).
 
 ### Fixed
@@ -25,10 +26,15 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 - `AGNOSTIC_AI_VERSION=0.61.0` now installs the same binary as `v0.61.0`: the npm wrapper normalizes the pin instead of building a 404 download URL (#936).
+- The release publishes the six npm platform packages before the parent that pins them, and the distribution guard checks all seven, so a partial publish fails the release instead of breaking installs on one platform (#942).
 - The npm wrapper prints a real message when every address for github.com fails, instead of the bare line `agnostic-ai:` that an empty `AggregateError` produced (#936).
 - An npm install can no longer hang on the download: the request times out after 30 seconds of silence and stops following redirects after 5 hops (#936).
 - A failed `tar` extraction names the archive and points at the install script or `go install`, and the bin shim exits `128 + signal` so a killed run is distinguishable (#936).
 - The npm wrapper reads the latest release from the `releases/latest` redirect rather than `api.github.com`, whose 60 unauthenticated requests an hour per IP failed installs with HTTP 403 (#940).
+
+### Removed
+
+- `AGNOSTIC_AI_VERSION` no longer applies to the npm package: the npm version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it. `AGNOSTIC_AI_BINARY` points the wrapper at a binary of your own, and both install scripts keep `AGNOSTIC_AI_VERSION` (#942).
 
 ### Site
 

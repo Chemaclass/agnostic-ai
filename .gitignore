@@ -122,10 +122,12 @@ WARP.md
 # =============================================================================
 # npm wrapper artifacts
 #
-# npm/bin/ ships only the JS shim; the Go binary next to it is downloaded at
-# install time. `npm pack` drops a tarball in the package dir.
+# npm/bin/ ships only the JS shim. npm/platforms/ holds the six platform
+# packages, built from the release binaries at tag time and never committed.
+# `npm pack` drops a tarball in the package dir.
 # =============================================================================
 /npm/bin/agnostic-ai
+/npm/platforms/
 /npm/node_modules/
 /npm/*.tgz
 /npm/package-lock.json

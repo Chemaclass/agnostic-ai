@@ -152,7 +152,7 @@ func TestGoreleaserCask_EscapesHomebrewsStagedPathToken(t *testing.T) {
 // TestReleaseWorkflow_PublishesWithProvenance keeps the npm publish
 // attested.
 //
-// A provenance statement needs two things the workflow owns: the
+// A provenance statement needs two things the release owns: the
 // `--provenance` flag, and an OIDC token the job can only mint with
 // `id-token: write`. Dropping either leaves the publish working and the
 // package page without the attestation, which nothing else notices.
@@ -164,8 +164,12 @@ func TestReleaseWorkflow_PublishesWithProvenance(t *testing.T) {
 	if job.Permissions["id-token"] != "write" {
 		t.Errorf("the npm job needs `id-token: write` to mint the OIDC token a provenance statement is signed against, got %q", job.Permissions["id-token"])
 	}
-	if publish := workflowStep(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, "npm publish --access public --provenance") {
-		t.Errorf("the Publish step no longer passes --provenance:\n%s", publish)
+	if publish := workflowStep(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, npmPublishScript) {
+		t.Errorf("the Publish step no longer runs %s:\n%s", npmPublishScript, publish)
+	}
+	script := readRepoFile(t, npmPublishScript)
+	if !strings.Contains(script, "npm publish --access public --provenance") {
+		t.Errorf("%s no longer passes --provenance", npmPublishScript)
 	}
 }
 
