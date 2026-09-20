@@ -57,7 +57,7 @@ safe retry, then watch the manual run to completion.
 | Install scripts | `scripts/install.sh`, `scripts/install.ps1`, served raw from `main`. No release step: they resolve the latest tag at runtime |
 | Scoop | manifest pushed to `Chemaclass/scoop-bucket` (`SCOOP_BUCKET_TOKEN`) |
 | winget | manifest branch in `Chemaclass/winget-pkgs`, PR opened against `microsoft/winget-pkgs` (`WINGET_TOKEN`) |
-| npm | seven packages: `agnostic-ai` plus one `@agnostic-ai/<os>-<cpu>` per platform, all at the tag version (`NPM_TOKEN`) |
+| npm | seven packages: `agnostic-ai` plus one `@chemaclass/agnostic-ai-<os>-<cpu>` per platform, all at the tag version (`NPM_TOKEN`). The scope is the maintainer's npm username, which needs no org to exist |
 
 ### One-time setup per channel
 

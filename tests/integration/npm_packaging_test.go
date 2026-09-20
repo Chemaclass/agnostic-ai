@@ -38,7 +38,7 @@ type npmPlatform struct {
 	GOARCH string
 }
 
-func (p npmPlatform) pkg() string { return "@agnostic-ai/" + p.OS + "-" + p.CPU }
+func (p npmPlatform) pkg() string { return "@chemaclass/agnostic-ai-" + p.OS + "-" + p.CPU }
 
 func readRepoFile(t *testing.T, rel string) string {
 	t.Helper()
@@ -228,9 +228,17 @@ func TestReleaseWorkflow_PublishesPlatformPackagesBeforeTheParent(t *testing.T) 
 // nothing on some platform.
 func TestReleaseWorkflow_DistributionChecksEveryNpmPackage(t *testing.T) {
 	step := workflowRun(t, releaseWorkflowPath, "distribution", "npm serves this tag")
-	for _, p := range npmPlatforms(t) {
-		if !strings.Contains(step, p.pkg()) {
-			t.Errorf("the distribution guard never asks the registry for %s:\n%s", p.pkg(), step)
+
+	// Two ways to cover all six, and the derived one is stronger: a literal
+	// list in the workflow drifts from the table the packages are generated
+	// from, and then checks six names nobody publishes while the six that
+	// exist go unverified. Accept either, insist on one.
+	derived := strings.Contains(step, "lib/platforms.js") && strings.Contains(step, "packageName")
+	if !derived {
+		for _, p := range npmPlatforms(t) {
+			if !strings.Contains(step, p.pkg()) {
+				t.Errorf("the distribution guard neither reads lib/platforms.js nor names %s:\n%s", p.pkg(), step)
+			}
 		}
 	}
 	if !strings.Contains(step, "agnostic-ai ") && !strings.Contains(step, "agnostic-ai\\") {

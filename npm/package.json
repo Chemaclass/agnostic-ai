@@ -50,11 +50,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@agnostic-ai/darwin-arm64": "0.0.0-dev",
-    "@agnostic-ai/darwin-x64": "0.0.0-dev",
-    "@agnostic-ai/linux-arm64": "0.0.0-dev",
-    "@agnostic-ai/linux-x64": "0.0.0-dev",
-    "@agnostic-ai/win32-arm64": "0.0.0-dev",
-    "@agnostic-ai/win32-x64": "0.0.0-dev"
+    "@chemaclass/agnostic-ai-darwin-arm64": "0.0.0-dev",
+    "@chemaclass/agnostic-ai-darwin-x64": "0.0.0-dev",
+    "@chemaclass/agnostic-ai-linux-arm64": "0.0.0-dev",
+    "@chemaclass/agnostic-ai-linux-x64": "0.0.0-dev",
+    "@chemaclass/agnostic-ai-win32-arm64": "0.0.0-dev",
+    "@chemaclass/agnostic-ai-win32-x64": "0.0.0-dev"
   }
 }

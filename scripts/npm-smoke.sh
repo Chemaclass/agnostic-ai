@@ -76,7 +76,7 @@ main() {
   done
   npm pack --pack-destination "$work" --silent "$ROOT/npm" >/dev/null
 
-  # npm folds the scope into the tarball name: @agnostic-ai/darwin-arm64 packs
+  # npm folds the scope into the tarball name: @chemaclass/agnostic-ai-darwin-arm64 packs
   # as agnostic-ai-darwin-arm64-<version>.tgz.
   host="$(host_package)"
   host="${host#@}"

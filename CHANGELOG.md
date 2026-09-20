@@ -13,7 +13,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Changed
 
 - `AGNOSTIC_AI_VERSION` no longer applies to the npm package: the npm version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it. `AGNOSTIC_AI_BINARY` points the wrapper at a binary of your own, and both install scripts keep `AGNOSTIC_AI_VERSION` (#942).
-- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@agnostic-ai/darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy (#942).
+- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@chemaclass/agnostic-ai-darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy (#942).
 - The release publishes the six npm platform packages before the parent that pins them, and the distribution guard checks all seven, so a partial publish fails the release instead of breaking installs on one platform (#942).
 - Cutting a prerelease no longer hands it npm's `latest`: every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), and the distribution guard checks the dist-tag on all seven packages, not just the version (#942).
 - The npm wrapper's repair hint now fits the install it runs from: a global copy is told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` sitting in your npm config (#942).

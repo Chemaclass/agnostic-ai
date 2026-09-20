@@ -237,10 +237,19 @@ jobs:
           dist_tag="$(npm_dist_tag "$want")"
           echo "expecting dist-tag $dist_tag to resolve to $want"
           missing=0
-          for pkg in agnostic-ai \
-            @agnostic-ai/darwin-arm64 @agnostic-ai/darwin-x64 \
-            @agnostic-ai/linux-arm64 @agnostic-ai/linux-x64 \
-            @agnostic-ai/win32-arm64 @agnostic-ai/win32-x64; do
+          # Read the names from the table the packages are generated from,
+          # rather than repeating them here. A list that drifts from
+          # npm/lib/platforms.js checks six packages nobody publishes and
+          # passes while the six that exist go unverified.
+          # Unquoted on purpose: split the newline-separated list into words.
+          # No package name contains a space. mapfile would be tidier and is
+          # bash 4, which macOS does not ship, so this stays runnable anywhere.
+          pkgs=$(cd npm && node -p "
+            const t = require('./lib/platforms.js')
+            t.PLATFORMS.map(t.packageName).join('\n')
+          ")
+          # shellcheck disable=SC2086
+          for pkg in agnostic-ai $pkgs; do
             delay=5
             found=""
             for attempt in 1 2 3 4 5 6; do

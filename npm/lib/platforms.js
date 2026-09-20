@@ -10,7 +10,16 @@
 // that disagrees with what the shim asks for installs nothing and leaves the CLI
 // missing with no error anywhere. Two copies of this table is how that happens.
 
-const SCOPE = '@agnostic-ai'
+// Published under the maintainer's own npm scope, not an `@agnostic-ai` org.
+// A username is already a scope on npm, so this one exists and is owned, while
+// the org would have to be created before a release could publish anything.
+// Scoped rather than bare `agnostic-ai-darwin-arm64` so the namespace is not
+// squattable: nobody else can publish `@chemaclass/anything`.
+//
+// The scope is not the package name, so the project name stays in it. The
+// scope holds other projects, and `@chemaclass/darwin-arm64` would say nothing
+// about which tool the binary belongs to.
+const SCOPE = '@chemaclass'
 
 const BINARY = 'agnostic-ai'
 
@@ -28,7 +37,7 @@ const PLATFORMS = [
 ]
 
 function packageName(platform) {
-  return `${SCOPE}/${platform.os}-${platform.cpu}`
+  return `${SCOPE}/${BINARY}-${platform.os}-${platform.cpu}`
 }
 
 function binaryName(platform) {
