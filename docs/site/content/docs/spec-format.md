@@ -484,7 +484,7 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 | Augment | `allow` and `deny` only | no |
 | Codex, Copilot, Junie, Factory | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, Windsurf reports its `model`, and Copilot and Junie report the whole policy, since neither has a project-tier key for it. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, Codex, and Factory report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
 
 ## Reviews
 

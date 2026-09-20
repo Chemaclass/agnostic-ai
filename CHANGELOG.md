@@ -15,6 +15,11 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 
+### Site
+
+- The current release shows beside the wordmark on every page and links to its GitHub release, so the version is visible without scrolling to the footer.
+- The settings spec page names all four targets that report a whole permission policy as unreachable, and the Codex page says a portable `permissions` list raises a note pointing at `outputs.codex.exec-policies`.
+
 ## v0.62.0 - 2026-09-19
 
 ### Added
