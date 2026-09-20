@@ -63,17 +63,8 @@ func workflowJobs(t *testing.T, path string) map[string]workflowJob {
 // workflowRun returns the run script of the named step in the named job.
 func workflowRun(t *testing.T, path, job, step string) string {
 	t.Helper()
-	j, ok := workflowJobs(t, path)[job]
-	if !ok {
-		t.Fatalf("%s has no %q job", path, job)
-	}
-	for _, s := range j.Steps {
-		if s.Name == step {
-			return s.Run
-		}
-	}
-	t.Fatalf("%s job %q has no %q step", path, job, step)
-	return ""
+	s, _ := workflowStepAt(t, path, job, step)
+	return s.Run
 }
 
 // workflowStepAt returns the named step of the named job and its position
@@ -93,8 +84,8 @@ func workflowStepAt(t *testing.T, path, job, step string) (workflowStep, int) {
 	return workflowStep{}, -1
 }
 
-// Names the tap credential steps agree on, kept here so a rename has to
-// touch one place rather than drift between the guards below.
+// Names the tap credential guards below share, so a rename touches one
+// place instead of drifting between them.
 const (
 	tapMintStep     = "Mint the Homebrew tap token from the GitHub App"
 	tapAppIDSecret  = "HOMEBREW_TAP_APP_ID"
