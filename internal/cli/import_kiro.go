@@ -46,6 +46,9 @@ const (
 //     and merged with the native trees by name (the native copy wins on
 //     a collision, since `importKiroAgents` and `importSkillFolders` for
 //     `.kiro/skills/` both run after `importKiroSteering`).
+//   - `.kiro/hooks/*.json` reconstructs one hook spec per group of
+//     entries that differ only in `action.command`, splitting a file
+//     that carries several `trigger` values. See import_kiro_hooks.go.
 //   - `.kiro/settings/mcp.json` (`mcpServers` map) reconstructs MCP specs.
 //   - a hand-authored `.kiroignore` reconstructs an ignore spec (#754).
 //   - `AGENTS.md` (the shared entry-point Kiro reads directly) mirrors to
@@ -60,10 +63,12 @@ const (
 // names it collapsed from (`Read`, `Grep`, and `Glob` all emit as `read`
 // and are indistinguishable once written), since that many-to-one
 // translation (see the kiro adapter's package doc) has no confident
-// reverse. Hooks have no import support yet (matches Cursor, which also
-// emits hooks natively with no read-back path).
+// reverse. A hook's explicit `enabled: true` leaves no key, since that
+// is the vendor default the emit side writes nothing for, and a hook
+// name declared by two files keeps only one of the two labels, since a
+// spec name is unique across the bundle.
 func importFromKiro(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importKiroSteering(root, src)
@@ -75,6 +80,10 @@ func importFromKiro(root string, src config.Sources) error {
 		return err
 	}
 	skills, err := importSkillFolders(filepath.Join(root, kiroSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
+	hooks, err := importKiroHooks(root, filepath.Join(root, src.Hooks))
 	if err != nil {
 		return err
 	}
@@ -90,8 +99,8 @@ func importFromKiro(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, kiroMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d ignores\n",
-		c.rules, c.agents+agents, c.skills+skills, mcps, ignores)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores\n",
+		c.rules, c.agents+agents, c.skills+skills, hooks, mcps, ignores)
 	printImportNextSteps(root, "kiro")
 	return nil
 }
