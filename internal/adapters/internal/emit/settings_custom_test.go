@@ -193,3 +193,139 @@ func TestMergeSettingsCustomKeys_UnionRaisesNoNote(t *testing.T) {
 		t.Errorf("a clean union must stay silent, got: %s", note)
 	}
 }
+
+// A server both sides name is taken from the hatch whole. Merging
+// inside the record put the hatch's `command` beside the spec's
+// `args`, which runs the author's binary with the previous binary's
+// flags (#974).
+func TestMergeSettingsCustomRecordMap_TakesACollidingRecordWhole(t *testing.T) {
+	keys := map[string]any{"mcpServers": map[string]any{
+		"foo": map[string]any{"command": "old-binary", "args": []any{"--from-spec"}},
+	}}
+	entries := []spec.Entry{
+		settingsEntry("base", map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{
+				"foo": map[string]any{"command": "new-binary", "args": []any{"--from-hatch"}},
+			},
+		}}),
+	}
+	MergeSettingsCustomRecordMap(keys, entries, "qoder", "mcpServers")
+
+	servers, ok := keys["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("mcpServers = %#v, want a map", keys["mcpServers"])
+	}
+	foo, ok := servers["foo"].(map[string]any)
+	if !ok {
+		t.Fatalf("foo = %#v, want a map", servers["foo"])
+	}
+	if got := foo["command"]; got != "new-binary" {
+		t.Errorf("command = %#v, want the hatch's", got)
+	}
+	args, _ := foo["args"].([]any)
+	if len(args) != 1 || args[0] != "--from-hatch" {
+		t.Errorf("args = %#v, want only the hatch's; the spec's must not ride along", foo["args"])
+	}
+}
+
+// The two transports never end up in one entry. A `url` from the
+// hatch replaces a stdio record rather than joining it (#974).
+func TestMergeSettingsCustomRecordMap_ReplacesAStdioRecordWithAnHTTPOne(t *testing.T) {
+	keys := map[string]any{"mcpServers": map[string]any{
+		"foo": map[string]any{"command": "old-binary", "args": []any{"--from-spec"}},
+	}}
+	entries := []spec.Entry{
+		settingsEntry("base", map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{
+				"foo": map[string]any{"url": "https://example.test/mcp"},
+			},
+		}}),
+	}
+	MergeSettingsCustomRecordMap(keys, entries, "qoder", "mcpServers")
+
+	foo := keys["mcpServers"].(map[string]any)["foo"].(map[string]any)
+	for _, stale := range []string{"command", "args"} {
+		if _, held := foo[stale]; held {
+			t.Errorf("%q survived onto an HTTP record: %#v", stale, foo)
+		}
+	}
+	if foo["url"] != "https://example.test/mcp" {
+		t.Errorf("url = %#v, want the hatch's", foo["url"])
+	}
+}
+
+// Union at the registry level is the #966 fix and stays: a server
+// only the specs named survives, and one only the author named lands.
+func TestMergeSettingsCustomRecordMap_UnionsByName(t *testing.T) {
+	keys := map[string]any{"mcpServers": map[string]any{
+		"keepme": map[string]any{"command": "spec-only"},
+	}}
+	entries := []spec.Entry{
+		settingsEntry("base", map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{"hatchonly": map[string]any{"command": "author"}},
+		}}),
+	}
+	MergeSettingsCustomRecordMap(keys, entries, "qoder", "mcpServers")
+
+	servers := keys["mcpServers"].(map[string]any)
+	for _, name := range []string{"keepme", "hatchonly"} {
+		if _, held := servers[name]; !held {
+			t.Errorf("%q missing from the union: %#v", name, servers)
+		}
+	}
+}
+
+// Nothing managed under the key means the hatch stands alone, with
+// no note: there is no translated half for it to displace.
+func TestMergeSettingsCustomRecordMap_TakesTheHatchWhenNothingIsManaged(t *testing.T) {
+	var buf bytes.Buffer
+	restore := Warner
+	Warner = &buf
+	defer func() { Warner = restore }()
+	ResetCoverageNotes()
+
+	keys := map[string]any{}
+	entries := []spec.Entry{
+		settingsEntry("base", map[string]any{"x-qoder": map[string]any{
+			"mcpServers": map[string]any{"only": map[string]any{"command": "author"}},
+		}}),
+	}
+	MergeSettingsCustomRecordMap(keys, entries, "qoder", "mcpServers")
+	FlushCoverageNotes()
+
+	if _, held := keys["mcpServers"].(map[string]any)["only"]; !held {
+		t.Errorf("mcpServers = %#v, want the hatch value", keys["mcpServers"])
+	}
+	if note := buf.String(); note != "" {
+		t.Errorf("no managed half means no note, got: %s", note)
+	}
+}
+
+// A hatch that is not a map of records cannot be unioned by name, so
+// it replaces and says so rather than replacing in silence.
+func TestMergeSettingsCustomRecordMap_NotesAShapeConflict(t *testing.T) {
+	var buf bytes.Buffer
+	restore := Warner
+	Warner = &buf
+	defer func() { Warner = restore }()
+	ResetCoverageNotes()
+
+	keys := map[string]any{"mcpServers": map[string]any{"foo": map[string]any{"command": "spec"}}}
+	entries := []spec.Entry{
+		settingsEntry("base", map[string]any{"x-qoder": map[string]any{
+			"mcpServers": "not-a-map",
+		}}),
+	}
+	MergeSettingsCustomRecordMap(keys, entries, "qoder", "mcpServers")
+	FlushCoverageNotes()
+
+	if keys["mcpServers"] != "not-a-map" {
+		t.Errorf("mcpServers = %#v, want the hatch value to win", keys["mcpServers"])
+	}
+	note := buf.String()
+	for _, want := range []string{"mcpServers", "qoder", "x-qoder"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected the note to mention %q, got: %s", want, note)
+		}
+	}
+}

@@ -292,3 +292,44 @@ func TestEmit_SettingsCustomToolPermissionsStillLeadTheArray(t *testing.T) {
 		t.Errorf("native rule no longer leads the array: %#v", rules)
 	}
 }
+
+// Same record boundary as qoder (#974): the hatch's server replaces
+// the spec's rather than merging into it, so `args` never carries the
+// previous binary's flags into the new one.
+func TestEmit_SettingsCustomMCPServerReplacesTheWholeRecord(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "foo", Meta: map[string]any{"command": "old-binary", "args": []any{"--from-spec"}}},
+		{Kind: spec.KindMCP, Name: "keepme", Meta: map[string]any{"command": "spec-only"}},
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"x-augment": map[string]any{
+			"mcpServers": map[string]any{
+				"foo": map[string]any{"command": "new-binary", "args": []any{"--from-hatch"}},
+			},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".augment/settings.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	servers, ok := got["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("mcpServers = %#v, want a map", got["mcpServers"])
+	}
+	foo, ok := servers["foo"].(map[string]any)
+	if !ok {
+		t.Fatalf("foo = %#v, want a map", servers["foo"])
+	}
+	if foo["command"] != "new-binary" {
+		t.Errorf("command = %#v, want the hatch's", foo["command"])
+	}
+	args, _ := foo["args"].([]any)
+	if len(args) != 1 || args[0] != "--from-hatch" {
+		t.Errorf("args = %#v, want only the hatch's; the spec's must not ride along", foo["args"])
+	}
+	if _, held := servers["keepme"]; !held {
+		t.Errorf("a spec-only server must survive the union: %#v", servers)
+	}
+}

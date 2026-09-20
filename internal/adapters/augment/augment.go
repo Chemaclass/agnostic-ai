@@ -293,12 +293,16 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 // the collision check as though two targets disagreed on the file's
 // content, when only this adapter writes it (qoder hit exactly this,
 // #629, #718).
+// mcpServersKey is the map Augment reads its MCP servers from, and the
+// one key here whose values are whole records rather than properties.
+const mcpServersKey = "mcpServers"
+
 func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
 	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
 	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	keys := map[string]any{}
 	if servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap); servers != nil {
-		keys["mcpServers"] = servers
+		keys[mcpServersKey] = servers
 	}
 	if block := buildHooksBlock(hooks); block != nil {
 		keys[hooksKey] = block
@@ -315,7 +319,13 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	// head of the array, ahead of the translated ones, and Augment
 	// takes the first match, so order decides the policy. The general
 	// merge appends instead, which would move them (#949, #966).
-	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey)
+	//
+	// `mcpServers` is excluded for a different reason and unioned by
+	// server name below: a server definition is one record, and merging
+	// inside one put the hatch's `command` beside the spec's `args`
+	// (#974).
+	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey, mcpServersKey)
+	emit.MergeSettingsCustomRecordMap(keys, settings, target, mcpServersKey)
 	if len(keys) == 0 {
 		return nil
 	}
