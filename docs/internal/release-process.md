@@ -10,11 +10,10 @@ Semantic Versioning. Pre-1.0: minor bumps may break spec format; patches are bug
 
 Use the `cut-release` skill for the complete publication flow. It finalizes the
 dated changelog, bumps the version, then creates exactly one
-`docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing immediately
-before the signed release commit and tag. The briefing reproduces the exact
-release changelog and keeps verified upstream CLI and model news in a separate
-section. Breaking behavior, changed defaults, removals, and deprecations come
-before additions.
+`docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release announcement immediately
+before the signed release commit and tag. It is a concise reader-facing summary,
+not a duplicate changelog. Link readers to the GitHub release for the complete
+record and keep verified upstream CLI and model news separate.
 
 Run `make site-build site-test` before the release commit. Confirm the article,
 archive, RSS GUID, `.html` compatibility alias, and sitemap route are generated.
