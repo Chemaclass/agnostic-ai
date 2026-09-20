@@ -35,7 +35,7 @@ func caskConfig(t *testing.T) map[string]any {
 // off Homebrew's deprecated `postflight` block.
 //
 // goreleaser's `hooks` key renders raw Ruby as `postflight do`, which
-// Homebrew deprecated in favour of the declarative `postflight_steps`
+// Homebrew deprecated in favor of the declarative `postflight_steps`
 // DSL. Every `brew` command touching the tap then prints a warning
 // naming our tap and asking the user to report it to us (#933).
 //
