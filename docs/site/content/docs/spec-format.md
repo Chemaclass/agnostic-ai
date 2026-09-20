@@ -518,6 +518,10 @@ On a key this tool also writes, the two values merge rather than one replacing t
 
 One exception: a map of whole records merges by name, not by field. `x-qoder.mcpServers` and `x-augment.mcpServers` union with the servers the MCP specs contributed, and a server both sides name is taken from the `x-<target>` block entire. A server definition is one record whose transport fields have to agree with each other, so merging inside one would put your `command` beside the spec's `args`, or a `url` beside a `command` (#974).
 
+Key order is part of the merge. A block this tool writes in a fixed order, `x-qoder.hooks` and `x-augment.hooks` against a generated hook block, keeps that order: the translated events stay where the vendor's lifecycle puts them, an event you also name merges under it, and an event only you name is appended (#976).
+
+The four keys with their own handling take one shape each, and a value of another shape cannot be read at all. `x-augment.toolPermissions` takes a list; `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` take an object. Write one of those under the wrong shape and the hatch is skipped, the translated rules ship in its place, and a coverage note names the key and both shapes. Before #976 that skip was silent, which is the worst version of the failure this tool exists to prevent: a permission policy that does nothing and says nothing.
+
 ## Reviews
 
 Markdown with optional YAML frontmatter, one file per group of code-review-bot guidance.
@@ -634,4 +638,4 @@ Any other key under `x-<target>` emits verbatim into that target's output. That 
 
 Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
 
-On a settings spec the block merges into the target's own settings file, key by key, with the keys this tool manages there: lists union, objects recurse, and only a scalar is replaced outright. A map of whole records, `mcpServers` on qoder and augment, unions by name and replaces a colliding entry whole. See [Settings](@/docs/spec-format.md#settings) for the full rule. Four targets keep their own handling for one key each, where the author's rules merge with the translated ones on that target's own terms: `x-augment.toolPermissions`, `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission`. Codex takes no settings block at all and says so in a coverage note.
+On a settings spec the block merges into the target's own settings file, key by key, with the keys this tool manages there: lists union, objects recurse, and only a scalar is replaced outright. A map of whole records, `mcpServers` on qoder and augment, unions by name and replaces a colliding entry whole. See [Settings](@/docs/spec-format.md#settings) for the full rule. Four targets keep their own handling for one key each, where the author's rules merge with the translated ones on that target's own terms: `x-augment.toolPermissions` (a list), `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` (objects). Each reads only its own shape, and another shape is skipped under a coverage note. Codex takes no settings block at all and says so in a coverage note.
