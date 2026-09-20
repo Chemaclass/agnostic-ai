@@ -40,6 +40,48 @@ Keep each change independently usable and focused on one outcome. Add tests for 
 | Browser playground | [Playground development](docs/playground/README.md) |
 | Editor extensions | [Editors](editors/README.md) |
 
+## Preview the site
+
+The docs site is [Zola](https://www.getzola.org/), pinned to the version in
+[Makefile](Makefile) (`ZOLA_VERSION`). Install that exact version:
+
+```bash
+brew install zola          # then check the version below
+zola --version             # must match ZOLA_VERSION exactly
+```
+
+Homebrew tracks the newest release, so it can be ahead of the pin. To run the
+pinned build without changing the system install, download it and put it first
+on `PATH` for the command:
+
+```bash
+gh release download v0.22.0 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
+tar xzf zola-v0.22.0-aarch64-apple-darwin.tar.gz
+PATH="$PWD:$PATH" make site-serve
+```
+
+Then:
+
+```bash
+make site-serve            # live reload on http://127.0.0.1:1111
+make site-check            # internal links
+make site-build            # what Pages publishes, into _site/
+make site-test             # site JS tests plus the Go site tests
+```
+
+`site-serve`, `site-check` and `site-build` all refuse to run on the wrong Zola
+version and print what they found.
+
+**A mismatched Zola does not fail `go test ./...`, it silently skips.**
+`TestSiteDocs_BuildsBrowsablePublicGuides`, `TestSiteDocs_BuildsSiteSearchIndex`
+and `TestTargetUpdates_PostAloneUpdatesSiteOutputs` call `t.Skip` when the
+version does not match, so a green run proves nothing about a change under
+`docs/site/`. Read the skip count, or run `make site-test` with the pinned
+binary, before trusting a site change.
+
+Never edit `docs/site/templates/` to satisfy a newer Zola. That breaks the
+pinned build CI and Pages actually use.
+
 ## Check and submit
 
 Install the pinned development tools once. Ensure `$(go env GOPATH)/bin` is on `PATH` first:
