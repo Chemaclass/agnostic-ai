@@ -28,6 +28,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Adapter output | Adapter tests and relevant golden fixtures; preview with `sync --dry-run` |
 | Playground or code used by WASM | `make playground-serve`, then exercise affected behavior in a browser |
 | Documentation | Check relative links and anchors; execute changed command examples in a temporary project |
+| Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`. All need the pinned Zola; a mismatched one **skips** the three site tests instead of failing, so a green `go test ./...` proves nothing. See [Preview the site](../../CONTRIBUTING.md#preview-the-site) |
 | Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
 
 `make preflight` covers formatting, vet, lint, and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
