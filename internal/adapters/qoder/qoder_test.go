@@ -266,6 +266,61 @@ func TestEmit_Agent_SkillsAndMCPServersPassThrough(t *testing.T) {
 	}
 }
 
+// Qoder's subagent field reference carries `memory` with agnostic-ai's
+// exact three-value enum: "| `memory` | No | `user`, `project`,
+// `local` | Persistent memory scope for this Subagent." It documents
+// the field on `.qoder/agents/*.md`, the file this adapter writes, and
+// reachable only there: "Use Markdown configuration when you need
+// `timeoutMins`, `temperature`, `hooks`, `memory`, `background`, or
+// `isolation`". The value needs no translation, so it passes through
+// (#953).
+func TestEmit_Agent_MemoryScopePassesThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{"description": "d", "memory": "project"},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "memory: project") {
+		t.Errorf("missing %q in:\n%s", "memory: project", got)
+	}
+}
+
+// x-qoder still wins for an author who wants a different scope on this
+// target only, the same deal every other promoted field gets.
+func TestEmit_Agent_XQoderMemoryOverridesGenericMemory(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "alpha",
+			Meta: map[string]any{
+				"description": "d",
+				"memory":      "project",
+				"x-qoder":     map[string]any{"memory": "local"},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".qoder/agents/alpha.md"))
+	if !strings.Contains(got, "memory: local") {
+		t.Errorf("missing %q in:\n%s", "memory: local", got)
+	}
+	if strings.Contains(got, "memory: project") {
+		t.Errorf("x-qoder.memory did not replace the generic value:\n%s", got)
+	}
+}
+
 // color (docs.qoder.com/cli/subagent field reference: one of eight
 // named values, e.g. `cyan`, shown while the Subagent runs in the TUI)
 // is a shared portable concept augment.go and kilo.go already promote;

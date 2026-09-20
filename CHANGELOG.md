@@ -13,6 +13,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Added
 
 - `agnostic-ai import kiro` now reads `.kiro/hooks/*.json`, so a repo synced to Kiro round-trips its own hooks; entries differing only in `action.command` recombine into one spec (#952).
+- An agent's `memory` scope now reaches Qoder at `.qoder/agents/<name>.md`, the file its subagent reference documents the field on, with the same `user`/`project`/`local` values (#953).
 - The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
 
 ### Changed
@@ -22,6 +23,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- An `mcp__<server>__<tool>` permission rule now reaches `opencode.json` as `<server>_<tool>`, the key OpenCode registers that tool under, instead of dropping behind a coverage note claiming the vendor has no MCP key (#947).
+- A `WebSearch` permission rule now reaches `.devin/config.json` as `web_search`, which Devin has accepted in all three lists since CLI v3000.10.21, and `import windsurf` reads it back (#951).
 - Installing the latest release no longer dies on a shared IP: `scripts/install.sh`, `scripts/install.ps1` and `agnostic-ai upgrade` resolve the tag from the `github.com/.../releases/latest` redirect instead of the API endpoint capped at 60 unauthenticated requests per hour, and a throttled request now says it was rate limited instead of printing a bare 403 (#940).
 - The release's distribution guard retries `npm view` and the Homebrew contents API with backoff, so a registry replica that lags the publish by seconds no longer reports a good release as failed (#937).
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.

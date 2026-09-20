@@ -29,6 +29,18 @@
     },
     {
       "permission": {
+        "type": "deny"
+      },
+      "toolName": "web-search"
+    },
+    {
+      "permission": {
+        "type": "deny"
+      },
+      "toolName": "create_issue_github"
+    },
+    {
+      "permission": {
         "type": "allow"
       },
       "shellInputRegex": "^go test",

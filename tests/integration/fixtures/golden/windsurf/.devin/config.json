@@ -9,7 +9,9 @@
     ],
     "deny": [
       "Exec(rm)",
-      "Exec(rm -rf /)"
+      "Exec(rm -rf /)",
+      "web_search",
+      "mcp__github__create_issue"
     ]
   }
 }

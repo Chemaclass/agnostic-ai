@@ -27,13 +27,18 @@ var devinScopeToPortable = map[string]func(string) string{
 	"Exec":  func(arg string) string { return "Bash(" + arg + ":*)" },
 }
 
-// devinBareTool reverses the bare tool names Devin publishes. `write`
-// covers both portable Write and Edit on the way out, so the import
-// picks Write: it is the wider of the two and re-emitting it produces
-// the same Devin rule.
+// devinBareTool reverses the bare tool names Devin's `permissions`
+// lists accept. `write` covers both portable Write and Edit on the way
+// out, so the import picks Write: it is the wider of the two and
+// re-emitting it produces the same Devin rule.
+//
+// `web_search` joined the accepted names in CLI v3000.10.21
+// (2026-09-10) and mirrors the emitter's map in the windsurf adapter
+// (#951). `webfetch` is absent from both on purpose: no page about
+// `permissions` names it.
 var devinBareTool = map[string]string{
 	"read": "Read", "edit": "Edit", "grep": "Grep",
-	"glob": "Glob", "exec": "Bash",
+	"glob": "Glob", "exec": "Bash", "web_search": "WebSearch",
 }
 
 // portableDevinRule turns one Devin rule back into the portable
