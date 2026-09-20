@@ -78,6 +78,22 @@ The parent pins exact versions of six platform packages, so the release publishe
 
 The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder.
 
+### npm dist-tags
+
+`npm publish` with no `--tag` writes `latest`, and `latest` is what an unpinned `npm install agnostic-ai` resolves. The release workflow fires on every `v*` tag and `scripts/release.sh` accepts a prerelease, so an untagged prerelease publish would replace the stable release for everyone.
+
+`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and both the provenance publish and the plain retry pass it:
+
+| Version | dist-tag |
+|---|---|
+| `0.64.0` | `latest` |
+| `0.64.0-beta.1` | `beta` |
+| `0.64.0-rc.2` | `rc` |
+| `0.64.0-alpha.0` | `alpha` |
+| `0.64.0-20260101`, anything else | `next` |
+
+The `distribution` job sources the same helper and asserts, per package, that the version exists *and* that the dist-tag resolves to it. Install a prerelease with `npm install -g agnostic-ai@beta`.
+
 `scripts/npm-smoke.sh` runs the same generator against locally cross-compiled binaries and installs the result from tarballs. Use it to check a change to any of the three scripts without cutting a release.
 
 ## Backporting

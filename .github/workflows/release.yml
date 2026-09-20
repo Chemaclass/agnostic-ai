@@ -177,6 +177,13 @@ jobs:
       # platform packages, so a parent that published while one of them did
       # not leaves `npm install` broken on that platform until the next
       # release, with the registry reporting the release as fine.
+      #
+      # Each package is checked twice: the version exists, and the dist-tag
+      # this version was meant to publish under resolves to it. Version
+      # alone is not enough. An untagged `npm publish` writes `latest`, so a
+      # prerelease could land correctly at its version while silently
+      # replacing the stable release every unpinned `npm install agnostic-ai`
+      # resolves, and a version-only guard would report that as a success.
       - name: npm serves this tag
         env:
           NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
@@ -187,6 +194,12 @@ jobs:
             echo "::warning::NPM_TOKEN is empty, so nothing was published to npm. Set the secret and re-run."
             exit 0
           fi
+          # Sourced, not restated: the publish step derives the tag from the
+          # same helper, so the guard cannot assert a tag nobody published.
+          # shellcheck source=scripts/npm-publish.sh
+          . scripts/npm-publish.sh
+          dist_tag="$(npm_dist_tag "$want")"
+          echo "expecting dist-tag $dist_tag to resolve to $want"
           missing=0
           for pkg in agnostic-ai \
             @agnostic-ai/darwin-arm64 @agnostic-ai/darwin-x64 \
@@ -196,8 +209,9 @@ jobs:
             found=""
             for attempt in 1 2 3 4 5 6; do
               got=$(npm view "${pkg}@${want}" version 2>/dev/null || true)
-              echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>}"
-              if [ "$got" = "$want" ]; then
+              tagged=$(npm view "${pkg}@${dist_tag}" version 2>/dev/null || true)
+              echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>} ${dist_tag}=${tagged:-<absent>}"
+              if [ "$got" = "$want" ] && [ "$tagged" = "$want" ]; then
                 found=yes
                 break
               fi
@@ -207,11 +221,15 @@ jobs:
               fi
             done
             if [ -z "$found" ]; then
-              echo "::error::npm does not serve ${pkg}@${want}"
+              if [ "$got" = "$want" ]; then
+                echo "::error::npm serves ${pkg}@${want} but its ${dist_tag} dist-tag points at ${tagged:-<absent>}"
+              else
+                echo "::error::npm does not serve ${pkg}@${want}"
+              fi
               missing=1
             fi
           done
           if [ "$missing" -ne 0 ]; then
-            echo "::error::the npm release is incomplete; installs break on any platform whose package is missing"
+            echo "::error::the npm release is incomplete; installs break on any platform whose package is missing, and an unpinned install resolves whatever ${dist_tag} still points at"
             exit 1
           fi

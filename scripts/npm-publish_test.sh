@@ -58,10 +58,16 @@ function stub_npm() {
         grep -qxF "${2%@*}" "$STUB_PRESENT"
         ;;
       publish)
-        local name provenance="plain"
+        local name provenance="plain" tag="<none>" arg next=""
         name="$(node -p "require('./package.json').name")"
         [[ "$*" == *--provenance* ]] && provenance="provenance"
-        printf 'publish %s %s\n' "$name" "$provenance" >> "$STUB_LOG"
+        # An untagged publish writes `latest`, so the log records the tag the
+        # script asked for, not just that it published.
+        for arg in "$@"; do
+          [[ -n "$next" ]] && { tag="$arg"; next=""; continue; }
+          [[ "$arg" == "--tag" ]] && next=1
+        done
+        printf 'publish %s %s %s\n' "$name" "$provenance" "$tag" >> "$STUB_LOG"
         if grep -qxF "$name $provenance" <<< "$STUB_PUBLISH_FAILS"; then
           return 1
         fi
@@ -89,9 +95,9 @@ function test_it_publishes_every_platform_package_before_the_parent() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @agnostic-ai/darwin-arm64 provenance
-publish @agnostic-ai/linux-x64 provenance
-publish agnostic-ai provenance" "$log"
+  assert_same "publish @agnostic-ai/darwin-arm64 provenance latest
+publish @agnostic-ai/linux-x64 provenance latest
+publish agnostic-ai provenance latest" "$log"
 }
 
 function test_it_waits_for_every_platform_package_before_the_parent() {
@@ -169,8 +175,8 @@ function test_a_provenance_failure_downgrades_to_a_plain_publish() {
   rm -rf "$tmp"
 
   assert_same "0" "$code"
-  assert_contains "publish @agnostic-ai/darwin-arm64 provenance" "$log"
-  assert_contains "publish @agnostic-ai/darwin-arm64 plain" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 provenance latest" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 plain latest" "$log"
 }
 
 function test_a_publish_that_fails_both_ways_fails_the_release() {
@@ -218,6 +224,63 @@ function test_a_version_conflict_after_a_failed_retry_counts_as_published() {
   rm -rf "$tmp"
 
   assert_same "0" "$code"
+}
+
+# ---- dist-tag ----------------------------------------------------------------
+
+# npm defaults an untagged publish to `latest`, which is what an unpinned
+# `npm install agnostic-ai` resolves. A prerelease that lands there replaces
+# the stable release for everyone who did not pin.
+function test_a_stable_version_owns_latest() {
+  assert_same "latest" "$(npm_dist_tag 1.2.3)"
+  assert_same "latest" "$(npm_dist_tag v1.2.3)"
+}
+
+# The tag comes from the suffix, so two prerelease lines never overwrite each
+# other's channel.
+function test_each_prerelease_line_gets_its_own_tag() {
+  assert_same "beta" "$(npm_dist_tag 1.2.3-beta.1)"
+  assert_same "rc" "$(npm_dist_tag 1.2.3-rc.1)"
+  assert_same "alpha" "$(npm_dist_tag 1.2.3-alpha.0)"
+}
+
+# A date stamp, a bare build id, or `latest` itself is not a tag name we can
+# hand npm: the registry refuses a dist-tag that parses as a version, and
+# `latest` is the one tag a prerelease must never take.
+function test_an_unrecognised_suffix_parks_on_next() {
+  assert_same "next" "$(npm_dist_tag 1.2.3-20240101)"
+  assert_same "next" "$(npm_dist_tag 1.2.3-latest)"
+  assert_same "next" "$(npm_dist_tag 1.2.3-foo_bar)"
+}
+
+function test_it_publishes_a_prerelease_under_its_own_tag() {
+  local tmp log
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  main 1.2.3-beta.1 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
+  log="$(grep '^publish' "$tmp/log")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_same "publish @agnostic-ai/darwin-arm64 provenance beta
+publish @agnostic-ai/linux-x64 provenance beta
+publish agnostic-ai provenance beta" "$log"
+}
+
+# The plain retry is a second publish, and an untagged one there moves
+# `latest` just as surely as the first would have.
+function test_the_retry_without_provenance_keeps_the_tag() {
+  local tmp log
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log" "" "@agnostic-ai/darwin-arm64 provenance"
+  main 1.2.3-rc.2 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1
+  log="$(cat "$tmp/log")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_contains "publish @agnostic-ai/darwin-arm64 plain rc" "$log"
 }
 
 # ---- arguments ---------------------------------------------------------------

@@ -13,6 +13,11 @@
 # Publishing is idempotent: a version already on the registry is skipped, so a
 # re-run after a partial failure finishes the release instead of failing on a
 # conflict.
+#
+# Every publish carries an explicit --tag. An untagged `npm publish` writes the
+# `latest` dist-tag, which is what an unpinned `npm install agnostic-ai`
+# resolves, so a prerelease published without one takes over the default
+# install for everybody.
 
 set -euo pipefail
 
@@ -28,25 +33,58 @@ published() {
   npm view "$1@$2" version >/dev/null 2>&1
 }
 
+# npm_dist_tag <version> — echoes the dist-tag <version> has to publish under.
+#
+# A plain X.Y.Z owns `latest`. A version carrying a prerelease suffix gets its
+# own channel, named after the first identifier of that suffix, so `-beta.1`
+# and `-rc.2` never share one and neither can move `latest`. A suffix that is
+# not a plain word (a date stamp, a build id, `latest` itself) parks on `next`
+# rather than inventing a tag npm may reject: the registry refuses a dist-tag
+# that parses as a version.
+#
+# Pure: no registry read, no filesystem. The release's distribution guard
+# sources this file to derive the same tag it then asserts.
+npm_dist_tag() {
+  local version="${1#v}" word
+  case "$version" in
+    *-*) ;;
+    *) printf 'latest\n'; return 0 ;;
+  esac
+  word="${version#*-}"
+  word="${word%%.*}"
+  word="$(printf '%s' "$word" | tr '[:upper:]' '[:lower:]')"
+  case "$word" in
+    latest) printf 'next\n' ;;
+    [a-z]*)
+      case "$word" in
+        *[!a-z0-9-]*) printf 'next\n' ;;
+        *) printf '%s\n' "$word" ;;
+      esac
+      ;;
+    *) printf 'next\n' ;;
+  esac
+}
+
 # Provenance is signed through Sigstore, a service outside this release.
 # Shipping the package matters more than the attestation, so a provenance
 # failure downgrades to a plain publish. The warning is the signal to
 # investigate; `npm view --json <pkg>@<version>` shows whether a version
 # carries one.
 publish_package() {
-  local dir="$1" name version="$2"
+  local dir="$1" name version="$2" tag
   name="$(package_name "$dir")"
+  tag="$(npm_dist_tag "$version")"
 
   if published "$name" "$version"; then
     printf '::notice::%s@%s is already published\n' "$name" "$version"
     return 0
   fi
 
-  if (cd "$dir" && npm publish --access public --provenance); then
+  if (cd "$dir" && npm publish --access public --provenance --tag "$tag"); then
     return 0
   fi
   printf '::warning::npm publish --provenance failed for %s; retrying without it, so this version ships unattested\n' "$name"
-  if (cd "$dir" && npm publish --access public); then
+  if (cd "$dir" && npm publish --access public --tag "$tag"); then
     return 0
   fi
   # The first attempt can upload the tarball and still fail while attaching
@@ -129,7 +167,8 @@ main() {
   done
 
   publish_package "$parent" "$version"
-  printf 'npm-publish: published %s packages at %s\n' "$((${#dirs[@]} + 1))" "$version"
+  printf 'npm-publish: published %s packages at %s under dist-tag %s\n' \
+    "$((${#dirs[@]} + 1))" "$version" "$(npm_dist_tag "$version")"
 }
 
 if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]}" == "$0" ]]; then

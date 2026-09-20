@@ -237,3 +237,55 @@ func TestReleaseWorkflow_DistributionChecksEveryNpmPackage(t *testing.T) {
 		t.Errorf("the distribution guard no longer checks the parent package:\n%s", step)
 	}
 }
+
+// TestNpmPublish_TagsEveryPublishAttempt closes the hole an untagged
+// publish leaves.
+//
+// npm defaults a publish with no `--tag` to `latest`, and `latest` is what
+// an unpinned `npm install agnostic-ai` resolves. The release workflow fires
+// on every `v*` tag and scripts/release.sh accepts a prerelease, so one
+// `v0.64.0-beta.1` would replace the stable release on all seven packages.
+// The plain retry is a second publish and needs the flag just as much.
+func TestNpmPublish_TagsEveryPublishAttempt(t *testing.T) {
+	script := readRepoFile(t, npmPublishScript)
+	for i, line := range strings.Split(script, "\n") {
+		if !strings.Contains(line, "npm publish --access") {
+			continue
+		}
+		if !strings.Contains(line, "--tag") {
+			t.Errorf("%s:%d publishes without --tag, which writes the latest dist-tag: %s",
+				npmPublishScript, i+1, strings.TrimSpace(line))
+		}
+	}
+	if !strings.Contains(script, "npm_dist_tag()") {
+		t.Errorf("%s no longer derives the dist-tag, so nothing tests it in isolation", npmPublishScript)
+	}
+}
+
+// TestReleaseWorkflow_DistributionChecksTheDistTag guards the other half of
+// the npm check.
+//
+// Asking whether the version exists is not enough: a prerelease published
+// without `--tag` is on the registry at its own version and has also taken
+// over `latest`, so a version-only guard reports that release as good. The
+// guard derives the tag from the publish script rather than restating it,
+// because a second copy is how the guard ends up asserting a tag nobody
+// published.
+func TestReleaseWorkflow_DistributionChecksTheDistTag(t *testing.T) {
+	step := workflowStep(t, releaseWorkflowPath, "distribution", "npm serves this tag")
+	if !strings.Contains(step, ". "+npmPublishScript) {
+		t.Errorf("the guard does not source %s, so its dist-tag can drift from the published one:\n%s",
+			npmPublishScript, step)
+	}
+	if !strings.Contains(step, "npm_dist_tag") {
+		t.Errorf("the guard never derives a dist-tag:\n%s", step)
+	}
+	if !strings.Contains(step, `npm view "${pkg}@${dist_tag}" version`) {
+		t.Errorf("the guard never asks the registry what the dist-tag resolves to:\n%s", step)
+	}
+	// One loop over all seven names does both reads, so the tag is checked
+	// for every package rather than for the parent alone.
+	if !strings.Contains(step, `[ "$got" = "$want" ] && [ "$tagged" = "$want" ]`) {
+		t.Errorf("the guard accepts a package whose dist-tag points elsewhere:\n%s", step)
+	}
+}
