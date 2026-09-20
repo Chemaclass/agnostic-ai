@@ -229,7 +229,7 @@ jobs:
           set -euo pipefail
           want="${GITHUB_REF_NAME#v}"
           if [ "$TAP_CONFIGURED" != "true" ]; then
-            echo "::warning::neither the HOMEBREW_TAP_APP_ID/HOMEBREW_TAP_APP_PRIVATE_KEY pair nor HOMEBREW_TAP_TOKEN is set, so the cask was never pushed and brew still serves the previous release. Set one and re-run."
+            echo "::notice::no tap credential here, which is expected. Chemaclass/homebrew-tap updates its own cask on a half-hourly schedule with its own GITHUB_TOKEN, so brew catches up within the hour and this repository holds no secret for it. Run that repository's 'Update agnostic-ai cask' workflow to pull it forward."
             exit 0
           fi
           delay=5

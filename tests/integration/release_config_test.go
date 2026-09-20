@@ -242,8 +242,18 @@ func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
 		if !strings.Contains(script, "::error::") {
 			t.Errorf("%q no longer errors on a channel that stays stale:\n%s", step, script)
 		}
-		if !strings.Contains(script, "::warning::") || !strings.Contains(script, "exit 0") {
-			t.Errorf("%q no longer warns and passes when its token is absent, which is how forks release:\n%s", step, script)
+		// An absent credential must say so and pass, never fail the
+		// release; that is how a fork releases. The two steps differ on
+		// how loud to be. No npm token means nothing was published, so
+		// that is a warning. No tap credential is the steady state here:
+		// Chemaclass/homebrew-tap updates its own cask on a schedule with
+		// its own GITHUB_TOKEN, so a warning every release would train
+		// everyone to ignore the one that matters.
+		if !strings.Contains(script, "::warning::") && !strings.Contains(script, "::notice::") {
+			t.Errorf("%q says nothing when its credential is absent:\n%s", step, script)
+		}
+		if !strings.Contains(script, "exit 0") {
+			t.Errorf("%q no longer passes when its credential is absent, which is how forks release:\n%s", step, script)
 		}
 	}
 }
