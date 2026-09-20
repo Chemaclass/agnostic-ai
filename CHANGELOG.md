@@ -42,6 +42,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Site
 
+- The hero diagram stops claiming a rule becomes `CLAUDE.md`, which carries none of a rule's body. It now shows one agent spec, and the five native files it really produces are pickable: `.codex/agents/reviewer.toml` is TOML with no `tools`, Cursor drops `tools`, Gemini translates the names, and every path and body is copied from a real `sync` (#967).
+- The install command in the hero sends a CSS pulse down five labelled rails to the targets it writes, and rests as a faint finished fan under `prefers-reduced-motion` (#967).
 - The Copilot page and the adapter's coverage note name `deniedUrls`, the one deny route in Copilot's repository settings table, and say it is reachable with `x-copilot.deniedUrls` rather than implying no repository-tier deny exists (#959).
 
 - The Claude page marks `taskOutputMaxChars` deprecated: Claude Code v2.1.277 removed its effect, and the key still emits because the `stable` dist-tag predates that release (#955).

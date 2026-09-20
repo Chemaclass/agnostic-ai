@@ -85,6 +85,70 @@
     });
   }
 
+  // Arrow keys wrap, Home and End jump to the ends. Returns the index the
+  // key moves to, or -1 when the key is not one this list handles.
+  function nextTabIndex(key, current, total) {
+    if (total < 1) {
+      return -1;
+    }
+    if (key === "ArrowDown" || key === "ArrowRight") {
+      return (current + 1) % total;
+    }
+    if (key === "ArrowUp" || key === "ArrowLeft") {
+      return (current - 1 + total) % total;
+    }
+    if (key === "Home") {
+      return 0;
+    }
+    if (key === "End") {
+      return total - 1;
+    }
+    return -1;
+  }
+
+  // The output list is a vertical tablist over the generated files. Selection
+  // follows click and arrow keys, never hover, and the panes stay grid-stacked
+  // so the card keeps one height.
+  function initOutputSwitch(document) {
+    var root = document.querySelector("[data-output-switch]");
+    if (!root) {
+      return false;
+    }
+
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-output-tab]"));
+    var panels = Array.prototype.slice.call(root.querySelectorAll("[data-output-panel]"));
+    if (tabs.length < 2 || tabs.length !== panels.length) {
+      return false;
+    }
+
+    function select(index, moveFocus) {
+      tabs.forEach(function (tab, position) {
+        var active = position === index;
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+        tab.tabIndex = active ? 0 : -1;
+        panels[position].hidden = !active;
+      });
+      if (moveFocus) {
+        tabs[index].focus();
+      }
+    }
+
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        select(index, false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var target = nextTabIndex(event.key, index, tabs.length);
+        if (target < 0) {
+          return;
+        }
+        event.preventDefault();
+        select(target, true);
+      });
+    });
+    return true;
+  }
+
   function embedURL(videoId) {
     if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId || ""))) {
       return null;
@@ -119,6 +183,7 @@
 
   function init(document, browser) {
     initHeroInstaller(document, browser);
+    initOutputSwitch(document);
     initReveal(document, browser);
     initVideoFacade(document);
   }
@@ -128,6 +193,8 @@
     embedURL: embedURL,
     init: init,
     initHeroInstaller: initHeroInstaller,
-    initVideoFacade: initVideoFacade
+    initOutputSwitch: initOutputSwitch,
+    initVideoFacade: initVideoFacade,
+    nextTabIndex: nextTabIndex
   };
 });
