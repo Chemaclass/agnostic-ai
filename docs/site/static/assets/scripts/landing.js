@@ -149,52 +149,17 @@
     return true;
   }
 
-  function embedURL(videoId) {
-    if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId || ""))) {
-      return null;
-    }
-    return "https://www.youtube-nocookie.com/embed/" + videoId + "?autoplay=1&rel=0";
-  }
-
-  function initVideoFacade(document) {
-    var facade = document.querySelector("[data-video-facade]");
-    var link = facade && facade.querySelector("[data-video-play]");
-    if (!link) {
-      return false;
-    }
-
-    link.addEventListener("click", function (event) {
-      var src = embedURL(facade.dataset.videoId);
-      if (!src) {
-        return;
-      }
-      event.preventDefault();
-      var iframe = document.createElement("iframe");
-      iframe.src = src;
-      iframe.title = facade.dataset.videoTitle || "";
-      iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
-      iframe.setAttribute("allowfullscreen", "");
-      iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      link.replaceWith(iframe);
-      iframe.focus();
-    });
-    return true;
-  }
-
   function init(document, browser) {
     initHeroInstaller(document, browser);
     initOutputSwitch(document);
     initReveal(document, browser);
-    initVideoFacade(document);
   }
 
   return {
     detectOS: detectOS,
-    embedURL: embedURL,
     init: init,
     initHeroInstaller: initHeroInstaller,
     initOutputSwitch: initOutputSwitch,
-    initVideoFacade: initVideoFacade,
     nextTabIndex: nextTabIndex
   };
 });

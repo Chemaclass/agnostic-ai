@@ -158,7 +158,7 @@ site-build:
 	./scripts/build-llm-docs.sh $(SITE_OUTPUT_DIR)
 
 site-test:
-	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js
+	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve:
