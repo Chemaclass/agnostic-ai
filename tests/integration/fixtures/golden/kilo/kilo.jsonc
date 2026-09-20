@@ -9,8 +9,14 @@
       "rm *": "deny",
       "rm -rf /": "deny"
     },
+    "github_create_issue": {
+      "*": "deny"
+    },
     "read": {
       "**": "allow"
+    },
+    "websearch": {
+      "*": "deny"
     },
     "write": {
       ".env*": "ask"

@@ -5,6 +5,8 @@ permissions:
   deny:
     - Bash(rm:*)
     - Bash(rm -rf /)
+    - WebSearch
+    - mcp__github__create_issue
   ask:
     - Write(.env*)
 model: example-model
