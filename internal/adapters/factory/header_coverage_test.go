@@ -99,6 +99,16 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read", "Bash"}}, Body: "gamma body"},
+		// delta pins the per-target `effort` map in emitted bytes. The
+		// map names factory with a value inside its enum, so the golden
+		// shows the picked scalar under Factory's own spelling (#968).
+		{
+			Kind: spec.KindAgent, Name: "delta", Path: "agents/delta.md", Body: "delta body",
+			Meta: map[string]any{
+				"description": "handles delta",
+				"effort":      map[string]any{"claude": "xhigh", "qoder": 8000, "factory": "high"},
+			},
+		},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
