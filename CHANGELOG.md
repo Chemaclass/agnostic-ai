@@ -13,6 +13,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Fixed
 
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
+- `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 
 ## v0.62.0 - 2026-09-19
 

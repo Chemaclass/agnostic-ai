@@ -139,9 +139,23 @@ homebrew_casks:
       name: goreleaserbot
       email: bot@goreleaser.com
     commit_msg_template: "feat: bump {{ .ProjectName }} to {{ .Tag }}"
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/agnostic-ai"]
-          end
+    # Homebrew deprecated the raw `postflight` block that goreleaser's
+    # `hooks` key emits (#933, goreleaser#6870), and its replacement is a
+    # declarative step DSL rather than a renamed Ruby block. custom_block
+    # carries that form until goreleaser grows a native key (#6873).
+    #
+    # The strip is not optional: Homebrew propagates com.apple.quarantine
+    # to the extracted files and the `binary` artifact only chmods +x, so
+    # without this Gatekeeper blocks the unsigned binary on first run.
+    #
+    # goreleaser renders the cask and then runs the whole file through its
+    # own template engine a second time, so Homebrew's `{{staged_path}}`
+    # token is wrapped to survive that pass and emit literally. A bare
+    # token fails the release at tag time with `function "staged_path" not
+    # defined`.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/agnostic-ai"]
+        end
+      end
