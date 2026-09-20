@@ -20,6 +20,12 @@ The user asks to release, tag, ship, or cut a new version.
 
 1. Confirm working tree clean and on `main`. `git pull --ff-only`.
 2. `make preflight` (fmt-check + vet + lint + test). Refuse to proceed on any failure.
+   `preflight` runs on your machine alone, and a pull request now tests on
+   Linux only, so the macOS and Windows jobs may not have run against this
+   exact tree. The push to `main` does run all three, so check that the CI run
+   for the current `main` commit is green across the matrix before tagging; if
+   it is not there, dispatch one (`gh workflow run ci.yml --ref main`) and wait
+   for it.
 3. Decide next version per semver:
    - patch: bug fixes only
    - minor: additive features

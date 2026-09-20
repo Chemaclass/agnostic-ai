@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -65,6 +65,33 @@ vet:
 # error. Mirrors .github/workflows/ci.yml.
 preflight: fmt-check vet lint test
 	@echo "preflight: ok"
+
+# ci-local runs every CI job that can run on this machine, so a release can
+# be cut without waiting on a remote run. It exists because a pull request
+# now tests on Linux only (#982): preflight alone no longer approximates CI.
+#
+# It does not reproduce CI exactly and does not try to. It runs the Go tests
+# with -race on this OS alone, and it cannot run the plugin version-bump job,
+# which compares a pull request against its merge base. Cut a release from a
+# main commit whose own CI run is green across all three platforms; this
+# target is what you run before you get there.
+#
+# The two editor steps need network on a cold machine: npm has to resolve the
+# lockfile and the gradle wrapper has to fetch its distribution. Both cache
+# after the first run. A release gate should build these artifacts, so they
+# stay required rather than being made optional.
+#
+# Each line is the local equivalent of one job, in the workflow's own order.
+ci-local: fmt-check test-race build lint
+	GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
+	go run ./cmd/schemagen
+	git diff --exit-code docs/schemas/config.schema.json
+	$(MAKE) build
+	./$(BIN) lint
+	$(MAKE) test-shell
+	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm run compile
+	cd editors/jetbrains && ./gradlew --no-daemon test
+	@echo "ci-local: ok"
 
 # tools installs the developer toolchain pinned to the versions CI uses.
 # Idempotent. Run once after cloning, and again whenever the pins above

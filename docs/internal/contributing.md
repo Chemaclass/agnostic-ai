@@ -33,6 +33,8 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 `make preflight` covers formatting, vet, lint, and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
 
+A pull request runs the Go tests on Linux only. Windows and macOS run on every push to `main`, once a night, and on demand with `gh workflow run ci.yml --ref main`. Windows is the slowest job by a wide margin and decides how long a PR waits, while the portability that actually breaks here, path handling and shell quoting, is exercised on Linux too. So nothing is skipped, only deferred to the merge commit. Dispatch a full run before cutting a release.
+
 ## Conventions
 
 | Topic | Convention |
