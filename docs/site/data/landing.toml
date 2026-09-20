@@ -208,18 +208,6 @@ recommend_label = "Recommended for Linux"
 prompt = "$"
 command = "curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash"
 note = "No package manager or Go required. The script selects the archive for your OS and CPU, verifies it, and installs the binary."
-[[workflow.installers]]
-id = "go"
-label = "Go"
-prompt = "$"
-command = "go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest"
-note = "Any platform with Go 1.24+. Make sure `$(go env GOPATH)/bin` is on your `PATH`."
-[[workflow.installers]]
-id = "binary"
-label = "Binary"
-prompt = "$"
-command = "curl -sSL https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai_darwin_arm64.tar.gz | tar xz"
-note = "Swap `darwin_arm64` for your release archive. Windows builds and `checksums.txt` are on the releases page."
 
 [updates]
 title = "Keep the setup current."

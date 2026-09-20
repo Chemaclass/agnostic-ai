@@ -945,3 +945,53 @@ func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 		t.Error("the footer does not link its version to the matching GitHub release")
 	}
 }
+
+// TestSiteDocs_EveryLandingInstallerReachesThePage keeps `workflow.installers`
+// from collecting routes the landing never renders.
+//
+// The installer tab strip was removed, and `index.html` now reads that list
+// twice: once to pin the hero command to the entry whose id is `script`, and
+// once to emit a hidden span for each entry carrying `recommend_for`. An entry
+// that is neither is unreachable, and it does not look unreachable: #941 spent
+// its whole life waiting on a release-quality gate so npm could be added to
+// this list, and when the entry was finally added the built site came out
+// byte-identical (#991).
+func TestSiteDocs_EveryLandingInstallerReachesThePage(t *testing.T) {
+	var landing struct {
+		Workflow struct {
+			Installers []struct {
+				ID           string `toml:"id"`
+				RecommendFor string `toml:"recommend_for"`
+			} `toml:"installers"`
+		} `toml:"workflow"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
+		t.Fatalf("decode landing data: %v", err)
+	}
+	if len(landing.Workflow.Installers) == 0 {
+		t.Fatal("no installers in the landing data")
+	}
+
+	// Read the hero's default out of the template rather than repeating it,
+	// so renaming it there fails here instead of silently orphaning an entry.
+	index := readRepoFile(t, "docs/site/templates/index.html")
+	defaultID := regexp.MustCompile(`installer\.id == "([a-z0-9-]+)"`).FindStringSubmatch(index)
+	if defaultID == nil {
+		t.Fatal("index.html no longer pins the hero command to an installer id; update this test to match")
+	}
+
+	var seenDefault bool
+	for _, installer := range landing.Workflow.Installers {
+		if installer.ID == defaultID[1] {
+			seenDefault = true
+			continue
+		}
+		if installer.RecommendFor == "" {
+			t.Errorf("installer %q is neither the hero default (%q) nor recommended for an OS, so nothing renders it; give it a recommend_for or delete it",
+				installer.ID, defaultID[1])
+		}
+	}
+	if !seenDefault {
+		t.Errorf("no installer has id %q, which index.html pins the hero command to", defaultID[1])
+	}
+}

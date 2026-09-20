@@ -25,6 +25,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Site
 
+- `landing.toml` drops the `go` and `binary` installer entries. The landing renders only the hero default and the three entries with a `recommend_for`, so those two reached nothing; both routes stay documented on the installation page, and a test now fails on an installer the page cannot render (#991).
 - The hero fan drops the accent dot at the install command's right edge. The rails still start there; nothing else changes.
 - The site builds on Zola 0.23.6 instead of 0.22.0: templates moved to Tera 2 components, shortcodes became components, and the three site tests that silently skipped on a mismatched local Zola now run for anyone on a current release (#970).
 - The ten spec kinds stop being a bare list. The playground's kind picker now says in one line what the selected kind is and links to the section of the spec format that defines it, the landing names the four kinds its capability matrix leaves out with a link each, and the README explains `review`, `environment`, and `ignore` instead of only listing them (#980).
