@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -44,24 +45,87 @@ func SettingsCustomKeys(settings []spec.Entry, target string, exclude ...string)
 // settings spec, and whether it was there. Adapters use it for the one
 // key they merge with their own translated output rather than letting
 // the general passthrough set it.
+//
+// A value present under some other shape reads as absent, and raises a
+// coverage note on the way out. It cannot do anything else: the key is
+// excluded from the general merge precisely because this adapter reads
+// it itself, and it cannot walk what is not an object. Silence was the
+// bad outcome, not the fallback. An author who wrote a permission
+// policy the tool could not read got the translated policy instead and
+// heard nothing about it (#976).
 func SettingsCustomObject(entry spec.Entry, target, key string) (map[string]any, bool) {
+	raw, held := settingsCustomValue(entry, target, key)
+	if !held {
+		return nil, false
+	}
+	value, ok := raw.(map[string]any)
+	if !ok {
+		noteSettingsCustomShape(target, key, raw, "an object")
+		return nil, false
+	}
+	return value, true
+}
+
+// SettingsCustomList returns the array at `x-<target>.<key>` on one
+// settings spec. The list counterpart to SettingsCustomObject, with
+// the same treatment of a value of the wrong shape.
+func SettingsCustomList(entry spec.Entry, target, key string) []any {
+	raw, held := settingsCustomValue(entry, target, key)
+	if !held {
+		return nil
+	}
+	value, ok := raw.([]any)
+	if !ok {
+		noteSettingsCustomShape(target, key, raw, "a list")
+		return nil
+	}
+	return value
+}
+
+// settingsCustomValue returns the raw value at `x-<target>.<key>` and
+// whether the author wrote the key at all. A key written with no value
+// decodes to nil, which reads as absent: an empty line in YAML is not
+// a policy, and noting it would punish a comment-out.
+func settingsCustomValue(entry spec.Entry, target, key string) (any, bool) {
 	custom, _ := CustomTargetMeta(entry.Meta, target)
 	if custom == nil {
 		return nil, false
 	}
-	value, ok := custom[key].(map[string]any)
-	return value, ok
+	value, held := custom[key]
+	if !held || value == nil {
+		return nil, false
+	}
+	return value, true
 }
 
-// SettingsCustomList returns the array at `x-<target>.<key>` on one
-// settings spec. The list counterpart to SettingsCustomObject.
-func SettingsCustomList(entry spec.Entry, target, key string) []any {
-	custom, _ := CustomTargetMeta(entry.Meta, target)
-	if custom == nil {
-		return nil
+// noteSettingsCustomShape reports one hatch the adapter reads itself
+// and could not use. The field reads `x-<target>.<key>`, not `<key>`:
+// the translated half of that key is what reaches the file, and the
+// half with no effect is the author's.
+func noteSettingsCustomShape(target, key string, value any, want string) {
+	NoteFieldNoOp(target, spec.KindSettings, fmt.Sprintf("x-%s.%s", target, key), 1, fmt.Sprintf(
+		"the value is %s, and this key takes %s, so the hatch is skipped and the translated value is written in its place",
+		settingsValueShape(value), want))
+}
+
+// settingsValueShape names a value's JSON shape for that note, in the
+// vocabulary the spec format uses for the hatch.
+func settingsValueShape(v any) string {
+	switch v.(type) {
+	case bool:
+		return "a boolean"
+	case string:
+		return "a string"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, json.Number:
+		return "a number"
 	}
-	value, _ := custom[key].([]any)
-	return value
+	if _, ok := settingsValueList(v); ok {
+		return "a list"
+	}
+	if _, ok := settingsValueObject(v); ok {
+		return "an object"
+	}
+	return "a scalar"
 }
 
 // MergeSettingsCustomKeys sets every key SettingsCustomKeys returns
@@ -169,11 +233,144 @@ func mergeSettingsValues(managed, custom any) (any, bool) {
 	if managedIsMap && customIsMap {
 		return mergeSettingsMaps(managedMap, customMap)
 	}
-	if managedIsList || customIsList || managedIsMap || customIsMap {
+	managedDoc, managedIsObject := settingsValueObject(managed)
+	customDoc, customIsObject := settingsValueObject(custom)
+	if managedIsObject && customIsObject {
+		return mergeSettingsDocs(managedDoc, customDoc)
+	}
+	if managedIsList || customIsList || managedIsObject || customIsObject {
 		return custom, false
 	}
 	// Two scalars: there is nothing to keep from the managed one.
 	return custom, true
+}
+
+// settingsValueObject reports whether v is a JSON object and returns
+// it as an ordered document. Two spellings of an object meet here: the
+// plain `map[string]any` a YAML hatch decodes to, and the
+// `*OrderedJSON` the adapters that care about key order build their
+// blocks with. A hook block is the worked example: qoder and augment
+// both render `hooks` through one so the vendor's lifecycle event
+// order survives a sync.
+//
+// Only the plain map read as an object before, so `x-qoder.hooks`
+// against a generated hook block fell to the unmergeable branch: the
+// hatch replaced the whole generated block and the note called two
+// objects a shape conflict. Objects merge key by key, which is the
+// rule the spec format documents, so the ordered document has to be
+// seen as the object it is (#976).
+//
+// The plain map converts through its JSON form, so its keys land
+// alphabetically, the order `encoding/json` would have given them on
+// the way to the file anyway.
+func settingsValueObject(v any) (*OrderedJSON, bool) {
+	switch obj := v.(type) {
+	case nil:
+		return nil, false
+	case *OrderedJSON:
+		if obj == nil {
+			return nil, false
+		}
+		return obj, true
+	case map[string]any:
+		raw, err := marshalSettingsValue(obj)
+		if err != nil {
+			return nil, false
+		}
+		doc := NewOrderedJSON()
+		if err := doc.UnmarshalJSON(raw); err != nil {
+			return nil, false
+		}
+		return doc, true
+	}
+	return nil, false
+}
+
+// mergeSettingsDocs merges two objects as ordered documents: every key
+// the managed document holds keeps its position, a key both sides hold
+// merges by the same rule one level down, and a key only the hatch
+// holds is appended after them.
+//
+// That is what mergeSettingsMaps does for two plain maps, with the one
+// guarantee a plain map cannot make. An ordered document promises the
+// author's top-level key sequence survives a sync and that a subtree
+// nobody touched is written back byte for byte, so a key only one side
+// carries is copied raw rather than decoded and re-encoded.
+func mergeSettingsDocs(managed, custom *OrderedJSON) (*OrderedJSON, bool) {
+	out := NewOrderedJSON()
+	clean := true
+	for _, key := range managed.Keys() {
+		managedRaw, _ := managed.Get(key)
+		customRaw, held := custom.Get(key)
+		if !held {
+			out.SetRaw(key, managedRaw)
+			continue
+		}
+		merged, ok := mergeSettingsRaw(managedRaw, customRaw)
+		if !ok {
+			clean = false
+		}
+		out.SetRaw(key, merged)
+	}
+	for _, key := range custom.Keys() {
+		if _, held := managed.Get(key); held {
+			continue
+		}
+		raw, _ := custom.Get(key)
+		out.SetRaw(key, raw)
+	}
+	return out, clean
+}
+
+// mergeSettingsRaw decodes one key's two raw values, merges them by
+// the same rule, and re-encodes. Bytes `encoding/json` cannot read,
+// or a merge result it cannot write back, keep the hatch value and
+// report the conflict: the same replacement the caller would have
+// made anyway, said out loud rather than performed in silence.
+func mergeSettingsRaw(managed, custom json.RawMessage) (json.RawMessage, bool) {
+	managedValue, err := decodeSettingsRaw(managed)
+	if err != nil {
+		return custom, false
+	}
+	customValue, err := decodeSettingsRaw(custom)
+	if err != nil {
+		return custom, false
+	}
+	merged, clean := mergeSettingsValues(managedValue, customValue)
+	raw, err := marshalSettingsValue(merged)
+	if err != nil {
+		return custom, false
+	}
+	return raw, clean
+}
+
+// decodeSettingsRaw reads one raw JSON value into the plain shapes the
+// merge walks. Numbers decode as json.Number so a value that only
+// passes through is written back in the spelling it arrived in,
+// rather than through float64.
+func decodeSettingsRaw(raw json.RawMessage) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// marshalSettingsValue renders one value as compact JSON with HTML
+// escaping off, the same reason MarshalJSONIndent gives: these bytes
+// end up in a settings file a CLI reads, where a shell command's `&&`
+// must stay `&&`. Compact because OrderedJSON re-indents every raw
+// value on the way out.
+func marshalSettingsValue(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // mergeSettingsMaps returns a new map holding every key of both, the
