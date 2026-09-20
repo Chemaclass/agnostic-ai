@@ -12,6 +12,12 @@ on:
     paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', '.github/workflows/install.yml']
   schedule:
     - cron: '0 6 * * 1'
+  # A release is the moment the published artifacts change, so it is the
+  # moment worth checking them. The `published` job below absorbs the
+  # registry lag that follows a publish.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -69,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -105,3 +111,67 @@ jobs:
 
       - name: Binary runs from the postinstall download
         run: agnostic-ai --version
+
+  published:
+    name: published package (${{ matrix.os }})
+    # The `npm` job above packs the working tree, and a packed tree carries
+    # the 0.0.0-dev placeholder, which sends resolveVersion down its "fall
+    # back to the latest release" branch. A published package carries a real
+    # version and takes the package.json branch instead, so the path every
+    # user hits had no coverage at all (#937).
+    #
+    # Only this repository publishes agnostic-ai. After a failed release the
+    # wait below would burn its whole window on three runners to rediscover
+    # what release.yml's distribution guard already reported.
+    if: |
+      github.repository == 'Chemaclass/agnostic-ai'
+      && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Wait for the registry to serve the latest release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          want=$(gh release view --repo Chemaclass/agnostic-ai --json tagName --jq '.tagName')
+          want="${want#v}"
+          # Same bounded backoff as release.yml's distribution guard, for the
+          # same reason: a run triggered by a release races the registry
+          # replica, and that lag is not a publish failure (#937).
+          delay=5
+          for attempt in 1 2 3 4 5 6; do
+            got=$(npm view "agnostic-ai@${want}" version 2>/dev/null || true)
+            echo "attempt $attempt: release=$want npm=${got:-<absent>}"
+            if [ "$got" = "$want" ]; then
+              echo "version=$want" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$attempt" -lt 6 ]; then
+              sleep "$delay"
+              delay=$((delay * 2))
+            fi
+          done
+          echo "::error::npm does not serve agnostic-ai@${want}; the published package is behind the latest release"
+          exit 1
+
+      - name: Install the published package
+        run: npm install -g agnostic-ai@${{ steps.release.outputs.version }}
+
+      - name: Binary reports the published version
+        shell: bash
+        run: |
+          set -euo pipefail
+          got=$(agnostic-ai --version)
+          echo "$got"
+          grep -qF "${{ steps.release.outputs.version }}" <<<"$got"
