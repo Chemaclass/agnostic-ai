@@ -28,6 +28,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `AGNOSTIC_AI_VERSION=0.61.0` now installs the same binary as `v0.61.0`: the npm wrapper normalizes the pin instead of building a 404 download URL (#936).
 - The release publishes the six npm platform packages before the parent that pins them, and the distribution guard checks all seven, so a partial publish fails the release instead of breaking installs on one platform (#942).
 - Cutting a prerelease no longer hands it npm's `latest`: every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), and the distribution guard checks the dist-tag on all seven packages, not just the version (#942).
+- The npm wrapper's repair hint now fits the install it runs from: a global copy is told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` sitting in your npm config (#942).
 - The npm wrapper prints a real message when every address for github.com fails, instead of the bare line `agnostic-ai:` that an empty `AggregateError` produced (#936).
 - An npm install can no longer hang on the download: the request times out after 30 seconds of silence and stops following redirects after 5 hops (#936).
 - A failed `tar` extraction names the archive and points at the install script or `go install`, and the bin shim exits `128 + signal` so a killed run is distinguishable (#936).

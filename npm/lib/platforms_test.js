@@ -34,16 +34,23 @@ function tempDir(prefix) {
 // A node_modules tree shaped like the one npm builds: the shim in a package
 // that has the platform package as a sibling, which is what require.resolve
 // walks. `stub` is the shell script the "binary" runs.
-function installTree(platform, stub) {
+//
+// `opts.global` builds the other shape npm produces, `<prefix>/lib/node_modules`,
+// the one `npm install` without `-g` cannot repair. The shim reads its own path
+// to tell the two apart, so the tree layout is the thing under test.
+function installTree(platform, stub, opts = {}) {
   const root = tempDir('agnostic-ai-shim-')
-  const pkg = path.join(root, 'node_modules', 'agnostic-ai')
+  const modules = opts.global
+    ? path.join(root, 'lib', 'node_modules')
+    : path.join(root, 'node_modules')
+  const pkg = path.join(modules, 'agnostic-ai')
   fs.mkdirSync(path.join(pkg, 'bin'), { recursive: true })
   fs.mkdirSync(path.join(pkg, 'lib'), { recursive: true })
   fs.copyFileSync(SHIM, path.join(pkg, 'bin', 'agnostic-ai.js'))
   fs.copyFileSync(path.join(__dirname, 'platforms.js'), path.join(pkg, 'lib', 'platforms.js'))
 
   if (platform) {
-    const dir = path.join(root, 'node_modules', packageName(platform))
+    const dir = path.join(modules, packageName(platform))
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(
       path.join(dir, 'package.json'),
@@ -174,13 +181,53 @@ const tests = {
   // optional dependencies (npm/cli#4828), and --omit=optional does it on
   // purpose. Both look like a clean install, so the message has to say what is
   // missing and how to get it.
+  //
+  // --include=optional is half the repair: --omit=optional can be a persistent
+  // entry in the user's npm config, and a reinstall without it obeys that entry
+  // and drops the package again.
   'a missing platform package fails with a message that names it'() {
     const { root, shim } = installTree(null)
     try {
       const run = runShim(shim, ['--version'])
       assert.strictEqual(run.status, 1)
       assert.match(run.stderr, /@agnostic-ai\//)
-      assert.match(run.stderr, /--force/)
+      assert.match(run.stderr, /npm install agnostic-ai --force --include=optional/)
+      assert.ok(!/npm install -g/.test(run.stderr), `project install told to reinstall globally:\n${run.stderr}`)
+      assert.match(run.stderr, /AGNOSTIC_AI_BINARY/)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  },
+
+  // A global wrapper resolves its dependencies from the global tree, so
+  // `npm install agnostic-ai --force` installs into the current directory and
+  // leaves the CLI as broken as it was. The hint has to carry -g.
+  'a global install is told to repair the global tree'() {
+    const { root, shim } = installTree(null, undefined, { global: true })
+    try {
+      const run = runShim(shim, ['--version'])
+      assert.strictEqual(run.status, 1)
+      assert.match(run.stderr, /@agnostic-ai\//)
+      assert.match(run.stderr, /npm install -g agnostic-ai --force --include=optional/)
+      assert.match(run.stderr, /AGNOSTIC_AI_BINARY/)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  },
+
+  // The global tree is not a special case for anything but the message: the
+  // binary still has to run out of it.
+  'the shim runs the binary out of a global platform package'() {
+    if (process.platform === 'win32') {
+      console.log('     skipped: the stub is a shell script')
+      return
+    }
+    const platform = platformFor(process.platform, process.arch)
+    const { root, shim } = installTree(platform, '#!/bin/sh\necho "ran $*"\n', { global: true })
+    try {
+      const run = runShim(shim, ['sync'])
+      assert.strictEqual(run.status, 0, run.stderr)
+      assert.strictEqual(run.stdout.trim(), 'ran sync')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }

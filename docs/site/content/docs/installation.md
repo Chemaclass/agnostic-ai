@@ -62,7 +62,7 @@ The package is a wrapper. The binary ships inside a platform package (`@agnostic
 
 Pin a version by pinning the package: `npm install -g agnostic-ai@<version>`. Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 
-If the CLI reports a missing platform package, npm skipped the optional dependency. That happens with `--omit=optional`, and with a lockfile copied from another platform. `npm install agnostic-ai --force` fixes both.
+If the CLI reports a missing platform package, npm skipped the optional dependency. That happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with `npm install -g agnostic-ai --force --include=optional` for a global install, or the same command without `-g` for a project one. `--include=optional` is what overrides an `omit=optional` left in your npm config, and the wrapper's error message already names the right form for your install.
 
 ## Other install options
 
