@@ -26,6 +26,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- An integer `effort` on an agent now raises Factory's coverage note instead of vanishing in silence: `effort: 8000` is reported as outside `low`, `medium`, `high`, the way `xhigh` already was (#968).
 - An `x-<target>` settings key no longer deletes the translated policy it collides with: lists union and objects merge, so a portable `deny` rule survives an `x-factory.commandBlocklist` or `x-claude.permissions.deny` beside it, and a shape that cannot merge prints a coverage note (#966).
 - An `mcp__<server>__<tool>` permission rule now reaches `opencode.json` as `<server>_<tool>`, the key OpenCode registers that tool under, instead of dropping behind a coverage note claiming the vendor has no MCP key (#947).
 - A `WebSearch` permission rule now reaches `.devin/config.json` as `web_search`, which Devin has accepted in all three lists since CLI v3000.10.21, and `import windsurf` reads it back (#951).
