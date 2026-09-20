@@ -39,6 +39,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Site
 
+- The primary nav holds only pages of this site. GitHub moves out of it and in beside search and the theme toggle, as a mark rather than a word, and every link that leaves the site now opens in a new tab with `rel="noopener noreferrer"`: the repository, the release tag beside the wordmark, the footer's GitHub and sponsor links.
 - The hero fan gains a fifth rail counting the targets the other four stand for, `+21 more`, derived from the capability data rather than typed. The rule above the agent-setup shortcut is gone.
 - The spec-format page merges "Per-target models" and "`effort` support by target" into one section at `#per-target-model-and-effort`, with a worked example showing both keys and a "How it lands" column that stops implying agnostic-ai transforms anything on Claude Code or Cursor. The Claude, Cursor, Factory and Qoder pages link the new anchor, and `spec.schema.json` finally types `model` as a map as well as a string (#968).
 - The landing reads lighter on a phone. The six-column capability matrix, thirty labelled rows at that width, collapses to the five target names as chips with the full matrix one tap away, and its `Native`/`opt-in` legend hides with it. The agent-setup shortcut is the link alone, without the sentence under it, and the alternatives page is titled `Why agnostic-ai instead of symlinks`.

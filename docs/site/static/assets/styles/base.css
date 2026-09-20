@@ -483,6 +483,31 @@ html.search-open {
   color: var(--accent);
 }
 
+/* A link that leaves the site sits with the utility controls, not in the
+   primary nav, so the nav reads as "pages of this site" and nothing in it
+   navigates away. Same square as the theme toggle, a mark rather than a
+   word, and it opens in a new tab. */
+.site-external {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.site-external:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.site-external svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .theme-toggle {
   width: 2.25rem;
   height: 2.25rem;
