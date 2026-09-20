@@ -204,3 +204,49 @@ func pathSetContains(paths []string, needle string) bool {
 	}
 	return false
 }
+
+// An `x-factory` key on a settings spec reaches `.factory/settings.json`
+// untouched, and leaves the keys this adapter manages alone. Factory's
+// `sandbox` block is the reason the hatch exists: a real project-tier
+// key ("sandbox object Built-in sandboxing for command execution and
+// file access", docs.factory.ai/enterprise/hierarchical-settings-and-org-control)
+// that maps onto no portable field (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{
+			"model": "gpt-5-codex",
+			"x-factory": map[string]any{
+				"sandbox": map[string]any{
+					"enabled":    true,
+					"mode":       "per-command",
+					"filesystem": map[string]any{"denyWrite": []any{"/etc"}},
+				},
+			},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parse settings: %v", err)
+	}
+	sandbox, ok := got["sandbox"].(map[string]any)
+	if !ok {
+		t.Fatalf("x-factory.sandbox never reached the file: %#v", got)
+	}
+	if sandbox["enabled"] != true || sandbox["mode"] != "per-command" {
+		t.Errorf("sandbox block altered: %#v", sandbox)
+	}
+	if got["model"] != "gpt-5-codex" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	if _, hasX := got["x-factory"]; hasX {
+		t.Errorf("the x-factory wrapper must not be written: %#v", got)
+	}
+}

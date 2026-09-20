@@ -266,10 +266,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 		emit.SpecsWithPermissions(b.Settings), permissionsUserTierOnlyReason)
-	if model := emit.LastSettingsModel(b.Settings); model != "" {
-		if err := sess.MergeJSONFile(defaultConfigFile, map[string]any{"model": model}, dryRun); err != nil {
-			return err
-		}
+	if err := emitProjectConfig(sess, b.Settings, dryRun); err != nil {
+		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	mcps = emit.StripMCPDescription(target, mcps, mcpDescriptionNoOpReason)
@@ -360,4 +358,25 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 		}
 	}
 	return nil
+}
+
+// emitProjectConfig merges the portable default model into
+// `.junie/config.json`, alongside any key an author wrote under
+// `x-junie`. Routes through MergeJSONFile so every other key in that
+// file survives the sync.
+//
+// The `x-junie` block is the settings-kind escape hatch: Junie's
+// project config carries fields this project does not model, and
+// without the hatch they reach nothing and say nothing (#949).
+// No file is written when neither source contributes.
+func emitProjectConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
+	keys := map[string]any{}
+	if model := emit.LastSettingsModel(settings); model != "" {
+		keys["model"] = model
+	}
+	emit.MergeSettingsCustomKeys(keys, settings, target)
+	if len(keys) == 0 {
+		return nil
+	}
+	return sess.MergeJSONFile(defaultConfigFile, keys, dryRun)
 }

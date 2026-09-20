@@ -25,12 +25,22 @@ const permissionsNoKeyReason = "Factory documents commandAllowlist, commandDenyl
 //
 // MergeJSONFile, not a whole-document write: this file is shared with
 // every other key Droid CLI or a maintainer puts there, `disabledSkills`
-// among them. Only `model` is ever set.
+// among them. Only `model` and the keys an author writes under
+// `x-factory` are ever set.
+//
+// That `x-factory` block is how a Factory-only key reaches this file.
+// `sandbox` is the case that earned it: kernel-enforced isolation whose
+// `denyWrite` overrides `allowWrite`, with no `ask` tier and an egress
+// filter no portable field matches (#949).
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(settings), permissionsNoKeyReason)
-	model := emit.LastSettingsModel(settings)
-	if model == "" {
+	keys := map[string]any{}
+	if model := emit.LastSettingsModel(settings); model != "" {
+		keys["model"] = model
+	}
+	emit.MergeSettingsCustomKeys(keys, settings, target)
+	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{"model": model}, dryRun)
+	return sess.MergeJSONFile(path, keys, dryRun)
 }

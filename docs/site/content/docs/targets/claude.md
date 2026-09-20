@@ -99,7 +99,7 @@ This is subagent memory, separate from the session auto memory store under `~/.c
 
 ## Claude settings
 
-The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block. Keys you do not set fall through to the lower layers.
+The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions` + `model`) < this `outputs.claude.settings` config < spec-derived `hooks` block < an `x-claude` block on a settings spec. Keys you do not set fall through to the lower layers. The `x-claude` block is last because it is the most specific statement of intent: an author writing Claude Code's own spelling means that key.
 
 ```yaml
 outputs:

@@ -9,6 +9,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // permissionsUseExecPoliciesReason explains, in the flushed coverage
@@ -243,4 +244,29 @@ func writeStringList(b *strings.Builder, xs []string) {
 		fmt.Fprintf(b, "%q", s)
 	}
 	b.WriteByte(']')
+}
+
+// customSettingsNoRouteReason explains why an `x-codex` block on a
+// settings spec reaches nothing. Every other settings target merges
+// that block into a JSON document it already owns. Codex's project
+// config is TOML, rendered from the overlay `import codex` captures
+// plus the first-class `outputs.codex.config` fields, so an arbitrary
+// JSON-shaped block has no place to land: a nested map has no TOML
+// value form here, and a key the overlay already carries would emit
+// twice and break the file. Codex has two routes for the same intent,
+// and the note names them rather than dropping the block in silence
+// (#949).
+const customSettingsNoRouteReason = "Codex's .codex/config.toml is TOML rendered from the captured overlay plus outputs.codex.config; set the key there, or run import codex to capture it from the file"
+
+// specsWithCustomSettings counts the settings specs carrying an
+// `x-codex` block, so the caller folds them into one coverage note
+// rather than one note per key.
+func specsWithCustomSettings(settings []spec.Entry) int {
+	n := 0
+	for _, entry := range settings {
+		if custom, _ := emit.CustomTargetMeta(entry.Meta, target); custom != nil {
+			n++
+		}
+	}
+	return n
 }

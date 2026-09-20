@@ -169,7 +169,14 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
-	if len(mcps) == 0 && len(permissions) == 0 && emit.LastSettingsModel(settings) == "" {
+	// An `x-opencode` block on a settings spec carries the keys this
+	// adapter does not model into the same write, and is reason enough
+	// to write the file on its own. `permission` is excluded:
+	// buildPermissions already merges that one tool by tool with the
+	// translated rules, and a blanket set here would replace the whole
+	// object instead (#949).
+	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && emit.LastSettingsModel(settings) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
@@ -181,6 +188,9 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	}
 	if len(permissions) > 0 {
 		keys[permissionKey] = permissions
+	}
+	for key, value := range custom {
+		keys[key] = value
 	}
 	return sess.MergeJSONFile(path, keys, dryRun)
 }

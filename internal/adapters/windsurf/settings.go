@@ -39,10 +39,20 @@ func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun b
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", specsWithModel(settings), modelUserOnlyReason)
 	permissions, dropped := devinPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, permissionsKey, dropped, rulesUntranslatedReason)
-	if permissions == nil {
+	keys := map[string]any{}
+	if permissions != nil {
+		keys[permissionsKey] = permissions
+	}
+	// An `x-windsurf` block on a settings spec carries the Devin keys
+	// this adapter does not model, `read_config_from` and `hooks`, into
+	// the same write, and is reason enough to write the file on its
+	// own. `permissions` is excluded: entryRules already reads that one
+	// per spec and per list, so a blanket set here would drop the
+	// translated rules a sibling spec contributed (#949).
+	emit.MergeSettingsCustomKeys(keys, settings, target, permissionsKey)
+	if len(keys) == 0 {
 		return nil
 	}
-	keys := map[string]any{permissionsKey: permissions}
 	return sess.MergeJSONFileNested(path, keys, []string{permissionsKey}, dryRun)
 }
 

@@ -286,6 +286,11 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //  4. Spec-derived `hooks` block, emitted via ordered JSON so
 //     `{type, command}` and `{matcher, hooks}` stay in lifecycle order
 //     instead of alpha-sorted map order.
+//  5. The `x-claude` block on a settings spec, the escape hatch for
+//     every key in that file this adapter does not model. It is
+//     applied last because it is the most specific statement of
+//     intent: an author writing Claude Code's own spelling means that
+//     key, so it wins over the translated layers above (#949).
 //
 // Short-circuit: all layers empty -> write nothing.
 func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
@@ -296,10 +301,11 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 	}
 	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
+	custom := emit.SettingsCustomKeys(settings, target)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 {
 		return nil
 	}
 	doc := overlay
@@ -344,6 +350,11 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 		}
 	} else {
 		doc.Delete("hooks")
+	}
+	for _, k := range orderedConfigKeys(custom) {
+		if err := doc.Set(k, custom[k]); err != nil {
+			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
+		}
 	}
 	indent := detectSettingsIndent(path)
 	raw, err := emit.MarshalJSONIndentWith(doc, indent)

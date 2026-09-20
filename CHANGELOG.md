@@ -15,6 +15,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - `agnostic-ai import kiro` now reads `.kiro/hooks/*.json`, so a repo synced to Kiro round-trips its own hooks; entries differing only in `action.command` recombine into one spec (#952).
 - An agent's `memory` scope now reaches Qoder at `.qoder/agents/<name>.md`, the file its subagent reference documents the field on, with the same `user`/`project`/`local` values (#953).
 - The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
+- Settings specs take an `x-<target>` block, so a target-specific key such as `x-factory.sandbox` reaches that target's settings file instead of being dropped without a word (#949).
 
 ### Changed
 
