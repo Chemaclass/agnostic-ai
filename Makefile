@@ -90,7 +90,17 @@ ci-local: fmt-check test-race build lint
 	./$(BIN) lint
 	$(MAKE) test-shell
 	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm run compile
+ifeq ($(SKIP_JETBRAINS),1)
+	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."
+else
+	@cd editors/jetbrains && ./gradlew --no-daemon --version >/dev/null 2>&1 || { \
+		echo "ci-local: the gradle wrapper cannot fetch its distribution."; \
+		echo "  It downloads once and caches. Run this where the network reaches"; \
+		echo "  services.gradle.org, or re-run with SKIP_JETBRAINS=1 and rely on"; \
+		echo "  the remote CI run for that one job."; \
+		exit 1; }
 	cd editors/jetbrains && ./gradlew --no-daemon test
+endif
 	@echo "ci-local: ok"
 
 # tools installs the developer toolchain pinned to the versions CI uses.

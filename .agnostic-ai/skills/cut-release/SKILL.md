@@ -25,6 +25,10 @@ The user asks to release, tag, ship, or cut a new version.
    editor extensions. `ci-local` runs every one of those, in the workflow's
    own order.
 
+   `SKIP_JETBRAINS=1` exists because the gradle wrapper downloads its
+   distribution on a cold machine and some environments cannot reach it. If
+   you use it, say so in the release report: that job was not gated locally.
+
    Two gaps `ci-local` cannot close, both needing the remote run:
 
    - It tests on this machine's OS alone. A pull request now tests on Linux

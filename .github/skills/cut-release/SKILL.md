@@ -19,13 +19,30 @@ The user asks to release, tag, ship, or cut a new version.
 ## Steps
 
 1. Confirm working tree clean and on `main`. `git pull --ff-only`.
-2. `make preflight` (fmt-check + vet + lint + test). Refuse to proceed on any failure.
-   `preflight` runs on your machine alone, and a pull request now tests on
-   Linux only, so the macOS and Windows jobs may not have run against this
-   exact tree. The push to `main` does run all three, so check that the CI run
-   for the current `main` commit is green across the matrix before tagging; if
-   it is not there, dispatch one (`gh workflow run ci.yml --ref main`) and wait
-   for it.
+2. `make ci-local`. Not `make preflight`. Refuse to proceed on any failure.
+
+   `preflight` is fmt-check, vet, lint and tests. It is the gate for a normal
+   change, and it is not enough to cut a release: it skips the race detector,
+   the WASM build, schema drift, `agnostic-ai lint`, the shell suite, and both
+   editor extensions. `ci-local` runs every one of those, in the workflow's
+   own order.
+
+   `SKIP_JETBRAINS=1` exists because the gradle wrapper downloads its
+   distribution on a cold machine and some environments cannot reach it. If
+   you use it, say so in the release report: that job was not gated locally.
+
+   Two gaps `ci-local` cannot close, both needing the remote run:
+
+   - It tests on this machine's OS alone. A pull request now tests on Linux
+     only (#982), so the macOS and Windows jobs may never have run against
+     this tree.
+   - It cannot run the plugin version-bump job, which compares a pull request
+     against its merge base.
+
+   So also confirm the CI run for the current `main` commit is green across
+   all three platforms. Every push to `main` runs the full matrix, so it is
+   usually already there; if it is not, dispatch one with
+   `gh workflow run ci.yml --ref main` and wait for it before tagging.
 3. Decide next version per semver:
    - patch: bug fixes only
    - minor: additive features
