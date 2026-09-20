@@ -12,6 +12,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
+- `agnostic-ai import kiro` now reads `.kiro/hooks/*.json`, so a repo synced to Kiro round-trips its own hooks; entries differing only in `action.command` recombine into one spec (#952).
 - The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
 
 ### Changed

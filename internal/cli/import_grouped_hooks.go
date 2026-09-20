@@ -79,13 +79,25 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 	for k, v := range extra {
 		doc[k] = v
 	}
+	if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+// writeHookSpecFile marshals one hook spec document into
+// `<dstDir>/<name>.yaml`. Importers that build the document key by key
+// (crush, kiro) call this directly instead of writeGroupedHookSpec,
+// which owns the claude-style matcher-group collapse they have no
+// groups to apply.
+func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
 	raw, err := yaml.Marshal(doc)
 	if err != nil {
-		return 0, fmt.Errorf("marshal hook %s: %w", name, err)
+		return fmt.Errorf("marshal hook %s: %w", name, err)
 	}
 	path := filepath.Join(dstDir, name+".yaml")
 	if err := importWriteFile(path, raw, 0o644); err != nil {
-		return 0, fmt.Errorf("write %s: %w", path, err)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
-	return 1, nil
+	return nil
 }
