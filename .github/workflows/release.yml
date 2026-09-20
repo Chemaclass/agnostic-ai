@@ -196,7 +196,6 @@ jobs:
             echo "::warning::HOMEBREW_TAP_TOKEN is empty, so the cask was never pushed and brew still serves the previous release. Set the secret and re-run."
             exit 0
           fi
-          got=""
           delay=5
           for attempt in 1 2 3 4 5 6; do
             # no-cache because the contents API is served through a cache

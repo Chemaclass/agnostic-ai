@@ -1,10 +1,10 @@
 package integration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -185,37 +185,14 @@ func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
 	if !strings.Contains(workflowStep(t, releaseWorkflowPath, "npm", "Pin the npm CLI that publishes"), "NPM_CLI_VERSION") {
 		t.Error("the pin step does not install NPM_CLI_VERSION, so the pin is decorative")
 	}
-	const floor = "9.5.0"
-	if compareVersions(t, pin, floor) < 0 {
-		t.Errorf("NPM_CLI_VERSION is %s but npm needs %s or newer for --provenance", pin, floor)
+	const floorMajor, floorMinor = 9, 5
+	var major, minor, patch int
+	if _, err := fmt.Sscanf(pin, "%d.%d.%d", &major, &minor, &patch); err != nil {
+		t.Fatalf("NPM_CLI_VERSION is %q, which is not an exact version; a range would let the signing client drift: %v", pin, err)
 	}
-}
-
-// compareVersions orders two dotted numeric versions.
-func compareVersions(t *testing.T, a, b string) int {
-	t.Helper()
-	split := func(v string) []int {
-		parts := strings.Split(v, ".")
-		out := make([]int, len(parts))
-		for i, p := range parts {
-			n, err := strconv.Atoi(p)
-			if err != nil {
-				t.Fatalf("version %q is not dotted numbers: %v", v, err)
-			}
-			out[i] = n
-		}
-		return out
+	if major < floorMajor || (major == floorMajor && minor < floorMinor) {
+		t.Errorf("NPM_CLI_VERSION is %s but npm needs %d.%d or newer for --provenance", pin, floorMajor, floorMinor)
 	}
-	x, y := split(a), split(b)
-	for i := 0; i < len(x) && i < len(y); i++ {
-		if x[i] != y[i] {
-			if x[i] < y[i] {
-				return -1
-			}
-			return 1
-		}
-	}
-	return len(x) - len(y)
 }
 
 // TestReleaseWorkflow_DistributionChecksRetryAStaleReplica keeps the

@@ -13,7 +13,6 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Added
 
 - The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
-- CI installs the published npm package on macOS, Linux, and Windows and runs `--version`, covering the install path users take rather than a packed working tree (#937).
 
 ### Changed
 

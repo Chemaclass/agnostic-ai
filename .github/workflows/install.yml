@@ -120,8 +120,9 @@ jobs:
     # version and takes the package.json branch instead, so the path every
     # user hits had no coverage at all (#937).
     #
-    # Only this repository publishes agnostic-ai, and a release that failed
-    # published nothing worth waiting for.
+    # Only this repository publishes agnostic-ai. After a failed release the
+    # wait below would burn its whole window on three runners to rediscover
+    # what release.yml's distribution guard already reported.
     if: |
       github.repository == 'Chemaclass/agnostic-ai'
       && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
