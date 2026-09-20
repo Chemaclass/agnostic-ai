@@ -91,6 +91,14 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
+		// delta pins the per-target `effort` map in emitted bytes: this
+		// adapter names itself in it, so the golden must show the picked
+		// scalar rather than the nested mapping the map form used to
+		// leak here (#968).
+		{
+			Kind: spec.KindAgent, Name: "delta", Path: "agents/delta.md", Body: "delta body",
+			Meta: map[string]any{"effort": map[string]any{"claude": "xhigh", "qoder": 8000, "factory": "high"}},
+		},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},

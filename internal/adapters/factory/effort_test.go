@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -71,5 +72,27 @@ func TestDroidReasoningEffort_NativeKeyWins(t *testing.T) {
 func TestDroidReasoningEffort_AbsentIsQuiet(t *testing.T) {
 	if got, ok := droidReasoningEffort(map[string]any{}); got != "" || ok {
 		t.Errorf("got (%q, %v), want (\"\", false)", got, ok)
+	}
+}
+
+// A per-target `effort` map collapses in emit before Factory ever sees
+// it, so the note path reads the same scalar it always did. This guards
+// the seam: the collapser is generic, and nothing in this adapter knows
+// the map form exists (#968).
+func TestDroidReasoningEffort_ReadsThroughThePerTargetMap(t *testing.T) {
+	meta := map[string]any{
+		"effort": map[string]any{"factory": "max", "default": "high"},
+	}
+	got, ok := droidReasoningEffort(emit.ResolveMeta(meta, target))
+	if got != "max" || ok {
+		t.Errorf("got (%q, %v), want (\"max\", false)", got, ok)
+	}
+	// The same spec on a target the map does not name falls back to
+	// `default`, which Factory does accept.
+	fallback := map[string]any{
+		"effort": map[string]any{"claude": "xhigh", "default": "high"},
+	}
+	if got, ok := droidReasoningEffort(emit.ResolveMeta(fallback, target)); got != "high" || !ok {
+		t.Errorf("got (%q, %v), want (\"high\", true)", got, ok)
 	}
 }

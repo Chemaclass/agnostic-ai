@@ -23,6 +23,13 @@ var routingKeys = map[string]bool{
 	"targets-exclude": true,
 }
 
+// collapsedKeys are the frontmatter keys that accept a per-target map
+// as well as a plain scalar. ResolveMetaOrdered collapses each one to
+// the value the named target should see, so every adapter downstream
+// reads a scalar and needs no knowledge of the map form. Order is not
+// significant: the keys resolve independently of each other.
+var collapsedKeys = []string{"model", "effort"}
+
 // StringSlice coerces a `[]any` of strings (YAML's default unmarshalled
 // shape for list-of-strings) into `[]string`. Non-string elements and
 // non-slice inputs return nil. Adapters use this to read `args`,
@@ -215,43 +222,52 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 			appendKV(nk, nv)
 		}
 	}
-	collapseModel(out, &outKeys, target)
+	for _, k := range collapsedKeys {
+		collapseTargetMap(out, &outKeys, k, target)
+	}
 	return out, outKeys
 }
 
-// collapseModel resolves a per-target `model` map down to the single
-// string the named target should use. A bare string `model:` value is
+// collapseTargetMap resolves a per-target map under key down to the
+// single scalar the named target should use. A bare scalar value is
 // left untouched, so the simple case keeps working. A map form picks
-// `model.<target>` first, then `model.default`; if neither matches the
-// key is removed so the target inherits no model (mirrors the #304
-// delete-marker behavior). Keys overwritten by `x-<target>.model` arrive
-// here already as strings and pass through unchanged.
+// `<key>.<target>` first, then `<key>.default`; if neither matches the
+// key is removed so the target inherits nothing (mirrors the #304
+// delete-marker behavior). A non-scalar under the target's own key
+// (a nested map, a list, a null) falls through to `default` the same
+// way an absent key does. Values overwritten by `x-<target>.<key>`
+// arrive here already collapsed and pass through unchanged.
 //
-//	model: gpt-4o                          -> gpt-4o (every target)
-//	model: {claude: opus, default: gpt-4o} -> opus for claude, gpt-4o for codex
-//	model: {claude: opus}                  -> opus for claude, dropped for codex
-func collapseModel(out map[string]any, keys *[]string, target string) {
-	m, ok := out["model"].(map[string]any)
+//	model: gpt-4o                             -> gpt-4o (every target)
+//	model: {claude: opus, default: gpt-4o}    -> opus for claude, gpt-4o for codex
+//	model: {claude: opus}                     -> opus for claude, dropped for codex
+//	effort: 8000                              -> 8000 (every target)
+//	effort: {claude: xhigh, qoder: 8000}      -> xhigh for claude, the int 8000 for qoder
+//
+// The scalar set is the four shapes yaml.v3 decodes a plain frontmatter
+// scalar into, so Qoder's integer effort budget survives the pick as an
+// int rather than being dropped as "not a string". See IntField.
+func collapseTargetMap(out map[string]any, keys *[]string, key, target string) {
+	m, ok := out[key].(map[string]any)
 	if !ok {
 		return
 	}
-	pick := func(k string) (string, bool) {
-		v, ok := m[k]
-		if !ok {
-			return "", false
+	pick := func(k string) (any, bool) {
+		switch v := m[k].(type) {
+		case string, int, int64, float64:
+			return v, true
 		}
-		s, ok := v.(string)
-		return s, ok
+		return nil, false
 	}
-	if s, ok := pick(target); ok {
-		out["model"] = s
+	if v, ok := pick(target); ok {
+		out[key] = v
 		return
 	}
-	if s, ok := pick("default"); ok {
-		out["model"] = s
+	if v, ok := pick("default"); ok {
+		out[key] = v
 		return
 	}
-	removeKey(out, keys, "model")
+	removeKey(out, keys, key)
 }
 
 // removeKey strips key from both the resolved map and the ordered keys

@@ -74,7 +74,8 @@ Report concise findings with `file:line` references.
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
-| `model` | no | unset | Preferred model: a string for every target, or a map per target. |
+| `model` | no | unset | Preferred model: a string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
+| `effort` | no | unset | Reasoning effort: a string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
 | `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
 
@@ -82,27 +83,62 @@ Any other frontmatter field passes through unchanged.
 
 `memory` gives the agent a directory that survives across sessions. [Claude Code](@/docs/targets/claude.md#agent-memory) is the one target confirmed to act on it, where `project` is the scope git carries. [Qoder](@/docs/targets/qoder.md#subagent-memory) documents the same three scopes on its project subagent file, so the key is written there too, but no run has confirmed the CLI acts on it. Junie passes the key through; every other adapter drops it.
 
-### Per-target models
+### Per-target `model` and `effort` {#per-target-model-and-effort}
 
-`model:` takes a string or a map keyed by target name, with an optional `default`.
-
-```yaml
----
-name: code-reviewer
-model:
-  claude: opus
-  codex: gpt-5.5
-  default: gpt-4o
----
-```
-
-For each target, the matching key wins, then `default`. With neither, no `model` line is written and the tool uses its own default. `x-<target>.model` beats the map, and `x-<target>.model: null` deletes it.
+`model:` and `effort:` each take a plain scalar or a map keyed by target name, with an optional `default`. Precedence runs `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written at all and the tool uses its own default. `x-<target>.<key>: null` deletes it. A value under a target key that is not a scalar (a nested map, a list, a null) falls through to `default` the same way an absent key does.
 
 | Want | Write |
 |------|-------|
 | Same model everywhere | `model: sonnet` |
 | Per target, with a fallback | `model: {claude: sonnet, default: gpt-4o}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
+| Different effort per target | `effort: {claude: xhigh, default: high}` |
+
+Both keys in one agent, and what each target writes:
+
+```yaml
+---
+name: architect
+description: Designs the change before anyone codes it.
+model:
+  claude: opus
+  cursor: "claude-opus-5[effort=high]"
+  default: gpt-5.5
+effort:
+  claude: xhigh
+  qoder: 8000
+  factory: max
+  default: high
+x-codex:
+  model_reasoning_effort: high
+---
+```
+
+| Target | Emits |
+|--------|-------|
+| [Claude Code](@/docs/targets/claude.md) | `model: opus`, `effort: xhigh` |
+| [Qoder](@/docs/targets/qoder.md) | `model: gpt-5.5`, `effort: 8000` |
+| [Factory](@/docs/targets/factory.md) | `model: gpt-5.5`, no `reasoningEffort`, and one coverage note: `max` is outside Factory's enum |
+| [Junie](@/docs/targets/junie.md) | `model: gpt-5.5`, `effort: high` |
+| [Cursor](@/docs/targets/cursor.md) | `model: claude-opus-5[effort=high]`. The resolved `high` is discarded |
+| [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "high"` from `x-codex`. The portable `high` is discarded |
+| [Trae](@/docs/targets/trae.md) | `model` dropped with a coverage note, `effort` dropped without one |
+
+**`effort` values by target.** Only the targets listed were checked. A top-level `effort` asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere.
+
+| Target | `effort` values | How it lands |
+|--------|-----------------|--------------|
+| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | Written verbatim as `effort`. Not validated |
+| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget | Written verbatim as `effort` |
+| [Junie](@/docs/targets/junie.md) | The vendor documents `effort` as an alias of `reasoningLevel` | Written verbatim as `effort` |
+| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
+| [Cursor](@/docs/targets/cursor.md) | none | No frontmatter key. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Codex](@/docs/targets/codex.md) | none | Not written. Set `x-codex.model_reasoning_effort` |
+| [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written |
+
+The "How it lands" column is the point: on Claude Code, Qoder, and Junie agnostic-ai writes the value and validates nothing, and on Cursor it does nothing at all.
+
+Two targets couple the two keys, in opposite directions. Cursor encodes per-model options inside the model string rather than as a field, so its effort rides on the `model` map and never on the `effort` map. Factory goes the other way: it ignores `reasoningEffort` when `model` resolves to `inherit`, so both keys are written and the vendor drops one.
 
 ### `tools` support by target
 
@@ -133,19 +169,6 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
 
 **An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
-
-### `effort` support by target {#effort-support-by-target}
-
-Only the targets listed were checked. A top-level `effort` on an agent asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere below.
-
-| Target | Values |
-|--------|--------|
-| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent |
-| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget |
-| [Factory](@/docs/targets/factory.md) | Emitted as `reasoningEffort`. Only `low`, `medium`, `high`; anything wider is dropped with a note |
-| [Cursor](@/docs/targets/cursor.md) | No frontmatter key. Write it into the model id: `model: claude-opus-5[effort=high]` |
-
-Cursor is the reason this is not one key everywhere. It encodes per-model options inside the model string rather than as a field, so the same intent is a frontmatter key on three targets and a model-id transformation on the fourth. Factory also ignores the field entirely under `model: inherit`.
 
 ### `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
