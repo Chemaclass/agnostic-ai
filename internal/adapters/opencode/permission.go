@@ -138,11 +138,7 @@ func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 // nativePermission returns one settings spec's `x-opencode.permission`
 // map, or nil when it has none.
 func nativePermission(entry spec.Entry) map[string]any {
-	custom, _ := emit.CustomTargetMeta(entry.Meta, target)
-	if custom == nil {
-		return nil
-	}
-	native, _ := custom[permissionKey].(map[string]any)
+	native, _ := emit.SettingsCustomObject(entry, target, permissionKey)
 	return native
 }
 

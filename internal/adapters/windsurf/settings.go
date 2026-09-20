@@ -113,10 +113,8 @@ func devinPermissions(settings []spec.Entry) (map[string]any, int) {
 // `x-windsurf.allowed-tools` gets on an agent: an author writing under
 // the windsurf namespace is presumed to know Devin's spelling.
 func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
-	if custom, _ := emit.CustomTargetMeta(entry.Meta, target); custom != nil {
-		if permissions, ok := custom[permissionsKey].(map[string]any); ok {
-			return emit.StringSlice(permissions[list]), true
-		}
+	if custom, ok := emit.SettingsCustomObject(entry, target, permissionsKey); ok {
+		return emit.StringSlice(custom[list]), true
 	}
 	permissions, _ := entry.Meta[permissionsKey].(map[string]any)
 	return emit.StringSlice(permissions[list]), false

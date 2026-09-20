@@ -264,7 +264,7 @@ const customSettingsNoRouteReason = "Codex's .codex/config.toml is TOML rendered
 func specsWithCustomSettings(settings []spec.Entry) int {
 	n := 0
 	for _, entry := range settings {
-		if custom, _ := emit.CustomTargetMeta(entry.Meta, target); custom != nil {
+		if len(emit.SettingsCustomKeys([]spec.Entry{entry}, target)) > 0 {
 			n++
 		}
 	}

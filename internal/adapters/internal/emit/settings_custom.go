@@ -34,6 +34,30 @@ func SettingsCustomKeys(settings []spec.Entry, target string, exclude ...string)
 	return out
 }
 
+// SettingsCustomObject returns the object at `x-<target>.<key>` on one
+// settings spec, and whether it was there. Adapters use it for the one
+// key they merge with their own translated output rather than letting
+// the general passthrough set it.
+func SettingsCustomObject(entry spec.Entry, target, key string) (map[string]any, bool) {
+	custom, _ := CustomTargetMeta(entry.Meta, target)
+	if custom == nil {
+		return nil, false
+	}
+	value, ok := custom[key].(map[string]any)
+	return value, ok
+}
+
+// SettingsCustomList returns the array at `x-<target>.<key>` on one
+// settings spec. The list counterpart to SettingsCustomObject.
+func SettingsCustomList(entry spec.Entry, target, key string) []any {
+	custom, _ := CustomTargetMeta(entry.Meta, target)
+	if custom == nil {
+		return nil
+	}
+	value, _ := custom[key].([]any)
+	return value
+}
+
 // MergeSettingsCustomKeys sets every key SettingsCustomKeys returns
 // onto the adapter's managed map, so the hatch rides the same merge
 // the adapter already performs for its own keys.
