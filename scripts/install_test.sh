@@ -136,15 +136,14 @@ function test_latest_version_reads_the_tag_from_the_redirect() {
 }
 
 function test_latest_version_asks_github_com_not_the_rate_limited_api() {
-  local seen url_file
-  url_file="$(mktemp)"
+  local seen
+  # stdout carries the stubbed response, so the URL under test goes to stderr.
   function curl() {
-    printf '%s\n' "${@: -1}" > "$URL_FILE"
+    printf '%s\n' "${@: -1}" >&2
     printf '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v1.2.3'
   }
-  seen="$(URL_FILE="$url_file" latest_version >/dev/null; cat "$url_file")"
+  seen="$(latest_version 2>&1 >/dev/null)"
   unset -f curl
-  rm -f "$url_file"
 
   assert_same "https://github.com/Chemaclass/agnostic-ai/releases/latest" "$seen"
 }

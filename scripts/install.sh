@@ -84,7 +84,7 @@ latest_version() {
   # branch has to stop the function itself. `esac || return 1` does that for
   # all of them at once, and keeps errexit from firing inside the case.
   case "$status" in
-    30[1237]) ;;
+    3??) ;;
     403 | 429)
       die "github rate limited this network while resolving the latest release.
     Wait a minute and retry, or pin the version with AGNOSTIC_AI_VERSION=vX.Y.Z"
