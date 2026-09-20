@@ -1,4 +1,5 @@
-<details>
+{% component details(summary) %}<details>
   <summary>{{ summary }}</summary>
   <div class="details-body">{{ body | markdown | safe }}</div>
 </details>
+{% endcomponent details %}

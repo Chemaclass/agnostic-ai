@@ -1,11 +1,10 @@
-{%- import "macros/search.html" as search -%}
 {%- set docs = get_section(path="docs/_index.md") -%}
 {%- set targets = get_section(path="docs/targets/_index.md") -%}
 {%- set updates = get_section(path="updates/_index.md") -%}
-[{{ search::page(page=docs, group="Docs", first=true) }}
-{{- search::page(page=updates, group="Updates", first=false) }}
-{{- search::page(page=targets, group="Targets", first=false) }}
-{%- for page in docs.pages %}{{ search::page(page=page, group="Docs", first=false) }}{% endfor %}
-{%- for page in targets.pages %}{{ search::page(page=page, group="Targets", first=false) }}{% endfor %}
-{%- for page in updates.pages %}{{ search::page(page=page, group="Updates", first=false) }}{% endfor %}
+[{{ <search.page page={docs} group="Docs" first={true} /> }}
+{{- <search.page page={updates} group="Updates" first={false} /> }}
+{{- <search.page page={targets} group="Targets" first={false} /> }}
+{%- for page in docs.pages %}{{ <search.page page={page} group="Docs" first={false} /> }}{% endfor %}
+{%- for page in targets.pages %}{{ <search.page page={page} group="Targets" first={false} /> }}{% endfor %}
+{%- for page in updates.pages %}{{ <search.page page={page} group="Updates" first={false} /> }}{% endfor %}
 ]

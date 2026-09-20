@@ -1,0 +1,5 @@
+{% component callout(title) %}<aside class="callout">
+  <strong>{{ title }}</strong>
+  {{ body | markdown | safe }}
+</aside>
+{% endcomponent callout %}

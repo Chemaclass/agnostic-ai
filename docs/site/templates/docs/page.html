@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "macros/docs.html" as docs %}
 
 {% block title %}{{ page.title }} | agnostic-ai docs{% endblock title %}
 {% block description %}{{ page.description }}{% endblock description %}
@@ -18,12 +17,12 @@
   <div class="docs-mobile-nav">
     <details>
       <summary>Browse documentation</summary>
-      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
     </details>
   </div>
   <div class="docs-page-layout">
     <aside class="docs-sidebar">
-      {{ docs::navigation(section=docs_section, current_path=current_path) }}
+      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
     </aside>
 
     <article class="docs-content" id="doc-body">
@@ -35,7 +34,7 @@
     {% if page.toc | length > 0 %}
     <aside class="docs-toc">
       <p>On this page</p>
-      {{ docs::toc(headings=page.toc) }}
+      {{ <docs.toc headings={page.toc} /> }}
     </aside>
     {% endif %}
   </div>

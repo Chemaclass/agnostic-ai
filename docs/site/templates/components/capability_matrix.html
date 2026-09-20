@@ -1,4 +1,8 @@
-{% set matrix = load_data(path="data/capabilities.toml") %}
+{# Rendered straight into markdown content, so the output must never contain a
+   blank or whitespace-only line: markdown would close the HTML block there and
+   wrap whatever follows in a paragraph. Hence the `{%-` trims and no blank
+   lines between the sections. #}
+{% component capability_matrix() %}{% set matrix = load_data(path="data/capabilities.toml") %}
 <section class="capability-browser" data-capability-browser data-capability-count="{{ matrix.features | length }}">
   <form class="capability-filters" data-capability-filter hidden>
     <label class="capability-search">
@@ -8,12 +12,12 @@
     <details class="capability-target-picker">
       <summary>Choose targets <span data-selection-count>All</span></summary>
       <div class="capability-target-options" role="group" aria-label="Targets to compare">
-        {% for target in matrix.targets %}
+        {%- for target in matrix.targets %}
         <label>
           <input type="checkbox" name="target" value="{{ target.id }}" data-label="{{ target.name }}">
           <span>{{ target.name }} <code>{{ target.id }}</code></span>
         </label>
-        {% endfor %}
+        {%- endfor %}
       </div>
     </details>
     <div class="capability-filter-actions">
@@ -21,17 +25,14 @@
       <button class="button button-secondary" type="button" data-clear-capabilities>Show all</button>
     </div>
   </form>
-
   <div class="capability-active-targets" data-active-targets hidden aria-label="Selected targets"></div>
   <p class="capability-result" data-capability-result aria-live="polite">{{ matrix.targets | length }} targets, {{ matrix.features | length }} capabilities</p>
   <p class="capability-notice" data-capability-notice hidden></p>
-
   <div class="capability-legend" aria-label="Capability states">
-    {% for state in matrix.states %}
+    {%- for state in matrix.states %}
     <span><strong class="capability-state capability-state-{{ state.id }}">{{ state.label }}</strong><span>{{ state.description }}</span></span>
-    {% endfor %}
+    {%- endfor %}
   </div>
-
   <div class="capability-matrix-region" role="region" aria-label="Target capability comparison" tabindex="0">
     <table class="capability-matrix">
       <caption>Portable spec support by target. Open a target name for exact paths and caveats.</caption>
@@ -42,20 +43,20 @@
         </tr>
       </thead>
       <tbody>
-        {% for target in matrix.targets %}
+        {%- for target in matrix.targets %}
         <tr data-capability-target="{{ target.id }}" data-capability-search="{{ target.name }} {{ target.id }}">
           <th scope="row"><a href="{{ get_url(path=target.href) }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
-          {% for status in target.statuses %}
+          {%- for status in target.statuses %}
           <td class="capability-cell capability-cell-{{ status }}"><span class="capability-state capability-state-{{ status }}">{% if status == "native" %}Native{% elif status == "mapped" %}Mapped{% elif status == "opt-in" %}Opt-in{% elif status == "source" %}Source only{% else %}No{% endif %}</span></td>
-          {% endfor %}
+          {%- endfor %}
         </tr>
-        {% endfor %}
+        {%- endfor %}
       </tbody>
     </table>
   </div>
-
   <div class="capability-empty" data-capability-empty hidden>
     <p>No targets match this comparison.</p>
     <button class="button button-secondary" type="button" data-clear-capabilities>Show all targets</button>
   </div>
 </section>
+{% endcomponent capability_matrix %}

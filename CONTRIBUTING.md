@@ -58,8 +58,8 @@ and put it first on `PATH` for one command (swap the pattern for your
 platform's asset):
 
 ```bash
-gh release download v0.22.0 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
-tar xzf zola-v0.22.0-aarch64-apple-darwin.tar.gz
+gh release download v0.23.6 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
+tar xzf zola-v0.23.6-aarch64-apple-darwin.tar.gz
 PATH="$PWD:$PATH" make site-serve
 ```
 
@@ -82,8 +82,11 @@ version does not match, so a green run proves nothing about a change under
 `docs/site/`. Read the skip count, or run `make site-test` with the pinned
 binary, before trusting a site change.
 
-Never edit `docs/site/templates/` to satisfy a newer Zola. That breaks the
-pinned build CI and Pages actually use.
+Never edit `docs/site/templates/` to satisfy a newer Zola on its own. That
+breaks the pinned build CI and Pages actually use. Moving to a newer Zola is a
+deliberate change: bump `ZOLA_VERSION` in the `Makefile` and
+`.github/workflows/playground.yml` in the same commit as the templates, and
+diff `_site/` built on both versions to prove the rendered output did not move.
 
 ## Check and submit
 

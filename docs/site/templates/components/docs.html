@@ -1,4 +1,4 @@
-{% macro navigation(section, current_path) %}
+{% component docs.navigation(section, current_path) %}
 <nav class="docs-nav" aria-label="Documentation">
   <a class="docs-nav-home{% if current_path == '/docs/' %} is-current{% endif %}" href="{{ section.permalink | safe }}">Documentation</a>
   {% set groups = ["Start", "Workflows", "Reference"] %}
@@ -9,16 +9,16 @@
       {% if doc.extra.group == group %}
         <a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>
         {% for path in section.subsections %}{% set sub = get_section(path=path) %}
-          {% if sub.extra.nav_after == doc.slug %}<a{% if current_path is starting_with(sub.path) %} class="is-current" aria-current="page"{% endif %} href="{{ sub.permalink | safe }}">{{ sub.title }}</a>{% endif %}
+          {% if sub.extra.nav_after == doc.slug %}<a{% if current_path is starting_with(pat=sub.path) %} class="is-current" aria-current="page"{% endif %} href="{{ sub.permalink | safe }}">{{ sub.title }}</a>{% endif %}
         {% endfor %}
       {% endif %}
     {% endfor %}
   </div>
   {% endfor %}
 </nav>
-{% endmacro navigation %}
+{% endcomponent docs.navigation %}
 
-{% macro toc(headings) %}
+{% component docs.toc(headings) %}
 <nav class="docs-toc-links" aria-label="On this page">
   {% for heading in headings %}
     {% if heading.level == 1 %}
@@ -32,4 +32,4 @@
     {% endif %}
   {% endfor %}
 </nav>
-{% endmacro toc %}
+{% endcomponent docs.toc %}

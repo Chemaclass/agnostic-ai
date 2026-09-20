@@ -1,0 +1,9 @@
+{# Rendered straight into markdown content: no blank or whitespace-only line
+   may reach the output or markdown closes the HTML block. #}
+{% component target_pages() %}{% set matrix = load_data(path="data/capabilities.toml") %}
+<nav class="target-grid" aria-label="Target pages">
+  {%- for target in matrix.targets %}
+  <a class="target-card" href="{{ get_url(path=target.href) }}"><strong>{{ target.name }}</strong><code>{{ target.id }}</code></a>
+  {%- endfor %}
+</nav>
+{% endcomponent target_pages %}
