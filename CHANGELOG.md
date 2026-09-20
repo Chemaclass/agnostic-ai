@@ -36,7 +36,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - The Claude page marks `taskOutputMaxChars` deprecated: Claude Code v2.1.277 removed its effect, and the key still emits because the `stable` dist-tag predates that release (#955).
 - The Copilot page says Copilot CLI reads `.claude/settings.json` for a five-key repository subset, so `enabledPlugins` set for claude also sets Copilot policy (#956).
 - The Cursor page says Cursor loads skills from `.claude/skills` and `.codex/skills` as well, read from three roots with precedence undocumented (#957).
-- The Claude and Cursor pages stop calling MCP `roots` a documented per-server key; neither vendor names one, and the field still emits as passthrough.
+- The Claude, Cursor and Copilot pages stop calling MCP `roots` a documented per-server key; no vendor names one, and the field still emits as passthrough.
 - Installation lists the two package managers that work today, `brew install --cask Chemaclass/tap/agnostic-ai` and `npm install -g agnostic-ai`, and names winget and Scoop as the two that do not (#920).
 - The readme and the plugin install skill offer npm as a route instead of warning that it is unpublished, and the npm readme links the site and drops its pin on a seventeen-release-old tag (#920).
 - The current release shows beside the wordmark on every page and links to its GitHub release, so the version is visible without scrolling to the footer.
