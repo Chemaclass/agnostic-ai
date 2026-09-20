@@ -571,6 +571,12 @@ main > section[id] {
   animation-delay: 860ms;
 }
 
+/* Inert until landing.js wires the tabs up. The list still reads as the set of
+   files a sync writes, but nothing invites a click that cannot land. */
+.output-files[inert] .output-file {
+  cursor: default;
+}
+
 .output-file svg {
   width: 0.95rem;
   height: 0.95rem;

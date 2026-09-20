@@ -22,6 +22,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Site
 
 - The site builds on Zola 0.23.6 instead of 0.22.0: templates moved to Tera 2 components, shortcodes became components, and the three site tests that silently skipped on a mismatched local Zola now run for anyone on a current release (#970).
+- The landing page ships its generated-file tablist inert until `landing.js` wires it, so a reader without JavaScript sees one real generated file rather than four buttons that refuse to move (#977).
 
 ## v0.63.0 - 2026-09-20
 
