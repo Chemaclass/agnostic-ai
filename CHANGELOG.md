@@ -16,6 +16,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Changed
 
+- The release pushes the Homebrew cask with a token minted per run from a GitHub App scoped to the tap, so the credential stops expiring; it falls back to the stored `HOMEBREW_TAP_TOKEN` until the App exists (#943).
 - The npm package points its homepage at agnostic-ai.org instead of the GitHub readme, and widens its keywords from nine to twenty so npm search surfaces it (#937).
 
 ### Fixed

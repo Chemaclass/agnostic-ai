@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -28,10 +29,19 @@ type workflowJob struct {
 			OS []string `yaml:"os"`
 		} `yaml:"matrix"`
 	} `yaml:"strategy"`
-	Steps []struct {
-		Name string `yaml:"name"`
-		Run  string `yaml:"run"`
-	} `yaml:"steps"`
+	Steps []workflowStep `yaml:"steps"`
+}
+
+// workflowStep is the slice of a workflow step these tests read. `with`
+// holds ints as well as strings (`fetch-depth: 0`), hence `any`.
+type workflowStep struct {
+	Name string            `yaml:"name"`
+	ID   string            `yaml:"id"`
+	If   string            `yaml:"if"`
+	Uses string            `yaml:"uses"`
+	Run  string            `yaml:"run"`
+	With map[string]any    `yaml:"with"`
+	Env  map[string]string `yaml:"env"`
 }
 
 // workflowJobs parses a GitHub Actions workflow and returns its jobs.
@@ -50,21 +60,38 @@ func workflowJobs(t *testing.T, path string) map[string]workflowJob {
 	return doc.Jobs
 }
 
-// workflowStep returns the run script of the named step in the named job.
-func workflowStep(t *testing.T, path, job, step string) string {
+// workflowRun returns the run script of the named step in the named job.
+func workflowRun(t *testing.T, path, job, step string) string {
+	t.Helper()
+	s, _ := workflowStepAt(t, path, job, step)
+	return s.Run
+}
+
+// workflowStepAt returns the named step of the named job and its position
+// in the job, so a test can assert one step runs before another.
+func workflowStepAt(t *testing.T, path, job, step string) (workflowStep, int) {
 	t.Helper()
 	j, ok := workflowJobs(t, path)[job]
 	if !ok {
 		t.Fatalf("%s has no %q job", path, job)
 	}
-	for _, s := range j.Steps {
+	for i, s := range j.Steps {
 		if s.Name == step {
-			return s.Run
+			return s, i
 		}
 	}
 	t.Fatalf("%s job %q has no %q step", path, job, step)
-	return ""
+	return workflowStep{}, -1
 }
+
+// Names the tap credential guards below share, so a rename touches one
+// place instead of drifting between them.
+const (
+	tapMintStep     = "Mint the Homebrew tap token from the GitHub App"
+	tapAppIDSecret  = "HOMEBREW_TAP_APP_ID"
+	tapAppKeySecret = "HOMEBREW_TAP_APP_PRIVATE_KEY"
+	tapPATSecret    = "HOMEBREW_TAP_TOKEN"
+)
 
 // caskConfig returns the first homebrew_casks entry from .goreleaser.yml.
 func caskConfig(t *testing.T) map[string]any {
@@ -164,7 +191,7 @@ func TestReleaseWorkflow_PublishesWithProvenance(t *testing.T) {
 	if job.Permissions["id-token"] != "write" {
 		t.Errorf("the npm job needs `id-token: write` to mint the OIDC token a provenance statement is signed against, got %q", job.Permissions["id-token"])
 	}
-	if publish := workflowStep(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, "npm publish --access public --provenance") {
+	if publish := workflowRun(t, releaseWorkflowPath, "npm", "Publish"); !strings.Contains(publish, "npm publish --access public --provenance") {
 		t.Errorf("the Publish step no longer passes --provenance:\n%s", publish)
 	}
 }
@@ -182,7 +209,7 @@ func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
 	if pin == "" {
 		t.Fatal("the npm job no longer pins NPM_CLI_VERSION; setup-node would decide which npm signs the release")
 	}
-	if !strings.Contains(workflowStep(t, releaseWorkflowPath, "npm", "Pin the npm CLI that publishes"), "NPM_CLI_VERSION") {
+	if !strings.Contains(workflowRun(t, releaseWorkflowPath, "npm", "Pin the npm CLI that publishes"), "NPM_CLI_VERSION") {
 		t.Error("the pin step does not install NPM_CLI_VERSION, so the pin is decorative")
 	}
 	const floorMajor, floorMinor = 9, 5
@@ -204,7 +231,7 @@ func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
 // a check that is sometimes wrong gets dismissed when it is right.
 func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
 	for _, step := range []string{"Homebrew cask serves this tag", "npm serves this tag"} {
-		script := workflowStep(t, releaseWorkflowPath, "distribution", step)
+		script := workflowRun(t, releaseWorkflowPath, "distribution", step)
 		if !strings.Contains(script, "for attempt in") || !strings.Contains(script, "sleep") {
 			t.Errorf("%q reads its channel once; a replica that has not caught up then fails the release:\n%s", step, script)
 		}
@@ -217,6 +244,107 @@ func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
 		}
 		if !strings.Contains(script, "::warning::") || !strings.Contains(script, "exit 0") {
 			t.Errorf("%q no longer warns and passes when its token is absent, which is how forks release:\n%s", step, script)
+		}
+	}
+}
+
+// TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp guards the
+// one thing this credential change must never do: fail a release.
+//
+// `actions/create-github-app-token` calls `core.setFailed` when its
+// identifier or its private key is empty, so an ungated mint step turns
+// an absent App into a red release, on every fork too. The `secrets`
+// context is not readable from a step `if:`, so the presence flag has to
+// be captured in the job `env`, the same trap the npm job hit with
+// setup-node writing a placeholder into `.npmrc`.
+//
+// Nothing else catches this. The job only runs on a tag.
+func TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp(t *testing.T) {
+	job := workflowJobs(t, releaseWorkflowPath)["goreleaser"]
+	flag := job.Env["HOMEBREW_TAP_APP_CONFIGURED"]
+	if !strings.Contains(flag, tapAppIDSecret) || !strings.Contains(flag, tapAppKeySecret) {
+		t.Fatalf("the goreleaser job does not record whether both App secrets are set, so a step `if:` cannot test them, got %q", flag)
+	}
+	mint, mintAt := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
+	if !strings.Contains(mint.If, "HOMEBREW_TAP_APP_CONFIGURED") {
+		t.Errorf("the mint step is not gated on the App being configured, so a release without the App fails on an empty app-id, got %q", mint.If)
+	}
+	if strings.Contains(mint.If, "secrets.") {
+		t.Errorf("the mint step reads `secrets` from a step `if:`, which GitHub rejects as an unrecognized named-value, got %q", mint.If)
+	}
+	if mint.ID == "" {
+		t.Fatal("the mint step has no id, so nothing can read its token output")
+	}
+	_, releaseAt := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
+	if mintAt > releaseAt {
+		t.Errorf("the mint step runs after GoReleaser, so its token output is empty and the cask push silently falls back to the PAT")
+	}
+}
+
+// TestReleaseWorkflow_FallsBackToTheStoredTapToken keeps the release
+// shipping through whichever credential exists.
+//
+// The App is not created yet, so the PAT is still the live credential;
+// once the App lands the PAT goes away. Reading only one of the two
+// breaks the release in one of those two states, and a lost token here
+// does not fail the run, it just stops pushing the cask, which is how a
+// stale cask went unnoticed for ten releases (#920).
+func TestReleaseWorkflow_FallsBackToTheStoredTapToken(t *testing.T) {
+	mint, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
+	release, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
+	token := release.Env[tapPATSecret]
+	if want := "steps." + mint.ID + ".outputs.token"; !strings.Contains(token, want) {
+		t.Errorf("GoReleaser does not read the minted token (%s), so the App would be set up and unused: %q", want, token)
+	}
+	if !strings.Contains(token, "secrets."+tapPATSecret) {
+		t.Errorf("GoReleaser has no fallback to the stored %s, so the cask stops being pushed until the App exists: %q", tapPATSecret, token)
+	}
+}
+
+// TestReleaseWorkflow_ScopesTheTapTokenToTheTap pins the reason a
+// GitHub App beats the PAT it replaces.
+//
+// The action defaults the installation to the current repository, which
+// is not the one the cask is pushed to, so dropping `owner` and
+// `repositories` breaks the push. It is also the whole security
+// argument: a classic PAT with `repo` writes everywhere the owner can,
+// while this token reaches the tap and nothing else.
+//
+// The pin is a major tag to match every other action in this repo.
+func TestReleaseWorkflow_ScopesTheTapTokenToTheTap(t *testing.T) {
+	mint, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
+	if !regexp.MustCompile(`^actions/create-github-app-token@v\d+$`).MatchString(mint.Uses) {
+		t.Errorf("the mint step must use actions/create-github-app-token pinned to a major tag like the rest of this repo, got %q", mint.Uses)
+	}
+	for key, want := range map[string]string{
+		"owner":               "Chemaclass",
+		"repositories":        "homebrew-tap",
+		"permission-contents": "write",
+	} {
+		if got, _ := mint.With[key].(string); got != want {
+			t.Errorf("the mint step sets %s to %q, want %q; the token must reach the tap and only the tap", key, got, want)
+		}
+	}
+	id, _ := mint.With["app-id"].(string)
+	key, _ := mint.With["private-key"].(string)
+	if !strings.Contains(id, tapAppIDSecret) || !strings.Contains(key, tapAppKeySecret) {
+		t.Errorf("the mint step does not read %s and %s, so it signs with something other than the App this repo documents: app-id=%q private-key=%q", tapAppIDSecret, tapAppKeySecret, id, key)
+	}
+}
+
+// TestReleaseWorkflow_DistributionAcceptsEitherTapCredential keeps the
+// only check that proves the push landed from going blind.
+//
+// The guard warns and exits 0 when it believes no credential was set,
+// because that is how a fork releases. Left testing the PAT alone, it
+// would take that branch on every App-only release and stop verifying
+// the tap, which is exactly the silence #920 is about.
+func TestReleaseWorkflow_DistributionAcceptsEitherTapCredential(t *testing.T) {
+	step, _ := workflowStepAt(t, releaseWorkflowPath, "distribution", "Homebrew cask serves this tag")
+	configured := step.Env["TAP_CONFIGURED"]
+	for _, secret := range []string{tapAppIDSecret, tapAppKeySecret, tapPATSecret} {
+		if !strings.Contains(configured, secret) {
+			t.Errorf("TAP_CONFIGURED ignores %s, so a release pushed with it would skip the check that proves the cask landed: %q", secret, configured)
 		}
 	}
 }
