@@ -16,7 +16,7 @@ render_doc() {
   awk '
     NR == 1 && $0 == "+++" { in_frontmatter = 1; next }
     in_frontmatter && $0 == "+++" { in_frontmatter = 0; next }
-    !in_frontmatter && $0 ~ /^\{\{ [a-z_]+\(\) \}\}$/ { next }
+    !in_frontmatter && $0 ~ /^\{\{ <[a-z_]+ \/> \}\}$/ { next }
     !in_frontmatter { print }
   ' "$1" | sed -E \
     -e 's|\]\(@/docs/([^)#]+)/_index\.md(#[^)]+)?\)|](https://agnostic-ai.org/docs/\1/\2)|g' \

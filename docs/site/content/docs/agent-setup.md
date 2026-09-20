@@ -11,7 +11,7 @@ group = "Start"
 
 Follow this when a user asks you to install or configure agnostic-ai in a repository. Preserve existing AI tool behavior, make `.agnostic-ai/` the source of truth, and leave the project with a clean validation result.
 
-{{ agent_setup_prompt() }}
+{{ <agent_setup_prompt /> }}
 
 ## Safety contract
 

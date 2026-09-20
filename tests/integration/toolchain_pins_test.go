@@ -61,7 +61,7 @@ func TestZolaPin_MatchesPagesWorkflow(t *testing.T) {
 
 // lookupPinnedZola returns the zola binary only when it matches the
 // Makefile pin. A missing binary or a different version is a skip, not a
-// fail: CI installs 0.22.0, and a contributor with another zola on PATH
+// fail: CI installs the pinned version, and a contributor with another zola on PATH
 // should still run the rest of the suite. Matching the Makefile gate here
 // stops a newer zola from reporting a template parse error in a file that
 // is valid under the pin.

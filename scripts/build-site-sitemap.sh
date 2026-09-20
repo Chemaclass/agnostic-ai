@@ -47,7 +47,7 @@ write_url() {
   write_url /docs/ weekly 0.9 \
     docs/site/content/docs/_index.md docs/site/content/docs/[!_]*.md \
     docs/site/templates/base.html docs/site/templates/docs/section.html \
-    docs/site/templates/docs/page.html docs/site/templates/macros/docs.html \
+    docs/site/templates/docs/page.html docs/site/templates/components/docs.html \
     docs/site/static/assets/styles/base.css docs/site/static/assets/styles/docs.css \
     docs/site/static/assets/scripts/theme.js docs/site/static/assets/scripts/video.js
   write_url /updates/ weekly 0.9 \

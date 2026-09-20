@@ -54,9 +54,9 @@
       </div>
       <nav class="site-nav" aria-label="Primary">
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
-        <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with('/updates') %} aria-current="page"{% endif %}>Updates</a>
+        <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with(pat='/updates') %} aria-current="page"{% endif %}>Updates</a>
         <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
-        <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with('/docs') %} aria-current="page"{% endif %}>Docs</a>
+        <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with(pat='/docs') %} aria-current="page"{% endif %}>Docs</a>
       </nav>
       <div class="site-actions">
         <a class="site-external" href="{{ config.extra.repository_url }}" target="_blank" rel="noopener noreferrer" aria-label="agnostic-ai on GitHub, opens in a new tab" title="GitHub">

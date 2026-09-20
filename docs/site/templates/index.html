@@ -53,7 +53,7 @@
 {% set landing = load_data(path="data/landing.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
 {% set capabilities = load_data(path="data/capabilities.toml") %}
-{% set default_installer = landing.workflow.installers | filter(attribute="id", value="script") | first %}
+{% set_global default_installer = false %}{% for installer in landing.workflow.installers %}{% if default_installer is bool and installer.id == "script" %}{% set_global default_installer = installer %}{% endif %}{% endfor %}
 {% set updates_section = get_section(path="updates/_index.md") %}
 {% set latest_update = updates_section.pages | first %}
 <main id="content">
@@ -146,21 +146,19 @@
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
-      {% set_global capability_columns = [] %}
-      {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set_global capability_columns = capability_columns | concat(with=loop.index0) %}{% endif %}{% endfor %}
       <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">
         <table class="capability-table">
           <thead>
             <tr>
               <th scope="col">Target</th>
-              {% for column in capability_columns %}<th scope="col">{{ capabilities.features[column].label }}</th>{% endfor %}
+              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}<th scope="col">{{ feature.label }}</th>{% endif %}{% endfor %}
             </tr>
           </thead>
           <tbody>
             {% for id in landing.targets.ids %}{% for target in capabilities.targets %}{% if target.id == id %}
             <tr>
               <th scope="row"><a href="{{ get_url(path=target.href) }}">{{ target.short_name | default(value=target.name) }}</a></th>
-              {% for column in capability_columns %}{% set status = target.statuses[column] %}<td><span class="capability-mobile-label">{{ capabilities.features[column].label }}</span><span class="capability-state capability-state-{{ status }}">{% for state in capabilities.states %}{% if state.id == status %}{{ state.label }}{% endif %}{% endfor %}</span></td>{% endfor %}
+              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set status = target.statuses[loop.index0] %}<td><span class="capability-mobile-label">{{ feature.label }}</span><span class="capability-state capability-state-{{ status }}">{% for state in capabilities.states %}{% if state.id == status %}{{ state.label }}{% endif %}{% endfor %}</span></td>{% endif %}{% endfor %}
             </tr>
             {% endif %}{% endfor %}{% endfor %}
           </tbody>
@@ -185,12 +183,12 @@
         </div>
         <div class="latest-updates">
           <p class="latest-update-meta"><span>{{ landing.updates.latest_label }}</span></p>
-          {% for update in updates_section.pages | slice(end=3) %}
+          {% for update in updates_section.pages %}{% if loop.index0 < 3 %}
           <article class="latest-update">
             <time datetime="{{ update.date | date(format='%Y-%m-%d') }}">{{ update.date | date(format='%d %B %Y') }}</time>
             <h3><a href="{{ update.permalink }}">{{ update.title }}</a></h3>
           </article>
-          {% endfor %}
+          {% endif %}{% endfor %}
         </div>
       </div>
     </div>
