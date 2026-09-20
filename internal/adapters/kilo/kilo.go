@@ -385,6 +385,12 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if len(permission) > 0 {
 		keys[permissionKey] = permission
 	}
+	// An `x-kilo` block on a settings spec carries the Kilo-only keys
+	// this adapter does not model, `sandbox` among them, into the same
+	// write. `permission` is excluded: settingsPermission already
+	// merges that one tool by tool with the translated rules, and a
+	// blanket set here would replace the whole object instead (#949).
+	emit.MergeSettingsCustomKeys(keys, b.Settings, target, permissionKey)
 	if len(keys) == 0 {
 		return nil
 	}

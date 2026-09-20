@@ -48,3 +48,39 @@ func TestEmit_SettingsWritesModelPermissionsAndPreservesKeys(t *testing.T) {
 		t.Errorf("allow = %#v", permissions["allow"])
 	}
 }
+
+// An `x-qoder` key on a settings spec reaches `.qoder/settings.json`
+// untouched, and leaves the managed `model` and `permissions` alone (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":       "qoder-max",
+		"permissions": map[string]any{"allow": []any{"Bash(go test:*)"}},
+		"x-qoder":     map[string]any{"enableAllProjectMcpServers": true},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".qoder/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["enableAllProjectMcpServers"] != true {
+		t.Errorf("x-qoder.enableAllProjectMcpServers never reached the file: %#v", got)
+	}
+	model, _ := got["model"].(map[string]any)
+	if model["name"] != "qoder-max" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("permissions = %#v, want the managed key untouched", got["permissions"])
+	}
+	if _, hasX := got["x-qoder"]; hasX {
+		t.Errorf("the x-qoder wrapper must not be written: %#v", got)
+	}
+}

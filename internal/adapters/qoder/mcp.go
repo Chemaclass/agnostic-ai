@@ -65,6 +65,10 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if permissions := emit.SettingsPermissions(settings); permissions != nil {
 		keys["permissions"] = permissions
 	}
+	// An `x-qoder` block on a settings spec carries the keys this
+	// adapter does not model, the `mcp` group's own flags among them,
+	// straight into the same write (#949).
+	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {
 		return nil
 	}

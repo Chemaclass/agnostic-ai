@@ -480,11 +480,16 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 | Target | `permissions` | `model` |
 |---|---|---|
 | Claude Code, Qoder, Kilo Code, OpenCode | yes | yes |
+| Factory | `Bash` rules only | yes |
 | Windsurf | yes | no |
 | Augment | `allow` and `deny` only | no |
-| Codex, Copilot, Junie, Factory | no | yes |
+| Codex, Copilot, Junie | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, Codex, and Factory report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, and Codex report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Factory's three command lists take shell-command patterns, so a `Bash` rule translates and a `Read(src/**)` raises a note. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+
+A list does not always land in the key its name matches. Factory's `commandDenylist` prompts and can still be approved, so portable `ask` goes there and portable `deny` goes to `commandBlocklist`, the key with no approval path. Read the target page before assuming a name match.
+
+Target-specific settings keys go under `x-<target>`, the same escape hatch agents and commands have. The block merges into that target's own settings file and wins over any key this tool manages there, so `x-factory.sandbox` reaches `.factory/settings.json` and `x-kilo.sandbox` reaches `kilo.jsonc`. Use it for surfaces no portable field models. Codex is the exception: `.codex/config.toml` is TOML rendered from the captured overlay plus `outputs.codex.config`, so an `x-codex` block on a settings spec raises a coverage note naming both routes instead of emitting.
 
 ## Reviews
 
@@ -601,3 +606,5 @@ For each target, all `x-*` keys are dropped, then the matching `x-<target>` bloc
 Any other key under `x-<target>` emits verbatim into that target's output. That block is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
 
 Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
+
+On a settings spec the block merges into the target's own settings file and wins over the keys this tool manages there. Four targets keep their own handling for one key each, where the author's rules merge with the translated ones rather than replacing them: `x-augment.toolPermissions`, `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission`. Codex takes no settings block at all and says so in a coverage note.

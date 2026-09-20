@@ -19,7 +19,7 @@ AGENTS.md                          # canonical entry-point pointer body + inline
 .factory/commands/<name>.md        # one Markdown slash command per command spec
 .factory/hooks.json                # when hook entries exist
 .factory/mcp.json                  # when MCP entries exist
-.factory/settings.json             # when a settings entry carries a model
+.factory/settings.json             # when a settings entry carries a model, a shell-command rule, or an x-factory key
 ```
 
 Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` natively and loads custom droids from `.factory/droids/`. Each agent emits as one `<name>.md` profile with `name`, `description`, and optional `model` / `tools` frontmatter (`tools` translates onto Droid CLI's own tool IDs, see below); arbitrary `x-factory` keys pass through. A portable `mcpServers` list emits as-is, narrowing which servers the droid may reach: "Setting `mcpServers: []` excludes every MCP server, even globally configured ones", so write the servers you want rather than an empty list. A portable `effort` emits as Factory's own `reasoningEffort`, which documents `low`, `medium`, and `high` only; `xhigh`, `max`, and Qoder's integer budgets are dropped with a coverage note, and the vendor ignores the field entirely under `model: inherit`. See [`mcpServers`](@/docs/spec-format.md#mcpservers-support-by-target) and [`effort` support by target](@/docs/spec-format.md#effort-support-by-target).
@@ -47,8 +47,20 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
   - Remote HTTP/SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
   - `x-factory` overrides each top-level option. These fields stay scoped to Factory. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target). A `type: ws` spec emits no server and raises a coverage note because Factory documents only stdio, HTTP, and SSE.
 - **Settings**: a portable `model` merges into `<git-root>/.factory/settings.json`. Factory documents that project tier on its hierarchical-settings page, not on the CLI settings page whose "Where settings live" table lists `~/.factory/settings.json` alone: "Settings are authored in `.factory/` folders, using the same schema at every level", with the levels table rowing "**Project** | `<git-root>/.factory/` | Repo maintainers" and "Each `.factory/` folder can contain: `settings.json`: general settings (models, safety, preferences, telemetry)" ([docs.factory.ai/enterprise/hierarchical-settings-and-org-control](https://docs.factory.ai/enterprise/hierarchical-settings-and-org-control)). The skills page names the same file: "the **Project** tab writes to `<project>/.factory/settings.json`" ([docs.factory.ai/harness/skills](https://docs.factory.ai/harness/skills)).
-  - The file is merged, not overwritten, unlike `.factory/hooks.json` and `.factory/mcp.json`. Only `model` is ever set, so `disabledSkills` and anything else in that file survives the sync.
-  - The portable `allow`, `deny`, and `ask` lists stop at a coverage note. Factory's key list names `commandAllowlist`, `commandDenylist`, and `commandBlocklist` without publishing a rule grammar or saying how the two deny-shaped keys differ, so agnostic-ai does not guess a spelling. Write those keys by hand in `.factory/settings.json`; the merge leaves them alone (#891).
+  - The file is merged, not overwritten, unlike `.factory/hooks.json` and `.factory/mcp.json`. Only `model` and the keys written under `x-factory` are ever set, so `disabledSkills` and anything else in that file survives the sync.
+  - An `x-factory` block on a settings spec merges into the same file, for the Factory keys this tool does not model. `sandbox` is the case it exists for: kernel-enforced isolation where "a blocked read, write, or connection is denied by the kernel rather than relying on Droid to police itself", enabling it moves the baseline for every unlisted path, `denyWrite` overrides `allowWrite`, there is no `ask` tier, and `network.allowedDomains` is egress filtering. None of that maps onto a portable permission rule, so the hatch is the answer rather than a spec field (#949).
+  - The portable `allow`, `deny`, and `ask` lists write Factory's three command lists. The vendor types each as `string[]` of "Shell command patterns ... (accumulated across levels)" ([docs.factory.ai/enterprise/hierarchical-settings-and-org-control](https://docs.factory.ai/enterprise/hierarchical-settings-and-org-control)) and shows both spellings, bare (`["ls", "pwd", "dir"]`) and prefix-glob (`["npm *", "sudo *"]`), so `Bash(npm:*)` becomes `"npm *"` and `Bash(curl)` becomes `"curl"` (#948).
+
+| portable | Factory key | why |
+|---|---|---|
+| `allow` | `commandAllowlist` | "Patterns that are always allowed to run without additional approval." |
+| `ask` | `commandDenylist` | "Patterns that always require explicit confirmation. A denylisted command can still run if the user approves it." |
+| `deny` | `commandBlocklist` | "Patterns that can never run ... a blocked command has no approval path." |
+
+  - Read that table before assuming the names match. Factory's denylist prompts, so mapping portable `deny` onto it would turn a hard block into an approval prompt. The vendor asserts the prompt behavior on three pages, not only in the blocklist's contrast clause.
+  - Precedence needs no work on this side, because Factory's matches agnostic-ai's own: "Commands that appear in both the allowlist and denylist default to the denylist behavior. The blocklist always takes precedence over both."
+  - These three keys are shell-command patterns, so a rule scoping a path, a URL, or an MCP tool has no spelling among them and raises a coverage note instead. `Read(src/**)` still reaches nothing here.
+  - A list is written only when at least one rule translates into it, so a list you maintain by hand survives a sync that has nothing to put there. A sync that does have something replaces that key.
 
 ## Config keys
 

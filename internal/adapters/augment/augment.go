@@ -308,6 +308,13 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if len(rules) > 0 {
 		keys[toolPermissionsKey] = rules
 	}
+	// An `x-augment` block on a settings spec carries the keys this
+	// adapter does not model, `shell` and `startupScript` among them,
+	// into the same write. `toolPermissions` is excluded:
+	// buildToolPermissions already puts an author's native rules at the
+	// head of the array, ahead of the translated ones, and a blanket
+	// set here would drop the translated ones instead (#949).
+	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey)
 	if len(keys) == 0 {
 		return nil
 	}

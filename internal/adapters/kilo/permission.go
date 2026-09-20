@@ -154,14 +154,7 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 	// other tools. Same deal `x-kilo.permission` already gets on an
 	// agent: that author is presumed to know Kilo's own spelling.
 	for _, entry := range settings {
-		custom, _ := emit.CustomTargetMeta(entry.Meta, target)
-		if custom == nil {
-			continue
-		}
-		native, ok := custom[permissionKey].(map[string]any)
-		if !ok {
-			continue
-		}
+		native, _ := emit.SettingsCustomObject(entry, target, permissionKey)
 		for tool, value := range native {
 			out[tool] = value
 		}
@@ -175,10 +168,8 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 // entryRules returns one settings spec's rules for list, and whether
 // they already hold Kilo's own vocabulary under `x-kilo.permission`.
 func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
-	if custom, _ := emit.CustomTargetMeta(entry.Meta, target); custom != nil {
-		if _, ok := custom[permissionKey].(map[string]any); ok {
-			return nil, true
-		}
+	if _, ok := emit.SettingsCustomObject(entry, target, permissionKey); ok {
+		return nil, true
 	}
 	permissions, _ := entry.Meta["permissions"].(map[string]any)
 	return emit.StringSlice(permissions[list]), false

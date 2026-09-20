@@ -291,3 +291,43 @@ func TestEmit_SettingsExactBashDenyRaisesNoCoverageNote(t *testing.T) {
 		t.Errorf("a widened deny must not report a gap, got: %s", note)
 	}
 }
+
+// An `x-windsurf` key on a settings spec reaches `.devin/config.json`
+// untouched, and leaves the managed `permissions` alone (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"permissions": map[string]any{"allow": []any{"Read(src/**)"}},
+		"x-windsurf":  map[string]any{"read_config_from": "main"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := settingsDoc(t, dir)
+	if got["read_config_from"] != "main" {
+		t.Errorf("x-windsurf.read_config_from never reached the file: %#v", got)
+	}
+	perms, _ := got["permissions"].(map[string]any)
+	if allow, _ := perms["allow"].([]any); len(allow) != 1 {
+		t.Errorf("permissions = %#v, want the managed key untouched", got["permissions"])
+	}
+	if _, hasX := got["x-windsurf"]; hasX {
+		t.Errorf("the x-windsurf wrapper must not be written: %#v", got)
+	}
+}
+
+// A settings spec carrying only an `x-windsurf` key still writes the
+// file. Devin takes no portable `model`, so before the hatch such a
+// spec reached nothing at all (#949).
+func TestEmit_SettingsCustomTargetKeysAloneWriteTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"x-windsurf": map[string]any{"read_config_from": "main"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := settingsDoc(t, dir); got["read_config_from"] != "main" {
+		t.Errorf("x-windsurf.read_config_from never reached the file: %#v", got)
+	}
+}

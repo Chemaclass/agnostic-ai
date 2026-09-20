@@ -56,6 +56,10 @@ func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) 
 	if names := disabledMCPNames(mcps); len(names) > 0 {
 		keys[disabledMcpServersKey] = names
 	}
+	// The `x-copilot` block on a settings spec carries the repository
+	// keys this adapter does not model, `respectGitignore` among the
+	// fourteen that table lists. Without it they are unreachable (#949).
+	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {
 		return nil
 	}

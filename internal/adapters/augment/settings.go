@@ -95,12 +95,7 @@ func buildToolPermissions(settings []spec.Entry) ([]any, int) {
 // entries: rules an author wrote in Augment's own shape, passed through
 // untouched, the same deal x-augment.tools gets on an agent.
 func nativeRules(entry spec.Entry) []any {
-	custom, _ := emit.CustomTargetMeta(entry.Meta, target)
-	if custom == nil {
-		return nil
-	}
-	native, _ := custom[toolPermissionsKey].([]any)
-	return native
+	return emit.SettingsCustomList(entry, target, toolPermissionsKey)
 }
 
 // augmentRule translates one agnostic-ai permission rule into an

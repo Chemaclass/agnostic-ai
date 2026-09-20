@@ -281,3 +281,36 @@ func TestEmit_SettingsNotesPermissionsAreMDMOnly(t *testing.T) {
 		t.Error("a permissions-only settings spec wrote a settings file")
 	}
 }
+
+// An `x-copilot` key on a settings spec reaches the repository
+// settings file untouched, and leaves `model` alone. Copilot's
+// repository table carries keys this project does not model, such as
+// `respectGitignore`, and the hatch is how an author reaches them
+// without hand-editing a generated file (#949).
+func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":     "gpt-5.4",
+		"x-copilot": map[string]any{"respectGitignore": false},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, defaultSettingsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["respectGitignore"] != false {
+		t.Errorf("x-copilot.respectGitignore never reached the file: %#v", got)
+	}
+	if got["model"] != "gpt-5.4" {
+		t.Errorf("model = %#v, want the managed key untouched", got["model"])
+	}
+	if _, hasX := got["x-copilot"]; hasX {
+		t.Errorf("the x-copilot wrapper must not be written: %#v", got)
+	}
+}

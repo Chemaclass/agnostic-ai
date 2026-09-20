@@ -53,7 +53,7 @@ Skills are unaffected by any of the above: they emit into their own native folde
 
 The IDE plugin doc alone now adds a **Custom path** step ahead of `.junie/AGENTS.md`, read from Settings | Tools | Junie | Project Settings. The CLI-facing doc has no such step, and since that per-workspace IDE preference is not usually committed to the repo, it rarely changes which file wins in a synced project (target-audit 2026-08-09, #590).
 
-A settings spec's default `model` merges into `.junie/config.json`, preserving unrelated native keys.
+A settings spec's default `model` merges into `.junie/config.json`, preserving unrelated native keys. An `x-junie` block on that spec merges into the same file, for the project-config keys this tool does not model.
 
 Ignore specs emit as `.aiignore` in the project root: "You can restrict Junie from processing the contents of specific files or folders by creating and configuring an `.aiignore` file in the project root directory" and "The `.aiignore` file follows the same syntax and pattern format as the `.gitignore` file" ([junie-ide-plugin.html](https://junie.jetbrains.com/docs/junie-ide-plugin.html), target-audit 2026-09-11, #728).
 
