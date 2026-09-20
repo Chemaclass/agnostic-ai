@@ -28,7 +28,7 @@ var routingKeys = map[string]bool{
 // the value the named target should see, so every adapter downstream
 // reads a scalar and needs no knowledge of the map form. Order is not
 // significant: the keys resolve independently of each other.
-var collapsedKeys = []string{"model"}
+var collapsedKeys = []string{"model", "effort"}
 
 // StringSlice coerces a `[]any` of strings (YAML's default unmarshalled
 // shape for list-of-strings) into `[]string`. Non-string elements and
@@ -241,10 +241,12 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 //	model: gpt-4o                             -> gpt-4o (every target)
 //	model: {claude: opus, default: gpt-4o}    -> opus for claude, gpt-4o for codex
 //	model: {claude: opus}                     -> opus for claude, dropped for codex
+//	effort: 8000                              -> 8000 (every target)
+//	effort: {claude: xhigh, qoder: 8000}      -> xhigh for claude, the int 8000 for qoder
 //
 // The scalar set is the four shapes yaml.v3 decodes a plain frontmatter
-// scalar into, so a numeric value survives the pick as a number rather
-// than being dropped as "not a string". See IntField.
+// scalar into, so Qoder's integer effort budget survives the pick as an
+// int rather than being dropped as "not a string". See IntField.
 func collapseTargetMap(out map[string]any, keys *[]string, key, target string) {
 	m, ok := out[key].(map[string]any)
 	if !ok {
