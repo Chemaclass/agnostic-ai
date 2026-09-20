@@ -29,10 +29,6 @@ const MAX_REDIRECTS = 5
 // stall blocks `npm install` for the whole project.
 const TIMEOUT_MS = 30_000
 
-const INSTALL_ALTERNATIVES =
-  'go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest, ' +
-  'or the routes at https://agnostic-ai.org/docs/installation/'
-
 function target() {
   const goos = PLATFORMS[process.platform]
   const goarch = ARCHS[process.arch]
@@ -76,36 +72,52 @@ function describeError(err) {
   return described
 }
 
-function agent(url) {
+function client(url) {
   if (url.startsWith('https:')) return https
-  // Only reachable through a redirect; kept so a local test server and a plain
-  // http hop report something readable instead of ERR_INVALID_PROTOCOL.
+  // Only reachable through a redirect; kept so a plain http hop reports
+  // something readable instead of ERR_INVALID_PROTOCOL.
   if (url.startsWith('http:')) return http
   throw new Error(`GET ${url} uses an unsupported protocol`)
 }
 
-// Resolves with the response, headers only: the caller decides whether to read
-// the body, follow the redirect, or give up.
+// Resolves once the response headers are in, with a `body()` that reads the
+// rest. Splitting it that way lets a caller act on the headers alone, and keeps
+// the one timeout covering both halves: the socket timeout fires on silence
+// whether or not the body has started, and a request torn down by it must
+// report the timeout rather than the `aborted` the stream raises in its wake.
 function request(url, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const req = agent(url)
-      .get(url, { headers: { 'user-agent': 'agnostic-ai-npm' }, timeout: timeoutMs }, resolve)
-      .on('timeout', () => {
-        // The socket timeout only fires the event; the request has to be torn
-        // down by hand, and destroy(err) is what surfaces as a rejection here.
-        req.destroy(new Error(`GET ${url} timed out after ${timeoutMs / 1000}s with no response`))
+    let timedOut = null
+    const fail = (err) => reject(timedOut || describeError(err))
+
+    const req = client(url)
+      .get(url, { headers: { 'user-agent': 'agnostic-ai-npm' }, timeout: timeoutMs }, (res) => {
+        resolve({
+          res,
+          body: () =>
+            new Promise((done, failBody) => {
+              const chunks = []
+              res.on('data', (c) => chunks.push(c))
+              res.on('end', () => done(Buffer.concat(chunks)))
+              res.on('error', (err) => failBody(timedOut || describeError(err)))
+            }),
+        })
       })
-      .on('error', (err) => reject(describeError(err)))
+      .on('timeout', () => {
+        // The socket timeout only raises the event; the request has to be torn
+        // down by hand, and destroy(err) is what surfaces as a rejection.
+        timedOut = new Error(`GET ${url} timed out after ${timeoutMs / 1000}s of silence`)
+        req.destroy(timedOut)
+      })
+      .on('error', fail)
   })
 }
 
-function body(res) {
-  return new Promise((resolve, reject) => {
-    const chunks = []
-    res.on('data', (c) => chunks.push(c))
-    res.on('end', () => resolve(Buffer.concat(chunks)))
-    res.on('error', (err) => reject(describeError(err)))
-  })
+// Drain a response nobody will read. The listener is not optional: a response
+// that errors with nothing attached takes the whole process down.
+function discard(res) {
+  res.resume()
+  res.on('error', () => {})
 }
 
 function redirectTo(res) {
@@ -114,12 +126,12 @@ function redirectTo(res) {
 }
 
 async function get(url, { redirects = 0, timeoutMs = TIMEOUT_MS } = {}) {
-  const res = await request(url, timeoutMs)
+  const { res, body } = await request(url, timeoutMs)
 
   // GitHub redirects release assets to a signed object-store URL.
   const next = redirectTo(res)
   if (next) {
-    res.resume()
+    discard(res)
     if (redirects >= MAX_REDIRECTS) {
       throw new Error(`GET ${url} still redirecting after ${MAX_REDIRECTS} hops`)
     }
@@ -130,10 +142,10 @@ async function get(url, { redirects = 0, timeoutMs = TIMEOUT_MS } = {}) {
   }
 
   if (res.statusCode !== 200) {
-    res.resume()
+    discard(res)
     throw new Error(`GET ${url} failed with HTTP ${res.statusCode}`)
   }
-  return body(res)
+  return body()
 }
 
 // Release tags carry the `v`, but `npm view` and package.json print the bare
@@ -151,8 +163,8 @@ function releaseTag(version) {
 // target is what this wants, so it reads the response itself instead of going
 // through get(), which exists to follow the redirect and hand back a body.
 async function latestTag(url = `https://github.com/${REPO}/releases/latest`) {
-  const res = await request(url, TIMEOUT_MS)
-  res.resume()
+  const { res } = await request(url, TIMEOUT_MS)
+  discard(res)
 
   const location = redirectTo(res)
   if (location) {
@@ -207,8 +219,9 @@ function extract(archive, dir) {
   } catch (err) {
     const reason = err.code === 'ENOENT' ? 'tar is not installed' : describeError(err).message
     throw new Error(
-      `could not extract ${path.basename(archive)}: ${reason}. ` +
-        `Install agnostic-ai another way instead: ${INSTALL_ALTERNATIVES}`
+      `could not extract ${path.basename(archive)}: ${reason}. Install agnostic-ai another ` +
+        'way instead: go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest, ' +
+        'or the routes at https://agnostic-ai.org/docs/installation/'
     )
   }
 }

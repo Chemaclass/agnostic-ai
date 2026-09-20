@@ -174,6 +174,21 @@ const tests = {
     }
   },
 
+  async 'a body that stops mid-stream reports the timeout, not `aborted`'() {
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-length': '100' })
+      res.write('half a bod') // and then nothing, ever
+    })
+    const base = await listen(server)
+    try {
+      const err = await rejection(get(`${base}/stalled`, { timeoutMs: 200 }))
+      assert.ok(err.message.includes(`${base}/stalled`), `missing the url: ${err.message}`)
+      assert.match(err.message, /timed out after 0\.2s/)
+    } finally {
+      await close(server)
+    }
+  },
+
   async 'a single redirect is still followed'() {
     const server = http.createServer((req, res) => {
       if (req.url === '/asset') {
