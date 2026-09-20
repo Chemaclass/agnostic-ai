@@ -1,6 +1,6 @@
 +++
 title = "Release and AI tooling updates"
-description = "How each release briefing records shipped work, upstream evidence, and target capability classifications."
+description = "How each release announcement records reader impact, upstream evidence, and target capability classifications."
 weight = 100
 
 [extra]
@@ -10,17 +10,17 @@ group = "Workflows"
 # Release and AI tooling updates
 
 
-AI coding tools change their project configuration often. Each agnostic-ai release ships a briefing: what the project released, and which verified upstream CLI or model changes affect project setup, safety, and portability.
+AI coding tools change their project configuration often. Each agnostic-ai release ships a concise announcement: what changes a reader's work, and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
 Each edition is one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the item to the [RSS feed](https://agnostic-ai.org/updates/feed.xml).
 
 The archive filters editions by target and searches their titles, descriptions, editorial summaries, and highlighted signals. Multiple targets use OR, whitespace-separated search terms use AND. Applied filters stay in the URL, so a filtered archive can be bookmarked or shared. Without JavaScript, every edition stays in date order and readable.
 
-## What each release briefing tells you
+## What each release announcement tells you
 
-Each briefing has two records:
+Each announcement has two records:
 
-- **Shipped in agnostic-ai.** Reproduces the release's dated `CHANGELOG.md` section exactly.
+- **What changed in agnostic-ai.** Two or three reader consequences. The GitHub release notes remain the complete record.
 - **Upstream CLI and model news.** Selected external changes with primary sources, user impact, and the current agnostic-ai support state.
 
 Breaking behavior, default changes, removals, and deprecations come first. Safety changes and large additions follow. Upstream availability never implies that agnostic-ai supports the feature.
@@ -40,7 +40,7 @@ A proposed improvement is not shipped support: design candidates stay out of aut
 
 ## Know which record to trust
 
-The [release updates](https://agnostic-ai.org/updates/) combine shipped release notes with selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, and they label that state.
+The [release updates](https://agnostic-ai.org/updates/) summarize the release and selected upstream observations. They can describe a vendor feature before agnostic-ai supports it, and they label that state.
 
 [`targets.md`](@/docs/targets/_index.md) records support in the current code: native paths, capability limits, and opt-in settings.
 
@@ -54,11 +54,11 @@ Target audit reports and issues are research inputs: they hold the vendor eviden
 
 The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article immediately before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, `.html` compatibility alias, and article-level target IDs. It needs no audit counts, audit marker, or report digest.
 
-To prepare a release briefing:
+To prepare a release announcement:
 
 1. Finalize the dated release section in `CHANGELOG.md`.
-2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release briefing contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
-3. Copy the dated changelog section exactly into `Shipped in agnostic-ai vX.Y.Z`. Add only verified upstream news to its separate section.
+2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release announcement contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
+3. Summarize the two or three consequences a reader needs to know and link the complete GitHub release notes. Add only verified upstream news to its separate section.
 4. Set `extra.targets` to the registered IDs covered substantively in the article. Use `[]` for a general edition. A checked or clean target does not count as coverage.
 5. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.22.0 and Node 22.
 6. Review `_site/updates/`, `_site/updates/feed.xml`, and `_site/sitemap.xml`. Do not commit `_site/`.

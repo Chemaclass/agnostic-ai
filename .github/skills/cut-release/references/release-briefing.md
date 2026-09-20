@@ -21,11 +21,9 @@ so the words after the colon have to work harder.
   change that will surprise someone. A four-fix release titled as four fixes
   keeps its credibility; one inflated into a design thesis loses it.
 
-The dek is two sentences and at most 280 characters. The first names the change,
-the second gives its consequence. It is not a summary of the release: the
-inventory is the shipped section's job, and the reader is one scroll away from
-it. Order by blast radius, so the item most people will notice leads whatever
-changelog section it sits in.
+The dek is one or two sentences and at most 220 characters. Name the change,
+then its consequence. It is not an inventory. A reader who needs every detail
+can open the GitHub release notes.
 
 Each fact appears in exactly one layer:
 
@@ -33,13 +31,12 @@ Each fact appears in exactly one layer:
 |---|---|
 | `dek` | the single highest-consequence change, and what it means |
 | `## What to do` | every imperative and command in the article |
-| `## Shipped` | the inventory, one line per change |
-| `## Site and docs` | website and documentation work |
+| `## What changed` | the two or three changes most readers need to know |
 | `## Upstream` | what changed outside this project |
 
-A dek that restates `## What to do`, or a shipped entry that repeats the dek,
-is the same fact told twice. That repetition, not sentence length, is what makes
-a release article feel long.
+A dek that restates `## What to do`, or a change bullet that repeats the dek,
+is the same fact told twice. That repetition, not sentence length, makes an
+announcement feel like generated prose.
 
 Banned openers, no exceptions:
 
@@ -59,18 +56,16 @@ never to describe what the software does.
 
 ## Curation
 
-A release briefing is curated, not transcribed. Before writing, split the release
-into product changes and site changes, and lead with the product. A reader wants
-to know what the tool does differently, and how much of the release is website
-work is part of that answer.
+A release announcement is curated, never transcribed. Before writing, decide
+which two or three product changes alter a reader's work. Lead with those. The
+GitHub release notes remain the exhaustive record.
 
 Two rules follow from that:
 
-1. The `### Site` section stays last and stays short. Site work is grouped by
-   theme in a few lines, never one line per commit.
-2. Every product entry states an observable effect, not the mechanism behind it.
-   Name the flag, path, or file a user will see. The issue and the PR hold the
-   implementation detail; the briefing does not repeat it.
+1. Mention site work only when it changes how a reader uses the site. One bullet
+   is enough. Omit internal design and visual polish.
+2. Each product bullet states an observable effect, not the mechanism. Name the
+   flag, path, or file a user will see. The issue and PR hold the detail.
 
 If a release is mostly site work, say so plainly in the dek rather than padding
 the product sections to hide it.
@@ -82,12 +77,10 @@ Six more rules keep a briefing scannable:
    who is affected most. Close it with a line stating that nothing else needs
    action. Omit the whole section when there is genuinely nothing to do, and
    never pad it to look thorough.
-2. Rank every list by consequence and cap it at five visible lines. More than
-   five means grouping by theme, not a longer list.
-3. Keep shipped and site entries at the length the changelog uses, one sentence
-   of about 150 characters. They are copied from the changelog, so a bloated
-   article means the changelog was bloated first. The `## What to do` section is
-   where migration detail belongs, which is what lets the entries stay short.
+2. Rank every list by consequence and cap the whole article at three change
+   bullets. More than three means the release has not been curated.
+3. Use one sentence per bullet, about 120 characters. A blog post tells readers
+   whether to upgrade. The GitHub release notes tell them everything that moved.
 4. State the win concretely. "Rules land under the configured dir" is a win a
    reader can check; "improved path resolution" is not.
 5. No preamble and no closing pleasantry. The dek is the summary; each section
@@ -124,19 +117,19 @@ availability, or a workflow users depend on. Order the article by consequence:
 If no verified upstream item meets that bar, say so in the upstream section.
 Do not invent filler.
 
-## Separation contract
+## Article contract
 
-Use two visible top-level sections:
+Use these sections only when they contain useful information:
 
-1. `Shipped in agnostic-ai vX.Y.Z`
-2. `Upstream CLI and model news`
+1. `What to do` for upgrade actions.
+2. `What changed` for the two or three reader consequences.
+3. `Upstream CLI and model news` for verified external changes.
 
-The shipped section must reproduce the final dated release changelog content
-exactly, including its subsection order and bullets, which puts the product
-sections first and `### Site` last. Curate in the changelog, then copy; never
-curate only in the article, or the two disagree. Do not paraphrase, merge,
-or omit entries. The upstream section describes external changes only, as a list of one item per
-line, at most five lines. Each line carries the affected product and version,
+End `What changed` with a short link to the GitHub release notes. Do not repeat
+the changelog, group changes by internal category, or publish a Site section
+unless site work changes a reader's workflow. The upstream section describes
+external changes only, as a list of one item per line, at most three lines. Each
+line carries the affected product and version,
 the source date, the user consequence, the state here, and the source links:
 
 ```
@@ -184,7 +177,7 @@ summary = "<specific reader outcome>"
 +++
 ```
 
-Add two or three signals that summarize the highest-consequence items. Signals
+Add one or two signals that summarize the highest-consequence items. Signals
 can point to shipped work or upstream news, but their status and summary must
 make the distinction explicit. Release posts do not use `audit_marker`,
 `report_digest`, `targets_checked`, `finding_count`, or `clean_count`.
@@ -208,8 +201,8 @@ aliases, GUIDs, audit markers, report digests, counts, or capability markers.
 
 Before committing:
 
-1. Compare the shipped section against the new dated changelog section and
-   resolve any difference.
+1. Check every blog claim against the new dated changelog section. The blog
+   should summarize it, not copy it.
 2. Open every upstream source and confirm that the article makes no broader
    claim than the source.
 3. Confirm high-impact changes appear before additions in both the changelog
