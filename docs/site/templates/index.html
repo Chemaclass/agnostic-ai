@@ -79,14 +79,19 @@
         </div>
         <div class="hero-install" data-hero-installer>
           <p><span data-hero-installer-label>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
-          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button><div class="hero-fan" aria-hidden="true">{% for output in landing.hero.diagram.outputs %}<div class="fan-arm"><i class="fan-label">{{ output.id }}</i></div>{% endfor %}</div></div>
+          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button><div class="rails" aria-hidden="true"><span class="origin"></span>{% for output in landing.hero.diagram.outputs %}<i><em><b>{{ output.id }}</b>{{ output.path | split(pat="/") | first }}/</em></i>{% endfor %}</div></div>
           {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
         <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a><span>{{ agent_setup.description }}</span></p>
       </div>
+    </div>
+  </section>
 
-      <div class="transform" aria-label="One portable agent spec becomes a different native file for every target">
+  <section class="section-band" id="transform">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.transform.title }} <span>{{ landing.transform.muted_title }}</span></h2>
+      <div class="transform reveal-group" aria-label="One portable agent spec becomes a different native file for every target">
         <div class="transform-caption"><span>{{ landing.hero.diagram.caption_source }}</span><span>{{ landing.hero.diagram.caption_output }}</span></div>
         <div class="spec-card">
           <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.hero.diagram.source_name }}</div>

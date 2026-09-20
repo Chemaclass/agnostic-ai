@@ -123,6 +123,10 @@ tools:
 Read the diff. Report bugs, unclear naming, and missing tests.
 Cite every finding with a `file:line` reference.
 '''
+[transform]
+title = "Write it once."
+muted_title = "Every tool reads it natively."
+
 [mission]
 title = "Your setup outlives"
 muted_title = "the tool you picked."
