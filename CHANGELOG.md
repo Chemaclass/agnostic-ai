@@ -39,6 +39,8 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Site
 
+- The Copilot page and the adapter's coverage note name `deniedUrls`, the one deny route in Copilot's repository settings table, and say it is reachable with `x-copilot.deniedUrls` rather than implying no repository-tier deny exists (#959).
+
 - The Claude page marks `taskOutputMaxChars` deprecated: Claude Code v2.1.277 removed its effect, and the key still emits because the `stable` dist-tag predates that release (#955).
 - The Copilot page says Copilot CLI reads `.claude/settings.json` for a five-key repository subset, so `enabledPlugins` set for claude also sets Copilot policy (#956).
 - The Cursor page says Cursor loads skills from `.claude/skills` and `.codex/skills` as well, read from three roots with precedence undocumented (#957).
