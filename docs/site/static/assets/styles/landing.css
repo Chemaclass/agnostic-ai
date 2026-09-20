@@ -153,18 +153,6 @@ main > section[id] {
   pointer-events: none;
 }
 
-/* The source: the heaviest mark in the diagram, because it is the subject. */
-.rails .origin {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 7px;
-  height: 7px;
-  margin: -3.5px 0 0 3px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
 /* Two layers. This one is the route: the comet head sweeps it once and its
    tail parks as the lit rail, which then stays for good. `forwards` is what
    holds it, so nothing here ever returns to `opacity: 0`. The repeating pulse
@@ -252,8 +240,9 @@ main > section[id] {
   animation: land 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) forwards;
 }
 
-/* nth-of-type, not nth-child: `.origin` is the first child, so nth-child is
-   off by one and silently mis-assigns every angle.
+/* nth-of-type, not nth-child. The two agree while the rails are the only
+   children, and nth-of-type keeps agreeing if a non-`i` sibling is ever added
+   back, which is what the origin dot used to be.
 
    Four rails name a target, so an endpoint is a place and not a dot, and a
    fifth counts the rest. Which targets get a rail comes from the data: an
