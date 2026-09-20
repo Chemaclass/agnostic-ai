@@ -10,6 +10,11 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Added
+
+- The npm package publishes with a provenance attestation, so its page links the tarball back to the exact commit and workflow run; a signing outage downgrades to a plain publish instead of failing the release (#937).
+- CI installs the published npm package on macOS, Linux, and Windows and runs `--version`, covering the install path users take rather than a packed working tree (#937).
+
 ### Changed
 
 - The npm package points its homepage at agnostic-ai.org instead of the GitHub readme, and widens its keywords from nine to twenty so npm search surfaces it (#937).
@@ -17,6 +22,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Fixed
 
 - Installing the latest release no longer dies on a shared IP: `scripts/install.sh`, `scripts/install.ps1` and `agnostic-ai upgrade` resolve the tag from the `github.com/.../releases/latest` redirect instead of the API endpoint capped at 60 unauthenticated requests per hour, and a throttled request now says it was rate limited instead of printing a bare 403 (#940).
+- The release's distribution guard retries `npm view` and the Homebrew contents API with backoff, so a registry replica that lags the publish by seconds no longer reports a good release as failed (#937).
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 - `AGNOSTIC_AI_VERSION=0.61.0` now installs the same binary as `v0.61.0`: the npm wrapper normalizes the pin instead of building a 404 download URL (#936).
