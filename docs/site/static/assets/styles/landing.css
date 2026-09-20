@@ -397,6 +397,21 @@ main > section[id] {
 }
 
 .output-file {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-quiet);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
   animation: sync-file 360ms ease-out both;
 }
 
@@ -418,24 +433,6 @@ main > section[id] {
 
 .output-file:nth-child(5) {
   animation-delay: 860ms;
-}
-
-.output-file {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  min-width: 0;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-quiet);
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  text-align: left;
-  appearance: none;
-  cursor: pointer;
 }
 
 .output-file svg {
