@@ -133,30 +133,30 @@ muted_title = "Every tool reads it natively."
 [mission]
 title = "Your setup outlives"
 muted_title = "the tool you picked."
-body = "Every AI coding tool ships its own config file. Adopt three and your instructions live in three places, drifting apart. That is lock-in, one config file at a time. agnostic-ai keeps **one source in your repository** and writes the rest."
+body = "Every AI coding tool ships its own config file. Adopt three and your instructions live in three places, drifting apart. agnostic-ai keeps **one source in your repository** and writes the rest."
 
 [[mission.principles]]
 title = "You own the source"
-body = "Plain Markdown and YAML in your repo. No account, no database, no service. `import` brings an existing setup in without rewriting it."
+body = "Plain Markdown and YAML in your repo. No account, no service. `import` brings an existing setup in."
 [[mission.principles]]
 title = "Generated files are outputs"
-body = "Never a second source of truth. Same input, same bytes, so they diff cleanly. `sync --check` fails CI when they drift."
+body = "Same input, same bytes, so they diff cleanly. `sync --check` fails CI when they drift."
 [[mission.principles]]
 title = "No tool is privileged"
-body = "Adding a target never changes what the others get. `rules/backend/auth.md` routes to each target's native directory and scope syntax."
+body = "Adding a target never changes what the others get. One rule routes to every native path and scope syntax."
 [[mission.principles]]
 title = "A sync layer, not a platform"
-body = "agnostic-ai should be easy to stop using. The generated files are yours and they keep working."
+body = "Easy to stop using. The generated files are yours, and they keep working."
 
 [mission.symlinks]
 question = "Why not just symlink one file?"
-answer = "Each tool reads a different format at a different path. A symlink shares bytes; it cannot translate them."
+answer = "Each tool reads a different format at a different path. A symlink shares bytes. It cannot translate them."
 link_label = "See how the formats diverge"
 
 [targets]
 title = "One source of truth,"
 muted_title = "every tool native."
-body = "The five most complete integrations, across six of the ten portable spec kinds. The other four are [settings](@/docs/spec-format.md#settings), [review](@/docs/spec-format.md#reviews), [environment](@/docs/spec-format.md#environments) and [ignore](@/docs/spec-format.md#ignore), which on its own writes a native exclusion file for ten targets."
+body = "The five most complete integrations, across six of the ten spec kinds. The other four: [settings](@/docs/spec-format.md#settings), [review](@/docs/spec-format.md#reviews), [environment](@/docs/spec-format.md#environments), [ignore](@/docs/spec-format.md#ignore)."
 # The legend only means something next to the matrix, which a phone does not
 # render, so it sits in its own element the phone rules hide.
 legend = "**Native** writes that spec kind by default, **opt-in** you turn on."
