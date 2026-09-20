@@ -296,6 +296,24 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+/* Own row under the kind selector: says what the selected kind is and
+   links to the section of the docs that defines it. */
+.kind-hint {
+  flex: 1 0 100%;
+  margin: -2px 0 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Underlined by default: inside a muted sentence, colour alone is not
+   enough to mark a link. */
+.kind-hint a {
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 select {
   appearance: none;
   background: var(--bg-elev);

@@ -103,6 +103,64 @@ dist/
 `,
 };
 
+/* One line per spec kind, plus the section of the spec-format page that
+   documents it. The dropdown is where most people meet the full list, so
+   every option says what it is and links to the reference. */
+const KINDS = {
+  agent: {
+    summary: "A named subagent with its own instructions, tool list, and model.",
+    anchor: "agents",
+    docLabel: "Spec format: agents",
+  },
+  skill: {
+    summary: "A procedure the agent loads on demand, with its reference files.",
+    anchor: "skills",
+    docLabel: "Spec format: skills",
+  },
+  rule: {
+    summary: "Always-on project conventions, narrowed to paths with globs.",
+    anchor: "rules",
+    docLabel: "Spec format: rules",
+  },
+  hook: {
+    summary: "A command the tool runs on a lifecycle event, such as before a commit.",
+    anchor: "hooks",
+    docLabel: "Spec format: hooks",
+  },
+  mcp: {
+    summary: "An MCP server: transport, command, arguments, environment.",
+    anchor: "mcp-servers",
+    docLabel: "Spec format: MCP servers",
+  },
+  command: {
+    summary: "A slash command the tool lists in its command picker.",
+    anchor: "commands",
+    docLabel: "Spec format: commands",
+  },
+  settings: {
+    summary: "Portable permission rules and the default model.",
+    anchor: "settings",
+    docLabel: "Spec format: settings",
+  },
+  review: {
+    summary: "Guidance for a code-review bot. Cursor Bugbot and Goose read it.",
+    anchor: "reviews",
+    docLabel: "Spec format: reviews",
+  },
+  environment: {
+    summary: "How an agent boots the dev environment: install, services, terminals.",
+    anchor: "environments",
+    docLabel: "Spec format: environments",
+  },
+  ignore: {
+    summary: "Gitignore-syntax patterns an agent must not read or index.",
+    anchor: "ignore",
+    docLabel: "Spec format: ignore",
+  },
+};
+
+const SPEC_FORMAT_URL = "../docs/spec-format/";
+
 const DEFAULT_TARGETS = ["claude", "codex", "gemini"];
 const STORAGE_KEY = "agnostic-ai-playground";
 
@@ -115,6 +173,8 @@ const els = {
   sample: $("sample"),
   targets: $("targets"),
   capabilitySummary: $("capability-summary"),
+  kindSummary: $("kind-summary"),
+  kindDoc: $("kind-doc"),
   tabs: $("tabs"),
   files: $("files"),
   fileSelectWrap: document.querySelector(".file-select"),
@@ -216,6 +276,17 @@ function updateCapabilityState() {
       : `, does not support ${kind}`;
   });
   els.capabilitySummary.textContent = `${supportedCount} of ${capabilityByTarget.size} targets support ${kind} specs. Unsupported selections have dashed outlines and are skipped.`;
+}
+
+/* ─── Kind description ─── */
+
+function updateKindHint() {
+  const kind = els.kind.value;
+  const info = KINDS[kind];
+  if (!info) return;
+  els.kindSummary.textContent = info.summary;
+  els.kindDoc.href = `${SPEC_FORMAT_URL}#${info.anchor}`;
+  els.kindDoc.textContent = info.docLabel;
 }
 
 /* ─── Sample ─── */
@@ -425,6 +496,7 @@ async function init() {
     .sort((a, b) => a.name.localeCompare(b.name));
   buildTargetChips(capabilities, prefs.targets);
   els.source.value = SAMPLES[els.kind.value] || SAMPLES.agent;
+  updateKindHint();
   buildSampleAction();
 
   els.source.addEventListener("input", () => {
@@ -436,6 +508,7 @@ async function init() {
       els.source.value = SAMPLES[els.kind.value];
     }
     updateSampleAction();
+    updateKindHint();
     updateCapabilityState();
     savePrefs();
     scheduleRender();

@@ -247,6 +247,61 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	}
 }
 
+// The kind picker is where most people meet the full list of spec kinds, so
+// every kind needs a one-line description and a link that lands on a real
+// heading in the spec format page. A renamed heading has to fail here rather
+// than ship a dropdown full of dead anchors (#980).
+func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
+	page := readBuiltFile(t, "../../docs/playground/index.html")
+	script := readBuiltFile(t, "../../docs/playground/playground.js")
+	specFormat := readBuiltFile(t, filepath.Join(siteDocsContentDir, "spec-format.md"))
+
+	for _, required := range []string{
+		`id="kind-summary"`,
+		`id="kind-doc"`,
+		`class="kind-hint"`,
+	} {
+		if !strings.Contains(page, required) {
+			t.Errorf("playground kind picker is missing %q", required)
+		}
+	}
+	if !strings.Contains(script, "updateKindHint()") {
+		t.Error("playground never fills in the kind description")
+	}
+
+	headings := make(map[string]bool)
+	for _, line := range strings.Split(specFormat, "\n") {
+		title, ok := strings.CutPrefix(line, "## ")
+		if !ok {
+			continue
+		}
+		headings[strings.ToLower(strings.ReplaceAll(strings.TrimSpace(title), " ", "-"))] = true
+	}
+
+	entry := regexp.MustCompile(`(?s)\n  (\w+): \{(.*?)\n  \},`)
+	found := make(map[string]bool)
+	for _, match := range entry.FindAllStringSubmatch(script, -1) {
+		kind, body := match[1], match[2]
+		found[kind] = true
+		anchor := regexp.MustCompile(`anchor: "([^"]+)"`).FindStringSubmatch(body)
+		if anchor == nil {
+			t.Errorf("playground kind %s has no docs anchor", kind)
+			continue
+		}
+		if !headings[anchor[1]] {
+			t.Errorf("playground kind %s links to #%s, which is not a heading in spec-format.md", kind, anchor[1])
+		}
+		if !regexp.MustCompile(`summary: "[^"]{20,}"`).MatchString(body) {
+			t.Errorf("playground kind %s has no usable one-line description", kind)
+		}
+	}
+	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
+		if !found[kind] {
+			t.Errorf("playground kind %s has no description entry", kind)
+		}
+	}
+}
+
 func TestSiteDocs_CanonicalPagesCarryNavigationMetadata(t *testing.T) {
 	pages, err := filepath.Glob(filepath.Join(siteDocsContentDir, "[^_]*.md"))
 	if err != nil {

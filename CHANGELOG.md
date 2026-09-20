@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Added
+
+- This repository now dogfoods the three spec kinds it never used: an `ignore` spec keeps build output, lockfiles, and local secrets out of ten targets' exclusion files, beside a `review` spec Cursor Bugbot and Goose read and an `environment` spec for Cursor, Amp, and OpenHands (#980).
+
 ### Changed
 
 - `AGNOSTIC_AI_VERSION` no longer applies to the npm package: the npm version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it. `AGNOSTIC_AI_BINARY` points the wrapper at a binary of your own, and both install scripts keep `AGNOSTIC_AI_VERSION` (#942).
@@ -18,6 +22,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Cutting a prerelease no longer hands it npm's `latest`: every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), and the distribution guard checks the dist-tag on all seven packages, not just the version (#942).
 - The npm wrapper's repair hint now fits the install it runs from: a global copy is told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` sitting in your npm config (#942).
 - The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
+
+### Site
+
+- The ten spec kinds stop being a bare list. The playground's kind picker now says in one line what the selected kind is and links to the section of the spec format that defines it, the landing names the four kinds its capability matrix leaves out with a link each, and the README explains `review`, `environment`, and `ignore` instead of only listing them (#980).
 
 ## v0.63.0 - 2026-09-20
 
