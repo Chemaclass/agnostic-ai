@@ -243,7 +243,7 @@ description: Validate YAML against a schema.
 | `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
 
-Most targets write one native folder per skill at `<dir>/<name>/SKILL.md`, with bundled assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule file and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. The [Skills notes](@/docs/targets/_index.md#capability-matrix) and each target page give the exact directory.
+Most targets write one native folder per skill at `<dir>/<name>/SKILL.md`, with bundled assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule file and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. The [target matrix](@/docs/targets/_index.md#capability-matrix) and each target page give the exact directory.
 
 ## Rules
 

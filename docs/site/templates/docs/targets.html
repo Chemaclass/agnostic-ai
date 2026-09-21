@@ -44,10 +44,19 @@
 {% block scripts %}
 {% set matrix = load_data(path="data/capabilities.toml") %}
 <script>
-  // Targets used to share one page, so older deep links carry a per-target anchor such as #claude-code-claude.
+  // Preserve links from the old combined target reference.
   (function () {
     var hash = decodeURIComponent(window.location.hash.slice(1));
     if (!hash || document.getElementById(hash)) return;
+    var moved = ["directory-specific-instructions", "entry-point-files", "memory-and-local-state", "selecting-targets", "new-targets", "global-output"];
+    if (moved.indexOf(hash) !== -1) {
+      window.location.replace("{{ get_url(path='@/docs/target-behavior.md') }}#" + hash);
+      return;
+    }
+    if (hash === "per-target-output") {
+      window.location.replace("{{ get_url(path='@/docs/targets/_index.md') }}#capability-matrix");
+      return;
+    }
     var match = hash.match(/-({% for target in matrix.targets %}{{ target.id }}{% if not loop.last %}|{% endif %}{% endfor %})$/);
     if (match) window.location.replace("{{ get_url(path='@/docs/targets/_index.md') }}" + match[1] + "/");
   })();

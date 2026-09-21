@@ -16,7 +16,7 @@ target_id = "jules"
 AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 ```
 
-Google [Jules](https://jules.google/docs) is a cloud agent. It reads the root `AGENTS.md` and has no project-local surface of its own, so it contributes nothing but the shared pointer body and the inlined `## Rules` block. Enabling it adds no unique output, which is why it stays opt-in (see [Selecting targets](@/docs/targets/_index.md#selecting-targets)). Agents, skills, hooks, and MCP skip with a warning.
+Google [Jules](https://jules.google/docs) is a cloud agent. It reads the root `AGENTS.md` and has no project-local surface of its own, so it contributes nothing but the shared pointer body and the inlined `## Rules` block. Enabling it adds no unique output, which is why it stays opt-in (see [Selecting targets](@/docs/configuration.md#targets)). Agents, skills, hooks, and MCP skip with a warning.
 
 ## Config keys
 

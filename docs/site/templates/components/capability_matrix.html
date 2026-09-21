@@ -10,7 +10,7 @@
       <input type="search" name="q" placeholder="Claude, Codex, Gemini..." autocomplete="off">
     </label>
     <details class="capability-target-picker">
-      <summary>Choose targets <span data-selection-count>All</span></summary>
+      <summary>Compare targets <span data-selection-count>All</span></summary>
       <div class="capability-target-options" role="group" aria-label="Targets to compare">
         {%- for target in matrix.targets %}
         <label>
@@ -20,35 +20,25 @@
         {%- endfor %}
       </div>
     </details>
-    <div class="capability-filter-actions">
-      <button class="button button-primary" type="submit">Apply</button>
-      <button class="button button-secondary" type="button" data-clear-capabilities>Show all</button>
-    </div>
+    <button class="capability-clear" type="button" data-clear-capabilities hidden>Clear filters</button>
   </form>
   <div class="capability-active-targets" data-active-targets hidden aria-label="Selected targets"></div>
-  <p class="capability-result" data-capability-result aria-live="polite">{{ matrix.targets | length }} targets, {{ matrix.features | length }} capabilities</p>
+  <p class="capability-result" data-capability-result aria-live="polite" hidden></p>
   <p class="capability-notice" data-capability-notice hidden></p>
-  <section class="capability-key" aria-labelledby="capability-key-title">
-    <h3 id="capability-key-title">How to read the matrix</h3>
-    <p>This is an <code>agnostic-ai sync</code> output matrix, not an industry-standard list of everything each AI tool can do. Each cell shows what sync does with one agnostic-ai spec kind for one target.</p>
+  <section class="capability-guide" aria-labelledby="capability-guide-title">
+    <h3 id="capability-guide-title">How to read it</h3>
+    <p>Each column is a portable spec kind. Each cell shows what <code>agnostic-ai sync</code> writes for that target.</p>
     <dl class="capability-legend">
       {%- for state in matrix.states %}
       <div><dt><span class="capability-state capability-state-{{ state.id }}">{{ state.label }}</span></dt><dd>{{ state.description }}</dd></div>
       {%- endfor %}
     </dl>
-    <p class="capability-key-action"><strong>Need an opt-in output?</strong> Select its <span class="capability-state capability-state-opt-in">Opt-in</span> label in the matrix to open that target's Config keys section.</p>
+    <p class="capability-opt-in-help">Select an <span class="capability-state capability-state-opt-in">Opt-in</span> cell to open the required config key.</p>
   </section>
-  <section class="capability-kind-rationale" aria-labelledby="capability-kind-rationale-title">
-    <div>
-      <h3 id="capability-kind-rationale-title">Why these are spec kinds</h3>
-      <p>Every column is a portable agnostic-ai source kind. A kind earns its place by normalizing equivalent files or settings documented by multiple tools.</p>
-    </div>
-    <dl>
-      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#reviews') }}">Code review</a></dt><dd>One source for dedicated review guidance, currently emitted for Cursor Bugbot and Goose.</dd></div>
-      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#environments') }}">Dev setup</a></dt><dd>One source for dependency setup and project services, currently emitted for Cursor, Amp, and OpenHands.</dd></div>
-      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#ignore') }}">Ignored files</a></dt><dd>One source for gitignore-style AI exclusions, currently emitted to ten target-native files.</dd></div>
-    </dl>
-  </section>
+  <details class="capability-kind-details">
+    <summary>Why these columns?</summary>
+    <p>A kind earns its place by normalizing equivalent files or settings documented by multiple tools. <a href="{{ get_url(path='@/docs/spec-format.md#reviews') }}">Code review</a>, <a href="{{ get_url(path='@/docs/spec-format.md#environments') }}">dev setup</a>, and <a href="{{ get_url(path='@/docs/spec-format.md#ignore') }}">ignored files</a> follow the same rule as agents, skills, and hooks.</p>
+  </details>
   <div class="capability-matrix-region" role="region" aria-label="Target capability comparison" tabindex="0">
     <table class="capability-matrix">
       <caption>Portable spec support by target. Open a target name for exact paths and caveats.</caption>

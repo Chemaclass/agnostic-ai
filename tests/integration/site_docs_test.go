@@ -383,6 +383,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
 	agentSetupGuide := readBuiltFile(t, filepath.Join(outputDir, "docs", "agent-setup", "index.html"))
 	targets := readBuiltFile(t, filepath.Join(outputDir, "docs", "targets", "index.html"))
+	targetBehavior := readBuiltFile(t, filepath.Join(outputDir, "docs", "target-behavior", "index.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
 	normalizedHome := strings.ReplaceAll(home, "&#x2F;", "/")
 	normalizedIndex := strings.ReplaceAll(index, "&#x2F;", "/")
@@ -443,16 +444,17 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`data-capability-target="claude"`,
 		`href="https://agnostic-ai.org/docs/targets/codex/"`,
 		`href="https://agnostic-ai.org/docs/targets/codex/#config-keys"`,
-		`How to read the matrix`,
-		`Sync writes this spec to the target's dedicated format. No extra configuration.`,
-		`The target has no dedicated format for this spec kind. Sync preserves the content in another format the target reads.`,
-		`This is an <code>agnostic-ai sync</code> output matrix, not an industry-standard list`,
-		`Why these are spec kinds`,
+		`How to read it`,
+		`Dedicated target format.`,
+		`Another native format preserves the content.`,
+		`Each column is a portable spec kind.`,
+		`Why these columns?`,
 		`A kind earns its place by normalizing equivalent files or settings documented by multiple tools.`,
-		`currently emitted for Cursor Bugbot and Goose.`,
-		`currently emitted for Cursor, Amp, and OpenHands.`,
-		`currently emitted to ten target-native files.`,
 		`href="https://agnostic-ai.org/docs/spec-format/#reviews"`,
+		`Compare targets`,
+		`Clear filters`,
+		`Related reference`,
+		`href="https://agnostic-ai.org/docs/target-behavior/"`,
 		`Native`,
 		`Opt-in`,
 		`Source only`,
@@ -461,6 +463,19 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	} {
 		if !strings.Contains(targets, required) {
 			t.Errorf("targets guide is missing capability UI %q", required)
+		}
+	}
+	if strings.Contains(targets, `class="target-grid"`) || strings.Contains(targets, `id="global-output"`) {
+		t.Error("targets guide still contains the duplicated target directory or advanced output reference")
+	}
+	for _, required := range []string{
+		`Cross-target behavior`,
+		`id="entry-point-files"`,
+		`id="memory-and-local-state"`,
+		`id="global-output"`,
+	} {
+		if !strings.Contains(targetBehavior, required) {
+			t.Errorf("cross-target guide is missing %q", required)
 		}
 	}
 	for _, required := range []string{

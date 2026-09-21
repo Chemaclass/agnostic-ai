@@ -51,27 +51,27 @@ href = "@/docs/spec-format.md#ignore"
 [[states]]
 id = "native"
 label = "Native"
-description = "Sync writes this spec to the target's dedicated format. No extra configuration."
+description = "Dedicated target format."
 
 [[states]]
 id = "mapped"
 label = "Mapped"
-description = "The target has no dedicated format for this spec kind. Sync preserves the content in another format the target reads."
+description = "Another native format preserves the content."
 
 [[states]]
 id = "opt-in"
 label = "Opt-in"
-description = "Supported, but sync writes it only after you enable a target-specific output setting."
+description = "Written after you enable an output setting."
 
 [[states]]
 id = "source"
 label = "Source only"
-description = "The spec stays in .agnostic-ai for portability. Sync does not write it for this target by default."
+description = "Kept in .agnostic-ai, not written by default."
 
 [[states]]
 id = "no"
 label = "No output"
-description = "Sync has no direct or safe mapped output for this spec kind. The target may still offer a related workflow."
+description = "No direct or safe mapped output."
 
 [[targets]]
 id = "claude"

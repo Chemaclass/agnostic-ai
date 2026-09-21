@@ -17,7 +17,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Site
 
 - The README links directly to npm, the Homebrew tap, and GitHub Releases; installation docs identify `agnostic-ai` as the public npm entry point.
-- The capability matrix describes sync output instead of every tool feature, explains how each workflow kind normalizes vendor formats, and links each column to its spec.
+- The targets page focuses on the capability matrix: it defines sync states and spec kinds, filters immediately, links every column, and moves shared details into a separate reference.
 
 ## v0.64.1 - 2026-09-21
 

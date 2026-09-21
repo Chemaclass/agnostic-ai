@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// The capability tables in docs/site/content/docs/targets/_index.md and README.md are edited
+// The capability tables in docs/site/content/docs/target-behavior.md and README.md are edited
 // by hand, and parallel target-audit PRs kept landing both sides of a
 // change instead of merging them. That left duplicated rows whose cells
 // disagreed: one trae row claimed no MCP surface while the next gave
@@ -25,7 +25,7 @@ var docTableRow = regexp.MustCompile(`^\|\s*(?:\*\*)?([A-Za-z][A-Za-z0-9 ()/.-]*
 
 func TestDocs_CapabilityTablesHaveNoDuplicateRows(t *testing.T) {
 	t.Parallel()
-	for _, rel := range []string{"docs/site/content/docs/targets/_index.md", "README.md"} {
+	for _, rel := range []string{"docs/site/content/docs/target-behavior.md", "README.md"} {
 		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()

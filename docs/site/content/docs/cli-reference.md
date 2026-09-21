@@ -203,7 +203,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config. Works outside a project; never loads project config or packs. See [global output](@/docs/targets/_index.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--backup`; rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config. Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--backup`; rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 

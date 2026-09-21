@@ -303,7 +303,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/targets/_index.md#entry-point-files).
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/target-behavior.md#entry-point-files).
 
 Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
 
@@ -354,7 +354,7 @@ Only `project` honors custom `sources` paths; `project-user` uses fixed kind dir
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/targets/_index.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, local overrides, or project specs.
+`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, local overrides, or project specs.
 
 Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset.
 

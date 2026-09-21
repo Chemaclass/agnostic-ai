@@ -76,13 +76,13 @@
     const region = browserRoot.querySelector(".capability-matrix-region");
     const active = browserRoot.querySelector("[data-active-targets]");
     const selectionCount = browserRoot.querySelector("[data-selection-count]");
+    const clear = form && form.querySelector("[data-clear-capabilities]");
     const capabilityCount = browserRoot.dataset.capabilityCount;
-    if (!form || rows.length === 0 || !result || !notice || !empty || !region || !active || !selectionCount) {
+    if (!form || rows.length === 0 || !result || !notice || !empty || !region || !active || !selectionCount || !clear) {
       return false;
     }
 
     const search = form.elements.q;
-    const picker = form.querySelector(".capability-target-picker");
     const checkboxes = Array.from(form.querySelectorAll('input[name="target"]'));
     const knownTargets = new Map(checkboxes.map(function (checkbox) {
       return [checkbox.value, checkbox.dataset.label];
@@ -106,9 +106,9 @@
       };
     }
 
-    function push(state) {
+    function updateURL(state) {
       const url = serializeURL(browser.location.href, state);
-      browser.history.pushState(null, "", url.pathname + url.search + url.hash);
+      browser.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
 
     function addActiveTarget(target, state) {
@@ -125,7 +125,7 @@
           query: state.query
         };
         render(next);
-        push(next);
+        updateURL(next);
       });
       active.appendChild(button);
     }
@@ -134,6 +134,7 @@
       const selectedTargets = normalizeTargets(state.targets);
       const selectedSet = new Set(selectedTargets);
       const query = String(state.query || "").trim().replace(/\s+/g, " ");
+      const hasFilters = selectedTargets.length > 0 || query.length > 0;
       search.value = query;
       checkboxes.forEach(function (checkbox) {
         checkbox.checked = selectedSet.has(checkbox.value);
@@ -148,7 +149,9 @@
       });
       region.hidden = visible.size === 0;
       empty.hidden = visible.size !== 0;
-      result.textContent = visible.size + " of " + targets.length + " targets, " + capabilityCount + " capabilities";
+      result.hidden = !hasFilters;
+      result.textContent = visible.size + " of " + targets.length + " targets, " + capabilityCount + " spec kinds";
+      clear.hidden = !hasFilters;
       selectionCount.textContent = selectedTargets.length === 0 ? "All" : selectedTargets.length + " selected";
 
       active.replaceChildren();
@@ -168,17 +171,28 @@
       event.preventDefault();
       const state = readForm();
       render(state);
-      push(state);
-      if (picker) {
-        picker.open = false;
-      }
+      updateURL(state);
+    });
+
+    search.addEventListener("input", function () {
+      const state = readForm();
+      render(state);
+      updateURL(state);
+    });
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener("change", function () {
+        const state = readForm();
+        render(state);
+        updateURL(state);
+      });
     });
 
     Array.from(browserRoot.querySelectorAll("[data-clear-capabilities]")).forEach(function (button) {
       button.addEventListener("click", function () {
         const state = { targets: [], query: "" };
         render(state);
-        push(state);
+        updateURL(state);
         search.focus();
       });
     });
