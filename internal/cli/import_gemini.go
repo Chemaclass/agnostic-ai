@@ -58,6 +58,10 @@ func importFromGemini(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "gemini"); err != nil {
 		return err
 	}
+	settings, err := importPortableSettings(root, geminiSettings, filepath.Join(root, src.Settings), true, false)
+	if err != nil {
+		return err
+	}
 	ignores, err := importIgnoreFile(root, "gemini", src)
 	if err != nil {
 		return err
@@ -65,8 +69,8 @@ func importFromGemini(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, geminiMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks, %d commands, %d ignores\n",
-		rules, agents, skills, mcps, hooks, commands, ignores)
+	summaryf("imported %d rules, %d agents, %d skills, %d mcps, %d hooks, %d commands, %d ignores, %d settings\n",
+		rules, agents, skills, mcps, hooks, commands, ignores, settings)
 	printImportNextSteps(root, "gemini")
 	return nil
 }

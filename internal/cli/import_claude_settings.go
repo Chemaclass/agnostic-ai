@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
@@ -69,6 +70,10 @@ func importClaudeSettingsOverlay(root string) (bool, error) {
 	if err := json.Unmarshal(data, doc); err != nil {
 		return false, fmt.Errorf("parse %s: %w", src, err)
 	}
+	removedPolicy, err := excludeGeneratedClaudeRejections(root, doc)
+	if err != nil {
+		return false, err
+	}
 	hadHooks := false
 	if rawHooks, ok := doc.Get("hooks"); ok {
 		hadHooks = true
@@ -77,7 +82,7 @@ func importClaudeSettingsOverlay(root string) (bool, error) {
 		}
 		doc.SetRaw("hooks", json.RawMessage(`null`))
 	}
-	if doc.Len() == 0 || (hadHooks && doc.Len() == 1) {
+	if !removedPolicy && (doc.Len() == 0 || (hadHooks && doc.Len() == 1)) {
 		return false, nil
 	}
 	indent := adapters.DetectJSONIndent(data)
@@ -93,6 +98,40 @@ func importClaudeSettingsOverlay(root string) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return true, nil
+}
+
+// Generated rejections are reconstructed from MCP specs. Capturing them as
+// manual overlay policy would resurrect them after a server is re-enabled.
+func excludeGeneratedClaudeRejections(root string, doc *adapters.OrderedJSON) (bool, error) {
+	path := filepath.Join(root, claudeDir, ".agnostic-ai-mcp-disabled.json")
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	var owned []string
+	if err := json.Unmarshal(data, &owned); err != nil {
+		return false, fmt.Errorf("parse %s: %w", path, err)
+	}
+	const key = "disabledMcpjsonServers"
+	raw, ok := doc.Get(key)
+	if !ok || len(owned) == 0 {
+		return false, nil
+	}
+	var names []string
+	if err := json.Unmarshal(raw, &names); err != nil {
+		return false, fmt.Errorf("parse Claude settings %s: %w", key, err)
+	}
+	before := len(names)
+	names = slices.DeleteFunc(names, func(name string) bool { return slices.Contains(owned, name) })
+	if len(names) == 0 {
+		doc.Delete(key)
+	} else if err := doc.Set(key, names); err != nil {
+		return false, fmt.Errorf("marshal Claude settings %s: %w", key, err)
+	}
+	return len(names) != before, nil
 }
 
 // claudeOverlayRelPath returns the overlay path relative to the project

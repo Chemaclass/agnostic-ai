@@ -24,14 +24,8 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 	return buf
 }
 
-// Regression for the target-audit finding: Claude Code has no per-server
-// `disabled` key inside `.mcp.json` (code.claude.com/docs/en/mcp documents
-// only the `/mcp` panel toggle and the `disabledMcpServers` /
-// `enabledMcpServers` settings keys). Writing `disabled: true` into
-// `.mcp.json` would let a user believe the server stopped connecting
-// when Claude Code ignores the key and keeps using it, so the field must
-// not reach the file, and the drop must be loud rather than silent.
-func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
+// Project rejections belong in settings, not in each .mcp.json server.
+func TestEmit_MCP_DisabledUsesProjectRejection(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := swapNoteWarner(t)
@@ -56,7 +50,14 @@ func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
 	}
 
 	emit.FlushCoverageNotes()
-	if !strings.Contains(buf.String(), "`disabled` on 1 mcp has no effect on claude") {
-		t.Errorf("expected a field no-op note, got: %s", buf.String())
+	if strings.Contains(buf.String(), "`disabled`") {
+		t.Errorf("unexpected field no-op note: %s", buf.String())
+	}
+	raw, err = os.ReadFile(".claude/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"disabledMcpjsonServers"`) || !strings.Contains(string(raw), `"fs"`) {
+		t.Errorf("missing rejection: %s", raw)
 	}
 }

@@ -142,7 +142,7 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x"},
+			Meta: map[string]any{"command": "x", "disabled": true},
 		},
 		{
 			Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml",

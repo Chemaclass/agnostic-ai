@@ -81,7 +81,7 @@ id = "gemini"
 name = "Gemini CLI"
 short_name = "Gemini"
 href = "@/docs/targets/gemini.md"
-statuses = ["native", "native", "native", "native", "native", "native", "no", "no", "no", "native"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
 
 [[targets]]
 id = "cursor"

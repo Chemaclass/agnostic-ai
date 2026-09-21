@@ -88,6 +88,8 @@ Missing directories are skipped silently. See [path semantics](#path-semantics).
 
 ## `outputs`
 
+Gemini settings share the `outputs.gemini.mcp-file` destination with MCP servers and hooks. Factory `outputs.factory.skills-dir` applies below each skill scope as well as at the root. Claude disabled MCP policy requires project `.mcp.json`; its generated rejection ownership state follows `outputs.claude.dir`.
+
 `outputs.<target>.*` overrides where one target writes; unknown fields are ignored. Target pages list the keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude.md#claude-settings) and [Codex](@/docs/targets/codex.md#codex-config) also accept settings blocks.
 
 ```yaml

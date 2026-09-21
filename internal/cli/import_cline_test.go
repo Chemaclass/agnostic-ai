@@ -132,23 +132,19 @@ func TestImportFromCline_ReadsLegacyClinerulesWhenNewAbsent(t *testing.T) {
 	}
 }
 
-// TestImportFromCline_PrefersTheRulesDirClineReads asserts
-// `.clinerules/` wins when both it and the unread `.cline/rules/`
-// exist. A project synced between #534 and #853 carries both, and the
-// one Cline loads is the one that reflects what the user actually ran
-// against (#853).
-func TestImportFromCline_PrefersTheRulesDirClineReads(t *testing.T) {
+// Both documented Cline rule roots contribute rules when present.
+func TestImportFromCline_ReadsBothRulesDirectories(t *testing.T) {
 	dir := t.TempDir()
 	readDir := filepath.Join(dir, ".clinerules")
-	unreadDir := filepath.Join(dir, ".cline", "rules")
+	otherDir := filepath.Join(dir, ".cline", "rules")
 	if err := os.MkdirAll(readDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(unreadDir, 0o755); err != nil {
+	if err := os.MkdirAll(otherDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(readDir, "current.md"), "# current\n\nfrom the dir Cline reads.\n")
-	writeFile(t, filepath.Join(unreadDir, "stale.md"), "# stale\n\nfrom the unread dir.\n")
+	writeFile(t, filepath.Join(otherDir, "other.md"), "# other\n\nfrom the other rule directory.\n")
 
 	if err := importFromCline(dir, rootSources()); err != nil {
 		t.Fatal(err)
@@ -157,8 +153,8 @@ func TestImportFromCline_PrefersTheRulesDirClineReads(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "rules", "current.md")); err != nil {
 		t.Errorf("missing rules/current.md: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "stale.md")); !os.IsNotExist(err) {
-		t.Errorf("rules/stale.md should not be imported when .clinerules exists, err=%v", err)
+	if _, err := os.Stat(filepath.Join(dir, "rules", "other.md")); err != nil {
+		t.Errorf("missing rules/other.md: %v", err)
 	}
 }
 

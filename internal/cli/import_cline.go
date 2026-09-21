@@ -12,18 +12,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// clineRulesDirs lists the candidate rules directories, preferred
-// first. `.clinerules` is the only one any Cline surface reads
-// (GlobalFileNames.clineRules in the VS Code extension, resolved
-// against the workspace root); `.cline/rules` shows up only in the
-// project tree on docs.cline.bot/getting-started/config, which
-// releases #534 through #853 defaulted to (target-audit 2026-09-18,
-// #853). Import walks the first one that exists so a project synced by
-// either release round-trips. A `.clinerules/` tree may hold
-// `agent-<name>.md` files (the pre-#534 combined rules-and-agents
-// convention); importRulesDirectory already reclassifies those by
-// filename prefix, so they come back as agents exactly as they always
-// did.
+// clineRulesDirs lists both project directories Cline reads. Identical
+// imported destinations deduplicate; distinct content returns a conflict.
 var clineRulesDirs = []string{
 	".clinerules",
 	filepath.Join(".cline", "rules"),
@@ -67,24 +57,13 @@ var clineSkillsDirs = []string{
 	filepath.Join(".agents", "skills"),
 }
 
-// clineImportDir returns the first existing candidate rules dir under
-// root, defaulting to the preferred `.clinerules` when neither exists
-// yet.
-func clineImportDir(root string) string {
-	for _, d := range clineRulesDirs {
-		if dirExists(filepath.Join(root, d)) {
-			return d
-		}
-	}
-	return clineRulesDirs[0]
-}
-
 // importFromCline reads an existing Cline project and writes specs into
 // the configured source directories, reversing the cline emit:
 //
-//   - `.clinerules/*.md` (or `.cline/rules/*.md`, for a project synced
-//     between #534 and #853) walks via the shared rules-directory
-//     importer. A `skill-<name>.md` there still imports as a skill too,
+//   - `.clinerules/*.md` and `.cline/rules/*.md` use the shared rule
+//     importer. Native paths conditions retain exact arrays in x-cline.
+//     Workflows, hooks, and skills under .clinerules are not rules.
+//     A `skill-<name>.md` there still imports as a skill too,
 //     covering projects synced before skills moved to a native folder;
 //     an `agent-<name>.md` there reclassifies as an agent, covering
 //     projects synced before agents moved to their own directory
@@ -93,21 +72,25 @@ func clineImportDir(root string) string {
 //     agents as `<name>.md` specs, byte-for-byte minus the provenance
 //     header. `.yaml` is read too, and `.md` last, so a project synced
 //     before #886 still round-trips.
-//   - `.cline/skills/`, `.clinerules/skills/`, and `.claude/skills/`
+//   - `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`, and `.agents/skills/`
 //     reconstruct native skill folders with bundled assets. Earlier paths
 //     win same-name collisions.
 func importFromCline(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
 		return err
 	}
-	rulesDir := clineImportDir(root)
-	opts := rulesDirImportOpts{}
-	if rulesDir == ".clinerules" {
-		opts.SkipDirs = map[string]bool{"skills": true}
-	}
-	c, err := importRulesDirectoryWith(root, rulesDir, src, opts)
-	if err != nil {
-		return err
+	var c rulesDirCounts
+	seen := map[string]importedRuleContent{}
+	for _, rulesDir := range clineRulesDirs {
+		opts := rulesDirImportOpts{NativeTarget: "cline", NativeKeys: []string{"paths"}, Seen: seen}
+		if rulesDir == ".clinerules" {
+			opts.SkipDirs = map[string]bool{"skills": true, "workflows": true, "hooks": true}
+		}
+		imported, err := importRulesDirectoryWith(root, rulesDir, src, opts)
+		if err != nil {
+			return err
+		}
+		c.add(imported)
 	}
 	nativeAgents, err := importClineAgents(filepath.Join(root, clineAgentsDir), filepath.Join(root, src.Agents))
 	if err != nil {

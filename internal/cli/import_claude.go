@@ -75,7 +75,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if err != nil {
 		return err
 	}
-	if c.mcps, err = importClaudeMCP(root, filepath.Join(root, src.MCPs)); err != nil {
+	if c.mcps, err = importClaudeMCPWithSettings(root, filepath.Join(root, src.MCPs), layout.dir); err != nil {
 		return err
 	}
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {

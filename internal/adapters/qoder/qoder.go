@@ -127,6 +127,8 @@
 // windsurf. See hooks.go for the field mapping and the vendor quote for
 // each field's semantics; see mcp.go's emitSettings for why the
 // `mcpServers` and `hooks` keys merge in one write rather than two.
+// Generic command, HTTP, and prompt handlers emit their documented fields.
+// Other handler types produce a coverage note. Import does not recover hooks.
 // Settings specs join that write: `model` maps to `model.name`, while
 // allow, deny, and ask permission lists map directly. Native sibling
 // fields inside both objects are preserved.
