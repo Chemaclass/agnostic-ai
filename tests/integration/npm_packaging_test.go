@@ -297,3 +297,30 @@ func TestReleaseWorkflow_DistributionChecksTheDistTag(t *testing.T) {
 		t.Errorf("the guard accepts a package whose dist-tag points elsewhere:\n%s", step)
 	}
 }
+
+// TestNpmReleaseWaitsForPublishTimeScanning guards npm's availability delay.
+//
+// Since July 2026, npm scans a publish before serving it. npm documents a
+// typical delay of about five minutes and warns that 15 minutes or more is
+// possible. A release must not report a successful publish as missing after
+// the old 155-second replica-lag window.
+func TestNpmReleaseWaitsForPublishTimeScanning(t *testing.T) {
+	publish := readRepoFile(t, npmPublishScript)
+	if !strings.Contains(publish, `NPM_PUBLISH_RETRIES:-10`) || !strings.Contains(publish, `NPM_PUBLISH_MAX_DELAY:-300`) {
+		t.Errorf("%s does not allow about 20 minutes for npm publish-time scanning", npmPublishScript)
+	}
+
+	for _, tc := range []struct {
+		path string
+		job  string
+		step string
+	}{
+		{releaseWorkflowPath, "distribution", "npm serves this tag"},
+		{installWorkflowPath, "published", "Wait for the registry to serve the latest release"},
+	} {
+		script := workflowRun(t, tc.path, tc.job, tc.step)
+		if !strings.Contains(script, "1 2 3 4 5 6 7 8 9 10") || !strings.Contains(script, "max_delay=300") {
+			t.Errorf("%s %q does not allow about 20 minutes for npm publish-time scanning:\n%s", tc.path, tc.step, script)
+		}
+	}
+}

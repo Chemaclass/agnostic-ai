@@ -190,6 +190,19 @@ const tests = {
     })
   },
 
+  'every scoped package is explicitly public'() {
+    withWorkspace(undefined, (ws) => {
+      build({ binaries: ws.binaries, manifest: ws.manifest, out: ws.out, version: '1.2.3' })
+      for (const p of PLATFORMS) {
+        assert.deepStrictEqual(
+          emitted(ws, p).publishConfig,
+          { access: 'public' },
+          `${packageName(p)} does not default to public publication`
+        )
+      }
+    })
+  },
+
   // The point of the change. A platform package that runs code at install time
   // puts back everything the postinstall download cost us.
   'no emitted package declares a script'() {

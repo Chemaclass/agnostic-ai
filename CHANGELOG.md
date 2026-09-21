@@ -10,6 +10,14 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Fixed
+
+- npm releases allow about 20 minutes for publish-time scanning before reporting a missing package, and scoped binary manifests default to public.
+
+### Site
+
+- The README links directly to npm, the Homebrew tap, and GitHub Releases; installation docs identify `agnostic-ai` as the public npm entry point.
+
 ## v0.64.1 - 2026-09-21
 
 ### Changed

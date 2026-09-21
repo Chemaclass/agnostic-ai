@@ -58,7 +58,7 @@ Run it once without installing:
 npx agnostic-ai sync
 ```
 
-The package is a wrapper. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), and npm installs the one matching your OS and CPU. Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
+[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the public entry point and the only package users install. It is a wrapper whose exact optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the package matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
 
 Pin a version by pinning the package: `npm install -g agnostic-ai@<version>`. Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 
