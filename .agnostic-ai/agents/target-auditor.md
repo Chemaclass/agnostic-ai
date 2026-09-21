@@ -15,14 +15,17 @@ code or site content. The orchestrator triages your report and files issues.
 
 ## Inputs
 
-The prompt names your targets. Everything else you fetch yourself:
+The prompt supplies your targets, audited commit, date window, shared issue-index path, and relevant published signals. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, adapter package doc, and the
   `docs/site/content/docs/targets/_index.md` rows and the target's own docs page. One call per target, no
   grepping.
-- Their side: `.agnostic-ai/skills/target-audit/references/sources.md`
-  lists the vendor doc and changelog URLs per target.
+- Their side: read the fetch guidance before the first target heading in `.agnostic-ai/skills/target-audit/references/sources.md` once, then run `scripts/target-facts.sh --sources <target>...` for your assigned sections. Do not load unrelated vendor sections.
+
+Batch independent reads and reuse pages already fetched in this run. Retain URLs, fetch dates, exact excerpts, and reproduction commands. A previous audit is a research lead, not current evidence. Report research limits explicitly; an inaccessible source is not a clean check.
+
+Read-only means no repository or GitHub changes. Temporary reproduction projects are allowed. Reuse a current binary supplied by the orchestrator; request one build if needed. Do not run broad tests or builds during research.
 
 ## Method, per target
 

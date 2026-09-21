@@ -7,428 +7,100 @@ description: Audit every agnostic-ai target against current vendor docs, report 
 
 # target-audit
 
-Answers two questions: **do these tools still read what agnostic-ai
-emits, and what newly documented project capabilities deserve a product
-decision?**
-
-Adapters encode a snapshot of every vendor's config format. Those vendors
-ship often. Drift is silent. A moved skills directory keeps syncing
-cleanly, keeps `sync --check` green, and stops reaching the tool. This
-skill finds that drift on a schedule instead of via a user bug report.
-
-## Arguments
-
-- no args: audit every registered target **and file an issue per confirmed
-  finding**. Filing is the default, not an opt-in.
-- `claude zed kilo`: audit only those
-- `--no-file-issues`: stop at the report. Use it for a scratch run you do
-  not intend to act on.
-- `--fix`: file issues, then open a PR per fix bucket. Never merges.
-- `--compare-models <model>`: run a bounded challenger pass with the
-  requested model over breaking findings, spec candidates, and conflicting
-  evidence. The audit still completes if that model is unavailable.
-
-**Why filing is the default.** It used to be opt-in, and two consecutive
-runs proved that wrong. The 2026-08-19 run found 52 findings and filed
-none. The 2026-08-27 run found 54 and filed none until a human asked, by
-which point it was re-verifying the previous run's backlog instead of
-auditing. The report lands in gitignored `local/`, so a run that does not
-file leaves **nothing** behind: no tracked work, no dedupe set for the
-next run, and a fresh re-derivation of the same findings a week later.
-A report nobody can act on is not a cheaper audit, it is a wasted one.
-
-## Phase 1: Scope
-
-```bash
-scripts/target-facts.sh --list                                  # registered targets
-gh issue list --label target-audit --state all --limit 100 --json number,title,state,createdAt
-```
-
-Also inspect the legacy audit articles under `docs/site/content/updates/`.
-Read every published capability signal relevant to the audit scope. These
-articles are immutable history and part of the durable capability dedupe set.
-Do not rewrite a prior edition or infer that an older signal has been resolved
-because it does not appear in a later release briefing.
-
-**Dedupe set.** A finding already filed and open is not a new finding.
-Note it as `still-open #N` and move on. A finding already filed and
-**closed** that reappears is a regression. Say so loudly: it means a fix
-was reverted or the vendor moved back.
-
-**Since when.** Auditors need a date to bound their changelog reading.
-Take the newest of: the most recent report under `local/target-audit/`, the
-newest legacy article carrying `extra.audit_marker`, the newest `target-audit`
-issue's `createdAt`, or the last commit touching
-`.agnostic-ai/skills/target-audit/references/sources.md`. Keep the window a
-little wide. Re-reading a changelog entry costs nothing, while missing one can
-leave a release briefing incomplete.
-
-## Phase 2: Fan out
-
-Never hardcode the target list. It grows. Derive the batches:
-
-```bash
-scripts/target-facts.sh --batches 5
-```
-
-Spawn one `target-auditor` per printed batch, **all in a single message**
-so they run in parallel. Name them after Lord of the Rings characters in
-batch order: Frodo, Sam, Gandalf, Aragorn, Legolas.
-
-**Address agents by the ID from their spawn result, never by bare name.**
-A long session accumulates agents across runs, and a bare name resolves
-to the most recent holder of it. On 2026-08-09 a message meant for that
-run's batch-3 auditor reached the Gandalf from the 2026-08-01 run
-instead. That agent then received "your report never reached me" about a
-report it had filed eight days earlier, correctly refused to accept the
-contradiction, and spent a full cycle re-verifying findings that were
-already fixed. It also surfaced phantom task assignments attributed to
-its own name. Nothing was damaged, because it verified before acting,
-but the whole exchange was avoidable. Either scope the names to the run
-(`Frodo-0809`) or use the spawn ID.
-
-Registry order is roughly chronological, so batch 1 holds the fast-moving
-vendors (claude, codex, gemini, cursor, copilot) and the last batch holds
-the newest, thinnest-documented entrants. Both ends need the most
-attention, for opposite reasons.
-
-Give each agent its target list, the dedupe set from Phase 1, the legacy published
-capability entries for those targets, and the "since when" date. The agent
-already knows its method. Do not restate it.
-
-When the run is scoped to fewer than six targets, skip the fan-out and
-audit them inline. Spawning costs more than it saves at that size.
-
-## Phase 3: Merge
-
-Findings arrive per agent. Merge them yourself:
-
-1. Drop anything missing a vendor URL **with** a quoted sentence, or
-   missing the `file:line` it contradicts. Unevidenced findings are the
-   main failure mode of this skill. They cost more to disprove than to
-   never file.
-2. Spot-check every `breaking` finding yourself: open the cited URL and
-   the cited line before it goes in the report. Agents do misread docs.
-3. Collapse duplicates. One vendor change often hits several targets. A
-   shared `.agents/skills/` move touches codex, amp, zed, crush, and
-   openhands at once. File that once, list every affected target.
-4. Sort: `breaking`, then `missing-feature`, then `degraded`, then
-   `cosmetic`.
-
-Capability signals arrive separately. Before merging them,
-read
-`.agnostic-ai/skills/target-audit/references/capability-intelligence.md`.
-It defines the signal schema, dispositions, bounded challenger contract,
-and release-input procedure. Apply its representation test and
-independent per-target verification before assigning `adapter-gap`,
-`spec-candidate`, `target-extension`, or `watch`.
-
-When `--compare-models <model>` is set, run the reference's challenger pass
-after initial synthesis. Do not repeat the full audit. Record the requested
-model and the actual model identity when the runtime exposes it. If the
-model is unavailable, record that fact and continue with the primary audit.
-Model agreement is review metadata, never vendor evidence.
-
-## Phase 4: Report
-
-Write `local/target-audit/<YYYY-MM-DD>.md`. `local/` is gitignored, so
-`mkdir -p` it first.
-
-```markdown
-# Target audit, <date>
-
-Audited <N> targets against vendor docs. <X> findings, <S> capability signals, <Y> clean.
-Window: changes since <since-date>.
-
-## Critical vendor changes
-## Cross-target opportunities
-## Breaking: we write where the tool no longer reads
-## Missing: native surface we skip today
-## Degraded: works, but a better surface exists
-## Cosmetic: docs only
-## Needs a human: unconfirmed, with the question that would settle it
-## Clean
-## Source fixes needed
-```
-
-`Critical vendor changes` includes the most consequential confirmed drift
-and capability signals, selected by the priority rules in the capability
-intelligence reference. `Cross-target opportunities` contains each
-synthesized signal, its independently verified target semantics,
-representation-test result, disposition, and recommended next action. Put
-both sections before the drift severity sections even when either says
-`None`.
-
-When a challenger ran, put its requested and actual model identities and
-result under every challenged item. Summarize unresolved disputes in
-`Critical vendor changes`; model agreement does not promote an item.
-
-`Source fixes needed` lists every URL in
-`.agnostic-ai/skills/target-audit/references/sources.md` that
-moved or 404'd, with its replacement. Apply those edits to
-`.agnostic-ai/skills/target-audit/references/sources.md` in the same run.
-That file's accuracy is what keeps the next audit cheap. It is the only
-file this skill edits without being asked.
-
-Then print the top findings to the user with a recommended next action
-each. Keep the terminal summary short. The local report holds the full
-working record. When filing is enabled, issues must carry the evidence and
-explanation needed to act on the finding. Release briefings can then cite
-those durable records.
-
-## Phase 5: File issues and prepare release inputs (skipped only with `--no-file-issues`)
-
-File confirmed drift and design issues so the release process has durable,
-evidence-backed inputs. The local report and resulting issues are the audit's
-publication boundary. `target-audit` never creates or edits a site article and
-never opens a publication PR. The `cut-release` skill selects verified upstream
-news from these inputs when it prepares a release briefing.
-
-The gitignored local report cannot carry the only detailed explanation.
-Issues must explain what changed, why it matters, the current agnostic-ai
-position, the next action, and source evidence. Use full GitHub source
-permalinks pinned to the audited commit for repository evidence.
-
-`--no-file-issues` prohibits GitHub writes, including drift and design issues.
-
-Per confirmed finding, most severe first:
-
-```bash
-gh issue create \
-  --title "<target>: <one-line claim>" \
-  --label target-audit --label enhancement \
-  --assignee Chemaclass \
-  --body "<body>"
-```
-
-**A collapsed issue still has to be a workable unit.** Phase 3 collapses one
-vendor change that hits several targets into one issue, and that is right for
-evidence: the quote is written once. But an issue titled "nine targets have
-hook files we never declare" cannot be closed by doing one of them, so nobody
-starts it. Give every multi-target issue a per-target task list:
-
-```markdown
-- [ ] copilot: `.github/hooks/*.json`, 13 events (`copilot/copilot.go:52`)
-- [ ] openhands: `.openhands/hooks.json`, claude renderer works verbatim
-- [ ] crush: project `crush.json`, `PreToolUse` only
-```
-
-Then a PR can close part of it, progress is visible, and the cheapest target
-is obvious to whoever picks it up. Say which one is cheapest and why, in the
-issue: on 2026-08-27 that was openhands, because the vendor states its hook
-format is Claude-compatible, so the existing renderer worked with no changes.
-
-Use `--label bug` instead of `enhancement` for `breaking` findings. Create
-the `target-audit` label once if missing:
-`gh label create target-audit --description "Drift found by the target-audit skill" --color 5319e7`.
-
-The body carries the evidence verbatim (vendor URL, quoted sentence, our
-`file:line`, user impact, proposed fix) plus a checklist of what a fix
-must touch:
-
-- [ ] `internal/adapters/<target>/`: emission and `caps.Supports`
-- [ ] the `import` side, if the moved path is one we read back
-- [ ] adapter package doc comment
-- [ ] `docs/site/data/capabilities.toml` (capability matrix row) and `docs/site/content/docs/targets/<target>.md` (per-target page)
-- [ ] browser playground: when `caps.Supports` changes, verify the capability-aware
-      target picker with `make playground-build`; do not add a separate capability list
-- [ ] `.agnostic-ai/skills/target-audit/references/sources.md`, if a URL
-      moved
-- [ ] tests: `capability_parity_test.go`, `kitsink_golden_test.go`, the
-      target's round-trip test under `tests/integration/` **if it has one**,
-      and its golden tree at `tests/integration/fixtures/golden/<target>/`.
-      Check both: 14 of 25 targets have a golden tree and **no** round-trip
-      test, so for those the golden tree is the only guard. A scope list
-      naming only the adapter's own `testdata/` misses it and goes red in
-      CI (found on 2026-08-27, kiro).
-- [ ] `agnostic-ai sync`, then commit the regenerated per-target files
-
-Never open an issue for an `unconfirmed` finding. Those go in the report
-under `Needs a human` with the question that would settle it.
-
-A `spec-candidate` may get a separate design issue with its evidence,
-representation test, independently verified target semantics, and the
-decision needed. A capability signal in any other disposition stays in the
-local report unless it also qualifies as a confirmed drift finding. It can be
-selected for a later release briefing only after its evidence remains current.
-A design issue is not approval to implement a generic schema.
-
-**Before filing anything as a design or schema question, try it.** The
-2026-08-09 run filed "amp: skill-bundled MCP needs a spec-level
-relationship between an MCP entry and a skill, which `spec.Bundle` models
-for no target" and deliberately withheld it from the fixers. It was
-wrong. Amp accepts MCP servers in a skill's `SKILL.md` frontmatter, and
-the existing `x-amp` passthrough already emitted them there verbatim. One
-`sync` would have shown that. Two of us reasoned from the schema instead
-of running it, and nearly booked a schema change for a documentation gap.
-Check whether an existing escape hatch already covers the case first.
-
-## Phase 6: Fix (only with `--fix`)
-
-`--fix` implies `--file-issues`, so every fix has an issue to close.
-Spec candidates and their design issues never enter a fix bucket until a
-separate implementation decision confirms their schema and scope.
-
-Group the confirmed findings into buckets, then spawn one `adapter-fixer`
-per bucket, all in a single message, each with `isolation: "worktree"`.
-The isolation is not optional: `agnostic-ai sync` rewrites the whole
-emitted tree, so two fixers sharing a checkout overwrite each other.
-
-Settle every bucket before spawning. A fixer cannot be handed new work
-mid-flight: it is told a peer cannot widen its scope, and it cannot tell
-an orchestrator message from any other message on the same channel. That
-refusal is correct and should stay. If a finding lands after the fixers
-are running, close it yourself or spawn a fixer for it.
-
-Bucket by severity, not by target:
-
-| Bucket | Shape | Why |
-|---|---|---|
-| each `breaking` finding | one PR per target | changes bytes users already depend on, needs its own review and its own revert |
-| all `missing-feature` and `degraded` | one batched PR | additive only, and adapter packages never import each other, so they cannot conflict |
-| all `cosmetic` plus audit-source URL fixes | one docs PR | no code, no risk |
-
-Every adapter fix touches `CHANGELOG.md`, and `docs/site/content/docs/targets/_index.md`
-when it changes a cross-target note. One PR per target would put every open PR
-in conflict on those files for no review benefit. Bucketing keeps the conflicts to the count of buckets.
-
-The playground reads `caps.Supports` through the compiled adapter registry.
-A capability declaration changed by a fix is therefore published on the next
-Pages build. Run `make playground-build` in that bucket to catch a broken WASM
-capability export. Never maintain a second playground capability matrix.
-
-Hand each fixer the finding text verbatim, including the evidence. Do not
-re-summarize it: the vendor quote and the `file:line` are what the PR body
-has to carry.
-
-**Hand over the reproduction, not the conclusion.** When research after
-the issue was filed changes the answer, say how it was established and
-how to re-check it, not only what it turned out to be. A fixer cannot
-tell your verified claim from an unverified one, and the correct response
-to an unverifiable assertion is to distrust it. Give it the URL, the
-extraction method, and the command, so re-checking costs a minute instead
-of an afternoon. One fixer re-derived a whole vendor schema because the
-prompt asserted the answer without showing its work, and it was right to.
-
-When a fixer reports the finding was wrong, reopen nothing. Add a comment
-to the issue with what the evidence missed, and label it `invalid`.
-
-## Phase 7: Land the PRs
-
-Only the first PR merges cleanly. Every adapter fix touches
-`CHANGELOG.md` (and `targets/_index.md` for cross-target notes), so each later PR needs a
-rebase. Budget for it.
-
-**On a conflict in a shared doc, merge both sides. Never pick one.** In
-every conflict of the 2026-08-01 run, both sides were correct about
-different things, because each branch was cut before the other landed.
-Taking one wholesale silently reverts a merged fix. Real examples: a
-capability-matrix paragraph that was right about kilo and stale about
-warp; a capability map where one side had `antigravity` and the other had
-`factory, qoder, openhands`; a count of MCP-capable targets that was
-wrong on both sides.
-
-**The worse case is when both sides land intact.** Git only conflicts on
-overlapping lines. Two PRs that each *append* their own version of a
-shared paragraph or table row merge cleanly and leave both copies in the
-file, contradicting each other, with no conflict marker to catch it. The
-2026-08-08 run shipped three of these: two `- **Skills**:` bullets eight
-minutes apart, one saying "Warp has no skill surface" and the other
-listing Warp's scanned directories; duplicated `trae` and `qoder` rows in
-the capability matrices of both the old single-page `targets.md` and `README.md`.
-
-In every case one copy was current and one stale, **and not consistently
-in the same position**: trae wanted the second row, qoder the first. So
-resolve per cell against adapter source, never by position or recency.
-`tests/integration/docs_capability_tables_test.go` now fails the build on
-a duplicated table row; the prose bullets are still unguarded, so read
-them after any run that touched shared docs.
-
-Read the diff before merging, and check it against the evidence that
-justified it. Two fixes that run cleanly on their own branch can still be
-jointly wrong.
-
-**Expect fixers to correct the prompt, and treat it as the system
-working.** Three of four fixers in the 2026-08-09 run rejected something
-handed to them, and all three were right: one refused to apply the crush
-`sse` fix to kilo and opencode by analogy (their vendors take only
-`local`/`remote`, so it would have emitted a `type` neither accepts); one
-found the windsurf doc URLs 404 on the domain implied and used the right
-one; one rejected "reuse the shared MCP helper, it passes the transport
-through" after checking that the helper writes the key `type` while Devin
-documents `transport`, which would have shipped a silently unread file.
-Hand over the reproduction so they can check, and never treat pushback as
-noise.
-
-A red CI run is a signal, not an obstacle. Read the failing log before
-concluding it is a flake, and check whether the same job fails on `main`.
-Re-run rather than merging on a theory. Note that `sync --check` drifts
-locally after any merge that changed a spec, because gitignored emitted
-copies are stale; that one is expected and `sync` fixes it.
-
-When querying check status, prefer `gh pr checks <n>` over
-`statusCheckRollup`. The rollup serves stale conclusions: it reported
-five failures on a docs-only change whose jobs had all passed, and it
-reports closed issues as open for minutes after a merge. If you do use
-the rollup, exclude pending jobs explicitly with
-`select(.conclusion != null and .conclusion != "SUCCESS")`, since a
-pending job has a null conclusion and otherwise reads as a failure.
-
-**Never let a wait loop treat "no data" as "done".** A loop written as
-`until [ "$(gh pr checks N | grep -c pending)" = "0" ]` exits instantly
-when GitHub reports no checks at all, which is indistinguishable from
-every check having finished. Pin the wait to the current head SHA
-instead. That bug nearly merged a stale pre-rebase green run.
-
-**Check platform status before diagnosing.** A GitHub Actions outage
-produces exactly the symptoms of a broken branch: no check-runs, stale
-rollups, lagging issue lists. Six trigger attempts across two branches
-were spent before checking githubstatus.com, which reported a major
-outage. One curl would have saved all of it.
-
-**Rebuild the binary before trusting `sync --check`** after rebasing
-onto a main that changed adapters. A stale `./agnostic-ai` reports drift
-that does not exist.
-
-**A merged PR does not always close its issue.** A PR whose title lists
-issue numbers without a `Closes` keyword leaves them open, and a partial
-fix that carries `Closes` shuts an issue that is not finished. Verify
-issue state after every merge, and reopen with a scoped comment rather
-than letting a real gap sit behind a green checkmark.
-
-## What this skill does not do
-
-It never merges. Audit, fix, and merge are three separate steps with three
-different actors: the `target-auditor` has no write tools at all, the
-`adapter-fixer` writes only inside its own worktree and stops at
-`gh pr create`, and a human merges. That separation is what makes the
-whole thing safe to run unattended. A run that merged its own work would
-be one bad doc read away from breaking every user of a target.
-
-It does not rank products, change the generic schema automatically, run a
-duplicate full audit through another model, or automate merges.
-
-## Invariants worth knowing
-
-`.agnostic-ai/skills/target-audit/references/sources.md` must carry one
-`## <target>` section, with a `docs:` and a `watch:` line, for every
-registered target.
-`tests/integration/target_audit_sources_test.go` fails the build
-otherwise, so a new adapter cannot merge un-audited. If that test fails,
-the fix is to add the vendor's docs, never to relax the test.
-
-## Scheduling
-
-The skill is the unit of work. Scheduling wraps it.
-
-- Ad hoc: `/target-audit`
-- Recurring in-session: `/loop 7d /target-audit`
-- Unattended: a cloud routine (`/schedule`) or a GitHub Actions cron
-  running `claude -p "/target-audit --fix"`. Unattended runs need at
-  least `--file-issues`: the report lands in gitignored `local/`, so
-  without it the run leaves nothing behind. `--fix` is the better default
-  once the first audit's backlog is cleared, because a review queue of
-  green PRs beats a queue of issues nobody has started.
-
-Weekly is the right cadence. Batch 1 drifts within a release cycle. The
-long tail rarely moves in under a month.
+Check whether tools still read what agnostic-ai emits and which new project capabilities need a product decision. Complete the requested scope using current vendor evidence.
+
+## Arguments and boundaries
+
+- No arguments: audit every registered target and file an issue per confirmed finding.
+- Target names: audit only those targets.
+- `--no-file-issues`: report only. No GitHub writes.
+- `--fix`: file issues and open fix PRs. Never merge or enable auto-merge.
+- `--compare-models <model>`: bounded challenge of breaking findings, spec candidates, and conflicting evidence. Continue if unavailable.
+
+The report and issues are the publication boundary. Never create or edit site articles or publication PRs. Legacy articles are immutable dedupe history. Generic schema changes require a separate implementation decision.
+
+All paths below are relative to the repository root, including when this skill is emitted into a nested directory.
+
+## 1. Prepare shared inputs once
+
+Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
+
+Fetch the `target-audit` issue index once (number, title, state, createdAt). Paginate through the complete collection; `--limit 100` no longer covers this repository. Save it under `local/target-audit/<date>-run/`, then filter locally per batch. Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
+
+Read published capability entries under `docs/site/content/updates/` and preserve their stable signal IDs. Give each batch only relevant entries and their source paths. A later briefing omitting a signal does not resolve it.
+
+Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit touching `.agnostic-ai/skills/target-audit/references/sources.md`. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
+
+Dedupe rules:
+
+- Already open: record `still-open #N`, do not file again.
+- Already closed: inspect the resolution and current code. Report a regression only when a resolved gap has returned; closure alone does not prove a fix shipped.
+- Prior reports and source notes are leads, never substitutes for fresh vendor evidence.
+
+## 2. Audit in bounded batches
+
+For fewer than six targets, audit inline using `.agnostic-ai/agents/target-auditor.md`. Otherwise derive up to five batches with `scripts/target-facts.sh --batches N`, respecting available worker slots. For a named subset, filter those registry-derived batches to the requested targets and drop empty batches. Queue batches when needed; every requested target must be assigned exactly once.
+
+Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Prefer minimal-context spawns when supported. Pass:
+
+- target list, audited commit, date window, repository path;
+- shared issue-index path and relevant published signals;
+- read-only scope and validation budget.
+
+Do not paste this skill, the full issue history, or unrelated source sections into each prompt. Auditors already have their role instructions. No broad tests during research. Build one current binary for compatible read-only reproductions when needed.
+
+Read the source registry's fetch guidance once, then only each assigned target's section. `scripts/target-facts.sh --sources <target>...` extracts those sections without loading the other targets. Run `scripts/target-facts.sh <target>...` once per batch for our claims; read exact implementation lines when checking a candidate.
+
+Fetch current changelogs first, then the listed configuration pages. Batch independent reads. Reuse a successfully fetched page within this run, retaining its URL, fetch date, and exact relevant excerpt. Read the full relevant section when an excerpt leaves scope or precedence unclear. Do not skip unchanged targets or trust a cached prior-run page as current evidence.
+
+Keep raw pages and reproductions in the local run directory when useful. Return concise evidence blocks, capability signals separately, and one coverage row per target. Report inaccessible sources as research limits, never as clean targets.
+
+## 3. Synthesize and verify
+
+Every drift finding requires:
+
+- vendor URL and a short exact quote proving the behavior;
+- contradictory repository `file:line`;
+- concrete user loss and the smallest fix.
+
+Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
+
+Collapse one vendor change affecting several targets into one finding, with independent evidence for each target. Sort `breaking`, `missing-feature`, `degraded`, `cosmetic`. Unconfirmed findings belong only in the report, with the question that would settle them.
+
+Before merging capability signals, read `.agnostic-ai/skills/target-audit/references/capability-intelligence.md`. Apply its representation test and per-target verification before choosing `adapter-gap`, `spec-candidate`, `target-extension`, or `watch`. Try existing kinds and `x-<target>` passthroughs before proposing a schema.
+
+When requested, run that reference's bounded challenger pass after synthesis. Record requested and actual model identities (or unavailable), evidence added, and unresolved disputes. Agreement is not vendor evidence.
+
+## 4. Write the report
+
+Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, reproductions, issue/PR links, and research limits.
+
+Use these sections, even when empty:
+
+1. Critical vendor changes
+2. Cross-target opportunities
+3. Breaking: we write where the tool no longer reads
+4. Missing: native surface we skip today
+5. Degraded: works, but a better surface exists
+6. Cosmetic: docs only
+7. Needs a human: unconfirmed, with the question that would settle it
+8. Clean
+9. Source fixes needed
+
+Select critical changes using the capability reference's priority rules. Each synthesized signal retains its stable ID, independently verified semantics, representation result, disposition, confidence, and next action. Attach challenger metadata to challenged items.
+
+List moved or broken source URLs with verified replacements. Apply corrections to the canonical `.agnostic-ai/skills/target-audit/references/sources.md` during this run, even in report-only mode. Edit source specs, never generated native copies.
+
+## 5. File and fix
+
+Unless `--no-file-issues` is set, read `.agnostic-ai/skills/target-audit/references/issues-and-fixes.md` and file confirmed findings. The gitignored report must not be their only detailed record. Spec candidates may receive design issues but never enter fix buckets without a separate implementation decision.
+
+With `--fix`, finish synthesis and settle all buckets before launching isolated `adapter-fixer` agents. Use the reference's scope, checklist, and validation rules. Never widen an active fixer's assignment; handle later findings separately.
+
+Finish with the top findings, recommended next actions, report link, and issue/PR links. State validation limits accurately. Stop at reviewable PRs; merging belongs to the human.
+
+## Scheduling and invariants
+
+Weekly runs are sufficient for the full registry. A scheduler wraps this skill; unattended runs should use `--fix` or default issue filing so results survive outside ignored local files.
+
+Every registered target needs a `## <target>` section with `docs:` and `watch:` in the source registry. `tests/integration/target_audit_sources_test.go` enforces this. Add missing vendor sources, never weaken the test.

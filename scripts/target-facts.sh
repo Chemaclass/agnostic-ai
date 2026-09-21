@@ -17,6 +17,7 @@
 #   scripts/target-facts.sh claude zed   # only the named targets
 #   scripts/target-facts.sh --list       # target names, one per line
 #   scripts/target-facts.sh --batches 5  # registry split into N batches
+#   scripts/target-facts.sh --sources zed warp  # selected vendor references
 #
 # Portable: POSIX-ish bash + awk + grep only. No GNU-only flags.
 
@@ -28,11 +29,12 @@ TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/target-facts.sh [--list | --batches N | <target>...]
+Usage: scripts/target-facts.sh [--list | --batches N | --sources <target>... | <target>...]
 
   (no args)      dump facts for every registered target
   <target>...    dump facts for the named targets only
   --list         print registered target names, one per line
+  --sources <target>...  print only those targets' vendor source sections
   --batches N    split the registry into N batches, one per line as
                  "<n>: <target> <target> ...". Used by the target-audit
                  skill to size its parallel fan-out from the registry
@@ -147,6 +149,29 @@ doc_section() {
   awk 'NR == 1 && /^\+\+\+$/ { fm = 1; next } fm && /^\+\+\+$/ { fm = 0; next } !fm { print }' "$page"
 }
 
+# source_sections keeps unrelated vendor history out of each auditor's context.
+source_sections() {
+  if [ "$#" -eq 0 ]; then
+    echo "--sources needs at least one target" >&2
+    return 2
+  fi
+  local target
+  for target in "$@"; do
+    if [ -z "$(pkg_for "$target")" ]; then
+      echo "unknown target: $target (not in the adapter registry)" >&2
+      return 1
+    fi
+  done
+  awk -v targets="$*" '
+    BEGIN {
+      count = split(targets, names, " ")
+      for (i = 1; i <= count; i++) selected[names[i]] = 1
+    }
+    /^## / { include = ($2 in selected) }
+    include { print }
+  ' "$ROOT/.agnostic-ai/skills/target-audit/references/sources.md"
+}
+
 # dump_target <target> prints the full fact sheet for one target.
 dump_target() {
   local t="$1" pkg src
@@ -194,6 +219,11 @@ main() {
       fi
       batches "$2"
       return 0
+      ;;
+    --sources)
+      shift
+      source_sections "$@"
+      return
       ;;
   esac
 
