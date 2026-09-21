@@ -12,6 +12,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Added
 
+- `agnostic-ai lint` warns (LINT009) on an allowed `Bash(...)` rule with a `*` before the end of the command, such as `Bash(git * main)`, which also approves options inserted at that spot on Claude Code and every target that translates the rule. Deny and ask rules are not flagged, since widening them only blocks or prompts more.
 - This repository now dogfoods the three spec kinds it never used: an `ignore` spec keeps build output, lockfiles, and local secrets out of ten targets' exclusion files, beside a `review` spec Cursor Bugbot and Goose read and an `environment` spec for Cursor, Amp, and OpenHands (#980).
 
 ### Changed
