@@ -262,6 +262,25 @@ func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
 	}
 }
 
+// TestReleaseWorkflow_DistributionChecksOutRepository guards the source files
+// both distribution checks read after the build jobs finish.
+//
+// Jobs do not share a workspace. Without a checkout, the Homebrew check can
+// pass without source files, then the npm check fails when it sources
+// scripts/npm-publish.sh or reads npm/lib/platforms.js.
+func TestReleaseWorkflow_DistributionChecksOutRepository(t *testing.T) {
+	checkout, checkoutAt := workflowStepAt(t, releaseWorkflowPath, "distribution", "Checkout")
+	if checkout.Uses != "actions/checkout@v7" {
+		t.Errorf("the distribution checkout uses %q, want actions/checkout@v7", checkout.Uses)
+	}
+	for _, name := range []string{"Homebrew cask serves this tag", "npm serves this tag"} {
+		_, checkAt := workflowStepAt(t, releaseWorkflowPath, "distribution", name)
+		if checkoutAt > checkAt {
+			t.Errorf("Checkout runs after %q, so the check cannot read repository files", name)
+		}
+	}
+}
+
 // TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp guards the
 // one thing this credential change must never do: fail a release.
 //
