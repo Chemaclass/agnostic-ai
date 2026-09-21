@@ -42,5 +42,8 @@
         ]
       }
     ]
-  }
+  },
+  "disabledMcpjsonServers": [
+    "disabled-server"
+  ]
 }

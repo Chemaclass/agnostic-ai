@@ -39,6 +39,8 @@ Stdio MCP servers preserve `cwd`; every transport preserves `connectionTimeout` 
 
 ## Import
 
+Native `globs` and `regex` strings or arrays survive import through `x-continue`, including empty arrays and patterns containing commas.
+
 `agnostic-ai import continue` reads rules from `.continue/rules/` and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
 
 MCP servers import from `.continue/mcpServers/`:

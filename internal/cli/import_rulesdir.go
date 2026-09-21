@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -42,7 +44,16 @@ type rulesDirImportOpts struct {
 	// to another native surface. The walker prunes each one before it can
 	// misclassify its Markdown files as rules.
 	SkipDirs map[string]bool
+	// NativeTarget and NativeKeys retain conditions the portable rule fields
+	// cannot represent without changing their meaning.
+	NativeTarget string
+	NativeKeys   []string
+	// Seen shares destinations across native roots, rejecting distinct content
+	// instead of letting a later root overwrite an earlier rule.
+	Seen map[string]importedRuleContent
 }
+
+type importedRuleContent struct{ path, content string }
 
 // importRulesDirectory walks srcDir for .md files and reclassifies each
 // as a rule, agent, or skill based on filename prefix:
@@ -114,9 +125,23 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
-		content := rulesDirFileContent(baseName, meta, body)
+		content, err := rulesDirFileContent(baseName, meta, body, opts)
+		if err != nil {
+			return fmt.Errorf("parse %s: %w", path, err)
+		}
+		key := strings.ToLower(out)
+		sourceContent := header.Strip(string(data))
+		if previous, exists := opts.Seen[key]; exists {
+			if previous.content != sourceContent {
+				return fmt.Errorf("%s: imported destination %s conflicts with %s", path, out, previous.path)
+			}
+			return nil
+		}
 		if err := importWriteFile(out, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
+		}
+		if opts.Seen != nil {
+			opts.Seen[key] = importedRuleContent{path: path, content: sourceContent}
 		}
 		switch kind {
 		case "agents":
@@ -137,14 +162,14 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 // rulesDirFileContent renders one imported rule/agent/skill spec:
 // `name` from the filename, plus `description` / `globs` /
 // `alwaysApply` when the source file carried its own activation
-// frontmatter. A catch-all globs (empty, `**/*`, `*`) and an empty
+// frontmatter. Target-native activation fields stay under x-<target>.
+// A catch-all portable globs (empty, `**/*`, `*`) and an empty
 // description carry no scoping intent, so they drop rather than
 // round-trip into the source spec as noise, the same choice
 // normalizeCursorRuleMeta makes for Cursor's .mdc import. meta is empty
-// for a source file with no frontmatter (Cline, Windsurf, Continue,
-// and Kilo's plain `# <heading>` rule files), so the output there is
+// for a source file with no frontmatter, so the output there is
 // unchanged from before this function existed.
-func rulesDirFileContent(name string, meta map[string]any, body string) string {
+func rulesDirFileContent(name string, meta map[string]any, body string, opts rulesDirImportOpts) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("---\nname: " + name + "\n")
 	if desc, ok := meta["description"].(string); ok && desc != "" {
@@ -156,13 +181,26 @@ func rulesDirFileContent(name string, meta map[string]any, body string) string {
 	if always, ok := meta["alwaysApply"].(bool); ok {
 		fmt.Fprintf(&sb, "alwaysApply: %t\n", always)
 	}
+	native := map[string]any{}
+	for _, key := range opts.NativeKeys {
+		if value, exists := meta[key]; exists {
+			native[key] = value
+		}
+	}
+	if len(native) > 0 {
+		data, err := yaml.Marshal(map[string]any{"x-" + opts.NativeTarget: native})
+		if err != nil {
+			return "", fmt.Errorf("marshal native activation: %w", err)
+		}
+		sb.Write(data)
+	}
 	sb.WriteString("---\n\n")
 	sb.WriteString(body)
 	content := sb.String()
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
-	return content
+	return content, nil
 }
 
 // scopeDir returns the directory portion of rel, normalized so root-level

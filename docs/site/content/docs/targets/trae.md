@@ -59,6 +59,8 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.t
   - Unlike every other ignore target, it does not apply on save: "The `.ignore` file will take effect after re-indexing is complete", so a freshly synced pattern needs a Build under Settings > Indexing & Docs before it holds.
   - Multiple specs concatenate. Override via `outputs.trae.ignore-file`.
 
+Agent names must start with an ASCII letter, end with a letter or digit, contain only letters, digits or hyphens, and be at most 50 characters. Sync rejects invalid names before writing the native agent.
+
 ## Import
 
 `agnostic-ai import trae` reverses the Trae layout:

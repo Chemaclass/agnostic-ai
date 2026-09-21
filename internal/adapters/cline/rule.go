@@ -43,6 +43,10 @@ func rule(e spec.Entry) string {
 // Before this existed the file carried no frontmatter at all, so a rule
 // scoped to `src/components/**` loaded on every request (#639).
 func pathsFrontmatter(e spec.Entry) string {
+	// Native arrays retain brace globs and the explicit never-active empty list.
+	if paths, ok := emit.ResolveMeta(e.Meta, target)["paths"]; ok {
+		return emit.Frontmatter(map[string]any{"paths": paths}) + "\n"
+	}
 	patterns := rulePaths(e)
 	if len(patterns) == 0 {
 		return ""
@@ -94,6 +98,9 @@ func unscopableRules(rules []spec.Entry) int {
 	n := 0
 	for _, r := range rules {
 		m := emit.ResolveMeta(r.Meta, target)
+		if _, ok := m["paths"]; ok {
+			continue
+		}
 		if always, ok := m["alwaysApply"].(bool); !ok || always {
 			continue
 		}

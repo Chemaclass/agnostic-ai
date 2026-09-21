@@ -1,12 +1,16 @@
 package trae
 
 import (
+	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+var nativeAgentName = regexp.MustCompile(`^[A-Za-z](?:[A-Za-z0-9-]{0,48}[A-Za-z0-9])?$`)
 
 // emitAgents writes one native `<dir>/<name>.md` per agent spec and
 // sweeps the rule-form file a prior sync left behind for the same name
@@ -15,6 +19,9 @@ import (
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir, rulesDir string, dryRun bool) error {
 	droppedModel := 0
 	for _, a := range agents {
+		if !nativeAgentName.MatchString(a.Name) {
+			return fmt.Errorf("trae agent %q: name must be 1-50 ASCII letters, digits or hyphens, start with a letter and end with a letter or digit", a.Name)
+		}
 		md, dropped := agentMarkdown(a)
 		if dropped {
 			droppedModel++

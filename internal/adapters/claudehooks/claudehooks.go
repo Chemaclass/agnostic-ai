@@ -33,7 +33,7 @@ package claudehooks
 // internal/adapters/claude never sets it on the struct it builds.
 //
 // Server, Tool, and Input are shared by Claude and Codex MCP-tool hooks.
-// URL, Headers, AllowedEnvVars, Prompt, and Model serve Claude's stable
+// URL, Headers, AllowedEnvVars, Prompt, and Model serve Claude and Qoder
 // HTTP and prompt handlers. Other renderers leave these fields unset.
 type CommandEntry struct {
 	Type                   string            `json:"type"`
