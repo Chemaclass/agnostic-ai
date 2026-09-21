@@ -164,7 +164,7 @@
             {% for id in landing.targets.ids %}{% for target in capabilities.targets %}{% if target.id == id %}
             <tr>
               <th scope="row"><a href="{{ get_url(path=target.href) }}">{{ target.short_name | default(value=target.name) }}</a></th>
-              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set status = target.statuses[loop.index0] %}<td><span class="capability-mobile-label">{{ feature.label }}</span><span class="capability-state capability-state-{{ status }}">{% for state in capabilities.states %}{% if state.id == status %}{{ state.label }}{% endif %}{% endfor %}</span></td>{% endif %}{% endfor %}
+              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set status = target.statuses[loop.index0] %}<td><span class="capability-mobile-label">{{ feature.label }}</span>{% for state in capabilities.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ feature.label }} for {{ target.name }}: {{ state.label }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>{% endif %}{% endfor %}
             </tr>
             {% endif %}{% endfor %}{% endfor %}
           </tbody>

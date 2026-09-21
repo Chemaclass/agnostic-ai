@@ -41,27 +41,27 @@ label = "Ignore"
 [[states]]
 id = "native"
 label = "Native"
-description = "Emitted to a matching target surface by default."
+description = "Sync writes this spec to the target's dedicated format. No extra configuration."
 
 [[states]]
 id = "mapped"
 label = "Mapped"
-description = "Emitted through another native surface that preserves the content."
+description = "The target has no dedicated format for this spec kind. Sync preserves the content in another format the target reads."
 
 [[states]]
 id = "opt-in"
 label = "Opt-in"
-description = "Emitted only after enabling a target output option."
+description = "Supported, but sync writes it only after you enable a target-specific output setting."
 
 [[states]]
 id = "source"
 label = "Source only"
-description = "Kept as a portable spec but not emitted by default."
+description = "The spec stays in .agnostic-ai for portability. Sync does not write it for this target by default."
 
 [[states]]
 id = "no"
-label = "No"
-description = "The target does not support this spec kind."
+label = "Not supported"
+description = "agnostic-ai does not support this spec kind for this target."
 
 [[targets]]
 id = "claude"

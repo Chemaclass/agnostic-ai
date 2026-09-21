@@ -800,21 +800,75 @@
   color: var(--danger);
 }
 
-.capability-legend {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.65rem 1rem;
+.capability-key {
   margin-block: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
-.capability-legend > span {
+.docs-content .capability-key h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.docs-content .capability-key > p {
+  max-width: 72ch;
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.capability-legend {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 1rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.capability-legend > div {
+  display: grid;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: start;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line-soft);
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+.capability-legend > div:nth-child(odd) {
+  padding-right: 1rem;
+}
+
+.capability-legend > div:nth-child(even) {
+  padding-left: 1rem;
+  border-left: 1px solid var(--line-soft);
+}
+
+.capability-legend > div:last-child {
+  grid-column: 1 / -1;
+  padding-right: 0;
+}
+
+.capability-legend dt,
+.capability-legend dd {
+  margin: 0;
+}
+
+.docs-content .capability-key > .capability-key-action {
+  margin-top: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.capability-key-action .capability-state {
+  margin-inline: 0.15rem;
+  vertical-align: middle;
 }
 
 .capability-state {
@@ -853,6 +907,18 @@
 
 .capability-state-no {
   border-color: transparent;
+}
+
+.capability-state-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.capability-state-link:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--paper);
 }
 
 .capability-matrix-region {
@@ -1098,6 +1164,15 @@
 
   .capability-legend {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capability-legend > div,
+  .capability-legend > div:nth-child(odd),
+  .capability-legend > div:nth-child(even),
+  .capability-legend > div:last-child {
+    grid-column: auto;
+    padding-inline: 0;
+    border-left: 0;
   }
 
   .capability-matrix-region {

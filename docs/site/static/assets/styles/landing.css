@@ -727,6 +727,7 @@ main > section[id] {
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .capability-state-opt-in {
@@ -748,6 +749,18 @@ main > section[id] {
 
 .capability-state-no {
   border-color: transparent;
+}
+
+.capability-state-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.capability-state-link:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--paper);
 }
 
 .capability-mobile-label {

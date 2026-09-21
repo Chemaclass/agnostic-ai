@@ -56,7 +56,7 @@ Set `sync.target-overview: true` to append a generated section to each entry-poi
 
 {{ <capability_matrix /> }}
 
-Open a target name for its exact paths, configuration keys, and caveats. `Native` means matching target output is emitted by default. `Mapped` uses another native surface, `Opt-in` requires an output option, and `Source only` keeps the portable spec without default target output. When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
+Select an `Opt-in` label to jump to that target's Config keys section. Open any target name for its exact paths and caveats. When an opt-in or source-only spec is present, `sync` also prints a `note:` with the next step. See [Coverage notes](@/docs/configuration.md#coverage-notes).
 
 Cross-cutting kind notes:
 

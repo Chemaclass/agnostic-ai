@@ -442,9 +442,14 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`data-capability-browser`,
 		`data-capability-target="claude"`,
 		`href="https://agnostic-ai.org/docs/targets/codex/"`,
+		`href="https://agnostic-ai.org/docs/targets/codex/#config-keys"`,
+		`How to read the matrix`,
+		`Sync writes this spec to the target's dedicated format. No extra configuration.`,
+		`The target has no dedicated format for this spec kind. Sync preserves the content in another format the target reads.`,
 		`Native`,
 		`Opt-in`,
 		`Source only`,
+		`Not supported`,
 		`assets/scripts/capability-matrix.js`,
 	} {
 		if !strings.Contains(targets, required) {
