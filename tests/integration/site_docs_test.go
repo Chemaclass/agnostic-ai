@@ -446,10 +446,17 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`How to read the matrix`,
 		`Sync writes this spec to the target's dedicated format. No extra configuration.`,
 		`The target has no dedicated format for this spec kind. Sync preserves the content in another format the target reads.`,
+		`This is an <code>agnostic-ai sync</code> output matrix, not an industry-standard list`,
+		`Why these are spec kinds`,
+		`A kind earns its place by normalizing equivalent files or settings documented by multiple tools.`,
+		`currently emitted for Cursor Bugbot and Goose.`,
+		`currently emitted for Cursor, Amp, and OpenHands.`,
+		`currently emitted to ten target-native files.`,
+		`href="https://agnostic-ai.org/docs/spec-format/#reviews"`,
 		`Native`,
 		`Opt-in`,
 		`Source only`,
-		`Not supported`,
+		`No output`,
 		`assets/scripts/capability-matrix.js`,
 	} {
 		if !strings.Contains(targets, required) {

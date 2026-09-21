@@ -1,42 +1,52 @@
 [[features]]
 id = "agent"
 label = "Agents"
+href = "@/docs/spec-format.md#agents"
 
 [[features]]
 id = "skill"
 label = "Skills"
+href = "@/docs/spec-format.md#skills"
 
 [[features]]
 id = "rule"
 label = "Rules"
+href = "@/docs/spec-format.md#rules"
 
 [[features]]
 id = "hook"
 label = "Hooks"
+href = "@/docs/spec-format.md#hooks"
 
 [[features]]
 id = "mcp"
 label = "MCP"
+href = "@/docs/spec-format.md#mcp-servers"
 
 [[features]]
 id = "command"
 label = "Commands"
+href = "@/docs/spec-format.md#commands"
 
 [[features]]
 id = "settings"
 label = "Settings"
+href = "@/docs/spec-format.md#settings"
 
 [[features]]
 id = "review"
-label = "Reviews"
+label = "Code review"
+href = "@/docs/spec-format.md#reviews"
 
 [[features]]
 id = "environment"
-label = "Environments"
+label = "Dev setup"
+href = "@/docs/spec-format.md#environments"
 
 [[features]]
 id = "ignore"
-label = "Ignore"
+label = "Ignored files"
+href = "@/docs/spec-format.md#ignore"
 
 [[states]]
 id = "native"
@@ -60,8 +70,8 @@ description = "The spec stays in .agnostic-ai for portability. Sync does not wri
 
 [[states]]
 id = "no"
-label = "Not supported"
-description = "agnostic-ai does not support this spec kind for this target."
+label = "No output"
+description = "Sync has no direct or safe mapped output for this spec kind. The target may still offer a related workflow."
 
 [[targets]]
 id = "claude"

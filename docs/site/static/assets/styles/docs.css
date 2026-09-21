@@ -871,6 +871,56 @@
   vertical-align: middle;
 }
 
+.capability-kind-rationale {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 2fr);
+  gap: 1.5rem;
+  margin: 1.25rem 0;
+  padding-block: 1rem;
+  border-block: 1px solid var(--line);
+}
+
+.docs-content .capability-kind-rationale h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.docs-content .capability-kind-rationale p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.capability-kind-rationale dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.capability-kind-rationale dl > div {
+  padding-inline: 1rem;
+  border-left: 1px solid var(--line-soft);
+}
+
+.capability-kind-rationale dt,
+.capability-kind-rationale dd {
+  margin: 0;
+}
+
+.capability-kind-rationale dt {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.capability-kind-rationale dd {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .capability-state {
   min-height: 1.6rem;
   display: inline-flex;
@@ -969,6 +1019,18 @@
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 0 var(--line);
+}
+
+.docs-content .capability-matrix thead th a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.18em;
+}
+
+.docs-content .capability-matrix thead th a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
 }
 
 .docs-content .capability-matrix th:first-child {
@@ -1175,6 +1237,21 @@
     border-left: 0;
   }
 
+  .capability-kind-rationale {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .capability-kind-rationale dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capability-kind-rationale dl > div {
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--line-soft);
+    border-left: 0;
+  }
+
   .capability-matrix-region {
     max-height: none;
     overflow: visible;
@@ -1247,9 +1324,9 @@
   .docs-content .capability-matrix td:nth-child(6)::before { content: "MCP"; }
   .docs-content .capability-matrix td:nth-child(7)::before { content: "Commands"; }
   .docs-content .capability-matrix td:nth-child(8)::before { content: "Settings"; }
-  .docs-content .capability-matrix td:nth-child(9)::before { content: "Reviews"; }
-  .docs-content .capability-matrix td:nth-child(10)::before { content: "Environments"; }
-  .docs-content .capability-matrix td:nth-child(11)::before { content: "Ignore"; }
+  .docs-content .capability-matrix td:nth-child(9)::before { content: "Code review"; }
+  .docs-content .capability-matrix td:nth-child(10)::before { content: "Dev setup"; }
+  .docs-content .capability-matrix td:nth-child(11)::before { content: "Ignored files"; }
 }
 
 @media (max-width: 620px) {

@@ -30,7 +30,7 @@
   <p class="capability-notice" data-capability-notice hidden></p>
   <section class="capability-key" aria-labelledby="capability-key-title">
     <h3 id="capability-key-title">How to read the matrix</h3>
-    <p>Each cell shows what <code>agnostic-ai sync</code> does with one spec kind for one target.</p>
+    <p>This is an <code>agnostic-ai sync</code> output matrix, not an industry-standard list of everything each AI tool can do. Each cell shows what sync does with one agnostic-ai spec kind for one target.</p>
     <dl class="capability-legend">
       {%- for state in matrix.states %}
       <div><dt><span class="capability-state capability-state-{{ state.id }}">{{ state.label }}</span></dt><dd>{{ state.description }}</dd></div>
@@ -38,13 +38,24 @@
     </dl>
     <p class="capability-key-action"><strong>Need an opt-in output?</strong> Select its <span class="capability-state capability-state-opt-in">Opt-in</span> label in the matrix to open that target's Config keys section.</p>
   </section>
+  <section class="capability-kind-rationale" aria-labelledby="capability-kind-rationale-title">
+    <div>
+      <h3 id="capability-kind-rationale-title">Why these are spec kinds</h3>
+      <p>Every column is a portable agnostic-ai source kind. A kind earns its place by normalizing equivalent files or settings documented by multiple tools.</p>
+    </div>
+    <dl>
+      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#reviews') }}">Code review</a></dt><dd>One source for dedicated review guidance, currently emitted for Cursor Bugbot and Goose.</dd></div>
+      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#environments') }}">Dev setup</a></dt><dd>One source for dependency setup and project services, currently emitted for Cursor, Amp, and OpenHands.</dd></div>
+      <div><dt><a href="{{ get_url(path='@/docs/spec-format.md#ignore') }}">Ignored files</a></dt><dd>One source for gitignore-style AI exclusions, currently emitted to ten target-native files.</dd></div>
+    </dl>
+  </section>
   <div class="capability-matrix-region" role="region" aria-label="Target capability comparison" tabindex="0">
     <table class="capability-matrix">
       <caption>Portable spec support by target. Open a target name for exact paths and caveats.</caption>
       <thead>
         <tr>
           <th scope="col">Target</th>
-          {% for feature in matrix.features %}<th scope="col">{{ feature.label }}</th>{% endfor %}
+          {% for feature in matrix.features %}<th scope="col"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a></th>{% endfor %}
         </tr>
       </thead>
       <tbody>
