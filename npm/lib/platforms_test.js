@@ -106,8 +106,8 @@ const tests = {
 
   'the entry point is a subpath of the platform package'() {
     const p = platformFor('win32', 'x64')
-    assert.strictEqual(entryPoint(p), '@chemaclass/agnostic-ai-win32-x64/agnostic-ai.exe')
-    assert.strictEqual(entryPoint(platformFor('linux', 'arm64')), '@chemaclass/agnostic-ai-linux-arm64/agnostic-ai')
+    assert.strictEqual(entryPoint(p), '@agnostic-ai/win32-x64/agnostic-ai.exe')
+    assert.strictEqual(entryPoint(platformFor('linux', 'arm64')), '@agnostic-ai/linux-arm64/agnostic-ai')
   },
 
   'an unsupported pair resolves to nothing'() {
@@ -122,7 +122,7 @@ const tests = {
     assert.strictEqual(Object.keys(deps).length, PLATFORMS.length)
     for (const [name, version] of Object.entries(deps)) {
       assert.strictEqual(version, '1.2.3', `${name} is not pinned`)
-      assert.match(name, /^@chemaclass\/agnostic-ai-/)
+      assert.match(name, /^@agnostic-ai\//)
     }
   },
 
@@ -190,7 +190,7 @@ const tests = {
     try {
       const run = runShim(shim, ['--version'])
       assert.strictEqual(run.status, 1)
-      assert.match(run.stderr, /@chemaclass\/agnostic-ai-/)
+      assert.match(run.stderr, /@agnostic-ai\//)
       assert.match(run.stderr, /npm install agnostic-ai --force --include=optional/)
       assert.ok(!/npm install -g/.test(run.stderr), `project install told to reinstall globally:\n${run.stderr}`)
       assert.match(run.stderr, /AGNOSTIC_AI_BINARY/)
@@ -207,7 +207,7 @@ const tests = {
     try {
       const run = runShim(shim, ['--version'])
       assert.strictEqual(run.status, 1)
-      assert.match(run.stderr, /@chemaclass\/agnostic-ai-/)
+      assert.match(run.stderr, /@agnostic-ai\//)
       assert.match(run.stderr, /npm install -g agnostic-ai --force --include=optional/)
       assert.match(run.stderr, /AGNOSTIC_AI_BINARY/)
     } finally {
