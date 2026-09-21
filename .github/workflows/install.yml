@@ -146,20 +146,22 @@ jobs:
           set -euo pipefail
           want=$(gh release view --repo Chemaclass/agnostic-ai --json tagName --jq '.tagName')
           want="${want#v}"
-          # Same bounded backoff as release.yml's distribution guard, for the
-          # same reason: a run triggered by a release races the registry
-          # replica, and that lag is not a publish failure (#937).
+          # npm scans a publish before serving it. Five minutes is typical and
+          # 15 minutes or more is possible, so allow about 20 minutes before
+          # calling the release stale.
           delay=5
-          for attempt in 1 2 3 4 5 6; do
+          max_delay=300
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
             got=$(npm view "agnostic-ai@${want}" version 2>/dev/null || true)
             echo "attempt $attempt: release=$want npm=${got:-<absent>}"
             if [ "$got" = "$want" ]; then
               echo "version=$want" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            if [ "$attempt" -lt 6 ]; then
+            if [ "$attempt" -lt 10 ]; then
               sleep "$delay"
               delay=$((delay * 2))
+              [ "$delay" -le "$max_delay" ] || delay="$max_delay"
             fi
           done
           echo "::error::npm does not serve agnostic-ai@${want}; the published package is behind the latest release"

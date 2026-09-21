@@ -76,7 +76,7 @@ The parent pins exact versions of six platform packages, so the release publishe
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
 3. `scripts/npm-publish.sh <x.y.z>` publishes the six, waits until the registry serves every one, then publishes the parent.
 
-The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder.
+The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder. npm scans each publish before serving it, which commonly takes about five minutes and can exceed 15, so the publish and verification waits cover about 20 minutes with capped exponential backoff.
 
 ### npm dist-tags
 

@@ -113,10 +113,13 @@ publish_package() {
 
 wait_for() {
   # Same bounded backoff the release's distribution guard uses, for the same
-  # reason: the read hits a registry replica that lags the write by seconds.
+  # reason: npm scans a publish before serving it. npm documents about five
+  # minutes as typical and 15 minutes or more at peak times, so the defaults
+  # cover about 20 minutes without polling the registry aggressively.
   # Read at call time, not load time, so the test suite can shorten it.
   local name="$1" version="$2" attempt
-  local retries="${NPM_PUBLISH_RETRIES:-6}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
+  local retries="${NPM_PUBLISH_RETRIES:-10}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
+  local max_delay="${NPM_PUBLISH_MAX_DELAY:-300}"
   for ((attempt = 1; attempt <= retries; attempt++)); do
     if published "$name" "$version"; then
       printf 'attempt %s: %s@%s is served\n' "$attempt" "$name" "$version"
@@ -126,6 +129,7 @@ wait_for() {
     if [[ "$attempt" -lt "$retries" ]]; then
       sleep "$delay"
       delay=$((delay * 2))
+      [[ "$delay" -le "$max_delay" ]] || delay="$max_delay"
     fi
   done
   return 1

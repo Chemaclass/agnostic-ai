@@ -84,6 +84,10 @@ function manifest(parent, platform, version) {
     os: [platform.os],
     cpu: [platform.cpu],
     files: [binaryName(platform), 'README.md'],
+    // Scoped packages default to restricted visibility. The release command
+    // also passes --access public, but the manifest should remain safe when a
+    // maintainer publishes it by another supported route.
+    publishConfig: { access: 'public' },
   }
 }
 

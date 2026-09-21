@@ -171,14 +171,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Both checks below read a replica that lags the write they verify. On
-      # v0.62.0 `npm view` answered `<absent>` nine seconds after a publish
-      # that had landed, and the identical job two minutes later answered
-      # with the tag (#937). A red check that is sometimes wrong trains you
-      # to dismiss it, so each check retries with bounded exponential backoff
-      # (5s, 10s, 20s, 40s, 80s, about 2.5 minutes in total). Only the "not
-      # there yet" case retries: an absent token still warns and exits 0, and
-      # a channel still stale at the end of the window is still an error.
+      # Both checks below read a replica that can lag the write they verify.
+      # A red check that is sometimes wrong trains you to dismiss it, so each
+      # check retries with bounded exponential backoff. Homebrew keeps its
+      # short replica-lag window. npm gets about 20 minutes because publish-time
+      # malware scanning commonly takes five minutes and can exceed 15.
       - name: Homebrew cask serves this tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -254,8 +251,9 @@ jobs:
           # shellcheck disable=SC2086
           for pkg in agnostic-ai $pkgs; do
             delay=5
+            max_delay=300
             found=""
-            for attempt in 1 2 3 4 5 6; do
+            for attempt in 1 2 3 4 5 6 7 8 9 10; do
               got=$(npm view "${pkg}@${want}" version 2>/dev/null || true)
               tagged=$(npm view "${pkg}@${dist_tag}" version 2>/dev/null || true)
               echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>} ${dist_tag}=${tagged:-<absent>}"
@@ -263,9 +261,10 @@ jobs:
                 found=yes
                 break
               fi
-              if [ "$attempt" -lt 6 ]; then
+              if [ "$attempt" -lt 10 ]; then
                 sleep "$delay"
                 delay=$((delay * 2))
+                [ "$delay" -le "$max_delay" ] || delay="$max_delay"
               fi
             done
             if [ -z "$found" ]; then
