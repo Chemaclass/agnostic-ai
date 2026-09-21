@@ -199,7 +199,7 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 			t.Errorf("playground navigation is missing %q", required)
 		}
 	}
-	for _, label := range []string{"Home", "Updates", "Playground", "Docs", "GitHub"} {
+	for _, label := range []string{"Home", "Docs", "Updates", "Playground"} {
 		if !strings.Contains(page, ">"+label+"</a>") {
 			t.Errorf("playground navigation is missing %s", label)
 		}
@@ -1058,5 +1058,38 @@ func TestSiteDocs_TocEscapesHeadingTitles(t *testing.T) {
 	specFormat := tocBlock.FindString(readBuiltFile(t, filepath.Join(outputDir, "docs", "spec-format", "index.html")))
 	if !strings.Contains(specFormat, "x-&lt;target&gt;") {
 		t.Errorf("spec-format TOC does not show the escaped `x-<target>` heading:\n%s", specFormat)
+	}
+}
+
+// TestSiteDocs_HeaderKeepsOnlySiteNavigation pins the header to the pages
+// of this site plus search and the theme toggle, in one order across the
+// Zola shell and the hand-written playground page. The release version and
+// the GitHub link live in the footer; repeating them up top was noise.
+func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
+	t.Parallel()
+
+	header := regexp.MustCompile(`(?s)<header class="site-header">.*?</header>`)
+	label := regexp.MustCompile(`>(Home|Docs|Updates|Playground)</a>`)
+	for _, path := range []string{"../../docs/site/templates/base.html", "../../docs/playground/index.html"} {
+		block := header.FindString(readBuiltFile(t, path))
+		if block == "" {
+			t.Fatalf("%s: no site header", path)
+		}
+		var order []string
+		for _, m := range label.FindAllStringSubmatch(block, -1) {
+			order = append(order, m[1])
+		}
+		if got, want := strings.Join(order, ","), "Home,Docs,Updates,Playground"; got != want {
+			t.Errorf("%s: nav order = %s, want %s", path, got, want)
+		}
+		search, theme := strings.Index(block, "data-search-open"), strings.Index(block, `class="theme-toggle"`)
+		if search < 0 || theme < 0 || search > theme {
+			t.Errorf("%s: header must end with search, then the theme toggle", path)
+		}
+		for _, noise := range []string{"brand-version", "config.extra.version", "github.com", "repository_url"} {
+			if strings.Contains(block, noise) {
+				t.Errorf("%s: header still carries %q; the footer already shows it", path, noise)
+			}
+		}
 	}
 }

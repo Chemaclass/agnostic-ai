@@ -228,36 +228,6 @@ code {
   gap: 1.25rem;
 }
 
-.brand-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-/* The version reads as metadata attached to the wordmark, never as a
-   nav item, so it stays quiet until hovered. */
-.brand-version {
-  flex: none;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted);
-  background: var(--surface-quiet);
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.brand-version:hover,
-.brand-version:focus-visible {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-
 .brand {
   min-height: 2rem;
   display: inline-flex;
@@ -481,31 +451,6 @@ html.search-open {
   border-radius: 3px;
   background: var(--accent-soft);
   color: var(--accent);
-}
-
-/* A link that leaves the site sits with the utility controls, not in the
-   primary nav, so the nav reads as "pages of this site" and nothing in it
-   navigates away. Same square as the theme toggle, a mark rather than a
-   word, and it opens in a new tab. */
-.site-external {
-  width: 2.25rem;
-  height: 2.25rem;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  color: var(--ink-soft);
-}
-
-.site-external:hover {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
-.site-external svg {
-  width: 1rem;
-  height: 1rem;
 }
 
 .theme-toggle {
@@ -747,17 +692,11 @@ html.search-open {
     padding-block: 0.65rem 0.5rem;
   }
 
-  /* The footer still carries the version, so dropping it here costs
-     nothing and keeps the wordmark, search, and theme toggle on one row. */
-  .brand-version {
-    display: none;
-  }
-
   .site-nav {
     grid-column: 1 / -1;
     grid-row: 2;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
     gap: 0;
   }
