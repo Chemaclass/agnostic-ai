@@ -110,7 +110,7 @@ effort:
   factory: max
   default: high
 x-codex:
-  model_reasoning_effort: high
+  model_reasoning_effort: xhigh
 ---
 ```
 
@@ -121,7 +121,7 @@ x-codex:
 | [Factory](@/docs/targets/factory.md) | `model: gpt-5.5`, no `reasoningEffort`, and one coverage note: `max` is outside Factory's enum |
 | [Junie](@/docs/targets/junie.md) | `model: gpt-5.5`, `effort: high` |
 | [Cursor](@/docs/targets/cursor.md) | `model: claude-opus-5[effort=high]`. The resolved `high` is discarded |
-| [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "high"` from `x-codex`. The portable `high` is discarded |
+| [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "xhigh"` from `x-codex`, overriding the mapped `high` |
 | [Trae](@/docs/targets/trae.md) | `model` dropped with a coverage note, `effort` dropped without one |
 
 **`effort` values by target.** Only the targets listed were checked. A top-level `effort` asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere.
@@ -132,11 +132,11 @@ x-codex:
 | [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget | Written verbatim as `effort` |
 | [Junie](@/docs/targets/junie.md) | The vendor documents `effort` as an alias of `reasoningLevel` | Written verbatim as `effort` |
 | [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
+| [Codex](@/docs/targets/codex.md) | Any string. `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`, and `persistent` are named; any other string still lands as a custom effort label | Written as `model_reasoning_effort`. An integer budget has no string form and raises a coverage note instead. `x-codex.model_reasoning_effort` wins over the mapped value |
 | [Cursor](@/docs/targets/cursor.md) | none | No frontmatter key. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
-| [Codex](@/docs/targets/codex.md) | none | Not written. Set `x-codex.model_reasoning_effort` |
 | [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written |
 
-The "How it lands" column is the point: on Claude Code, Qoder, and Junie agnostic-ai writes the value and validates nothing, and on Cursor it does nothing at all.
+The "How it lands" column is the point: on Claude Code, Qoder, Junie, and Codex agnostic-ai writes the string value and validates nothing beyond its shape, and on Cursor it does nothing at all.
 
 Two targets couple the two keys, in opposite directions. Cursor encodes per-model options inside the model string rather than as a field, so its effort rides on the `model` map and never on the `effort` map. Factory goes the other way: it ignores `reasoningEffort` when `model` resolves to `inherit`, so both keys are written and the vendor drops one.
 
