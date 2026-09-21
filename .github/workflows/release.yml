@@ -168,6 +168,9 @@ jobs:
     if: always() && github.repository == 'Chemaclass/agnostic-ai' && needs.goreleaser.result == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       # Both checks below read a replica that lags the write they verify. On
       # v0.62.0 `npm view` answered `<absent>` nine seconds after a publish
       # that had landed, and the identical job two minutes later answered
