@@ -98,7 +98,7 @@ Claude Code creates and writes the directory on first use. agnostic-ai emits the
 
 This is subagent memory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/targets/_index.md#memory-and-local-state).
 
-Disabled MCP policy uses `.claude/.agnostic-ai-mcp-disabled.json` to track only generated rejection entries. Re-enabling a server removes its generated rejection while preserving manual entries and unrelated settings. Keep this state file with generated settings. Both paths follow `outputs.claude.dir` and must be managed together. A disabled server requires the project `.mcp.json` path; custom MCP paths fail with an actionable error. Import restores disabled state from the project rejection list.
+Disabled MCP policy uses `.claude/.agnostic-ai-mcp-disabled.json` to track only generated rejection entries. Re-enabling a server removes its generated rejection while preserving manual entries and unrelated settings. Keep this state file with generated settings. Both paths follow `outputs.claude.dir` and must be managed together. A disabled server requires the project `.mcp.json` path; custom MCP paths fail with an actionable error. Import restores disabled state from the project rejection list and excludes generated rejections from the settings overlay, so later syncs cannot restore a re-enabled server's old rejection.
 
 ## Claude settings
 

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,108 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestImportAuditContinueNestedActivation(t *testing.T) {
+	for _, fields := range []string{"globs: ['src/**']", "globs: []", "globs: ['src/{a,b}/**', 'ui/**']"} {
+		t.Run(fields, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			writeFile(t, filepath.Join(root, ".continue/rules/backend/frontend.md"), "---\n"+fields+"\n---\nGuide.\n")
+			if err := importFromContinue(root, rootSources()); err != nil {
+				t.Fatal(err)
+			}
+			cfg := &config.Config{Sources: rootSources()}
+			bundle, err := spec.LoadBundle(root, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			adapter, _ := adapters.Get("continue")
+			if err := adapter.Emit(adapters.NewSession(), bundle, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			want, _ := splitMdcFrontmatter([]byte("---\n" + fields + "\n---\n"))
+			got, _ := splitMdcFrontmatter([]byte(readFile(t, filepath.Join(root, ".continue/rules/backend/frontend.md"))))
+			if !reflect.DeepEqual(got["globs"], want["globs"]) {
+				t.Errorf("globs = %#v, want %#v", got["globs"], want["globs"])
+			}
+		})
+	}
+}
+
+func TestImportAuditNestedActivationThroughSync(t *testing.T) {
+	for _, tc := range []struct {
+		target, dir, fields string
+		unsupported         bool
+	}{
+		{"continue", ".continue/rules", "globs: ['backend/src/**', 'backend/tests/**']", false},
+		{"continue", ".continue/rules", "globs: ['backend/src/**']", false},
+		{"continue", ".continue/rules", "globs: ['src/**']", true},
+		{"continue", ".continue/rules", "globs: []", true},
+		{"cline", ".clinerules", "paths: []", false},
+	} {
+		t.Run(tc.target+tc.fields, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			native := filepath.Join(root, tc.dir, "backend/frontend.md")
+			writeFile(t, native, "---\n"+tc.fields+"\n---\nGuide.\n")
+			importFn := importFromContinue
+			if tc.target == "cline" {
+				importFn = importFromCline
+			}
+			if err := importFn(root, rootSources()); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(native); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: ["+tc.target+"]\non-unsupported: error\nsources:\n  rules: rules\n")
+			cmd := NewRootCmd("test")
+			cmd.SetArgs([]string{"sync", "--all"})
+			err := cmd.Execute()
+			if tc.unsupported {
+				if err == nil || !strings.Contains(err.Error(), "scoped rule") {
+					t.Fatalf("expected explicit unsupported scope error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := splitMdcFrontmatter([]byte(readFile(t, native)))
+			want, _ := splitMdcFrontmatter([]byte("---\n" + tc.fields + "\n---\n"))
+			for key, value := range want {
+				if !reflect.DeepEqual(got[key], value) {
+					t.Errorf("%s = %#v, want %#v", key, got[key], value)
+				}
+			}
+		})
+	}
+}
+
+func TestImportAuditClaudeReenableAfterOverlayCapture(t *testing.T) {
+	root := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(root, ".claude/settings.json"), `{"disabledMcpjsonServers":["manual"]}`)
+	entry := spec.Entry{Kind: spec.KindMCP, Name: "generated", Meta: map[string]any{"command": "echo", "disabled": true}}
+	adapter, _ := adapters.Get("claude")
+	cfg := &config.Config{}
+	if err := adapter.Emit(adapters.NewSession(), spec.NewBundle([]spec.Entry{entry}), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromClaude(root, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	entry.Meta["disabled"] = false
+	for range 3 {
+		if err := adapter.Emit(adapters.NewSession(), spec.NewBundle([]spec.Entry{entry}), cfg, false); err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(root, ".claude/settings.json"))), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(doc["disabledMcpjsonServers"], []any{"manual"}) {
+			t.Errorf("rejections=%v", doc["disabledMcpjsonServers"])
+		}
+	}
+}
 
 func TestImportAuditRuleActivation(t *testing.T) {
 	for _, tc := range []struct{ target, dir, fields string }{
