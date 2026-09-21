@@ -54,7 +54,7 @@ func TestEmit_ScopedSkillOverrideKeepsAssetsAndUnmanagedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	sess := emit.NewSession()
-	sess.SetUnmanaged([]string{path})
+	sess.SetUnmanaged([]string{filepath.ToSlash(path)})
 	entry := spec.Entry{Kind: spec.KindSkill, Name: "review", Scope: "backend", Path: filepath.Join(source, "SKILL.md"), Body: "Generated"}
 	cfg := &config.Config{Outputs: map[string]config.Output{"factory": {SkillsDir: "custom/skills"}}}
 	if err := New().Emit(sess, spec.NewBundle([]spec.Entry{entry}), cfg, false); err != nil {
