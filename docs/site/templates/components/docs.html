@@ -23,12 +23,12 @@
   {% for heading in headings %}
     {% if heading.level == 1 %}
       {% for child in heading.children %}
-      <a href="{{ child.permalink | safe }}">{{ child.title | safe }}</a>
-        {% for grandchild in child.children %}<a class="is-nested" href="{{ grandchild.permalink | safe }}">{{ grandchild.title | safe }}</a>{% endfor %}
+      <a href="{{ child.permalink | safe }}">{{ child.title }}</a>
+        {% for grandchild in child.children %}<a class="is-nested" href="{{ grandchild.permalink | safe }}">{{ grandchild.title }}</a>{% endfor %}
       {% endfor %}
     {% else %}
-      <a href="{{ heading.permalink | safe }}">{{ heading.title | safe }}</a>
-      {% for child in heading.children %}<a class="is-nested" href="{{ child.permalink | safe }}">{{ child.title | safe }}</a>{% endfor %}
+      <a href="{{ heading.permalink | safe }}">{{ heading.title }}</a>
+      {% for child in heading.children %}<a class="is-nested" href="{{ child.permalink | safe }}">{{ child.title }}</a>{% endfor %}
     {% endif %}
   {% endfor %}
 </nav>
