@@ -30,13 +30,13 @@ function fake_tree() {
   "name": "agnostic-ai",
   "version": "1.2.3",
   "optionalDependencies": {
-    "@chemaclass/agnostic-ai-darwin-arm64": "1.2.3",
-    "@chemaclass/agnostic-ai-linux-x64": "1.2.3"
+    "@agnostic-ai/darwin-arm64": "1.2.3",
+    "@agnostic-ai/linux-x64": "1.2.3"
   }
 }
 JSON
   for name in darwin-arm64 linux-x64; do
-    printf '{"name":"@chemaclass/agnostic-ai-%s","version":"1.2.3"}\n' "$name" \
+    printf '{"name":"@agnostic-ai/%s","version":"1.2.3"}\n' "$name" \
       > "$root/npm/platforms/$name/package.json"
   done
 }
@@ -95,8 +95,8 @@ function test_it_publishes_every_platform_package_before_the_parent() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @chemaclass/agnostic-ai-darwin-arm64 provenance latest
-publish @chemaclass/agnostic-ai-linux-x64 provenance latest
+  assert_same "publish @agnostic-ai/darwin-arm64 provenance latest
+publish @agnostic-ai/linux-x64 provenance latest
 publish agnostic-ai provenance latest" "$log"
 }
 
@@ -107,7 +107,7 @@ function test_it_waits_for_every_platform_package_before_the_parent() {
   stub_npm "$tmp/log"
   main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
   # The last view of a platform package has to come before the parent publish.
-  order="$(grep -n 'view @chemaclass/agnostic-ai-linux-x64@1.2.3\|publish agnostic-ai ' "$tmp/log" | tail -2 | cut -d: -f2- | cut -d' ' -f1)"
+  order="$(grep -n 'view @agnostic-ai/linux-x64@1.2.3\|publish agnostic-ai ' "$tmp/log" | tail -2 | cut -d: -f2- | cut -d' ' -f1)"
   unstub_npm
   rm -rf "$tmp"
 
@@ -126,7 +126,7 @@ function test_it_refuses_to_publish_the_parent_when_a_platform_package_never_lan
     case "$1" in
       view)
         printf 'view %s\n' "$2" >> "$STUB_LOG"
-        [[ "$2" != "@chemaclass/agnostic-ai-linux-x64@1.2.3" ]] && grep -qxF "${2%@*}" "$STUB_PRESENT"
+        [[ "$2" != "@agnostic-ai/linux-x64@1.2.3" ]] && grep -qxF "${2%@*}" "$STUB_PRESENT"
         ;;
       publish)
         local name
@@ -151,14 +151,14 @@ function test_it_skips_a_package_already_on_the_registry() {
   local tmp log
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
-  stub_npm "$tmp/log" "@chemaclass/agnostic-ai-darwin-arm64"
+  stub_npm "$tmp/log" "@agnostic-ai/darwin-arm64"
   main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
   log="$(grep '^publish' "$tmp/log")"
   unstub_npm
   rm -rf "$tmp"
 
-  assert_not_contains "publish @chemaclass/agnostic-ai-darwin-arm64" "$log"
-  assert_contains "publish @chemaclass/agnostic-ai-linux-x64" "$log"
+  assert_not_contains "publish @agnostic-ai/darwin-arm64" "$log"
+  assert_contains "publish @agnostic-ai/linux-x64" "$log"
   assert_contains "publish agnostic-ai" "$log"
 }
 
@@ -168,23 +168,23 @@ function test_a_provenance_failure_downgrades_to_a_plain_publish() {
   local tmp log code
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
-  stub_npm "$tmp/log" "" "@chemaclass/agnostic-ai-darwin-arm64 provenance"
+  stub_npm "$tmp/log" "" "@agnostic-ai/darwin-arm64 provenance"
   code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1; echo $?)"
   log="$(cat "$tmp/log")"
   unstub_npm
   rm -rf "$tmp"
 
   assert_same "0" "$code"
-  assert_contains "publish @chemaclass/agnostic-ai-darwin-arm64 provenance latest" "$log"
-  assert_contains "publish @chemaclass/agnostic-ai-darwin-arm64 plain latest" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 provenance latest" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 plain latest" "$log"
 }
 
 function test_a_publish_that_fails_both_ways_fails_the_release() {
   local tmp code
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
-  stub_npm "$tmp/log" "" "@chemaclass/agnostic-ai-linux-x64 provenance
-@chemaclass/agnostic-ai-linux-x64 plain"
+  stub_npm "$tmp/log" "" "@agnostic-ai/linux-x64 provenance
+@agnostic-ai/linux-x64 plain"
   code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1; echo $?)"
   unstub_npm
   rm -rf "$tmp"
@@ -205,13 +205,13 @@ function test_a_version_conflict_after_a_failed_retry_counts_as_published() {
       view)
         # linux-x64 shows up only after its publish has been attempted: the
         # tarball landed, attaching the attestation is what failed.
-        [[ "$2" == "@chemaclass/agnostic-ai-linux-x64@1.2.3" && -f "$STUB_LOG.attempted" ]] && return 0
+        [[ "$2" == "@agnostic-ai/linux-x64@1.2.3" && -f "$STUB_LOG.attempted" ]] && return 0
         grep -qxF "${2%@*}" "$STUB_PRESENT"
         ;;
       publish)
         local name
         name="$(node -p "require('./package.json').name")"
-        if [[ "$name" == "@chemaclass/agnostic-ai-linux-x64" ]]; then
+        if [[ "$name" == "@agnostic-ai/linux-x64" ]]; then
           : > "$STUB_LOG.attempted"
           return 1
         fi
@@ -263,8 +263,8 @@ function test_it_publishes_a_prerelease_under_its_own_tag() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @chemaclass/agnostic-ai-darwin-arm64 provenance beta
-publish @chemaclass/agnostic-ai-linux-x64 provenance beta
+  assert_same "publish @agnostic-ai/darwin-arm64 provenance beta
+publish @agnostic-ai/linux-x64 provenance beta
 publish agnostic-ai provenance beta" "$log"
 }
 
@@ -274,13 +274,13 @@ function test_the_retry_without_provenance_keeps_the_tag() {
   local tmp log
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
-  stub_npm "$tmp/log" "" "@chemaclass/agnostic-ai-darwin-arm64 provenance"
+  stub_npm "$tmp/log" "" "@agnostic-ai/darwin-arm64 provenance"
   main 1.2.3-rc.2 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1
   log="$(cat "$tmp/log")"
   unstub_npm
   rm -rf "$tmp"
 
-  assert_contains "publish @chemaclass/agnostic-ai-darwin-arm64 plain rc" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 plain rc" "$log"
 }
 
 # ---- arguments ---------------------------------------------------------------
@@ -308,7 +308,7 @@ function test_it_refuses_when_the_parent_pins_a_package_that_was_not_built() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_contains "pins @chemaclass/agnostic-ai-linux-x64 but no package directory builds it" "$out"
+  assert_contains "pins @agnostic-ai/linux-x64 but no package directory builds it" "$out"
 }
 
 function test_it_needs_a_version() {

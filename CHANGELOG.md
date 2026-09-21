@@ -10,6 +10,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+### Changed
+
+- npm platform packages use the project's `@agnostic-ai/<os>-<cpu>` organization scope instead of the maintainer's personal scope.
+
 ## v0.64.0 - 2026-09-21
 
 ### Changed

@@ -38,7 +38,7 @@ type npmPlatform struct {
 	GOARCH string
 }
 
-func (p npmPlatform) pkg() string { return "@chemaclass/agnostic-ai-" + p.OS + "-" + p.CPU }
+func (p npmPlatform) pkg() string { return "@agnostic-ai/" + p.OS + "-" + p.CPU }
 
 func readRepoFile(t *testing.T, rel string) string {
 	t.Helper()
