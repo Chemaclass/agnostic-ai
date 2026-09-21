@@ -52,6 +52,8 @@ opencode.json                             # when MCP entries exist (merged with 
 
 ## Config keys
 
+Skills import from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, in that order for duplicate names within the same scope. Scoped paths and bundled assets survive import.
+
 | Key | Default | Notes |
 | --- | --- | --- |
 | `outputs.opencode.agents-dir` | `.opencode/agents` | |

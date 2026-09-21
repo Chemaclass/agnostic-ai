@@ -62,6 +62,8 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
   - These three keys are shell-command patterns, so a rule scoping a path, a URL, or an MCP tool has no spelling among them and raises a coverage note instead. `Read(src/**)` still reaches nothing here.
   - A list is written only when at least one rule translates into it, so a list you maintain by hand survives a sync that has nothing to put there. A sync that does have something replaces that key.
 
+Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md`, with bundled assets. Unscoped skills keep `.agents/skills/`. An explicit `outputs.factory.skills-dir` replaces the skills directory at both the root and each scope; scopes remain distinct. Files listed as unmanaged retain their contents.
+
 ## Config keys
 
 | Key | Default |

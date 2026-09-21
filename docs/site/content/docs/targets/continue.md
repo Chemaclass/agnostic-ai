@@ -39,6 +39,10 @@ Stdio MCP servers preserve `cwd`; every transport preserves `connectionTimeout` 
 
 ## Import
 
+Native `globs` and `regex` strings or arrays survive import through `x-continue`, including empty arrays and patterns containing commas.
+
+Canonical source subdirectories still impose directory scope. Nested rules retain one or several array patterns when those patterns stay inside that scope. Conflicting selectors, scoped `regex`, and scoped empty `globs` arrays report unsupported instead of replacing their meaning with a directory-wide filter. Keep these native conditions in root-level source files when they cannot express a directory scope.
+
 `agnostic-ai import continue` reads rules from `.continue/rules/` and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
 
 MCP servers import from `.continue/mcpServers/`:

@@ -43,14 +43,12 @@ func ruleFrontmatter(e spec.Entry) string {
 	meta := map[string]any{}
 	var keys []string
 
-	globs, _ := m["globs"].(string)
-	if globs == "" {
-		if s := e.EffectiveScope(); s != "" {
-			globs = s + "/**"
-		}
-	}
-	if globs != "" {
+	globs, hasGlobs := m["globs"]
+	if hasGlobs {
 		meta["globs"] = globs
+		keys = append(keys, "globs")
+	} else if s := e.EffectiveScope(); s != "" {
+		meta["globs"] = s + "/**"
 		keys = append(keys, "globs")
 	}
 	if always, ok := m["alwaysApply"].(bool); ok {

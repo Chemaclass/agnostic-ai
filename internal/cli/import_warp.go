@@ -20,9 +20,17 @@ const (
 	warpMCPKey       = "mcpServers"
 )
 
+// warpSkillsDirs follows the documented compatible roots, keeping the
+// current emission directory first for collisions at the same scope.
+var warpSkillsDirs = []string{
+	".agents/skills", ".warp/skills", ".claude/skills", ".codex/skills",
+	".cursor/skills", ".gemini/skills", ".copilot/skills", ".factory/skills",
+	".github/skills", ".opencode/skills",
+}
+
 // importFromWarp reads an existing Warp project (AGENTS.md,
-// `.warp/workflows/`, `.warp/.mcp.json`, `.agents/skills/`) under root and writes specs
-// into the configured source directories.
+// `.warp/workflows/`, `.warp/.mcp.json`, and compatible skill directories)
+// under root and writes specs into the configured source directories.
 func importFromWarp(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
@@ -35,7 +43,7 @@ func importFromWarp(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFolders(root, filepath.Join(".agents", "skills"), filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFoldersFrom(root, warpSkillsDirs, filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

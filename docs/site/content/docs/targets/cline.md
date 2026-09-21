@@ -67,7 +67,9 @@ The key stays opt-in. A workflow is a second copy of an agent already emitted at
 
 ## Import
 
-`agnostic-ai import cline` reads rules from `.clinerules/`, falling back to `.cline/rules/`, the other layout Cline reads, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+Import reads both `.clinerules/` and `.cline/rules/`. Identical duplicate rules deduplicate; distinct files with the same canonical destination fail with a conflict. The reserved `skills`, `workflows`, and `hooks` subdirectories do not become rules. Native `paths` arrays survive through `x-cline.paths`, including brace globs and empty arrays that disable activation.
+
+Imported rules retain the [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification) classification used by older layouts.
 
 It reconstructs agents from `.cline/agents/<name>.yml`, Cline's native per-agent directory. Each file becomes a `<name>.md` spec, byte-for-byte minus the provenance header: frontmatter and body carry across unchanged, so only the extension moves. `.yaml` is read too, and `.md` last, so a project synced before the format fix still round-trips; a `.yml` wins a same-name collision. There is no `agent-` prefix to strip and no synthesized heading, since sync no longer writes one there. The `agent-<name>.md` prefix only fires when a project still carries the pre-#534 layout, where rules and agents shared `.clinerules/`.
 

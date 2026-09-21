@@ -66,8 +66,8 @@ var junieAgentsDirs = []string{".junie/agents", ".agents"}
 //     #552 and #604 has no native agent file yet; its agent bodies
 //     still sit in `.junie/AGENTS.md`'s sentinel-marked Agents block,
 //     read as a fallback when no native file is found.
-//   - `.junie/skills/<name>/SKILL.md` folders reconstruct skills
-//     natively, with bundled sibling assets copied byte-for-byte.
+//   - `.junie/skills/` and `.agents/skills/` reconstruct skills with
+//     bundled assets. The native directory wins same-name collisions.
 //   - `.junie/commands/<name>.md` files reconstruct command specs
 //     natively (#605).
 //   - a hand-authored `.aiignore` reconstructs an ignore spec (#754).
@@ -79,11 +79,14 @@ func importFromJunie(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	folderSkills, err := importSkillFolders(filepath.Join(root, junieSkillsDir), filepath.Join(root, src.Skills))
-	if err != nil {
-		return err
+	seenSkills := map[string]bool{}
+	for _, skillsDir := range []string{junieSkillsDir, ".agents/skills"} {
+		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		if err != nil {
+			return err
+		}
+		c.skills += folderSkills
 	}
-	c.skills += folderSkills
 	commands, err := importJunieCommands(root, filepath.Join(root, src.Commands))
 	if err != nil {
 		return err

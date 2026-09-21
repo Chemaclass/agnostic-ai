@@ -29,7 +29,8 @@ const (
 //   - `.continue/rules/*.md` walks via the shared rules-directory
 //     importer (agent-<name>.md routes into agents, skill-<name>.md
 //     into skills, the rest into rules; provenance + leading H1 are
-//     stripped).
+//     stripped). Native globs and regex conditions retain their scalar
+//     or array values under x-continue.
 //   - `.continue/mcpServers/*.yaml` copies one MCP spec per file with
 //     the provenance header stripped on the way back in.
 //   - `.continue/mcpServers/*.json` accepts JSONC with a named
@@ -38,7 +39,9 @@ func importFromContinue(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, continueRulesDir, src)
+	c, err := importRulesDirectoryWith(root, continueRulesDir, src, rulesDirImportOpts{
+		NativeTarget: "continue", NativeKeys: []string{"globs", "regex"},
+	})
 	if err != nil {
 		return err
 	}

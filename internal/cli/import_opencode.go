@@ -45,7 +45,8 @@ const (
 
 // importFromOpencode reads an existing OpenCode (SST) project
 // (`AGENTS.md` or the pre-#623 `.opencode/AGENTS.md`,
-// `.opencode/agents/`, `.opencode/skills/`, `.opencode/commands/`,
+// `.opencode/agents/`, `.opencode/skills/`, `.claude/skills/`,
+// `.agents/skills/`, `.opencode/commands/`,
 // `opencode.json`) under root and writes specs into the configured
 // source directories.
 func importFromOpencode(root string, src config.Sources) error {
@@ -60,7 +61,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFolders(root, opencodeSkillsDir, filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFoldersFrom(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

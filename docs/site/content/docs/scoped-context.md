@@ -66,7 +66,7 @@ globs: "services/payments/**/*.go"
 
 `**/*` reduces to the whole scope. `**/*.go` is not rewritten relative to the scope and is unsupported. Directory-document targets such as Codex cannot express narrower file filters.
 
-Prefer one `paths` or `globs` selector per rule. If both are present, their constrained patterns must agree or one must cover the scope. Multiple patterns work for scoped Claude, Cline, Qoder, and OpenHands rules. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`.
+Prefer one `paths` or `globs` selector per rule. If both are present, their constrained patterns must agree or one must cover the scope. Multiple patterns work for scoped Claude, Cline, Continue, Qoder, and OpenHands rules. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`. Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array reports unsupported with scope, since replacing it with a directory filter would change activation.
 
 Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
 
