@@ -18,7 +18,7 @@ GEMINI.md                              # canonical entry-point pointer body (wri
 .gemini/commands/<name>.toml           # one per command
 .gemini/skills/<name>/SKILL.md         # one folder per skill, bundled assets included
 .gemini/commands/skill-<name>.toml     # additional command form, only when emit-skills-as-commands: true
-.gemini/settings.json                  # when MCP and/or hook entries exist (merged with existing user config)
+.gemini/settings.json                  # when MCP, hook, or settings entries exist (merged with existing user config)
 .geminiignore                          # when ignore entries exist
 ```
 
@@ -34,13 +34,14 @@ GEMINI.md                              # canonical entry-point pointer body (wri
   Set `outputs.gemini.emit-agents-as-commands: true` to also keep writing the old `<name>.toml` slash command, for a project that already types `/name`. With the key off, a managed TOML an earlier sync left there is swept.
 - **Skills**: native [Agent Skills](https://geminicli.com/docs/cli/skills/) folders under `.gemini/skills/<name>/SKILL.md` (the workspace tier Gemini CLI scans). It also reads the cross-tool `.agents/skills/` alias, which takes precedence over `.gemini/skills/` within the same tier when a skill shares a name in both (target-audit 2026-08-08, #563). Gemini CLI resolves that conflict itself at session start, so no sync-time detection is needed here. Bundled sibling files propagate byte-for-byte. Set `outputs.gemini.emit-skills-as-commands: true` to additionally emit one `skill-<name>.toml` command per skill.
 - **Commands**: one TOML per command spec under `.gemini/commands/<name>.toml`, [the directory Gemini reads project slash commands from](https://geminicli.com/docs/cli/custom-commands.md). `description` frontmatter maps to the TOML `description`; the body becomes the `prompt`. Agents left this directory in #733, so a command and an agent may now share a name without overwriting each other.
+- **Settings**: the portable `model` maps to `model.name` in `.gemini/settings.json`. Sibling model options and unrelated settings survive. `x-gemini` settings keys merge into the same file; portable permission rules produce a coverage note. Import restores the default model.
 - **MCP + hooks**: written into `.gemini/settings.json` (`mcpServers` map, `hooks` map). Gemini keys the endpoint by transport: streamable-HTTP servers (`type: http`) use `httpUrl`, SSE servers (`type: sse`) use `url`. The adapter routes each automatically. Stdio servers also accept `cwd` (working directory), the same cross-tool field Codex reads.
 
   Every server, any transport, also accepts `timeout` (milliseconds), `trust` (bypass tool-call confirmations), `description`, `includeTools`, and `excludeTools`; all five pass through verbatim ([geminicli.com/docs/reference/configuration](https://geminicli.com/docs/reference/configuration.md), #661).
 
   Hooks route by `event` frontmatter. Gemini CLI documents 11 events: `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`. Each definition contains `matcher` and a nested `hooks` array of `{type: "command", command}` handlers, as required by the [hook reference](https://geminicli.com/docs/hooks/reference/). Portable hook timeouts convert from seconds to milliseconds; the vendor default is 60000 ms. A `command` list becomes separate handlers kept in one definition. Set `x-gemini.sequential: true` to run them in order. `description` reaches each handler, `x-gemini.name` sets its display name, and `x-gemini.env` supplies per-handler environment variables. Pre-existing user keys survive syncs.
 - **Ignore**: ignore specs emit as `.geminiignore` (gitignore syntax), the file [Gemini CLI reads](https://geminicli.com/docs/cli/gemini-ignore/). Multiple specs concatenate. Override via `outputs.gemini.ignore-file`. Up to v0.49 this wrote `.aiexclude`, which belongs to Gemini Code Assist and Gemini CLI never opens; a managed `.aiexclude` is removed on the next sync. (#625)
-- **Import**: `import gemini` reads every native directory on its own pass. `.gemini/agents/*.md` becomes agent specs, `.gemini/commands/*.toml` becomes command specs, `.gemini/skills/<name>/` becomes skill folders, and `.gemini/settings.json` becomes MCP and hook specs. A command's `prompt` becomes the spec body in either form Gemini documents, the triple-quoted block or the single-line string, and `description` stays in frontmatter.
+- **Import**: `import gemini` reads every native directory on its own pass. `.gemini/agents/*.md` becomes agent specs, `.gemini/commands/*.toml` becomes command specs, `.gemini/skills/<name>/` becomes skill folders, and `.gemini/settings.json` becomes MCP, hook, and default-model settings specs. A command's `prompt` becomes the spec body in either form Gemini documents, the triple-quoted block or the single-line string, and `description` stays in frontmatter.
 
   A project synced before #733 emitted its agents as command TOMLs; those import as commands, since `.gemini/commands/` is the slash-command directory, and a re-sync writes them back to the same path. The mirror TOMLs `emit-agents-as-commands` and `emit-skills-as-commands` write import as command specs too, for the same reason; the emitted bytes stay identical across the round-trip (#750).
 
@@ -53,7 +54,7 @@ GEMINI.md                              # canonical entry-point pointer body (wri
 | `outputs.gemini.agents-dir` | `.gemini/agents` | |
 | `outputs.gemini.commands-dir` | `.gemini/commands` | |
 | `outputs.gemini.skills-dir` | `.gemini/skills` | |
-| `outputs.gemini.mcp-file` | `.gemini/settings.json` | also holds hooks |
+| `outputs.gemini.mcp-file` | `.gemini/settings.json` | also holds hooks and settings |
 | `outputs.gemini.emit-skills-as-commands` | `false` | |
 | `outputs.gemini.emit-agents-as-commands` | `false` | |
 | `outputs.gemini.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |

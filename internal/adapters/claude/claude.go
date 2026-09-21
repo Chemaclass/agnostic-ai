@@ -9,12 +9,9 @@
 //   - commands -> <dir>/commands/<name>.md (slash commands)
 //   - settings -> <dir>/settings.json (permissions, model)
 //
-// An MCP spec's `disabled: true` has no file-based equivalent here:
-// code.claude.com/docs/en/mcp documents only the `/mcp` panel toggle and
-// the `disabledMcpServers` / `enabledMcpServers` settings keys, neither
-// of which is a per-server key inside `.mcp.json`. The emitter drops the
-// field rather than write one Claude Code ignores, and buffers a
-// coverage note so the drop is loud, not silent.
+// Disabled project MCP servers are rejected through disabledMcpjsonServers
+// in .claude/settings.json. An internal sidecar records generated additions
+// so re-enabling a server preserves manually authored rejection entries.
 //
 // Four other `.mcp.json` per-server fields do emit, all four confirmed
 // on the same vendor page (target-audit 2026-08-27, #634):
@@ -169,7 +166,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	hooks := b.HooksFor(target)
-	if err := writeSettings(sess, hooks, b.Settings, dir, cfg, dryRun); err != nil {
+	if err := writeSettings(sess, hooks, b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
 		return err
 	}
 
@@ -181,16 +178,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
+	mcps := withoutMCPDisabled(b.MCPs)
 	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithClaudeMCPExtras())
 }
-
-// mcpDisabledNoOpReason explains, in the flushed coverage note, why
-// `disabled: true` on an MCP spec never reaches `.mcp.json`: Claude Code
-// has no per-server disable key there. See the package doc comment for
-// the vendor source.
-const mcpDisabledNoOpReason = "no file-based way to pre-disable a project-scoped MCP server; use the /mcp panel or disabledMcpServers in settings instead"
 
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.<target>/hooks/`. The lookup keys off
@@ -296,8 +287,15 @@ func isClaudeSkillSkippedAsset(rel string) bool {
 //     has no parts to keep, is still replaced (#966).
 //
 // Short-circuit: all layers empty -> write nothing.
-func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
+func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	path := filepath.Join(dir, "settings.json")
+	policy, err := readMCPRejections(mcps, dir, cfg)
+	if err != nil {
+		return err
+	}
+	if policy.active && (sess.IsUnmanaged(path) || sess.IsUnmanaged(policy.path)) {
+		return fmt.Errorf("claude: MCP rejection settings and ownership state must both be managed: %s", path)
+	}
 	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
 	if err != nil {
 		return err
@@ -308,7 +306,7 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active {
 		return nil
 	}
 	doc := overlay
@@ -324,6 +322,9 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 		if doc == nil {
 			doc = emit.NewOrderedJSON()
 		}
+	}
+	if err := policy.removeOwned(doc); err != nil {
+		return err
 	}
 	// `permissions` is a nested object whose allow/deny/ask lists are
 	// additive security rules. A wholesale key replace would drop rules a
@@ -358,6 +359,9 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, dir string,
 		if err := doc.Set(k, mergeCustomKey(doc, k, custom[k])); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
+	}
+	if err := policy.apply(sess, doc, dryRun); err != nil {
+		return err
 	}
 	indent := detectSettingsIndent(path)
 	raw, err := emit.MarshalJSONIndentWith(doc, indent)

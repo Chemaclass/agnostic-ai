@@ -83,7 +83,7 @@ Three of those ten do more than carry instructions. A [review](https://agnostic-
 
 ## Supported targets
 
-agnostic-ai supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [20 more targets](https://agnostic-ai.org/docs/targets/#capability-matrix). Support varies by spec kind. The target reference lists every capability, native path, and opt-in setting.
+agnostic-ai supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [20 more targets](https://agnostic-ai.org/docs/targets/#capability-matrix). Support varies by spec kind. Gemini default-model settings and Qoder HTTP/prompt hooks emit natively. Import preserves Cline and Continue rule activation and supported compatible skill roots. The target reference lists every capability, native path, and opt-in setting.
 
 The [AI tooling updates](https://agnostic-ai.org/updates/) explain important upstream CLI and model changes, their developer impact, and the current agnostic-ai support state.
 

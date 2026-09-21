@@ -13,15 +13,27 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 ### Added
 
 - `agnostic-ai lint` warns (LINT009) on an allowed `Bash(...)` rule with a `*` before the end of the command, such as `Bash(git * main)`, which also approves options inserted at that spot on Claude Code and every target that translates the rule. Deny and ask rules are not flagged, since widening them only blocks or prompts more.
+- Gemini emits and imports default-model settings, and Qoder emits HTTP and prompt hooks (#998, #1005).
+
 - This repository now dogfoods the three spec kinds it never used: an `ignore` spec keeps build output, lockfiles, and local secrets out of ten targets' exclusion files, beside a `review` spec Cursor Bugbot and Goose read and an `environment` spec for Cursor, Amp, and OpenHands (#980).
 
+### Fixed
+
+- Claude rejects disabled project MCP servers and preserves manual rejection entries when re-enabled (#997).
+- Import preserves Cline and Continue rule conditions, both Cline rule roots, and compatible Junie, Warp, and OpenCode skills (#999, #1000, #1001, #1002).
+- Factory keeps scoped skills in their project areas, and Trae rejects invalid native agent names (#1004, #1006).
+
 ### Changed
+
+- Target audits reuse one issue index, load vendor references by target, and fit available worker slots; fix instructions load only when needed.
 
 - `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@chemaclass/agnostic-ai-darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy. `AGNOSTIC_AI_VERSION` stops applying to npm, where the package version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it; both install scripts still honour it, and `AGNOSTIC_AI_BINARY` still points the wrapper at a binary of your own. A global copy missing its platform package is now told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` in your npm config (#942).
 - The release publishes the six platform packages before the parent that pins them, and the distribution guard checks the version and the dist-tag on all seven, so a partial publish fails the release instead of breaking installs on one platform. Every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), so cutting a prerelease no longer hands it npm's `latest` (#942).
 - The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
 
 ### Site
+
+- The targets index records Cursor's default-on compatibility hooks and required `type: stdio` field (#1007).
 
 - The landing says the same things in fewer words. The mission lede loses a restated line, each of the four principles drops the clause the first sentence already covered, and the targets lead names the four spec kinds its matrix omits without explaining one of them mid-sentence.
 - The site builds on Zola 0.23.6 instead of 0.22.0: templates moved to Tera 2 components, shortcodes became components, and the three site tests that silently skipped on a mismatched local Zola now run for anyone on a current release (#970).

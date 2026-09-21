@@ -40,6 +40,8 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 
 ## Import
 
+Skills import from each documented project root: `.agents`, `.warp`, `.claude`, `.codex`, `.cursor`, `.gemini`, `.copilot`, `.factory`, `.github`, and `.opencode`, each followed by `/skills/`. Earlier roots win duplicate names within the same scope; scoped paths and bundled assets stay together.
+
 `agnostic-ai import warp` reads `AGENTS.md`, workflows from `.warp/workflows/`, and MCP servers from `.warp/.mcp.json`, as described under **Workflows** and **MCP**. It copies `.agents/skills/<name>/SKILL.md` and all bundled assets.
 
 ## Verify

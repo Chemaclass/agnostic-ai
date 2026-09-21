@@ -8,6 +8,18 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// An empty whitelist forbids all header environment interpolation; omission
+// allows every variable. A pointer preserves that distinction in JSON.
+type hookEntry struct {
+	claudehooks.CommandEntry
+	AllowedEnvVars *[]string `json:"allowedEnvVars,omitempty"`
+}
+
+type hookGroup struct {
+	Matcher string      `json:"matcher"`
+	Hooks   []hookEntry `json:"hooks"`
+}
+
 // hookLifecycle is the event order docs.qoder.com/cli/hooks' own Event
 // Reference table groups by: Session Lifecycle, Tool Calls, Agent Flow,
 // Context Compaction, Notifications, Context and Configuration Loading,
@@ -47,8 +59,8 @@ var hookLifecycle = []string{
 // `.qoder/settings.json`: `{"<Event>": [{"matcher": ..., "hooks":
 // [...]}]}`. docs.qoder.com/cli/hooks documents that identical nested
 // shape ("Configuration Format"), the same one Claude Code, Codex, and
-// OpenHands use, so this reuses the shared claudehooks wire structs
-// those emitters already carry instead of a third hand-rolled copy.
+// OpenHands use. The local wrapper reuses the shared command fields while
+// preserving an explicitly empty HTTP environment whitelist.
 // Returned as an *emit.OrderedJSON, not a plain map, so the event order
 // survives being embedded as a nested value under mcp.go's
 // emitSettings, which uses the same recursive-OrderedJSON technique
@@ -61,19 +73,15 @@ var hookLifecycle = []string{
 // through; unlike openhands and windsurf, whose own tool vocabularies
 // diverge from Claude's, qoder needs no coverage note here (#629).
 //
-// Fields emitted per hook entry: `type` (always "command", the only
-// type a generic command spec can express), `command`, `args`,
+// Command handlers emit `type`, `command`, `args`,
 // `timeout` (seconds, vendor default 600), `statusMessage`, `async`,
 // `asyncRewake`, `shell`, `if`, and `once`. All nine are documented on
 // docs.qoder.com/cli/hooks' `command` hook entry with the same
-// semantics claudehooks.CommandEntry already models for Claude Code, so
-// no target-specific struct is needed. Qoder additionally documents
-// `env`, `rewakeMessage`, and `rewakeSummary` on that same entry, plus
-// three more hook entry types (`http`, `prompt`, `agent`). None of
-// those six has a field on the shared hook spec (the `type` field's own
-// doc entry in docs/site/content/docs/spec-format.md ties it to Codex's `mcp_tool`
-// only), so nothing here can reach them; they stay unset rather than
-// guessed.
+// semantics claudehooks.CommandEntry already models for Claude Code.
+// HTTP handlers emit `url`, `headers`,
+// and `allowedEnvVars`; prompt handlers emit `prompt` and `model`. Both
+// also accept `timeout`, `if`, `once`, and `statusMessage`. Agent handlers
+// are unsupported and produce a coverage note.
 //
 // `args` switches the entry to exec form: "`command` is the path/name
 // of a single executable, and each element of `args` is one literal
@@ -89,13 +97,27 @@ var hookLifecycle = []string{
 // Returns nil when no hook spec produces an entry.
 func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
-	byKey := map[matcherKey][]claudehooks.CommandEntry{}
+	byKey := map[matcherKey][]hookEntry{}
 	var keyOrder []matcherKey
 	execFormShell := 0
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		if event == "" {
+			continue
+		}
+		hookType, _ := h.Meta["type"].(string)
+		if hookType != "" && hookType != "command" {
+			entry := nonCommandHook(h, hookType)
+			if entry == nil {
+				continue
+			}
+			matcher, _ := h.Meta["matcher"].(string)
+			k := matcherKey{event: event, matcher: matcher}
+			if _, seen := byKey[k]; !seen {
+				keyOrder = append(keyOrder, k)
+			}
+			byKey[k] = append(byKey[k], *entry)
 			continue
 		}
 		commands := emit.HookCommands(h.Meta["command"])
@@ -120,7 +142,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			keyOrder = append(keyOrder, k)
 		}
 		for _, command := range commands {
-			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
+			byKey[k] = append(byKey[k], hookEntry{CommandEntry: claudehooks.CommandEntry{
 				Type:          "command",
 				Command:       emit.RewriteHookPath(command, target),
 				Args:          args,
@@ -131,7 +153,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 				Shell:         shell,
 				If:            ifRule,
 				Once:          once,
-			})
+			}})
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "shell", execFormShell,
@@ -140,13 +162,13 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		return nil
 	}
 
-	byEvent := map[string][]claudehooks.Group{}
+	byEvent := map[string][]hookGroup{}
 	var eventOrder []string
 	for _, k := range keyOrder {
 		if _, seen := byEvent[k.event]; !seen {
 			eventOrder = append(eventOrder, k.event)
 		}
-		byEvent[k.event] = append(byEvent[k.event], claudehooks.Group{Matcher: k.matcher, Hooks: byKey[k]})
+		byEvent[k.event] = append(byEvent[k.event], hookGroup{Matcher: k.matcher, Hooks: byKey[k]})
 	}
 	for event, groups := range byEvent {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
@@ -158,6 +180,38 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		_ = doc.Set(event, byEvent[event])
 	}
 	return doc
+}
+
+// nonCommandHook selects only the fields documented for each handler type.
+func nonCommandHook(h spec.Entry, hookType string) *hookEntry {
+	entry := &hookEntry{CommandEntry: claudehooks.CommandEntry{Type: hookType}}
+	switch hookType {
+	case "http":
+		entry.URL, _ = h.Meta["url"].(string)
+		if entry.URL == "" {
+			return nil
+		}
+		entry.Headers = emit.StringMap(h.Meta["headers"])
+		if value, exists := h.Meta["allowedEnvVars"]; exists {
+			allowed := append([]string{}, emit.StringSlice(value)...)
+			entry.AllowedEnvVars = &allowed
+		}
+	case "prompt":
+		entry.Prompt, _ = h.Meta["prompt"].(string)
+		if entry.Prompt == "" {
+			return nil
+		}
+		entry.Model, _ = h.Meta["model"].(string)
+	default:
+		emit.NoteFieldNoOp(target, spec.KindHook, "type", 1,
+			"unsupported hook type "+hookType+"; supported types are command, http, and prompt")
+		return nil
+	}
+	entry.Timeout = emit.HookIntMeta(h.Meta, "timeout")
+	entry.If, _ = h.Meta["if"].(string)
+	entry.Once = emit.HookBoolMeta(h.Meta, "once")
+	entry.StatusMessage, _ = h.Meta["statusMessage"].(string)
+	return entry
 }
 
 // orderHookEvents puts the vendor's documented lifecycle order first,

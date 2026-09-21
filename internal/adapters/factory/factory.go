@@ -23,6 +23,8 @@
 // does not additionally write, `.agent/skills/**/SKILL.md`: "Droid can
 // load skills from several scopes. A skill is any directory under a
 // `skills/` folder that contains SKILL.md."
+// Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md`.
+// An explicit skills-dir override applies beneath each scope.
 //
 // `tools` is translated, not passed through. Droid CLI's tool IDs are
 // its own vocabulary and "Arrays must use valid IDs from this table or
@@ -192,8 +194,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	noteDroppedManualOnly(b.Skills)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
-		return err
+	for _, skill := range b.Skills {
+		skillDir := skillsDir
+		if skill.Scope != "" {
+			var err error
+			skillDir, err = emit.ScopedSkillsDir(skill.Scope, emit.OutputSkillsDir(cfg, target, ".factory/skills"))
+			if err != nil {
+				return err
+			}
+		}
+		if err := sess.WriteSkillFolder(skill, target, skillDir, dryRun); err != nil {
+			return err
+		}
 	}
 	if err := emitCommands(sess, b.Commands, emit.OutputCommandsDir(cfg, target, defaultCommandsDir), dryRun); err != nil {
 		return err

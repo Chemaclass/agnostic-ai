@@ -155,6 +155,7 @@
 //
 // Trae also reads the cross-tool root `AGENTS.md`, which is written
 // centrally by `sync`, not by this adapter.
+// Native agent names are validated against Trae's 50-character ASCII contract.
 package trae
 
 import (

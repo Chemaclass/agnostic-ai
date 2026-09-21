@@ -296,8 +296,8 @@ Handler-specific and tool-specific fields emit only where the target's schema de
 | Fields | Targets |
 |--------|---------|
 | `server`, `tool`, `input` (for `type: mcp_tool`) | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md) |
-| `url`, `headers`, `allowedEnvVars` (HTTP handler) | [Claude Code](@/docs/targets/claude.md), [Copilot](@/docs/targets/copilot.md) |
-| `prompt`, `model` (prompt handler) | [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md) (`sessionStart` only) |
+| `url`, `headers`, `allowedEnvVars` (HTTP handler) | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) |
+| `prompt`, `model` (prompt handler) | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md) (`sessionStart` only) |
 | `continueOnBlock` | [Claude Code](@/docs/targets/claude.md) |
 | `statusMessage`, `async` | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md), [Qoder](@/docs/targets/qoder.md) |
 | `asyncRewake`, `shell`, `if` | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) |
@@ -446,7 +446,8 @@ Only the targets listed were checked. Native booleans default to `false`.
 | [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
 | [Copilot](@/docs/targets/copilot.md) | Written as a `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Stripped from both MCP files with a note, since neither reader has a per-server key; disable the server in VS Code for that half. |
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
+| [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers emitted to `.mcp.json`. Import restores this state. |
+| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
 
 ## Commands
 
@@ -508,7 +509,7 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 | Factory | `Bash` rules only | yes |
 | Windsurf | yes | no |
 | Augment | `allow` and `deny` only | no |
-| Codex, Copilot, Junie | no | yes |
+| Codex, Copilot, Junie, Gemini | no | yes |
 
 Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, and Codex report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Factory's three command lists take shell-command patterns, so a `Bash` rule translates and a `Read(src/**)` raises a note. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
 

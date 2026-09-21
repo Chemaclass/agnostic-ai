@@ -12,5 +12,8 @@
         "matcher": "Edit"
       }
     ]
+  },
+  "model": {
+    "name": "example-model"
   }
 }

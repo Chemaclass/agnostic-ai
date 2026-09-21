@@ -135,6 +135,35 @@ function test_dump_target_emits_every_section_for_a_real_target() {
 
 # ---- coverage of the audit source list ---------------------------------------
 
+function test_source_sections_contains_only_requested_targets() {
+  local out
+  out=$(source_sections zed junie)
+  assert_contains "## zed" "$out"
+  assert_contains "## junie" "$out"
+  assert_contains "docs:" "$out"
+  assert_not_contains "## warp" "$out"
+  assert_not_contains "## claude" "$out"
+}
+
+function test_source_sections_rejects_unknown_target_before_printing() {
+  local out status=0
+  out=$(source_sections zed definitely-not-a-target 2>/dev/null) || status=$?
+  assert_equals 1 "$status"
+  assert_empty "$out"
+}
+
+function test_source_sections_requires_a_target() {
+  local status=0
+  source_sections 2>/dev/null || status=$?
+  assert_equals 2 "$status"
+}
+
+function test_source_sections_does_not_repeat_duplicate_targets() {
+  local count
+  count=$(source_sections zed zed | grep -c '^## zed$')
+  assert_equals 1 "$count"
+}
+
 function test_every_registered_target_has_an_upstream_sources_entry() {
   # The Go test in tests/integration owns this invariant; this mirror
   # keeps `make test-shell` honest when the sources file is edited by

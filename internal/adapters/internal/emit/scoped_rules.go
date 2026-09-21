@@ -60,6 +60,17 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 		if err := CheckScopePath(scope); err != nil {
 			return out, nil, fmt.Errorf("%s: %w", r.Path, err)
 		}
+		// Cline's empty paths list disables activation and cannot widen scope.
+		if target == "cline" && emptySelectorList(r.Meta["paths"]) {
+			out.Rules = append(out.Rules, original)
+			continue
+		}
+		if target == "continue" && emptySelectorList(r.Meta["globs"]) {
+			if err := unsupportedScope(cfg, target, r, "empty native globs cannot safely express a directory scope"); err != nil {
+				return out, nil, err
+			}
+			continue
+		}
 		doc := scopeDocument(target)
 		if doc == "" && !hasScopeFilters(target) {
 			if err := unsupportedScope(cfg, target, r, "no verified native directory or file-scoped instructions"); err != nil {
@@ -105,7 +116,7 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 			grouped[path] = append(grouped[path], r)
 			continue
 		}
-		if len(patterns) > 1 && target != "claude" && target != "cline" && target != "qoder" && target != "openhands" {
+		if len(patterns) > 1 && target != "claude" && target != "cline" && target != "continue" && target != "qoder" && target != "openhands" {
 			if err := unsupportedScope(cfg, target, r, "multiple intersected patterns are not supported by this renderer; use one rule per pattern"); err != nil {
 				return out, nil, err
 			}
@@ -116,6 +127,7 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 			r.Meta["x-"+target] = custom
 		}
 		r.Meta["paths"] = patterns
+		nativeGlobs := r.Meta["globs"]
 		r.Meta["globs"] = strings.Join(patterns, ",")
 		r.Meta["alwaysApply"] = false
 		// Native activation keys must not override the portable scope contract.
@@ -124,6 +136,14 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 		}
 		if target == "continue" {
 			delete(r.Meta, "alwaysApply")
+			switch nativeGlobs.(type) {
+			case []string, []any:
+				r.Meta["globs"] = patterns
+			default:
+				if len(patterns) > 1 {
+					r.Meta["globs"] = patterns
+				}
+			}
 		}
 		for _, k := range []string{"paths", "globs", "alwaysApply"} {
 			if _, ok := r.Meta[k]; ok && !containsKey(r.MetaKeys, k) {
@@ -144,6 +164,17 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 		files = append(files, CapturedFile{Path: p, Content: scopedDocumentBody(rules)})
 	}
 	return out, files, nil
+}
+
+func emptySelectorList(value any) bool {
+	switch list := value.(type) {
+	case []string:
+		return len(list) == 0
+	case []any:
+		return len(list) == 0
+	default:
+		return false
+	}
 }
 
 func containsKey(keys []string, key string) bool {

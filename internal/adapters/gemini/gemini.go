@@ -72,6 +72,10 @@
 // under x-gemini.hooks preserve per-command metadata and sequential execution
 // through import (geminicli.com/docs/hooks/reference/, #762).
 //
+// Settings map the portable model to `model.name` in `.gemini/settings.json`.
+// Native model siblings and unrelated settings survive sync. `x-gemini`
+// settings pass through; portable permissions produce a coverage note.
+//
 // Ignore specs emit as `.geminiignore` (override via
 // outputs.gemini.ignore-file), gitignore syntax under a `#` provenance
 // header: "Create a file named `.geminiignore` in the root of your
@@ -114,7 +118,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 }
 
 // Adapter emits Gemini CLI configs.
@@ -197,7 +201,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 }
 
 // emitSettings writes (or merges into) .gemini/settings.json with the
-// `mcpServers` and `hooks` keys. Routes through emit.MergeJSONFile so
+// `mcpServers`, `hooks`, and settings keys. Routes through a nested merge so
 // any user-managed Gemini settings survive the sync.
 func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) error {
 	keys := map[string]any{}
@@ -207,10 +211,17 @@ func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) e
 	if hooks := buildHooks(b.HooksFor(target)); len(hooks) > 0 {
 		keys["hooks"] = hooks
 	}
+	if model := emit.LastSettingsModel(b.Settings); model != "" {
+		keys["model"] = map[string]any{"name": model}
+	}
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(b.Settings),
+		"portable permission lists have no Gemini mapping; use x-gemini for native settings")
+	emit.MergeSettingsCustomKeys(keys, b.Settings, target, "mcpServers")
+	emit.MergeSettingsCustomRecordMap(keys, b.Settings, target, "mcpServers")
 	if len(keys) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, keys, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"model"}, dryRun)
 }
 
 // buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit
