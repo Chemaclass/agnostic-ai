@@ -10,11 +10,19 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ## [Unreleased]
 
+## v0.64.0 - 2026-09-21
+
+### Changed
+
+- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@chemaclass/agnostic-ai-darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy. `AGNOSTIC_AI_VERSION` stops applying to npm, where the package version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it; both install scripts still honour it, and `AGNOSTIC_AI_BINARY` still points the wrapper at a binary of your own. A global copy missing its platform package is now told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` in your npm config (#942).
+- The release publishes the six platform packages before the parent that pins them, and the distribution guard checks the version and the dist-tag on all seven, so a partial publish fails the release instead of breaking installs on one platform. Every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), so cutting a prerelease no longer hands it npm's `latest` (#942).
+- The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
+- Target audits reuse one issue index, load vendor references by target, and fit available worker slots; fix instructions load only when needed.
+
 ### Added
 
 - `agnostic-ai lint` warns (LINT009) on an allowed `Bash(...)` rule with a `*` before the end of the command, such as `Bash(git * main)`, which also approves options inserted at that spot on Claude Code and every target that translates the rule. Deny and ask rules are not flagged, since widening them only blocks or prompts more.
 - Gemini emits and imports default-model settings, and Qoder emits HTTP and prompt hooks (#998, #1005).
-
 - This repository now dogfoods the three spec kinds it never used: an `ignore` spec keeps build output, lockfiles, and local secrets out of ten targets' exclusion files, beside a `review` spec Cursor Bugbot and Goose read and an `environment` spec for Cursor, Amp, and OpenHands (#980).
 
 ### Fixed
@@ -23,23 +31,13 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - Import preserves Cline and Continue rule conditions, both Cline rule roots, and compatible Junie, Warp, and OpenCode skills (#999, #1000, #1001, #1002).
 - Factory keeps scoped skills in their project areas, and Trae rejects invalid native agent names (#1004, #1006).
 
-### Changed
-
-- Target audits reuse one issue index, load vendor references by target, and fit available worker slots; fix instructions load only when needed.
-
-- `npm install agnostic-ai` no longer downloads anything: the binary ships in a platform package (`@chemaclass/agnostic-ai-darwin-arm64` and five siblings) that npm picks by `os` and `cpu`, so the install works under `--ignore-scripts`, offline, and behind a proxy. `AGNOSTIC_AI_VERSION` stops applying to npm, where the package version is the pin, so `npm install -g agnostic-ai@0.62.0` replaces it; both install scripts still honour it, and `AGNOSTIC_AI_BINARY` still points the wrapper at a binary of your own. A global copy missing its platform package is now told `npm install -g agnostic-ai --force --include=optional`, which reaches the global tree and overrides an `omit=optional` in your npm config (#942).
-- The release publishes the six platform packages before the parent that pins them, and the distribution guard checks the version and the dist-tag on all seven, so a partial publish fails the release instead of breaking installs on one platform. Every publish carries a `--tag` derived from the version (`-beta.1` to `beta`, `-rc.2` to `rc`, anything unrecognised to `next`), so cutting a prerelease no longer hands it npm's `latest` (#942).
-- The Homebrew cask is no longer pushed from this repository, and no longer needs a secret in it. `Chemaclass/homebrew-tap` updates its own cask every half hour with the `GITHUB_TOKEN` its workflow already has, checking all four archives resolve before it commits. The release still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` and `HOMEBREW_TAP_TOKEN`, and writes a byte-identical file, so the two routes never fight (#920, #943).
-
 ### Site
 
 - The targets index records Cursor's default-on compatibility hooks and required `type: stdio` field (#1007).
-
-- The landing says the same things in fewer words. The mission lede loses a restated line, each of the four principles drops the clause the first sentence already covered, and the targets lead names the four spec kinds its matrix omits without explaining one of them mid-sentence.
+- The landing says the same things in fewer words. The mission lede loses a restated line, each principle drops a repeated clause, the targets lead names the four omitted spec kinds, and the hero fan drops its accent dot.
 - The site builds on Zola 0.23.6 instead of 0.22.0: templates moved to Tera 2 components, shortcodes became components, and the three site tests that silently skipped on a mismatched local Zola now run for anyone on a current release (#970).
 - The ten spec kinds stop being a bare list. The playground's kind picker now says in one line what the selected kind is and links to the section of the spec format that defines it, the landing names the four kinds its capability matrix leaves out with a link each, and the README explains `review`, `environment`, and `ignore` instead of only listing them (#980).
-- The landing page ships its generated-file tablist inert until `landing.js` wires it, so a reader without JavaScript sees one real generated file rather than four buttons that refuse to move (#977).
-- The landing sheds two things it never rendered or no longer needs: `landing.toml` drops the `go` and `binary` installer entries, since only the hero default and the three entries with a `recommend_for` reach the page and both routes stay documented on the installation page, and the hero fan drops the accent dot at the install command's right edge. A test now fails on an installer the page cannot render (#991).
+- The landing ships its generated-file tablist inert until `landing.js` wires it, so readers without JavaScript see one real file (#977). `landing.toml` also drops the unrendered `go` and `binary` installers while keeping the hero default and entries with `recommend_for`; a test now rejects unreachable installers (#991).
 
 ## v0.63.0 - 2026-09-20
 
