@@ -45,7 +45,8 @@ func newLintCmd() *cobra.Command {
 		Long: "Checks for empty specs, duplicate names, dead specs (kinds not " +
 			"supported by any enabled target), hooks whose event ignores their " +
 			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
-			"a key agnostic-ai owns (allowed_tools vs tools). Exit code 1 on " +
+			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
+			"with a wildcard before the end of the command. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -116,6 +117,7 @@ func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
+	findings = append(findings, lintMidWildcardAllow(b.Settings)...)
 	return findings
 }
 
@@ -311,6 +313,41 @@ func lintMCPMissingRequiredField(mcps []spec.Entry) []lintFinding {
 // as carrying `url`. A transport outside it (and outside stdio) has no
 // documented required field, so LINT008 stays quiet rather than guess.
 var remoteMCPTransports = map[string]bool{"http": true, "sse": true, "ws": true}
+
+// lintMidWildcardAllow flags an allowed `Bash(...)` rule with a `*`
+// anywhere but the end (LINT009, warn). A wildcard mid-command also
+// matches options inserted at that spot, so `Bash(git * main)` approves
+// `git push --force main`. Claude Code warns on the same shape at
+// startup; the translating targets widen it silently. Deny and ask are
+// skipped because widening them only blocks or prompts more.
+func lintMidWildcardAllow(settings []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, e := range settings {
+		perms, _ := e.Meta["permissions"].(map[string]any)
+		allow, _ := perms["allow"].([]any)
+		for _, raw := range allow {
+			rule, _ := raw.(string)
+			scope, arg, ok := spec.SplitPermissionRule(rule)
+			if !ok || scope != "Bash" {
+				continue
+			}
+			head := strings.TrimSuffix(strings.TrimSuffix(arg, "*"), ":")
+			if !strings.Contains(head, "*") {
+				continue
+			}
+			out = append(out, lintFinding{
+				Code:     "LINT009",
+				Severity: lintWarn,
+				Path:     e.Path,
+				Message: fmt.Sprintf(
+					"allow rule %q has a `*` before the end of the command, so it also approves any options inserted there; write the exact value or put `*` only at the end",
+					rule,
+				),
+			})
+		}
+	}
+	return out
+}
 
 func countSeverity(findings []lintFinding, s lintSeverity) int {
 	n := 0

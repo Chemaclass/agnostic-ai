@@ -259,3 +259,49 @@ func TestCollectLintFindings_IncludesMCPMissingRequiredField(t *testing.T) {
 		t.Error("expected collectLintFindings to report LINT008")
 	}
 }
+
+func TestLintMidWildcardAllow_FlagsWildcardBeforeEnd(t *testing.T) {
+	settings := []spec.Entry{{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml",
+		Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{
+				"Bash(grep -o '$filter=[^&]*' sync-ats.log)",
+				"Bash(git * main)",
+				"Bash(go test:*)",
+				"Bash(npm run *)",
+				"Bash(make*)",
+				"Bash(ls)",
+				"Read(src/**)",
+				"WebFetch",
+			},
+			"deny": []any{"Bash(rm * -rf)"},
+			"ask":  []any{"Bash(git * --force)"},
+		}},
+	}}
+	findings := lintMidWildcardAllow(settings)
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d: %+v", len(findings), findings)
+	}
+	for i, want := range []string{"sync-ats.log", "git * main"} {
+		f := findings[i]
+		if f.Code != "LINT009" || f.Severity != lintWarn || f.Path != "settings/perms.yaml" {
+			t.Errorf("unexpected finding %+v", f)
+		}
+		if !strings.Contains(f.Message, want) {
+			t.Errorf("message should name %q, got %q", want, f.Message)
+		}
+	}
+}
+
+func TestCollectLintFindings_ReportsMidWildcardAllow(t *testing.T) {
+	b := spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml",
+		Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(git * main)"}}}}}}
+	var found bool
+	for _, f := range collectLintFindings([]string{"claude"}, b) {
+		if f.Code == "LINT009" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected collectLintFindings to report LINT009")
+	}
+}

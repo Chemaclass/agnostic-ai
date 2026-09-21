@@ -499,6 +499,8 @@ model: claude-opus-4-8
 
 A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
 
+Keep a `Bash` wildcard at the end of an `allow` rule. `Bash(git * main)` also approves any options inserted at the `*`, and `agnostic-ai lint` reports it as LINT009.
+
 Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins.
 
 | Target | `permissions` | `model` |
