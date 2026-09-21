@@ -17,6 +17,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Site
 
+- The docs table of contents escapes heading titles, so `x-<target>` on the spec format page no longer pulls the site footer into the right-hand column.
 - The README links directly to npm, the Homebrew tap, and GitHub Releases; installation docs identify `agnostic-ai` as the public npm entry point.
 - The targets page focuses on the capability matrix: it defines sync states and spec kinds, filters immediately, links every column, and moves shared details into a separate reference.
 

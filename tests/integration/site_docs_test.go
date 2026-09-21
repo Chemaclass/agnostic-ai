@@ -1022,3 +1022,41 @@ func TestSiteDocs_EveryLandingInstallerReachesThePage(t *testing.T) {
 		t.Errorf("no installer has id %q, which index.html pins the hero command to", defaultID[1])
 	}
 }
+
+// TestSiteDocs_TocEscapesHeadingTitles keeps a heading's literal markup out
+// of the page's own DOM. Zola hands the table of contents plain-text titles,
+// so the heading "`x-<target>` namespace" arrives as `x-<target>`; rendered
+// unescaped, the browser opened a `<target>` element that the minified live
+// build never closed, and it swallowed the rest of the page, site footer
+// included, into the right-hand TOC column.
+func TestSiteDocs_TocEscapesHeadingTitles(t *testing.T) {
+	zolaPath := lookupPinnedZola(t)
+
+	outputDir := t.TempDir()
+	command := exec.Command(zolaPath, "--root", "../../docs/site", "build", "--force", "--output-dir", outputDir)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("build documentation site: %v\n%s", err, output)
+	}
+
+	tocBlock := regexp.MustCompile(`(?s)<aside class="docs-toc">.*?</aside>`)
+	allowedTag := regexp.MustCompile(`</?(?:p|nav|a)\b[^>]*>`)
+	pages, err := filepath.Glob(filepath.Join(outputDir, "docs", "*", "index.html"))
+	if err != nil || len(pages) == 0 {
+		t.Fatalf("no built docs pages under %s: %v", outputDir, err)
+	}
+	for _, page := range pages {
+		toc := tocBlock.FindString(readBuiltFile(t, page))
+		if toc == "" {
+			continue
+		}
+		inner := strings.TrimSuffix(strings.TrimPrefix(toc, `<aside class="docs-toc">`), "</aside>")
+		if stray := allowedTag.ReplaceAllString(inner, ""); strings.Contains(stray, "<") {
+			t.Errorf("%s: TOC emits raw markup from a heading title:\n%s", page, stray)
+		}
+	}
+
+	specFormat := tocBlock.FindString(readBuiltFile(t, filepath.Join(outputDir, "docs", "spec-format", "index.html")))
+	if !strings.Contains(specFormat, "x-&lt;target&gt;") {
+		t.Errorf("spec-format TOC does not show the escaped `x-<target>` heading:\n%s", specFormat)
+	}
+}
