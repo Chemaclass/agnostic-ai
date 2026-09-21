@@ -110,6 +110,10 @@ func CapabilityWarningsDigest() string { return emit.CapabilityWarningsDigest() 
 // (target, kind) capability warnings currently buffered.
 func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarningsCount() }
 
+// NoteProject buffers a project-wide note that belongs to no single
+// target, so it flushes and sticky-suppresses with the coverage notes.
+func NoteProject(text string) { emit.NoteProject(text) }
+
 // ResetCoverageNotes clears buffered coverage notes without printing.
 // Used by tests and by `sync --watch` before each new pass.
 func ResetCoverageNotes() { emit.ResetCoverageNotes() }

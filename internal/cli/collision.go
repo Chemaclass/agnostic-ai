@@ -123,34 +123,42 @@ const sharedAgentsTree = ".agents/agents/"
 // means a model id to Devin and a closed `inherit`/`flash`/`pro` tier
 // to Antigravity, so a single file would have to carry a value one of
 // the two vendors never documented. Scope the spec with `target:` to
-// silence it (#863).
+// silence it (#863). It folds into one line and buffers with the
+// coverage notes, so an unchanged overlap is not re-printed every sync.
 func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
 	if !slices.Contains(targets, "windsurf") {
 		return
 	}
-	shared := map[string][]string{}
+	files := 0
+	writers := map[string]bool{}
 	for path, ts := range owners {
 		if !strings.HasPrefix(filepath.ToSlash(path), sharedAgentsTree) {
 			continue
 		}
+		counted := false
 		for _, t := range ts {
-			if t != "windsurf" {
-				shared[filepath.ToSlash(path)] = append(shared[filepath.ToSlash(path)], t)
+			if t == "windsurf" {
+				continue
+			}
+			writers[t] = true
+			if !counted {
+				files++
+				counted = true
 			}
 		}
 	}
-	if len(shared) == 0 {
+	if files == 0 {
 		return
 	}
-	paths := make([]string, 0, len(shared))
-	for path := range shared {
-		paths = append(paths, path)
+	names := make([]string, 0, len(writers))
+	for t := range writers {
+		names = append(names, t)
 	}
-	sort.Strings(paths)
-	for _, path := range paths {
-		ts := shared[path]
-		sort.Strings(ts)
-		summaryf("  note: %s is written by %s and also read by Devin, which has its own copy in .devin/agents/; Devin loads both and only the .devin/ copy carries allowed-tools (scope the spec with `target:` to write one)\n",
-			path, strings.Join(ts, ", "))
+	sort.Strings(names)
+	verb := "are"
+	if files == 1 {
+		verb = "is"
 	}
+	adapters.NoteProject(fmt.Sprintf("%d agent file%s in %s written by %s %s also read by Devin, which loads them beside its own .devin/agents/ copy; only the .devin/ copy carries allowed-tools (scope the spec with `target:` to write one)",
+		files, plural(files), sharedAgentsTree, strings.Join(names, ", "), verb))
 }
