@@ -73,6 +73,10 @@ var coverageNoteState struct {
 	pending        []pendingNote
 	pendingField   []pendingFieldNote
 	pendingSurface []pendingSurfaceNote
+	// pendingText holds notes about the project as a whole rather than
+	// one target's emission, e.g. two targets' outputs overlapping in a
+	// tree a third vendor reads. Already a full sentence; no grouping.
+	pendingText []string
 }
 
 // NoteCoverageGap records that count specs of kind reach target only via
@@ -129,6 +133,20 @@ func NoteSurfaceGap(target string, kind spec.Kind, count int, surface, reason st
 	coverageNoteState.mu.Unlock()
 }
 
+// NoteProject records a project-wide note that belongs to no single
+// target, so none of the per-target shapes above fit. text is the full
+// sentence after the `note: ` prefix. Buffering it here, instead of
+// printing at the call site, gives it the same unchanged-since-last-sync
+// suppression as every other note. No-op on empty text.
+func NoteProject(text string) {
+	if text == "" {
+		return
+	}
+	coverageNoteState.mu.Lock()
+	coverageNoteState.pendingText = append(coverageNoteState.pendingText, text)
+	coverageNoteState.mu.Unlock()
+}
+
 // FlushCoverageNotes prints one line per buffered coverage gap (whole
 // entries that reach a target only via a hint), one line per buffered
 // field no-op (entries that reach a target in full, minus one inert
@@ -141,6 +159,21 @@ func FlushCoverageNotes() {
 	flushGapNotesLocked()
 	flushFieldNotesLocked()
 	flushSurfaceNotesLocked()
+	flushProjectNotesLocked()
+}
+
+// flushProjectNotesLocked prints each distinct project note once, in
+// the order recorded. Caller holds coverageNoteState.mu.
+func flushProjectNotesLocked() {
+	seen := map[string]bool{}
+	for _, text := range coverageNoteState.pendingText {
+		if seen[text] {
+			continue
+		}
+		seen[text] = true
+		_, _ = fmt.Fprintf(Warner, "  note: %s\n", text)
+	}
+	coverageNoteState.pendingText = nil
 }
 
 // flushGapNotesLocked prints one line per (kind, count, via) group across
@@ -270,13 +303,14 @@ func reachVerb(n int) string {
 	return "reach"
 }
 
-// ResetCoverageNotes clears buffered coverage gaps and field no-ops
-// without printing. Used by tests and by `sync --watch` between runs.
+// ResetCoverageNotes clears buffered coverage gaps, field no-ops,
+// surface gaps, and project notes without printing. Used by tests and by `sync --watch` between runs.
 func ResetCoverageNotes() {
 	coverageNoteState.mu.Lock()
 	coverageNoteState.pending = nil
 	coverageNoteState.pendingField = nil
 	coverageNoteState.pendingSurface = nil
+	coverageNoteState.pendingText = nil
 	coverageNoteState.mu.Unlock()
 }
 
@@ -288,12 +322,13 @@ func CoverageNotesDigest() string {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
 	if len(coverageNoteState.pending) == 0 && len(coverageNoteState.pendingField) == 0 &&
-		len(coverageNoteState.pendingSurface) == 0 {
+		len(coverageNoteState.pendingSurface) == 0 && len(coverageNoteState.pendingText) == 0 {
 		return ""
 	}
 	seen := map[string]bool{}
 	keys := make([]string, 0, len(coverageNoteState.pending)+
-		len(coverageNoteState.pendingField)+len(coverageNoteState.pendingSurface))
+		len(coverageNoteState.pendingField)+len(coverageNoteState.pendingSurface)+
+		len(coverageNoteState.pendingText))
 	for _, p := range coverageNoteState.pending {
 		k := fmt.Sprintf("gap\x00%s\x00%s\x00%d\x00%s", p.target, p.kind, p.count, p.via)
 		if seen[k] {
@@ -312,6 +347,14 @@ func CoverageNotesDigest() string {
 	}
 	for _, p := range coverageNoteState.pendingSurface {
 		k := fmt.Sprintf("surface\x00%s\x00%s\x00%s\x00%d\x00%s", p.target, p.kind, p.surface, p.count, p.reason)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	for _, text := range coverageNoteState.pendingText {
+		k := "project\x00" + text
 		if seen[k] {
 			continue
 		}
@@ -340,6 +383,9 @@ func PendingCoverageNotesCount() int {
 	}
 	for _, p := range coverageNoteState.pendingSurface {
 		seen["surface\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.surface+"\x00"+p.reason] = true
+	}
+	for _, text := range coverageNoteState.pendingText {
+		seen["project\x00"+text] = true
 	}
 	return len(seen)
 }

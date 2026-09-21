@@ -307,3 +307,31 @@ func TestCoverageNotesDigest_ChangesWhenSurfaceGapAdded(t *testing.T) {
 		t.Errorf("digest must change when a surface gap is added, got identical %q", withoutSurface)
 	}
 }
+
+func TestNoteProject_BuffersDedupesAndDigests(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	NoteProject("")
+	if got := CoverageNotesDigest(); got != "" {
+		t.Fatalf("empty project note must not buffer, digest=%q", got)
+	}
+	NoteProject("two trees overlap")
+	NoteProject("two trees overlap")
+	if buf.Len() != 0 {
+		t.Fatalf("notes must buffer until flush, got early output: %s", buf)
+	}
+	if got := PendingCoverageNotesCount(); got != 1 {
+		t.Errorf("duplicate project notes must count once, count=%d", got)
+	}
+	first := CoverageNotesDigest()
+	if first == "" {
+		t.Fatal("project note must feed the suppression digest")
+	}
+	FlushCoverageNotes()
+	if got, want := buf.String(), "  note: two trees overlap\n"; got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+	NoteProject("three trees overlap")
+	if CoverageNotesDigest() == first {
+		t.Error("a changed project note must change the digest")
+	}
+}

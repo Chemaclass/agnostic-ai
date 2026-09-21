@@ -12,6 +12,7 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 ### Fixed
 
+- `sync` folds the Devin shared `.agents/agents/` note into one line and stops re-printing it when unchanged, like every other coverage note (#863).
 - npm releases allow about 20 minutes for publish-time scanning before reporting a missing package, and scoped binary manifests default to public.
 
 ### Site
