@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -81,7 +82,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		for _, f := range files {
 			disk, err := os.ReadFile(f.Path)
 			if err != nil {
-				if os.IsNotExist(err) {
+				if notOnDisk(err) {
 					rep.Missing = append(rep.Missing, f)
 					continue
 				}
@@ -99,6 +100,14 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	}
 	reports = append(reports, epRep)
 	return reports, nil
+}
+
+// notOnDisk reports whether a read failed because no file sits at the
+// path. A regular file where a parent directory belongs counts: Cline's
+// single-file `.clinerules` shadows `.clinerules/<name>.md` until sync
+// replaces it (#1060).
+func notOnDisk(err error) bool {
+	return os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR)
 }
 
 // captureAdapterFiles renders one target into memory without touching disk.

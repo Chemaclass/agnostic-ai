@@ -323,3 +323,47 @@ func TestImportFromCline_PrefersYamlOverLegacyMarkdownAgent(t *testing.T) {
 		t.Errorf("a .md with no .yml sibling must still import:\n%s", legacy)
 	}
 }
+
+// A project whose only Cline rules sit in a single-file `.clinerules`
+// goes from import to a clean sync with no manual step: `sync --check`
+// reports drift instead of failing on the file, and sync turns the file
+// into the directory layout (#1060).
+func TestImportCline_SingleFileClinerulesSyncsWithoutManualStep(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".clinerules"), "Use tabs.\n")
+
+	execCLI(t, "import", "cline")
+	if _, err := runCLI(t, "sync", "--check"); err == nil || !strings.Contains(err.Error(), "drift") {
+		t.Errorf("sync --check should report drift before the first sync, got %v", err)
+	}
+	execCLI(t, "sync")
+
+	rule := readFile(t, filepath.Join(dir, ".clinerules", "clinerules.md"))
+	if !strings.Contains(rule, "Use tabs.") {
+		t.Errorf(".clinerules/clinerules.md lost the rule:\n%s", rule)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+// Content that was never imported survives: sync and `sync --check`
+// both refuse and point at `agnostic-ai import cline` (#1060).
+func TestSync_RefusesUnimportedSingleFileClinerules(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "other.md"), "---\nname: other\n---\n\nSomething else.\n")
+	writeFile(t, filepath.Join(dir, ".clinerules"), "Keep this rule.\n")
+
+	for _, args := range [][]string{{"sync", "--check"}, {"sync", "--dry-run"}, {"sync"}} {
+		if _, err := runCLI(t, args...); err == nil || !strings.Contains(err.Error(), "agnostic-ai import cline") {
+			t.Errorf("%v: expected an error naming `agnostic-ai import cline`, got %v", args, err)
+		}
+		if got := readFile(t, filepath.Join(dir, ".clinerules")); got != "Keep this rule.\n" {
+			t.Errorf("%v changed .clinerules: %q", args, got)
+		}
+	}
+}

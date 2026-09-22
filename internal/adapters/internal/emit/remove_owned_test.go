@@ -172,3 +172,28 @@ func TestDetailedWrite_SumsOnlyHeaderlessContent(t *testing.T) {
 		t.Errorf("skip write = %+v, want skip with content sum", writes[2])
 	}
 }
+
+// A file removed so a directory can take its path (Cline's single-file
+// `.clinerules`, #1060) comes back on rollback once the files written
+// under it are undone.
+func TestRemoveOwned_RollbackRestoresFileReplacedByDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".clinerules")
+	body := "Use tabs.\n"
+	writeTestFile(t, path, body)
+	sess := NewSession()
+	sess.StartTransaction()
+
+	if _, err := sess.RemoveOwned(path, ContentSum(body), false); err != nil {
+		t.Fatalf("RemoveOwned: %v", err)
+	}
+	if err := sess.WriteFile(filepath.Join(path, "nested", "r.md"), "rule", false); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := sess.Rollback(); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != body {
+		t.Errorf("rollback did not restore file: %q, %v", got, err)
+	}
+}

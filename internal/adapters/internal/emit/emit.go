@@ -287,6 +287,15 @@ func (s *Session) Rollback() error {
 			if mode == 0 {
 				mode = filePerm
 			}
+			// A removed file may have given way to a directory of the
+			// same name (Cline's single-file `.clinerules`, #1060). The
+			// files written under it are undone by now, so prune the
+			// empty tree before the file comes back.
+			if info, err := os.Lstat(e.path); err == nil && info.IsDir() {
+				if err := removeEmptyDirs(e.path); err != nil {
+					errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+				}
+			}
 			if err := os.WriteFile(e.path, e.content, mode); err != nil {
 				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 			} else if err := os.Chmod(e.path, mode); err != nil {

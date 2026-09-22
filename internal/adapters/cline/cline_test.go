@@ -325,3 +325,101 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 		t.Errorf("expected no output at the default agents dir, err=%v", err)
 	}
 }
+
+// Cline itself turns a single-file `.clinerules` into the directory
+// layout (rule-helpers.ts). Sync does the same once the file's content
+// lives in a rule spec, which is what `import cline` writes (#1060).
+func TestEmit_ReplacesImportedSingleFileClinerules(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeClinerulesFile(t, dir, "---\npaths:\n  - \"src/**\"\n---\n\n# Style\n\nUse tabs.\n")
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "clinerules", Path: "rules/clinerules.md", Body: "Use tabs.\n"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".clinerules", "clinerules.md"))
+	if err != nil {
+		t.Fatalf("expected .clinerules/clinerules.md: %v", err)
+	}
+	if !strings.Contains(string(got), "Use tabs.") {
+		t.Errorf(".clinerules/clinerules.md lost the rule body:\n%s", got)
+	}
+}
+
+// Content no rule spec carries is never lost: sync, dry-run and the
+// capture pass behind `sync --check` all refuse, name the import
+// command, and leave the file byte-identical.
+func TestEmit_RefusesUnimportedSingleFileClinerules(t *testing.T) {
+	const content = "Keep this rule.\n"
+	modes := map[string]func(*emit.Session) bool{
+		"sync":    func(*emit.Session) bool { return false },
+		"dry-run": func(*emit.Session) bool { return true },
+		"check":   func(s *emit.Session) bool { s.StartCapture(); return false },
+	}
+	for name, setup := range modes {
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			writeClinerulesFile(t, dir, content)
+
+			sess := emit.NewSession()
+			sess.StartTransaction()
+			dryRun := setup(sess)
+			entries := []spec.Entry{
+				{Kind: spec.KindRule, Name: "other", Path: "rules/other.md", Body: "Something else.\n"},
+			}
+			err := New().Emit(sess, spec.NewBundle(entries), &config.Config{}, dryRun)
+			if err == nil || !strings.Contains(err.Error(), "agnostic-ai import cline") {
+				t.Errorf("expected an error naming `agnostic-ai import cline`, got %v", err)
+			}
+			got, readErr := os.ReadFile(filepath.Join(dir, ".clinerules"))
+			if readErr != nil || string(got) != content {
+				t.Errorf(".clinerules changed: %q, %v", got, readErr)
+			}
+		})
+	}
+}
+
+// A dry run previews the replacement without touching the file.
+func TestEmit_DryRunKeepsImportedSingleFileClinerules(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeClinerulesFile(t, dir, "Use tabs.\n")
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "clinerules", Path: "rules/clinerules.md", Body: "Use tabs.\n"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".clinerules"))
+	if err != nil || string(got) != "Use tabs.\n" {
+		t.Errorf("dry run changed .clinerules: %q, %v", got, err)
+	}
+}
+
+// With every output outside `.clinerules`, the file is the user's own
+// rule and stays where it is.
+func TestEmit_LeavesSingleFileClinerulesWhenNothingWritesUnderIt(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeClinerulesFile(t, dir, "Keep this rule.\n")
+
+	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {RulesDir: ".cline/rules"}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "other", Path: "rules/other.md", Body: "Something else.\n"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".clinerules"))
+	if err != nil || string(got) != "Keep this rule.\n" {
+		t.Errorf(".clinerules changed: %q, %v", got, err)
+	}
+}
+
+func writeClinerulesFile(t *testing.T, dir, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, ".clinerules"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
