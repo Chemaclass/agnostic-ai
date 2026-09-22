@@ -185,8 +185,12 @@ extract_changelog_section() {
 # here.
 format_release_notes() {
   local ver="$1" changelog="$2" repo="$3"
-  local section
-  section="$(extract_changelog_section "$changelog" "$ver")" \
+  local section archive
+  # Releases before v0.50.0 were moved out of CHANGELOG.md, so fall back
+  # to the archive before reporting a missing section.
+  archive="$(dirname "$changelog")/docs/CHANGELOG-archive.md"
+  section="$(extract_changelog_section "$changelog" "$ver" 2>/dev/null)" \
+    || section="$(extract_changelog_section "$archive" "$ver" 2>/dev/null)" \
     || { printf 'error: no [%s] section in %s\n' "$ver" "$changelog" >&2; return 1; }
   cat <<EOF
 $section
