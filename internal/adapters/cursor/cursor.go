@@ -112,18 +112,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	droppedTools := 0
-	for _, a := range b.Agents {
-		hadTools, err := emitAgent(sess, a, agentsDir, dryRun)
-		if err != nil {
-			return err
-		}
-		if hadTools {
-			droppedTools++
-		}
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+		return err
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
-		"Cursor subagents have no tools field (name, description, model, readonly, is_background); use readonly: true for a coarse restriction")
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	for _, s := range b.Skills {
 		dir, err := emit.ScopedSkillsDir(s.Scope, skillsDir)

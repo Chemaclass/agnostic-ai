@@ -3,6 +3,7 @@ package codex
 import (
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -258,5 +259,23 @@ func stringSlice(v any) []string {
 		}
 		return out
 	}
+	return nil
+}
+
+// EmitAgents writes native Codex agent definitions to dir.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	noteUnsupportedCodexEffort(agents)
+	droppedAgentTools := 0
+	for _, a := range agents {
+		path := filepath.Join(dir, a.Name+".toml")
+		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
+			return err
+		}
+		if len(emit.StringSlice(a.Meta["tools"])) > 0 {
+			droppedAgentTools++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedAgentTools,
+		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	return nil
 }

@@ -13,12 +13,12 @@ import (
 // internal-only fields (globs, tools, ...) do not leak.
 var agentFrontmatterKeys = []string{"description", "mode", "model", "temperature", "permission"}
 
-// emitAgents writes one native OpenCode agent definition per agent spec
+// EmitAgents writes one native OpenCode agent definition per agent spec
 // at `<agentsDir>/<name>.md`. OpenCode discovers project subagents from
 // `.opencode/agents/` (plural; the singular dir is legacy) with
 // frontmatter `description`, `mode` (primary|subagent|all), `model`,
 // `temperature`, and `permission`, followed by the system-prompt body.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)

@@ -230,7 +230,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -396,11 +396,11 @@ func ruleMarkdown(e spec.Entry) string {
 	return front + "\n" + body + "\n"
 }
 
-// emitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
+// EmitAgents writes one `<dir>/<name>.md` per agent spec. Agents whose
 // spec declares a generic `tools` list get no restriction on Augment
 // (see agentMarkdown), so the whole batch surfaces one coverage note
 // instead of a silent drop.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	droppedTools := 0
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")

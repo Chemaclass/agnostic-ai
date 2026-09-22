@@ -110,10 +110,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := sess.WriteSharedAgentFiles(b.Agents, target, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
-	noteDroppedAgentTools(b.Agents)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -139,6 +138,15 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		skillsPlugin = pluginSkillsRoot(skillsDir)
 	}
 	return emit.WritePluginManifests(sess, []string{hooksPlugin, skillsPlugin}, dryRun)
+}
+
+// EmitAgents writes native agent profiles without other project outputs.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	if err := sess.WriteSharedAgentFiles(agents, target, dir, dryRun); err != nil {
+		return err
+	}
+	noteDroppedAgentTools(agents)
+	return nil
 }
 
 func noteDroppedAgentTools(agents []spec.Entry) {

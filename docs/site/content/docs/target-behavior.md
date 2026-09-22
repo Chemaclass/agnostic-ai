@@ -100,34 +100,41 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
+`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means global sync emits nothing for that kind.
 
-| Target | Instructions | Rules | Hooks | Skills |
-|--------|--------------|-------|-------|--------|
-| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` |
-| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` |
-| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` |
-| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` |
-| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` |
-| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` |
-| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` |
-| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` |
-| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` |
-| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` |
-| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` |
-| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` |
-| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` |
-| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` |
-| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` |
-| **openhands** | - | - | - | `~/.agents/skills/<name>/` |
-| **trae** | - | - | - | `~/.trae/skills/<name>/` |
-| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` |
+| Target | Instructions | Rules | Hooks | Skills | Agents |
+|--------|--------------|-------|-------|--------|--------|
+| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` |
+| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` |
+| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` |
+| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` |
+| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | `~/.qoder/agents/<name>.md` |
+| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` | `~/.copilot/agents/<name>.agent.md` |
+| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` |
+| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | `~/.config/devin/agents/<name>.md` |
+| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` | `~/.config/opencode/agents/<name>.md` |
+| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` | `~/.gemini/config/agents/<name>/agent.md` |
+| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` | `~/.junie/agents/<name>.md` |
+| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` | `~/.kiro/agents/<name>.md` |
+| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` | - |
+| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` | `~/.factory/droids/<name>.md` |
+| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` | `~/.config/kilo/agents/<name>.md` |
+| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` |
+| **openhands** | - | - | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` |
+| **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` |
+| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` |
 
-Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
+Global agents use the same native formats as project agents. Amp, Zed, Warp, and Crush have no supported global agent-file output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
+
+- **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae requires **Settings > Beta > Subagents > Enable Subagents Directory**; its English docs specify `~/.trae-cn/agents/`, with no verified international alternative.
+- **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME` replace the respective `~/.<tool>/` root. `GEMINI_CLI_HOME` is the parent of `.gemini/`. Every surface under that root moves together: instructions, skills, hooks, and agents. Surfaces outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
+- **Platform paths**: OpenCode and Kilo agent roots follow `XDG_CONFIG_HOME`. Devin agents use `~/.config/devin/agents/` on Linux/macOS and `%APPDATA%\devin\agents\` on Windows.
+- **Shared agents**: Goose and OpenHands share `~/.agents/agents/`. Identical output is written once; conflicting content stops the run before writes.
+
+Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Except for Devin agents as noted above, paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set.
 
 Three targets are absent on purpose:
 

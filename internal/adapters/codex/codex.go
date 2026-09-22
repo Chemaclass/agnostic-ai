@@ -155,19 +155,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 
-	noteUnsupportedCodexEffort(b.Agents)
-	droppedAgentTools := 0
-	for _, a := range b.Agents {
-		path := filepath.Join(agentsDir, a.Name+".toml")
-		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
-			return err
-		}
-		if len(emit.StringSlice(a.Meta["tools"])) > 0 {
-			droppedAgentTools++
-		}
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+		return err
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedAgentTools,
-		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 		emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
 	emit.NoteFieldNoOp(target, spec.KindSettings, emit.XPrefix+target,

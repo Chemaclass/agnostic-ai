@@ -147,7 +147,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	if err := emitAgentCommands(sess, b.Agents, commandsDir, cfg, dryRun); err != nil {

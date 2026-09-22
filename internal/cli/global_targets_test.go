@@ -17,7 +17,7 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		if !known[name] {
 			t.Errorf("%s: global target is not a known adapter", name)
 		}
-		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks}
+		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks, "agents": g.agents}
 		var declared int
 		for kind, path := range surfaces {
 			if path == "" {
@@ -33,6 +33,13 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		}
 		if declared == 0 {
 			t.Errorf("%s: listed with no user-level surface at all", name)
+		}
+		adapter, ok := adapters.Get(name)
+		if _, native := adapter.(adapters.AgentEmitter); ok && (g.agents != "") != native {
+			t.Errorf("%s: global agent directory and native emitter must agree", name)
+		}
+		if (g.rootEnv == "") != (g.root == "") {
+			t.Errorf("%s: root override needs an environment variable and default root", name)
 		}
 		if g.instructions != "" && g.rules != "" {
 			t.Errorf("%s: rules dir is only for a target with no instructions file", name)

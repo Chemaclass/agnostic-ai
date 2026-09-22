@@ -361,16 +361,39 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 ```text
 ~/.agnostic-ai/
 ├── AGNOSTIC_AI.md
+├── agents/*.md
 ├── rules/*.md
 ├── hooks/*.yaml
 └── skills/<name>/SKILL.md
 ```
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
-- Nested rules and rules with scope, path, glob, or target conditions are rejected. Agents, commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
-- Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, and skills, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
-- An unmanaged skill or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes.
+- Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
+- Agents use each target's native format, metadata overrides, and include/exclude filters. Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output) for paths and discovery limits. Unsupported targets warn and skip agents.
+- Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, skills, and agents, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
+- An unmanaged agent, skill, or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes.
+- A run without `--only` or explicit targets skips a target whose configuration root variable is relative, or whose native format rejects an agent name, and warns. Naming the target turns either into an error.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
-- Native tool precedence applies when global and project configuration both exist.
+- Native tool precedence applies when global and project configuration both exist. Shared agent files remain until every owning target removes them. To update a file shared by Goose and OpenHands, sync both targets together.
 
 Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
+
+For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
+
+```markdown
+---
+name: reviewer
+description: Review code for correctness
+targets: [claude, codex]
+---
+Review the changes and report actionable findings.
+```
+
+Then run from any directory:
+
+```console
+agnostic-ai sync --global --only claude,codex
+agnostic-ai sync --global --only claude,codex --check
+```
+
+Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a manually copied file already occupies an output path, preserve its edits in the source and move it aside before syncing. `--backup` saves managed files before replacement; it does not bypass unmanaged collisions.

@@ -9,9 +9,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Changed
 
 - GitHub issue forms require only a problem description or tool name, with optional details and a blank-issue option.
+- Global sync honors each tool's configuration root variable, such as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, for instructions, skills, hooks, and agents alike. Files an earlier sync wrote under the default root stay there; remove them by hand (#1033).
+- A global sync without `--only` skips and warns about a target with a relative root variable or an agent name its native format rejects, instead of failing every target (#1033).
 
 ### Fixed
 
+- Global sync emits native agents for 18 targets, including Codex, with ownership, collision, backup, and drift checks (#1033).
 - Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
 - Qoder rules keep manual, model-selected, and file activation conditions through import and sync, including `x-qoder` metadata (#1029).
 
