@@ -15,9 +15,9 @@ import (
 const toolsDisableKey = "amp.tools.disable"
 
 // allowNoKeyReason explains why a portable allow list reaches nothing.
-// Amp's schema declares twenty properties and not one of them admits a
-// tool. The only allow-shaped construct on the whole surface is
-// `amp.mcpPermissions`, and it matches MCP *servers* by command or
+// Amp's schema declares more than twenty properties and not one of them
+// admits a tool. The only allow-shaped construct on the whole surface
+// is `amp.mcpPermissions`, and it matches MCP *servers* by command or
 // url, not tools.
 const allowNoKeyReason = "Amp's settings schema has no tool allow-list; amp.tools.disable is its only tool key and it only disables"
 

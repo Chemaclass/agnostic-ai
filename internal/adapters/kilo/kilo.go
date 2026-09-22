@@ -135,7 +135,8 @@
 // Kilo's docs also read from `.kilo/kilo.jsonc` when present, a second
 // project-tier config file this adapter does not write. The vendor's
 // documented 8-level config precedence
-// (kilo.ai/docs/getting-started/settings#config-file-precedence) places
+// (github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/
+// getting-started/settings/index.md#config-file-precedence) places
 // `.kilo/` above project-root `kilo.jsonc` and describes higher levels
 // as overriding lower ones, i.e. a merge, not an exclusive first-match
 // read: an untouched key on the root file still reaches Kilo Code even
