@@ -147,7 +147,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // Commands emit only when outputs.codex.commands-dir is set (Codex
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
-func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Confi
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 
-	if err := adapter.EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",

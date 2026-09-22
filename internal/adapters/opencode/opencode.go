@@ -108,7 +108,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // outputs.opencode.rules-file—a legacy concatenated rules document. The root `AGENTS.md` entry-point is written by `sync`, not
 // here; this Emit only sweeps the stale `.opencode/AGENTS.md` a
 // pre-#623 sync left behind.
-func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Confi
 		return err
 	}
 
-	if err := adapter.EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)

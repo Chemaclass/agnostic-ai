@@ -16,8 +16,10 @@ import (
 func globalAgentTestHome(t *testing.T) (string, string) {
 	t.Helper()
 	home := t.TempDir()
-	for _, key := range []string{"CLAUDE_CONFIG_DIR", "CODEX_HOME", "GEMINI_CLI_HOME", "COPILOT_HOME", "CLINE_DIR", "QODER_CONFIG_DIR", "KIRO_HOME", "JUNIE_HOME"} {
-		t.Setenv(key, "")
+	for _, g := range globalTargets {
+		if g.rootEnv != "" {
+			t.Setenv(g.rootEnv, "")
+		}
 	}
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)

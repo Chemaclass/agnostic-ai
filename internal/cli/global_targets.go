@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -33,10 +34,15 @@ type globalTarget struct {
 	skills string
 	// agents is the native agent directory.
 	agents string
-	// agentsRootEnv replaces the default native root when set.
-	agentsRootEnv string
-	// agentsEnvSubdir is relative to that root, usually agents.
-	agentsEnvSubdir string
+	// rootEnv names the vendor's configuration root variable. When set,
+	// its value replaces root for every surface under root, so all of a
+	// target's files move together.
+	rootEnv string
+	// root is the default location rootEnv replaces.
+	root string
+	// rootSubdir is appended to the rootEnv value, for a vendor whose
+	// variable names the parent of its configuration directory.
+	rootSubdir string
 	// agentsWindows is relative to APPDATA when the vendor uses it on Windows.
 	agentsWindows string
 	// hooks is the hooks file.
@@ -66,13 +72,13 @@ type globalTarget struct {
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
 	"claude": {
-		instructions:    globalPathHome + ".claude/CLAUDE.md",
-		agents:          globalPathHome + ".claude/agents",
-		agentsRootEnv:   "CLAUDE_CONFIG_DIR",
-		agentsEnvSubdir: "agents",
-		skills:          globalPathHome + ".claude/skills",
-		hooks:           globalPathHome + ".claude/settings.json",
-		hooksFormat:     "claude",
+		rootEnv:      "CLAUDE_CONFIG_DIR",
+		root:         globalPathHome + ".claude",
+		instructions: globalPathHome + ".claude/CLAUDE.md",
+		agents:       globalPathHome + ".claude/agents",
+		skills:       globalPathHome + ".claude/skills",
+		hooks:        globalPathHome + ".claude/settings.json",
+		hooksFormat:  "claude",
 	},
 	"cursor": {
 		agents:       globalPathHome + ".cursor/agents",
@@ -85,45 +91,46 @@ var globalTargets = map[string]globalTarget{
 		bridgeKey:    "additional_context",
 	},
 	"codex": {
-		agents:          globalPathHome + ".codex/agents",
-		agentsRootEnv:   "CODEX_HOME",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".codex/AGENTS.md",
-		skills:          globalPathHome + ".agents/skills",
-		hooks:           globalPathHome + ".codex/hooks.json",
-		hooksFormat:     "claude",
+		rootEnv:      "CODEX_HOME",
+		root:         globalPathHome + ".codex",
+		agents:       globalPathHome + ".codex/agents",
+		instructions: globalPathHome + ".codex/AGENTS.md",
+		skills:       globalPathHome + ".agents/skills",
+		hooks:        globalPathHome + ".codex/hooks.json",
+		hooksFormat:  "claude",
 	},
 	"gemini": {
-		agents:          globalPathHome + ".gemini/agents",
-		agentsRootEnv:   "GEMINI_CLI_HOME",
-		agentsEnvSubdir: ".gemini/agents",
-		instructions:    globalPathHome + ".gemini/GEMINI.md",
-		skills:          globalPathHome + ".gemini/skills",
-		hooks:           globalPathHome + ".gemini/settings.json",
-		hooksFormat:     "claude",
+		rootEnv:      "GEMINI_CLI_HOME",
+		root:         globalPathHome + ".gemini",
+		rootSubdir:   ".gemini",
+		agents:       globalPathHome + ".gemini/agents",
+		instructions: globalPathHome + ".gemini/GEMINI.md",
+		skills:       globalPathHome + ".gemini/skills",
+		hooks:        globalPathHome + ".gemini/settings.json",
+		hooksFormat:  "claude",
 	},
 	"qoder": {
-		agents:          globalPathHome + ".qoder/agents",
-		agentsRootEnv:   "QODER_CONFIG_DIR",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".qoder/AGENTS.md",
-		skills:          globalPathHome + ".qoder/skills",
-		hooks:           globalPathHome + ".qoder/settings.json",
-		hooksFormat:     "claude",
+		rootEnv:      "QODER_CONFIG_DIR",
+		root:         globalPathHome + ".qoder",
+		agents:       globalPathHome + ".qoder/agents",
+		instructions: globalPathHome + ".qoder/AGENTS.md",
+		skills:       globalPathHome + ".qoder/skills",
+		hooks:        globalPathHome + ".qoder/settings.json",
+		hooksFormat:  "claude",
 	},
 	"copilot": {
-		agents:          globalPathHome + ".copilot/agents",
-		agentsRootEnv:   "COPILOT_HOME",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".copilot/copilot-instructions.md",
-		skills:          globalPathHome + ".copilot/skills",
+		rootEnv:      "COPILOT_HOME",
+		root:         globalPathHome + ".copilot",
+		agents:       globalPathHome + ".copilot/agents",
+		instructions: globalPathHome + ".copilot/copilot-instructions.md",
+		skills:       globalPathHome + ".copilot/skills",
 	},
 	"cline": {
-		agents:          globalPathHome + ".cline/agents",
-		agentsRootEnv:   "CLINE_DIR",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".agents/AGENTS.md",
-		skills:          globalPathHome + ".cline/skills",
+		rootEnv:      "CLINE_DIR",
+		root:         globalPathHome + ".cline",
+		agents:       globalPathHome + ".cline/agents",
+		instructions: globalPathHome + ".agents/AGENTS.md",
+		skills:       globalPathHome + ".cline/skills",
 	},
 	"windsurf": {
 		agents:        globalPathHome + ".config/devin/agents",
@@ -162,18 +169,18 @@ var globalTargets = map[string]globalTarget{
 		skills: globalPathHome + ".gemini/config/skills",
 	},
 	"junie": {
-		agents:          globalPathHome + ".junie/agents",
-		agentsRootEnv:   "JUNIE_HOME",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".junie/AGENTS.md",
-		skills:          globalPathHome + ".junie/skills",
+		rootEnv:      "JUNIE_HOME",
+		root:         globalPathHome + ".junie",
+		agents:       globalPathHome + ".junie/agents",
+		instructions: globalPathHome + ".junie/AGENTS.md",
+		skills:       globalPathHome + ".junie/skills",
 	},
 	"kiro": {
-		agents:          globalPathHome + ".kiro/agents",
-		agentsRootEnv:   "KIRO_HOME",
-		agentsEnvSubdir: "agents",
-		instructions:    globalPathHome + ".kiro/steering/AGENTS.md",
-		skills:          globalPathHome + ".kiro/skills",
+		rootEnv:      "KIRO_HOME",
+		root:         globalPathHome + ".kiro",
+		agents:       globalPathHome + ".kiro/agents",
+		instructions: globalPathHome + ".kiro/steering/AGENTS.md",
+		skills:       globalPathHome + ".kiro/skills",
 	},
 	"crush": {
 		instructions: globalPathXDG + "crush/CRUSH.md",
@@ -237,7 +244,7 @@ func (g globalTarget) trees(home string) []string {
 	var out []string
 	for _, p := range []string{g.skills, g.rules} {
 		if p != "" {
-			out = append(out, globalPath(home, p))
+			out = append(out, g.path(home, p))
 		}
 	}
 	if dir := g.agentsPath(home); dir != "" {
@@ -257,10 +264,31 @@ func (g globalTarget) agentsPath(home string) string {
 		}
 		return filepath.Join(root, filepath.FromSlash(g.agentsWindows))
 	}
-	if root := os.Getenv(g.agentsRootEnv); root != "" {
-		return filepath.Join(root, filepath.FromSlash(g.agentsEnvSubdir))
+	return g.path(home, g.agents)
+}
+
+// path resolves one of the target's table paths, honoring rootEnv.
+func (g globalTarget) path(home, p string) string {
+	if g.rootEnv != "" {
+		if root := os.Getenv(g.rootEnv); root != "" {
+			if rest, ok := strings.CutPrefix(p, g.root); ok && (rest == "" || rest[0] == '/') {
+				return filepath.Join(root, filepath.FromSlash(g.rootSubdir), filepath.FromSlash(rest))
+			}
+		}
 	}
-	return globalPath(home, g.agents)
+	return globalPath(home, p)
+}
+
+// rootError reports a relative rootEnv value, which would make ownership
+// depend on the working directory.
+func (g globalTarget) rootError(target string) error {
+	if g.rootEnv == "" {
+		return nil
+	}
+	if root := os.Getenv(g.rootEnv); root != "" && !filepath.IsAbs(root) {
+		return fmt.Errorf("%s: %s=%q must be an absolute path", target, g.rootEnv, root)
+	}
+	return nil
 }
 
 // files returns the target's single-file surfaces, resolved, including
@@ -271,11 +299,11 @@ func (g globalTarget) files(home string) []string {
 	var out []string
 	for _, p := range []string{g.instructions, g.hooks} {
 		if p != "" {
-			out = append(out, globalPath(home, p))
+			out = append(out, g.path(home, p))
 		}
 	}
 	if g.bridge {
-		out = append(out, globalBridgePath(filepath.Dir(globalPath(home, g.hooks))))
+		out = append(out, globalBridgePath(filepath.Dir(g.path(home, g.hooks))))
 	}
 	return out
 }

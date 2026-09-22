@@ -186,14 +186,14 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // Copilot Custom Chat Mode per agent at that directory. The
 // `.github/copilot-instructions.md` entry-point is written by `sync`,
 // not here.
-func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emitInstructionFiles(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := adapter.EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

@@ -95,7 +95,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // `.cursor/skills/`, one command per command spec under
 // `.cursor/commands/`, plus an `.cursor/mcp.json` when MCP entries
 // exist.
-func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Confi
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := adapter.EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

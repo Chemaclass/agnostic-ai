@@ -16,6 +16,11 @@ type AgentEmitter interface {
 // RenderAgents plans native agent files without touching project configuration
 // or disk. It applies the same target selection and body fences as project sync.
 func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFile, error) {
+	b := (spec.Bundle{Agents: agents}).For(target)
+	// Nothing to place: a misconfigured root must not fail unrelated surfaces.
+	if len(b.Agents) == 0 {
+		return nil, nil
+	}
 	if !filepath.IsAbs(dir) {
 		return nil, fmt.Errorf("%s agents: native directory %q must be absolute; check the tool's configuration root environment variable", target, dir)
 	}
@@ -29,7 +34,6 @@ func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFil
 	}
 	sess := NewSession()
 	sess.StartCapture()
-	b := (spec.Bundle{Agents: agents}).For(target)
 	if err := emitter.EmitAgents(sess, b.Agents, dir, false); err != nil {
 		return nil, fmt.Errorf("%s agents: %w", target, err)
 	}

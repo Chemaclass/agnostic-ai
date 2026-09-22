@@ -130,7 +130,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 Global agents use the same native formats as project agents. Amp, Zed, Warp, and Crush have no supported global agent-file output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
 
 - **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae requires **Settings > Beta > Subagents > Enable Subagents Directory**; its English docs specify `~/.trae-cn/agents/`, with no verified international alternative.
-- **Agent roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME` replace the respective agent root. `GEMINI_CLI_HOME` is the parent of `.gemini/agents/`. Use absolute paths. These overrides apply to agent output; other global paths retain the behavior below.
+- **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME` replace the respective `~/.<tool>/` root. `GEMINI_CLI_HOME` is the parent of `.gemini/`. Every surface under that root moves together: instructions, skills, hooks, and agents. Surfaces outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
 - **Platform paths**: OpenCode and Kilo agent roots follow `XDG_CONFIG_HOME`. Devin agents use `~/.config/devin/agents/` on Linux/macOS and `%APPDATA%\devin\agents\` on Windows.
 - **Shared agents**: Goose and OpenHands share `~/.agents/agents/`. Identical output is written once; conflicting content stops the run before writes.
 
