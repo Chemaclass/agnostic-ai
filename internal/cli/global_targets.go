@@ -19,9 +19,8 @@ const (
 // globalTarget describes one tool's user-level surfaces. Every field is
 // a table path (see globalPathHome / globalPathXDG).
 //
-// An empty field means the vendor documents no user-level surface of
-// that kind, so sync --global emits nothing for it rather than guessing
-// a path.
+// An empty field means sync --global has no supported user-level surface
+// of that kind. Agent support currently covers Claude Code only.
 type globalTarget struct {
 	// instructions is the always-on context file the tool loads with no
 	// wiring. Global rules inline into it.
@@ -31,6 +30,8 @@ type globalTarget struct {
 	rules string
 	// skills is the skills directory.
 	skills string
+	// agents is the native agent directory.
+	agents string
 	// hooks is the hooks file.
 	hooks string
 	// hooksFormat selects the native hooks schema: "claude" or "cursor".
@@ -59,6 +60,7 @@ type globalTarget struct {
 var globalTargets = map[string]globalTarget{
 	"claude": {
 		instructions: globalPathHome + ".claude/CLAUDE.md",
+		agents:       globalPathHome + ".claude/agents",
 		skills:       globalPathHome + ".claude/skills",
 		hooks:        globalPathHome + ".claude/settings.json",
 		hooksFormat:  "claude",
@@ -189,11 +191,10 @@ func globalPath(home, p string) string {
 }
 
 // trees returns the target's managed directory surfaces, resolved.
-// Everything under one is owned by sync --global and swept when the
-// source spec goes away.
+// Recorded files under these trees are swept when their source goes away.
 func (g globalTarget) trees(home string) []string {
 	var out []string
-	for _, p := range []string{g.skills, g.rules} {
+	for _, p := range []string{g.skills, g.rules, g.agents} {
 		if p != "" {
 			out = append(out, globalPath(home, p))
 		}

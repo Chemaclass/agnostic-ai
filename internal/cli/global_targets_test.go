@@ -17,7 +17,7 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		if !known[name] {
 			t.Errorf("%s: global target is not a known adapter", name)
 		}
-		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks}
+		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks, "agents": g.agents}
 		var declared int
 		for kind, path := range surfaces {
 			if path == "" {

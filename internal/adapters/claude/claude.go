@@ -133,7 +133,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	agentsDir := emit.OutputAgentsDir(cfg, target, emit.OutputSubDir(cfg, target, "agents", defaultAgentsDir))
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".md")
-		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)
+		body := RenderAgent(a)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

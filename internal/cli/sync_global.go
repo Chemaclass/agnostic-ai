@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -92,10 +93,22 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		sourceHome = filepath.Join(home, ".agnostic-ai")
 	}
 	source := sourceHome
-	cfg := &config.Config{Sources: config.Sources{Rules: "rules", Hooks: "hooks", Skills: "skills"}}
+	cfg := &config.Config{Sources: config.Sources{Rules: "rules", Hooks: "hooks", Skills: "skills", Agents: "agents"}}
 	bundle, err := spec.LoadBundle(source, cfg)
 	if err != nil {
 		return err
+	}
+	for _, target := range targets {
+		if globalTargets[target].agents != "" {
+			continue
+		}
+		for _, agent := range bundle.Agents {
+			if agent.EmitsTo(target) {
+				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s: global agents are unsupported; skipping %s (%s)\n", target, agent.Name, agent.Path); err != nil {
+					return fmt.Errorf("write global agent warning: %w", err)
+				}
+			}
+		}
 	}
 	for _, rule := range bundle.Rules {
 		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
@@ -230,6 +243,15 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	managed := globalStart + "\n" + body + "\n" + globalEnd
 	for _, target := range targets {
 		g := globalTargets[target]
+		if g.agents != "" {
+			dir := globalPath(home, g.agents)
+			for _, agent := range b.For(target).Agents {
+				path := filepath.Join(dir, agent.Name+".md")
+				if err := add(path, []byte(claude.RenderAgent(agent)), 0o644); err != nil {
+					return nil, next, err
+				}
+			}
+		}
 		if g.instructions != "" {
 			path := globalPath(home, g.instructions)
 			merged, err := mergeGlobalBlock(path, managed)

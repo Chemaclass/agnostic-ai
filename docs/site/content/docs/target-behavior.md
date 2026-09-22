@@ -100,32 +100,34 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means the vendor documents no user-level surface of that kind, so nothing is written rather than a path being guessed (target-audit 2026-09-07).
+`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means global sync emits nothing for that kind. Agent support is limited to Claude Code in this release; the other columns follow the documented vendor surfaces (target-audit 2026-09-07).
 
-| Target | Instructions | Rules | Hooks | Skills |
-|--------|--------------|-------|-------|--------|
-| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` |
-| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` |
-| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` |
-| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` |
-| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` |
-| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` |
-| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` |
-| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` |
-| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` |
-| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` |
-| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` |
-| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` |
-| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` |
-| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` |
-| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` |
-| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` |
-| **openhands** | - | - | - | `~/.agents/skills/<name>/` |
-| **trae** | - | - | - | `~/.trae/skills/<name>/` |
-| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` |
+| Target | Instructions | Rules | Hooks | Skills | Agents |
+|--------|--------------|-------|-------|--------|--------|
+| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` |
+| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | - |
+| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | - |
+| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | - |
+| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | - |
+| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | - | `~/.copilot/skills/<name>/` | - |
+| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` | - |
+| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` | - |
+| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` | - |
+| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` | - |
+| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` | - |
+| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` | - |
+| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` | - |
+| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` | - |
+| **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` | - |
+| **openhands** | - | - | - | `~/.agents/skills/<name>/` | - |
+| **trae** | - | - | - | `~/.trae/skills/<name>/` | - |
+| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | - |
+
+Agents use the same renderer as project sync. Claude Code [documents `~/.claude/agents/` for user-level agents](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope). Other selected targets warn and skip applicable global agents. See [global configuration](@/docs/configuration.md#global-configuration) for source layout and migration from copied files.
 
 Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
 

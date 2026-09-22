@@ -56,6 +56,10 @@ Claude Code defines more events (`Setup`, `InstructionsLoaded`, `TaskCompleted`,
 
 The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from MCP specs. Import hand-authored servers before syncing.
 
+## User-level agents
+
+`agnostic-ai sync --global --only claude` reads `$AGNOSTIC_AI_HOME/agents/*.md` (default `~/.agnostic-ai/agents/`) and writes `~/.claude/agents/<name>.md`. It uses the project agent format and target overrides, with global ownership, collision checks, backups, and removal of managed files whose source was deleted. See [global configuration](@/docs/configuration.md#global-configuration) for an example and migration from manually copied agents.
+
 ## Config keys
 
 | Key | Default | Notes |

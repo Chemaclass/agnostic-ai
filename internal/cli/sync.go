@@ -139,7 +139,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	cmd.Flags().IntVar(&jobs, "jobs", 0, "Number of targets to emit in parallel (0 = one per CPU; 1 = serial). Output is identical regardless.")
-	cmd.Flags().BoolVar(&global, "global", false, "Sync user-level Claude Code and Cursor configuration")
+	cmd.Flags().BoolVar(&global, "global", false, "Sync user-level instructions, rules, hooks, skills, and Claude Code agents")
 	registerTargetCompletion(cmd)
 	return cmd
 }
