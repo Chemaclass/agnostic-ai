@@ -14,6 +14,10 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 
 - Codex agents write the portable `effort` field as `model_reasoning_effort`, accepting any string value; an integer budget raises a coverage note and `x-codex.model_reasoning_effort` still wins over the mapped value.
 
+### Changed
+
+- Target audits fetch every vendor page once through `scripts/docfetch.sh`, which runs the recovery ladder for client-rendered, moved, and blocked pages and hashes each page's visible text against `scripts/target-audit/sources.lock`. Auditors read only the pages whose content moved, batches are sized from the targets that actually drifted, and evidence lives once in the run directory instead of being copied into the report.
+
 ### Fixed
 
 - `sync` folds the Devin shared `.agents/agents/` note into one line and stops re-printing it when unchanged, like every other coverage note (#863).

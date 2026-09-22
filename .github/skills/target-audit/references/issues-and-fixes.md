@@ -25,7 +25,7 @@ Include applicable checklist items, marking exclusions with a reason:
 - `docs/site/data/capabilities.toml`, the target page, and cross-target notes in `docs/site/content/docs/targets/_index.md`.
 - Configuration/spec docs and schema when their public contract changes; README for visible behavior.
 - `CHANGELOG.md` under Unreleased.
-- Source-registry URL corrections.
+- Source-registry URL corrections, plus `scripts/target-audit/sources.lock` and `signals.tsv`.
 - Target tests, `capability_parity_test.go`, `kitsink_golden_test.go`, and `tests/integration/fixtures/golden/<target>/`. Check whether a round-trip test exists; golden trees often exist without one.
 - `make playground-build` if capabilities change. The playground derives capabilities from the compiled registry; never add a second list.
 - Build the current binary, sync generated outputs, review tracked changes, and verify `sync --check`. Keep ignored generated files ignored.
@@ -38,7 +38,7 @@ Design issues need the capability reference's evidence, representation test, ind
 |---|---|
 | Breaking | One PR per target and breaking finding |
 | Missing-feature and degraded | One additive batch |
-| Cosmetic and audit-source corrections | One docs PR |
+| Cosmetic and audit-source corrections | One docs PR, including `scripts/target-audit/sources.lock` and `signals.tsv` |
 
 Settle every bucket before spawning. Give each `adapter-fixer` the issue links and verbatim finding blocks, including vendor quote, repository line, and reproduction. If newer research changes the issue's conclusion, include the URL, extraction method, and command that establishes it. Do not ask fixers to trust a summary or infer one vendor's schema from another.
 
