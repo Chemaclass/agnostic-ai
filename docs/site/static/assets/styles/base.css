@@ -737,7 +737,11 @@ html.search-open {
   }
 }
 
-@media (max-width: 700px) {
+/* Five links plus the brand, the search control, and the toggle no longer fit
+   on one row before this width, and the nav cell can shrink but cannot wrap,
+   so the links would run under the brand. Drop to the stacked header while
+   there is still room for both rows. */
+@media (max-width: 820px) {
   .site-bar {
     gap: 0.4rem 0.75rem;
     padding-block: 0.65rem 0.5rem;
@@ -747,7 +751,7 @@ html.search-open {
     grid-column: 1 / -1;
     grid-row: 2;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;
     gap: 0;
   }

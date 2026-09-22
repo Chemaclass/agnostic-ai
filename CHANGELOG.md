@@ -25,7 +25,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Page titles are set in Instrument Serif, self-hosted as one 15KB face, while body text and code keep the platform stacks, so nothing but the title waits on a font.
 - The home page shows the source spec beside the file each target gets, at full page width, instead of stacking them in a 42rem column.
 - Code blocks, generated files, and the closing call to action share one dark slab, so a listing is distinguishable from the prose around it at a glance.
-- The header adds Targets beside Docs, and marks the current section with an underline on the header's own edge.
+- The header adds Targets beside Docs, marks the current section with an underline on the header's own edge, and stacks the nav under the brand from 820px so five links never run into it.
 - The docs sidebar marks the current guide on a hairline rail, and the guide index reads as cards rather than underlined rows.
 - The header drops the version badge and GitHub button, both already in the footer, and orders the nav Home, Docs, Updates, Playground.
 - The docs table of contents escapes heading titles, so `x-<target>` on the spec format page no longer pulls the footer into the right column (#1015).
