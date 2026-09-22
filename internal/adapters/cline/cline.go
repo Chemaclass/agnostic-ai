@@ -206,9 +206,14 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // as a Markdown file at `<dir>/<name>.md` in the shape this adapter
 // calls a Workflow (see the package doc for why `.clinerules/workflows`
 // is the path to set); the native agent file emission stays in place
-// either way.
+// either way. A single-file `.clinerules` in the way of those
+// directories is replaced first, and only when a rule spec already
+// carries its content (see replaceClinerulesFile).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := replaceClinerulesFile(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
