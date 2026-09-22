@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Fixed
+
+- Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
+
 ### Site
 
 - The home page diagram runs the source spec, the arrow, and the target list down one column with the generated file beside them, taking about a third less height for the same spec, five targets, and output.
