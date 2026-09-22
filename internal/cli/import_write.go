@@ -2,19 +2,16 @@ package cli
 
 import (
 	"bytes"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
-	"sort"
 	"strings"
 )
 
 // importSandbox is the directory a dry-run import runs in, or "" outside
 // one. A write that resolves outside it is recorded but never reaches
-// disk, so an absolute source path cannot lead a dry-run into the
-// project. Sequential test use only.
+// disk, so no path shape can lead a dry-run into the project.
+// Sequential test use only.
 var importSandbox string
 
 // importRunSources names every source of a multi-source `import` run
@@ -46,7 +43,7 @@ type importRecorder struct {
 	writes []importPlannedWrite
 }
 
-// importRecording is the active recorder, or nil outside a preview.
+// importRecording is the active recorder, or nil outside a dry-run.
 // Sequential use only, like importSandbox.
 var importRecording *importRecorder
 
@@ -101,24 +98,4 @@ func inImportSandbox(path string) bool {
 	}
 	rel, err := filepath.Rel(importSandbox, abs)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// dryRunImport runs the import for args in a copy of the project and
-// prints a planning summary instead of file contents: one line per path
-// the importer would write, sorted and listed once however many stages
-// write it, ending with a count. Equivalent in shape to `sync --plan`.
-// The summary prints even when an importer fails.
-func dryRunImport(args []string) error {
-	rec, err := runImportInCopy(args, func(string, string, *importRecorder) error { return nil })
-	paths := make([]string, 0, len(rec.writes))
-	for _, w := range rec.writes {
-		paths = append(paths, filepath.FromSlash(w.path))
-	}
-	sort.Strings(paths)
-	paths = slices.Compact(paths)
-	for _, p := range paths {
-		fmt.Printf("  would write %s\n", p)
-	}
-	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
-	return err
 }

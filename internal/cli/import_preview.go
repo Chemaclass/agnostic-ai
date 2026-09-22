@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -43,6 +44,26 @@ func previewImport(args []string) error {
 	return err
 }
 
+// dryRunImport runs the import for args in a copy of the project and
+// prints a planning summary instead of file contents: one line per path
+// the importer would write, sorted and listed once however many stages
+// write it, ending with a count. Equivalent in shape to `sync --plan`.
+// The summary prints even when an importer fails.
+func dryRunImport(args []string) error {
+	rec, err := runImportInCopy(args, nil)
+	paths := make([]string, 0, len(rec.writes))
+	for _, w := range rec.writes {
+		paths = append(paths, filepath.FromSlash(w.path))
+	}
+	sort.Strings(paths)
+	paths = slices.Compact(paths)
+	for _, p := range paths {
+		fmt.Printf("  would write %s\n", p)
+	}
+	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
+	return err
+}
+
 // planImportPreview runs the import in a copy of the project and
 // compares the result with the project.
 func planImportPreview(args []string) (importPreview, error) {
@@ -57,7 +78,7 @@ func planImportPreview(args []string) (importPreview, error) {
 
 // runImportInCopy copies the working directory (without .git) into a
 // temporary directory, runs the real importers there with every write
-// recorded, and calls inspect before the copy is removed. Running the
+// recorded, and calls inspect, when set, before the copy is removed. Running the
 // ordinary import is what keeps a dry-run equal to a real one: a later
 // stage reads what an earlier one wrote, frontmatter merges and fences
 // included. The project itself is never written. An inspect error wins
@@ -99,8 +120,10 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 	defer func() { importRecording, importSandbox = nil, "" }()
 
 	runErr := runImportArgs(args)
-	if err := inspect(project, shadow, rec); err != nil {
-		return rec, err
+	if inspect != nil {
+		if err := inspect(project, shadow, rec); err != nil {
+			return rec, err
+		}
 	}
 	return rec, runErr
 }
