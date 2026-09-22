@@ -206,7 +206,7 @@ func TestImport_DryRunWithoutDiffStillOmitsBodies(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(stdout, "would write .agnostic-ai/AGNOSTIC_AI.md") {
+	if !strings.Contains(stdout, "would write "+filepath.Join(".agnostic-ai", "AGNOSTIC_AI.md")) {
 		t.Errorf("expected path lines:\n%s", stdout)
 	}
 	for _, leak := range []string{"Agents body.", "Use tabs.", "(after import)", "conflict"} {
