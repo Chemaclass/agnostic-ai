@@ -101,7 +101,6 @@
             </button>
             {% endfor %}
           </div>
-          <p class="output-fineprint">{{ landing.transform.fineprint }}</p>
           <div class="output-panels">
             {% for output in landing.hero.diagram.outputs %}
             <div class="output-panel" role="tabpanel" id="output-panel-{{ output.id }}" aria-labelledby="output-tab-{{ output.id }}" tabindex="0" data-output-panel{% if not output.selected %} hidden{% endif %}>

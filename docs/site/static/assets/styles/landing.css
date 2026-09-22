@@ -420,7 +420,7 @@ main > section[id] {
 .transform {
   display: grid;
   grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto;
   align-items: start;
   column-gap: 1.5rem;
   row-gap: 0.9rem;
@@ -437,23 +437,13 @@ main > section[id] {
 }
 
 .transform-arrow,
-.output-files,
-.output-fineprint {
+.output-files {
   grid-column: 1;
 }
 
-/* Spans the tab list and the line under it, so the tallest generated file
-   sets the height of the row instead of leaving a void beside it. */
 .output-panels {
   grid-column: 2;
-  grid-row: 4 / -1;
-}
-
-.output-fineprint {
-  margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.55;
+  grid-row: 4;
 }
 
 /* One column below the split: the panes fall under the tab list, which is the
@@ -467,19 +457,12 @@ main > section[id] {
   .spec-card,
   .transform-arrow,
   .output-files,
-  .output-fineprint,
   .output-panels {
     grid-column: 1;
   }
 
   .output-panels {
     grid-row: auto;
-  }
-
-  /* Below the split the fineprint would separate the tab list from the pane
-     it switches, so it moves to the end. */
-  .output-fineprint {
-    order: 1;
   }
 }
 
