@@ -50,8 +50,10 @@ The user asks to release, tag, ship, or cut a new version.
    Curate the section before moving it. Product sections come first and carry
    only changes to the tool; `### Site` comes last, holds everything whose only
    effect is on agnostic-ai.org or the docs, and is grouped into a few lines by
-   theme. Condensing must not drop a claim: check that every backticked path,
-   flag, and `#NNN` in the old lines still appears in the new ones.
+   theme. Apply the entry rules and the length check in
+   `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
+   A path, flag, or case it drops must already be on the docs page or in the
+   PR; if it is not, add it to the docs, not back to the bullet.
 5. Bump `version` in `cmd/agnostic-ai/main.go` and `extra.version` in
    `docs/site/config.toml`. The site footer publishes that value, and
    `make site-test` fails when either disagrees with the latest dated
