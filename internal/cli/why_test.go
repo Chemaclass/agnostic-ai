@@ -142,17 +142,7 @@ func TestWhy_JSONOutputSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", ".cursor/rules/no-console-log.mdc", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, ".cursor/rules/no-console-log.mdc")
 	if got.Version != "1" {
 		t.Errorf("version: want 1, got %q", got.Version)
 	}
@@ -194,17 +184,7 @@ outputs:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "custom-rules/no-console-log.mdc", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "custom-rules/no-console-log.mdc")
 	found := false
 	for _, k := range got.OutputKeys {
 		if k == "outputs.cursor.rules-dir" {
@@ -233,17 +213,7 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "AGENTS.md")
 	if got.Target != "codex" {
 		t.Errorf("expected codex as the entry-point consumer, got %q", got.Target)
 	}
@@ -283,17 +253,7 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "AGENTS.md")
 	if got.Target != "codex" {
 		t.Errorf("root AGENTS.md must resolve to codex (the inlined-rules entry-point consumer), not junie's unrelated .junie/AGENTS.md mirror; got %q", got.Target)
 	}
@@ -317,17 +277,7 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", ".junie/AGENTS.md", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, ".junie/AGENTS.md")
 	if got.Target != "junie" {
 		t.Errorf("expected junie as the .junie/AGENTS.md emitter, got %q", got.Target)
 	}
