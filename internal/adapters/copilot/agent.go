@@ -8,14 +8,14 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// emitAgents writes one native Copilot custom-agent profile per agent
+// EmitAgents writes one native Copilot custom-agent profile per agent
 // spec at `<agentsDir>/<name>.agent.md`. Copilot (cloud agent and VS
 // Code) discovers agent profiles under `.github/agents/`; the
 // frontmatter carries `name`, `description` (required), and the
 // optional `tools` and `model` keys, with the prompt as the body.
 // Arbitrary `x-copilot` keys (target, user-invocable, mcp-servers, ...)
 // pass through for the rest of the documented schema.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)

@@ -191,8 +191,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	noteAgentPolicyGaps(b.Agents)
-	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -206,8 +205,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitSettings(sess, b.MCPs, b.Hooks, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitAgents writes one `<dir>/<name>.md` per agent spec.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+// EmitAgents writes one `<dir>/<name>.md` per agent spec.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	noteAgentPolicyGaps(agents)
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)

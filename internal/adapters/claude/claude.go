@@ -131,12 +131,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	dir := emit.OutputDir(cfg, target, defaultDir)
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, emit.OutputSubDir(cfg, target, "agents", defaultAgentsDir))
-	for _, a := range b.Agents {
-		path := filepath.Join(agentsDir, a.Name+".md")
-		body := RenderAgent(a)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
-			return err
-		}
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+		return err
 	}
 
 	skillsDir := emit.OutputSkillsDir(cfg, target, emit.OutputSubDir(cfg, target, "skills", defaultSkillsDir))

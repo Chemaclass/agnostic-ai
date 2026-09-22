@@ -35,13 +35,23 @@ var devinTool = map[string]string{
 	"Edit":  "edit",
 }
 
-// emitAgents writes one native `<dir>/<name>.md` per agent spec and
-// sweeps the rule-form file a prior sync left behind for the same name
-// (both the flat and the scoped copy, since windsurf routes scoped
-// entries to `<scope>/<rules-dir>`). A generic `tools` list translates
-// onto Devin's own vocabulary; any name with no table entry drops and
-// folds into one coverage note per sync.
+// emitAgents also removes the project agent files emitted by older versions.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir, rulesDir string, dryRun bool) error {
+	if err := (Adapter{}).EmitAgents(sess, agents, dir, dryRun); err != nil {
+		return err
+	}
+	for _, a := range agents {
+		for _, legacy := range legacyAgentPaths(a, rulesDir) {
+			if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// EmitAgents writes native agent profiles without other project outputs.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	unmappedTools := 0
 	for _, a := range agents {
 		md, hasUnmapped := agentMarkdown(a)
@@ -51,11 +61,6 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir, rulesDir string, d
 		path := filepath.Join(dir, a.Name+".md")
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
-		}
-		for _, legacy := range legacyAgentPaths(a, rulesDir) {
-			if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
-				return err
-			}
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,

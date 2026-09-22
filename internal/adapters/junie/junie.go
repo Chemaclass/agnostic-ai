@@ -250,7 +250,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -327,13 +327,16 @@ func sweepLegacyRulesDir(sess *emit.Session, cfg *config.Config, dryRun bool) er
 	return sess.RemoveGeneratedTree(emit.OutputRulesDir(cfg, target, legacyRulesDir), dryRun)
 }
 
-// emitAgents writes one native subagent file per agent at
+// EmitAgents writes one native subagent file per agent at
 // `<dir>/<name>.md` (see the package doc for the vendor schema and the
 // `.junie/agents/` vs `.agents/` choice). Frontmatter passes through
 // verbatim via emit.DocumentStyled: Junie's documented fields need no
 // translation, since they are already spelled the way a spec author
 // writes them.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	if err := emit.ValidateNames(agents, target, "agent", agentNameRule); err != nil {
+		return err
+	}
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)

@@ -34,6 +34,13 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		if declared == 0 {
 			t.Errorf("%s: listed with no user-level surface at all", name)
 		}
+		adapter, ok := adapters.Get(name)
+		if _, native := adapter.(adapters.AgentEmitter); ok && (g.agents != "") != native {
+			t.Errorf("%s: global agent directory and native emitter must agree", name)
+		}
+		if (g.agentsRootEnv == "") != (g.agentsEnvSubdir == "") {
+			t.Errorf("%s: agent root override needs an environment variable and subdirectory", name)
+		}
 		if g.instructions != "" && g.rules != "" {
 			t.Errorf("%s: rules dir is only for a target with no instructions file", name)
 		}

@@ -19,6 +19,22 @@ var modelTiers = map[string]bool{"inherit": true, "flash": true, "pro": true}
 // sweeps the rule-form file a prior sync left behind for the same name,
 // at both the current and the pre-plural rules directory.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, rulesDirs []string, dryRun bool) error {
+	if err := (Adapter{}).EmitAgents(sess, agents, dir, dryRun); err != nil {
+		return err
+	}
+	for _, a := range agents {
+		for _, rulesDir := range rulesDirs {
+			legacy := filepath.Join(rulesDir, legacyAgentPrefix+a.Name+".md")
+			if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// EmitAgents writes native agents for project or user-level sync.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	droppedTools, droppedModel := 0, 0
 	for _, a := range agents {
 		md, drops := agentMarkdown(a)
@@ -31,12 +47,6 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, rulesDirs [
 		path := filepath.Join(dir, a.Name, "agent.md")
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
-		}
-		for _, rulesDir := range rulesDirs {
-			legacy := filepath.Join(rulesDir, legacyAgentPrefix+a.Name+".md")
-			if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
-				return err
-			}
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,

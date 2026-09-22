@@ -188,8 +188,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
-	noteUnsupportedEffort(b.Agents)
-	if err := emitDroids(sess, b.Agents, dir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, dir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -248,7 +247,7 @@ func factoryMCPs(entries []spec.Entry) []spec.Entry {
 		"WebSocket transport is not supported; Factory documents only stdio, http, and sse")
 }
 
-// emitDroids writes one `<dir>/<name>.md` per agent spec whose body is
+// EmitAgents writes one `<dir>/<name>.md` per agent spec whose body is
 // non-empty. Droid CLI's own schema calls a frontmatter-only body
 // invalid, so an agent spec with an empty (or whitespace-only) body is
 // skipped instead of written as a file the tool itself would reject;
@@ -256,7 +255,8 @@ func factoryMCPs(entries []spec.Entry) []spec.Entry {
 // by accident does not disappear without a trace. A `tools` name with
 // no Factory ID drops the same way, folded into one field note per sync
 // (see tools.go).
-func emitDroids(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	noteUnsupportedEffort(agents)
 	var emptyBody, droppedTools int
 	for _, a := range agents {
 		if strings.TrimSpace(a.Body) == "" {
@@ -284,7 +284,7 @@ func emitDroids(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool
 // optional `tools` translated onto Factory's own tool IDs (see
 // tools.go), plus arbitrary x-factory passthrough, followed by the spec
 // body as the droid's system prompt. Callers only reach this with a
-// non-empty (trimmed) body; emitDroids skips the empty case before this
+// non-empty (trimmed) body; EmitAgents skips the empty case before this
 // ever runs. `tools` is read from the raw, unresolved meta rather than
 // the resolved map: ResolveMeta would already have flattened an
 // x-factory.tools override onto it, and running that value back through

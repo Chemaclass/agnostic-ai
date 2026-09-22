@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -25,9 +27,8 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// globalStateVersion is 2 since the per-target hooks map replaced
-	// the claude-and-cursor-only fields.
-	globalStateVersion = 2
+	// Version 3 records agent owners for targets sharing a directory.
+	globalStateVersion = 3
 )
 
 type globalSyncOptions struct {
@@ -38,8 +39,9 @@ type globalSyncOptions struct {
 }
 
 type globalState struct {
-	Version int      `json:"version"`
-	Files   []string `json:"files"`
+	Version int                 `json:"version"`
+	Files   []string            `json:"files"`
+	Agents  map[string][]string `json:"agents,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -99,7 +101,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	for _, target := range targets {
-		if globalTargets[target].agents != "" {
+		if globalTargets[target].agents != "" || verbosity < levelDefault {
 			continue
 		}
 		for _, agent := range bundle.Agents {
@@ -125,8 +127,20 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	adapters.ResetCoverageNotes()
+	if verbosity < levelDefault {
+		adapters.SetWarner(io.Discard)
+	} else {
+		adapters.SetWarner(cmd.ErrOrStderr())
+	}
+	defer adapters.SetWarner(os.Stderr)
+	defer adapters.ResetCoverageNotes()
 	writes, next, err := buildGlobalWrites(home, source, targets, instructions, bundle, old)
 	if err != nil {
+		return err
+	}
+	adapters.FlushCoverageNotes()
+	if err := checkUnselectedGlobalAgents(writes, old, targets); err != nil {
 		return err
 	}
 	stateData, err := json.MarshalIndent(next, "", "  ")
@@ -203,7 +217,12 @@ func loadGlobalState(path string) (globalState, error) {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}}
+	for target, paths := range old.Agents {
+		if !slices.Contains(targets, target) {
+			next.Agents[target] = append([]string(nil), paths...)
+		}
+	}
 	for target, hooks := range old.Hooks {
 		next.Hooks[target] = cloneHookState(hooks)
 	}
@@ -214,6 +233,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// targets share one skills directory.
 	for _, target := range targets {
 		g := globalTargets[target]
+		next.Files = removePaths(next.Files, old.Agents[target])
 		for _, tree := range g.trees(home) {
 			next.Files = removePathPrefix(next.Files, tree+string(filepath.Separator))
 		}
@@ -244,12 +264,16 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for _, target := range targets {
 		g := globalTargets[target]
 		if g.agents != "" {
-			dir := globalPath(home, g.agents)
-			for _, agent := range b.For(target).Agents {
-				path := filepath.Join(dir, agent.Name+".md")
-				if err := add(path, []byte(claude.RenderAgent(agent)), 0o644); err != nil {
+			dir := g.agentsPath(home)
+			files, err := adapters.RenderAgents(target, b.Agents, dir)
+			if err != nil {
+				return nil, next, err
+			}
+			for _, file := range files {
+				if err := add(file.Path, []byte(file.Content), 0o644); err != nil {
 					return nil, next, err
 				}
+				next.Agents[target] = append(next.Agents[target], file.Path)
 			}
 		}
 		if g.instructions != "" {
@@ -308,7 +332,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
+	for _, paths := range next.Agents {
+		next.Files = append(next.Files, paths...)
+	}
 	sort.Strings(next.Files)
+	next.Files = slices.Compact(next.Files)
 	return writes, next, nil
 }
 

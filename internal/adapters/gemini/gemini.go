@@ -139,7 +139,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // `.gemini/settings.json`, `.geminiignore`, and—when opted in via
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
-func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (adapter Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
+	if err := adapter.EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
 	if err := emitAgentCommands(sess, b.Agents, commandsDir, cfg, dryRun); err != nil {

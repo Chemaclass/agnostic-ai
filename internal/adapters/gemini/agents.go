@@ -38,7 +38,7 @@ var geminiToolName = map[string]string{
 	"WebSearch": "google_web_search",
 }
 
-// emitAgents writes one native subagent per agent at
+// EmitAgents writes one native subagent per agent at
 // `<dir>/<name>.md`: "Custom agents are defined as Markdown files
 // (`.md`) with YAML frontmatter ... Project-level: `.gemini/agents/*.md`"
 // (geminicli.com/docs/core/subagents). The body is the agent's system
@@ -47,7 +47,7 @@ var geminiToolName = map[string]string{
 // Agents that declare a `tools` list Gemini's own vocabulary has no
 // entry for fold into one coverage note per sync rather than emitting a
 // restriction that silences the subagent.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	unmappedTools := 0
 	for _, a := range agents {
 		md, hasUnmapped := agentMarkdown(a)

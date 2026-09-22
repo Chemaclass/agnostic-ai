@@ -16,8 +16,12 @@ import (
 func globalAgentTestHome(t *testing.T) (string, string) {
 	t.Helper()
 	home := t.TempDir()
+	for _, key := range []string{"CLAUDE_CONFIG_DIR", "CODEX_HOME", "GEMINI_CLI_HOME", "COPILOT_HOME", "CLINE_DIR", "QODER_CONFIG_DIR", "KIRO_HOME", "JUNIE_HOME"} {
+		t.Setenv(key, "")
+	}
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -218,11 +222,11 @@ func TestSyncGlobal_AgentCleanupHonorsSelectionAndOwnership(t *testing.T) {
 func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	for name, routing := range map[string]string{
-		"claude-only": "targets: [claude]", "excluded": "targets: [claude, cursor]\ntarget-exclude: claude", "shared": "", "elsewhere": "target: gemini",
+		"claude-only": "targets: [claude]", "excluded": "targets: [claude, amp]\ntarget-exclude: claude", "shared": "", "elsewhere": "target: gemini",
 	} {
 		mustWriteGlobalTest(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\n"+routing+"\n---\nReview.\n")
 	}
-	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
+	_, warnings, err := runGlobalAgentTest("--only", "claude,amp")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +240,7 @@ func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 			t.Errorf("emitted filtered %s", name)
 		}
 	}
-	for _, want := range []string{"cursor", "global agents", "excluded", "shared"} {
+	for _, want := range []string{"amp", "global agents", "excluded", "shared"} {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("missing warning %q: %s", want, warnings)
 		}
@@ -246,10 +250,10 @@ func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 			t.Errorf("warned for filtered %s: %s", unwanted, warnings)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(home, ".cursor", "agents")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(home, ".amp", "agents")); !os.IsNotExist(err) {
 		t.Error("invented Cursor global path")
 	}
-	_, warnings, err = runGlobalAgentTest("--target", "claude,cursor", "--except", "cursor")
+	_, warnings, err = runGlobalAgentTest("--target", "claude,amp", "--except", "amp")
 	if err != nil || warnings != "" {
 		t.Errorf("excluded target warned: %s, %v", warnings, err)
 	}

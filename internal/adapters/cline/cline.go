@@ -255,6 +255,11 @@ func emitAgentFiles(sess *emit.Session, agents []spec.Entry, dir string, dryRun 
 	if err := sess.RemoveGeneratedTreeExt(dir, legacyAgentExt, dryRun); err != nil {
 		return err
 	}
+	return (Adapter{}).EmitAgents(sess, agents, dir, dryRun)
+}
+
+// EmitAgents writes native agents for project or user-level sync.
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+agentExt)
 		if err := sess.WriteFile(path, emit.WithHeader(agentFile(a), emit.FormatMarkdown), dryRun); err != nil {

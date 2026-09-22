@@ -369,23 +369,21 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
-- Agents support Claude Code only, with the project agent format, target overrides, and include/exclude filters. Other selected targets warn and skip applicable agents. Use `--only claude` or agent `targets: [claude]` to limit destinations.
+- Agents use each target's native format, metadata overrides, and include/exclude filters. Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output) for paths and discovery limits. Unsupported targets warn and skip agents.
 - Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, skills, and agents, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
 - An unmanaged agent, skill, or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
-- Native tool precedence applies when global and project configuration both exist.
+- Native tool precedence applies when global and project configuration both exist. Shared agent files remain until every owning target removes them. To update a file shared by Goose and OpenHands, sync both targets together.
 
 Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
 
-For a personal Claude Code agent, create `~/.agnostic-ai/agents/reviewer.md`:
+For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
 
 ```markdown
 ---
 name: reviewer
 description: Review code for correctness
-model: sonnet
-tools: [Read, Grep, Glob]
-targets: [claude]
+targets: [claude, codex]
 ---
 Review the changes and report actionable findings.
 ```
@@ -393,8 +391,8 @@ Review the changes and report actionable findings.
 Then run from any directory:
 
 ```console
-agnostic-ai sync --global --only claude
-agnostic-ai sync --global --only claude --check
+agnostic-ai sync --global --only claude,codex
+agnostic-ai sync --global --only claude,codex --check
 ```
 
-Sync writes `~/.claude/agents/reviewer.md`. If a manually copied file already exists there, preserve its edits in the source and move it aside before syncing. `--backup` saves managed files before replacement; it does not bypass unmanaged collisions.
+Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a manually copied file already occupies an output path, preserve its edits in the source and move it aside before syncing. `--backup` saves managed files before replacement; it does not bypass unmanaged collisions.

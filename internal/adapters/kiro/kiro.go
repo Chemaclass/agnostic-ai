@@ -225,8 +225,14 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, agentsDir, dir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
+	}
+	for _, a := range b.Agents {
+		legacy := filepath.Join(dir, legacyAgentPrefix+a.Name+".md")
+		if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
+			return err
+		}
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := emitSkills(sess, b.Skills, skillsDir, dir, dryRun); err != nil {
@@ -257,14 +263,12 @@ func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) 
 	return nil
 }
 
-// emitAgents writes one native `<agentsDir>/<name>.md` per agent (see
-// agentMarkdown) and sweeps the legacy flattened steering file at
-// `<steeringDir>/agent-<name>.md` a prior sync may have left behind for
-// the same name. A generic `tools` value translates onto Kiro's own
+// EmitAgents writes one native `<agentsDir>/<name>.md` per agent (see
+// agentMarkdown). A generic `tools` value translates onto Kiro's own
 // category vocabulary (see the package doc and translateTools); any
 // name with no table entry is dropped from the emitted list and folded
 // into one coverage note per sync instead of vanishing silently.
-func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, agentsDir string, dryRun bool) error {
 	unmappedTools := 0
 	for _, a := range agents {
 		path := filepath.Join(agentsDir, a.Name+".md")
@@ -273,10 +277,6 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir 
 			unmappedTools++
 		}
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
-			return err
-		}
-		legacy := filepath.Join(steeringDir, legacyAgentPrefix+a.Name+".md")
-		if err := sess.RemoveGenerated(legacy, dryRun); err != nil {
 			return err
 		}
 	}
@@ -290,7 +290,7 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, agentsDir, steeringDir 
 // one `<skillsDir>/<name>/SKILL.md` plus every sibling asset propagated
 // byte-for-byte. It then sweeps the legacy flattened steering file at
 // `<steeringDir>/skill-<name>.md` a prior sync may have left behind for
-// the same name, mirroring emitAgents' sweep of its own legacy path.
+// the same name, matching the project agent migration in Emit.
 func emitSkills(sess *emit.Session, skills []spec.Entry, skillsDir, steeringDir string, dryRun bool) error {
 	if err := sess.WriteSkillFolders(skills, target, skillsDir, dryRun); err != nil {
 		return err

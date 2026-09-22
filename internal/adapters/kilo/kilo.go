@@ -254,7 +254,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := emitAgents(sess, b.Agents, dir, dryRun); err != nil {
+	if err := (Adapter{}).EmitAgents(sess, b.Agents, dir, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -268,12 +268,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
-// emitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
+// EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
 // `tools` allowlist becomes Kilo's own `permission` frontmatter (see
 // agentMarkdown); only the names outside Kilo's vocabulary drop, and
 // the whole batch surfaces one coverage note for those instead of a
 // silent loss.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	unmapped := 0
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")

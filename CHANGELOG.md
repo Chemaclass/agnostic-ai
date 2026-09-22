@@ -12,7 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
-- Global sync emits Claude Code agents with ownership, collision, backup, and drift checks, removing the manual copy step (#1033).
+- Global sync emits native agents for 18 targets, including Codex, with ownership, collision, backup, and drift checks (#1033).
 - Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
 - Qoder rules keep manual, model-selected, and file activation conditions through import and sync, including `x-qoder` metadata (#1029).
 
