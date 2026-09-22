@@ -3,6 +3,7 @@ package qoder
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -797,5 +798,48 @@ func TestEmit_MCP_NoLongerSharesClaudesFile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".qoder/settings.json")); err != nil {
 		t.Errorf("expected .qoder/settings.json written: %v", err)
+	}
+}
+
+func TestEmit_RuleActivationMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+	}{
+		{"manual", map[string]any{"trigger": "manual"}},
+		{"manual_compatibility", map[string]any{"alwaysApply": false}},
+		{"model", map[string]any{"trigger": "model_decision", "description": "Use for migrations"}},
+		{"glob", map[string]any{"trigger": "glob", "glob": []any{"src/**/*.go", "tests/**/*.go"}}},
+		{"paths", map[string]any{"paths": "src/**/*.go"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			e := spec.Entry{Kind: spec.KindRule, Name: "activation", Body: "Conditional guidance.", Meta: map[string]any{
+				"description": "Portable description", "x-qoder": tc.meta,
+				"x-cursor": map[string]any{"trigger": "always_on"},
+			}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{e}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(dir, ".qoder/rules/activation.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := spec.ParseMarkdownBytes(spec.KindRule, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]any{"description": "Portable description"}
+			for k, v := range tc.meta {
+				want[k] = v
+			}
+			if !reflect.DeepEqual(got.Meta, want) {
+				t.Errorf("activation = %#v, want %#v", got.Meta, want)
+			}
+			if !strings.Contains(got.Body, e.Body) {
+				t.Error("rule body lost")
+			}
+		})
 	}
 }

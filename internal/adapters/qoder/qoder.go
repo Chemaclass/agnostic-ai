@@ -6,7 +6,10 @@
 // state this native rules content takes precedence over `AGENTS.md`
 // when both are present. Qoder also reads the cross-tool root
 // `AGENTS.md`, which is written centrally by `sync` as a slim pointer
-// to the source specs, not by this adapter.
+// to the source specs, not by this adapter. Rule activation frontmatter
+// preserves description, alwaysApply, trigger, glob, and paths, including
+// x-qoder overrides. Without activation fields, Qoder loads rules always.
+// Portable scope takes precedence over native activation metadata.
 //
 // Agents emit as one Markdown file per agent spec at
 // `.qoder/agents/<name>.md` (override via outputs.qoder.agents-dir):
@@ -283,11 +286,26 @@ func qoderToolsString(v any) string {
 	return strings.Join(emit.StringSlice(v), ", ")
 }
 
-// ruleMarkdown retains ordinary rules and emits native conditions for scoped rules.
+// ruleMarkdown preserves native activation without changing its field shapes.
 func ruleMarkdown(e spec.Entry) string {
-	body := "# " + e.Name + "\n\n" + e.Body
+	resolved := emit.ResolveMeta(e.Meta, target)
+	meta := map[string]any{}
+	for _, key := range []string{"description", "alwaysApply", "trigger", "glob", "paths"} {
+		if value, exists := resolved[key]; exists {
+			meta[key] = value
+		}
+	}
 	if e.EffectiveScope() != "" {
-		body = emit.Frontmatter(map[string]any{"paths": e.Meta["paths"]}) + "\n" + body
+		// Qoder treats alwaysApply:false as manual, so only the normalized
+		// paths may select a portable scoped rule.
+		delete(meta, "alwaysApply")
+		delete(meta, "trigger")
+		delete(meta, "glob")
+		meta["paths"] = e.Meta["paths"]
+	}
+	body := "# " + e.Name + "\n\n" + e.Body
+	if len(meta) > 0 {
+		body = emit.Frontmatter(meta) + "\n" + body
 	}
 	return emit.WithHeader(body, emit.FormatMarkdown)
 }

@@ -14,8 +14,7 @@ import (
 
 const (
 	// qoderRulesDir is the native per-rule directory the qoder adapter
-	// writes; the plain heading-form files there (no frontmatter) go
-	// through the same generic walker other rules-only imports use.
+	// writes. Activation frontmatter survives through the generic walker.
 	qoderRulesDir = ".qoder/rules"
 	// qoderAgentsDir is the native per-agent directory the qoder adapter
 	// writes (docs.qoder.com/extensions/subagent).
@@ -44,7 +43,9 @@ func importFromQoder(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, qoderRulesDir, src)
+	c, err := importRulesDirectoryWith(root, qoderRulesDir, src, rulesDirImportOpts{
+		NativeTarget: "qoder", NativeKeys: []string{"trigger", "glob", "paths"},
+	})
 	if err != nil {
 		return err
 	}
