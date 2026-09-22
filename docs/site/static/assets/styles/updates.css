@@ -9,11 +9,8 @@
 
 .masthead h1 {
   max-width: 15ch;
-  font-family: var(--display);
-  font-size: clamp(3rem, 8.4vw, 6.2rem);
-  font-weight: 400;
-  line-height: 1.04;
-  letter-spacing: -0.015em;
+  font-size: clamp(2.8rem, 8vw, 6rem);
+  font-weight: 780;
 }
 
 .masthead .lede {
@@ -85,11 +82,7 @@
 .latest-copy h2 {
   max-width: 19ch;
   margin-top: 0.9rem;
-  font-family: var(--display);
-  font-size: clamp(2.1rem, 5.2vw, 3.8rem);
-  font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.012em;
+  font-size: clamp(2rem, 5vw, 3.75rem);
 }
 
 .latest-copy .summary {
@@ -181,11 +174,7 @@
 }
 
 .archive h2 {
-  font-family: var(--display);
-  font-size: clamp(1.9rem, 4.2vw, 2.7rem);
-  font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: -0.01em;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
 }
 
 .archive-head a {
@@ -480,11 +469,7 @@
 
 .article-header h1 {
   margin-top: 1rem;
-  font-family: var(--display);
-  font-size: clamp(2.6rem, 7.2vw, 5.1rem);
-  font-weight: 400;
-  line-height: 1.06;
-  letter-spacing: -0.015em;
+  font-size: clamp(2.5rem, 7vw, 5rem);
 }
 
 .article-header .dek {

@@ -39,11 +39,10 @@ main > section[id] {
 
 .hero h1 {
   max-width: 14ch;
-  font-family: var(--display);
-  font-size: clamp(2.9rem, 6.8vw, 5.4rem);
-  font-weight: 400;
-  line-height: 1.04;
-  letter-spacing: -0.015em;
+  font-family: var(--mono);
+  font-size: clamp(2.6rem, 6.2vw, 5rem);
+  font-weight: 760;
+  letter-spacing: -0.035em;
 }
 
 .hero h1 span {
@@ -412,14 +411,16 @@ main > section[id] {
   font-weight: 700;
 }
 
-/* Source on the left, the file it produced on the right, at full rail width.
-   The switch element is display: contents so its tab list and its panes become
-   direct cells of this grid: the panes then span the spec card's rows and the
-   selected file stays beside its source instead of under it. */
+/* The source runs across the top, at a measure its own lines fit, and the
+   five files it produced sit under it beside the selected one. Putting the
+   source in a narrow left column instead wrapped its YAML mid-sentence while
+   the generated file got twice the width its lines use, and left the bottom
+   of the right column empty. The switch element is display: contents so its
+   tab list and its panes become direct cells of this grid. */
 .transform {
   display: grid;
-  grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto auto;
   align-items: start;
   column-gap: 1.5rem;
   row-gap: 0.9rem;
@@ -430,16 +431,29 @@ main > section[id] {
   display: contents;
 }
 
-.spec-card,
+.spec-card {
+  grid-column: 1 / -1;
+  width: min(100%, 46rem);
+}
+
 .transform-arrow,
-.output-files {
+.output-files,
+.output-fineprint {
   grid-column: 1;
 }
 
+/* Spans the tab list and the line under it, so the tallest generated file
+   sets the height of the row instead of leaving a void beside it. */
 .output-panels {
   grid-column: 2;
-  grid-row: 2 / -1;
-  align-self: start;
+  grid-row: 4 / -1;
+}
+
+.output-fineprint {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 
 /* One column below the split: the panes fall under the tab list, which is the
@@ -453,12 +467,19 @@ main > section[id] {
   .spec-card,
   .transform-arrow,
   .output-files,
+  .output-fineprint,
   .output-panels {
     grid-column: 1;
   }
 
   .output-panels {
     grid-row: auto;
+  }
+
+  /* Below the split the fineprint would separate the tab list from the pane
+     it switches, so it moves to the end. */
+  .output-fineprint {
+    order: 1;
   }
 }
 
@@ -522,7 +543,7 @@ main > section[id] {
 .transform-arrow {
   width: 3rem;
   display: block;
-  margin: 0.7rem auto;
+  margin: 0.7rem 0;
   color: var(--accent);
   transform: rotate(90deg);
 }
@@ -678,11 +699,9 @@ main > section[id] {
 }
 
 .section-title {
-  font-family: var(--display);
-  font-size: clamp(1.95rem, 4.8vw, 2.9rem);
-  font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: -0.01em;
+  font-family: var(--mono);
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  font-weight: 720;
 }
 
 .section-title span {
@@ -693,6 +712,48 @@ main > section[id] {
 .section-lead {
   max-width: 37em;
   margin-top: 1rem;
+}
+
+/* A section title and its lead each hold well under half the rail, so stacking
+   them left a full column of the row empty and pushed everything below it
+   down. Above the split they sit side by side, title left and lead right on a
+   shared baseline; everything else in the section still spans the rail. */
+@media (min-width: 1000px) {
+  .section-head-split > .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    column-gap: 3rem;
+  }
+
+  .section-head-split > .wrap > * {
+    grid-column: 1 / -1;
+  }
+
+  .section-head-split > .wrap > .section-title {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .section-head-split > .wrap > .section-lead {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: none;
+    margin-top: 0;
+  }
+
+  /* The quickstart pairs its title with three links rather than a lead, so
+     the title keeps more of the row and still breaks at its own span. */
+  #quickstart > .wrap {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+
+  #quickstart > .wrap > .quickstart-links {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    margin-top: 0;
+  }
 }
 
 .section-lead a {
@@ -828,10 +889,15 @@ main > section[id] {
   font-weight: 700;
 }
 
+/* One line across the rail rather than a narrow box with half a row of empty
+   paper beside it: the question leads, the answer and the link follow it. */
 .mission-question {
-  max-width: 37em;
-  margin-top: 2rem;
-  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.35rem;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
@@ -1111,11 +1177,8 @@ main > section[id] {
 }
 
 .closing h2 {
-  font-family: var(--display);
-  font-size: clamp(2rem, 5.2vw, 3.2rem);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-family: var(--mono);
+  font-size: clamp(1.8rem, 5vw, 3rem);
 }
 
 .closing h2 br + span,

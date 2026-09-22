@@ -106,19 +106,16 @@ The palette is warm, low-saturation, and built around one rare rust signal.
 
 ## Typography
 
-**Display Font:** Instrument Serif, self-hosted, one 400 face
+**Display Font:** system sans
 **Body Font:** system sans
 **Label/Mono Font:** system monospace, preferring JetBrains Mono where installed
 
-**Character:** Page titles carry an editorial serif at weight 400, large and unhurried, so the site states a position rather than shouting a feature. Everything under a title returns to the platform sans, and monospace labels stay operational, keeping paths, dates, and counts aligned.
-
-The display face is the only web font. It is served from `static/assets/fonts/` under the OFL rather than a font CDN, so no page makes a third-party request, and it is scoped to titles alone: body text never waits on a download.
+**Character:** Headlines are blunt, compressed by tight tracking, and large enough to state one clear consequence. Monospace labels feel operational and keep dates and counts aligned. The site loads no web font: every face is one the reader already has.
 
 ### Hierarchy
 
-- **Display** (400, `clamp(2.8rem, 8vw, 6rem)`, 1.04, Instrument Serif): one first-viewport statement, capped near 15 characters per line.
-- **Headline** (400, `clamp(2rem, 5vw, 3.75rem)`, 1.1, Instrument Serif): section, guide, and article titles. A trailing muted span carries the second half of a two-part title.
-- **Subhead** (500, `1.3rem` to `1.75rem`, sans): headings inside a guide, where the serif would fight the prose.
+- **Display** (780, `clamp(2.8rem, 8vw, 6rem)`, 1.08): one first-viewport statement, capped near 15 characters per line.
+- **Headline** (700, `clamp(2rem, 5vw, 3.75rem)`, 1.08): latest-edition and article headings.
 - **Title** (700, `1.08rem` to `1.2rem`, 1.08): change summaries and archive entries.
 - **Body** (400, `17px`, 1.65): editorial explanation, with article reading width capped at 46rem.
 - **Label** (400 or 700, `0.69rem` to `0.78rem`, `0.02em` tracking): dates, edition state, target tags, and audit counts.
