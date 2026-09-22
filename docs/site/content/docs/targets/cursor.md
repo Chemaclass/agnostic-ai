@@ -70,13 +70,13 @@ The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.jso
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md`, nested subdirectories preserved |
 | (no `name:` in frontmatter) | `name:` injected from the filename |
-| `.cursor/agents/<name>.md` | `<agents>/<name>.md` (byte-identical copy, provenance header stripped) |
-| `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree (SKILL.md + bundled assets) copied byte-for-byte |
-| `.cursor/commands/<name>.md` | `<commands>/<name>.md` (byte-identical copy, provenance header stripped) |
+| `.cursor/agents/<name>.md` | `<agents>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
+| `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree: bundled assets byte-for-byte, SKILL.md merged onto the existing spec |
+| `.cursor/commands/<name>.md` | `<commands>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
 
 Both skill directories are read because the [Skills](https://cursor.com/docs/skills.md) "Skill directories" table marks both project-level, at the repository root and in nested subdirectories (the nesting becomes the spec scope). `.cursor/skills` wins a same-name collision at the same scope (#854).
 
-It round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files.
+It round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files. Cursor emits no `argument-hint` or `allowed-tools`, and import leaves both on the spec rather than deleting what it cannot read back.
 
 ## Verify
 

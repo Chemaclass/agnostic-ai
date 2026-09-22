@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import` keeps the frontmatter a target cannot express, so a sync then import no longer deletes `argument-hint` or `allowed-tools` from a skill, agent, command, or rule spec.
 - `sync` prints the Devin shared `.agents/agents/` coverage note once and stops repeating it while it is unchanged (#1014).
 - npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
 

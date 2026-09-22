@@ -279,3 +279,47 @@ func TestImportFromCursor_ImportsEveryProjectSkillPathWithPrecedence(t *testing.
 		t.Errorf(".cursor/skills should win a same-name collision:\n%s", shared)
 	}
 }
+
+// Cursor emits a skill's name, description and its own five optional
+// keys, so importing the emitted folder used to delete the rest of the
+// spec. The imported keys and body win; the others stay, and bundled
+// assets are still copied byte-for-byte.
+func TestImportFromCursor_SkillImportKeepsSpecOnlyFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "skills", "alpha", "SKILL.md"),
+		"---\nname: alpha\ndescription: old\nargument-hint: \"[n]\"\nallowed-tools: Read\n---\n\nold body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "alpha", "SKILL.md"),
+		"---\nname: alpha\ndescription: new\n---\n\nnew body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "alpha", "scripts", "run.sh"), "#!/bin/sh\necho hi\n")
+	silence(t)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	want := "---\nname: alpha\ndescription: new\nargument-hint: \"[n]\"\nallowed-tools: Read\n---\n\nnew body\n"
+	if got := readFile(t, filepath.Join(dir, "skills", "alpha", "SKILL.md")); got != want {
+		t.Errorf("skill spec:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+	if got := readFile(t, filepath.Join(dir, "skills", "alpha", "scripts", "run.sh")); got != "#!/bin/sh\necho hi\n" {
+		t.Errorf("bundled asset = %q, want the cursor bytes", got)
+	}
+}
+
+// The same guarantee on the flat agent surface, which cursor emits
+// without an agent's `effort` or `memory`.
+func TestImportFromCursor_AgentImportKeepsSpecOnlyFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "agents", "reviewer.md"),
+		"---\nname: reviewer\ndescription: old\neffort: high\n---\n\nold body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "agents", "reviewer.md"),
+		"---\nname: reviewer\ndescription: new\n---\n\nnew body\n")
+	silence(t)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	want := "---\nname: reviewer\ndescription: new\neffort: high\n---\n\nnew body\n"
+	if got := readFile(t, filepath.Join(dir, "agents", "reviewer.md")); got != want {
+		t.Errorf("agent spec:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}

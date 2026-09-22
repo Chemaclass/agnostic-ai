@@ -57,3 +57,26 @@ func TestImportAntigravity_PrefersCurrentSkillsAndFallsBackToLegacy(t *testing.T
 		t.Errorf("preferred skill = %q", got)
 	}
 }
+
+// A target that emits a subset of a skill's frontmatter must not delete
+// the rest of it on the way back: sync then import leaves the spec as it
+// found it, keys the target cannot express included.
+func TestImport_SyncThenImportKeepsSpecFrontmatter(t *testing.T) {
+	const spec = "---\nname: gh-issues\ndescription: Walk the open issues.\nargument-hint: \"[--limit N]\"\nallowed-tools: \"Read, Bash(gh *)\"\n---\n\nWalk every open issue.\n"
+	for _, target := range []string{"cursor", "copilot", "opencode", "zed"} {
+		t.Run(target, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeFile(t, ".agnostic-ai/skills/gh-issues/SKILL.md", spec)
+
+			execCLI(t, "sync")
+			execCLI(t, "import", target)
+
+			if got := readFile(t, ".agnostic-ai/skills/gh-issues/SKILL.md"); got != spec {
+				t.Errorf("spec after sync and import:\ngot:\n%s\nwant:\n%s", got, spec)
+			}
+		})
+	}
+}

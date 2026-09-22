@@ -22,7 +22,7 @@ agnostic-ai init --from claude
 
 Pick the tools to generate for. Replace `claude` with your source tool, or use `--from all` to detect existing configuration. If the project already uses agnostic-ai, run `agnostic-ai import claude` instead.
 
-Import writes source specs only. It does not sync native output or change your target selection. Re-running it overwrites matching source filenames.
+Import writes source specs only. It does not sync native output or change your target selection. Re-running it overwrites matching source filenames: the body and every frontmatter key the tool expresses come from the native file, and keys that tool has no field for stay on the spec. Delete a key in the spec, not in the native file.
 
 ## Review before syncing
 

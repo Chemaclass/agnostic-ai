@@ -89,8 +89,9 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 }
 
 // importSkillFolders copies each `<srcDir>/<name>/` directory tree that
-// contains a SKILL.md into `<dstDir>/<name>/` byte-for-byte, so a
-// round-trip preserves the full payload (scripts, references, assets).
+// contains a SKILL.md into `<dstDir>/<name>/`, so a round-trip preserves
+// the full payload (scripts, references, assets). Bundled files land
+// byte-for-byte; SKILL.md merges onto the spec already there.
 // Folders without a SKILL.md are skipped; a missing srcDir imports
 // nothing. Shared by every importer whose tool uses the Agent Skills
 // folder layout (cursor, gemini, opencode, copilot).
@@ -142,7 +143,8 @@ func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (
 }
 
 // copyDirTree walks srcDir recursively and writes every regular file
-// byte-for-byte into the matching location under dstDir, recreating
+// into the matching location under dstDir, byte-for-byte but for a
+// SKILL.md merged onto an existing spec, recreating
 // the directory layout as it goes. File mode bits are preserved so an
 // executable script remains executable on the destination. Symlinks
 // are not followed; if they appear inside a skill folder they are
@@ -192,7 +194,11 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
 		}
-		if err := importWriteFile(target, data, info.Mode().Perm()); err != nil {
+		write := importWriteFile
+		if filepath.Base(path) == "SKILL.md" {
+			write = importWriteSpecMarkdown
+		}
+		if err := write(target, data, info.Mode().Perm()); err != nil {
 			return fmt.Errorf("write %s: %w", target, err)
 		}
 		return nil
