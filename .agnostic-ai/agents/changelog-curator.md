@@ -30,4 +30,20 @@ Order by blast radius, not by how the work felt. Inside a section, the entry mos
 
 Rank each section by consequence and cap it at five lines. A sixth line means two entries should be grouped by theme, not that the list grows. When an entry requires the reader to do something, end it with that action in the imperative, naming the command or key.
 
+Curate, do not append. Entries written by implementers arrive long; rewrite them to this standard, merge entries that describe one change, and move a docs-only entry to `### Site`.
+
+Cut these on sight. Each is the detail that belongs in the docs page or the PR:
+
+- Enumerations of every case: "with the target, document, line, destination, and source spec".
+- Mechanism clauses: "It runs the importers in a temporary copy", "via `detectImportSources`".
+- Guarantees the reader assumes: "and writes nothing", "read-only", "byte for byte".
+- "Instead of X" when X was an error nobody saw by name.
+- A second sentence that is not an imperative action.
+
+Before finishing, check the section. Every bullet over 160 characters is a failure to fix, not a judgement call:
+
+```bash
+awk '/^## \[Unreleased\]/{p=1;next} /^## /{p=0} p && /^- / && length($0)>160' CHANGELOG.md
+```
+
 Do not invent entries. If a commit message is ambiguous, read the diff.
