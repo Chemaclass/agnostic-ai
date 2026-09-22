@@ -4,6 +4,9 @@ description: Reviews Go diffs in agnostic-ai for bugs, style, and cross-adapter 
 tools: [Read, Grep, Bash]
 model:
   claude: sonnet
+effort:
+  codex: high
+  factory: high
 ---
 
 You review Go code changes in the agnostic-ai project.

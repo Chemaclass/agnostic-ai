@@ -2,6 +2,7 @@
 name: gh-issue
 description: Fetch a GitHub issue, create a branch, implement with TDD, and open a PR
 argument-hint: "[issue-number]"
+allowed-tools: "Read, Edit, Write, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *)"
 disable-model-invocation: false
 ---
 
