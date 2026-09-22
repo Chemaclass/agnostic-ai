@@ -163,6 +163,11 @@ honest:
   `watch:` line naming the parts most likely to churn. This is not
   optional: `tests/integration/target_audit_sources_test.go` fails until
   the new target has a section, so an adapter cannot merge un-audited.
+  Follow that file's URL line grammar, because `scripts/docfetch.sh`
+  parses those two lines and `scripts/docfetch_test.sh` fails when a
+  target resolves no docs URL or no changelog URL. Run
+  `scripts/docfetch.sh <target>` once and commit the new rows it adds to
+  `scripts/target-audit/sources.lock`.
 - `scripts/target-facts.sh <target>` prints what the repo currently
   claims (capabilities, default paths, package doc, the
   `targets/_index.md` rows and the target's page). Diff that against the vendor doc.

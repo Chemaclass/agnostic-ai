@@ -35,7 +35,9 @@ Use this schema:
 Assign `signal-id` from the capability's user-facing semantic concept, not
 the vendor's feature name or current disposition. Once published, never
 rename or reuse it. This keeps repeated audits tied to the same decision
-history.
+history. Record every synthesized signal as one row in
+`scripts/target-audit/signals.tsv`; that file and the published articles are
+the dedupe history a later run reads instead of the whole issue collection.
 
 Exclude user-tier-only behavior, waitlists, unreleased beta features,
 marketing claims without usable documentation, cosmetic changes, and

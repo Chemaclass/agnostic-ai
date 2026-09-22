@@ -176,3 +176,121 @@ function test_every_registered_target_has_an_upstream_sources_entry() {
   done
   assert_empty "$missing"
 }
+
+# ---- batch_list --------------------------------------------------------------
+
+function test_batch_list_spreads_the_remainder_like_batches() {
+  local sizes
+  sizes=$(batch_list 3 a b c d e f g | sed 's/^[0-9]*: //' | awk '{ print NF }' | tr '\n' ' ')
+  assert_equals "3 2 2 " "$sizes"
+}
+
+function test_batch_list_clamps_a_count_above_the_input() {
+  assert_equals 2 "$(batch_list 9 a b | wc -l | tr -d ' ')"
+}
+
+function test_batch_list_prints_nothing_without_targets() {
+  assert_empty "$(batch_list 3)"
+}
+
+# ---- changed_classes ---------------------------------------------------------
+
+# write_run <row>... builds a docfetch.tsv from "target kind url status" tuples.
+function write_run() {
+  local row
+  : >"$CHANGED_RUN"
+  for row in "$@"; do
+    set -- $row
+    printf '%s\t%s\t%s\t200\thtml\tsha-%s\t2026-09-01\t%s\t%s\t\n' \
+      "$1" "$2" "$3" "$3" "$4" "$3" >>"$CHANGED_RUN"
+  done
+}
+
+function set_up() {
+  CHANGED_DIR=$(mktemp -d)
+  CHANGED_RUN="$CHANGED_DIR/docfetch.tsv"
+  export TARGET_AUDIT_LOCK="$CHANGED_DIR/sources.lock"
+  LOCK="$TARGET_AUDIT_LOCK"
+}
+
+function tear_down() {
+  [ -n "${CHANGED_DIR:-}" ] && rm -rf "$CHANGED_DIR"
+}
+
+function test_changed_classes_marks_a_moved_page_deep() {
+  write_run "claude docs https://a/1 changed" "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  local out
+  out=$(changed_classes "$CHANGED_RUN")
+  assert_contains "deep: claude" "$out"
+  assert_contains "sweep: zed" "$out"
+}
+
+function test_changed_classes_marks_a_moved_changelog_deep() {
+  write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c changed"
+  assert_contains "deep: zed" "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_marks_an_unrecovered_page_deep() {
+  write_run "kiro docs https://k/1 failed" "kiro changelog https://k/c unchanged"
+  assert_contains "deep: kiro" "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_sweeps_a_fully_unchanged_target() {
+  write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  local out
+  out=$(changed_classes "$CHANGED_RUN")
+  assert_equals "sweep: zed" "$out"
+}
+
+function test_changed_classes_ignores_a_target_absent_from_the_run() {
+  write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  assert_not_contains "claude" "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_derives_status_from_the_lock_when_absent() {
+  # A seven-column file predates the status column; the lock decides.
+  printf 'zed\tdocs\thttps://z/1\t200\thtml\tsha-1\t2026-09-01\n' >"$CHANGED_RUN"
+  assert_contains "deep: zed" "$(changed_classes "$CHANGED_RUN")"
+  printf 'zed\tdocs\thttps://z/1\t200\thtml\tsha-1\t2026-09-01\n' >"$LOCK"
+  assert_contains "sweep: zed" "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_rejects_an_unreadable_file() {
+  local status=0
+  changed_classes "$CHANGED_DIR/missing.tsv" 2>/dev/null || status=$?
+  assert_equals 1 "$status"
+}
+
+# ---- --changed ---------------------------------------------------------------
+
+function test_changed_prints_numbered_deep_batches_then_the_sweep() {
+  write_run "claude docs https://a/1 changed" "cursor docs https://c/1 changed" \
+    "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  local out
+  out=$(main --changed "$CHANGED_RUN" 2)
+  assert_contains "1: claude" "$out"
+  assert_contains "2: cursor" "$out"
+  assert_contains "sweep: zed" "$out"
+}
+
+function test_changed_omits_the_sweep_line_when_every_target_moved() {
+  write_run "claude docs https://a/1 changed"
+  assert_not_contains "sweep:" "$(main --changed "$CHANGED_RUN")"
+}
+
+function test_changed_clamps_the_batch_count_to_the_deep_targets() {
+  write_run "claude docs https://a/1 changed" "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  assert_equals 1 "$(main --changed "$CHANGED_RUN" 5 | grep -c '^[0-9]*:')"
+}
+
+function test_changed_requires_a_file() {
+  local status=0
+  main --changed 2>/dev/null || status=$?
+  assert_equals 2 "$status"
+}
+
+function test_changed_rejects_a_missing_file() {
+  local status=0
+  main --changed "$CHANGED_DIR/missing.tsv" 2>/dev/null || status=$?
+  assert_equals 1 "$status"
+}
