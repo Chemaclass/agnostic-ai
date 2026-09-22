@@ -67,7 +67,7 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
-`import all` imports every tool detected from its marker directory. A detected tool with no importer, such as OpenHands or Factory, is skipped with a `skipping <tool>` line and does not fail the run.
+`import all` imports every tool detected from its marker directory. A detected tool with no importer is skipped with a `skipping <tool>` line and does not fail the run.
 
 | Flag | Effect |
 |---|---|
@@ -83,7 +83,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - `all` auto-detects every CLI present in the project and cannot combine with other sources.
 - Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, plus `all`. The targets `factory`, `openhands`, `jules`, and `augment` are emit-only.
 
-Each target page lists what `import <target>` reads: [Claude](@/docs/targets/claude.md#import), [Codex](@/docs/targets/codex.md#import), [Cursor](@/docs/targets/cursor.md#import), [Cline](@/docs/targets/cline.md#import), [Windsurf](@/docs/targets/windsurf.md#import), [Continue](@/docs/targets/continue.md#import), [Junie](@/docs/targets/junie.md#import), [Kiro](@/docs/targets/kiro.md#import), [Crush](@/docs/targets/crush.md#import), [Amp](@/docs/targets/amp.md#import), [Zed](@/docs/targets/zed.md#import), [Warp](@/docs/targets/warp.md#import), [Antigravity](@/docs/targets/antigravity.md#import), [Copilot](@/docs/targets/copilot.md#import), [Trae](@/docs/targets/trae.md#import), [Goose](@/docs/targets/goose.md#import), and [Kilo](@/docs/targets/kilo.md).
+Each target page lists what `import <target>` reads: [Claude](@/docs/targets/claude.md#import), [Codex](@/docs/targets/codex.md#import), [Cursor](@/docs/targets/cursor.md#import), [Cline](@/docs/targets/cline.md#import), [Windsurf](@/docs/targets/windsurf.md#import), [Continue](@/docs/targets/continue.md#import), [Junie](@/docs/targets/junie.md#import), [Kiro](@/docs/targets/kiro.md#import), [Crush](@/docs/targets/crush.md#import), [Amp](@/docs/targets/amp.md#import), [Zed](@/docs/targets/zed.md#import), [Warp](@/docs/targets/warp.md#import), [Antigravity](@/docs/targets/antigravity.md#import), [Copilot](@/docs/targets/copilot.md#import), [Trae](@/docs/targets/trae.md#import), [Goose](@/docs/targets/goose.md#import), [OpenHands](@/docs/targets/openhands.md#import), [Factory](@/docs/targets/factory.md#import), and [Kilo](@/docs/targets/kilo.md).
 
 ### Filename prefix reclassification {#filename-prefix-reclassification}
 

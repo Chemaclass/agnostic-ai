@@ -13,6 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `compare <a> <b>` shows what each target keeps or drops; `explain --file <path> --target cursor` lists the rules one file gets (#1034, #1036).
 - `doctor --check-references` reports relative links in generated skills that point at missing files (#1037).
 - VS Code: `agnostic-ai: Open canonical source` opens the spec behind a generated file (#1038).
+- `import openhands` and `import factory` read each tool's native files back into specs, so `import all` no longer skips them (#1055).
 
 ### Changed
 

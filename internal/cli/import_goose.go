@@ -119,13 +119,10 @@ func importFromGoose(root string, src config.Sources) error {
 func importGooseRules(root, dstDir string) (int, error) {
 	// With the `outputs.goose.rules-file` opt-in set, sync writes the
 	// rule bodies to `.goosehints` and leaves AGENTS.md a pointer body
-	// with no sentinel. Slicing that would import its scaffolding
-	// headings as rules and never reach the hints file (#894).
-	if !isGeneratedPointerBody(root, gooseMainFile) {
-		rules, err := sliceMainFileByH2(root, gooseMainFile, dstDir)
-		if err != nil || rules > 0 {
-			return rules, err
-		}
+	// with no sentinel, which imports nothing and falls through (#894).
+	rules, err := sliceEntryPointRules(root, gooseMainFile, dstDir)
+	if err != nil || rules > 0 {
+		return rules, err
 	}
 	return sliceMainFileByH2(root, gooseHintsFile, dstDir)
 }

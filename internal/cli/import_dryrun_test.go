@@ -226,3 +226,78 @@ func TestImportWriteFile_SkipsPathsOutsideSandbox(t *testing.T) {
 		t.Errorf("write inside the sandbox did not land: %v", err)
 	}
 }
+
+// assertDryRunMatchesRealImport seeds two copies of one project and
+// checks that `import <source> --dry-run`, the `--dry-run --diff` plan,
+// and a real import agree: the same destinations, and the preview's
+// final bytes equal what the real import writes.
+func assertDryRunMatchesRealImport(t *testing.T, source string, seed func(t *testing.T, dir string)) {
+	t.Helper()
+	silence(t)
+	previewDir := filepath.Join(t.TempDir(), "project")
+	realDir := filepath.Join(t.TempDir(), "project")
+	for _, dir := range []string{previewDir, realDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		testutil.Chdir(t, dir)
+		seed(t, dir)
+	}
+
+	testutil.Chdir(t, previewDir)
+	untouched := snapshotProject(t, previewDir)
+	out := captureStdout(t, func() {
+		if _, err := runCLI(t, "import", source, "--dry-run"); err != nil {
+			t.Fatalf("dry-run: %v", err)
+		}
+	})
+	listed := map[string]bool{}
+	for _, line := range strings.Split(out, "\n") {
+		if p, ok := strings.CutPrefix(strings.TrimSpace(line), "would write "); ok {
+			listed[filepath.ToSlash(p)] = true
+		}
+	}
+	preview, err := planImportPreview([]string{source})
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+	if len(preview.entries) == 0 {
+		t.Fatal("preview planned no writes")
+	}
+	if len(listed) != len(preview.entries) {
+		t.Errorf("--dry-run listed %d paths, --diff planned %d", len(listed), len(preview.entries))
+	}
+	for _, e := range preview.entries {
+		if !listed[e.path] {
+			t.Errorf("--diff planned %s but --dry-run did not list it", e.path)
+		}
+	}
+	if after := snapshotProject(t, previewDir); len(after) != len(untouched) {
+		t.Errorf("dry-run changed the project: %d entries before, %d after", len(untouched), len(after))
+	}
+
+	testutil.Chdir(t, realDir)
+	before := snapshotProject(t, realDir)
+	if _, err := runCLI(t, "import", source); err != nil {
+		t.Fatalf("real import: %v", err)
+	}
+	after := snapshotProject(t, realDir)
+	for _, e := range preview.entries {
+		got, err := os.ReadFile(filepath.Join(realDir, filepath.FromSlash(e.path)))
+		if err != nil {
+			t.Errorf("real import did not write %s: %v", e.path, err)
+			continue
+		}
+		if !bytes.Equal(got, e.after) {
+			t.Errorf("%s: preview planned\n%q\nreal import wrote\n%q", e.path, e.after, got)
+		}
+	}
+	for p, v := range after {
+		if before[p] == v || strings.HasPrefix(v, "<dir") {
+			continue
+		}
+		if !listed[filepath.ToSlash(p)] {
+			t.Errorf("real import changed %s but --dry-run did not list it", p)
+		}
+	}
+}

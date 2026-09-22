@@ -50,6 +50,7 @@ var (
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	traeAgentFields        = fieldsOf("name", "description", "tools")
 	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
+	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")
 	// slicedAgentFields covers an agent recovered from an `##` section of
 	// a shared instructions file (warp, goose), where the heading and body
 	// are all the format holds.
@@ -59,6 +60,9 @@ var (
 // cursorCommandFields covers `.cursor/commands/<name>.md`, which carries
 // a description and a model and drops the rest.
 var cursorCommandFields = fieldsOf("description", "model")
+
+// factoryCommandFields covers `.factory/commands/<name>.md`.
+var factoryCommandFields = fieldsOf("description", "argument-hint")
 
 // flattenedKindFields picks the field set for a spec recovered from a
 // flattened instructions file by its `agent-` / `skill-` filename prefix

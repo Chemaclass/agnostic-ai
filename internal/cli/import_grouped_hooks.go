@@ -1,7 +1,12 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -19,6 +24,13 @@ type groupedHookEntry struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 	Timeout int    `json:"timeout"`
+}
+
+// groupedHookGroup is one `{matcher, hooks: [...]}` object under an
+// event key.
+type groupedHookGroup struct {
+	Matcher string             `json:"matcher"`
+	Hooks   []groupedHookEntry `json:"hooks"`
 }
 
 // sortedHookEvents returns the event keys of a decoded hook map in a
@@ -100,4 +112,30 @@ func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// readEventKeyedHooks decodes a standalone hooks.json into its event
+// map. Factory keys the file directly by event name, OpenHands accepts
+// that and the Claude `{"hooks": {...}}` wrapper, so both shapes read
+// here. A missing file returns nil.
+func readEventKeyedHooks[T any](path string) (map[string][]T, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(data, &top); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if wrapped, ok := top["hooks"]; ok && bytes.HasPrefix(bytes.TrimSpace(wrapped), []byte("{")) {
+		data = wrapped
+	}
+	var byEvent map[string][]T
+	if err := json.Unmarshal(data, &byEvent); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return byEvent, nil
 }

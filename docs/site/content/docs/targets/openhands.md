@@ -48,6 +48,31 @@ The vendor documents two locations for this, a flat `.md` file and a folder; thi
   - `terminals` (Cursor's long-running dev processes) has no equivalent here, since the script runs once, synchronously, at repo start; it surfaces a coverage note instead of being silently dropped.
   - Multiple environment specs merge the same way Cursor's do: last spec's `install` wins.
 
+## Import
+
+`agnostic-ai import openhands` reverses the OpenHands layout:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.agents/skills/<name>/SKILL.md` with `paths` (path-triggered rule) | `<rules>/<name>.md` with `paths` |
+| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` |
+| `.openhands/skills/` and `.openhands/microagents/` (legacy) | the same, read after `.agents/skills/` |
+| flat `<name>.md` in any of those three directories | a rule, or a skill when it carries `triggers` (kept under `x-openhands`) |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md` |
+| `.openhands/hooks.json` | one hook spec per matcher group |
+| `config.toml` `[mcp]` table | `<mcps>/<name>.yaml` per server |
+| `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+`.agents/skills/` wins over the legacy trees on a name clash, the precedence OpenHands applies. Hooks read in both layouts: the native snake_case keys (`pre_tool_use`) come back as `PreToolUse`.
+
+Lossy fields, none of which change what OpenHands loads:
+
+- An `sse_servers` or `shttp_servers` entry carries no name, so the MCP spec is named after the URL host (`docs-example-test`). The next sync may list a bucket's servers in a different order.
+- A rule's source-layout scope comes back as the `paths` glob it widened to.
+- An environment spec's name and `terminals` do not survive; the setup script holds only `install`.
+
 ## Config keys
 
 | Key | Default |
