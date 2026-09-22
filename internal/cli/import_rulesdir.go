@@ -51,6 +51,10 @@ type rulesDirImportOpts struct {
 	// Seen shares destinations across native roots, rejecting distinct content
 	// instead of letting a later root overwrite an earlier rule.
 	Seen map[string]importedRuleContent
+	// FileRuleName imports srcDir as one rule with this name when srcDir is
+	// a regular file, not a directory. Cline still reads `.clinerules` in
+	// that single-file form (#1057). Empty skips a file srcDir.
+	FileRuleName string
 }
 
 type importedRuleContent struct{ path, content string }
@@ -102,12 +106,17 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			}
 			return nil
 		}
-		if !strings.HasSuffix(d.Name(), ".md") {
-			return nil
-		}
 		rel, err := filepath.Rel(full, path)
 		if err != nil {
 			return err
+		}
+		if path == full {
+			if opts.FileRuleName == "" {
+				return nil
+			}
+			rel = opts.FileRuleName + ".md"
+		} else if !strings.HasSuffix(d.Name(), ".md") {
+			return nil
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {

@@ -158,6 +158,43 @@ func TestImportFromCline_ReadsBothRulesDirectories(t *testing.T) {
 	}
 }
 
+// Cline still reads `.clinerules` as a single file (rule-helpers.ts in
+// cline/cline). It imports as one rule named after the file, and the
+// skill lookup under it is skipped instead of failing (#1057).
+func TestImportFromCline_ImportsSingleFileClinerulesAsOneRule(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".clinerules"), "Use tabs.\n")
+	writeFile(t, filepath.Join(dir, ".cline", "rules", "other.md"), "# other\n\nfrom the other rule directory.\n")
+
+	if err := importFromCline(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, "rules", "clinerules.md"))
+	if want := "---\nname: clinerules\n---\n\nUse tabs.\n"; got != want {
+		t.Errorf("rules/clinerules.md:\ngot  %q\nwant %q", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "other.md")); err != nil {
+		t.Errorf("missing rules/other.md: %v", err)
+	}
+}
+
+// A single-file `.clinerules` keeps its native `paths` condition, the
+// same as a rule file inside the directory layout.
+func TestImportFromCline_SingleFileClinerulesKeepsNativePaths(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".clinerules"), "---\npaths:\n  - \"src/**\"\n---\n\nUse tabs.\n")
+
+	if err := importFromCline(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, "rules", "clinerules.md"))
+	if !strings.Contains(got, "x-cline:\n    paths:\n        - src/**\n") || !strings.Contains(got, "Use tabs.") {
+		t.Errorf("rules/clinerules.md lost its paths condition:\n%s", got)
+	}
+}
+
 // TestImportFromCline_ReadsNativeAgentsDir covers the current default:
 // agents live flat under `.cline/agents/`, no `agent-` prefix, no
 // frontmatter (target-audit 2026-08-01, #534).

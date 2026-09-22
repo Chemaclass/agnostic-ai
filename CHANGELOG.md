@@ -28,6 +28,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `why` names the right spec in a project opened through a symlink, and `--format json` adds `configured` (#1047).
 - The VS Code extension works in projects configured with `agnostic-ai.yaml` (#1049).
 - Qoder rules keep manual, model-selected, and file activation through import and sync (#1029).
+- `import cline` reads a single-file `.clinerules` as one rule instead of failing with `not a directory` (#1057).
 
 ### Site
 
