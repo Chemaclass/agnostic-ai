@@ -79,6 +79,28 @@ func TestEmit_SettingsTranslatesWebSearch(t *testing.T) {
 	}
 }
 
+// Devin's `write` tool became a documented permission-rule name in
+// CLI v3000.11.1 (September 21, 2026): "Custom subagent profiles and
+// skills can grant the `write` tool using `allowed-tools`, and
+// permission rules recognize it." A bare `Write` rule now maps onto
+// `write`, distinct from `Edit`'s `edit`, instead of both collapsing
+// onto the same name (#1022).
+func TestEmit_SettingsTranslatesBareWriteAndEditDistinctly(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Write", "Edit"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	permissions, _ := settingsDoc(t, dir)["permissions"].(map[string]any)
+	if !reflect.DeepEqual(permissions["allow"], []any{"write", "edit"}) {
+		t.Errorf("allow = %#v, want [write edit]", permissions["allow"])
+	}
+}
+
 // `webfetch` stays out of the permission vocabulary on purpose. It
 // appears in the lifecycle-hooks tool table and a user-tier
 // `disabled_tools` example, neither of which governs `permissions`.

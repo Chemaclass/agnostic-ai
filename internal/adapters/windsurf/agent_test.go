@@ -81,6 +81,27 @@ func TestEmit_AgentToolsOutsideDevinVocabularyDrop(t *testing.T) {
 	}
 }
 
+// Devin's `write` tool became documented in CLI v3000.11.1 (September
+// 21, 2026): "Custom subagent profiles and skills can grant the
+// `write` tool using `allowed-tools`, and permission rules recognize
+// it." `Write` now maps onto `write`, distinct from `Edit`'s `edit`,
+// instead of both collapsing onto the same name (#1022).
+func TestEmit_AgentToolsMapWriteAndEditDistinctly(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindAgent, Name: "editor", Body: "editor body",
+		Meta: map[string]any{"tools": []any{"Write", "Edit"}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readAgentFile(t, filepath.Join(dir, ".devin/agents/editor.md"))
+	if !strings.Contains(got, "allowed-tools:\n  - write\n  - edit\n") {
+		t.Errorf("expected Write and Edit to map onto distinct tools:\n%s", got)
+	}
+}
+
 // A scoped agent lands flat in the agents directory. Devin documents
 // sub-directory discovery for rules only, so scoping the agents dir
 // would put the file where nothing reads it.

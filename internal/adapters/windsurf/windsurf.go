@@ -34,14 +34,18 @@
 // **experimental**. The format, behavior, and configuration options may
 // change in future releases."
 //
-// `allowed-tools` translates agnostic-ai's Claude-style names onto the
-// five Devin publishes, `read`, `edit`, `grep`, `glob`, `exec`
-// (docs.devin.ai/cli/reference/permissions); see devinTool for what
-// each collapses onto. The subagent docs enumerate no vocabulary of
-// their own, so that list is the only documented one for this key, and
-// it is not the `permissions` vocabulary. A name outside that table is
-// never guessed at: it drops from the list and folds into one coverage
-// note per sync. `x-windsurf.allowed-tools` wins outright over the
+// `allowed-tools` translates agnostic-ai's Claude-style names onto
+// Devin's own vocabulary; see devinTool for the current mapping.
+// `/cli/reference/permissions` still lists only five names, `read`,
+// `edit`, `grep`, `glob`, `exec`, and lags its own changelog: the
+// v3000.11.1 entry (September 21, 2026) grants `allowed-tools` a
+// sixth, `write`, so `Write` and `Edit` now map onto distinct Devin
+// tools rather than both collapsing onto `edit` (#1022). The subagent
+// docs enumerate no vocabulary of their own, so that list is the only
+// documented one for this key, and it is not the `permissions`
+// vocabulary. A name outside that table is never guessed at: it drops
+// from the list and folds into one coverage note per sync.
+// `x-windsurf.allowed-tools` wins outright over the
 // translated form for an author who already knows Devin's vocabulary,
 // and `max-nesting`, which has no generic spec field, reaches the file
 // the same way. `model` passes through verbatim, since the vendor's own
