@@ -31,16 +31,23 @@ type jsonOutput struct {
 }
 
 func emitJSON(cmd *cobra.Command, out jsonOutput) error {
-	if out.Writes == nil {
-		out.Writes = []fileRecord{}
-	}
-	if out.Skipped == nil {
-		out.Skipped = []fileRecord{}
-	}
-	if out.Errors == nil {
-		out.Errors = []errorRecord{}
-	}
+	out = out.withEmptyLists()
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
+}
+
+// withEmptyLists replaces nil lists with empty ones so consumers always
+// see `[]` rather than `null`.
+func (o jsonOutput) withEmptyLists() jsonOutput {
+	if o.Writes == nil {
+		o.Writes = []fileRecord{}
+	}
+	if o.Skipped == nil {
+		o.Skipped = []fileRecord{}
+	}
+	if o.Errors == nil {
+		o.Errors = []errorRecord{}
+	}
+	return o
 }

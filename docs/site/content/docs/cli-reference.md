@@ -283,7 +283,18 @@ Report missing (never synced), stale (hand-edited or out of date), and orphaned 
 | `--fix` | Write missing and stale files. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default, since monorepos may ship globs for future paths. |
-| `--json` | Drift report as JSON, same schema as `sync --check --json`. |
+| `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
+| `--json` | Drift report as JSON, same schema as `sync --check --json`. With `--check-references`, adds a `references` list. |
+
+`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. It resolves every inline link, image, and reference definition from the document's own directory and checks the file exists, gitignored outputs included. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. The check writes nothing and exits non-zero on any broken link:
+
+```
+Skill references:
+  ✗ claude: .claude/skills/deploy/SKILL.md:8 links to missing references/setup.md
+      source: .agnostic-ai/skills/deploy/SKILL.md
+```
+
+Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`. The key is absent without the flag.
 
 Then doctor prints:
 

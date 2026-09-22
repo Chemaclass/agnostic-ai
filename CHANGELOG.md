@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- `doctor --check-references` reports relative Markdown links in generated skills whose file is missing on disk, with the target, document, line, destination, and source spec. It is read-only, opt-in, and exits non-zero on a broken link; `doctor --json` adds a `references` list only under the flag (#1037).
+
 ### Changed
 
 - GitHub issue forms require only a problem description or tool name, with optional details and a blank-issue option.
