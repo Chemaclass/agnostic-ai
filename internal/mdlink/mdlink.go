@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -123,8 +122,9 @@ func Local(doc string) []Link {
 // is kept, and everything outside the replaced paths stays byte-for-byte.
 func RewriteLocal(doc string, replace func(Link) (string, bool)) string {
 	links := Local(doc)
-	sort.SliceStable(links, func(i, j int) bool { return links[i].start > links[j].start })
-	for _, l := range links {
+	// Splice from the end so earlier offsets stay valid.
+	for i := len(links) - 1; i >= 0; i-- {
+		l := links[i]
 		if path, ok := replace(l); ok {
 			doc = doc[:l.start] + path + doc[l.start+len(l.Raw):]
 		}
