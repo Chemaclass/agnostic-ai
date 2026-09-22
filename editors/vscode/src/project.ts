@@ -26,7 +26,10 @@ export function pickWorkspaceRoot(
   folders: string[],
   exists: (p: string) => boolean,
 ): string | undefined {
-  return folders.find((f) => findConfigFile(f, exists) !== undefined) ?? folders[0];
+  const withConfig = folders.find(
+    (f) => findConfigFile(f, exists) !== undefined,
+  );
+  return withConfig ?? folders[0];
 }
 
 /**
