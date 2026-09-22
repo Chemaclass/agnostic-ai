@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -164,21 +165,11 @@ func skillSourceByRender(sess *adapters.Session, adapter adapters.Adapter, b spe
 		if err != nil {
 			return ""
 		}
-		if !capturedPath(files, emitted) {
+		if !slices.ContainsFunc(files, func(f adapters.CapturedFile) bool { return f.Path == emitted }) {
 			return filepath.ToSlash(sk.Path)
 		}
 	}
 	return ""
-}
-
-// capturedPath reports whether files include path.
-func capturedPath(files []adapters.CapturedFile, path string) bool {
-	for _, f := range files {
-		if f.Path == path {
-			return true
-		}
-	}
-	return false
 }
 
 // reportBrokenReferences prints the doctor section for

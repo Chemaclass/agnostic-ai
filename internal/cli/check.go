@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -398,9 +397,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 		}
 		out.References = &refs
 	}
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(out); err != nil {
+	if err := writeIndentedJSON(cmd, out); err != nil {
 		return err
 	}
 	if len(out.Writes) > 0 {

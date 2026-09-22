@@ -31,10 +31,15 @@ type jsonOutput struct {
 }
 
 func emitJSON(cmd *cobra.Command, out jsonOutput) error {
-	out = out.withEmptyLists()
+	return writeIndentedJSON(cmd, out.withEmptyLists())
+}
+
+// writeIndentedJSON encodes v to the command's stdout with two-space
+// indentation, the layout every --json output shares.
+func writeIndentedJSON(cmd *cobra.Command, v any) error {
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return enc.Encode(v)
 }
 
 // withEmptyLists replaces nil lists with empty ones so consumers always
