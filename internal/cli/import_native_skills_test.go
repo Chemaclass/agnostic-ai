@@ -80,3 +80,28 @@ func TestImport_SyncThenImportKeepsSpecFrontmatter(t *testing.T) {
 		})
 	}
 }
+
+// The same guarantee on the agent surface: every importer that writes an
+// agent spec over one already on disk keeps the keys its target drops.
+func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
+	const spec = "---\nname: reviewer\ndescription: Review the diff.\ntools: [Read, Grep]\neffort: high\n---\n\nReview what changed.\n"
+	for _, target := range []string{"antigravity", "cline", "kiro", "qoder", "warp"} {
+		t.Run(target, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeFile(t, ".agnostic-ai/agents/reviewer.md", spec)
+
+			execCLI(t, "sync")
+			execCLI(t, "import", target)
+
+			got := readFile(t, ".agnostic-ai/agents/reviewer.md")
+			for _, key := range []string{"tools:", "effort:"} {
+				if !strings.Contains(got, key) {
+					t.Errorf("%s dropped from the spec after sync and import:\n%s", key, got)
+				}
+			}
+		})
+	}
+}

@@ -144,7 +144,7 @@ func importClineAgents(src, dstDir string) (int, error) {
 				return count, fmt.Errorf("read %s: %w", srcPath, err)
 			}
 			dstPath := filepath.Join(dstDir, name+".md")
-			if err := importWriteFile(dstPath, []byte(header.Strip(string(data))), 0o644); err != nil {
+			if err := importWriteSpecMarkdown(dstPath, []byte(header.Strip(string(data))), 0o644); err != nil {
 				return count, fmt.Errorf("write %s: %w", dstPath, err)
 			}
 			count++

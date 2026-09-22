@@ -67,7 +67,7 @@ agnostic-ai import all
 ```
 
 - Writes only spec files under `sources:`, never `targets:` or other config. Run it after `init`; re-running overwrites by filename.
-- A spec already on disk keeps the frontmatter keys the source tool cannot express. Cursor emits no `argument-hint`, so importing a synced `.cursor/skills/<name>/SKILL.md` updates the body and the keys cursor writes and leaves `argument-hint` in place. Removing a key means editing the spec.
+- A skill, agent, or command spec already on disk keeps the frontmatter keys the source tool cannot express. Cursor emits no `argument-hint`, so importing a synced `.cursor/skills/<name>/SKILL.md` updates the body and the keys cursor writes and leaves `argument-hint` in place. Removing such a key means editing the spec. Rules are exempt: their frontmatter comes from the native file alone, so a scope dropped there drops from the spec.
 - Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the imported entry point matches its rendered view; otherwise import overwrites it and warns that the fences were replaced.
 - When another entry point holds different hand-written content (a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first.
 - `all` auto-detects every CLI present in the project and cannot combine with other sources.

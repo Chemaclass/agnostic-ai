@@ -16,6 +16,11 @@ import (
 // byte-for-byte write back would delete every key that target cannot
 // express (`argument-hint` and `allowed-tools` on a cursor skill, for
 // one). A missing destination is a plain write.
+//
+// Skills, agents and commands use this. Rules do not: their translators
+// drop a catch-all `globs` and an empty `description` on purpose (#429),
+// so a missing key there is a deliberate removal, and carrying the old
+// value over would silently revert a scope the user just widened.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode) error {
 	existing, err := os.ReadFile(path)
 	switch {

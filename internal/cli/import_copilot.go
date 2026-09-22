@@ -288,7 +288,7 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("%s: %w", filepath.Dir(out), err)
 		}
-		if err := importWriteSpecMarkdown(out, translated, 0o644); err != nil {
+		if err := importWriteFile(out, translated, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
 		switch kind {
@@ -388,7 +388,7 @@ func importCopilotChatmodes(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("translate %s: %w", e.Name(), err)
 		}
 		out := filepath.Join(dstDir, name+".md")
-		if err := importWriteSpecMarkdown(out, translated, 0o644); err != nil {
+		if err := importWriteFile(out, translated, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", out, err)
 		}
 		count++

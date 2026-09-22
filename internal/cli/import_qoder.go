@@ -112,7 +112,7 @@ func importQoderAgents(root, dstDir string) (int, error) {
 		}
 		out := rewriteQoderAgentTools(header.Strip(string(data)))
 		dst := filepath.Join(dstDir, e.Name())
-		if err := importWriteFile(dst, []byte(out), 0o644); err != nil {
+		if err := importWriteSpecMarkdown(dst, []byte(out), 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++

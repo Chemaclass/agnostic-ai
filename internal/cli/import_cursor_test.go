@@ -323,3 +323,27 @@ func TestImportFromCursor_AgentImportKeepsSpecOnlyFrontmatter(t *testing.T) {
 		t.Errorf("agent spec:\ngot:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// Rule translators drop a catch-all `globs` on purpose (#429), so a rule
+// widened to `**/*` in Cursor must come back unscoped. Carrying the
+// spec's own keys over an import would silently restore the old scope
+// and the next sync would revert the user's change.
+func TestImportFromCursor_RuleWidenedToCatchAllDropsTheOldScope(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "rules", "go-style.md"),
+		"---\nname: go-style\ndescription: Go conventions.\nglobs: src/**\n---\n\nold body\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "go-style.mdc"),
+		"---\ndescription: Go conventions.\nglobs: \"**/*\"\n---\n\nnew body\n")
+	silence(t)
+
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "rules", "go-style.md"))
+	if strings.Contains(got, "src/**") {
+		t.Errorf("import restored the replaced scope:\n%s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("catch-all globs round-tripped into the spec:\n%s", got)
+	}
+}
