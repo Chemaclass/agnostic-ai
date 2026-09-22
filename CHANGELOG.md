@@ -2,33 +2,28 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Entry style: one sentence per change, around 150 characters. Lead with the user-facing effect, name the flag or path a reader can check, and link the issue (`#NNN`). No em dashes, no filler.
-
-The entry is the headline, not the full account. Migration steps belong in the release briefing's `## What to do`, the reasoning belongs in the issue, and the reference detail belongs on the docs page. An entry that needs a second sentence to stay true may have one; an entry that needs four is hiding a docs gap.
-
-Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `### Removed` carry changes to the tool: what it reads, what it writes, what it refuses. Changes to agnostic-ai.org and the documentation go last, under `### Site`, grouped into a few lines rather than one per commit. A release with ten site lines and two product lines tells a reader the wrong thing about the release.
+Entry style, section order, and what belongs here instead of the issue or the docs: `.agnostic-ai/agents/changelog-curator.md`.
 
 ## [Unreleased]
 
 ### Added
 
-- Codex agents write the portable `effort` field as `model_reasoning_effort`, accepting any string value; an integer budget raises a coverage note and `x-codex.model_reasoning_effort` still wins over the mapped value.
+- Codex agents map the portable `effort` onto `model_reasoning_effort`; an integer budget raises a coverage note, and `x-codex.model_reasoning_effort` still wins (#1016).
 
 ### Changed
 
-- Target audits fetch every vendor page once through `scripts/docfetch.sh`, which runs the recovery ladder for client-rendered, moved, and blocked pages and hashes each page's visible text against `scripts/target-audit/sources.lock`. Auditors read only the pages whose content moved, batches are sized from the targets that actually drifted, and evidence lives once in the run directory instead of being copied into the report.
+- Target audits fetch each vendor page once through `scripts/docfetch.sh` and hash it against `scripts/target-audit/sources.lock`, so auditors read only the pages that moved (#1017).
 
 ### Fixed
 
-- `sync` folds the Devin shared `.agents/agents/` note into one line and stops re-printing it when unchanged, like every other coverage note (#863).
-- npm releases allow about 20 minutes for publish-time scanning before reporting a missing package, and scoped binary manifests default to public.
+- `sync` prints the Devin shared `.agents/agents/` coverage note once and stops repeating it while it is unchanged (#1014).
+- npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
 
 ### Site
 
-- The site header drops the version badge and GitHub button, both already in the footer, and orders the nav as Home, Docs, Updates, Playground.
-- The docs table of contents escapes heading titles, so `x-<target>` on the spec format page no longer pulls the site footer into the right-hand column.
-- The README links directly to npm, the Homebrew tap, and GitHub Releases; installation docs identify `agnostic-ai` as the public npm entry point.
-- The targets page focuses on the capability matrix: it defines sync states and spec kinds, filters immediately, links every column, and moves shared details into a separate reference.
+- The header drops the version badge and GitHub button, both already in the footer, and orders the nav Home, Docs, Updates, Playground.
+- The docs table of contents escapes heading titles, so `x-<target>` on the spec format page no longer pulls the footer into the right column (#1015).
+- The targets page leads with the capability matrix, defining sync states and spec kinds and moving shared details to a reference; the README links npm, the Homebrew tap, and GitHub Releases directly.
 
 ## v0.64.1 - 2026-09-21
 
@@ -95,9 +90,6 @@ Product and site are separate. `### Added`, `### Changed`, `### Fixed`, and `###
 - The release's distribution guard retries `npm view` and the Homebrew contents API with backoff, so a registry replica that lags the publish by seconds no longer reports a good release as failed (#937).
 - `brew` stops printing `Calling postflight is deprecated` for our cask: the release emits Homebrew's `postflight_steps` stanza instead of the raw hook, and the quarantine strip still runs (#933).
 - `agnostic-ai update` only reports a PATH copy that actually wins the lookup, instead of telling you to delete a stale binary that sits later on PATH and shadows nothing.
-
-### Removed
-
 
 ### Site
 
@@ -704,16 +696,12 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 - `sync` prints a `note:` line when a target supports a kind but emits it only behind an opt-in key, so skipped content is visible. (#404)
 
-### Changed
-
 ### Fixed
 
 - `init` now offers Antigravity in the target prompt and enables it with `--all`. It was absent before.
 - `lint --help` now states the real exit code (`1`, not `2`).
 - `explain` and `why` now credit rules inlined into entry-point files (`AGENTS.md`, `GEMINI.md`, ...) instead of omitting them. (#405)
 - `copilot` always-on rules now emit as `applyTo:"**"` instruction files instead of being dropped. (#403)
-
-### Removed
 
 ## v0.36.0 - 2026-06-12
 
@@ -756,8 +744,6 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `cleanup` now removes only the `.bak` backups `sync --backup` wrote (scoped to emitted target files and entry-point files), instead of every `*.bak` under the project. Unrelated backups (vim, manual saves, other tools) are no longer destroyed. Closes #390.
 - `revert` now restores the entry-point files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `AGNOSTIC_AI.md`) from their `.bak`, matching adapter-emitted files. A `sync --backup` then `revert` round-trip previously left the user's original content orphaned in `.bak`; `revert --force` now also deletes the generated entry-point files. Closes #389.
 - Flat-file skills (`.agnostic-ai/skills/<name>.md`) no longer leak their sibling skills' bodies into each emitted skill folder. Sibling-asset propagation now applies only to folder-based skills (`<name>/SKILL.md`), which own their directory. Affects the claude, codex, amp, and antigravity targets. Closes #387.
-
-### Removed
 
 ## v0.32.1 - 2026-06-04
 
@@ -949,12 +935,6 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `sync --watch` watches `.agnostic-ai/overlays/`: hand-edits to `claude.settings.json` / `codex.config.toml` trigger re-emit within 50 ms debounce. Documented in `cli-reference.md` + `configuration.md`. Closes #234.
 - Integration tests for six round-trip edge cases: re-run `import claude` overwrites overlay (no double-stomp); empty `.codex/config.toml` writes no overlay; overlay+first-class collision on `codex.config.*` resolves overlay-wins; MCP server with `env` + http MCP with `headers` survive claude→codex→claude; folded (`>`) / literal (`|`) frontmatter scalars keep style after import+sync; skill with nested assets (exec script, `agents/openai.yaml`, fixtures subdir) round-trips claude→codex→claude with exec bit intact. Closes #233.
 
-### Changed
-
-### Fixed
-
-### Removed
-
 ## v0.22.0 - 2026-05-17
 
 ### Added
@@ -972,8 +952,6 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### Fixed
 
 - Frontmatter scalar styles now round-trip: a hand-authored plain `argument-hint: <ver>` stays plain on re-emit instead of being force-quoted to `"<ver>"`, and a hand-authored double-quoted scalar stays double-quoted. The spec loader captures per-key value styles into a new `Entry.MetaStyles` map and the emitter (`FrontmatterStyled` / `DocumentStyled`) replays them. The legacy angle-bracket auto-promotion in `preferDoubleQuotes` is dropped; explicit source-style preservation makes it unnecessary.
-
-### Removed
 
 ## v0.21.0 - 2026-05-16
 
@@ -1007,8 +985,6 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 - `doctor` reads the settings overlay in capture mode, matching real sync output. `--fix` no longer strips `enabledPlugins` / `statusLine` and no longer reports false drift after a clean sync. Import overlay also keeps source key order. Closes #215.
 - Frontmatter scalars containing `<`/`>` keep their quotes; long descriptions no longer wrap at 80 cols. Closes #218.
-
-### Removed
 
 ## v0.18.0 - 2026-05-16
 
@@ -1053,12 +1029,6 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `agnostic-ai lsp`: LSP server on stdio; pushes lint diagnostics on open/change/save. Closes #168.
 - `packs add` / `init`: auto-add `.agnostic-ai/packs/` to `.gitignore`. Closes #170.
 - `doctor` / `sync --check`: now detect drift in `AGNOSTIC_AI.md` and target entry-point files (`CLAUDE.md`, `AGENTS.md`, etc.).
-
-### Changed
-
-### Fixed
-
-### Removed
 
 ## v0.16.0 - 2026-05-15
 
