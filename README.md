@@ -87,6 +87,8 @@ Three of those ten do more than carry instructions. A [review](https://agnostic-
 
 agnostic-ai supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [20 more targets](https://agnostic-ai.org/docs/targets/#capability-matrix). Support varies by spec kind. Gemini default-model settings and Qoder HTTP/prompt hooks emit natively. An agent's `effort` reaches Codex as `model_reasoning_effort`. Import preserves Cline, Continue, and Qoder rule activation and supported compatible skill roots. The target reference lists every capability, native path, and opt-in setting.
 
+Before you switch tools, `agnostic-ai compare claude cursor` shows which agent fields and rule activation settings each target keeps, translates, or drops. It writes nothing.
+
 The [AI tooling updates](https://agnostic-ai.org/updates/) explain important upstream CLI and model changes, their developer impact, and the current agnostic-ai support state.
 
 ## Find your next step
@@ -99,6 +101,7 @@ The [AI tooling updates](https://agnostic-ai.org/updates/) explain important ups
 | Bring existing tool config into one source | [Migration](https://agnostic-ai.org/docs/migration/) |
 | Write a skill, agent, hook, or MCP spec | [Spec format](https://agnostic-ai.org/docs/spec-format/) |
 | Keep an agent out of build output and secrets | [Ignore specs](https://agnostic-ai.org/docs/spec-format/#ignore) |
+| See what changes before switching tools | [compare](https://agnostic-ai.org/docs/cli-reference/#compare) |
 | Change targets or output paths | [Configuration](https://agnostic-ai.org/docs/configuration/) |
 | Automate sync for a team | [CI](https://agnostic-ai.org/docs/ci/) and [Git hooks](https://agnostic-ai.org/docs/git-hooks/) |
 | Run a project-owned harness test | [Verification gate](https://agnostic-ai.org/docs/cli-reference/#verify) |

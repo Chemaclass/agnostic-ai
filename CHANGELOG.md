@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Added
 
 - `doctor --check-references` reports relative Markdown links in generated skills whose file is missing on disk, with the target, document, line, destination, and source spec. It is read-only, opt-in, and exits non-zero on a broken link; `doctor --json` adds a `references` list only under the flag (#1037).
+- `agnostic-ai compare claude cursor` shows, per agent field and rule activation field, what each target keeps, translates, or drops, and writes nothing (#1034).
 
 ### Changed
 
