@@ -8,34 +8,31 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- `doctor --check-references` reports relative Markdown links in generated skills whose file is missing on disk, with the target, document, line, destination, and source spec. It is read-only, opt-in, and exits non-zero on a broken link; `doctor --json` adds a `references` list only under the flag (#1037).
-- `agnostic-ai compare claude cursor` shows, per agent field and rule activation field, what each target keeps, translates, or drops, and writes nothing (#1034).
-- `explain --file <path> --target cursor` lists the Cursor instructions configured for a project file: root `AGENTS.md`, nested `AGENTS.md`, and `.cursor/rules` files, each with its source spec, output path, selector, and whether it applies always, by match, by model choice, or only on `@`-mention. It reads the planned sync output, reports target exclusions and unknown glob syntax, and writes nothing (#1036).
-- `import --dry-run --diff` previews the content an import would write: created, changed, and unchanged specs with a unified diff each, the sources behind every file, and the files two sources propose different content for, with the one a real import keeps. It runs the real importers in a temporary copy, so the preview matches a real import byte for byte and the project stays untouched (#1035).
-- The VS Code extension opens the spec behind a generated file with `agnostic-ai: Open canonical source`, and offers a picker for merged files like `AGENTS.md` (#1038).
+- Global sync writes native agents from `~/.agnostic-ai/agents/` for 18 targets, with drift checks and cleanup (#1033).
+- `import --dry-run --diff` shows the content an import would write and flags sources that disagree on one file (#1035).
+- `compare <a> <b>` shows what each target keeps or drops; `explain --file <path> --target cursor` lists the rules one file gets (#1034, #1036).
+- `doctor --check-references` reports relative links in generated skills that point at missing files (#1037).
+- VS Code: `agnostic-ai: Open canonical source` opens the spec behind a generated file (#1038).
 
 ### Changed
 
-- GitHub issue forms require only a problem description or tool name, with optional details and a blank-issue option.
-- Global sync honors each tool's configuration root variable, such as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, for instructions, skills, hooks, and agents alike. Files an earlier sync wrote under the default root stay there; remove them by hand (#1033).
-- A global sync without `--only` skips and warns about a target with a relative root variable or an agent name its native format rejects, instead of failing every target (#1033).
+- Continue skills move to `.continue/skills/<name>/` with their bundled files. Run `agnostic-ai sync` and commit the move (#1043).
+- Global sync honors each tool's root variable, such as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, for every surface. Delete files left under the old root (#1033).
+- `sync --global` without `--only` warns and skips a target it cannot write instead of failing the run (#1033).
+- GitHub issue forms ask only for a problem description or tool name.
 
 ### Fixed
 
-- `import all` skips a detected tool that has no importer, such as OpenHands or Factory, with a `skipping <tool>` line, instead of failing on it with `unknown source`. The post-import and post-init hints no longer suggest `import openhands` or `import factory` (#1052).
-- The VS Code extension activates, validates, shows drift and codelens, lists targets for `Render current spec`, and runs its sync commands in projects configured with `agnostic-ai.yaml`, not only the legacy `agnostic.config.yaml`. When both exist it reads `agnostic-ai.yaml`, like the CLI (#1049).
-- `why` resolves the project root and the file through symlinks, so a project opened through a link (macOS `/tmp`, a linked checkout) names the right adapter and spec instead of guessing from the file name. A path several targets share, like `.agents/skills/`, goes to a configured target. A target missing from `targets` is labeled `(not configured)`, and `--format json` adds a `configured` field (#1047).
-- `import --dry-run` plans an import whose later step reads a file an earlier step wrote, such as `import codex` with a Codex skill, instead of failing with `no such file`. It runs the importers in a temporary copy of the project, like `--diff`, lists each path once, and still writes nothing to the project (#1046).
-- Continue skills emit as native `.continue/skills/<name>/` folders with their bundled files, the tree Continue's skill loader reads, instead of a `.continue/rules/skill-<name>.md` rule whose relative links pointed at nothing. Sync removes the old rule file, and `import continue` reads the new folders. OpenCode's opt-in skill command form points a link to a bundled file into the native skill folder, so it resolves too (#1043).
-- `import --dry-run` no longer writes imported permission specs, Codex exec-policy directories, or Codex skill assets merged into an existing skill (#1035).
-- Global sync emits native agents for 18 targets, including Codex, with ownership, collision, backup, and drift checks (#1033).
-- Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
-- Qoder rules keep manual, model-selected, and file activation conditions through import and sync, including `x-qoder` metadata (#1029).
+- `import --dry-run` writes nothing and no longer fails on a step that reads an earlier one's output, such as `import codex` with skills (#1035, #1046).
+- `import all` skips a detected tool with no importer, such as OpenHands or Factory, instead of failing (#1052).
+- `why` names the right spec in a project opened through a symlink, and `--format json` adds `configured` (#1047).
+- The VS Code extension works in projects configured with `agnostic-ai.yaml` (#1049).
+- Qoder rules keep manual, model-selected, and file activation through import and sync (#1029).
 
 ### Site
 
-- The home page diagram runs the source spec, the arrow, and the target list down one column with the generated file beside them, taking about a third less height for the same spec, five targets, and output.
-- The hero rails pulse again one second after the previous pass instead of two and a half.
+- The Devin target page documents recursive rule discovery in Devin CLI (#1030).
+- The home diagram takes about a third less height, and the hero rails pulse more often.
 
 ## v0.65.0 - 2026-09-22
 
