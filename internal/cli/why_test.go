@@ -142,17 +142,7 @@ func TestWhy_JSONOutputSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", ".cursor/rules/no-console-log.mdc", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, ".cursor/rules/no-console-log.mdc")
 	if got.Version != "1" {
 		t.Errorf("version: want 1, got %q", got.Version)
 	}
@@ -194,17 +184,7 @@ outputs:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "custom-rules/no-console-log.mdc", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "custom-rules/no-console-log.mdc")
 	found := false
 	for _, k := range got.OutputKeys {
 		if k == "outputs.cursor.rules-dir" {
@@ -233,17 +213,7 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "AGENTS.md")
 	if got.Target != "codex" {
 		t.Errorf("expected codex as the entry-point consumer, got %q", got.Target)
 	}
@@ -283,17 +253,7 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
-	var out bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetArgs([]string{"why", "AGENTS.md", "--format", "json"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got whyOutput
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
-	}
+	got := runWhyJSON(t, "AGENTS.md")
 	if got.Target != "codex" {
 		t.Errorf("root AGENTS.md must resolve to codex (the inlined-rules entry-point consumer), not junie's unrelated .junie/AGENTS.md mirror; got %q", got.Target)
 	}
@@ -317,10 +277,20 @@ targets:
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	got := runWhyJSON(t, ".junie/AGENTS.md")
+	if got.Target != "junie" {
+		t.Errorf("expected junie as the .junie/AGENTS.md emitter, got %q", got.Target)
+	}
+}
+
+// runWhyJSON runs `why <file> --format json` in the current directory and
+// decodes the report.
+func runWhyJSON(t *testing.T, file string) whyOutput {
+	t.Helper()
 	var out bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&out)
-	root.SetArgs([]string{"why", ".junie/AGENTS.md", "--format", "json"})
+	root.SetArgs([]string{"why", file, "--format", "json"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -328,7 +298,111 @@ targets:
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
 	}
-	if got.Target != "junie" {
-		t.Errorf("expected junie as the .junie/AGENTS.md emitter, got %q", got.Target)
+	return got
+}
+
+// chdirThroughSymlink links a fresh path to dir and enters the project
+// through that link, with PWD set so the working directory keeps the
+// symlinked form, the way a shell reports it.
+func chdirThroughSymlink(t *testing.T, dir string) {
+	t.Helper()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, link)
+	t.Setenv("PWD", link)
+}
+
+func TestWhy_SymlinkedProjectMatchesExistingFileExactly(t *testing.T) {
+	dir := setupWhyFixture(t)
+	emitted := filepath.Join(dir, ".cursor", "rules", "no-console-log.mdc")
+	if err := os.MkdirAll(filepath.Dir(emitted), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(emitted, []byte("emitted\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	chdirThroughSymlink(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, ".cursor/rules/no-console-log.mdc")
+	if got.File != ".cursor/rules/no-console-log.mdc" {
+		t.Errorf("file: want project-relative path, got %q", got.File)
+	}
+	if got.Target != "cursor" {
+		t.Errorf("target: want cursor, got %q", got.Target)
+	}
+}
+
+func TestWhy_SymlinkedProjectResolvesMissingFile(t *testing.T) {
+	dir := setupWhyFixture(t)
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	chdirThroughSymlink(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, ".claude/rules/no-console-log.md")
+	if got.File != ".claude/rules/no-console-log.md" {
+		t.Errorf("file: want project-relative path, got %q", got.File)
+	}
+	if got.Target != "claude" {
+		t.Errorf("target: want claude, got %q", got.Target)
+	}
+}
+
+func TestWhy_PrefersConfiguredTargetForSharedPath(t *testing.T) {
+	dir := setupWhyFixture(t)
+	cfg := `version: 1
+sources:
+  skills: skills
+targets:
+  - codex
+`
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "skills", "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skills", "demo", "SKILL.md"),
+		[]byte("---\nname: demo\ndescription: Demo skill.\n---\n\nBody.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, ".agents/skills/demo/SKILL.md")
+	if got.Target != "codex" {
+		t.Errorf("target: want configured codex, got %q", got.Target)
+	}
+	if !got.Configured {
+		t.Errorf("configured: want true for codex")
+	}
+}
+
+func TestWhy_LabelsUnconfiguredTarget(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, ".devin/rules/no-console-log.md")
+	if got.Target != "windsurf" {
+		t.Fatalf("target: want windsurf, got %q", got.Target)
+	}
+	if got.Configured {
+		t.Errorf("configured: want false for a target missing from targets")
+	}
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"why", ".devin/rules/no-console-log.md"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "adapter: windsurf (not configured)") {
+		t.Errorf("missing not-configured label: %s", out.String())
 	}
 }

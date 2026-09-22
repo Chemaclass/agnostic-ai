@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ type whyOutput struct {
 	Command    string      `json:"command"`
 	File       string      `json:"file"`
 	Target     string      `json:"target"`
+	Configured bool        `json:"configured"`
 	OutputKeys []string    `json:"output_keys"`
 	Sources    []whySource `json:"sources"`
 	LastSync   *string     `json:"last_sync"`
@@ -131,6 +133,7 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 		Command:    "why",
 		File:       filepath.ToSlash(rel),
 		Target:     target,
+		Configured: slices.Contains(cfg.Targets, target),
 		OutputKeys: outputKeysUsed(cfg, target, hit),
 		Sources:    sources,
 		LastSync:   lastSyncTimestamp(projectRoot),
@@ -177,6 +180,7 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 		Command:    "why",
 		File:       relSlash,
 		Target:     tgts[0],
+		Configured: true,
 		OutputKeys: nil,
 		Sources:    sources,
 		LastSync:   lastSyncTimestamp(projectRoot),
@@ -184,8 +188,10 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 }
 
 // normalizeInputPath returns the absolute path and the project-relative
-// path of input. Symlinks are followed when possible. The file does not
-// have to exist on disk: `why` traces from emitter output regardless.
+// path of input. Symlinks in both input and projectRoot are followed, so
+// a project reached through a link (macOS /tmp, a linked checkout) still
+// yields a clean relative path. The file does not have to exist on disk:
+// `why` traces from emitter output regardless.
 func normalizeInputPath(input, projectRoot string) (absolute, relative string, err error) {
 	if input == "" {
 		return "", "", fmt.Errorf("why: missing file argument")
@@ -194,13 +200,12 @@ func normalizeInputPath(input, projectRoot string) (absolute, relative string, e
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", input, err)
 	}
-	if resolved, lerr := filepath.EvalSymlinks(abs); lerr == nil {
-		abs = resolved
-	}
+	abs = resolveSymlinks(abs)
 	rootAbs, err := filepath.Abs(projectRoot)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", projectRoot, err)
 	}
+	rootAbs = resolveSymlinks(rootAbs)
 	rel, err := filepath.Rel(rootAbs, abs)
 	if err != nil {
 		// Fall back to the user-supplied form when Rel fails (different drives).
@@ -209,17 +214,40 @@ func normalizeInputPath(input, projectRoot string) (absolute, relative string, e
 	return abs, rel, nil
 }
 
+// resolveSymlinks follows every symlink in the absolute path p. When p
+// does not exist, it resolves the deepest existing ancestor and re-appends
+// the missing tail, so an unsynced file under a linked directory resolves
+// the same way as the directory.
+func resolveSymlinks(p string) string {
+	var tail []string
+	for dir := p; ; dir = filepath.Dir(dir) {
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			for i := len(tail) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, tail[i])
+			}
+			return resolved
+		}
+		if filepath.Dir(dir) == dir {
+			return p
+		}
+		tail = append(tail, filepath.Base(dir))
+	}
+}
+
 // findEmittingAdapter runs every registered adapter in capture mode and
 // returns the target name plus the captured file matching the user input,
 // and whether that match was exact (project-relative or absolute path
 // equality) as opposed to the basename-only fallback (best effort).
 // Match order: project-relative path equality, then absolute path
-// equality, then basename equality.
+// equality, then basename equality. Within one match kind, a target listed
+// in cfg.Targets beats an unconfigured one, since several adapters share
+// paths (`.agents/skills/` is written by codex, amp, and others).
 func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (string, adapters.CapturedFile, bool, error) {
 	type match struct {
-		target string
-		file   adapters.CapturedFile
-		score  int // 3 = rel match, 2 = abs match, 1 = basename match
+		target     string
+		file       adapters.CapturedFile
+		score      int // 3 = rel match, 2 = abs match, 1 = basename match
+		configured bool
 	}
 	var matches []match
 	for _, name := range adapters.Names() {
@@ -234,18 +262,21 @@ func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (st
 		for _, f := range captured {
 			score := scoreCapturedMatch(f.Path, rel, abs)
 			if score > 0 {
-				matches = append(matches, match{target: name, file: f, score: score})
+				matches = append(matches, match{target: name, file: f, score: score, configured: slices.Contains(cfg.Targets, name)})
 			}
 		}
 	}
 	if len(matches) == 0 {
 		return "", adapters.CapturedFile{}, false, nil
 	}
-	// Highest score wins. Within the same score, prefer the first registry
-	// entry to keep output deterministic.
+	// Highest score wins, then configured targets. Past that, prefer the
+	// first registry entry to keep output deterministic.
 	sort.SliceStable(matches, func(i, j int) bool {
 		if matches[i].score != matches[j].score {
 			return matches[i].score > matches[j].score
+		}
+		if matches[i].configured != matches[j].configured {
+			return matches[i].configured
 		}
 		return matches[i].target < matches[j].target
 	})
@@ -397,7 +428,11 @@ func emitWhyJSON(cmd *cobra.Command, v whyOutput) error {
 func printWhyText(cmd *cobra.Command, r whyOutput) {
 	out := cmd.OutOrStdout()
 	_, _ = fmt.Fprintf(out, "%s\n", r.File)
-	_, _ = fmt.Fprintf(out, "  adapter: %s\n", r.Target)
+	if r.Configured {
+		_, _ = fmt.Fprintf(out, "  adapter: %s\n", r.Target)
+	} else {
+		_, _ = fmt.Fprintf(out, "  adapter: %s (not configured)\n", r.Target)
+	}
 	if len(r.OutputKeys) > 0 {
 		_, _ = fmt.Fprintf(out, "  output keys: %s\n", strings.Join(r.OutputKeys, ", "))
 	} else {

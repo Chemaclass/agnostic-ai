@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `why` resolves the project root and the file through symlinks, so a project opened through a link (macOS `/tmp`, a linked checkout) names the right adapter and spec instead of guessing from the file name. A path several targets share, like `.agents/skills/`, goes to a configured target. A target missing from `targets` is labeled `(not configured)`, and `--format json` adds a `configured` field (#1047).
 - `import --dry-run` plans an import whose later step reads a file an earlier step wrote, such as `import codex` with a Codex skill, instead of failing with `no such file`. It runs the importers in a temporary copy of the project, like `--diff`, lists each path once, and still writes nothing to the project (#1046).
 - Continue skills emit as native `.continue/skills/<name>/` folders with their bundled files, the tree Continue's skill loader reads, instead of a `.continue/rules/skill-<name>.md` rule whose relative links pointed at nothing. Sync removes the old rule file, and `import continue` reads the new folders. OpenCode's opt-in skill command form points a link to a bundled file into the native skill folder, so it resolves too (#1043).
 - `import --dry-run` no longer writes imported permission specs, Codex exec-policy directories, or Codex skill assets merged into an existing skill (#1035).
