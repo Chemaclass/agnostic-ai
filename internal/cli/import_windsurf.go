@@ -172,9 +172,11 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //     agents, byte-for-byte minus the provenance header, so `model`,
 //     `max-nesting`, and any `x-windsurf` key round-trip untouched. One
 //     field is lossy: `allowed-tools` re-imports as whatever Devin name
-//     is on disk (e.g. `edit`), not the Claude-style name it collapsed
-//     from, since `Write` and `Edit` both emit as `edit` and are
-//     indistinguishable once written.
+//     is on disk (e.g. `write`, `edit`), not the Claude-style name it
+//     was translated from. `Write` and `Edit` map onto distinct Devin
+//     names since #1022, so the round trip no longer conflates the
+//     two; it simply keeps Devin's own spelling rather than the
+//     portable one.
 //   - `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`
 //     reconstruct native skill folders with bundled assets. Earlier paths
 //     win same-name collisions. `triggers` moves under `x-windsurf` so its

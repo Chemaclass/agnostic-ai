@@ -9,13 +9,16 @@ import (
 )
 
 // devinTool maps agnostic-ai's Claude-style tool identifiers onto the
-// subagent `allowed-tools` vocabulary: "**Available tool names:**
-// `read`, `edit`, `grep`, `glob`, `exec`"
-// (docs.devin.ai/cli/reference/permissions). `Write` and `Edit` both
-// collapse onto `edit`, which is Devin's single file-mutation tool, so
-// an agent declaring only `Write` also gains edit capability. Names
-// outside this table are never guessed at: they drop and fold into one
-// coverage note per sync.
+// subagent `allowed-tools` vocabulary. `/cli/reference/permissions`
+// still lists only "**Available tool names:** `read`, `edit`, `grep`,
+// `glob`, `exec`", but the CLI changelog's v3000.11.1 entry (September
+// 21, 2026) adds a sixth under `### Fixed`: "Custom subagent profiles
+// and skills can grant the `write` tool using `allowed-tools`, and
+// permission rules recognize it." `Write` and `Edit` used to collapse
+// onto the same `edit` name; they now map onto distinct Devin tools,
+// `write` and `edit` (#1022), the same lag the reference page already
+// showed for `web_search` (#951). Names outside this table are never
+// guessed at: they drop and fold into one coverage note per sync.
 //
 // This is keyed separately from devinPermissionTool in settings.go
 // (#951). `/cli/subagents` enumerates no vocabulary for
@@ -28,7 +31,7 @@ var devinTool = map[string]string{
 	"Grep":  "grep",
 	"Glob":  "glob",
 	"Bash":  "exec",
-	"Write": "edit",
+	"Write": "write",
 	"Edit":  "edit",
 }
 
@@ -119,10 +122,12 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 }
 
 // translateTools maps a spec's Claude-style tools list onto Devin's own
-// vocabulary (devinTool), deduplicated in first-seen order since Write
-// and Edit collapse onto the same name. An `mcp__server__tool` name
-// passes through untranslated. Anything else is left out and reported
-// via hasUnmapped rather than written verbatim or dropped with no trace.
+// vocabulary (devinTool), deduplicated in first-seen order in case a
+// spec repeats a name or a future table entry collapses two names onto
+// one, the way Write and Edit did before #1022. An `mcp__server__tool`
+// name passes through untranslated. Anything else is left out and
+// reported via hasUnmapped rather than written verbatim or dropped with
+// no trace.
 func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 	seen := make(map[string]bool, len(names))
 	for _, n := range names {

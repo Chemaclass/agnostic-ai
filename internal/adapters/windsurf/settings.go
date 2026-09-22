@@ -133,7 +133,11 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 // adds a sixth under `### Fixed`: "`web_search` can now be used as a
 // tool name in `permissions.deny` / `permissions.ask` /
 // `permissions.allow`; previously it was rejected and web searches
-// were always auto-approved."
+// were always auto-approved." The v3000.11.1 entry (September 21,
+// 2026) adds a seventh the same way: "Custom subagent profiles and
+// skills can grant the `write` tool using `allowed-tools`, and
+// permission rules recognize it." `Write` now maps onto `write`
+// instead of collapsing onto `Edit`'s `edit` (#1022).
 //
 // `webfetch` stays out. It is a real tool name, but only in the
 // lifecycle-hooks tool table and a user-tier `disabled_tools` example,
@@ -146,7 +150,7 @@ var devinPermissionTool = map[string]string{
 	"Grep":      "grep",
 	"Glob":      "glob",
 	"Bash":      "exec",
-	"Write":     "edit",
+	"Write":     "write",
 	"Edit":      "edit",
 	"WebSearch": "web_search",
 }
