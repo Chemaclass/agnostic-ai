@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -89,18 +90,10 @@ func validateExplainInput(args []string, file, target string) error {
 // project file for target, using the output sync would plan. It writes
 // nothing: every emission runs in capture mode.
 func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projectRoot string) (explainFileOutput, error) {
-	supported := false
-	for _, t := range fileContextTargets {
-		supported = supported || t == target
-	}
-	if !supported {
+	if !slices.Contains(fileContextTargets, target) {
 		return explainFileOutput{}, fmt.Errorf("explain --file: target %q is unsupported (supported: %s)", target, strings.Join(fileContextTargets, ", "))
 	}
-	configured := false
-	for _, t := range cfg.Targets {
-		configured = configured || t == target
-	}
-	if !configured {
+	if !slices.Contains(cfg.Targets, target) {
 		return explainFileOutput{}, fmt.Errorf("explain --file: %s is not a configured target; add it to targets in agnostic-ai.yaml", target)
 	}
 	_, rel, err := normalizeInputPath(input, projectRoot)
@@ -146,12 +139,12 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 		item.Output = filepath.ToSlash(f.Path)
 		if r, ok := byName[name]; ok {
 			item.Source = filepath.ToSlash(r.Path)
-			reached[r.Path] = true
+			reached[item.Source] = true
 		}
 		items = append(items, item)
 	}
 	for _, d := range docs {
-		items = append(items, agentsDocItems(d, rel, b, reached)...)
+		items = append(items, agentsDocItems(d, rel, reached)...)
 	}
 	items = append(items, unreachedRuleItems(b.Rules, included, reached, target)...)
 
@@ -242,7 +235,7 @@ func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
 // agentsDocItems reports one AGENTS.md: the canonical entry-point body
 // for a root file, then every spec section it carries. A root file has
 // no activation metadata; a nested one covers its directory subtree.
-func agentsDocItems(d agentsDoc, rel string, b spec.Bundle, reached map[string]bool) []fileContextItem {
+func agentsDocItems(d agentsDoc, rel string, reached map[string]bool) []fileContextItem {
 	dir := path.Dir(d.Path)
 	writers := strings.Join(d.Writers, ", ")
 	var status, selector, reason string
@@ -266,22 +259,16 @@ func agentsDocItems(d agentsDoc, rel string, b spec.Bundle, reached map[string]b
 	if dir == "." {
 		items = append(items, item(adapters.AgnosticEntryPointPath))
 	}
-	known := map[string]string{}
-	for _, e := range b.All() {
-		known[filepath.ToSlash(e.Path)] = e.Path
-	}
 	for _, m := range sourceMarkerRE.FindAllStringSubmatch(d.Content, -1) {
-		source := m[1]
-		if orig, ok := known[source]; ok {
-			reached[orig] = true
-		}
-		items = append(items, item(source))
+		reached[m[1]] = true
+		items = append(items, item(m[1]))
 	}
 	return items
 }
 
 // unreachedRuleItems explains rules with no instruction reaching the
 // target: dropped by target selection, or skipped during emission.
+// reached is keyed by slash-separated source path.
 func unreachedRuleItems(all, included []spec.Entry, reached map[string]bool, target string) []fileContextItem {
 	in := make(map[string]bool, len(included))
 	for _, r := range included {
@@ -297,7 +284,7 @@ func unreachedRuleItems(all, included []spec.Entry, reached map[string]bool, tar
 				Source: source,
 				Reason: "target selection (target, targets, target-exclude) leaves out " + target,
 			})
-		case !reached[r.Path]:
+		case !reached[source]:
 			items = append(items, fileContextItem{
 				Status: statusNotEmitted,
 				Source: source,
@@ -401,7 +388,7 @@ func runExplainForFile(cmd *cobra.Command, file, target string, jsonOut bool) er
 	for _, it := range report.Instructions {
 		output := it.Output
 		if output == "" {
-			output = "(no " + displayTarget(report.Target) + " output)"
+			output = "(no " + report.Target + " output)"
 		}
 		_, _ = fmt.Fprintf(out, "  [%s] %s <- %s\n", it.Status, output, it.Source)
 		detail := it.Reason
@@ -411,12 +398,4 @@ func runExplainForFile(cmd *cobra.Command, file, target string, jsonOut bool) er
 		_, _ = fmt.Fprintf(out, "      %s\n", detail)
 	}
 	return nil
-}
-
-// displayTarget capitalizes a target name for prose.
-func displayTarget(t string) string {
-	if t == "" {
-		return t
-	}
-	return strings.ToUpper(t[:1]) + t[1:]
 }

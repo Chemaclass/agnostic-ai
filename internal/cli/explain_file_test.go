@@ -247,7 +247,7 @@ func TestExplainFile_HumanOutput(t *testing.T) {
 		"services/payments/handler.go (cursor)",
 		"not a record",
 		"[match] .cursor/rules/services/payments/payments-context.mdc <- rules/payments-context.md",
-		"[excluded] (no Cursor output) <- rules/codex-only.md",
+		"[excluded] (no cursor output) <- rules/codex-only.md",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
