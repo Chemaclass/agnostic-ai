@@ -31,3 +31,4 @@ cap-session-start-prompt-injection	2026-09-15	2026-09-15
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15			
 cap-kilo-session-goals	2026-09-22	2026-09-22	target-extension		Reachable today through x-kilo.permission (goal, goal_report); reproduced end to end, no code change needed.
 cap-acp-agent-server-mode	2026-09-22	2026-09-22	watch		Junie --acp has no persisted project artifact; .junie/config.json field table carries no acp key.
+cap-rule-activation-policy	2026-09-22	2026-09-22	adapter-gap	1029	Qoder manual, model, and file activation metadata is lost on import and emission; existing metadata can represent it.

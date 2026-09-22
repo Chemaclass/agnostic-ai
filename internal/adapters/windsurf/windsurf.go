@@ -9,14 +9,16 @@
 // `outputs.windsurf.rules-dir: .windsurf/rules` to stay on the old
 // layout.
 //
-// A scoped rule goes to `<scope>/.devin/rules/<name>.md`, not to a
-// subdirectory inside the rules dir. Devin reads "`.devin/rules` or
-// `.windsurf/rules` in any sub-directory of your workspace"
-// (docs.devin.ai/desktop/cascade/memories) and globs each one
-// single-level as `.devin/rules/*.md`
-// (docs.devin.ai/cli/extensibility/rules), so the nested form reached
-// no documented discovery path (target-audit 2026-08-27, #628). The old
-// tree is swept through the sync ledger.
+// A scoped rule goes to `<scope>/.devin/rules/<name>.md`. This layout
+// follows Desktop's documented discovery of `.devin/rules` or
+// `.windsurf/rules` in workspace subdirectories
+// (docs.devin.ai/desktop/cascade/memories). Since v3000.11.1,
+// Devin CLI also discovers rules recursively under `.devin/rules/`
+// and `.windsurf/rules/` (docs.devin.ai/cli/changelog/stable.md).
+// That CLI change does not establish Desktop recursion or equivalent
+// scope semantics for nested rule files. The output layout stays as
+// adopted in #628 (2026-08-27); sync still sweeps the old
+// `.devin/rules/<scope>/<name>.md` tree through the ledger.
 //
 // Agents emit as native subagent profiles at `.devin/agents/<name>.md`:
 // "Custom subagents are defined as markdown files under `agents/`",
