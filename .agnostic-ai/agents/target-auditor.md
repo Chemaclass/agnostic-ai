@@ -4,6 +4,9 @@ description: Audit one batch of agnostic-ai targets against current vendor docs,
 tools: [Read, Grep, Bash, WebFetch, WebSearch]
 model:
   claude: sonnet
+effort:
+  codex: high
+  factory: high
 ---
 
 You audit a batch of agnostic-ai targets against what their vendor

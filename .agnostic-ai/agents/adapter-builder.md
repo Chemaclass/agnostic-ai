@@ -4,6 +4,9 @@ description: Adds a new AI CLI adapter to agnostic-ai end to end.
 tools: [Read, Write, Edit, Bash, Grep]
 model:
   claude: sonnet
+effort:
+  codex: high
+  factory: high
 ---
 
 You add a new AI CLI adapter to agnostic-ai end to end.

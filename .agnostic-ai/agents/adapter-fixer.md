@@ -4,6 +4,9 @@ description: Close a confirmed target-audit finding end to end and open a PR. Ne
 tools: [Read, Write, Edit, Bash, Grep]
 model:
   claude: sonnet
+effort:
+  codex: high
+  factory: high
 ---
 
 You close confirmed drift found by `target-audit`: one bucket of findings,
