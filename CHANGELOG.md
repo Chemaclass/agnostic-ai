@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import all` skips a detected tool that has no importer, such as OpenHands or Factory, with a `skipping <tool>` line, instead of failing on it with `unknown source`. The post-import and post-init hints no longer suggest `import openhands` or `import factory` (#1052).
 - The VS Code extension activates, validates, shows drift and codelens, lists targets for `Render current spec`, and runs its sync commands in projects configured with `agnostic-ai.yaml`, not only the legacy `agnostic.config.yaml`. When both exist it reads `agnostic-ai.yaml`, like the CLI (#1049).
 - `why` resolves the project root and the file through symlinks, so a project opened through a link (macOS `/tmp`, a linked checkout) names the right adapter and spec instead of guessing from the file name. A path several targets share, like `.agents/skills/`, goes to a configured target. A target missing from `targets` is labeled `(not configured)`, and `--format json` adds a `configured` field (#1047).
 - `import --dry-run` plans an import whose later step reads a file an earlier step wrote, such as `import codex` with a Codex skill, instead of failing with `no such file`. It runs the importers in a temporary copy of the project, like `--diff`, lists each path once, and still writes nothing to the project (#1046).

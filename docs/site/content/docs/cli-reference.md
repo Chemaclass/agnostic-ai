@@ -67,6 +67,8 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
+`import all` imports every tool detected from its marker directory. A detected tool with no importer, such as OpenHands or Factory, is skipped with a `skipping <tool>` line and does not fail the run.
+
 | Flag | Effect |
 |---|---|
 | `--dry-run` | List every file the import would write, once each, without file bodies. Runs the import in a temporary copy of the project (without `.git`), so the list matches a real import. Writes nothing to the project. |

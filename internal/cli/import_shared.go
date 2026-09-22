@@ -14,7 +14,7 @@ func printImportNextSteps(root, justImported string) {
 	summaryf("  agnostic-ai sync --check   # preview what changes\n")
 	summaryf("  agnostic-ai sync           # write to configured targets\n")
 
-	detected := detectExistingTargets(root)
+	detected, _ := detectImportSources(root)
 	hints := make([]string, 0, len(detected))
 	for _, d := range detected {
 		if d == justImported {
