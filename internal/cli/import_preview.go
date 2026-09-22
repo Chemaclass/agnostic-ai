@@ -69,27 +69,22 @@ func planImportPreview(args []string) (importPreview, error) {
 		return importPreview{}, fmt.Errorf("copy project for preview: %w", err)
 	}
 
-	rec, runErr := recordImportIn(shadow, args)
-	if err := os.Chdir(project); err != nil {
-		return importPreview{}, fmt.Errorf("%s: %w", project, err)
+	// Deferred after the cleanup above, so it runs first: the copy is
+	// left before it is removed.
+	if err := os.Chdir(shadow); err != nil {
+		return importPreview{}, fmt.Errorf("%s: %w", shadow, err)
 	}
+	defer func() { _ = os.Chdir(project) }()
+	rec := &importRecorder{}
+	importRecording = rec
+	defer func() { importRecording = nil }()
+
+	runErr := runImportArgs(args)
 	preview, err := buildImportPreview(project, shadow, rec)
 	if err != nil {
 		return importPreview{}, err
 	}
 	return preview, runErr
-}
-
-// recordImportIn runs the import of args with dir as working directory
-// and a recorder attached. The caller restores the working directory.
-func recordImportIn(dir string, args []string) (*importRecorder, error) {
-	if err := os.Chdir(dir); err != nil {
-		return nil, fmt.Errorf("%s: %w", dir, err)
-	}
-	rec := &importRecorder{}
-	importRecording = rec
-	defer func() { importRecording = nil }()
-	return rec, runImportArgs(args)
 }
 
 // buildImportPreview folds the recorded writes into one entry per
