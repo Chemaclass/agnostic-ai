@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -43,48 +44,88 @@ func previewImport(args []string) error {
 	return err
 }
 
-// planImportPreview copies the working directory (without .git) into a
-// temporary directory, runs the real importers there with every write
-// recorded, and compares the result with the project. Running the
-// ordinary import is what keeps the planned bytes equal to a real one:
-// a later source reads what an earlier one wrote, frontmatter merges
-// and fences included. The project itself is never written.
+// dryRunImport runs the import for args in a copy of the project and
+// prints a planning summary instead of file contents: one line per path
+// the importer would write, sorted and listed once however many stages
+// write it, ending with a count. Equivalent in shape to `sync --plan`.
+// The summary prints even when an importer fails.
+func dryRunImport(args []string) error {
+	rec, err := runImportInCopy(args, nil)
+	paths := make([]string, 0, len(rec.writes))
+	for _, w := range rec.writes {
+		paths = append(paths, filepath.FromSlash(w.path))
+	}
+	sort.Strings(paths)
+	paths = slices.Compact(paths)
+	for _, p := range paths {
+		fmt.Printf("  would write %s\n", p)
+	}
+	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
+	return err
+}
+
+// planImportPreview runs the import in a copy of the project and
+// compares the result with the project.
 func planImportPreview(args []string) (importPreview, error) {
+	var preview importPreview
+	_, err := runImportInCopy(args, func(project, shadow string, rec *importRecorder) error {
+		var err error
+		preview, err = buildImportPreview(project, shadow, rec)
+		return err
+	})
+	return preview, err
+}
+
+// runImportInCopy copies the working directory (without .git) into a
+// temporary directory, runs the real importers there with every write
+// recorded, and calls inspect, when set, before the copy is removed. Running the
+// ordinary import is what keeps a dry-run equal to a real one: a later
+// stage reads what an earlier one wrote, frontmatter merges and fences
+// included. The project itself is never written. An inspect error wins
+// over an importer error.
+func runImportInCopy(args []string, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
+	rec := &importRecorder{}
 	project, err := os.Getwd()
 	if err != nil {
-		return importPreview{}, fmt.Errorf("getwd: %w", err)
+		return rec, fmt.Errorf("getwd: %w", err)
 	}
 	tmp, err := os.MkdirTemp("", importPreviewDirPrefix)
 	if err != nil {
-		return importPreview{}, fmt.Errorf("create preview dir: %w", err)
+		return rec, fmt.Errorf("create preview dir: %w", err)
 	}
 	defer removeImportPreviewDir(tmp)
 	// The copy keeps the project's directory name: codex names the rule
 	// it shreds from a root AGENTS.md after it.
 	shadow := filepath.Join(tmp, filepath.Base(project))
 	if err := os.Mkdir(shadow, 0o700); err != nil {
-		return importPreview{}, fmt.Errorf("%s: %w", shadow, err)
+		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	if err := copyImportPreviewTree(project, shadow); err != nil {
-		return importPreview{}, fmt.Errorf("copy project for preview: %w", err)
+		return rec, fmt.Errorf("copy project for preview: %w", err)
 	}
 
 	// Deferred after the cleanup above, so it runs first: the copy is
 	// left before it is removed.
 	if err := os.Chdir(shadow); err != nil {
-		return importPreview{}, fmt.Errorf("%s: %w", shadow, err)
+		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	defer func() { _ = os.Chdir(project) }()
-	rec := &importRecorder{}
-	importRecording = rec
-	defer func() { importRecording = nil }()
+	// Read back through the working directory, as filepath.Abs does, so
+	// the sandbox check compares like with like.
+	sandbox, err := os.Getwd()
+	if err != nil {
+		return rec, fmt.Errorf("getwd: %w", err)
+	}
+	importRecording, importSandbox = rec, sandbox
+	defer func() { importRecording, importSandbox = nil, "" }()
 
 	runErr := runImportArgs(args)
-	preview, err := buildImportPreview(project, shadow, rec)
-	if err != nil {
-		return importPreview{}, err
+	if inspect != nil {
+		if err := inspect(project, shadow, rec); err != nil {
+			return rec, err
+		}
 	}
-	return preview, runErr
+	return rec, runErr
 }
 
 // buildImportPreview folds the recorded writes into one entry per

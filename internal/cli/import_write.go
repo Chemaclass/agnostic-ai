@@ -2,17 +2,17 @@ package cli
 
 import (
 	"bytes"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"strings"
 )
 
-// importDryRun gates writes during `import --dry-run`. Set before any
-// importer call via newImportCmd, cleared afterward. Safe for sequential
-// (non-parallel) test use.
-var importDryRun bool
+// importSandbox is the directory a dry-run import runs in, or "" outside
+// one. A write that resolves outside it is recorded but never reaches
+// disk, so no path shape can lead a dry-run into the project.
+// Sequential test use only.
+var importSandbox string
 
 // importRunSources names every source of a multi-source `import` run
 // (`import claude codex`, `import all`). Empty for a single-source run.
@@ -27,12 +27,6 @@ func setImportRunSources(sources []string) {
 	importRunSources = append([]string(nil), sources...)
 }
 
-// importDryRunPaths collects every path importWriteFile / importMkdirAll
-// would have touched in dry-run mode. Drained and printed as a planning
-// summary by reportImportDryRun. Sequential test use only — `import`
-// invokes one importer at a time.
-var importDryRunPaths []string
-
 // importPlannedWrite is one importer write seen by an import preview:
 // the destination, the source being imported, and the bytes proposed.
 type importPlannedWrite struct {
@@ -41,16 +35,16 @@ type importPlannedWrite struct {
 	data   []byte
 }
 
-// importRecorder collects every importer write of an
-// `import --dry-run --diff` run, attributed to the source that made it.
+// importRecorder collects every importer write of an `import --dry-run`
+// run, attributed to the source that made it.
 // order lists the sources in the sequence they ran.
 type importRecorder struct {
 	order  []string
 	writes []importPlannedWrite
 }
 
-// importRecording is the active recorder, or nil outside a preview.
-// Sequential use only, like importDryRun.
+// importRecording is the active recorder, or nil outside a dry-run.
+// Sequential use only, like importSandbox.
 var importRecording *importRecorder
 
 // beginSource marks source as the one now importing.
@@ -71,43 +65,37 @@ func (r *importRecorder) record(path string, data []byte) {
 	})
 }
 
-// importWriteFile writes data to path with the given mode, or in dry-run
-// mode records the path for a planning summary without touching disk.
-// Replaces os.WriteFile across all importers.
+// importWriteFile writes data to path with the given mode, recording it
+// for a dry-run report. Replaces os.WriteFile across all importers.
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if importRecording != nil {
 		importRecording.record(path, data)
 	}
-	if importDryRun {
-		importDryRunPaths = append(importDryRunPaths, path)
+	if !inImportSandbox(path) {
 		return nil
 	}
 	return os.WriteFile(path, data, mode)
 }
 
-// importMkdirAll creates dir and its parents unless dry-run mode is
-// active, in which case it is a no-op (no directories are created on
-// disk during a dry-run preview).
+// importMkdirAll creates dir and its parents, unless a dry-run is active
+// and dir resolves outside its sandbox.
 func importMkdirAll(dir string, perm fs.FileMode) error {
-	if importDryRun {
+	if !inImportSandbox(dir) {
 		return nil
 	}
 	return os.MkdirAll(dir, perm)
 }
 
-// resetImportDryRunPaths clears the collector before each importer run.
-func resetImportDryRunPaths() {
-	importDryRunPaths = nil
-}
-
-// reportImportDryRun prints a planning summary instead of file contents.
-// Output: one line per path the importer would write, sorted, ending
-// with a count. Equivalent in shape to `sync --plan`.
-func reportImportDryRun() {
-	paths := append([]string(nil), importDryRunPaths...)
-	sort.Strings(paths)
-	for _, p := range paths {
-		fmt.Printf("  would write %s\n", p)
+// inImportSandbox reports whether path may be written: always outside a
+// dry-run, and only under importSandbox during one.
+func inImportSandbox(path string) bool {
+	if importSandbox == "" {
+		return true
 	}
-	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(importSandbox, abs)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

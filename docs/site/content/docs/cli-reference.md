@@ -69,7 +69,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 | Flag | Effect |
 |---|---|
-| `--dry-run` | List every file the import would write, without file bodies. Writes nothing. |
+| `--dry-run` | List every file the import would write, once each, without file bodies. Runs the import in a temporary copy of the project (without `.git`), so the list matches a real import. Writes nothing to the project. |
 | `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff per created or changed file. Lists every destination two sources propose different content for, and the source a real import keeps (the last). Requires `--dry-run`. |
 
 `--diff` runs the real importers in a temporary copy of the project (everything except `.git`), so each later source reads what the earlier ones wrote and the preview shows the exact bytes a real import leaves. The project, its native files, config, ignore files, and sync state stay untouched. A symlink that points outside the project is copied by content, so the preview cannot write through it. A conflict is reported, not resolved: the exit status stays 0.
