@@ -6,6 +6,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Site
+
+- The home page diagram runs the source spec, the arrow, and the target list down one column with the generated file beside them, taking about a third less height for the same spec, five targets, and output.
+- The hero rails pulse again one second after the previous pass instead of two and a half.
+
 ## v0.65.0 - 2026-09-22
 
 ### Added

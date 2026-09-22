@@ -186,7 +186,7 @@ main > section[id] {
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent 100%) -45% 0 / 30% 100% no-repeat;
-  animation: pulse 4s ease-in-out calc(1.9s + var(--d, 0s)) infinite;
+  animation: pulse 2.6s ease-in-out calc(1.9s + var(--d, 0s)) infinite;
 }
 
 /* The endpoint names the directory that tool's config lands in. Directories,
@@ -334,14 +334,15 @@ main > section[id] {
 
 /* The pulse runs on a 30% image, so the usable position range is 70%: -45%
    holds it clear of the origin and 145% clear of the endpoint. It crosses in
-   the first 1.6s and waits out the rest of the loop parked off the far end,
-   which is why it needs no opacity of its own. */
+   the first 1.6s and waits out the remaining 1s parked off the far end, which
+   is why it needs no opacity of its own. Changing the loop length means
+   recomputing this percentage, or the crossing changes speed with it. */
 @keyframes pulse {
   0% {
     background-position: -45% 0;
   }
 
-  40%,
+  61.5%,
   100% {
     background-position: 145% 0;
   }
@@ -411,65 +412,77 @@ main > section[id] {
   font-weight: 700;
 }
 
-/* The source runs across the top, at a measure its own lines fit, and the
-   five files it produced sit under it beside the selected one. Putting the
-   source in a narrow left column instead wrapped its YAML mid-sentence while
-   the generated file got twice the width its lines use, and left the bottom
-   of the right column empty. The switch element is display: contents so its
-   tab list and its panes become direct cells of this grid. */
+/* Source, arrow, and the five files it produced run down the left column; the
+   selected file fills the right one beside all three. Stacking the source
+   across the top instead left the whole right half of its row empty and
+   pushed the generated file a screen further down.
+
+   34rem is the measure the source YAML needs: its longest line is the 70
+   character description, and a narrower column breaks it one word from the
+   end. The switch element is display: contents so its tab list and its panes
+   become direct cells of this grid. */
 .transform {
+  --transform-cols: minmax(0, 34rem) minmax(0, 1fr);
   display: grid;
-  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  grid-template-columns: var(--transform-cols);
   grid-template-rows: auto auto auto auto;
   align-items: start;
   column-gap: 1.5rem;
-  row-gap: 0.9rem;
-  margin-top: 2.25rem;
+  row-gap: 0.75rem;
+  margin-top: 1.75rem;
 }
 
 .output-switch {
   display: contents;
 }
 
-.spec-card {
-  grid-column: 1 / -1;
-  width: min(100%, 46rem);
-}
-
+.spec-card,
 .transform-arrow,
 .output-files {
   grid-column: 1;
 }
 
+/* Spans from the source down to the last tab, so the pane is as tall as the
+   column beside it rather than starting below it. The slab stretches to that
+   full height, because a file that ends short of the tab list leaves a hole
+   in the middle of the section rather than a margin at its edge. */
 .output-panels {
   grid-column: 2;
-  grid-row: 4;
+  grid-row: 2 / -1;
+  align-self: stretch;
 }
 
 /* One column below the split: the panes fall under the tab list, which is the
    reading order the markup already has. */
 @media (max-width: 899px) {
   .transform {
-    grid-template-columns: minmax(0, 1fr);
+    --transform-cols: minmax(0, 1fr);
     grid-template-rows: none;
   }
 
-  .spec-card,
-  .transform-arrow,
-  .output-files,
   .output-panels {
     grid-column: 1;
+    grid-row: auto;
   }
 
-  .output-panels {
-    grid-row: auto;
+  /* One column under the split, so the two labels go back to the outer edges
+     of the same row instead of sitting on top of each other. */
+  .transform-caption {
+    grid-template-columns: 1fr auto;
+  }
+
+  .transform-caption span:last-child {
+    text-align: right;
   }
 }
 
+/* Carries the grid's own columns so each label starts over the column it
+   names, rather than being pushed to the far right edge of the section. */
 .transform-caption {
   grid-column: 1 / -1;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: var(--transform-cols);
+  column-gap: 1.5rem;
   margin-bottom: 0;
   color: var(--muted);
   font-family: var(--mono);
@@ -489,7 +502,7 @@ main > section[id] {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--slab-line);
   color: var(--slab-ink);
   font-family: var(--mono);
@@ -508,10 +521,10 @@ main > section[id] {
    the reader never sees the line that carries the point. */
 .transform pre {
   margin: 0;
-  padding: 0.75rem;
+  padding: 0.7rem 0.75rem;
   color: var(--slab-ink);
   font-size: 0.73rem;
-  line-height: 1.6;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -524,16 +537,30 @@ main > section[id] {
 }
 
 .transform-arrow {
-  width: 3rem;
+  width: 2.25rem;
   display: block;
-  margin: 0.7rem 0;
+  margin: 0.15rem 0;
   color: var(--accent);
   transform: rotate(90deg);
 }
 
+/* Two across beside the source, so the five files cost three rows instead of
+   five and the column ends level with the pane next to it. The widest path
+   renders at 225px, inside the 269px this leaves per cell. */
 .output-files {
   display: grid;
-  gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+/* Under the split the list has the full width and no pane to end level with,
+   and two of these paths side by side are narrow enough to be truncated. This
+   has to sit after the rule above, not with the rest of the narrow layout:
+   the two carry the same specificity. */
+@media (max-width: 899px) {
+  .output-files {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* The hero diagram plays once on load: the arrow draws, then each native file lands, in the order sync writes them. */
@@ -568,7 +595,7 @@ main > section[id] {
   gap: 0.55rem;
   width: 100%;
   min-width: 0;
-  padding: 0.5rem 0.65rem;
+  padding: 0.42rem 0.65rem;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface-quiet);
@@ -658,7 +685,7 @@ main > section[id] {
    describes, on paper rather than on the slab, where it reads as commentary. */
 .output-note {
   margin: 0;
-  padding: 0.7rem 0.9rem;
+  padding: 0.6rem 0.9rem;
   border-bottom: 1px solid var(--slab-line);
   border-left: 2px solid var(--accent);
   background: var(--accent-soft);
@@ -675,10 +702,10 @@ main > section[id] {
 }
 
 .output-panel pre {
-  padding: 0.85rem 0.9rem;
+  padding: 0.8rem 0.9rem;
   color: var(--slab-ink);
   font-size: 0.7rem;
-  line-height: 1.7;
+  line-height: 1.55;
 }
 
 .section-title {
