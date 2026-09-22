@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Changed
+
+- GitHub issue forms require only a problem description or tool name, with optional details and a blank-issue option.
+
 ### Fixed
 
 - Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).

@@ -1,33 +1,26 @@
 name: Feature request
-description: Suggest a new feature or improvement.
+description: Tell us what you want to do or what gets in your way.
 title: "feat: "
-labels: ["enhancement", "needs-triage"]
+labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problem statement
-      description: What problem are you trying to solve?
+      label: What would you like to do?
+      description: Describe your use case or the problem. You don't need to propose a solution.
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: Proposed solution
-      description: Describe the change you would like to see.
-    validations:
-      required: true
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Other approaches you thought about and why you discarded them.
+      label: Suggested solution (optional)
+      description: Share an idea if you have one.
     validations:
       required: false
   - type: textarea
     id: context
     attributes:
-      label: Additional context
-      description: Links, references, sketches, examples.
+      label: Additional context (optional)
+      description: Examples, links, or screenshots that help explain your request.
     validations:
       required: false
