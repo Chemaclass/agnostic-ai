@@ -354,7 +354,7 @@ Only `project` honors custom `sources` paths; `project-user` uses fixed kind dir
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It also installs Claude Code agents from `agents/*.md`. It works from any directory and loads no `agnostic-ai.yaml`, packs, local overrides, or project specs.
+`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, local overrides, or project specs.
 
 Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset.
 
@@ -369,7 +369,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
-- Agents emit to `~/.claude/agents/<name>.md` for Claude Code only, using the same metadata and target overrides as project sync. Agent `target`/`targets` and exclusion filters apply. Other selected targets warn for each applicable agent and continue syncing their supported kinds. Use `--only claude` or `targets: [claude]` on an agent to limit its destination.
+- Agents support Claude Code only, with the project agent format, target overrides, and include/exclude filters. Other selected targets warn and skip applicable agents. Use `--only claude` or agent `targets: [claude]` to limit destinations.
 - Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, skills, and agents, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
 - An unmanaged agent, skill, or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
@@ -377,7 +377,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 
 Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
 
-For example, create `~/.agnostic-ai/agents/reviewer.md`:
+For a personal Claude Code agent, create `~/.agnostic-ai/agents/reviewer.md`:
 
 ```markdown
 ---
@@ -393,9 +393,8 @@ Review the changes and report actionable findings.
 Then run from any directory:
 
 ```console
-agnostic-ai sync --global --only claude --dry-run
 agnostic-ai sync --global --only claude
 agnostic-ai sync --global --only claude --check
 ```
 
-If you previously copied the agent into `~/.claude/agents/` yourself, sync reports an unmanaged collision. Preserve any native edits in the source, then move that conflicting native file aside and sync again. `--backup` saves an existing managed file before replacing it; it does not bypass collision checks.
+Sync writes `~/.claude/agents/reviewer.md`. If a manually copied file already exists there, preserve its edits in the source and move it aside before syncing. `--backup` saves managed files before replacement; it does not bypass unmanaged collisions.

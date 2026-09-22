@@ -100,7 +100,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means global sync emits nothing for that kind. Agent support is limited to Claude Code in this release; the other columns follow the documented vendor surfaces (target-audit 2026-09-07).
+`sync --global` writes user-level configuration for 22 of the 25 targets. These paths are independent of the project outputs. A dash means global sync emits nothing for that kind.
 
 | Target | Instructions | Rules | Hooks | Skills | Agents |
 |--------|--------------|-------|-------|--------|--------|
@@ -127,7 +127,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | - |
 | **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | - |
 
-Agents use the same renderer as project sync. Claude Code [documents `~/.claude/agents/` for user-level agents](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope). Other selected targets warn and skip applicable global agents. See [global configuration](@/docs/configuration.md#global-configuration) for source layout and migration from copied files.
+Global agents support [Claude Code's user-level path](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope) only. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
 
 Rules inline into the instructions file, under the same sentinel-marked managed block as the shared instructions body. Augment is the one exception: the vendor documents no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only), and its `~/.augment/rules/` entries are "always treated as `always_apply`", which is exactly what a global rule is. Every path marked `~/.config/` follows `XDG_CONFIG_HOME` when that variable is set.
 
