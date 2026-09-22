@@ -13,12 +13,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Changed
 
 - Target audits fetch each vendor page once through `scripts/docfetch.sh` and hash it against `scripts/target-audit/sources.lock`, so auditors read only the pages that moved (#1017).
+- The Amp target page and adapter doc note that Amp also loads skills from Claude Code's directories by default, and name the settings that change it (#1023).
 
 ### Fixed
 
 - `import` keeps the skill and agent frontmatter a target has nowhere to put, so a sync then import no longer deletes `argument-hint`, `allowed-tools`, `tools`, or `effort` from a spec; deleting a key the target does write still reaches the spec.
 - `sync` prints the Devin shared `.agents/agents/` coverage note once and stops repeating it while it is unchanged (#1014).
 - npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
+- The Amp docs no longer cite an exact settings-schema property count that goes stale with every new key; the Kilo config-precedence and Copilot chat-mode citations point at pages that still carry those sections (#1024).
 
 ### Site
 

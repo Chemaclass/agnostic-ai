@@ -164,8 +164,8 @@ func TestEmit_Settings_DenyNotesMissingVocabulary(t *testing.T) {
 	}
 }
 
-// Amp's settings schema declares twenty properties and none of them
-// selects a model, so a portable `model` reaches nothing here.
+// Amp's settings schema declares two dozen properties and none of
+// them selects a model, so a portable `model` reaches nothing here.
 func TestEmit_Settings_ModelNotesFieldNoOp(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := captureNotes(t)

@@ -7,7 +7,15 @@
 // path so users on older workflows keep their behavior.
 //
 // Skills emit as a folder per skill under `.agents/skills/<name>/SKILL.md`
-// (Amp's native skills layout).
+// (Amp's native skills layout). Amp also reads Claude Code's skill
+// directories by default (`.claude/skills/`, `~/.claude/skills/`,
+// `~/.claude/plugins/cache/`), per `amp.skills.disableClaudeCodeSkills`
+// in ampcode.com/cli-settings.schema.json, so a repo syncing `claude`
+// and `amp` together has every skill loaded twice; whether Amp dedupes
+// is undocumented. That toggle and its user-level counterpart,
+// `amp.skills.disableGlobalAgentsSkills`, are reachable only through
+// `x-amp` on a settings spec; `amp.skills.path` adds directories
+// instead of gating a read (#1023).
 //
 // Settings merge into `.amp/settings.json`, the workspace-tier file
 // this adapter already writes for MCP servers, found as "the nearest
