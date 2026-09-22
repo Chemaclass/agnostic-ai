@@ -53,7 +53,7 @@ The [spec format guide](@/docs/spec-format.md) defines every portable kind. The 
 
 When an opt-in or source-only spec is present, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
 
-- **Skills** emit as native skill folders (`SKILL.md` plus bundled assets). Most targets read `.agents/skills/`; the rest read their own tree. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) collapses byte-identical folders into one canonical copy plus per-skill symlinks. Aider and Continue flatten skills to rule-form files because they have no skill surface.
+- **Skills** emit as native skill folders (`SKILL.md` plus bundled assets). Most targets read `.agents/skills/`; the rest read their own tree. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) collapses byte-identical folders into one canonical copy plus per-skill symlinks. Aider flattens skills to rule-form files because it has no skill surface.
 - **Agents** emit as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads the whole shared tree on top of `.devin/agents/`.
 
   **Syncing `windsurf` alongside `antigravity`, `goose`, or `openhands` gives Devin two profiles claiming one name.** Only the `.devin/agents/<name>.md` copy carries translated `allowed-tools`. The shared copy has no equivalent key, so Devin defaults it to every tool. Give an agent spec one `target:` when these tools are combined. `sync` reports the overlap and names every conflicting file (#863).

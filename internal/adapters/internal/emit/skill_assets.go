@@ -2,8 +2,12 @@ package emit
 
 import (
 	"io/fs"
+	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/mdlink"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -61,6 +65,33 @@ func SkillHasBundledAssets(s spec.Entry, skip func(rel string) bool) bool {
 		return filepath.SkipAll
 	})
 	return found
+}
+
+// RelinkBundledAssets rewrites the relative links in a skill body that
+// point at a file the skill bundles, so they resolve from fromDir (where
+// a flattened copy of the body lands) into folder (the native skill
+// folder that carries the same assets). Links to anything the skill
+// does not bundle stay as written, and so does the whole body for a
+// flat-file skill or when no relative path joins the two directories.
+func RelinkBundledAssets(sk spec.Entry, body, fromDir, folder string) string {
+	if !FolderBasedSkill(sk) {
+		return body
+	}
+	prefix, err := filepath.Rel(fromDir, folder)
+	if err != nil {
+		return body
+	}
+	root := filepath.Dir(sk.Path)
+	return mdlink.RewriteLocal(body, func(l mdlink.Link) (string, bool) {
+		rel := filepath.Clean(filepath.FromSlash(l.Dest))
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", false
+		}
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			return "", false
+		}
+		return path.Join(filepath.ToSlash(prefix), l.Raw), true
+	})
 }
 
 // FolderBasedSkill reports whether the skill spec owns its own directory

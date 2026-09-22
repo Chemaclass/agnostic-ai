@@ -20,7 +20,7 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestEmit_WritesRulesAndAgents(t *testing.T) {
+func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -31,10 +31,59 @@ func TestEmit_WritesRulesAndAgents(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{".continue/rules/r1.md", ".continue/rules/agent-ag1.md", ".continue/rules/skill-sk1.md"} {
+	for _, p := range []string{".continue/rules/r1.md", ".continue/rules/agent-ag1.md", ".continue/skills/sk1/SKILL.md"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}
+	}
+}
+
+// Skills emit as native `.continue/skills/<name>/` folders with their
+// bundled assets, the layout Continue's skill loader reads, instead of
+// a flattened `skill-<name>.md` rule whose relative links broke (#1043).
+func TestEmit_Skill_WritesNativeFolderWithBundledAssets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	skillDir := filepath.Join(dir, "skills", "deploy")
+	if err := os.MkdirAll(filepath.Join(skillDir, "references"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "references", "setup.md"), []byte("setup\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{{
+		Kind: spec.KindSkill, Name: "deploy", Path: filepath.Join(skillDir, "SKILL.md"),
+		Meta: map[string]any{"description": "Run deployments."},
+		Body: "Follow [setup](references/setup.md).",
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, ".continue/skills/deploy/SKILL.md"))
+	for _, want := range []string{"name: deploy", "description: Run deployments.", "Follow [setup](references/setup.md)."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SKILL.md missing %q:\n%s", want, got)
+		}
+	}
+	if asset := readFile(t, filepath.Join(dir, ".continue/skills/deploy/references/setup.md")); asset != "setup\n" {
+		t.Errorf("bundled asset = %q, want it copied byte-for-byte", asset)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".continue/rules/skill-deploy.md")); !os.IsNotExist(err) {
+		t.Errorf("expected no flattened skill rule, err=%v", err)
+	}
+}
+
+func TestEmit_Skill_SkillsDirOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "Deploy."}}
+	cfg := &config.Config{Outputs: map[string]config.Output{"continue": {SkillsDir: "custom/skills"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/deploy/SKILL.md")); err != nil {
+		t.Errorf("expected the override dir to hold the skill: %v", err)
 	}
 }
 

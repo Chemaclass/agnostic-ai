@@ -21,6 +21,7 @@ import (
 const (
 	continueRulesDir      = ".continue/rules"
 	continueMCPServersDir = ".continue/mcpServers"
+	continueSkillsDir     = ".continue/skills"
 )
 
 // importFromContinue reads an existing Continue (continue.dev) project
@@ -31,6 +32,10 @@ const (
 //     into skills, the rest into rules; provenance + leading H1 are
 //     stripped). Native globs and regex conditions retain their scalar
 //     or array values under x-continue.
+//   - `.continue/skills/<name>/SKILL.md` native skill folders copy
+//     byte-for-byte via importSkillFolders, so bundled assets survive.
+//     A `skill-<name>.md` rule from an older sync still imports above;
+//     the native folder imports after it and merges onto that spec.
 //   - `.continue/mcpServers/*.yaml` copies one MCP spec per file with
 //     the provenance header stripped on the way back in.
 //   - `.continue/mcpServers/*.json` accepts JSONC with a named
@@ -45,12 +50,16 @@ func importFromContinue(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	skills, err := importSkillFolders(filepath.Join(root, continueSkillsDir), filepath.Join(root, src.Skills))
+	if err != nil {
+		return err
+	}
 	mcps, err := importContinueMCPs(root, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
-		c.rules, c.agents, c.skills, mcps)
+		c.rules, c.agents, c.skills+skills, mcps)
 	printImportNextSteps(root, "continue")
 	return nil
 }

@@ -3,10 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -15,6 +13,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/mdlink"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -64,7 +63,7 @@ func collectReferenceFindings(targets []string) (findings []referenceFinding, do
 			}
 			docs++
 			source, attributed := "", false
-			for _, l := range localMarkdownLinks(string(data)) {
+			for _, l := range mdlink.Local(string(data)) {
 				dest := filepath.Join(filepath.Dir(p), filepath.FromSlash(l.Dest))
 				if _, err := os.Stat(dest); err == nil {
 					continue
@@ -193,220 +192,4 @@ func reportBrokenReferences(cmd *cobra.Command, targets []string) (int, error) {
 	}
 	cmd.Println("    fix: add the file to the skill folder under .agnostic-ai/ and run `agnostic-ai sync`, or correct the link in the source")
 	return len(findings), nil
-}
-
-// markdownLink is one local-file link destination found in a document.
-// Dest is the decoded path with any fragment or query removed; Raw keeps
-// the destination as written so diagnostics quote the author's text.
-type markdownLink struct {
-	Line int
-	Dest string
-	Raw  string
-}
-
-var (
-	// referenceDefinition matches `[label]: dest` at the start of a line,
-	// indented at most three spaces. Footnotes (`[^x]:`) are excluded later.
-	referenceDefinition = regexp.MustCompile(`^ {0,3}\[([^\]]+)\]:[ \t]*(<[^>]*>|\S+)`)
-	// urlScheme matches `http:`, `mailto:`, `c:` and other schemes.
-	urlScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
-	// listItem matches bullet and ordered list markers.
-	listItem = regexp.MustCompile(`^ {0,3}([-*+]|\d{1,9}[.)])[ \t]`)
-)
-
-// localMarkdownLinks returns the relative local-file destinations of the
-// inline links, images, and reference definitions in doc, in document
-// order. Parsing is bounded to that documented syntax: YAML frontmatter,
-// fenced and indented code blocks, and inline code spans are skipped, and
-// external URLs, absolute paths, and fragment-only links are dropped.
-func localMarkdownLinks(doc string) []markdownLink {
-	lines := strings.Split(strings.ReplaceAll(doc, "\r\n", "\n"), "\n")
-	start := 0
-	if len(lines) > 0 && lines[0] == "---" {
-		for i := 1; i < len(lines); i++ {
-			if lines[i] == "---" {
-				start = i + 1
-				break
-			}
-		}
-	}
-
-	var out []markdownLink
-	add := func(line int, raw string) {
-		if dest, ok := localLinkPath(raw); ok {
-			out = append(out, markdownLink{Line: line, Dest: dest, Raw: trimLinkSuffix(raw)})
-		}
-	}
-	var fence string
-	prevBlank, inList, inIndented := true, false, false
-	for i := start; i < len(lines); i++ {
-		line := lines[i]
-		trimmed := strings.TrimLeft(line, " ")
-		indent := len(line) - len(trimmed)
-		if fence != "" {
-			if indent < 4 && strings.HasPrefix(trimmed, fence) && strings.Trim(trimmed, fence[:1]+" \t") == "" {
-				fence = ""
-			}
-			continue
-		}
-		if indent < 4 {
-			if f := openingFence(trimmed); f != "" {
-				fence = f
-				continue
-			}
-		}
-		blank := strings.TrimSpace(line) == ""
-		codeIndent := indent >= 4 || strings.HasPrefix(line, "\t")
-		if !blank && codeIndent && !inList && (prevBlank || inIndented) {
-			inIndented = true
-			prevBlank = false
-			continue
-		}
-		if !blank {
-			inIndented = false
-			if !codeIndent {
-				inList = listItem.MatchString(line)
-			}
-		}
-		prevBlank = blank
-		if blank {
-			continue
-		}
-
-		text := stripCodeSpans(line)
-		if m := referenceDefinition.FindStringSubmatch(text); m != nil {
-			if !strings.HasPrefix(m[1], "^") {
-				add(i+1, strings.TrimSuffix(strings.TrimPrefix(m[2], "<"), ">"))
-			}
-			continue
-		}
-		for _, raw := range inlineDestinations(text) {
-			add(i+1, raw)
-		}
-	}
-	return out
-}
-
-// openingFence returns the fence marker (three or more backticks or
-// tildes) that opens a fenced code block on this line, or "".
-func openingFence(trimmed string) string {
-	for _, c := range []string{"`", "~"} {
-		n := len(trimmed) - len(strings.TrimLeft(trimmed, c))
-		if n >= 3 {
-			return strings.Repeat(c, n)
-		}
-	}
-	return ""
-}
-
-// stripCodeSpans blanks every inline code span on one line. A backtick
-// run with no closing run of the same length stays literal text.
-func stripCodeSpans(line string) string {
-	var b strings.Builder
-	for i := 0; i < len(line); {
-		if line[i] != '`' {
-			b.WriteByte(line[i])
-			i++
-			continue
-		}
-		n := 1
-		for i+n < len(line) && line[i+n] == '`' {
-			n++
-		}
-		run := line[i : i+n]
-		end := closingRun(line[i+n:], n)
-		if end < 0 {
-			b.WriteString(run)
-			i += n
-			continue
-		}
-		i += n + end + n
-	}
-	return b.String()
-}
-
-// closingRun finds a backtick run of exactly n in s and returns its
-// offset, or -1.
-func closingRun(s string, n int) int {
-	for j := 0; j < len(s); {
-		if s[j] != '`' {
-			j++
-			continue
-		}
-		k := 1
-		for j+k < len(s) && s[j+k] == '`' {
-			k++
-		}
-		if k == n {
-			return j
-		}
-		j += k
-	}
-	return -1
-}
-
-// inlineDestinations returns the raw destination of every `](dest)` on a
-// line: the text inside angle brackets, or the run up to whitespace or
-// the unbalanced closing parenthesis.
-func inlineDestinations(line string) []string {
-	var out []string
-	for i := 0; i+1 < len(line); i++ {
-		if line[i] != ']' || line[i+1] != '(' || (i > 0 && line[i-1] == '\\') {
-			continue
-		}
-		rest := strings.TrimLeft(line[i+2:], " \t")
-		if strings.HasPrefix(rest, "<") {
-			if end := strings.IndexByte(rest, '>'); end > 0 {
-				out = append(out, rest[1:end])
-			}
-			continue
-		}
-		depth, end := 0, len(rest)
-	scan:
-		for j := 0; j < len(rest); j++ {
-			switch rest[j] {
-			case '\\':
-				j++
-			case '(':
-				depth++
-			case ')':
-				if depth == 0 {
-					end = j
-					break scan
-				}
-				depth--
-			case ' ', '\t':
-				end = j
-				break scan
-			}
-		}
-		out = append(out, rest[:end])
-	}
-	return out
-}
-
-// localLinkPath reports whether raw names a relative local file and
-// returns its decoded path without fragment or query.
-func localLinkPath(raw string) (string, bool) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" || strings.HasPrefix(raw, "#") || strings.HasPrefix(raw, "/") ||
-		strings.HasPrefix(raw, `\`) || urlScheme.MatchString(raw) {
-		return "", false
-	}
-	p := trimLinkSuffix(raw)
-	if decoded, err := url.PathUnescape(p); err == nil {
-		p = decoded
-	}
-	if p == "" || filepath.IsAbs(p) {
-		return "", false
-	}
-	return p, true
-}
-
-// trimLinkSuffix drops a `#fragment` or `?query` from a destination.
-func trimLinkSuffix(raw string) string {
-	if i := strings.IndexAny(raw, "#?"); i >= 0 {
-		return raw[:i]
-	}
-	return raw
 }

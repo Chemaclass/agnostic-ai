@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- Continue skills emit as native `.continue/skills/<name>/` folders with their bundled files, the tree Continue's skill loader reads, instead of a `.continue/rules/skill-<name>.md` rule whose relative links pointed at nothing. Sync removes the old rule file, and `import continue` reads the new folders. OpenCode's opt-in skill command form points a link to a bundled file into the native skill folder, so it resolves too (#1043).
 - `import --dry-run` no longer writes imported permission specs, Codex exec-policy directories, or Codex skill assets merged into an existing skill (#1035).
 - Global sync emits native agents for 18 targets, including Codex, with ownership, collision, backup, and drift checks (#1033).
 - Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
