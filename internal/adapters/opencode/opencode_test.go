@@ -226,6 +226,45 @@ func TestEmit_Skill_EmitsCommand_WhenOptIn(t *testing.T) {
 	}
 }
 
+// The command form flattens a skill away from its bundled assets, so a
+// relative link to one points into the native skill folder that always
+// carries them. A link to a file the skill does not bundle stays as
+// written, and so does a link inside code (#1043).
+func TestEmit_Skill_CommandLinksResolveToNativeSkillFolder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	skillDir := filepath.Join(dir, "skills", "deploy")
+	if err := os.MkdirAll(filepath.Join(skillDir, "references"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "references", "setup.md"), []byte("setup\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Outputs: map[string]config.Output{"opencode": {EmitSkillsAsCommands: true}}}
+	entries := []spec.Entry{{
+		Kind: spec.KindSkill, Name: "deploy", Path: filepath.Join(skillDir, "SKILL.md"),
+		Body: "Follow [setup](references/setup.md#install) and [gone](references/gone.md).\n\n" +
+			"`[code](references/setup.md)`\n",
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := readFile(t, filepath.Join(dir, ".opencode/commands/skill-deploy.md"))
+	for _, want := range []string{
+		"[setup](../skills/deploy/references/setup.md#install)",
+		"[gone](references/gone.md)",
+		"`[code](references/setup.md)`",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("command missing %q:\n%s", want, cmd)
+		}
+	}
+	if native := readFile(t, filepath.Join(dir, ".opencode/skills/deploy/SKILL.md")); !strings.Contains(native, "[setup](references/setup.md#install)") {
+		t.Errorf("native SKILL.md must keep the link as authored:\n%s", native)
+	}
+}
+
 // A custom key under x-opencode beyond the documented allowlist reaches
 // the command frontmatter; shared top-level keys stay stripped. See #367.
 func TestEmit_Skill_CustomXOpencodeKeyReachesFrontmatter(t *testing.T) {

@@ -17,6 +17,35 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// Native `.continue/skills/<name>/` folders import with their bundled
+// assets, so a skill round-trips with the files its links point at.
+func TestImportFromContinue_NativeSkillFolderKeepsBundledAssets(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, ".continue", "skills", "deploy")
+	if err := os.MkdirAll(filepath.Join(skillDir, "references"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(skillDir, "SKILL.md"),
+		"---\nname: deploy\ndescription: Run deployments.\n---\nFollow [setup](references/setup.md).\n")
+	writeFile(t, filepath.Join(skillDir, "references", "setup.md"), "setup\n")
+
+	if err := importFromContinue(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	skill, err := os.ReadFile(filepath.Join(dir, "skills", "deploy", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("missing skills/deploy/SKILL.md: %v", err)
+	}
+	if !strings.Contains(string(skill), "Follow [setup](references/setup.md).") {
+		t.Errorf("skill body lost: %s", skill)
+	}
+	asset, err := os.ReadFile(filepath.Join(dir, "skills", "deploy", "references", "setup.md"))
+	if err != nil || string(asset) != "setup\n" {
+		t.Errorf("bundled asset = %q, %v; want it copied byte-for-byte", asset, err)
+	}
+}
+
 func TestImportFromContinue_RulesAndMCPs(t *testing.T) {
 	dir := t.TempDir()
 	rulesDir := filepath.Join(dir, ".continue", "rules")

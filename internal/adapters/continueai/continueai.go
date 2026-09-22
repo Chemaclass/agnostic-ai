@@ -39,6 +39,18 @@
 // that map, with native request headers taking precedence. All these
 // fields honor `x-continue` overrides before transport validation.
 //
+// Skills emit as native folders, one `.continue/skills/<name>/SKILL.md`
+// per skill with its bundled assets copied alongside. Continue's skill
+// loader reads that tree (core/config/markdown/loadMarkdownSkills.ts
+// for the IDE and extensions/cli/src/util/loadMarkdownSkills.ts for
+// `cn`: `name` and `description` frontmatter are required, and every
+// other file in the folder is listed to the model as a supporting file
+// to read on demand). The docs site has no skills page yet, so the
+// repo is the source here too. A prior version flattened each skill
+// into a `.continue/rules/skill-<name>.md` rule, which dropped the
+// bundled assets and broke every relative link to them (#1043); the
+// sync ledger sweeps a stale file of that shape.
+//
 // Two kinds of entry emit no file at all, each with a coverage note,
 // because both would match neither branch of the union and throw: a
 // transport Continue documents nowhere (`ws` today), and an entry
@@ -62,6 +74,9 @@ const (
 	target        = "continue"
 	defaultDir    = ".continue/rules"
 	defaultMCPDir = ".continue/mcpServers"
+	// defaultSkillsDir is the workspace tree Continue's skill loader
+	// scans for `<name>/SKILL.md` (see the package doc).
+	defaultSkillsDir = ".continue/skills"
 )
 
 var caps = emit.Capabilities{
@@ -81,7 +96,8 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one .md per rule and per agent into the rules directory,
-// plus one .yaml per MCP entry under `.continue/mcpServers/`. When
+// one native skill folder per skill under `.continue/skills/`, plus one
+// .yaml per MCP entry under `.continue/mcpServers/`. When
 // `outputs.continue.assistants-dir` is set, each agent additionally
 // emits as a standalone `config.yaml`-shaped YAML at `<dir>/<name>.yaml`
 // (see assistantYAML); whether Continue itself scans that directory is
@@ -93,8 +109,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         emit.OutputRulesDir(cfg, target, defaultDir),
 		AgentPrefix: "agent-",
+		SkipSkills:  true,
 		FormatRule:  rule,
 	}, dryRun); err != nil {
+		return err
+	}
+	if err := sess.WriteSkillFolders(b.Skills, target, emit.OutputSkillsDir(cfg, target, defaultSkillsDir), dryRun); err != nil {
 		return err
 	}
 	if err := emitAssistants(sess, b, cfg, dryRun); err != nil {

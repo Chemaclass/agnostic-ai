@@ -134,7 +134,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
-		if err := emitSkillCommands(sess, b.Skills, commandsDir, dryRun); err != nil {
+		if err := emitSkillCommands(sess, b.Skills, commandsDir, skillsDir, dryRun); err != nil {
 			return err
 		}
 	}
@@ -304,9 +304,17 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 	return nil
 }
 
-func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
+// emitSkillCommands writes the opt-in command form of every skill. The
+// command file sits away from the skill's bundled assets, so relative
+// links to them point into the native skill folder Emit always writes.
+func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir, skillsDir string, dryRun bool) error {
 	for _, s := range skills {
 		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".md")
+		scoped, err := emit.ScopedSkillsDir(s.Scope, skillsDir)
+		if err != nil {
+			return err
+		}
+		s.Body = emit.RelinkBundledAssets(s, s.Body, dir, filepath.Join(scoped, s.Name))
 		body := emit.WithHeader(commandFile(s), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err

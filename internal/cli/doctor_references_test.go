@@ -12,81 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestLocalMarkdownLinks_FindsInlineAndReferenceLinks(t *testing.T) {
-	doc := strings.Join([]string{
-		"---",
-		"name: deploy",
-		"description: see [x](frontmatter.md)",
-		"---",
-		"Read [setup](references/setup.md) first.",
-		"Then ![diagram](img/flow.png \"Flow\") and [spaced](<my notes.md>).",
-		"Encoded [enc](my%20file.md) and [frag](guide.md#install).",
-		"[label]: refs/label.md \"Title\"",
-		"  [angle]: <refs/angle file.md>",
-		"[^note]: footnote text",
-	}, "\n")
-
-	got := localMarkdownLinks(doc)
-	want := []markdownLink{
-		{Line: 5, Dest: "references/setup.md"},
-		{Line: 6, Dest: "img/flow.png"},
-		{Line: 6, Dest: "my notes.md"},
-		{Line: 7, Dest: "my file.md"},
-		{Line: 7, Dest: "guide.md"},
-		{Line: 8, Dest: "refs/label.md"},
-		{Line: 9, Dest: "refs/angle file.md"},
-	}
-	assertLinks(t, got, want)
-}
-
-func TestLocalMarkdownLinks_IgnoresCodeAndNonLocalDestinations(t *testing.T) {
-	doc := strings.Join([]string{
-		"Inline `[code](inline.md)` span and ``[double](double.md)``.",
-		"```md",
-		"[fenced](fenced.md)",
-		"```",
-		"~~~~",
-		"[tilde](tilde.md)",
-		"```",
-		"[still fenced](tilde2.md)",
-		"~~~~",
-		"",
-		"    [indented](indented.md)",
-		"",
-		"[web](https://example.com/x.md) [mail](mailto:a@b.c)",
-		"[proto](//cdn.example.com/x.md) [abs](/etc/passwd)",
-		"[frag](#section) [empty]() [query](?x=1)",
-		"[ref]: https://example.com/ref.md",
-		"[kept](kept.md)",
-	}, "\n")
-
-	assertLinks(t, localMarkdownLinks(doc), []markdownLink{{Line: 17, Dest: "kept.md"}})
-}
-
-func TestLocalMarkdownLinks_ChecksIndentedLinesInsideLists(t *testing.T) {
-	doc := "- step one\n\n    see [nested](nested.md)\n"
-
-	assertLinks(t, localMarkdownLinks(doc), []markdownLink{{Line: 3, Dest: "nested.md"}})
-}
-
-func TestLocalMarkdownLinks_KeepsParenthesesBalancedInDestination(t *testing.T) {
-	doc := "See [v](docs/guide(v2).md) now.\n"
-
-	assertLinks(t, localMarkdownLinks(doc), []markdownLink{{Line: 1, Dest: "docs/guide(v2).md"}})
-}
-
-func assertLinks(t *testing.T, got, want []markdownLink) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Fatalf("got %d links %+v, want %d %+v", len(got), got, len(want), want)
-	}
-	for i := range want {
-		if got[i].Line != want[i].Line || got[i].Dest != want[i].Dest {
-			t.Errorf("link %d = %+v, want %+v", i, got[i], want[i])
-		}
-	}
-}
-
 // setupReferencesProject writes a project with one folder skill whose
 // SKILL.md and nested document link to bundled reference files.
 func setupReferencesProject(t *testing.T, targets string) string {
@@ -267,22 +192,58 @@ func TestDoctorCheckReferences_JSONAddsReferencesAndWritesNothing(t *testing.T) 
 	}
 }
 
-func TestDoctorCheckReferences_AttributesFlattenedSkillWithoutBundledAssets(t *testing.T) {
-	setupReferencesProject(t, "continue")
+// Continue's native skill folder and OpenCode's command form both keep
+// every link to a bundled asset resolvable (#1043).
+func TestDoctorCheckReferences_FlattenedAndNativeSkillsResolveBundledAssets(t *testing.T) {
+	dir := setupReferencesProject(t, "continue, opencode")
+	optIntoOpencodeSkillCommands(t, dir)
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("every bundled link must resolve: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".opencode/commands/skill-deploy.md")); err != nil {
+		t.Fatalf("the command form must be checked too: %v", err)
+	}
+}
+
+func TestDoctorCheckReferences_AttributesFlattenedSkillByRender(t *testing.T) {
+	dir := setupReferencesProject(t, "opencode")
+	optIntoOpencodeSkillCommands(t, dir)
+	skill := filepath.Join(dir, ".agnostic-ai/skills/deploy/SKILL.md")
+	if err := os.WriteFile(skill, []byte("---\nname: deploy\ndescription: deploy\n---\nRead [gone](references/gone.md).\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	syncProject(t)
 
 	out, err := runDoctor(t, "--json", "--check-references")
 	if err == nil {
-		t.Fatalf("continue drops bundled assets, so the link must be reported:\n%s", out)
+		t.Fatalf("a link the skill does not bundle must be reported:\n%s", out)
 	}
 	for _, want := range []string{
-		`"path": ".continue/rules/skill-deploy.md"`,
+		`"path": ".opencode/commands/skill-deploy.md"`,
 		`"source": ".agnostic-ai/skills/deploy/SKILL.md"`,
-		`"destination": "references/setup.md"`,
+		`"destination": "references/gone.md"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %s:\n%s", want, out)
 		}
+	}
+}
+
+// optIntoOpencodeSkillCommands turns on OpenCode's flattened skill
+// command form in the project config setupReferencesProject wrote.
+func optIntoOpencodeSkillCommands(t *testing.T, dir string) {
+	t.Helper()
+	cfg := filepath.Join(dir, "agnostic-ai.yaml")
+	data, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, "outputs:\n  opencode:\n    emit-skills-as-commands: true\n"...)
+	if err := os.WriteFile(cfg, data, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 

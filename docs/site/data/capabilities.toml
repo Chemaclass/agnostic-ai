@@ -128,7 +128,7 @@ statuses = ["native", "native", "native", "native", "native", "no", "native", "n
 id = "continue"
 name = "Continue"
 href = "@/docs/targets/continue.md"
-statuses = ["mapped", "mapped", "native", "no", "native", "no", "no", "no", "no", "no"]
+statuses = ["mapped", "native", "native", "no", "native", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "amp"
