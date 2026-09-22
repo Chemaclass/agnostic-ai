@@ -186,18 +186,21 @@ func TestTargetUpdates_PostAloneUpdatesSiteOutputs(t *testing.T) {
 		t.Fatalf("copy site fixture: %v", err)
 	}
 
+	// Dated far in the future on purpose: this fixture asserts it sorts
+	// ahead of every real briefing, and a date inside the real calendar
+	// starts failing the day a release ships on it.
 	secondPost := `+++
 title = "agnostic-ai v0.59.0: A temporary release briefing"
 description = "A fixture proving that one release post updates every publishing surface."
-date = 2026-09-22T00:00:00+02:00
-slug = "2026-09-22-v0.59.0"
-aliases = ["updates/2026-09-22-v0.59.0.html"]
+date = 2099-01-01T00:00:00+02:00
+slug = "2099-01-01-v0.59.0"
+aliases = ["updates/2099-01-01-v0.59.0.html"]
 
 [extra]
 kind = "release"
 version = "v0.59.0"
 dek = "This release article exists only inside the site build test."
-rss_guid = "https://agnostic-ai.org/updates/2026-09-22-v0.59.0.html"
+rss_guid = "https://agnostic-ai.org/updates/2099-01-01-v0.59.0.html"
 archive_stats = "1 shipped change · 1 upstream note"
 targets = ["claude", "codex"]
 
@@ -216,7 +219,7 @@ Only this Markdown file was added.
 
 No verified upstream change met the publication bar.
 `
-	postPath := filepath.Join(siteDir, "content", "updates", "2026-09-22-v0.59.0.md")
+	postPath := filepath.Join(siteDir, "content", "updates", "2099-01-01-v0.59.0.md")
 	if err := os.WriteFile(postPath, []byte(secondPost), 0o600); err != nil {
 		t.Fatalf("write second post fixture: %v", err)
 	}
@@ -276,8 +279,8 @@ This temporary article exercises archive metadata.
 
 	archive := readBuiltFile(t, filepath.Join(outputDir, "updates", "index.html"))
 	feed := readBuiltFile(t, filepath.Join(outputDir, "updates", "feed.xml"))
-	article := readBuiltFile(t, filepath.Join(outputDir, "updates", "2026-09-22-v0.59.0", "index.html"))
-	alias := readBuiltFile(t, filepath.Join(outputDir, "updates", "2026-09-22-v0.59.0.html"))
+	article := readBuiltFile(t, filepath.Join(outputDir, "updates", "2099-01-01-v0.59.0", "index.html"))
+	alias := readBuiltFile(t, filepath.Join(outputDir, "updates", "2099-01-01-v0.59.0.html"))
 	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
 
 	if !strings.Contains(archive, "A temporary release briefing") || !strings.Contains(archive, "Release metadata drives the latest edition") {
@@ -315,7 +318,7 @@ This temporary article exercises archive metadata.
 		}
 		lastIndex = index
 	}
-	if !strings.Contains(feed, "A temporary release briefing") || !strings.Contains(feed, "https://agnostic-ai.org/updates/2026-09-22-v0.59.0.html") {
+	if !strings.Contains(feed, "A temporary release briefing") || !strings.Contains(feed, "https://agnostic-ai.org/updates/2099-01-01-v0.59.0.html") {
 		t.Error("second post did not reach the RSS feed with its stable GUID")
 	}
 	if !strings.Contains(feed, "https://chemaclass.github.io/agnostic-ai/updates/2026-09-15.html") {
@@ -327,7 +330,7 @@ This temporary article exercises archive metadata.
 	if strings.Contains(article, "target-capability-audit:") || strings.Contains(article, "Audit summary") {
 		t.Error("the generated release article includes audit-only rendering")
 	}
-	if !strings.Contains(alias, "url=https://agnostic-ai.org/updates/2026-09-22-v0.59.0/") {
+	if !strings.Contains(alias, "url=https://agnostic-ai.org/updates/2099-01-01-v0.59.0/") {
 		t.Error("the .html compatibility alias does not redirect to the canonical article")
 	}
 	for name, body := range map[string]string{"home": home, "archive": archive, "article": article} {
