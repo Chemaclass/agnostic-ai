@@ -6,34 +6,32 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.65.0 - 2026-09-22
+
 ### Added
 
 - Codex agents map the portable `effort` onto `model_reasoning_effort`; an integer budget raises a coverage note, and `x-codex.model_reasoning_effort` still wins (#1016).
 
 ### Changed
 
-- Target audits fetch each vendor page once through `scripts/docfetch.sh` and hash it against `scripts/target-audit/sources.lock`, so auditors read only the pages that moved (#1017).
 - The Amp target page and adapter doc note that Amp also loads skills from Claude Code's directories by default, and name the settings that change it (#1023).
+- Target audits fetch each vendor page once through `scripts/docfetch.sh` and hash it against `scripts/target-audit/sources.lock`, so auditors read only the pages that moved (#1017).
 
 ### Fixed
 
 - Windsurf (Devin) agents and permission rules granting only `Write` now emit `write`, not `edit`, so they no longer also grant edit capability (#1022).
 - `import` keeps the skill and agent frontmatter a target has nowhere to put, so a sync then import no longer deletes `argument-hint`, `allowed-tools`, `tools`, or `effort` from a spec; deleting a key the target does write still reaches the spec.
 - `sync` prints the Devin shared `.agents/agents/` coverage note once and stops repeating it while it is unchanged (#1014).
-- npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
 - The Amp docs no longer cite an exact settings-schema property count that goes stale with every new key; the Kilo config-precedence and Copilot chat-mode citations point at pages that still carry those sections (#1024).
+- npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
 
 ### Site
 
-- The home page runs the source spec across the top and the file each target gets beside the target list, instead of stacking both in a 42rem column.
-- Home sections pair their title with the text or links beside it above 1000px, so a 37em paragraph no longer sits alone in a full-width row and the quickstart links no longer need a row of their own.
+- The home page uses its full width: the source spec runs across the top with each target's generated file beside the target list, and a section title pairs with the text or links beside it above 1000px.
 - Code blocks, generated files, and the closing call to action share one dark slab, so a listing is distinguishable from the prose around it at a glance.
-- The header adds Targets beside Docs, marks the current section with an underline on the header's own edge, and stacks the nav under the brand from 820px so five links never run into it.
-- The docs sidebar marks the current guide on a hairline rail, and the guide index reads as cards rather than underlined rows.
-- The header drops the version badge and GitHub button, both already in the footer, and orders the nav Home, Docs, Updates, Playground.
-- The docs table of contents escapes heading titles, so `x-<target>` on the spec format page no longer pulls the footer into the right column (#1015).
-- The changelog keeps v0.50.0 and later; earlier releases moved to `docs/CHANGELOG-archive.md`, which `release-notes.sh` falls back to.
-- The targets page leads with the capability matrix, defining sync states and spec kinds and moving shared details to a reference; the README links npm, the Homebrew tap, and GitHub Releases directly.
+- The header reads Home, Docs, Targets, Updates, Playground, marks the current section with an underline on its own edge, stacks the nav under the brand from 820px, and leaves the version badge and GitHub button to the footer.
+- The docs sidebar marks the current guide on a hairline rail, the guide index reads as cards rather than underlined rows, and the table of contents escapes heading titles so `x-<target>` no longer pulls the footer into the right column (#1015).
+- The targets page leads with the capability matrix, defining sync states and spec kinds and moving shared details to a reference; the README links npm, the Homebrew tap, and GitHub Releases directly; the changelog keeps v0.50.0 and later, with earlier releases in `docs/CHANGELOG-archive.md`, which `release-notes.sh` falls back to.
 
 ## v0.64.1 - 2026-09-21
 
