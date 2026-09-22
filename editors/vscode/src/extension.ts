@@ -1,10 +1,13 @@
 // agnostic-ai VS Code extension entry point.
 //
 // Shells out to the user's installed `agnostic-ai` binary; ships no
-// bundled binary, matching the v1 acceptance criteria. Three surfaces:
+// bundled binary, matching the v1 acceptance criteria. Four surfaces:
 //
 //   - Command palette entries for sync, sync --check, doctor --fix,
 //     status, and "render current spec".
+//   - "Open canonical source": from a generated file, ask
+//     `why --format json` which specs produced it and open one. Also on
+//     the editor and editor-tab context menus.
 //   - Codelens above each spec with one "Render to <target>" action per
 //     configured target.
 //   - Status bar item that polls `sync --check --json` and shows the
@@ -18,6 +21,17 @@ import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+
+import {
+  NavigationPlan,
+  ProcessResult,
+  WhyOutputError,
+  describeWhyFailure,
+  findProjectRoot,
+  parseWhyOutput,
+  planNavigation,
+  whyArgs,
+} from "./provenance";
 
 let statusBar: vscode.StatusBarItem | undefined;
 let driftTimer: NodeJS.Timeout | undefined;
@@ -42,6 +56,10 @@ export function activate(context: vscode.ExtensionContext): void {
       "agnostic-ai.renderCurrent",
       async (target?: string, specPath?: string) =>
         renderCurrent(out, target, specPath),
+    ),
+    vscode.commands.registerCommand(
+      "agnostic-ai.openSource",
+      (uri?: vscode.Uri) => openCanonicalSource(uri),
     ),
   );
 
@@ -108,18 +126,14 @@ function runInTerminal(args: string): void {
   term.show();
 }
 
-interface ExecResult {
-  stdout: string;
-  stderr: string;
-  code: number;
-}
-
-function exec(args: string[], cwd: string): Promise<ExecResult> {
+function exec(args: string[], cwd: string): Promise<ProcessResult> {
   return new Promise((resolve) => {
     cp.execFile(
       binary(),
       args,
-      { cwd, maxBuffer: 4 * 1024 * 1024 },
+      // PWD matches cwd so the CLI's working directory is the one given
+      // here, never an inherited symlinked alias of it.
+      { cwd, env: { ...process.env, PWD: cwd }, maxBuffer: 4 * 1024 * 1024 },
       (err, stdout, stderr) => {
         let code = 0;
         if (err) {
@@ -217,6 +231,90 @@ async function listConfiguredTargets(cwd: string): Promise<string[]> {
     }
   }
   return targets;
+}
+
+// ---------------------------------------------------------------------------
+// Open canonical source
+// ---------------------------------------------------------------------------
+
+// openCanonicalSource resolves the project that owns the document (the
+// nearest agnostic-ai config inside the document's own workspace folder),
+// asks the CLI for provenance, and opens the source spec. It never runs
+// sync and never opens a path the CLI did not report.
+async function openCanonicalSource(uri?: vscode.Uri): Promise<void> {
+  const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+  if (!target || target.scheme !== "file") {
+    vscode.window.showErrorMessage(
+      "agnostic-ai: open a generated file on disk first.",
+    );
+    return;
+  }
+  const folder = vscode.workspace.getWorkspaceFolder(target)?.uri.fsPath;
+  const root = findProjectRoot(target.fsPath, folder, fs.existsSync);
+  if (!root) {
+    vscode.window.showErrorMessage(
+      "agnostic-ai: no agnostic-ai.yaml or agnostic.config.yaml found above this file.",
+    );
+    return;
+  }
+  // `why` follows symlinks in the file argument but not in its working
+  // directory, so hand it canonical paths on both sides.
+  let realRoot: string;
+  let realDoc: string;
+  try {
+    realRoot = fs.realpathSync.native(root);
+    realDoc = fs.realpathSync.native(target.fsPath);
+  } catch {
+    vscode.window.showErrorMessage(
+      "agnostic-ai: this file is not on disk. Save it first.",
+    );
+    return;
+  }
+  const res = await exec(whyArgs(realRoot, realDoc), realRoot);
+  if (res.code === -1) {
+    showBinaryMissingError();
+    return;
+  }
+  if (res.code !== 0) {
+    vscode.window.showErrorMessage(`agnostic-ai: ${describeWhyFailure(res)}`);
+    return;
+  }
+  let plan: NavigationPlan;
+  try {
+    plan = planNavigation(parseWhyOutput(res.stdout), root, isFile);
+  } catch (err) {
+    if (!(err instanceof WhyOutputError)) throw err;
+    vscode.window.showErrorMessage(
+      `agnostic-ai: unsupported \`why\` output (${err.message}). Upgrade the CLI.`,
+    );
+    return;
+  }
+  if (plan.kind === "error") {
+    vscode.window.showErrorMessage(`agnostic-ai: ${plan.message}`);
+    return;
+  }
+  if (plan.missing) {
+    vscode.window.showWarningMessage(
+      `agnostic-ai: skipped missing source(s): ${plan.missing.join(", ")}.`,
+    );
+  }
+  let chosen = plan.kind === "open" ? plan.path : undefined;
+  if (plan.kind === "pick") {
+    const pick = await vscode.window.showQuickPick(plan.items, {
+      placeHolder: "Pick the source spec to open",
+      matchOnDescription: true,
+    });
+    chosen = pick?.path;
+  }
+  if (chosen) await vscode.window.showTextDocument(vscode.Uri.file(chosen));
+}
+
+function isFile(p: string): boolean {
+  try {
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

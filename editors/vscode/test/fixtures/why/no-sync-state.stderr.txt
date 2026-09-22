@@ -1,0 +1,1 @@
+README.md: no sync state found at .agnostic-ai/.sync-state. Run `agnostic-ai sync` first

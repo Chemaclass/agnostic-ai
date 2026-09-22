@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "command": "why",
+  "file": ".claude/skills/release-notes/SKILL.md",
+  "target": "claude",
+  "output_keys": [],
+  "sources": [
+    {
+      "kind": "skill",
+      "name": "release-notes",
+      "path": "ai specs/skills/release notes/SKILL.md",
+      "mode": "full"
+    }
+  ],
+  "last_sync": "2026-09-22T18:06:12Z"
+}

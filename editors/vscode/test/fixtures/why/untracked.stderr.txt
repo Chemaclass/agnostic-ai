@@ -1,0 +1,1 @@
+README.md: not synced or not tracked by any adapter. Run `agnostic-ai sync` to (re)emit, or check that the path matches an adapter output
