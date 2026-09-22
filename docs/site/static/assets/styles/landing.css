@@ -39,10 +39,11 @@ main > section[id] {
 
 .hero h1 {
   max-width: 14ch;
-  font-family: var(--mono);
-  font-size: clamp(2.6rem, 6.2vw, 5rem);
-  font-weight: 760;
-  letter-spacing: -0.035em;
+  font-family: var(--display);
+  font-size: clamp(2.9rem, 6.8vw, 5.4rem);
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.015em;
 }
 
 .hero h1 span {
@@ -411,20 +412,61 @@ main > section[id] {
   font-weight: 700;
 }
 
-/* Its own section now, not a hero column, so it gets a real measure. */
+/* Source on the left, the file it produced on the right, at full rail width.
+   The switch element is display: contents so its tab list and its panes become
+   direct cells of this grid: the panes then span the spec card's rows and the
+   selected file stays beside its source instead of under it. */
 .transform {
-  width: min(100%, 42rem);
-  margin: 2rem auto 0;
-  padding: 1.2rem;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--paper);
+  display: grid;
+  grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto;
+  align-items: start;
+  column-gap: 1.5rem;
+  row-gap: 0.9rem;
+  margin-top: 2.25rem;
+}
+
+.output-switch {
+  display: contents;
+}
+
+.spec-card,
+.transform-arrow,
+.output-files {
+  grid-column: 1;
+}
+
+.output-panels {
+  grid-column: 2;
+  grid-row: 2 / -1;
+  align-self: start;
+}
+
+/* One column below the split: the panes fall under the tab list, which is the
+   reading order the markup already has. */
+@media (max-width: 899px) {
+  .transform {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .spec-card,
+  .transform-arrow,
+  .output-files,
+  .output-panels {
+    grid-column: 1;
+  }
+
+  .output-panels {
+    grid-row: auto;
+  }
 }
 
 .transform-caption {
+  grid-column: 1 / -1;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.69rem;
@@ -436,16 +478,16 @@ main > section[id] {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-quiet);
+  background: var(--slab);
 }
 
 .file-name {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-soft);
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--slab-line);
+  color: var(--slab-ink);
   font-family: var(--mono);
   font-size: 0.72rem;
 }
@@ -463,9 +505,9 @@ main > section[id] {
 .transform pre {
   margin: 0;
   padding: 0.75rem;
-  color: var(--ink-soft);
+  color: var(--slab-ink);
   font-size: 0.73rem;
-  line-height: 1.55;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -483,11 +525,6 @@ main > section[id] {
   margin: 0.7rem auto;
   color: var(--accent);
   transform: rotate(90deg);
-}
-
-.output-switch {
-  display: grid;
-  gap: 0.7rem;
 }
 
 .output-files {
@@ -599,13 +636,13 @@ main > section[id] {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-quiet);
+  background: var(--slab);
 }
 
 .output-panel {
   grid-area: 1 / 1;
   min-width: 0;
-  padding: 0.7rem 0.75rem 0.8rem;
+  padding: 0;
 }
 
 .output-panel[hidden] {
@@ -613,11 +650,17 @@ main > section[id] {
   visibility: hidden;
 }
 
+/* The note says what this target could not keep, so it sits above the file it
+   describes, on paper rather than on the slab, where it reads as commentary. */
 .output-note {
-  margin: 0 0 0.55rem;
-  color: var(--muted);
-  font-size: 0.72rem;
-  line-height: 1.5;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--slab-line);
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.55;
 }
 
 .output-note code {
@@ -628,15 +671,18 @@ main > section[id] {
 }
 
 .output-panel pre {
-  padding: 0;
-  font-size: 0.66rem;
-  line-height: 1.5;
+  padding: 0.85rem 0.9rem;
+  color: var(--slab-ink);
+  font-size: 0.7rem;
+  line-height: 1.7;
 }
 
 .section-title {
-  font-family: var(--mono);
-  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
-  font-weight: 720;
+  font-family: var(--display);
+  font-size: clamp(1.95rem, 4.8vw, 2.9rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
 }
 
 .section-title span {
@@ -808,16 +854,41 @@ main > section[id] {
   margin-top: 2.4rem;
 }
 
+.feature-list {
+  counter-reset: principle;
+}
+
 .workflow-steps article,
 .feature-list article {
-  padding-top: 1.2rem;
-  border-top: 1px solid var(--line);
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 1.15rem 1.25rem 1.3rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+/* The principles are a sequence, not a set: numbering them says read in
+   order, and costs no markup. */
+.feature-list article {
+  counter-increment: principle;
+}
+
+.feature-list article::before {
+  content: counter(principle, decimal-leading-zero);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
 }
 
 .workflow-steps h3,
 .feature-list h3 {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
   font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .workflow-steps p,
@@ -825,6 +896,7 @@ main > section[id] {
   margin: 0;
   color: var(--ink-soft);
   font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .workflow-command {
@@ -974,9 +1046,62 @@ main > section[id] {
   text-decoration-color: transparent;
 }
 
+/* The one dark band on the page. It closes the story the hero opened, and the
+   slab is the same one every code block uses, so it reads as the tool
+   speaking rather than a decorative panel. */
 .closing {
   border-top: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--slab);
+  color: var(--slab-ink);
+}
+
+.closing a:not(.button) {
+  color: var(--slab-accent);
+}
+
+.closing .button-primary {
+  background: var(--slab-ink);
+  color: var(--slab);
+}
+
+.closing .button-primary:hover {
+  background: #ffffff;
+  color: var(--slab);
+}
+
+.closing .button-secondary {
+  border-color: var(--slab-line);
+  background: transparent;
+  color: var(--slab-ink);
+}
+
+.closing .button-secondary:hover {
+  border-color: var(--slab-ink);
+  color: var(--slab-ink);
+}
+
+.closing .command {
+  border-color: var(--slab-line);
+  background: var(--slab-raised);
+}
+
+.closing .command code {
+  color: var(--slab-ink);
+}
+
+.closing .command button {
+  border-color: var(--slab-line);
+  background: transparent;
+  color: var(--slab-dim);
+}
+
+.closing .command button:hover {
+  border-color: var(--slab-ink);
+  color: var(--slab-ink);
+}
+
+.closing .command > span[aria-hidden] {
+  color: var(--slab-dim);
 }
 
 .closing-inner {
@@ -986,8 +1111,16 @@ main > section[id] {
 }
 
 .closing h2 {
-  font-family: var(--mono);
-  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-family: var(--display);
+  font-size: clamp(2rem, 5.2vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.closing h2 br + span,
+.closing h2 span {
+  color: var(--slab-accent);
 }
 
 .closing-command {
@@ -1024,28 +1157,6 @@ main > section[id] {
   .update-brief-grid {
     grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 1.1fr);
     align-items: start;
-  }
-}
-
-/* Source left, generated right, once there is width for both. */
-@media (min-width: 960px) {
-  .transform {
-    width: min(100%, 64rem);
-    display: grid;
-    grid-template-columns: minmax(0, 5fr) auto minmax(0, 7fr);
-    align-items: start;
-    gap: 0 1.1rem;
-  }
-
-  .transform-caption {
-    grid-column: 1 / -1;
-  }
-
-  .transform-arrow {
-    width: 2.6rem;
-    margin: 0;
-    align-self: center;
-    transform: none;
   }
 }
 
@@ -1150,5 +1261,12 @@ main > section[id] {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+/* Four principles, four columns, once each still holds a readable measure. */
+@media (min-width: 1040px) {
+  .feature-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
