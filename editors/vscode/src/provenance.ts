@@ -8,7 +8,7 @@
 
 import * as path from "path";
 
-export const CONFIG_FILE_NAMES = ["agnostic-ai.yaml", "agnostic.config.yaml"];
+const CONFIG_FILE_NAMES = ["agnostic-ai.yaml", "agnostic.config.yaml"];
 
 export interface WhySource {
   kind: string;

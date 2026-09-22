@@ -23,6 +23,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import {
+  NavigationPlan,
   ProcessResult,
   WhyOutputError,
   describeWhyFailure,
@@ -278,7 +279,7 @@ async function openCanonicalSource(uri?: vscode.Uri): Promise<void> {
     vscode.window.showErrorMessage(`agnostic-ai: ${describeWhyFailure(res)}`);
     return;
   }
-  let plan;
+  let plan: NavigationPlan;
   try {
     plan = planNavigation(parseWhyOutput(res.stdout), root, isFile);
   } catch (err) {
