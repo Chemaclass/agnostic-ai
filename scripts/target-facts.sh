@@ -18,6 +18,7 @@
 #   scripts/target-facts.sh --list       # target names, one per line
 #   scripts/target-facts.sh --batches 5  # registry split into N batches
 #   scripts/target-facts.sh --sources zed warp  # selected vendor references
+#   scripts/target-facts.sh --changed <run>/docfetch.tsv  # batches sized by drift
 #
 # Portable: POSIX-ish bash + awk + grep only. No GNU-only flags.
 
@@ -25,6 +26,7 @@ set -euo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 REGISTRY="$ROOT/internal/adapters/adapter.go"
+LOCK="${TARGET_AUDIT_LOCK:-$ROOT/scripts/target-audit/sources.lock}"
 TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
 
 usage() {
@@ -39,6 +41,11 @@ Usage: scripts/target-facts.sh [--list | --batches N | --sources <target>... | <
                  "<n>: <target> <target> ...". Used by the target-audit
                  skill to size its parallel fan-out from the registry
                  rather than a hardcoded table.
+  --changed <docfetch.tsv> [N]
+                 classify targets by what scripts/docfetch.sh found this
+                 run. Targets whose pages or changelog moved are split
+                 into at most N deep batches; the rest print on one
+                 "sweep:" line.
   -h, --help     this message
 EOF
 }
@@ -64,12 +71,21 @@ list_targets() {
 # across the leading batches so no batch is more than one target larger
 # than another.
 batches() {
-  list_targets | awk -v n="$1" '
-    { t[NR] = $0 }
+  batch_list "$1" $(list_targets)
+}
+
+# batch_list <n> <target>... groups the given targets rather than the whole
+# registry, so --changed can size its fan-out from the drifting subset.
+batch_list() {
+  local n="$1"
+  shift
+  printf '%s\n' "$@" | awk -v n="$n" '
+    NF { t[++count] = $0 }
     END {
+      if (count == 0) exit
       if (n < 1) n = 1
-      if (n > NR) n = NR
-      base = int(NR / n); extra = NR % n; i = 1
+      if (n > count) n = count
+      base = int(count / n); extra = count % n; i = 1
       for (b = 1; b <= n; b++) {
         size = base + (b <= extra ? 1 : 0)
         line = ""
@@ -172,6 +188,61 @@ source_sections() {
   ' "$ROOT/.agnostic-ai/skills/target-audit/references/sources.md"
 }
 
+# changed_classes <docfetch.tsv> prints "deep: ..." and "sweep: ..." lines.
+# A target is deep when any of its pages is new, changed, or unrecovered, or
+# when its changelog moved at all. Everything else is hash-identical to the
+# committed lock and only needs a coverage row.
+changed_classes() {
+  local file="$1"
+  if [ ! -r "$file" ]; then
+    echo "cannot read $file" >&2
+    return 1
+  fi
+  awk -F '\t' -v lock="$LOCK" '
+    BEGIN {
+      while ((getline line < lock) > 0) {
+        if (substr(line, 1, 1) == "#") continue
+        split(line, f, "\t")
+        if (f[3] != "") locked[f[3]] = f[6]
+      }
+      close(lock)
+    }
+    /^#/ || NF < 6 { next }
+    {
+      target = $1; kind = $2; url = $3; mode = $5; sha = $6; status = $8
+      if (status == "") {
+        if (mode == "failed" || mode == "app-shell" || mode == "soft-404") status = "failed"
+        else if (!(url in locked)) status = "new"
+        else if (locked[url] == sha) status = "unchanged"
+        else status = "changed"
+      }
+      if (!(target in seen)) { seen[target] = 1; order[++n] = target }
+      if (status != "unchanged") deep[target] = 1
+      if (kind == "changelog" && status != "unchanged") deep[target] = 1
+    }
+    END {
+      for (i = 1; i <= n; i++) {
+        t = order[i]
+        if (t in deep) d = d (d ? " " : "") t
+        else sw = sw (sw ? " " : "") t
+      }
+      if (d != "") print "deep: " d
+      if (sw != "") print "sweep: " sw
+    }
+  ' "$file"
+}
+
+# changed_batches <docfetch.tsv> [n] formats the classification as batches.
+changed_batches() {
+  local file="$1" n="${2:-5}" classes deep sweep
+  classes=$(changed_classes "$file") || return 1
+  deep=$(printf '%s\n' "$classes" | sed -n 's/^deep: //p')
+  sweep=$(printf '%s\n' "$classes" | sed -n 's/^sweep: //p')
+  [ -n "$deep" ] && batch_list "$n" $deep
+  [ -n "$sweep" ] && echo "sweep: $sweep"
+  return 0
+}
+
 # dump_target <target> prints the full fact sheet for one target.
 dump_target() {
   local t="$1" pkg src
@@ -223,6 +294,14 @@ main() {
     --sources)
       shift
       source_sections "$@"
+      return
+      ;;
+    --changed)
+      if [ -z "${2:-}" ]; then
+        echo "--changed needs a docfetch.tsv path" >&2
+        return 2
+      fi
+      changed_batches "$2" "${3:-5}"
       return
       ;;
   esac
