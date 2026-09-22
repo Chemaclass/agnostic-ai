@@ -25,6 +25,7 @@ Run commands from the directory containing `agnostic-ai.yaml`.
 | Two targets emit to the same path | Read [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and inspect output overrides |
 | `sync` refuses to write a `.*ignore` file | Read [AAI-103](@/docs/errors.md#aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten), import the patterns, and review their order and negations |
 | A scoped rule is skipped, conflicts, or appears missing | Check [scoped-rule diagnostics](#scoped-rules) |
+| A generated skill links to a file the agent cannot open | Run `agnostic-ai doctor --check-references`; see [broken skill references](#broken-skill-references) |
 | Watch mode misses changes on a mounted filesystem | Try `agnostic-ai sync --watch --watch-poll` |
 
 ## Inspect the project
@@ -50,6 +51,17 @@ Use [why](@/docs/why.md) to trace a generated file to its source, or [graph](@/d
 | An output override is rejected | Remove the named override and keep provenance headers enabled. |
 | Cursor has no scoped `.mdc` file | It can share a nested `AGENTS.md` with Codex. Run `agnostic-ai graph --spec <name>`. |
 | An old scope file remains | Run a full sync, then `sync --check`. Hand-authored files stay. |
+
+## Broken skill references
+
+A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link with the target, the generated document and line, the missing destination, and the source spec.
+
+| Cause | Fix |
+|---|---|
+| The linked file is missing from the skill folder under `.agnostic-ai/skills/<name>/` | Add it, then run `agnostic-ai sync` |
+| The link leaves the skill folder, such as `../shared/setup.md` | Move the file into the skill folder and update the link. Sync copies only the skill's own folder |
+| The target flattens skills to one file and drops bundled files | Link to a URL, inline the content, or accept the gap for that target |
+| A generated reference was deleted by hand | Run `agnostic-ai sync` to restore it |
 
 ## Report a problem
 

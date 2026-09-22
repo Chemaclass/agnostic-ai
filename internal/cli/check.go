@@ -219,7 +219,7 @@ func printDrift(reports []driftReport) bool {
 
 func newDoctorCmd() *cobra.Command {
 	var targets []string
-	var fix, backup, jsonOut, checkGlobs bool
+	var fix, backup, jsonOut, checkGlobs, checkRefs bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Unified diagnostic: config, CLIs, spec health, and drift.",
@@ -229,6 +229,7 @@ func newDoctorCmd() *cobra.Command {
 			"  3. Report unsupported spec kinds per target.\n" +
 			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/.\n" +
 			"  5. Compare what sync would emit against files on disk (drift).\n" +
+			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
 			"  7. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift. Subcommands run individual checks.",
@@ -240,6 +241,9 @@ func newDoctorCmd() *cobra.Command {
 
   # Machine-readable drift report for CI dashboards
   agnostic-ai doctor --json
+
+  # Fail when a generated skill links to a missing local file
+  agnostic-ai doctor --check-references
 
   # Check only MCP command resolution
   agnostic-ai doctor mcp
@@ -253,7 +257,13 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports)
+				var refs []referenceFinding
+				if checkRefs {
+					if refs, _, err = collectReferenceFindings(targets); err != nil {
+						return err
+					}
+				}
+				return printDoctorJSON(cmd, reports, refs, checkRefs)
 			}
 
 			configOK := doctorConfigOK()
@@ -306,6 +316,17 @@ func newDoctorCmd() *cobra.Command {
 				unloadableRules = n
 			}
 
+			// 4c. Optional: relative links in emitted skill documents
+			// whose destination is missing on disk.
+			brokenRefs := 0
+			if checkRefs {
+				n, err := reportBrokenReferences(cmd, targets)
+				if err != nil {
+					return err
+				}
+				brokenRefs = n
+			}
+
 			// 5. MCP resolution
 			reportMCPCommandResolution(cmd)
 
@@ -324,6 +345,9 @@ func newDoctorCmd() *cobra.Command {
 			// no CI step could gate on it (#617).
 			if unloadableRules > 0 {
 				return fmt.Errorf("%d rule(s) have a glob matching no files and will never load", unloadableRules)
+			}
+			if brokenRefs > 0 {
+				return fmt.Errorf("%d broken skill reference(s): a relative link points to a file missing from the emitted skill", brokenRefs)
 			}
 			if hasDrift {
 				if !fix {
@@ -346,6 +370,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&checkGlobs, "check-globs", false, "Flag rules whose `globs:` pattern matches no files in the working tree")
+	cmd.Flags().BoolVar(&checkRefs, "check-references", false, "Flag relative Markdown links in emitted skills whose file is missing on disk")
 	registerTargetCompletion(cmd)
 	cmd.AddCommand(newDoctorMCPCmd())
 	cmd.AddCommand(newDoctorInstallCmd())
@@ -353,17 +378,33 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
+// doctorJSONOutput extends the shared JSON schema with the opt-in
+// reference findings. The key is present only under --check-references,
+// so consumers of the plain drift report see the same document as before.
+type doctorJSONOutput struct {
+	jsonOutput
+	References *[]referenceFinding `json:"references,omitempty"`
+}
+
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
-// in writes.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport) error {
-	out := jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}
-	hasDrift := len(out.Writes) > 0
-	if err := emitJSON(cmd, out); err != nil {
+// in writes. With checkRefs, broken skill references appear in references.
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool) error {
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists()}
+	if checkRefs {
+		if refs == nil {
+			refs = []referenceFinding{}
+		}
+		out.References = &refs
+	}
+	if err := writeIndentedJSON(cmd, out); err != nil {
 		return err
 	}
-	if hasDrift {
+	if len(out.Writes) > 0 {
 		return fmt.Errorf("drift detected")
+	}
+	if len(refs) > 0 {
+		return fmt.Errorf("%d broken skill reference(s)", len(refs))
 	}
 	return nil
 }

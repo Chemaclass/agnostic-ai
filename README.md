@@ -105,6 +105,7 @@ The [AI tooling updates](https://agnostic-ai.org/updates/) explain important ups
 | Add directory-specific instructions | [Scoped context](https://agnostic-ai.org/docs/scoped-context/) |
 | Share specs across repositories | [Packs](https://agnostic-ai.org/docs/packs/) |
 | Diagnose missing or stale output | [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/) |
+| Check that links in generated skills resolve | [`doctor --check-references`](https://agnostic-ai.org/docs/troubleshooting/#broken-skill-references) |
 | Track upstream target changes and proposed support | [AI tooling updates](https://agnostic-ai.org/updates/) |
 | Work on agnostic-ai | [Contributing](CONTRIBUTING.md) |
 
