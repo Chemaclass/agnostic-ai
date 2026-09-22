@@ -224,7 +224,8 @@ var targetMarkers = map[string][]string{
 
 // detectExistingTargets returns the canonical-ordered subset of
 // allTargets whose marker paths exist under root. Used by `init` to
-// pre-tick CLIs the user already has configured.
+// pre-tick CLIs the user already has configured. Not every detected
+// target has an importer, so import paths read detectImportSources.
 func detectExistingTargets(root string) []string {
 	picked := map[string]bool{}
 	for _, t := range allTargets {
