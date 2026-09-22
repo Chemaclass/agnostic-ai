@@ -8,8 +8,6 @@
 
 import * as path from "path";
 
-const CONFIG_FILE_NAMES = ["agnostic-ai.yaml", "agnostic.config.yaml"];
-
 export interface WhySource {
   kind: string;
   name: string;
@@ -166,26 +164,6 @@ export function describeWhyFailure(res: ProcessResult): string {
   }
   const first = stderr.split("\n")[0];
   return first ? `why failed: ${first}` : `why failed with exit code ${res.code}.`;
-}
-
-/**
- * Finds the nearest directory holding an agnostic-ai config, walking up
- * from the document. Stops at the workspace folder when one is given, so
- * a document resolves inside its own folder in a multi-root workspace.
- */
-export function findProjectRoot(
-  documentPath: string,
-  workspaceFolder: string | undefined,
-  exists: (p: string) => boolean,
-): string | undefined {
-  let dir = path.dirname(documentPath);
-  for (;;) {
-    if (CONFIG_FILE_NAMES.some((n) => exists(path.join(dir, n)))) return dir;
-    if (workspaceFolder !== undefined && dir === workspaceFolder) return undefined;
-    const parent = path.dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
-  }
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

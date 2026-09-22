@@ -12,7 +12,7 @@ review surface as `agnostic-ai sync --check`.
 
 | Surface | What you get |
 |---------|--------------|
-| YAML schema | `agnostic.config.yaml` validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
+| YAML schema | `agnostic-ai.yaml` (or the legacy `agnostic.config.yaml`) validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
 | Command palette | `agnostic-ai: Sync`, `Sync — check for drift`, `Doctor — auto-fix`, `Status`, `Render current spec to a target`. Each command opens a terminal in the project root. |
 | Codelens | Above each spec in `<base>/agents/`, `<base>/skills/`, `<base>/rules/`, `<base>/hooks/`, `<base>/mcps/`: one **Render to <target>** button per configured target. Output streams to the agnostic-ai output channel. |
 | Status bar | Polls `sync --check --json` and shows the current drift count. Click to run sync --check in a terminal. |
@@ -58,14 +58,15 @@ npm run watch           # incremental compile while iterating
 npm test                # compile, then run node --test on out/test/
 ```
 
-Tests cover the pure helpers in `src/provenance.ts`. Their fixtures in
+Tests cover the pure helpers in `src/project.ts` and `src/provenance.ts`. Their fixtures in
 `test/fixtures/why/` are real `agnostic-ai why --format json` output
 from a synced project with configured source paths containing spaces.
 Recapture them when the `why` JSON envelope changes.
 
 Press `F5` to launch a development host. Open a folder containing
-`agnostic.config.yaml`; the extension activates automatically
-(`activationEvents: workspaceContains:agnostic.config.yaml`).
+`agnostic-ai.yaml` or `agnostic.config.yaml`; the extension activates
+automatically (`activationEvents: workspaceContains:<name>` for each).
+When both exist, `agnostic-ai.yaml` wins, as it does for the CLI.
 
 ## Publish
 
@@ -86,4 +87,4 @@ review SLAs.
 - No live hover preview yet (codelens covers the iteration loop).
 - No JetBrains plugin yet; tracked separately.
 - Drift status updates on save and every `driftPollSeconds`. Watching
-  `agnostic.config.yaml` for changes is on the follow-up list.
+  the config file for changes is on the follow-up list.

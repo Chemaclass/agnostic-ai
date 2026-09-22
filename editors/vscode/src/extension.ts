@@ -27,11 +27,16 @@ import {
   ProcessResult,
   WhyOutputError,
   describeWhyFailure,
-  findProjectRoot,
   parseWhyOutput,
   planNavigation,
   whyArgs,
 } from "./provenance";
+import {
+  findConfigFile,
+  findProjectRoot,
+  parseTargets,
+  pickWorkspaceRoot,
+} from "./project";
 
 let statusBar: vscode.StatusBarItem | undefined;
 let driftTimer: NodeJS.Timeout | undefined;
@@ -98,16 +103,11 @@ function binary(): string {
 }
 
 function projectRoot(): string | undefined {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) return undefined;
-  for (const f of folders) {
-    if (fs.existsSync(path.join(f.uri.fsPath, "agnostic.config.yaml"))) {
-      return f.uri.fsPath;
-    }
-  }
-  // Fall back to the first folder so commands run from a clean tree
-  // still launch (the binary will surface its own error).
-  return folders[0].uri.fsPath;
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  return pickWorkspaceRoot(
+    folders.map((f) => f.uri.fsPath),
+    fs.existsSync,
+  );
 }
 
 function runInTerminal(args: string): void {
@@ -198,7 +198,7 @@ async function resolveTargets(
   const targets = await listConfiguredTargets(cwd);
   if (targets.length === 0) {
     vscode.window.showErrorMessage(
-      "agnostic-ai: no targets configured in agnostic.config.yaml.",
+      "agnostic-ai: no targets configured in agnostic-ai.yaml or agnostic.config.yaml.",
     );
     return undefined;
   }
@@ -211,26 +211,9 @@ async function resolveTargets(
 }
 
 async function listConfiguredTargets(cwd: string): Promise<string[]> {
-  const cfg = path.join(cwd, "agnostic.config.yaml");
-  if (!fs.existsSync(cfg)) return [];
-  const text = fs.readFileSync(cfg, "utf8");
-  const targets: string[] = [];
-  let inTargets = false;
-  for (const line of text.split("\n")) {
-    if (/^targets:\s*$/.test(line)) {
-      inTargets = true;
-      continue;
-    }
-    if (inTargets) {
-      const m = /^\s+-\s+(\S+)/.exec(line);
-      if (m) {
-        targets.push(m[1]);
-        continue;
-      }
-      if (/^\S/.test(line)) inTargets = false;
-    }
-  }
-  return targets;
+  const cfg = findConfigFile(cwd, fs.existsSync);
+  if (!cfg) return [];
+  return parseTargets(fs.readFileSync(cfg, "utf8"));
 }
 
 // ---------------------------------------------------------------------------

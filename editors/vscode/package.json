@@ -30,13 +30,14 @@
     "AGENTS.md"
   ],
   "activationEvents": [
+    "workspaceContains:agnostic-ai.yaml",
     "workspaceContains:agnostic.config.yaml"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "yamlValidation": [
       {
-        "fileMatch": "agnostic.config.yaml",
+        "fileMatch": ["agnostic-ai.yaml", "agnostic.config.yaml"],
         "url": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
       }
     ],

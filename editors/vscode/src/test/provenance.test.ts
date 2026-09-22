@@ -11,7 +11,6 @@ import { describe, it } from "node:test";
 import {
   WhyOutputError,
   describeWhyFailure,
-  findProjectRoot,
   parseWhyOutput,
   planNavigation,
   whyArgs,
@@ -251,43 +250,5 @@ describe("whyArgs", () => {
       "--format",
       "json",
     ]);
-  });
-});
-
-describe("findProjectRoot", () => {
-  const second = path.join(path.sep, "work", "second folder");
-  const configs = new Set([
-    path.join(root, "agnostic-ai.yaml"),
-    path.join(second, "agnostic.config.yaml"),
-  ]);
-  const exists = (p: string): boolean => configs.has(p);
-
-  it("finds the config in the document's workspace folder", () => {
-    const doc = path.join(root, ".claude", "rules", "tabs.md");
-    assert.equal(findProjectRoot(doc, root, exists), root);
-  });
-
-  it("uses the second workspace folder for a document inside it", () => {
-    const doc = path.join(second, "AGENTS.md");
-    assert.equal(findProjectRoot(doc, second, exists), second);
-  });
-
-  it("finds a nested project below the workspace folder", () => {
-    const nested = path.join(root, "packages", "app");
-    const nestedExists = (p: string): boolean =>
-      p === path.join(nested, "agnostic-ai.yaml");
-    const doc = path.join(nested, "AGENTS.md");
-    assert.equal(findProjectRoot(doc, root, nestedExists), nested);
-  });
-
-  it("does not climb above the workspace folder", () => {
-    const folder = path.join(root, "sub");
-    const doc = path.join(folder, "AGENTS.md");
-    assert.equal(findProjectRoot(doc, folder, exists), undefined);
-  });
-
-  it("climbs to the filesystem root without a workspace folder", () => {
-    const doc = path.join(root, "deep", "AGENTS.md");
-    assert.equal(findProjectRoot(doc, undefined, exists), root);
   });
 });
