@@ -131,12 +131,12 @@ func TestExplainFile_CursorOnlyClassifiesEveryRule(t *testing.T) {
 	cases := []struct {
 		source, output, status, selector string
 	}{
-		{"rules/root-style.md", ".cursor/rules/root-style.mdc", statusAlways, "alwaysApply: true"},
-		{"rules/payments-context.md", ".cursor/rules/services/payments/payments-context.mdc", statusMatch, "globs: services/payments/**"},
-		{"rules/web-context.md", ".cursor/rules/web/web-context.mdc", statusNoMatch, "globs: web/**"},
-		{"rules/ask-first.md", ".cursor/rules/ask-first.mdc", statusModel, "description"},
-		{"rules/manual-only.md", ".cursor/rules/manual-only.mdc", statusManual, "@-mention"},
-		{"rules/codex-only.md", "", statusExcluded, ""},
+		{"rules/root-style.md", ".cursor/rules/root-style.mdc", contextAlways, "alwaysApply: true"},
+		{"rules/payments-context.md", ".cursor/rules/services/payments/payments-context.mdc", contextMatch, "globs: services/payments/**"},
+		{"rules/web-context.md", ".cursor/rules/web/web-context.mdc", contextNoMatch, "globs: web/**"},
+		{"rules/ask-first.md", ".cursor/rules/ask-first.mdc", contextModel, "description"},
+		{"rules/manual-only.md", ".cursor/rules/manual-only.mdc", contextManual, "@-mention"},
+		{"rules/codex-only.md", "", contextExcluded, ""},
 	}
 	for _, c := range cases {
 		it := findItem(t, got.Instructions, c.source, c.output)
@@ -165,21 +165,21 @@ func TestExplainFile_SharedScopedAgentsMDWithCodex(t *testing.T) {
 	got := explainFileJSON(t, "services/payments/handler.go")
 
 	payments := findItem(t, got.Instructions, "rules/payments-context.md", "services/payments/AGENTS.md")
-	if payments.Status != statusMatch {
+	if payments.Status != contextMatch {
 		t.Errorf("shared scoped AGENTS.md: want match, got %+v", payments)
 	}
 	web := findItem(t, got.Instructions, "rules/web-context.md", "web/AGENTS.md")
-	if web.Status != statusNoMatch {
+	if web.Status != contextNoMatch {
 		t.Errorf("unrelated scoped AGENTS.md: want no-match, got %+v", web)
 	}
 	body := findItem(t, got.Instructions, ".agnostic-ai/AGNOSTIC_AI.md", "AGENTS.md")
-	if body.Status != statusAlways {
+	if body.Status != contextAlways {
 		t.Errorf("root entry point: want always, got %+v", body)
 	}
 	// A rule excluded from cursor still reaches Cursor through the
 	// root AGENTS.md codex reads, and the report must say so.
 	inlined := findItem(t, got.Instructions, "rules/codex-only.md", "AGENTS.md")
-	if inlined.Status != statusAlways || !strings.Contains(inlined.Reason, "codex") {
+	if inlined.Status != contextAlways || !strings.Contains(inlined.Reason, "codex") {
 		t.Errorf("codex-only rule inlined in AGENTS.md: %+v", inlined)
 	}
 	findItem(t, got.Instructions, "rules/codex-only.md", "")
@@ -207,7 +207,7 @@ TSX rules.
 
 	got := explainFileJSON(t, "src/app.ts")
 	it := findItem(t, got.Instructions, "rules/tsx.md", ".cursor/rules/tsx.mdc")
-	if it.Status != statusUnknown {
+	if it.Status != contextUnknown {
 		t.Errorf("brace glob: want unknown, got %+v", it)
 	}
 }
@@ -229,7 +229,7 @@ Split rule.
 
 	got := explainFileJSON(t, "services/payments/a/x.go")
 	it := findItem(t, got.Instructions, "rules/split.md", "")
-	if it.Status != statusNotEmitted {
+	if it.Status != contextNotEmitted {
 		t.Errorf("want not-emitted, got %+v", it)
 	}
 }

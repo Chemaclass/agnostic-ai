@@ -22,20 +22,20 @@ import (
 
 // Applicability of one configured instruction to one source file.
 const (
-	statusAlways     = "always"         // loads with no file condition
-	statusMatch      = "match"          // a file or directory selector covers the file
-	statusNoMatch    = "no-match"       // a selector exists and misses the file
-	statusModel      = "model-selected" // the agent decides from the description
-	statusManual     = "manual"         // loads only when @-mentioned
-	statusExcluded   = "excluded"       // target selection drops it for this target
-	statusNotEmitted = "not-emitted"    // sync writes no output for it on this target
-	statusUnknown    = "unknown"        // semantics this command cannot evaluate
+	contextAlways     = "always"         // loads with no file condition
+	contextMatch      = "match"          // a file or directory selector covers the file
+	contextNoMatch    = "no-match"       // a selector exists and misses the file
+	contextModel      = "model-selected" // the agent decides from the description
+	contextManual     = "manual"         // loads only when @-mentioned
+	contextExcluded   = "excluded"       // target selection drops it for this target
+	contextNotEmitted = "not-emitted"    // sync writes no output for it on this target
+	contextUnknown    = "unknown"        // semantics this command cannot evaluate
 )
 
-// statusOrder sorts the report so what applies reads first.
-var statusOrder = map[string]int{
-	statusAlways: 0, statusMatch: 1, statusModel: 2, statusManual: 3,
-	statusUnknown: 4, statusNoMatch: 5, statusExcluded: 6, statusNotEmitted: 7,
+// contextOrder sorts the report so what applies reads first.
+var contextOrder = map[string]int{
+	contextAlways: 0, contextMatch: 1, contextModel: 2, contextManual: 3,
+	contextUnknown: 4, contextNoMatch: 5, contextExcluded: 6, contextNotEmitted: 7,
 }
 
 // fileContextNote is printed with every report. The command reads
@@ -149,8 +149,8 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	items = append(items, unreachedRuleItems(b.Rules, included, reached, target)...)
 
 	sort.SliceStable(items, func(i, j int) bool {
-		if statusOrder[items[i].Status] != statusOrder[items[j].Status] {
-			return statusOrder[items[i].Status] < statusOrder[items[j].Status]
+		if contextOrder[items[i].Status] != contextOrder[items[j].Status] {
+			return contextOrder[items[i].Status] < contextOrder[items[j].Status]
 		}
 		if items[i].Output != items[j].Output {
 			return items[i].Output < items[j].Output
@@ -240,15 +240,15 @@ func agentsDocItems(d agentsDoc, rel string, reached map[string]bool) []fileCont
 	writers := strings.Join(d.Writers, ", ")
 	var status, selector, reason string
 	if dir == "." {
-		status, selector = statusAlways, "project-root AGENTS.md"
+		status, selector = contextAlways, "project-root AGENTS.md"
 		reason = "written for " + writers + "; Cursor reads the project-root AGENTS.md, which has no activation metadata"
 	} else {
 		selector = "directory: " + dir
 		if strings.HasPrefix(rel, dir+"/") {
-			status = statusMatch
+			status = contextMatch
 			reason = "written for " + writers + "; the file is under " + dir + "/ and Cursor reads AGENTS.md in subdirectories"
 		} else {
-			status = statusNoMatch
+			status = contextNoMatch
 			reason = "written for " + writers + "; the file is outside " + dir + "/"
 		}
 	}
@@ -280,13 +280,13 @@ func unreachedRuleItems(all, included []spec.Entry, reached map[string]bool, tar
 		switch {
 		case !in[r.Path]:
 			items = append(items, fileContextItem{
-				Status: statusExcluded,
+				Status: contextExcluded,
 				Source: source,
 				Reason: "target selection (target, targets, target-exclude) leaves out " + target,
 			})
 		case !reached[source]:
 			items = append(items, fileContextItem{
-				Status: statusNotEmitted,
+				Status: contextNotEmitted,
 				Source: source,
 				Reason: "sync writes no " + target + " instruction for this rule; `agnostic-ai sync` prints the coverage note",
 			})
@@ -315,24 +315,24 @@ func classifyMDC(content, rel string) fileContextItem {
 	raw, _, ok := splitFrontmatter([]byte(content))
 	var fm cursorRuleFront
 	if !ok || yaml.Unmarshal(raw, &fm) != nil || fm.AlwaysApply == nil {
-		return fileContextItem{Status: statusUnknown, Reason: "the planned .mdc has no readable alwaysApply frontmatter"}
+		return fileContextItem{Status: contextUnknown, Reason: "the planned .mdc has no readable alwaysApply frontmatter"}
 	}
 	if *fm.AlwaysApply {
-		return fileContextItem{Status: statusAlways, Selector: "alwaysApply: true", Reason: "Cursor includes it in every chat session"}
+		return fileContextItem{Status: contextAlways, Selector: "alwaysApply: true", Reason: "Cursor includes it in every chat session"}
 	}
 	if fm.Globs != nil {
 		globs, isString := fm.Globs.(string)
 		if !isString {
-			return fileContextItem{Status: statusUnknown, Selector: "globs", Reason: "globs is not a comma-separated string"}
+			return fileContextItem{Status: contextUnknown, Selector: "globs", Reason: "globs is not a comma-separated string"}
 		}
 		if strings.TrimSpace(globs) != "" {
 			return classifyGlobs(globs, rel)
 		}
 	}
 	if strings.TrimSpace(fm.Description) != "" {
-		return fileContextItem{Status: statusModel, Selector: "description", Reason: "Cursor's agent reads the description and decides whether the rule is relevant"}
+		return fileContextItem{Status: contextModel, Selector: "description", Reason: "Cursor's agent reads the description and decides whether the rule is relevant"}
 	}
-	return fileContextItem{Status: statusManual, Selector: "@-mention", Reason: "Cursor includes it only when the rule is @-mentioned in chat"}
+	return fileContextItem{Status: contextManual, Selector: "@-mention", Reason: "Cursor includes it only when the rule is @-mentioned in chat"}
 }
 
 // classifyGlobs matches rel against Cursor's comma-separated globs.
@@ -353,13 +353,13 @@ func classifyGlobs(globs, rel string) fileContextItem {
 			continue
 		}
 		if re.MatchString(rel) {
-			return fileContextItem{Status: statusMatch, Selector: selector, Reason: "pattern " + p + " matches the file; Cursor auto-attaches the rule when a matching file is in context"}
+			return fileContextItem{Status: contextMatch, Selector: selector, Reason: "pattern " + p + " matches the file; Cursor auto-attaches the rule when a matching file is in context"}
 		}
 	}
 	if unknown {
-		return fileContextItem{Status: statusUnknown, Selector: selector, Reason: "a pattern uses syntax Cursor does not document (braces, classes, or negation)"}
+		return fileContextItem{Status: contextUnknown, Selector: selector, Reason: "a pattern uses syntax Cursor does not document (braces, classes, or negation)"}
 	}
-	return fileContextItem{Status: statusNoMatch, Selector: selector, Reason: "no pattern matches the file"}
+	return fileContextItem{Status: contextNoMatch, Selector: selector, Reason: "no pattern matches the file"}
 }
 
 func runExplainForFile(cmd *cobra.Command, file, target string, jsonOut bool) error {
