@@ -211,11 +211,30 @@ func isKnownImportSource(source string) bool {
 	return ok
 }
 
+// detectImportSources splits the targets detected under root into the
+// ones runImport dispatches and the ones it has no importer for.
+// Detection covers every target because `init` and the sync picker use
+// it too, so every import path filters through here: `import all` once
+// tried openhands and factory and failed on each (#1052).
+func detectImportSources(root string) (importable, unsupported []string) {
+	for _, t := range detectExistingTargets(root) {
+		if isKnownImportSource(t) {
+			importable = append(importable, t)
+		} else {
+			unsupported = append(unsupported, t)
+		}
+	}
+	return importable, unsupported
+}
+
 // importAll detects every AI CLI present in root and imports from each.
 func importAll(root string, cfg *config.Config) error {
-	detected := detectExistingTargets(root)
+	detected, unsupported := detectImportSources(root)
+	for _, t := range unsupported {
+		_, _ = fmt.Fprintf(os.Stdout, "- skipping %s: detected, but there is no importer for it\n", t)
+	}
 	if len(detected) == 0 {
-		fmt.Println("no known AI CLI configs detected")
+		fmt.Println("no importable AI CLI configs detected")
 		return nil
 	}
 	setImportRunSources(detected)

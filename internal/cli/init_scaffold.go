@@ -230,7 +230,7 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 		summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
 	}
-	if detected := detectExistingTargets(root); len(detected) > 0 {
+	if detected, _ := detectImportSources(root); len(detected) > 0 {
 		summaryf("\n")
 		summaryf("detected existing config:\n")
 		for i, d := range detected {
