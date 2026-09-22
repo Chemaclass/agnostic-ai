@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -259,5 +260,21 @@ func TestDoctor_DetectsStale(t *testing.T) {
 	root.SetArgs([]string{"doctor", "-t", "claude"})
 	if err := root.Execute(); err == nil {
 		t.Error("doctor should detect stale claude rule")
+	}
+}
+
+// Only a removal that clears the way for a missing file is replayed by
+// `doctor --fix`; any other removal is not reported drift (#1064).
+func TestBlockingRemovals_KeepsOnlyParentsOfMissingFiles(t *testing.T) {
+	removals := []adapters.CapturedRemoval{
+		{Path: ".clinerules", Sum: "a"},
+		{Path: ".clinerules.md", Sum: "b"},
+		{Path: filepath.Join(".codex", "config.toml")},
+	}
+	missing := []adapters.CapturedFile{{Path: filepath.Join(".clinerules", "clinerules.md")}}
+
+	got := blockingRemovals(removals, missing)
+	if len(got) != 1 || got[0].Path != ".clinerules" {
+		t.Errorf("blockingRemovals = %+v, want only .clinerules", got)
 	}
 }

@@ -367,3 +367,40 @@ func TestSync_RefusesUnimportedSingleFileClinerules(t *testing.T) {
 		}
 	}
 }
+
+// `doctor --fix` replaces an imported single-file `.clinerules` the same
+// way sync does, instead of failing on `not a directory` (#1064).
+func TestDoctorFix_ReplacesImportedSingleFileClinerules(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".clinerules"), "Use tabs.\n")
+
+	execCLI(t, "import", "cline")
+	execCLI(t, "doctor", "--fix")
+
+	rule := readFile(t, filepath.Join(dir, ".clinerules", "clinerules.md"))
+	if !strings.Contains(rule, "Use tabs.") {
+		t.Errorf(".clinerules/clinerules.md lost the rule:\n%s", rule)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+// Content that was never imported survives `doctor --fix`: it refuses
+// with the import command and leaves the file as it was (#1064).
+func TestDoctorFix_RefusesUnimportedSingleFileClinerules(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "other.md"), "---\nname: other\n---\n\nSomething else.\n")
+	writeFile(t, filepath.Join(dir, ".clinerules"), "Keep this rule.\n")
+
+	if _, err := runCLI(t, "doctor", "--fix"); err == nil || !strings.Contains(err.Error(), "agnostic-ai import cline") {
+		t.Errorf("expected an error naming `agnostic-ai import cline`, got %v", err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".clinerules")); got != "Keep this rule.\n" {
+		t.Errorf("doctor --fix changed .clinerules: %q", got)
+	}
+}
