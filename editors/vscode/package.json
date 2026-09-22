@@ -2,7 +2,7 @@
   "name": "agnostic-ai",
   "displayName": "agnostic-ai",
   "description": "Author once, ship to every AI CLI. Schema-validated config editing, codelens-driven render preview, sync/check/doctor commands, and a status-bar drift indicator for agnostic-ai projects.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "Chemaclass",
   "license": "MIT",
   "repository": {
@@ -60,8 +60,34 @@
       {
         "command": "agnostic-ai.renderCurrent",
         "title": "agnostic-ai: Render current spec to a target"
+      },
+      {
+        "command": "agnostic-ai.openSource",
+        "title": "agnostic-ai: Open canonical source"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "agnostic-ai.openSource",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "agnostic-ai.openSource",
+          "when": "resourceScheme == file",
+          "group": "navigation@90"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "agnostic-ai.openSource",
+          "when": "resourceScheme == file",
+          "group": "navigation@90"
+        }
+      ]
+    },
     "configuration": {
       "title": "agnostic-ai",
       "properties": {
@@ -87,6 +113,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./ && node --test out/test/*.test.js",
     "package": "vsce package",
     "publish": "vsce publish"
   },

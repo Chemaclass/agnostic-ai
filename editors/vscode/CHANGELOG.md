@@ -3,6 +3,23 @@
 All notable changes to the agnostic-ai VS Code extension are documented
 in this file.
 
+## 0.2.0 (unreleased)
+
+- `agnostic-ai: Open canonical source` opens the spec behind a
+  generated file. Run it from the command palette, the editor context
+  menu, or the editor tab context menu. A file with one source opens
+  it directly; a merged file such as `AGENTS.md` offers a picker with
+  each spec's name and path.
+- Sources come from `agnostic-ai why <file> --format json`, so
+  configured `sources:` directories work. The reply is validated before
+  any path opens.
+- The project is the nearest directory holding `agnostic-ai.yaml` or
+  `agnostic.config.yaml`, searched inside the file's own workspace
+  folder, so multi-root workspaces work.
+- A missing binary, a project that never synced, an untracked file, a
+  deleted source, or an older CLI each get a message naming the fix.
+  The command never runs `sync` for you.
+
 ## 0.1.0 — 2026-05-13
 
 Initial release.

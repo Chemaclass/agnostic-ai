@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `agnostic-ai compare claude cursor` shows, per agent field and rule activation field, what each target keeps, translates, or drops, and writes nothing (#1034).
 - `explain --file <path> --target cursor` lists the Cursor instructions configured for a project file: root `AGENTS.md`, nested `AGENTS.md`, and `.cursor/rules` files, each with its source spec, output path, selector, and whether it applies always, by match, by model choice, or only on `@`-mention. It reads the planned sync output, reports target exclusions and unknown glob syntax, and writes nothing (#1036).
 - `import --dry-run --diff` previews the content an import would write: created, changed, and unchanged specs with a unified diff each, the sources behind every file, and the files two sources propose different content for, with the one a real import keeps. It runs the real importers in a temporary copy, so the preview matches a real import byte for byte and the project stays untouched (#1035).
+- The VS Code extension opens the spec behind a generated file with `agnostic-ai: Open canonical source`, and offers a picker for merged files like `AGENTS.md` (#1038).
 
 ### Changed
 

@@ -8,3 +8,5 @@ src/**
 **/*.ts
 node_modules/**
 out/**/*.map
+out/test/**
+test/**

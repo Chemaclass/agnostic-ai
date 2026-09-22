@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "command": "why",
+  "file": "AGENTS.md",
+  "target": "codex",
+  "output_keys": [],
+  "sources": [
+    {
+      "kind": "rule",
+      "name": "no-console-log",
+      "path": "ai specs/rules/no-console-log.md",
+      "mode": "section"
+    },
+    {
+      "kind": "rule",
+      "name": "tabs",
+      "path": "ai specs/rules/tabs.md",
+      "mode": "section"
+    }
+  ],
+  "last_sync": "2026-09-22T18:06:12Z"
+}

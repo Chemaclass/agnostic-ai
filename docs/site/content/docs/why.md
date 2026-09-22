@@ -23,6 +23,8 @@ agnostic-ai why <file> --format json
 
 `<file>` resolves relative to the project root, and symlinks are followed. `--format json` returns the same data with stable keys, for editor extensions and CI scripts.
 
+In VS Code, the [agnostic-ai extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) wraps this: `agnostic-ai: Open canonical source` runs `why --format json` on the open file and opens its source spec. For a merged file, it lists every source to pick from.
+
 ## Example
 
 ```sh
