@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import --dry-run` no longer writes imported permission specs, Codex exec-policy directories, or Codex skill assets merged into an existing skill (#1035).
 - Global sync emits native agents for 18 targets, including Codex, with ownership, collision, backup, and drift checks (#1033).
 - Document Devin CLI recursive rule discovery and track readable Junie release sources and Warp annual release notes (#1030).
 - Qoder rules keep manual, model-selected, and file activation conditions through import and sync, including `x-qoder` metadata (#1029).

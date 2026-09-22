@@ -529,7 +529,7 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		}
 		target := filepath.Join(dst, rel)
 		if info.IsDir() {
-			return os.MkdirAll(target, info.Mode().Perm()|0o700)
+			return importMkdirAll(target, info.Mode().Perm()|0o700)
 		}
 		if _, err := os.Stat(target); err == nil {
 			// File already imported from claude; keep it.
@@ -539,10 +539,10 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(target, body, info.Mode().Perm())
+		return importWriteFile(target, body, info.Mode().Perm())
 	})
 }
 

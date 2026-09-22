@@ -77,7 +77,7 @@ func importCodexExecPolicies(root string) (bool, error) {
 		return false, fmt.Errorf("marshal exec-policies overlay: %w", err)
 	}
 	dst := codexExecPoliciesOverlayPath(root)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, out, 0o644); err != nil {
