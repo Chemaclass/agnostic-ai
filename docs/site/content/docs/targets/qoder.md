@@ -25,7 +25,7 @@ Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads project rules fro
 
 Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md` ([docs.qoder.com/extensions/skills](https://docs.qoder.com/extensions/skills), target-audit 2026-08-08, #558): "Each Skill contains a `SKILL.md` file", at project scope `.qoder/skills/{skill-name}/SKILL.md` (the vendor doc also lists a user-level `~/.qoder/skills/{skill-name}/SKILL.md` tier this adapter has no reach into). That doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one.
 
-`import qoder` reads rules, agents, skill folders, commands, and portable settings fields. It does not yet read hooks or MCP servers back out of `.qoder/settings.json`.
+`import qoder` reads rules, agents, skill folders, commands, and portable settings fields. Rule activation conditions survive import and sync. It does not yet read hooks or MCP servers back out of `.qoder/settings.json`.
 
 - **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`, one file per agent. `name` and `description` are required frontmatter; `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. `effort` takes a scalar or a per-target map, and an integer budget passes through as a number. See [per-target `model` and `effort`](@/docs/spec-format.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format.md#agent-policy-support-by-target).
   - `color` (one of eight named values: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`) is documented on the [CLI field reference](https://docs.qoder.com/cli/subagent) rather than the smaller extensions page, which defers to the CLI page as "the complete guide" for the identical path. It is a shared portable field Augment and Kilo Code already promote the same way.
@@ -64,6 +64,33 @@ Skills emit into their own native folder tree at `.qoder/skills/<name>/SKILL.md`
   Merging `hooks` and `mcpServers` happens in one write, not two. `MergeJSONFile` re-reads `.qoder/settings.json` from disk on every call, and two separate calls in the same sync would each see the file before the other's write landed during sync's collision-detection pass, which reads as two targets disagreeing on one file's content when only Qoder writes it.
 
 HTTP and prompt hooks emit from portable hook specs. HTTP handlers carry `url`, optional `headers`, and `allowedEnvVars`; prompt handlers carry `prompt` and optional `model`. Both retain documented filters, timeouts in seconds, and matcher groups. Unsupported handler types produce a coverage note. Hook import remains unsupported.
+
+## Rule activation
+
+Qoder rules preserve `description`, `alwaysApply`, `trigger`, `glob`, and `paths` frontmatter. Native `trigger`, `glob`, and `paths` import under `x-qoder`; `description` and `alwaysApply` use the existing rule metadata. Scalar and list selectors keep their shape. You can author the same native fields directly under `x-qoder`, which overrides top-level metadata.
+
+[Qoder's rule activation reference](https://docs.qoder.com/cli/memory#rule-activation-methods) defines these modes:
+
+| Mode | Frontmatter |
+| --- | --- |
+| Always active | No activation fields, `trigger: always_on`, or `alwaysApply: true` |
+| Manual | `trigger: manual` or `alwaysApply: false` |
+| Model-selected | `trigger: model_decision` plus a non-empty `description` |
+| File matching | `trigger: glob` plus `glob`, or `paths` |
+
+Qoder gives `trigger` precedence over `alwaysApply`. Portable `scope` remains authoritative: scoped rules emit normalized `paths` without competing native activation fields. The existing scope validation still rejects selectors it cannot safely intersect.
+
+For a manual release rule:
+
+```markdown
+---
+name: release
+x-qoder:
+  trigger: manual
+---
+
+Run release steps only on request.
+```
 
 ## Config keys
 

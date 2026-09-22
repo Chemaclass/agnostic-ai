@@ -3,9 +3,11 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -182,5 +184,86 @@ func TestRewriteQoderAgentTools(t *testing.T) {
 				t.Errorf("rewriteQoderAgentTools(%q) = %q, want %q", c.in, got, c.want)
 			}
 		})
+	}
+}
+
+func TestImportQoder_RuleActivationSurvivesSync(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		front string
+	}{
+		{"manual", "trigger: manual"},
+		{"manual_compatibility", "alwaysApply: false"},
+		{"model", "trigger: model_decision\ndescription: Use when reviewing migrations"},
+		{"glob_scalar", "trigger: glob\nglob: 'src/**/*.go'"},
+		{"glob_list", "trigger: glob\nglob: ['src/**/*.go', 'tests/**/*.go']"},
+		{"paths_scalar", "paths: 'src/**/*.go'"},
+		{"paths_list", "paths: ['src/**/*.go', 'tests/**/*.go']"},
+		{"trigger_precedence", "trigger: manual\nalwaysApply: true"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qoder]\n")
+			nativePath := filepath.Join(dir, ".qoder/rules/activation.md")
+			original := "---\n" + tc.front + "\n---\n\nConditional guidance.\n"
+			writeFile(t, nativePath, original)
+			want, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(original))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			execCLI(t, "import", "qoder")
+			imported, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(readFile(t, filepath.Join(dir, ".agnostic-ai/rules/activation.md"))))
+			if err != nil {
+				t.Fatal(err)
+			}
+			native, _ := imported.Meta["x-qoder"].(map[string]any)
+			for key, value := range want.Meta {
+				got := imported.Meta[key]
+				if key == "trigger" || key == "glob" || key == "paths" {
+					got = native[key]
+				}
+				if !reflect.DeepEqual(got, value) {
+					t.Errorf("imported %s = %#v, want %#v", key, got, value)
+				}
+			}
+
+			execCLI(t, "sync", "-t", "qoder")
+			first := readFile(t, nativePath)
+			got, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(first))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.Meta, want.Meta) {
+				t.Errorf("activation = %#v, want %#v", got.Meta, want.Meta)
+			}
+			if !strings.Contains(got.Body, "Conditional guidance.") {
+				t.Error("rule body lost")
+			}
+			execCLI(t, "import", "qoder")
+			execCLI(t, "sync", "-t", "qoder")
+			if second := readFile(t, nativePath); second != first {
+				t.Errorf("repeated import-sync changed rule:\n%s", second)
+			}
+		})
+	}
+}
+
+func TestSyncQoder_PortableScopeOverridesNativeActivation(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qoder]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/scoped.md"), "---\nname: scoped\nscope: src\nx-qoder:\n  trigger: manual\n  alwaysApply: true\n  paths: ['**']\n---\nScoped guidance.\n")
+	execCLI(t, "sync", "-t", "qoder")
+	got, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(readFile(t, filepath.Join(dir, ".qoder/rules/src/scoped.md"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"paths": []any{"src/**"}}
+	if !reflect.DeepEqual(got.Meta, want) {
+		t.Errorf("scoped activation = %#v, want %#v", got.Meta, want)
 	}
 }
