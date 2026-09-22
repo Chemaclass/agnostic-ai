@@ -18,7 +18,8 @@ import (
 //	description            (required, from frontmatter; falls back to name)
 //	developer_instructions (required, from spec body; falls back to description)
 //	model                  (optional, from frontmatter or x-codex.model)
-//	model_reasoning_effort (optional, from x-codex)
+//	model_reasoning_effort (optional, from x-codex.model_reasoning_effort or
+//	                        the portable `effort` field; see effort.go)
 //	sandbox_mode           (optional, from x-codex)
 //	nickname_candidates    (optional, []string from x-codex)
 //	tools                  (optional config table from x-codex)
@@ -57,7 +58,7 @@ func agentTOML(a spec.Entry) string {
 	if v := stringOr(meta, "model", ""); v != "" {
 		emit.WriteTOMLString(&sb, "model", v)
 	}
-	if v := stringOr(meta, "model_reasoning_effort", ""); v != "" {
+	if v, ok := codexReasoningEffort(meta); ok {
 		emit.WriteTOMLString(&sb, "model_reasoning_effort", v)
 	}
 	if v := stringOr(meta, "sandbox_mode", ""); v != "" {

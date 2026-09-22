@@ -155,6 +155,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 
+	noteUnsupportedCodexEffort(b.Agents)
 	droppedAgentTools := 0
 	for _, a := range b.Agents {
 		path := filepath.Join(agentsDir, a.Name+".toml")
