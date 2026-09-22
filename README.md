@@ -52,7 +52,7 @@ agnostic-ai init --demo
 agnostic-ai sync
 ```
 
-Choose your tools during setup. The demo creates sample specs under `.agnostic-ai/`, and `sync` writes their native configuration. Already have tool configuration? Follow the [migration guide](https://agnostic-ai.org/docs/migration/) before the first sync.
+Choose your tools during setup. The demo creates sample specs under `.agnostic-ai/`, and `sync` writes their native configuration. Already have tool configuration? Follow the [migration guide](https://agnostic-ai.org/docs/migration/) before the first sync. `agnostic-ai import claude codex --dry-run --diff` shows what an import would change, and which tools disagree, before it writes anything.
 
 [Follow the tutorial](https://agnostic-ai.org/docs/getting-started/) · [Try the playground](https://agnostic-ai.org/playground/)
 

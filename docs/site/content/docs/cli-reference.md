@@ -64,7 +64,15 @@ Translate an existing AI CLI configuration into agnostic specs, written into the
 agnostic-ai import claude
 agnostic-ai import claude codex   # in order; AGNOSTIC_AI.md comes from the last
 agnostic-ai import all
+agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
+
+| Flag | Effect |
+|---|---|
+| `--dry-run` | List every file the import would write, without file bodies. Writes nothing. |
+| `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff per created or changed file. Lists every destination two sources propose different content for, and the source a real import keeps (the last). Requires `--dry-run`. |
+
+`--diff` runs the real importers in a temporary copy of the project (everything except `.git`), so each later source reads what the earlier ones wrote and the preview shows the exact bytes a real import leaves. The project, its native files, config, ignore files, and sync state stay untouched. A symlink that points outside the project is copied by content, so the preview cannot write through it. A conflict is reported, not resolved: the exit status stays 0.
 
 - Writes only spec files under `sources:`, never `targets:` or other config. Run it after `init`; re-running overwrites by filename.
 - A skill or agent spec already on disk keeps the frontmatter keys the source tool has nowhere to put. Cursor writes no `argument-hint` on a skill, so importing a synced `.cursor/skills/<name>/SKILL.md` updates the body and the keys cursor does write, and leaves `argument-hint` alone. Deleting a key the tool does write is read as deliberate and reaches the spec, so removing `model` from a Qoder agent removes it from the spec. Rules are exempt entirely: their frontmatter is rebuilt from the native file, so a scope dropped there drops from the spec.

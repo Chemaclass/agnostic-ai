@@ -46,14 +46,17 @@ func importSources() string {
 }
 
 func newImportCmd() *cobra.Command {
-	var dryRun bool
+	var dryRun, diff bool
 	cmd := &cobra.Command{
 		Use:   "import <source>...",
 		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
 		Long: "Reads agnostic-ai.yaml to resolve source paths, then translates " +
 			"existing AI CLI configurations into agnostic specs. Sources: " + importSources() + ". " +
 			"Pass multiple sources to import from each in order; `.agnostic-ai/AGNOSTIC_AI.md` " +
-			"reflects the last source's top-level instructions file (last-wins).",
+			"reflects the last source's top-level instructions file (last-wins). " +
+			"`--dry-run` lists the files an import would write. Add `--diff` to run the import " +
+			"in a temporary copy of the project (without .git) and show each proposed change, " +
+			"which sources wrote it, and where sources disagree; the project stays untouched.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
@@ -68,12 +71,17 @@ func newImportCmd() *cobra.Command {
   agnostic-ai import all
 
   # Preview what would be imported without writing
-  agnostic-ai import claude --dry-run`,
+  agnostic-ai import claude --dry-run
+
+  # Review the proposed content and sources that compete for one file
+  agnostic-ai import claude codex --dry-run --diff`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(".")
-			if err != nil {
-				return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
+			if diff && !dryRun {
+				return errs.Coded(errs.CodeFlagConflict, "--diff requires --dry-run")
+			}
+			if diff {
+				return previewImport(args)
 			}
 			importDryRun = dryRun
 			defer func() { importDryRun = false }()
@@ -81,18 +89,32 @@ func newImportCmd() *cobra.Command {
 				resetImportDryRunPaths()
 				defer reportImportDryRun()
 			}
-			if len(args) == 1 {
-				return runImport(".", args[0], cfg)
-			}
-			return runImportMany(".", args, cfg)
+			return runImportArgs(args)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
+	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	return cmd
+}
+
+// runImportArgs loads the project config from the working directory and
+// imports every named source in order.
+func runImportArgs(args []string) error {
+	cfg, err := config.Load(".")
+	if err != nil {
+		return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
+	}
+	if len(args) == 1 {
+		return runImport(".", args[0], cfg)
+	}
+	return runImportMany(".", args, cfg)
 }
 
 // runImport dispatches to the per-source importer.
 func runImport(root, source string, cfg *config.Config) error {
+	if importRecording != nil && source != "all" {
+		importRecording.beginSource(source)
+	}
 	src := cfg.Sources
 	switch source {
 	case "all":

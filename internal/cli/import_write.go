@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -31,10 +33,51 @@ func setImportRunSources(sources []string) {
 // invokes one importer at a time.
 var importDryRunPaths []string
 
+// importPlannedWrite is one importer write seen by an import preview:
+// the destination, the source being imported, and the bytes proposed.
+type importPlannedWrite struct {
+	path   string
+	source string
+	data   []byte
+}
+
+// importRecorder collects every importer write of an
+// `import --dry-run --diff` run, attributed to the source that made it.
+// order lists the sources in the sequence they ran.
+type importRecorder struct {
+	order  []string
+	writes []importPlannedWrite
+}
+
+// importRecording is the active recorder, or nil outside a preview.
+// Sequential use only, like importDryRun.
+var importRecording *importRecorder
+
+// beginSource marks source as the one now importing.
+func (r *importRecorder) beginSource(source string) {
+	r.order = append(r.order, source)
+}
+
+// record keeps a copy of data proposed for path by the current source.
+func (r *importRecorder) record(path string, data []byte) {
+	var source string
+	if len(r.order) > 0 {
+		source = r.order[len(r.order)-1]
+	}
+	r.writes = append(r.writes, importPlannedWrite{
+		path:   filepath.ToSlash(filepath.Clean(path)),
+		source: source,
+		data:   bytes.Clone(data),
+	})
+}
+
 // importWriteFile writes data to path with the given mode, or in dry-run
 // mode records the path for a planning summary without touching disk.
 // Replaces os.WriteFile across all importers.
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	if importRecording != nil {
+		importRecording.record(path, data)
+	}
 	if importDryRun {
 		importDryRunPaths = append(importDryRunPaths, path)
 		return nil

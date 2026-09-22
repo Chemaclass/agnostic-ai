@@ -178,11 +178,11 @@ func writePermissionsSpec(dstDir, name string, lists map[string][]string) (int, 
 	if err != nil {
 		return 0, err
 	}
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, err
 	}
 	path := filepath.Join(dstDir, name+".yaml")
-	if err := os.WriteFile(path, body, 0o644); err != nil {
+	if err := importWriteFile(path, body, 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", path, err)
 	}
 	return 1, nil
