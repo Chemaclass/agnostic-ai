@@ -365,7 +365,7 @@ func copyMarkdownFile(src, dst string) error {
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteSpecMarkdown(dst, []byte(out), 0o644); err != nil {
+	if err := importWriteFile(dst, []byte(out), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil

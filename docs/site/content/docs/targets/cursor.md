@@ -76,7 +76,7 @@ The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.jso
 
 Both skill directories are read because the [Skills](https://cursor.com/docs/skills.md) "Skill directories" table marks both project-level, at the repository root and in nested subdirectories (the nesting becomes the spec scope). `.cursor/skills` wins a same-name collision at the same scope (#854).
 
-It round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files. Cursor emits no `argument-hint` or `allowed-tools`, and importing a skill, agent, or command leaves both on the spec rather than deleting what it cannot read back. A rule's frontmatter still comes from the `.mdc` alone, so widening `globs` to `**/*` there unscopes the spec.
+It round-trips cleanly: a later `sync` regenerates equivalent `.cursor/rules/*.mdc`, skill folders, and command files. Cursor writes no `argument-hint` or `allowed-tools` on a skill, and importing one leaves both on the spec rather than deleting what it cannot read back. Keys cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec. A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
 
 ## Verify
 

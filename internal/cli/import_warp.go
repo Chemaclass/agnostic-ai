@@ -182,7 +182,7 @@ func writeWarpAgentMD(path, name, description string, tags []string, body string
 		return fmt.Errorf("marshal %s: %w", name, err)
 	}
 	out := "---\n" + string(raw) + "---\n\n" + strings.TrimRight(body, "\n") + "\n"
-	if err := importWriteSpecMarkdown(path, []byte(out), 0o644); err != nil {
+	if err := importWriteSpecMarkdown(path, []byte(out), 0o644, slicedAgentFields); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

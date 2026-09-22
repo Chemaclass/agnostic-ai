@@ -46,7 +46,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
 		}
-		if err := importWriteSpecMarkdown(dstPath, []byte(out), 0o644); err != nil {
+		if err := importWriteFile(dstPath, []byte(out), 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)
 		}
 		count++

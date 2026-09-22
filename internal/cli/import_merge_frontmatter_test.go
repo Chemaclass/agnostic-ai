@@ -13,7 +13,7 @@ func TestMergeSpecFrontmatter_KeepsKeysOnlyTheSpecDeclares(t *testing.T) {
 	existing := []byte("---\nname: gh-issues\ndescription: old\nargument-hint: \"[--limit N]\"\nallowed-tools: \"Read, Bash(gh *)\"\n---\n\nold body\n")
 	imported := []byte("---\nname: gh-issues\ndescription: new\n---\n\nnew body\n")
 
-	got, err := mergeSpecFrontmatter(existing, imported)
+	got, err := mergeSpecFrontmatter(existing, imported, defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestMergeSpecFrontmatter_ReturnsImportedVerbatimWhenNothingToCarry(t *testi
 	existing := []byte("---\nname: alpha\ndescription: old\n---\n\nold body\n")
 	imported := []byte("---\nname: alpha\ndescription: new\nargument-hint: \"[x]\"\n---\n\nnew body\n")
 
-	got, err := mergeSpecFrontmatter(existing, imported)
+	got, err := mergeSpecFrontmatter(existing, imported, defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestMergeSpecFrontmatter_ReturnsImportedVerbatimWhenNothingToCarry(t *testi
 func TestMergeSpecFrontmatter_ExistingWithoutFrontmatterReturnsImported(t *testing.T) {
 	imported := []byte("---\nname: alpha\n---\n\nbody\n")
 
-	got, err := mergeSpecFrontmatter([]byte("just a body\n"), imported)
+	got, err := mergeSpecFrontmatter([]byte("just a body\n"), imported, defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestMergeSpecFrontmatter_ExistingWithoutFrontmatterReturnsImported(t *testi
 func TestMergeSpecFrontmatter_ImportedWithoutFrontmatterKeepsExistingKeys(t *testing.T) {
 	existing := []byte("---\nname: alpha\ntargets: [claude, qoder]\n---\n\nold body\n")
 
-	got, err := mergeSpecFrontmatter(existing, []byte("new body\n"))
+	got, err := mergeSpecFrontmatter(existing, []byte("new body\n"), defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestMergeSpecFrontmatter_AppendsImportedOnlyKeys(t *testing.T) {
 	existing := []byte("---\nname: alpha\nallowed-tools: Read\n---\n\nold body\n")
 	imported := []byte("---\nname: alpha\npaths: src/**\n---\n\nnew body\n")
 
-	got, err := mergeSpecFrontmatter(existing, imported)
+	got, err := mergeSpecFrontmatter(existing, imported, defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestMergeSpecFrontmatter_MalformedFrontmatterFallsBackToImported(t *testing
 	existing := []byte("---\n- not: a mapping\n---\n\nold body\n")
 	imported := []byte("---\nname: alpha\n---\n\nnew body\n")
 
-	got, err := mergeSpecFrontmatter(existing, imported)
+	got, err := mergeSpecFrontmatter(existing, imported, defaultSkillFields)
 	if err != nil {
 		t.Fatalf("mergeSpecFrontmatter: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestImportWriteSpecMarkdown_WritesPlainWhenSpecMissing(t *testing.T) {
 	path := filepath.Join(dir, "SKILL.md")
 	data := []byte("---\nname: alpha\n---\n\nbody\n")
 
-	if err := importWriteSpecMarkdown(path, data, 0o644); err != nil {
+	if err := importWriteSpecMarkdown(path, data, 0o644, defaultSkillFields); err != nil {
 		t.Fatalf("importWriteSpecMarkdown: %v", err)
 	}
 	got, err := os.ReadFile(path)

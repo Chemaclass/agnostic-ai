@@ -17,11 +17,15 @@ import (
 // express (`argument-hint` and `allowed-tools` on a cursor skill, for
 // one). A missing destination is a plain write.
 //
-// Skills, agents and commands use this. Rules do not: their translators
-// drop a catch-all `globs` and an empty `description` on purpose (#429),
-// so a missing key there is a deliberate removal, and carrying the old
-// value over would silently revert a scope the user just widened.
-func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode) error {
+// fields names what the target's native file can hold: a key it can
+// hold but the import does not carry was deleted on purpose and is not
+// restored. Rules pass through importWriteFile instead, because their
+// translators drop a catch-all `globs` and an empty `description` on
+// purpose (#429) and the spec has to follow.
+func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
+	if fields.all {
+		return importWriteFile(path, data, mode)
+	}
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -29,20 +33,20 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode) error {
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	merged, err := mergeSpecFrontmatter(existing, data)
+	merged, err := mergeSpecFrontmatter(existing, data, fields)
 	if err != nil {
 		return fmt.Errorf("merge %s: %w", path, err)
 	}
 	return importWriteFile(path, merged, mode)
 }
 
-// mergeSpecFrontmatter returns imported with every top-level
-// frontmatter key only existing declares carried over, in existing's
-// key order, with imported-only keys appended. The body is always the
-// imported one. Frontmatter that is missing or is not a mapping on
+// mergeSpecFrontmatter returns imported with the top-level frontmatter
+// keys only existing declares, and that fields says the native format
+// cannot express, carried over in existing's key order, with
+// imported-only keys appended. The body is always the imported one. Frontmatter that is missing or is not a mapping on
 // either side returns imported untouched, so a malformed file degrades
 // to a plain overwrite rather than failing the import.
-func mergeSpecFrontmatter(existing, imported []byte) ([]byte, error) {
+func mergeSpecFrontmatter(existing, imported []byte, fields specFields) ([]byte, error) {
 	existingYAML, _, hadExisting := splitFrontmatter(existing)
 	if !hadExisting || len(bytes.TrimSpace(existingYAML)) == 0 {
 		return imported, nil
@@ -52,7 +56,7 @@ func mergeSpecFrontmatter(existing, imported []byte) ([]byte, error) {
 		return imported, nil
 	}
 
-	importedYAML, importedBody, _ := splitFrontmatter(imported)
+	importedYAML, importedBody, hadImported := splitFrontmatter(imported)
 	importedMap, err := frontmatterMapping(importedYAML)
 	if err != nil {
 		return imported, nil
@@ -72,6 +76,9 @@ func mergeSpecFrontmatter(existing, imported []byte) ([]byte, error) {
 		key := existingMap.Content[i]
 		if value, ok := importedKeys[key.Value]; ok {
 			merged.Content = append(merged.Content, key, value)
+			continue
+		}
+		if hadImported && fields.expresses(key.Value) {
 			continue
 		}
 		merged.Content = append(merged.Content, key, existingMap.Content[i+1])

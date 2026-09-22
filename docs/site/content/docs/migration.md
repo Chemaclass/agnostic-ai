@@ -22,7 +22,7 @@ agnostic-ai init --from claude
 
 Pick the tools to generate for. Replace `claude` with your source tool, or use `--from all` to detect existing configuration. If the project already uses agnostic-ai, run `agnostic-ai import claude` instead.
 
-Import writes source specs only. It does not sync native output or change your target selection. Re-running it overwrites matching source filenames. For a skill, agent, or command the body and every frontmatter key the tool expresses come from the native file, and keys that tool has no field for stay on the spec, so delete such a key in the spec rather than in the native file. Rule frontmatter is rebuilt from the native file alone, because a rule widened to a catch-all `globs` has to come back unscoped.
+Import writes source specs only. It does not sync native output or change your target selection. Re-running it overwrites matching source filenames. For a skill or agent, the body and every frontmatter key the tool writes come from the native file, while keys that tool has no field for stay on the spec. Deleting a key the tool does write removes it from the spec too. Rule frontmatter is rebuilt from the native file alone, because a rule widened to a catch-all `globs` has to come back unscoped.
 
 ## Review before syncing
 

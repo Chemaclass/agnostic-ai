@@ -268,7 +268,7 @@ func writeAgentMD(path, name, description string, tags []string, body string) er
 	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimRight(body, "\n"))
 	sb.WriteString("\n")
-	if err := importWriteSpecMarkdown(path, []byte(sb.String()), 0o644); err != nil {
+	if err := importWriteSpecMarkdown(path, []byte(sb.String()), 0o644, slicedAgentFields); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

@@ -134,7 +134,7 @@ func importKiroAgents(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("translate %s: %w", srcPath, err)
 		}
 		dst := filepath.Join(dstDir, e.Name())
-		if err := importWriteSpecMarkdown(dst, translated, 0o644); err != nil {
+		if err := importWriteSpecMarkdown(dst, translated, 0o644, kiroAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++

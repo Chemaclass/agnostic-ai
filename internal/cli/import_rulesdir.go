@@ -137,7 +137,7 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			}
 			return nil
 		}
-		if err := importWriteFile(out, []byte(content), 0o644); err != nil {
+		if err := importWriteSpecMarkdown(out, []byte(content), 0o644, flattenedKindFields(kind)); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
 		if opts.Seen != nil {
