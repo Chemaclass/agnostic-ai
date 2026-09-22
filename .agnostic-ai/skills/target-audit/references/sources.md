@@ -1,111 +1,28 @@
 # Upstream sources per target
 
-Canonical vendor docs for every registered target. Auditors fetch from
-here instead of searching, which is the single biggest cost saver in a
-run: a fixed, known list of pages beats discovery every time.
+Canonical vendor docs for every registered target. Auditors fetch from here instead of searching, which is the single biggest cost saver in a run: a fixed, known list of pages beats discovery every time.
 
-One `## <target>` section is required per registered target, each with a
-`docs:` line and a `watch:` line.
-`tests/integration/target_audit_sources_test.go` enforces that, so a new
-adapter cannot merge without its vendor docs landing here too.
+One `## <target>` section is required per registered target, each with a `docs:` line and a `watch:` line. `tests/integration/target_audit_sources_test.go` enforces that, so a new adapter cannot merge without its vendor docs landing here too.
 
-Every URL below returned HTTP 200 on **2026-09-19**. The eleven kiro.dev
-URLs were the one exception then, blocked at the host with a 403; all
-eleven were re-fetched successfully through the reader proxy on
-**2026-09-20** (see the kiro section). Vendors move
-doc hosts often (the Codex skills path moved twice in 2026), so a 404 is
-itself a finding: record it as `docs-moved` and put the replacement URL
-in the report so this file gets patched.
+`docs` = the pages describing the file formats agnostic-ai emits. `changelog` = where new features land first; read it before the docs when hunting for "what changed since last audit".
 
-**A 200 is not a correct entry.** The 2026-09-19 run found four entries
-whose URLs were live and whose named authority was dead, and each one had
-hidden a real finding from earlier runs. A URL health check cannot catch
-that class, so read the content of an entry you rely on, not its status
-code. When an entry names a file, a symbol, or a page as the thing to
-trust, check that the name still exists before trusting what it says.
+## URL line grammar
 
-`docs` = the pages describing the file formats agnostic-ai emits.
-`changelog` = where new features land first; read it before the docs
-when hunting for "what changed since last audit".
+`scripts/docfetch.sh` parses the `docs:` and `changelog:` lines, so they follow one grammar. Entries are separated by ` · `. A full URL sets the base for the entries after it on that line. `/path` resolves against that URL's origin, and `.../path` against its directory. Text in parentheses is commentary and is never fetched, and neither is anything inside backticks. Any other line in a section, including `watch:` and `verified` notes, is prose for a human and is not fetched.
 
-Some vendor sites render client-side (goose, kilo, antigravity, trae,
-continue). `curl` returns 200 with an empty body there; use WebFetch or
-WebSearch instead and do not conclude "page is empty" from a curl body.
+## What a fetch proves
 
-**The worse case is a 200 that looks like content and is not.**
-`ampcode.com/manual` returns 25 KB of SvelteKit app shell carrying none of
-the manual's text (target-audit 2026-08-27). A byte count is not proof of a
-successful fetch: grep the body for a string you expect before trusting it.
+Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-moved` and put the replacement URL in the report so this file gets patched.
 
-**Re-check every negative with `curl -sL` before reporting it.** A
-WebFetch that contradicts a prior audit is more often a fetch failure
-than a vendor change. The 2026-09-18 run produced three wrong negatives,
-two of which would have shipped a false breaking finding. WebFetch does
-not follow `<meta http-equiv="refresh">`, so a moved page reads as a
-short body whose `.md` mirror 404s, which reads in turn as "the schema is
-undocumented" when the vendor documents it fully at the new path.
+**A 200 is not a correct entry.** One run found four entries whose URLs were live and whose named authority was dead, and each one had hidden a real finding from earlier runs. A URL health check cannot catch that class, so read the content of an entry you rely on, not its status code.
 
-**A soft 404 also passes a status check.** `cursor.com/docs/commands`
-serves HTTP 200 with the full docs chrome and a "404 error code"
-not-found graphic in the body (target-audit 2026-09-19). Grep the body
-for the page's own heading before recording it as live, the same way the
-`ampcode.com/manual` case demands.
-
-**A blanket redirect is not a docs move.** `cursor.com` was unreachable
-from the 2026-09-19 audit sandbox: TCP connect hangs and curl returns
-`000`, while DNS resolves fine. Both fallback hosts, `docs.cursor.com`
-and `www.cursor.com`, 308 every path to the bare `/docs` index, so they
-confirm nothing about a specific page. Two of the four documented
-fallbacks fail there for a network reason, not a content one, which is
-exactly the setup for a future run to conclude the pages are gone.
-`https://r.jina.ai/https://cursor.com/<path>` works.
-
-Fetching tricks that each cost an auditor a wasted call, kept here so they
-cost nobody again:
-
-- Appending `.md` to a docs path serves a clean markdown mirror on
-  **factory, qoder, augment, openhands, cline** (all Mintlify), on
-  **antigravity** and **cursor** (confirmed on `/docs/hooks.md` and
-  `/docs/skills.md`; not Mintlify, served from a Vercel `/api/raw`
-  route), and on **kiro** (confirmed on `/docs/hooks/types.md`, which
-  also links to it in-page as "View as Markdown"). It does **not** work
-  on kilo or trae. On antigravity it covers the `/docs/` tree only:
-  `https://antigravity.google/changelog.md` 404s (2026-09-11).
-- **amp**: the raw-markdown mirror moved. `llms.txt` now serves every page at
-  `https://ampcode.com/docs/markdown/<path>`, and the old
-  `https://ampcode.com/docs/<path>/markdown` form 404s (confirmed both ways
-  2026-09-20). `https://ampcode.com/llms.txt` still indexes every docs page in
-  one call and states the rule itself. The count moves (50 in August, 53 on
-  2026-09-19), so re-count it rather than trusting a number recorded here.
-- **junie**: `https://junie.jetbrains.com/docs/HelpTOC.json` returns the full
-  page list in one call. That is how three uncited pages were found.
-- **trae**: neither WebFetch nor `.md` works (`ide/rules.md` returns 1.8 MB of
-  SPA shell). Content is server-side inside `window._ROUTER_DATA` as a Quill
-  delta: curl to disk, brace-match the object, collect `ops[].insert` per
-  `zoneId` (table cells arrive as separate zones). Per-page `updated_at`
-  lives in the same object, under `busStructure`: walk it to date a page
-  without diffing its text. The changelog is separate
-  and easy: `https://www.trae.ai/api/changelog` returns JSON.
-- **kiro**: Next.js server-rendered, so plain curl plus a tag-strip gives full
-  text. WebFetch truncates the 280 KB pages.
-- **kilo**: `kilo.ai` is client-rendered and `.md` append 404s. So do
-  `kilo.ai/api/raw-markdown?path=...` and `kilo.ai/api/llms.txt`, on a
-  direct GET, even though both exist as route files (2026-09-11). The
-  `Kilo-Org/kilocode` `packages/kilo-docs/pages/**` mirror is the only
-  route; `gh api search/code` scoped to that path finds which page names
-  a string.
-- **continue**: no `.md` mirror and no `llms.txt`. Use `continuedev/continue`
-  at `docs/customize/deep-dives/*.mdx`.
-- **`docs.qoder.com/llms.txt` needs `curl --compressed`**, or the response is
-  not valid UTF-8 and reads as garbage.
-- When a Mintlify site seems to have no changelog, read its `llms.txt` first:
-  factory's is listed there under `## Changelog` but absent from the nav.
+`scripts/docfetch.sh` runs the recovery ladder for client-rendered pages, moved URLs, app shells, and blocked hosts, and tags every row with the mode that produced its text. Read `.agnostic-ai/skills/target-audit/references/fetch-playbook.md` when a row comes back `failed`, `app-shell`, `soft-404`, or `redirected`. That file also holds the per-vendor routes and the fetch failures that have cost real audit time.
 
 ---
 
 ## claude
 
-- docs: https://code.claude.com/docs/en/memory (rules) · /hooks · /sub-agents · /skills (slash-commands merged in; `.claude/commands/` still works) · /mcp · /settings (prose on file precedence and reload) · /settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11)
+- docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11)
 - changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 - watch: `.claude/rules/` native loading, settings.json key surface, plugin/marketplace keys. Also the `.mcp.json` per-server field set: `headersHelper`, `timeout`, `alwaysLoad`, and the `oauth` object (`clientId`, `callbackPort`, `scopes`, `authServerMetadataUrl`), all documented at `/docs/en/mcp` and all emitting since #634 behind `emit.WithClaudeMCPExtras()`. Three audits read past this because this line named only rules, settings, and plugin keys. `oauth.clientSecret` is deliberately not emitted: `claude mcp add-json` takes the secret as a separate `--client-secret` flag and the page says it "is stored securely in your system keychain (macOS) or a credentials file, not in your config", so it is not a `.mcp.json` field. Re-check that if the page ever shows a secret inside the JSON block.
 - verified 2026-09-20 (#955): **when the settings reference and the changelog disagree, prefer the changelog**, and check whether the reference page uses its own deprecation convention on the key in question. `/docs/en/settings-reference` still carries a live `### taskOutputMaxChars` section describing the removed `TaskOutput` tool, with no deprecation marker, while the CHANGELOG under **v2.1.277** reads "Removed the deprecated TaskOutput tool; Claude reads a background task's output file with Read instead, and the `taskOutputMaxChars` setting and `TASK_MAX_OUTPUT_LENGTH` no longer have any effect". That same page does mark `keybindingFlavor` "Deprecated since v2.1.261 and has no effect", so an omitted marker reads as **stale**, not as a live contradiction. Re-read that section next pass. **Date a CHANGELOG entry by parsing the `## <version>` headings, never by reading a summary of the page**: that number came back wrong twice, 2.1.275 from a summarised fetch and 2.1.278 from a flat text dump where the 2.1.278 and 2.1.277 entry lists ran together. The entry is line 78 and the nearest preceding heading is `## 2.1.277` at line 8. `bashOutputMaxChars` is unaffected; the entry names only the task key and `TASK_MAX_OUTPUT_LENGTH`. We keep emitting `taskOutputMaxChars` because npm `stable` was 2.1.267 that day, below 2.1.277, so the key still works there; the docs mark it deprecated-no-op instead.
