@@ -1,0 +1,31 @@
+# target-audit capability signal history. One row per stable signal ID.
+# Seeded 2026-09-22 from the local reports and the published update articles;
+# disposition and issues fill in as later runs settle each signal.
+# signal-id	first-seen	last-seen	disposition	issues	note
+cap-agent-approval-policy	2026-09-16	2026-09-16			
+cap-agent-mcp-scoping	2026-09-15	2026-09-15			published
+cap-agent-reasoning-effort	2026-09-16	2026-09-18			
+cap-agent-scoped-lifecycle-hooks	2026-09-16	2026-09-16			
+cap-agent-scoped-mcp-allowlist	2026-09-18	2026-09-18			
+cap-agent-shared-board	2026-09-15	2026-09-21			
+cap-agent-skill-scoping	2026-09-18	2026-09-18			
+cap-agent-tool-permission-policy	2026-09-15	2026-09-15			
+cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18			
+cap-directory-scoped-skills	2026-09-15	2026-09-21			published
+cap-fail-closed-hook-policy	2026-09-15	2026-09-15			
+cap-manual-only-skill-invocation	2026-09-15	2026-09-16			published
+cap-orb-environment-lifecycle	2026-09-15	2026-09-15			
+cap-outbound-http-lifecycle-hooks	2026-09-15	2026-09-21			
+cap-project-config-trust-gates	2026-09-15	2026-09-15			
+cap-project-default-model-settings	2026-09-15	2026-09-16			
+cap-project-default-reasoning-effort	2026-09-18	2026-09-18			
+cap-project-demo-environments	2026-09-21	2026-09-21			
+cap-project-extension-bundles	2026-09-15	2026-09-18			published
+cap-project-index-exclusions	2026-09-15	2026-09-15			
+cap-project-model-allowlist	2026-09-16	2026-09-18			
+cap-project-permission-policy	2026-09-18	2026-09-18			
+cap-project-provider-policy	2026-09-18	2026-09-18			
+cap-prompt-hook-continue-on-block	2026-09-15	2026-09-15			
+cap-scheduled-project-agents	2026-09-15	2026-09-15			
+cap-session-start-prompt-injection	2026-09-15	2026-09-15			
+cap-subagent-project-context-exclusion	2026-09-15	2026-09-15			
