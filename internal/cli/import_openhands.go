@@ -151,7 +151,9 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 			err = writeOpenhandsRule(filepath.Join(root, src.Rules, name+".md"), name, meta, body)
 			rules++
 		default:
-			err = writeOpenhandsKeywordSkill(filepath.Join(root, src.Skills, name, "SKILL.md"), name, meta, body)
+			// `triggers` has no portable spelling, so it stays under
+			// x-openhands with any other native key.
+			err = writeOpenhandsSpec(filepath.Join(root, src.Skills, name, "SKILL.md"), openhandsSpecMeta(name, meta), body)
 			skills++
 		}
 		if err != nil {
@@ -227,22 +229,13 @@ func openhandsSpecMeta(name string, meta map[string]any, portable ...string) map
 // OpenHands through AGENTS.md, which has no frontmatter, so its native
 // keys are dropped.
 func writeOpenhandsRule(path, name string, meta map[string]any, body string) error {
-	paths := openhandsPaths(meta["paths"])
-	doc := map[string]any{"name": name}
-	if len(paths) > 0 {
-		doc = openhandsSpecMeta(name, meta, "paths")
+	doc := openhandsSpecMeta(name, meta, "paths")
+	if paths := openhandsPaths(meta["paths"]); len(paths) > 0 {
 		doc["paths"] = paths
-	} else if desc, _ := meta["description"].(string); desc != "" {
-		doc["description"] = desc
+	} else {
+		delete(doc, openhandsNativeMetaKey)
 	}
 	return writeOpenhandsSpec(path, doc, body)
-}
-
-// writeOpenhandsKeywordSkill writes a flat keyword-triggered file as a
-// skill folder. `triggers` has no portable spelling, so it stays under
-// x-openhands with any other native key.
-func writeOpenhandsKeywordSkill(path, name string, meta map[string]any, body string) error {
-	return writeOpenhandsSpec(path, openhandsSpecMeta(name, meta), body)
 }
 
 func writeOpenhandsSpec(path string, meta map[string]any, body string) error {
