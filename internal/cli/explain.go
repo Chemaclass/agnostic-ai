@@ -44,15 +44,24 @@ type explainSpecRef struct {
 }
 
 func newExplainCmd() *cobra.Command {
-	var jsonOut bool
+	var (
+		jsonOut bool
+		file    string
+		target  string
+	)
 	cmd := &cobra.Command{
-		Use:   "explain <spec | AAI-NNN>",
-		Short: "List every output file and section a spec contributes to, or describe an error code.",
+		Use:   "explain <spec | AAI-NNN> | --file <path> --target cursor",
+		Short: "List every output file and section a spec contributes to, describe an error code, or show the instructions configured for a source file.",
 		Long: "Reverse provenance: takes one spec and shows where it lands in " +
 			"each target's emission. Pairs with the `<!-- source: ... -->` " +
 			"forward markers adapters write into merged documents.\n\n" +
 			"When the argument matches an `AAI-NNN` error code, prints the " +
-			"code's title, cause, and suggested fix instead.",
+			"code's title, cause, and suggested fix instead.\n\n" +
+			"With --file and --target, starts from a project file instead: lists " +
+			"each configured instruction the target would read, its canonical " +
+			"source, output path, selector, and why it matches or not. This is " +
+			"configured applicability, not a record of the model's active context. " +
+			"Only cursor is supported. Writes nothing.",
 		Example: `  # Human-readable
   agnostic-ai explain rules/conventional-commits.md
 
@@ -60,9 +69,18 @@ func newExplainCmd() *cobra.Command {
   agnostic-ai explain rules/conventional-commits.md --json
 
   # Look up an error code
-  agnostic-ai explain AAI-001`,
-		Args: cobra.ExactArgs(1),
+  agnostic-ai explain AAI-001
+
+  # Which Cursor instructions are configured for a source file
+  agnostic-ai explain --file services/payments/handler.go --target cursor`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateExplainInput(args, file, target); err != nil {
+				return err
+			}
+			if file != "" {
+				return runExplainForFile(cmd, file, target, jsonOut)
+			}
 			if errs.IsCode(args[0]) {
 				return runExplainCode(cmd, errs.Code(args[0]), jsonOut)
 			}
@@ -116,6 +134,8 @@ func newExplainCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
+	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
+	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor.")
 	return cmd
 }
 
