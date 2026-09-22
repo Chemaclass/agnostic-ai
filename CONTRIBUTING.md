@@ -114,6 +114,6 @@ User-visible changes need an entry under `[Unreleased]` in [CHANGELOG.md](CHANGE
 
 ## Questions and reports
 
-Use [issues](https://github.com/Chemaclass/agnostic-ai/issues) for bugs and feature requests, or [Discussions](https://github.com/Chemaclass/agnostic-ai/discussions) for questions. Report security problems through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new).
+Use [issues](https://github.com/Chemaclass/agnostic-ai/issues) for bugs and feature requests, or [Discussions](https://github.com/Chemaclass/agnostic-ai/discussions) for questions. A short description is enough. Each issue form requires only the problem or tool name; other details are optional. You can also open a blank issue. Report security problems through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new).
 
 [Contributor documentation](docs/internal/README.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [MIT license](LICENSE)
