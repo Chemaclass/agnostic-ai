@@ -26,7 +26,15 @@ Import writes source specs only. It does not sync native output or change your t
 
 ## Review before syncing
 
-Compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported spec folders against the original configuration.
+Preview the import before it writes anything:
+
+```bash
+agnostic-ai import claude codex --dry-run --diff
+```
+
+The preview lists each spec the import would create or change, with a diff, and names the tools that propose different content for the same file. The last tool in the list wins. Reorder the arguments or merge the content by hand if the winner is wrong.
+
+After importing, compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported spec folders against the original configuration.
 
 When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. See [import behavior by source](@/docs/cli-reference.md#import).
 

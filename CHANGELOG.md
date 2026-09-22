@@ -11,6 +11,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `doctor --check-references` reports relative Markdown links in generated skills whose file is missing on disk, with the target, document, line, destination, and source spec. It is read-only, opt-in, and exits non-zero on a broken link; `doctor --json` adds a `references` list only under the flag (#1037).
 - `agnostic-ai compare claude cursor` shows, per agent field and rule activation field, what each target keeps, translates, or drops, and writes nothing (#1034).
 - `explain --file <path> --target cursor` lists the Cursor instructions configured for a project file: root `AGENTS.md`, nested `AGENTS.md`, and `.cursor/rules` files, each with its source spec, output path, selector, and whether it applies always, by match, by model choice, or only on `@`-mention. It reads the planned sync output, reports target exclusions and unknown glob syntax, and writes nothing (#1036).
+- `import --dry-run --diff` previews the content an import would write: created, changed, and unchanged specs with a unified diff each, the sources behind every file, and the files two sources propose different content for, with the one a real import keeps. It runs the real importers in a temporary copy, so the preview matches a real import byte for byte and the project stays untouched (#1035).
 
 ### Changed
 

@@ -855,9 +855,14 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 // dropped with a summary so CI logs stay lean. A display helper over line
 // slices, not a general diff engine.
 func unifiedDiff(path, have, want string, maxLines int) string {
-	haveLines := splitLines(have)
-	wantLines := splitLines(want)
+	slash := filepath.ToSlash(path)
+	return labeledDiff(slash+" (on disk)", slash+" (agnostic-ai sync)",
+		splitLines(have), splitLines(want), maxLines)
+}
 
+// labeledDiff is unifiedDiff over line slices with caller-chosen `---` and
+// `+++` labels. A nil haveLines renders a file creation.
+func labeledDiff(haveLabel, wantLabel string, haveLines, wantLines []string, maxLines int) string {
 	p := commonPrefix(haveLines, wantLines)
 	s := 0
 	for s < len(haveLines)-p && s < len(wantLines)-p &&
@@ -868,9 +873,8 @@ func unifiedDiff(path, have, want string, maxLines int) string {
 	added := wantLines[p : len(wantLines)-s]
 
 	var b strings.Builder
-	slash := filepath.ToSlash(path)
-	fmt.Fprintf(&b, "--- %s (on disk)\n", slash)
-	fmt.Fprintf(&b, "+++ %s (agnostic-ai sync)\n", slash)
+	fmt.Fprintf(&b, "--- %s\n", haveLabel)
+	fmt.Fprintf(&b, "+++ %s\n", wantLabel)
 	fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", p+1, len(removed), p+1, len(added))
 
 	shown := 0
