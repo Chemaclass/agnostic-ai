@@ -38,7 +38,7 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents))
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents), cursorAgentFields)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	commands, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands))
+	commands, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands), cursorCommandFields)
 	if err != nil {
 		return err
 	}
@@ -63,16 +63,16 @@ func importFromCursor(root string, src config.Sources) error {
 // trees into the matching canonical source scope, for every project
 // skill directory in cursorSkillsDirs.
 func importCursorSkills(root, dstDir string) (int, error) {
-	return importScopedSkillFoldersFrom(root, cursorSkillsDirs, dstDir)
+	return importScopedSkillFoldersWith(root, cursorSkillsDirs, dstDir, &cursorSkillFields)
 }
 
-// importFlatMarkdownFiles copies every top-level `*.md` in src
-// byte-for-byte into dstDir, stripping the agnostic-ai provenance
-// header when present. Covers a flat per-file surface with no scope
+// importFlatMarkdownFiles copies every top-level `*.md` in src into
+// dstDir, stripping the agnostic-ai provenance header when present and
+// keeping the frontmatter keys only the existing spec declares. Covers a flat per-file surface with no scope
 // nesting: Cursor's `.cursor/agents/*.md` (subagents) and
 // `.cursor/commands/*.md`, and Cline's `.cline/agents/*.md`
 // (target-audit 2026-08-01, #534).
-func importFlatMarkdownFiles(src, dstDir string) (int, error) {
+func importFlatMarkdownFiles(src, dstDir string, fields specFields) (int, error) {
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -92,7 +92,7 @@ func importFlatMarkdownFiles(src, dstDir string) (int, error) {
 		}
 		out := header.Strip(string(data))
 		dstPath := filepath.Join(dstDir, e.Name())
-		if err := importWriteFile(dstPath, []byte(out), 0o644); err != nil {
+		if err := importWriteSpecMarkdown(dstPath, []byte(out), 0o644, fields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)
 		}
 		count++

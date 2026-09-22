@@ -81,7 +81,7 @@ func importFromGoose(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, gooseAgentsDir), filepath.Join(root, src.Agents))
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, gooseAgentsDir), filepath.Join(root, src.Agents), gooseAgentFields)
 	if err != nil {
 		return err
 	}

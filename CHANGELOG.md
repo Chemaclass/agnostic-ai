@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import` keeps the skill and agent frontmatter a target has nowhere to put, so a sync then import no longer deletes `argument-hint`, `allowed-tools`, `tools`, or `effort` from a spec; deleting a key the target does write still reaches the spec.
 - `sync` prints the Devin shared `.agents/agents/` coverage note once and stops repeating it while it is unchanged (#1014).
 - npm releases allow about 20 minutes for publish-time scanning before reporting a package missing (#1013).
 

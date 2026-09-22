@@ -11,7 +11,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
-// importClaudeAgents copies .claude/agents/*.md byte-for-byte to dstDir.
+// importClaudeAgents copies .claude/agents/*.md to dstDir, keeping the
+// frontmatter keys only the existing spec declares.
 // When the project also carries a Codex installation but the matching
 // codex agent is absent there, the captured spec gains `target: claude`
 // frontmatter so the next sync does not cross-emit a claude-only agent
@@ -54,7 +55,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 }
 
 // importClaudeSkills copies each `.claude/skills/<name>/` directory tree
-// byte-for-byte into `<dstDir>/<name>/`. SKILL.md must exist for the
+// into `<dstDir>/<name>/`. SKILL.md must exist for the
 // skill to be considered; once present, every sibling file (and nested
 // subdirectories such as `scripts/`, `assets/`, helper Python/JS
 // modules, fixtures, etc.) is mirrored verbatim so a roundtrip

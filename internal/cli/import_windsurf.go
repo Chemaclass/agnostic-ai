@@ -214,7 +214,7 @@ func importFromWindsurf(root string, src config.Sources) error {
 		}
 		c.add(scoped)
 	}
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, windsurfAgentsDir), filepath.Join(root, src.Agents))
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, windsurfAgentsDir), filepath.Join(root, src.Agents), windsurfAgentFields)
 	if err != nil {
 		return err
 	}

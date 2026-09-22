@@ -61,7 +61,7 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, traeAgentsDir), filepath.Join(root, src.Agents))
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, traeAgentsDir), filepath.Join(root, src.Agents), traeAgentFields)
 	if err != nil {
 		return err
 	}

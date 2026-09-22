@@ -63,6 +63,12 @@ func importScopedSkillFolders(root, nativeDir, dstDir string) (int, error) {
 // the tree the adapter wrote. Precedence is tracked per scope, since the
 // same name at two different scopes is two different skills.
 func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir string) (int, error) {
+	return importScopedSkillFoldersWith(root, nativeDirs, dstDir, nil)
+}
+
+// importScopedSkillFoldersWith is importScopedSkillFoldersFrom with the
+// target's own SKILL.md field set.
+func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir string, fields *specFields) (int, error) {
 	count := 0
 	seen := map[string]map[string]bool{}
 	for _, nativeDir := range nativeDirs {
@@ -77,7 +83,7 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 			imported, err := importSkillFoldersWith(
 				dir.path,
 				filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
-				skillFolderImportOpts{SkipNames: seen[dir.scope]},
+				skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields},
 			)
 			if err != nil {
 				return count, err
@@ -89,8 +95,9 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 }
 
 // importSkillFolders copies each `<srcDir>/<name>/` directory tree that
-// contains a SKILL.md into `<dstDir>/<name>/` byte-for-byte, so a
-// round-trip preserves the full payload (scripts, references, assets).
+// contains a SKILL.md into `<dstDir>/<name>/`, so a round-trip preserves
+// the full payload (scripts, references, assets). Bundled files land
+// byte-for-byte; SKILL.md merges onto the spec already there.
 // Folders without a SKILL.md are skipped; a missing srcDir imports
 // nothing. Shared by every importer whose tool uses the Agent Skills
 // folder layout (cursor, gemini, opencode, copilot).
@@ -101,6 +108,9 @@ func importSkillFolders(srcDir, dstDir string) (int, error) {
 type skillFolderImportOpts struct {
 	SkipNames      map[string]bool
 	TransformSkill func([]byte) ([]byte, error)
+	// Fields overrides what the target's SKILL.md can hold. Nil means
+	// the Agent Skills baseline every target but Claude and Cursor writes.
+	Fields *specFields
 }
 
 // importSkillFoldersWith imports a native skill tree with optional
@@ -130,7 +140,7 @@ func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (
 		if opts.SkipNames[e.Name()] {
 			continue
 		}
-		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill); err != nil {
+		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill, skillFields(opts.Fields)); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
 		if opts.SkipNames != nil {
@@ -142,17 +152,27 @@ func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (
 }
 
 // copyDirTree walks srcDir recursively and writes every regular file
-// byte-for-byte into the matching location under dstDir, recreating
+// into the matching location under dstDir, byte-for-byte but for a
+// SKILL.md merged onto an existing spec, recreating
 // the directory layout as it goes. File mode bits are preserved so an
 // executable script remains executable on the destination. Symlinks
 // are not followed; if they appear inside a skill folder they are
 // silently skipped (skills are documented to be plain files +
 // directories — symlinks would not survive a tar/zip release anyway).
 func copyDirTree(srcDir, dstDir string) error {
-	return copyDirTreeWith(srcDir, dstDir, nil)
+	return copyDirTreeWith(srcDir, dstDir, nil, allSpecFields)
 }
 
-func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error)) error {
+// skillFields resolves a skill tree's field set, defaulting to the
+// Agent Skills baseline when the importer names none.
+func skillFields(override *specFields) specFields {
+	if override == nil {
+		return defaultSkillFields
+	}
+	return *override
+}
+
+func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -191,6 +211,12 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
+		}
+		if filepath.Base(path) == "SKILL.md" {
+			if err := importWriteSpecMarkdown(target, data, info.Mode().Perm(), fields); err != nil {
+				return fmt.Errorf("write %s: %w", target, err)
+			}
+			return nil
 		}
 		if err := importWriteFile(target, data, info.Mode().Perm()); err != nil {
 			return fmt.Errorf("write %s: %w", target, err)
