@@ -114,6 +114,22 @@ func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarning
 // target, so it flushes and sticky-suppresses with the coverage notes.
 func NoteProject(text string) { emit.NoteProject(text) }
 
+// Note is one buffered capability warning or coverage note in structured
+// form (re-exported from the emit layer).
+type Note = emit.Note
+
+// Note shapes (re-exported from the emit layer).
+const (
+	NoteUnsupportedKind = emit.NoteUnsupportedKind
+	NoteGap             = emit.NoteGap
+	NoteField           = emit.NoteField
+	NoteSurface         = emit.NoteSurface
+)
+
+// DrainNotes returns and clears every buffered capability warning and
+// coverage note, for callers that attribute them to one spec.
+func DrainNotes() []Note { return emit.DrainNotes() }
+
 // ResetCoverageNotes clears buffered coverage notes without printing.
 // Used by tests and by `sync --watch` before each new pass.
 func ResetCoverageNotes() { emit.ResetCoverageNotes() }

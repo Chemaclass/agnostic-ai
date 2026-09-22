@@ -20,7 +20,7 @@ agnostic-ai [command] [flags]
 | Set up a project | [init](#init), [import](#import), [new](#new) |
 | Generate or preview output | [sync](#sync), [render](#render) |
 | Check source, output, and behavior | [validate](#validate), [lint](#lint), [doctor](#doctor), [status](#status), [verify](#verify) |
-| Inspect routing | [list](#list), [explain](#explain), [graph](#graph), [why](#why) |
+| Inspect routing | [list](#list), [explain](#explain), [compare](#compare), [graph](#graph), [why](#why) |
 | Restore or remove generated files | [revert](#revert), [cleanup](#cleanup) |
 | Share specs | [packs](#packs) |
 | Set up your environment | [completion](#completion), [upgrade or update](#upgrade), [install-hook](#install-hook), [lsp](#lsp) |
@@ -169,6 +169,41 @@ Contributions are grouped by configured target, plus a "would emit if enabled" l
  "contributions": [{"target": "...", "path": "...", "section": "...", "mode": "full|section"}],
  "would_emit_if_enabled": []}
 ```
+
+## compare
+
+Compare how two built-in targets represent the project's agents and rule activation, before you switch or add a tool. Writes nothing.
+
+```bash
+agnostic-ai compare claude cursor
+```
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Stable schema for scripts. |
+
+Coverage is agent fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. The report says so on its first lines. Rules without those fields are left out, and other spec kinds are not compared.
+
+Each spec emits in memory to both targets with the project's output options and `x-<target>` overrides, once as written and once per field with that field removed. The difference, plus the coverage notes the adapter raises, gives each field one result per target:
+
+| Result | Meaning |
+|---|---|
+| `preserved` | Written under the same key with the same values. |
+| `translated` | Written under another key or file, with rewritten values, or only in part. |
+| `unsupported` | The target has no home for the field or the kind. |
+| `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
+| `unknown` | The emission gives no evidence either way. |
+
+`preserved` describes the written file, not the tool's runtime behavior. A field marked `(differs)` has a different result on each target. Each result names the output paths or the reason, plus a `next:` step when one is known.
+
+```json
+{"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
+ "specs": [{"kind": "agent", "name": "...", "path": "...", "fields": [{"field": "tools", "differs": true,
+   "results": [{"target": "cursor", "status": "unsupported", "reason": "...", "next": "..."}]}]}],
+ "fields": 6, "differences": 3}
+```
+
+Unknown targets, the same target twice, and invalid specs or config fail the command. External adapters are not accepted.
 
 ## render
 
