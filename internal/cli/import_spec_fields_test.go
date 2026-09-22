@@ -40,6 +40,7 @@ func TestSpecFields_MatchWhatSyncEmits(t *testing.T) {
 		{"trae", "agents", agentSpec, ".trae/agents/rev.md", traeAgentFields},
 		{"goose", "agents", agentSpec, ".agents/agents/rev.md", gooseAgentFields},
 		{"windsurf", "agents", agentSpec, ".devin/agents/rev.md", windsurfAgentFields},
+		{"factory", "agents", agentSpec, ".factory/droids/rev.md", factoryAgentFields},
 		{"antigravity", "agents", agentSpec, ".agents/agents/rev/agent.md", antigravityAgentFields},
 	}
 	for _, c := range cases {

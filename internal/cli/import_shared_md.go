@@ -292,3 +292,13 @@ func isGeneratedPointerBody(root, name string) bool {
 	raw := string(data)
 	return header.Has(raw) && !strings.Contains(raw, adapters.RulesStartMarker)
 }
+
+// sliceEntryPointRules slices rule bodies out of a shared entry point
+// such as AGENTS.md. A generated pointer body with no inlined rules
+// block holds only scaffolding headings, so it imports nothing (#894).
+func sliceEntryPointRules(root, name, dstDir string) (int, error) {
+	if isGeneratedPointerBody(root, name) {
+		return 0, nil
+	}
+	return sliceMainFileByH2(root, name, dstDir)
+}

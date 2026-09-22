@@ -64,6 +64,26 @@ Skills load from `.agents/skills/`, the same cross-tool tree codex, amp, zed, an
 
 Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md`, with bundled assets. Unscoped skills keep `.agents/skills/`. An explicit `outputs.factory.skills-dir` replaces the skills directory at both the root and each scope; scopes remain distinct. Files listed as unmanaged retain their contents.
 
+## Import
+
+`agnostic-ai import factory` reverses the Factory layout:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.factory/droids/<name>.md` | `<agents>/<name>.md` |
+| `.agents/skills/<name>/SKILL.md` and `.factory/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
+| `<scope>/.factory/skills/<name>/SKILL.md` | `<skills>/<scope>/<name>/SKILL.md` |
+| `.factory/commands/<name>.md` | `<commands>/<name>.md` |
+| `.factory/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
+| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group |
+| `.factory/settings.json` `model` and command lists | `<settings>/factory.yaml` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+A droid's `tools` renames back: `Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`. A list holding a category (`read-only`) or an MCP tool ID has no portable spelling, so it lands under `x-factory.tools` untouched. `reasoningEffort` becomes `effort`, and every other droid key lands under `x-factory`.
+
+The command lists read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes the prefix form `Bash(x:*)`. Other `settings.json` keys stay in the file, which sync merges into.
+
 ## Config keys
 
 | Key | Default |
