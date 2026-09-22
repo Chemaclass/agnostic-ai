@@ -62,6 +62,8 @@ var clineSkillsDirs = []string{
 //
 //   - `.clinerules/*.md` and `.cline/rules/*.md` use the shared rule
 //     importer. Native paths conditions retain exact arrays in x-cline.
+//     A single-file `.clinerules`, which Cline still reads, imports as
+//     one `clinerules` rule, and the skill lookup under it is skipped.
 //     Workflows, hooks, and skills under .clinerules are not rules.
 //     A `skill-<name>.md` there still imports as a skill too,
 //     covering projects synced before skills moved to a native folder;
@@ -85,6 +87,7 @@ func importFromCline(root string, src config.Sources) error {
 		opts := rulesDirImportOpts{NativeTarget: "cline", NativeKeys: []string{"paths"}, Seen: seen}
 		if rulesDir == ".clinerules" {
 			opts.SkipDirs = map[string]bool{"skills": true, "workflows": true, "hooks": true}
+			opts.FileRuleName = "clinerules"
 		}
 		imported, err := importRulesDirectoryWith(root, rulesDir, src, opts)
 		if err != nil {
@@ -99,6 +102,9 @@ func importFromCline(root string, src config.Sources) error {
 	c.agents += nativeAgents
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range clineSkillsDirs {
+		if !dirExists(filepath.Join(root, filepath.Dir(skillsDir))) {
+			continue
+		}
 		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
