@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -34,7 +33,7 @@ func replaceClinerulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	if !header.Has(string(data)) && !imported(string(data), b.Rules) {
+	if !strings.Contains(string(data), emit.ProvenanceMarker) && !matchesRuleSpec(string(data), b.Rules) {
 		return fmt.Errorf("%s is a file whose content no rule spec carries; run `agnostic-ai import cline` to keep it as a rule, then sync again", path)
 	}
 	_, err = sess.RemoveOwned(path, emit.ContentSum(string(data)), dryRun)
@@ -60,11 +59,11 @@ func writesUnderClinerules(cfg *config.Config) bool {
 	return false
 }
 
-// imported reports whether the body of a `.clinerules` file matches a
+// matchesRuleSpec reports whether the body of a `.clinerules` file matches a
 // rule spec body, compared the way `import cline` reads it: frontmatter
 // and a leading `# ` heading dropped, surrounding whitespace ignored. An
 // empty body has nothing to lose.
-func imported(content string, rules []spec.Entry) bool {
+func matchesRuleSpec(content string, rules []spec.Entry) bool {
 	e, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(content))
 	if err != nil {
 		return false
