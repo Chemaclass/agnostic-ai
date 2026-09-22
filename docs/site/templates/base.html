@@ -51,7 +51,8 @@
       <a class="brand" href="{{ get_url(path='@/_index.md') }}" aria-label="agnostic-ai home"><span class="brand-mark" aria-hidden="true">aⁱ</span><span>agnostic-ai</span></a>
       <nav class="site-nav" aria-label="Primary">
         <a href="{{ get_url(path='@/_index.md') }}"{% if current_path == '/' %} aria-current="page"{% endif %}>Home</a>
-        <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with(pat='/docs') %} aria-current="page"{% endif %}>Docs</a>
+        <a href="{{ get_url(path='@/docs/_index.md') }}"{% if current_path is starting_with(pat='/docs') and not current_path is starting_with(pat='/docs/targets') %} aria-current="page"{% endif %}>Docs</a>
+        <a href="{{ get_url(path='@/docs/targets/_index.md') }}"{% if current_path is starting_with(pat='/docs/targets') %} aria-current="page"{% endif %}>Targets</a>
         <a href="{{ get_url(path='@/updates/_index.md') }}"{% if current_path is starting_with(pat='/updates') %} aria-current="page"{% endif %}>Updates</a>
         <a href="{{ get_url(path='playground/', trailing_slash=true) }}">Playground</a>
       </nav>

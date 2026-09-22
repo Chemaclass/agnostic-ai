@@ -10,7 +10,11 @@
 
 .docs-hero h1 {
   max-width: 14ch;
-  font-size: clamp(2.8rem, 7vw, 5.5rem);
+  font-family: var(--display);
+  font-size: clamp(3rem, 7.4vw, 5.8rem);
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.015em;
 }
 
 .docs-hero p {
@@ -150,7 +154,11 @@
 }
 
 .docs-directory-head h2 {
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-family: var(--display);
+  font-size: clamp(2.1rem, 4.2vw, 3.3rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
 }
 
 .docs-directory-head p {
@@ -175,6 +183,7 @@
 
 .docs-index-list {
   display: grid;
+  gap: 0.6rem;
 }
 
 .docs-index-row {
@@ -182,9 +191,15 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 1.5rem;
-  padding-block: 1rem;
-  border-bottom: 1px solid var(--line-soft);
+  padding: 0.95rem 1.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
   text-decoration: none;
+}
+
+.docs-index-row:hover {
+  border-color: var(--accent);
 }
 
 .docs-index-row > span {
@@ -378,6 +393,11 @@
   border-radius: 6px;
 }
 
+.docs-nav-group a {
+  padding-left: 0.8rem;
+  border-radius: 0 6px 6px 0;
+}
+
 /* The disclosure is the only nav on a phone, so its rows get a full touch target. */
 .docs-mobile-nav .docs-nav-home,
 .docs-mobile-nav .docs-nav-group a {
@@ -387,6 +407,7 @@
 .docs-nav-group {
   display: grid;
   gap: 0.18rem;
+  border-left: 1px solid var(--line-soft);
 }
 
 .docs-nav-group p {
@@ -400,6 +421,8 @@
 }
 
 .docs-nav-group a {
+  margin-left: -1px;
+  border-left: 1px solid transparent;
   color: var(--ink-soft);
   font-size: 0.82rem;
   line-height: 1.35;
@@ -411,8 +434,14 @@
   color: var(--ink);
 }
 
-.docs-nav a.is-current {
-  background: var(--accent-soft);
+.docs-nav-group a.is-current {
+  border-left-color: var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.docs-nav-home.is-current {
   color: var(--accent);
   font-weight: 700;
 }
@@ -449,7 +478,20 @@
 
 .docs-content > h1 {
   margin-bottom: 1.5rem;
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-family: var(--display);
+  font-size: clamp(2.6rem, 6.2vw, 4.6rem);
+  font-weight: 400;
+  line-height: 1.06;
+  letter-spacing: -0.015em;
+}
+
+/* Headings inside a guide stay sans: the serif belongs to the page title, and
+   repeating it down the article turns a reference into a magazine. */
+.docs-content > h2,
+.docs-content > h3,
+.docs-content > h4 {
+  font-weight: 600;
+  letter-spacing: -0.012em;
 }
 
 .docs-content > h2 {
@@ -496,21 +538,26 @@
   margin-top: 0.35rem;
 }
 
+/* Generated files and shell transcripts are the substance of these guides, so
+   they sit on the slab: one dark surface that reads as the tool's own output
+   and separates a listing from the prose around it at a glance. */
 .docs-content pre {
   max-width: 100%;
   margin-block: 1.25rem;
   padding: 1rem;
   overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid var(--slab-line);
+  border-radius: 12px;
+  background: var(--slab);
+  color: var(--slab-ink);
   font-size: 0.84rem;
-  line-height: 1.55;
+  line-height: 1.65;
 }
 
 .docs-content pre code {
   padding: 0;
   background: transparent;
+  color: inherit;
 }
 
 .docs-content .agent-prompt-guide {

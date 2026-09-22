@@ -1,3 +1,24 @@
+/* Instrument Serif (OFL) is self-hosted rather than linked from a font CDN:
+   one 15KB face, no third-party request on every page. It dresses the page
+   titles only; body and code keep the platform stacks below. */
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/instrument-serif-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/instrument-serif-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   color-scheme: light dark;
   --paper: #f7f7f6;
@@ -14,6 +35,13 @@
   --good: #4a6b2f;
   --danger: #a3341f;
   --code-string: #7a5230;
+  --slab: #16130f;
+  --slab-raised: #221d18;
+  --slab-ink: #f0eae0;
+  --slab-dim: #9a9184;
+  --slab-line: #3a342c;
+  --slab-accent: #d99a66;
+  --display: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
   --page: 72rem;
@@ -35,7 +63,13 @@
     --accent-soft: #2f2116;
     --good: #afd282;
     --danger: #ef8f74;
-    --code-string: #d9b98a;
+      --code-string: #d9b98a;
+    --slab: #0d0b09;
+    --slab-raised: #191612;
+    --slab-ink: #f0eae0;
+    --slab-dim: #9a9184;
+    --slab-line: #332d26;
+    --slab-accent: #f0a35e;
   }
 }
 
@@ -54,6 +88,12 @@
   --good: #afd282;
   --danger: #ef8f74;
   --code-string: #d9b98a;
+  --slab: #0d0b09;
+  --slab-raised: #191612;
+  --slab-ink: #f0eae0;
+  --slab-dim: #9a9184;
+  --slab-line: #332d26;
+  --slab-accent: #f0a35e;
 }
 
 :root[data-theme="light"] {
@@ -71,6 +111,12 @@
   --good: #4a6b2f;
   --danger: #a3341f;
   --code-string: #7a5230;
+  --slab: #16130f;
+  --slab-raised: #221d18;
+  --slab-ink: #f0eae0;
+  --slab-dim: #9a9184;
+  --slab-line: #3a342c;
+  --slab-accent: #d99a66;
 }
 
 * {
@@ -281,10 +327,15 @@ code {
   color: var(--ink);
 }
 
+/* The underline sits on the header's own bottom edge, so the current section
+   reads as a tab of the page rather than one link coloured differently. */
 .site-nav a[aria-current="page"] {
-  color: var(--accent);
+  color: var(--ink);
   font-weight: 700;
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+  border-radius: 6px 6px 0 0;
 }
+
 
 .site-actions {
   display: flex;
