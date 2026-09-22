@@ -714,6 +714,48 @@ main > section[id] {
   margin-top: 1rem;
 }
 
+/* A section title and its lead each hold well under half the rail, so stacking
+   them left a full column of the row empty and pushed everything below it
+   down. Above the split they sit side by side, title left and lead right on a
+   shared baseline; everything else in the section still spans the rail. */
+@media (min-width: 1000px) {
+  .section-head-split > .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    column-gap: 3rem;
+  }
+
+  .section-head-split > .wrap > * {
+    grid-column: 1 / -1;
+  }
+
+  .section-head-split > .wrap > .section-title {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .section-head-split > .wrap > .section-lead {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: none;
+    margin-top: 0;
+  }
+
+  /* The quickstart pairs its title with three links rather than a lead, so
+     the title keeps more of the row and still breaks at its own span. */
+  #quickstart > .wrap {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+
+  #quickstart > .wrap > .quickstart-links {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+}
+
 .section-lead a {
   color: var(--accent);
 }
@@ -847,10 +889,15 @@ main > section[id] {
   font-weight: 700;
 }
 
+/* One line across the rail rather than a narrow box with half a row of empty
+   paper beside it: the question leads, the answer and the link follow it. */
 .mission-question {
-  max-width: 37em;
-  margin-top: 2rem;
-  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.35rem;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);

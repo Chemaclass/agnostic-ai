@@ -23,6 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Site
 
 - The home page runs the source spec across the top and the file each target gets beside the target list, instead of stacking both in a 42rem column.
+- Home sections pair their title with the text or links beside it above 1000px, so a 37em paragraph no longer sits alone in a full-width row and the quickstart links no longer need a row of their own.
 - Code blocks, generated files, and the closing call to action share one dark slab, so a listing is distinguishable from the prose around it at a glance.
 - The header adds Targets beside Docs, marks the current section with an underline on the header's own edge, and stacks the nav under the brand from 820px so five links never run into it.
 - The docs sidebar marks the current guide on a hairline rail, and the guide index reads as cards rather than underlined rows.
