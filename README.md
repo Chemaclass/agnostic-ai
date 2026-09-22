@@ -56,8 +56,6 @@ Choose your tools during setup. The demo creates sample specs under `.agnostic-a
 
 [Follow the tutorial](https://agnostic-ai.org/docs/getting-started/) · [Try the playground](https://agnostic-ai.org/playground/)
 
-Personal agents can live in `~/.agnostic-ai/agents/`. Run `agnostic-ai sync --global --only claude` to generate Claude Code user-level agents with ownership and drift checks. See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration).
-
 ## How it works
 
 ```text
