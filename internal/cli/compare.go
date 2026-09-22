@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -184,7 +185,7 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 		for i, t := range targets {
 			results, notes, err := classifyEntry(&view, e, fields, t)
 			if err != nil {
-				return compareOutput{}, fmt.Errorf("%s: %s: %w", t, e.Path, err)
+				return compareOutput{}, fmt.Errorf("%s: %w", t, err)
 			}
 			perTarget[i] = results
 			s.Notes = append(s.Notes, notes...)
@@ -222,7 +223,7 @@ func comparedFields(e spec.Entry) []string {
 	keys := append([]string(nil), e.MetaKeys...)
 	var extra []string
 	for k := range e.Meta {
-		if !containsString(keys, k) {
+		if !slices.Contains(keys, k) {
 			extra = append(extra, k)
 		}
 	}
@@ -234,7 +235,7 @@ func comparedFields(e spec.Entry) []string {
 		out = append(out, "scope")
 	}
 	for _, k := range keys {
-		if _, ok := e.Meta[k]; !ok || strings.HasPrefix(k, "x-") || containsString(out, k) {
+		if _, ok := e.Meta[k]; !ok || strings.HasPrefix(k, "x-") || slices.Contains(out, k) {
 			continue
 		}
 		switch e.Kind {
@@ -495,15 +496,6 @@ func frontmatterBlock(content string) string {
 		return ""
 	}
 	return content[4 : 4+end]
-}
-
-func containsString(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // writeCompareReport renders the human report: coverage boundary first,
