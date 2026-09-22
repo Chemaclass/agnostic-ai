@@ -10,11 +10,7 @@
 
 .docs-hero h1 {
   max-width: 14ch;
-  font-family: var(--display);
-  font-size: clamp(3rem, 7.4vw, 5.8rem);
-  font-weight: 400;
-  line-height: 1.04;
-  letter-spacing: -0.015em;
+  font-size: clamp(2.8rem, 7vw, 5.5rem);
 }
 
 .docs-hero p {
@@ -154,11 +150,7 @@
 }
 
 .docs-directory-head h2 {
-  font-family: var(--display);
-  font-size: clamp(2.1rem, 4.2vw, 3.3rem);
-  font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: -0.01em;
+  font-size: clamp(2rem, 4vw, 3.2rem);
 }
 
 .docs-directory-head p {
@@ -478,20 +470,7 @@
 
 .docs-content > h1 {
   margin-bottom: 1.5rem;
-  font-family: var(--display);
-  font-size: clamp(2.6rem, 6.2vw, 4.6rem);
-  font-weight: 400;
-  line-height: 1.06;
-  letter-spacing: -0.015em;
-}
-
-/* Headings inside a guide stay sans: the serif belongs to the page title, and
-   repeating it down the article turns a reference into a magazine. */
-.docs-content > h2,
-.docs-content > h3,
-.docs-content > h4 {
-  font-weight: 600;
-  letter-spacing: -0.012em;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
 }
 
 .docs-content > h2 {

@@ -129,6 +129,7 @@ Cite every finding with a `file:line` reference.
 [transform]
 title = "Write it once."
 muted_title = "Every tool reads it natively."
+fineprint = "Every generated file carries a do-not-edit header and lands byte-identical on each run, so a diff only moves when the spec does."
 
 [mission]
 title = "Your setup outlives"
