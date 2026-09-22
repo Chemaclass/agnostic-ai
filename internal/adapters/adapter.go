@@ -44,6 +44,10 @@ import (
 // emit tree can consume capture output.
 type CapturedFile = emit.CapturedFile
 
+// CapturedRemoval mirrors emit.CapturedRemoval so `doctor --fix` can
+// replay a removal the capture pass recorded.
+type CapturedRemoval = emit.CapturedRemoval
+
 // OrderedJSON mirrors emit.OrderedJSON so the CLI layer can read and
 // write settings.json overlays without losing source key order.
 type OrderedJSON = emit.OrderedJSON

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -19,12 +21,16 @@ import (
 // emitted artifacts. Missing and Stale carry the full captured content so
 // `--fix` can reconcile without a second adapter pass. Orphaned lists
 // files a prior sync wrote, no longer emits, and could not remove; no
-// write fixes them, so `--fix` leaves them to the user.
+// write fixes them, so `--fix` leaves them to the user. Blocking lists
+// the removals sync makes before writing a missing file, for a file that
+// stands where the file's parent directory belongs (Cline's single-file
+// `.clinerules`, #1064); `--fix` replays them first.
 type driftReport struct {
 	Target   string
 	Missing  []adapters.CapturedFile
 	Stale    []adapters.CapturedFile
 	Orphaned []string
+	Blocking []adapters.CapturedRemoval
 }
 
 func (r driftReport) hasDrift() bool {
@@ -92,6 +98,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 				rep.Stale = append(rep.Stale, f)
 			}
 		}
+		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
 		reports = append(reports, rep)
 	}
 	epRep, err := collectEntryPointDrift(cfg, b, entryPointTargets)
@@ -108,6 +115,23 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 // replaces it (#1060).
 func notOnDisk(err error) bool {
 	return os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR)
+}
+
+// blockingRemovals keeps the removals whose path is a parent directory
+// of a missing file. Other removals are not drift, so `--fix` never
+// deletes a file it did not report.
+func blockingRemovals(removals []adapters.CapturedRemoval, missing []adapters.CapturedFile) []adapters.CapturedRemoval {
+	var out []adapters.CapturedRemoval
+	for _, r := range removals {
+		prefix := filepath.Clean(r.Path) + string(filepath.Separator)
+		for _, f := range missing {
+			if strings.HasPrefix(filepath.Clean(f.Path), prefix) {
+				out = append(out, r)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // captureAdapterFiles renders one target into memory without touching disk.
@@ -438,7 +462,8 @@ func driftRecords(reports []driftReport) []fileRecord {
 }
 
 // fixDrift writes the captured content for every missing or stale file in
-// reports. Files in sync are left untouched. Returns the number of files
+// reports, after the removals that stand in their way. Files in sync are
+// left untouched. Returns the number of files
 // written.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
 	sess := adapters.NewSession()
@@ -450,6 +475,11 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 	for _, r := range reports {
 		if !r.hasDrift() {
 			continue
+		}
+		for _, rm := range r.Blocking {
+			if _, err := sess.RemoveOwned(rm.Path, rm.Sum, false); err != nil {
+				return written, err
+			}
 		}
 		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.Stale...) {
 			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {

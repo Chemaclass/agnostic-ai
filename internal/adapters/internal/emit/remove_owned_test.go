@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -195,5 +196,36 @@ func TestRemoveOwned_RollbackRestoresFileReplacedByDirectory(t *testing.T) {
 	got, err := os.ReadFile(path)
 	if err != nil || string(got) != body {
 		t.Errorf("rollback did not restore file: %q, %v", got, err)
+	}
+}
+
+// Capture mode leaves an owned file on disk but records the removal, so
+// `doctor --fix` can replay it before writing captured files (#1064).
+func TestRemoveOwned_CaptureRecordsRemovalWithoutTouchingDisk(t *testing.T) {
+	dir := t.TempDir()
+	owned := filepath.Join(dir, ".clinerules")
+	user := filepath.Join(dir, "notes.md")
+	writeTestFile(t, owned, "Use tabs.\n")
+	writeTestFile(t, user, "mine\n")
+	sess := NewSession()
+	sess.StartCapture()
+
+	for _, p := range []string{owned, user} {
+		sum := ""
+		if p == owned {
+			sum = ContentSum("Use tabs.\n")
+		}
+		if removed, err := sess.RemoveOwned(p, sum, false); err != nil || removed {
+			t.Fatalf("RemoveOwned(%s) in capture = %v, %v; want false, nil", p, removed, err)
+		}
+	}
+	sess.StopCapture()
+
+	want := []CapturedRemoval{{Path: owned, Sum: ContentSum("Use tabs.\n")}}
+	if got := sess.CapturedRemovals(); !reflect.DeepEqual(got, want) {
+		t.Errorf("CapturedRemovals = %+v, want %+v", got, want)
+	}
+	if _, err := os.Stat(owned); err != nil {
+		t.Errorf("capture removed the file: %v", err)
 	}
 }

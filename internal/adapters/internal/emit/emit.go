@@ -39,6 +39,15 @@ type CapturedFile struct {
 	Content string
 }
 
+// CapturedRemoval is one removal RemoveOwned would have made outside
+// capture mode, with the ownership proof it was given. `doctor --fix`
+// replays it through RemoveOwned so a file standing where a directory
+// belongs gives way the same way it does on sync (#1064).
+type CapturedRemoval struct {
+	Path string
+	Sum  string
+}
+
 // txEntry records the pre-write state of one file for transaction rollback.
 // content is nil when the file did not exist before the write.
 type txEntry struct {
@@ -75,6 +84,7 @@ type Session struct {
 	mu          sync.Mutex
 	capturing   bool
 	captured    []CapturedFile
+	removals    []CapturedRemoval
 	backup      bool
 	recording   bool
 	recorded    []string
@@ -159,6 +169,7 @@ func (s *Session) StartCapture() {
 	s.mu.Lock()
 	s.capturing = true
 	s.captured = nil
+	s.removals = nil
 	s.mu.Unlock()
 }
 
@@ -180,6 +191,14 @@ func (s *Session) StopCapture() []CapturedFile {
 	out := s.captured
 	s.captured = nil
 	return out
+}
+
+// CapturedRemovals returns the removals recorded since the last
+// StartCapture. Unlike StopCapture it does not clear them.
+func (s *Session) CapturedRemovals() []CapturedRemoval {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.removals
 }
 
 // StartRecording begins collecting written paths alongside real writes.
@@ -621,8 +640,9 @@ func IsAbsent(err error) bool {
 // user-owned paths (sync.unmanaged).
 //
 // dryRun prints the intended removal instead of touching disk so
-// `sync --dry-run` previews stay side-effect-free. Capture mode is a
-// no-op for the same reason WriteFile diverts there. Detailed
+// `sync --dry-run` previews stay side-effect-free. Capture mode leaves
+// disk alone for the same reason WriteFile diverts there, and records
+// the removal (see CapturedRemovals). Detailed
 // recording logs the removal as a "delete" action so `sync` accounting
 // includes the cleaned-up file. Transaction logging captures the
 // pre-removal bytes so Rollback can restore the file.
@@ -663,6 +683,9 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	s.mu.Unlock()
 
 	if capturing {
+		s.mu.Lock()
+		s.removals = append(s.removals, CapturedRemoval{Path: path, Sum: sum})
+		s.mu.Unlock()
 		return false, nil
 	}
 	if dryRun {

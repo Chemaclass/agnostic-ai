@@ -69,7 +69,7 @@ The key stays opt-in. A workflow is a second copy of an agent already emitted at
 
 Import reads both `.clinerules/` and `.cline/rules/`. Identical duplicate rules deduplicate; distinct files with the same canonical destination fail with a conflict. The reserved `skills`, `workflows`, and `hooks` subdirectories do not become rules. Native `paths` arrays survive through `x-cline.paths`, including brace globs and empty arrays that disable activation.
 
-Cline still reads `.clinerules` as a single file: `rule-helpers.ts` loads it when it is not a directory. Import reads that file as one rule, `clinerules.md`, with its `paths` condition kept, and skips the `.clinerules/skills/` lookup. Sync then replaces the file with the `.clinerules/` directory, the same conversion Cline makes on its own. It does so only when the file's content matches a rule spec. Otherwise sync, `--check`, and `--dry-run` fail and leave the file alone: run `agnostic-ai import cline` first.
+Cline still reads `.clinerules` as a single file: `rule-helpers.ts` loads it when it is not a directory. Import reads that file as one rule, `clinerules.md`, with its `paths` condition kept, and skips the `.clinerules/skills/` lookup. Sync and `doctor --fix` then replace the file with the `.clinerules/` directory, the same conversion Cline makes on its own. They do so only when the file's content matches a rule spec. Otherwise sync, `--check`, `--dry-run`, and `doctor --fix` fail and leave the file alone: run `agnostic-ai import cline` first.
 
 Imported rules retain the [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification) classification used by older layouts.
 
