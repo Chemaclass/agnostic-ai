@@ -54,9 +54,9 @@ func newImportCmd() *cobra.Command {
 			"existing AI CLI configurations into agnostic specs. Sources: " + importSources() + ". " +
 			"Pass multiple sources to import from each in order; `.agnostic-ai/AGNOSTIC_AI.md` " +
 			"reflects the last source's top-level instructions file (last-wins). " +
-			"`--dry-run` lists the files an import would write. Add `--diff` to run the import " +
-			"in a temporary copy of the project (without .git) and show each proposed change, " +
-			"which sources wrote it, and where sources disagree; the project stays untouched.",
+			"`--dry-run` runs the import in a temporary copy of the project (without .git) and " +
+			"lists the files it would write; the project stays untouched. Add `--diff` to show " +
+			"each proposed change, which sources wrote it, and where sources disagree.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
@@ -83,11 +83,8 @@ func newImportCmd() *cobra.Command {
 			if diff {
 				return previewImport(args)
 			}
-			importDryRun = dryRun
-			defer func() { importDryRun = false }()
 			if dryRun {
-				resetImportDryRunPaths()
-				defer reportImportDryRun()
+				return dryRunImport(args)
 			}
 			return runImportArgs(args)
 		},

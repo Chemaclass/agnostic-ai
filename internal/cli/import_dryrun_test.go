@@ -159,3 +159,58 @@ func TestImporters_WriteOnlyThroughImportWriteFile(t *testing.T) {
 		}
 	}
 }
+
+// A later import stage reads a file an earlier stage only planned: codex
+// quotes the frontmatter of the SKILL.md it just copied. Plain dry-run
+// must plan it like a real import, keep path-only output, and write
+// nothing (#1046).
+func TestImport_DryRunPlansCodexSkillWithoutWriting(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, ".agents", "skills", "deploy", "SKILL.md"),
+		"---\nname: deploy\ndescription: Ship it #fast\n---\n\nbody\n")
+	before := snapshotProject(t, dir)
+
+	stdout := captureStdout(t, func() {
+		if _, err := runCLI(t, "import", "codex", "--dry-run"); err != nil {
+			t.Errorf("import: %v", err)
+		}
+	})
+
+	want := "  would write " + filepath.Join(".agnostic-ai", "skills", "deploy", "SKILL.md") + "\n"
+	if !strings.Contains(stdout, want) {
+		t.Errorf("missing %q in:\n%s", want, stdout)
+	}
+	if !strings.HasSuffix(stdout, "dry-run: 1 file(s) would be written\n") {
+		t.Errorf("unexpected summary:\n%s", stdout)
+	}
+	assertProjectUnchanged(t, before, snapshotProject(t, dir))
+}
+
+// During a dry-run a write that resolves outside the copy is recorded
+// but never reaches disk, so no path shape can lead it into the project.
+func TestImportWriteFile_SkipsPathsOutsideSandbox(t *testing.T) {
+	testutil.TempCwd(t)
+	sandbox, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "SKILL.md")
+	importSandbox = sandbox
+	t.Cleanup(func() { importSandbox = "" })
+
+	for _, p := range []string{outside, filepath.Join("..", "escape.md")} {
+		if err := importWriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("%s reached disk outside the sandbox: %v", p, err)
+		}
+	}
+	if err := importWriteFile("inside.md", []byte("x"), 0o644); err != nil {
+		t.Fatalf("write inside: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(sandbox, "inside.md")); err != nil {
+		t.Errorf("write inside the sandbox did not land: %v", err)
+	}
+}
