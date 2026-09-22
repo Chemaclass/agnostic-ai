@@ -19,6 +19,11 @@ in this file.
 - A missing binary, a project that never synced, an untracked file, a
   deleted source, or an older CLI each get a message naming the fix.
   The command never runs `sync` for you.
+- Projects configured with `agnostic-ai.yaml` work everywhere, not only
+  in `Open canonical source`: activation, schema validation, the
+  status bar, codelens, `Render current spec`, and the sync commands
+  all accept it next to the legacy `agnostic.config.yaml`. When both
+  exist, `agnostic-ai.yaml` wins, as it does for the CLI.
 
 ## 0.1.0 — 2026-05-13
 
