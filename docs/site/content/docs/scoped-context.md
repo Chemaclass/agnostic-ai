@@ -46,6 +46,16 @@ Claude gets a conditional rule. Codex and Cursor share `services/payments/AGENTS
 
 Edit the source and sync again. Use `agnostic-ai render .agnostic-ai/rules/payments-context.md` to preview, or `agnostic-ai why services/payments/AGENTS.md` to trace the generated file.
 
+## Check what applies to a file
+
+Start from the file you are editing:
+
+```bash
+agnostic-ai explain --file services/payments/handler.go --target cursor
+```
+
+The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the planned sync output, so a shared `services/payments/AGENTS.md` shows up in place of a `.mdc` rule when a peer target needs it. The report shows configured applicability. It does not record what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference.md#explain-a-source-file).
+
 ## Scope contract
 
 - `scope` covers a project-relative directory and its descendants. Use `/` separators. Absolute paths, `..`, glob-control characters, and symlink escapes are rejected. Omit scope for project-wide rules; `scope: .` is invalid.

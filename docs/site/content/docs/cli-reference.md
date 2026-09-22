@@ -152,7 +152,7 @@ Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-
 
 ## explain
 
-List every output file and section one spec contributes to, the reverse of the `<!-- source: ... -->` markers in merged documents. Writes nothing.
+List every output file and section one spec contributes to, the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead. Writes nothing.
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
@@ -168,6 +168,39 @@ Contributions are grouped by configured target, plus a "would emit if enabled" l
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
  "contributions": [{"target": "...", "path": "...", "section": "...", "mode": "full|section"}],
  "would_emit_if_enabled": []}
+```
+
+### Explain a source file
+
+Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its canonical source, output path, selector, and reason. Cursor is the only supported target.
+
+```bash
+agnostic-ai explain --file services/payments/handler.go --target cursor
+```
+
+| Flag | Description |
+|------|-------------|
+| `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
+| `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
+
+Each instruction gets one status:
+
+| Status | Meaning |
+|--------|---------|
+| `always` | Loads with no file condition: `alwaysApply: true`, or the project-root `AGENTS.md`. |
+| `match` | A `globs` pattern or a nested `AGENTS.md` directory covers the file. |
+| `no-match` | A selector exists and misses the file. |
+| `model-selected` | `alwaysApply: false` with a description and no globs. Cursor's agent decides. |
+| `manual` | `alwaysApply: false` with neither. Loads only when `@`-mentioned. |
+| `unknown` | Glob syntax Cursor does not document (braces, classes, negation), or unreadable frontmatter. |
+| `excluded` | Target selection (`target`, `targets`, `target-exclude`) leaves the target out. |
+| `not-emitted` | The rule targets Cursor but sync writes nothing for it, such as an unsupported scoped selector. |
+
+A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too, so a rule excluded from Cursor can still show up there. The report is configured applicability, not a record of the model's active context. Opening a file does not guarantee Cursor loads a matching instruction.
+
+```json
+{"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
+ "instructions": [{"status": "match", "source": "...", "output": "...", "selector": "...", "reason": "..."}]}
 ```
 
 ## compare

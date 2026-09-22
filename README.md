@@ -106,6 +106,7 @@ The [AI tooling updates](https://agnostic-ai.org/updates/) explain important ups
 | Automate sync for a team | [CI](https://agnostic-ai.org/docs/ci/) and [Git hooks](https://agnostic-ai.org/docs/git-hooks/) |
 | Run a project-owned harness test | [Verification gate](https://agnostic-ai.org/docs/cli-reference/#verify) |
 | Add directory-specific instructions | [Scoped context](https://agnostic-ai.org/docs/scoped-context/) |
+| See which Cursor instructions are configured for a source file | [explain --file](https://agnostic-ai.org/docs/cli-reference/#explain) |
 | Share specs across repositories | [Packs](https://agnostic-ai.org/docs/packs/) |
 | Diagnose missing or stale output | [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/) |
 | Check that links in generated skills resolve | [`doctor --check-references`](https://agnostic-ai.org/docs/troubleshooting/#broken-skill-references) |
