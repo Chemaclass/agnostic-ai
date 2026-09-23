@@ -10,10 +10,13 @@
 // (Amp's native skills layout). Amp also reads Claude Code's skill
 // directories by default (`.claude/skills/`, `~/.claude/skills/`,
 // `~/.claude/plugins/cache/`), per `amp.skills.disableClaudeCodeSkills`
-// in ampcode.com/cli-settings.schema.json, so a repo syncing `claude`
-// and `amp` together has every skill loaded twice; whether Amp dedupes
-// is undocumented. That toggle and its user-level counterpart,
-// `amp.skills.disableGlobalAgentsSkills`, are reachable only through
+// in ampcode.com/cli-settings.schema.json. Amp keeps the first skill
+// with a given `name`, and project `.agents/skills/` precedes
+// `.claude/skills/` (ampcode.com/docs/customize/skills, "Skill Sources
+// and Precedence"), so a repo syncing `claude` and `amp` loads each
+// skill once, from our `.agents/skills/` copy. User-level skills mask
+// project ones of the same name. `disableClaudeCodeSkills` and its
+// user-level counterpart, `amp.skills.disableGlobalAgentsSkills`, are reachable only through
 // `x-amp` on a settings spec; `amp.skills.path` adds directories
 // instead of gating a read (#1023).
 //

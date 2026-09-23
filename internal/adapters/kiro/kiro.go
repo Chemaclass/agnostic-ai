@@ -38,7 +38,8 @@
 // frontmatter, your system prompt is the document body"). `description`
 // (falls back to the agent's name) and `model` pass through; the full
 // documented field set also includes `tools`, `mcpServers`,
-// `permissions`, `hooks`, `keyboardShortcut`, and `welcomeMessage`
+// `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`,
+// `excludedTools`, `includeMcpJson`, and `includePowers`
 // (kiro.dev/docs/custom-agents/configuration-reference/), of which only
 // `tools` has an agnostic-ai spec equivalent.
 //
