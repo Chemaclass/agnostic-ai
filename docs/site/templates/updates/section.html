@@ -114,6 +114,7 @@
         </a>
         {% endfor %}
       </div>
+      <nav class="archive-pager" data-pager data-page-size="{{ updates.page_size }}" aria-label="Edition pages" hidden></nav>
       <div class="archive-empty" data-empty-state hidden>
         <h3>{{ updates.copy.no_results_title }}</h3>
         <p>{{ updates.copy.no_results_body }}</p>
