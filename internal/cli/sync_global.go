@@ -27,8 +27,8 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// Version 4 records the per-agent effort written into user settings.
-	globalStateVersion = 4
+	// Version 5 records a content sum per owned file to catch hand edits.
+	globalStateVersion = 5
 )
 
 type globalSyncOptions struct {
@@ -42,6 +42,9 @@ type globalState struct {
 	Version int                 `json:"version"`
 	Files   []string            `json:"files"`
 	Agents  map[string][]string `json:"agents,omitempty"`
+	// Sums maps each owned file to the sum of what sync last wrote there,
+	// covering only the managed block of an instructions file.
+	Sums map[string]string `json:"sums,omitempty"`
 	// AgentEfforts records the effortLevel written per target and agent
 	// name, so a later sync removes only values it placed.
 	AgentEfforts map[string]map[string]string `json:"agentEfforts,omitempty"`
@@ -59,6 +62,8 @@ type globalWrite struct {
 	path string
 	data []byte
 	mode fs.FileMode
+	// owned marks a file sync writes whole, or a managed block in it.
+	owned bool
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
@@ -174,7 +179,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", statePath, err)
 	}
-	writes = append(writes, globalWrite{statePath, append(stateData, '\n'), 0o644})
+	writes = append(writes, globalWrite{path: statePath, data: append(stateData, '\n'), mode: 0o644})
 	var trees []string
 	for _, target := range targets {
 		trees = append(trees, globalTargets[target].trees(home)...)
@@ -206,6 +211,15 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return nil
 	}
 	removals := removedGlobalFiles(old.Files, next.Files)
+	if !o.backup {
+		edited, err := handEditedGlobalFiles(writes, removals, old)
+		if err != nil {
+			return err
+		}
+		if len(edited) > 0 {
+			return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
+		}
+	}
 	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
 		return err
 	}
@@ -233,7 +247,8 @@ func agentFailure(explicit bool, warn io.Writer) func(target string, err error) 
 
 // globalStateCurrent reports whether the recorded state already
 // describes next. It compares normalized content, so an older state
-// version holding the same ownership is not drift.
+// version holding the same ownership is not drift. Sums are left out:
+// they mirror file content, which check compares directly.
 func globalStateCurrent(path string, next globalState) bool {
 	if _, err := os.Stat(path); err != nil {
 		return false
@@ -242,6 +257,7 @@ func globalStateCurrent(path string, next globalState) bool {
 	if err != nil {
 		return false
 	}
+	recorded.Sums, next.Sums = nil, nil
 	a, errA := json.Marshal(recorded)
 	b, errB := json.Marshal(next)
 	return errA == nil && errB == nil && bytes.Equal(a, b)
@@ -332,12 +348,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			return false, nil
 		}
 		seen[path] = len(writes)
-		writes = append(writes, globalWrite{path, data, mode})
+		writes = append(writes, globalWrite{path: path, data: data, mode: mode})
 		return true, nil
 	}
 	add := func(path string, data []byte, mode fs.FileMode) error {
 		placed, err := place(path, data, mode)
 		if placed {
+			writes[len(writes)-1].owned = true
 			next.Files = append(next.Files, path)
 		}
 		return err
@@ -444,8 +461,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			return nil, next, err
 		}
 		if doc != nil {
-			if err := add(path, doc, 0o644); err != nil {
+			// Ownership of a hooks file is per entry, so it carries no sum.
+			placed, err := place(path, doc, 0o644)
+			if err != nil {
 				return nil, next, err
+			}
+			if placed {
+				next.Files = append(next.Files, path)
 			}
 		}
 	}
@@ -454,7 +476,66 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	sort.Strings(next.Files)
 	next.Files = slices.Compact(next.Files)
+	next.Sums = map[string]string{}
+	for _, path := range next.Files {
+		if sum, ok := old.Sums[path]; ok {
+			next.Sums[path] = sum
+		}
+	}
+	for _, w := range writes {
+		delete(next.Sums, w.path)
+		if w.owned {
+			next.Sums[w.path] = globalSum(w.data)
+		}
+	}
 	return writes, next, nil
+}
+
+// globalSum fingerprints what sync owns in a file: the managed block
+// when the file has one, otherwise the whole content.
+func globalSum(data []byte) string {
+	body := string(data)
+	start, end := strings.Index(body, globalStart), strings.Index(body, globalEnd)
+	if start >= 0 && end > start {
+		body = body[start : end+len(globalEnd)]
+	}
+	return adapters.ContentSum(body)
+}
+
+// handEditedGlobalFiles lists owned files whose content no longer
+// matches what the last sync wrote and that this run would overwrite or
+// remove. A file whose record predates sums is never listed.
+func handEditedGlobalFiles(writes []globalWrite, removals []string, old globalState) ([]string, error) {
+	var edited []string
+	check := func(path string, planned []byte) error {
+		recorded, ok := old.Sums[path]
+		if !ok {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		current := globalSum(data)
+		if current != recorded && (planned == nil || current != globalSum(planned)) {
+			edited = append(edited, path)
+		}
+		return nil
+	}
+	for _, w := range writes {
+		if err := check(w.path, w.data); err != nil {
+			return nil, err
+		}
+	}
+	for _, path := range removals {
+		if err := check(path, nil); err != nil {
+			return nil, err
+		}
+	}
+	return edited, nil
 }
 
 // addGlobalSkill copies a source skill folder (SKILL.md plus sibling

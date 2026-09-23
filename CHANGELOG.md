@@ -36,6 +36,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Sync reports a coverage note on every target that drops an agent `effort` or `mcpServers` list, instead of on a few (#1072).
 - Factory droids keep an empty `mcpServers: []`, which blocks every server, instead of dropping it and inheriting all of them (#1075).
 - Sync reports a coverage note when Claude or Qoder write a hook's `once: true` into a settings file, since both tools ignore it there (#1078).
+- `sync --global` stops before writing when a file it owns, or its managed block, was edited by hand since the last sync, and names the file. `--backup` overwrites and keeps a copy (#1082).
 
 ### Site
 

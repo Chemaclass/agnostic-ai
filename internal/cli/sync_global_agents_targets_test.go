@@ -271,13 +271,13 @@ func TestSyncGlobal_CheckAcceptsOlderStateVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	older := strings.Replace(string(data), `"version": 4`, `"version": 3`, 1)
+	older := strings.Replace(string(data), `"version": 5`, `"version": 4`, 1)
 	if older == string(data) {
-		t.Fatalf("state has no version 4 marker:\n%s", data)
+		t.Fatalf("state has no version 5 marker:\n%s", data)
 	}
 	mustWriteGlobalTest(t, statePath, older)
 	if _, _, err := runGlobalAgentTest("--check"); err != nil {
-		t.Errorf("version 3 state with the same ownership reported drift: %v", err)
+		t.Errorf("version 4 state with the same ownership reported drift: %v", err)
 	}
 }
 
