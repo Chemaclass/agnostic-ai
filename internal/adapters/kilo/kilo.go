@@ -106,6 +106,27 @@
 // spec called `goal` still emits, so the spec is never lost in
 // silence, and surfaces a coverage note naming the rename (#736).
 //
+// Hooks emit as one plugin module per hook spec at
+// `.kilo/plugin/<name>.ts` (override via outputs.kilo.hooks-dir), the
+// project plugin directory Kilo Code auto-registers at startup:
+// "Project: `.kilo/plugin/` or legacy `.kilocode/plugin/`" and "Every
+// `.ts` or `.js` file in those directories is auto-registered at
+// startup" (kilo.ai/docs/automate/extending/plugins, raw
+// packages/kilo-docs/pages/automate/extending/plugins.md, read
+// 2026-09-23, #1105). This adapter writes only the current
+// `.kilo/plugin/` path, not the legacy `.kilocode/plugin/` one, the
+// same choice already made for rules and skills above. Kilo's own
+// reference page states its plugin behavior "is identical to OpenCode",
+// and PreToolUse/PostToolUse map onto the same `tool.execute.before`/
+// `tool.execute.after` keys internal/adapters/opencode/hooks.go already
+// carries for `.opencode/plugins/`, with every other documented event
+// riding the single `event` bus hook. The local-file module shape
+// differs from OpenCode's exported function: "Plugins must
+// default-export a module descriptor. `id` is required for local-file
+// plugins", `export default { id: "<name>", server }`. Reading these
+// modules back is out of scope, the same as OpenCode's plugin
+// directory: recovering a spec would mean parsing TypeScript.
+//
 // MCP servers merge into the project `kilo.jsonc` (override via
 // outputs.kilo.mcp-file) under an `mcp` map, the key current Kilo Code
 // reads (`mcpServers` is the deprecated MCP-spec 2025-03-26 form).
@@ -214,7 +235,7 @@ var scannedSkillTrees = map[string]bool{
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings, spec.KindHook},
 }
 
 // Adapter emits Kilo Code configs.
@@ -231,13 +252,14 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // Emit writes one Markdown file per rule under `.kilo/rules/`, one
 // agent Markdown file per agent spec under `.kilo/agents/`, one shared
 // `.agents/skills/<name>/SKILL.md` folder per skill, one command
-// Markdown file per command spec under `.kilo/commands/`, plus a
-// merged `kilo.jsonc` carrying the `instructions` array (one entry per
-// rule file), the `mcp` map, a `skills.paths` entry when the skills dir
-// is outside the trees Kilo Code scans by itself, and a portable
-// default `model`. The project-root AGENTS.md (still read, but lower
-// priority than `instructions`; see the package doc) is written by
-// `sync`, not here.
+// Markdown file per command spec under `.kilo/commands/`, one plugin
+// module per hook spec under `.kilo/plugin/`, plus a merged
+// `kilo.jsonc` carrying the `instructions` array (one entry per rule
+// file), the `mcp` map, a `skills.paths` entry when the skills dir is
+// outside the trees Kilo Code scans by itself, and a portable default
+// `model`. The project-root AGENTS.md (still read, but lower priority
+// than `instructions`; see the package doc) is written by `sync`, not
+// here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -263,6 +285,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
+		return err
+	}
+	hooksDir := emit.OutputHooksDir(cfg, target, defaultPluginsDir)
+	if err := emitHooks(sess, b.Hooks, hooksDir, dryRun); err != nil {
 		return err
 	}
 	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

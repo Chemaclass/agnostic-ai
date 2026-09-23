@@ -236,6 +236,31 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreCompact",
 		"SessionShutdown",
 	),
+	// kilo.ai/docs/automate/extending/plugins' own "Hooks reference" and
+	// "Events" sections (#1105). PreToolUse and PostToolUse are aliases
+	// the adapter rewrites to tool.execute.before and tool.execute.after;
+	// the dotted names are Kilo's own and pass through untouched. Kilo's
+	// page documents its plugin behavior as identical to OpenCode's, but
+	// lists no `tui.*` events, so this set is OpenCode's minus that
+	// group.
+	"kilo": setOf(
+		"PreToolUse", "PostToolUse",
+		"tool.execute.before", "tool.execute.after",
+		"command.executed",
+		"file.edited", "file.watcher.updated",
+		"installation.updated",
+		"lsp.client.diagnostics", "lsp.updated",
+		"message.part.removed", "message.part.updated",
+		"message.removed", "message.updated",
+		"permission.asked", "permission.replied",
+		"server.connected",
+		"session.created", "session.compacted", "session.deleted",
+		"session.diff", "session.error", "session.idle",
+		"session.status", "session.updated",
+		"todo.updated",
+		"shell.env",
+		"experimental.session.compacting",
+	),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
@@ -298,7 +323,7 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder", "goose", "openhands"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline"),
+	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline", "kilo"),
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder", "augment", "factory"),
 	spec.KindSettings:    setOf("claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp"),

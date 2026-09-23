@@ -33,8 +33,14 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 	// shape RulesDirectory's default formatter gives every other
 	// plain-rules adapter (cline, windsurf, ...); Kilo Code's own rules
 	// doc shows no required frontmatter for an individual rule file,
-	// unlike SKILL.md or the agent profiles below.
-	frontmatterExempt := func(p string) bool { return strings.HasPrefix(p, filepath.Join(defaultRulesDir, "")) }
+	// unlike SKILL.md or the agent profiles below. Hook plugin modules
+	// are TypeScript, which has no frontmatter concept at all; they
+	// still carry the same `//`-comment provenance header (see
+	// header.Has below).
+	frontmatterExempt := func(p string) bool {
+		return strings.HasPrefix(p, filepath.Join(defaultRulesDir, "")) ||
+			strings.HasPrefix(p, filepath.Join(defaultPluginsDir, ""))
+	}
 
 	var checked int
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -88,8 +94,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
-// adapter declares in caps.Supports (Rule, Agent, Skill, Command, MCP,
-// Ignore), with three specimens per kind except Ignore. "disabled-server"
+// adapter declares in caps.Supports (Rule, Agent, Skill, Command, Hook,
+// MCP, Ignore), with three specimens per kind except Ignore and Hook.
+// "disabled-server"
 // actually sets `disabled: true` (B9, target-audit 2026-08-01
 // follow-up: the fixture was named for a server that never carried the
 // flag, so the kit sink emitted with no disable state at all before
@@ -113,6 +120,16 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Meta: map[string]any{"description": "cmd one"}, Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Meta: map[string]any{"description": "cmd two", "agent": "code"}, Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Meta: map[string]any{"description": "cmd three", "model": "gpt-5.5", "variant": "high"}, Body: "cmd three body"},
+		// Both plugin shapes: a tool hook keyed directly on the returned
+		// object, and a bus event routed through the single `event` hook.
+		{
+			Kind: spec.KindHook, Name: "fmt-go", Path: "hooks/fmt-go.yaml",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "edit", "command": "gofmt -w ."},
+		},
+		{
+			Kind: spec.KindHook, Name: "notify-idle", Path: "hooks/notify-idle.yaml",
+			Meta: map[string]any{"event": "session.idle", "command": "echo done"},
+		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},

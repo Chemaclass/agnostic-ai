@@ -36,6 +36,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindAgent, []string{".kilo/agents/alpha.md", ".kilo/agents/beta.md", ".kilo/agents/gamma.md"}},
 		{spec.KindSkill, []string{".agents/skills/uno/SKILL.md", ".agents/skills/dos/SKILL.md", ".agents/skills/tres/SKILL.md"}},
 		{spec.KindCommand, []string{".kilo/commands/cmd-one.md", ".kilo/commands/cmd-two.md", ".kilo/commands/cmd-three.md"}},
+		{spec.KindHook, []string{".kilo/plugin/fmt-go.ts", ".kilo/plugin/notify-idle.ts"}},
 		{spec.KindMCP, []string{"kilo.jsonc"}},
 		{spec.KindSettings, []string{"kilo.jsonc"}},
 	}
@@ -74,25 +75,25 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 }
 
 // TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind kilo does not declare in caps.Supports (Hook). Skill moved
-// out of this set once .agents/skills/ landed (target-audit
-// 2026-08-01), and Command moved out once `.kilo/commands/` landed
-// (#630); a future caps.Supports expansion needs to delete the
-// matching row here and demonstrate the emit path that backs the new
-// claim.
+// every kind kilo does not declare in caps.Supports (Review). Skill
+// moved out of this set once .agents/skills/ landed (target-audit
+// 2026-08-01), Command moved out once `.kilo/commands/` landed (#630),
+// and Hook moved out once `.kilo/plugin/` landed (#1105); a future
+// caps.Supports expansion needs to delete the matching row here and
+// demonstrate the emit path that backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindHook, Name: "fmt-go", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"}},
+		{Kind: spec.KindReview, Name: "api", Path: "reviews/api.md", Body: "review body"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (hook), got %d", got)
+		t.Errorf("expected 1 capability warning (review), got %d", got)
 	}
 }
 
