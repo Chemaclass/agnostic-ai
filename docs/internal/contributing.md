@@ -28,12 +28,28 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Adapter output | Adapter tests and relevant golden fixtures; preview with `sync --dry-run` |
 | Playground or code used by WASM | `make playground-serve`, then exercise affected behavior in a browser |
 | Documentation | Check relative links and anchors; execute changed command examples in a temporary project |
-| Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`. All need the pinned Zola; a mismatched one **skips** the three site tests instead of failing, so a green `go test ./...` proves nothing. See [Preview the site](../../CONTRIBUTING.md#preview-the-site) |
+| Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`, with the pinned Zola. See [Docs site](#docs-site) |
 | Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
 
 `make preflight` covers formatting, vet, lint, and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
 
+`make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after a pin bump. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
+
 A pull request runs the Go tests on Linux only. Windows and macOS run on every push to `main`, once a night, and on demand with `gh workflow run ci.yml --ref main`. Windows is the slowest job by a wide margin and decides how long a PR waits, while the portability that actually breaks here, path handling and shell quoting, is exercised on Linux too. So nothing is skipped, only deferred to the merge commit. Dispatch a full run before cutting a release.
+
+## Docs site
+
+The site is [Zola](https://www.getzola.org/), and `zola --version` must match `ZOLA_VERSION` in the [Makefile](../../Makefile) exactly. `site-serve`, `site-check`, and `site-build` refuse a different version. To run the pinned build without replacing your install, download that release and put it first on `PATH`:
+
+```bash
+gh release download v0.23.6 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
+tar xzf zola-v0.23.6-aarch64-apple-darwin.tar.gz
+PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
+```
+
+**A mismatched Zola does not fail `go test ./...`; it skips the three site build tests.** Run `make site-test` with the pinned binary before trusting a change under `docs/site/`.
+
+Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile and `.github/workflows/playground.yml` with the template edits, and diff `_site/` built on both versions.
 
 ## Conventions
 

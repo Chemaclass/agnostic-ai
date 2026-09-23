@@ -1,13 +1,10 @@
-## 🤔 Background
+## Summary
 
-<!-- Provide some context to the reviewer before going to any code. -->
+<!-- What changed for a user, and why. -->
 
-## 💡 Goal
+## Test plan
 
-<!-- The goal of this PR. -->
+- [ ] `make preflight`
+<!-- Add any other check you ran, such as a sync --dry-run or make site-test. -->
 
-## 🔖 Changes
-
-<!-- List individual changes in more detail as you might consider them important. -->
-
-<!-- Remember to add a mention about the fix/feature to the 'unreleased' section at the beginning of CHANGELOG.md for changes that are worth including in release notes. -->
+Closes #
