@@ -10,6 +10,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Kilo: hook specs emit as `.kilo/plugin/<name>.ts` plugin modules, auto-loaded at startup (#1105).
 
+### Fixed
+
+- Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.
+- Target audits ignore site chrome when hashing a vendor page: navigation, footers, the page `<head>`, "last modified" stamps, and the sidebar inside a router payload. A rebuilt docs site no longer marks every page changed, and a router-data page is saved as its own text instead of the whole payload.
+
 ### Site
 
 - The playground is simpler: edit a spec and see what Claude Code, Codex, Copilot, Gemini, and Cursor receive as you type, with a link to the other targets. It offers the seven kinds a newcomer meets first, and its agent and settings samples set a per-target model and effort so each tool's own key shows. The target picker and Download button are gone, each file path shows once, and the header gains the Targets link other pages have.

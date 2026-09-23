@@ -3,7 +3,7 @@
 # target-facts.sh - print what agnostic-ai currently claims about a target.
 #
 # One compact dump per target: declared capabilities, default output paths,
-# the adapter's package doc comment, the rows docs/site/content/docs/targets/_index.md
+# the adapter's package doc comment, the lines docs/site/content/docs/target-behavior.md
 # publishes about it, and its own docs/site/content/docs/targets/<target>.md page.
 # Feeds the `target-audit` skill so an auditing agent reads the repo's side of
 # the comparison in one call instead of grepping Go and the docs tree.
@@ -28,6 +28,7 @@ ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 REGISTRY="$ROOT/internal/adapters/adapter.go"
 LOCK="${TARGET_AUDIT_LOCK:-$ROOT/scripts/target-audit/sources.lock}"
 TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
+BEHAVIOR_PAGE="$ROOT/docs/site/content/docs/target-behavior.md"
 
 usage() {
   cat <<'EOF'
@@ -153,9 +154,9 @@ caps() {
   ' "$1"
 }
 
-# doc_rows <target> prints every targets/_index.md line naming the target.
+# doc_rows <target> prints every target-behavior.md line naming the target.
 doc_rows() {
-  grep -n "\*\*$1\*\*" "$TARGETS_DIR/_index.md" || true
+  grep -n -i -w "$1" "$BEHAVIOR_PAGE" || true
 }
 
 # doc_section <target> prints the target's own page, without its front matter.
@@ -265,7 +266,7 @@ dump_target() {
   echo
   echo "--- adapter package doc (what we claim the tool does) ---"
   doc_comment "$src"
-  echo "--- docs/site/content/docs/targets/_index.md rows ---"
+  echo "--- docs/site/content/docs/target-behavior.md lines ---"
   doc_rows "$t"
   echo
   echo "--- docs/site/content/docs/targets/$t.md ---"

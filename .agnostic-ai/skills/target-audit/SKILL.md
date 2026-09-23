@@ -31,7 +31,7 @@ Fetch the `target-audit` issue index into the run directory with three scoped ca
 
 Read `scripts/target-audit/signals.tsv` for the signal history, and the published capability entries under `docs/site/content/updates/` for the articles behind it. Preserve every stable signal ID. Give each batch only relevant entries and their source paths. A later briefing omitting a signal does not resolve it.
 
-Read the cross-target kind notes in `docs/site/content/docs/targets/_index.md` once and pass relevant claims to each batch. The fact script's per-target row filter does not include those shared paragraphs; they can stay stale after a target page is fixed.
+Read the cross-target kind notes in `docs/site/content/docs/target-behavior.md` once and pass relevant claims to each batch. The fact script prints only the lines that name a target, so a shared paragraph that lists no targets is missing from it; those can stay stale after a target page is fixed.
 
 Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit touching `.agnostic-ai/skills/target-audit/references/sources.md`. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
 
@@ -43,7 +43,7 @@ Dedupe rules:
 
 ## 2. Audit in bounded batches
 
-Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv`. Numbered lines are deep batches of targets whose pages or changelog moved, at most five and sized to available worker slots. The `sweep` line is one batch of targets whose rows are all unchanged. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`; give a sweep of more than five targets its own agent. Queue batches when needed; every requested target must be assigned exactly once.
+Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv`. Numbered lines are deep batches of targets whose pages or changelog moved, at most five and sized to available worker slots. The `sweep` line lists targets whose rows are all unchanged; record them as fast path without an agent, since nothing they serve moved since an auditor last read it. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`. Queue batches when needed; every requested target must be assigned exactly once.
 
 Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Prefer minimal-context spawns when supported. Pass:
 

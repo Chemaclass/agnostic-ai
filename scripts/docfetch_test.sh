@@ -139,6 +139,22 @@ function test_strip_html_collapses_whitespace() {
   assert_equals "one two" "$(strip_html "$FIXTURES/c.html")"
 }
 
+function test_strip_html_ignores_site_chrome() {
+  local a b
+  printf '<head><title>Rules - A</title></head><nav>Home Rules</nav><main>Body</main><div class="last-modified">21 September 2026</div><footer>Updated Sep 21</footer>' >"$FIXTURES/a.html"
+  printf '<nav>Rules Home Extra</nav><main>Body</main><title>Rules - A</title><div class="last-modified">23 September 2026</div><footer>Updated Sep 23</footer>' >"$FIXTURES/b.html"
+  a=$(strip_html "$FIXTURES/a.html")
+  b=$(strip_html "$FIXTURES/b.html")
+  assert_equals "Body" "$a"
+  assert_equals "$a" "$b"
+}
+
+function test_strip_html_keeps_a_changed_body() {
+  printf '<nav>Home</nav><main>Old <b>text</b></main>' >"$FIXTURES/a.html"
+  printf '<nav>Home</nav><main>New <b>text</b></main>' >"$FIXTURES/b.html"
+  assert_not_equals "$(strip_html "$FIXTURES/a.html")" "$(strip_html "$FIXTURES/b.html")"
+}
+
 # ---- meta_refresh_target -----------------------------------------------------
 
 function test_meta_refresh_target_extracts_an_absolute_url() {
@@ -194,6 +210,20 @@ function test_sha256_of_falls_back_when_sha256sum_is_absent() {
     sha256_of "$FIXTURES/abc"
   )
   assert_equals "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" "$out"
+}
+
+# ---- delta_text ---------------------------------------------------------------
+
+function test_delta_text_ignores_the_sidebar_and_keeps_page_text() {
+  printf '{"doc":{"ops":[{"insert":"Rules "},{"insert":"live here"}]},"busStructure":[{"updated_at":"2026-09-21"}]}' >"$FIXTURES/one.json"
+  printf '{"busStructure":[{"updated_at":"2026-09-23"}],"doc":{"ops":[{"insert":"Rules "},{"insert":"live here"}]}}' >"$FIXTURES/two.json"
+  assert_equals "Rules live here" "$(delta_text "$FIXTURES/one.json")"
+  assert_equals "$(delta_text "$FIXTURES/one.json")" "$(delta_text "$FIXTURES/two.json")"
+}
+
+function test_delta_text_is_empty_for_a_payload_without_ops() {
+  printf '{"props":{"page":"x"}}' >"$FIXTURES/one.json"
+  assert_empty "$(delta_text "$FIXTURES/one.json")"
 }
 
 # ---- json_sum -----------------------------------------------------------------

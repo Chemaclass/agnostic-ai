@@ -22,7 +22,7 @@ The prompt supplies your targets, audited commit, date window, run directory, sh
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, adapter package doc, and the
-  `docs/site/content/docs/targets/_index.md` rows and the target's own docs page. One call per target, no
+  `docs/site/content/docs/target-behavior.md` lines and the target's own docs page. One call per target, no
   grepping.
 - Their side: the run directory's `docfetch.tsv` holds one row per vendor URL, already fetched this run, with its mode, content hash, status against the committed lock, and the saved body under `pages/<target>/`. Read your targets' rows. Run `scripts/target-facts.sh --sources <target>...` for the per-target notes that go with them, and do not load unrelated vendor sections.
 
@@ -35,7 +35,12 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 1. Run `scripts/target-facts.sh <target>`. This is the claim under test.
 2. Read the saved changelog body first, newest entry first. It names
    what moved since the last audit faster than the docs do.
-3. Read the saved pages whose status is `new` or `changed`. A page marked
+3. Read the saved `.txt` text of pages whose status is `new` or
+   `changed`. The hash ignores navigation, footers, the `<head>`, a
+   "last modified" stamp, and a router payload's sidebar, so a `changed`
+   row nearly always carries a content edit. When an earlier run's copy of
+   the same page exists locally, diff the two to find the edit, then quote
+   this run's copy. A page marked
    `unchanged` was fetched fresh this run and its visible text hashes
    identical to the committed lock, so open the saved copy only when a
    changelog entry or a candidate finding points at it. A status of
@@ -47,9 +52,7 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 
    A URL that 404s is a finding (`docs-moved`). Search for the
    replacement and report the new URL. A URL that resolves to content
-   about a different topic is also `docs-moved`, not an absent surface;
-   two consecutive runs once called a documented path undocumented
-   because a moved page redirected to marketing.
+   about a different topic is also `docs-moved`, not an absent surface.
 
    When a corpus of real config files is the only evidence available,
    separate files the vendor's own tool produced from files another tool
@@ -79,16 +82,11 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    and the exact line in our source. If either is ambiguous, downgrade
    the finding to `unconfirmed` and say what would settle it.
 6. Never generalize one target's answer to another, even an adjacent
-   one. One `disabled` question has had three different answers across
-   six targets under two different key names, and both attempts to state
-   a general rule were wrong. Tool vocabularies split the same way: Qoder
-   uses Claude-style tool names, Augment uses its own, so a passthrough
-   that is correct for one silently names nothing on the other. Check
-   each target separately and say so per target.
-7. Treat a lead in your prompt as a question, not a fact. Leads have
-   been wrong, including one that asserted a deprecated config key as
-   current. Confirm the whole claim against the source, including the
-   part that was handed to you.
+   one. Field names and tool vocabularies split between tools (Qoder uses
+   Claude-style tool names, Augment its own). Check each target
+   separately and say so per target.
+7. Treat a lead in your prompt as a question, not a fact. Confirm the
+   whole claim against the source, including the part handed to you.
 8. For each capability signal, inspect the current spec, adapter, config,
    and target passthroughs. Try the smallest realistic representation in
    a temporary project when an existing kind or `x-<target>` escape hatch
