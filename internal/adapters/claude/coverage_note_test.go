@@ -61,3 +61,34 @@ func TestEmit_MCP_DisabledUsesProjectRejection(t *testing.T) {
 		t.Errorf("missing rejection: %s", raw)
 	}
 }
+
+// "Only honored for hooks declared in skill frontmatter; ignored in
+// settings files and agent frontmatter" (code.claude.com/docs/en/hooks).
+// This adapter's only hook sink is `.claude/settings.json`, so `once`
+// still emits (the bytes round-trip) but never takes effect there (#1078).
+func TestEmit_Hook_OnceNotesFieldNoOp(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "boot", Meta: map[string]any{
+			"event": "SessionStart", "command": "echo hi", "once": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(".claude/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"once": true`) {
+		t.Errorf("expected once to still emit, got %s", raw)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "once") {
+		t.Errorf("expected a once field no-op note, got: %q", buf.String())
+	}
+}

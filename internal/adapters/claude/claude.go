@@ -51,6 +51,10 @@
 // Hooks support command, http, mcp_tool, and prompt handlers. Non-command
 // payloads retain common filters and timeouts without command-only options.
 // Import preserves these stable handlers; experimental agent hooks are excluded.
+// `once` is "only honored for hooks declared in skill frontmatter; ignored
+// in settings files and agent frontmatter" (code.claude.com/docs/en/hooks),
+// so this adapter's only hook sink, settings.json, still writes it but a
+// field no-op note says it never deregisters the hook there (#1078).
 // The dedicated .mcp.json is managed as a whole document.
 package claude
 
@@ -613,6 +617,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	keyOrder := []matcherKey{}
+	onceNoOp := 0
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		matcher, _ := h.Meta["matcher"].(string)
@@ -623,12 +628,17 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		if len(handlers) == 0 {
 			continue
 		}
+		if hookBoolMeta(h.Meta, "once") {
+			onceNoOp++
+		}
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
 		byKey[k] = append(byKey[k], handlers...)
 	}
+	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
+		"Claude Code only honors once for hooks declared in skill frontmatter; a settings.json or agent-frontmatter hook keeps running every time")
 	byEvent := map[string][]claudehooks.Group{}
 	eventOrder := []string{}
 	for _, k := range keyOrder {

@@ -212,6 +212,38 @@ func TestEmit_Hook_ShellWithArgsNotesFieldNoOp(t *testing.T) {
 	}
 }
 
+// "only effective for session-scoped hooks" (docs.qoder.com/cli/hooks),
+// and session-scoped means "hooks in Subagent frontmatter"
+// (docs.qoder.com/cli/subagent). A settings-file hook is neither, so
+// `once` still emits (the bytes round-trip) but never takes effect
+// there, on a command or a non-command handler (#1078).
+func TestEmit_Hook_OnceNotesFieldNoOp(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "boot", Meta: map[string]any{
+			"event": "SessionStart", "command": "echo hi", "once": true,
+		}},
+		{Kind: spec.KindHook, Name: "greet", Meta: map[string]any{
+			"event": "SessionStart", "type": "prompt", "prompt": "Say hi.", "once": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readSettings(t, filepath.Join(dir, ".qoder/settings.json"))
+	if strings.Count(got, `"once": true`) != 2 {
+		t.Errorf("expected once to still emit on both handlers, got %s", got)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "once") {
+		t.Errorf("expected a once field no-op note, got: %q", buf.String())
+	}
+}
+
 // A `command` list produces one hook entry per command, matching
 // Claude Code's and Codex's documented behavior for the same field
 // (docs/site/content/docs/spec-format.md, "When command is a list...").
