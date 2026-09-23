@@ -1,7 +1,9 @@
 package copilot
 
 import (
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -16,13 +18,14 @@ import (
 // Arbitrary `x-copilot` keys (target, user-invocable, mcp-servers, ...)
 // pass through for the rest of the documented schema. The profile table
 // has no effort key, and per-agent `effortLevel` lives only in the
-// user-tier `subagents.agents` setting, so a portable `effort` raises a
-// coverage note instead of reaching a file (#1066).
+// user-tier `subagents.agents` setting. Project sync raises a coverage
+// note for a portable `effort`; a user-tier session leaves every
+// supported level to AgentEffortLevels and notes only the rest.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	droppedEffort := 0
 	for _, a := range agents {
 		body, dropped := agentMarkdown(a)
-		if dropped {
+		if dropped && !(sess.UserTier() && supportedEffortLevel(a)) {
 			droppedEffort++
 		}
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
@@ -31,19 +34,51 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", droppedEffort,
-		"Copilot agent profiles have no effort key; set a per-agent effortLevel under subagents.agents in ~/.copilot/settings.json")
+		"Copilot agent profiles have no effort key; set a per-agent effortLevel of low, medium, high, or xhigh under subagents.agents in ~/.copilot/settings.json")
 	return nil
 }
 
+// effortLevels are the values Copilot documents for effortLevel.
+var effortLevels = []string{"low", "medium", "high", "xhigh"}
+
+// AgentEffortLevels maps each agent name to the portable effort that
+// belongs in `subagents.agents.<name>.effortLevel`, skipping agents with
+// an explicit x-copilot.effort and values Copilot does not accept.
+func (Adapter) AgentEffortLevels(agents []spec.Entry) map[string]string {
+	levels := map[string]string{}
+	for _, a := range agents {
+		if level, ok := droppedEffort(a); ok && slices.Contains(effortLevels, level) {
+			levels[a.Name] = level
+		}
+	}
+	return levels
+}
+
+func supportedEffortLevel(e spec.Entry) bool {
+	level, _ := droppedEffort(e)
+	return slices.Contains(effortLevels, level)
+}
+
+// droppedEffort returns the portable effort a profile cannot carry. An
+// explicit x-copilot.effort passes through like any other x-copilot key,
+// so it is written, not dropped.
+func droppedEffort(e spec.Entry) (string, bool) {
+	custom, _ := e.Meta[emit.XPrefix+target].(map[string]any)
+	if _, explicit := custom["effort"]; explicit {
+		return "", false
+	}
+	effort := emit.ResolveMeta(e.Meta, target)["effort"]
+	if effort == nil || effort == "" {
+		return "", false
+	}
+	return fmt.Sprint(effort), true
+}
+
 // agentMarkdown renders one profile and reports whether a portable
-// `effort` was dropped. An explicit `x-copilot.effort` passes through like
-// any other x-copilot key, so it is written, not dropped.
+// `effort` was dropped.
 func agentMarkdown(e spec.Entry) (string, bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
-	custom, _ := e.Meta[emit.XPrefix+target].(map[string]any)
-	_, explicit := custom["effort"]
-	effort := resolved["effort"]
-	dropped := !explicit && effort != nil && effort != ""
+	_, dropped := droppedEffort(e)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
 		desc = e.Name

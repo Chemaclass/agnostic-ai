@@ -119,3 +119,16 @@ func TestEmitAgents_EffortNoteSkipsPassthroughAndOtherTargets(t *testing.T) {
 		t.Errorf("no effort note expected for a passthrough or another target's value, got: %s", buf.String())
 	}
 }
+
+func TestAgentEffortLevels_KeepsOnlyDroppedSupportedLevels(t *testing.T) {
+	agents := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "rev", Meta: map[string]any{"effort": map[string]any{"copilot": "xhigh", "default": "low"}}},
+		{Kind: spec.KindAgent, Name: "deep", Meta: map[string]any{"effort": "max"}},
+		{Kind: spec.KindAgent, Name: "explicit", Meta: map[string]any{"x-copilot": map[string]any{"effort": "high"}}},
+		{Kind: spec.KindAgent, Name: "plain", Meta: map[string]any{}},
+	}
+	got := Adapter{}.AgentEffortLevels(agents)
+	if len(got) != 1 || got["rev"] != "xhigh" {
+		t.Errorf("AgentEffortLevels = %v, want only rev: xhigh", got)
+	}
+}

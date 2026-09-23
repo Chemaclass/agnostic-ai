@@ -43,6 +43,9 @@ type globalTarget struct {
 	// rootSubdir is appended to the rootEnv value, for a vendor whose
 	// variable names the parent of its configuration directory.
 	rootSubdir string
+	// agentEfforts is the user settings file holding per-agent effort
+	// for a target whose agent files have no effort key.
+	agentEfforts string
 	// agentsWindows is relative to APPDATA when the vendor uses it on Windows.
 	agentsWindows string
 	// hooks is the hooks file.
@@ -122,6 +125,7 @@ var globalTargets = map[string]globalTarget{
 		rootEnv:      "COPILOT_HOME",
 		root:         globalPathHome + ".copilot",
 		agents:       globalPathHome + ".copilot/agents",
+		agentEfforts: globalPathHome + ".copilot/settings.json",
 		instructions: globalPathHome + ".copilot/copilot-instructions.md",
 		skills:       globalPathHome + ".copilot/skills",
 	},
