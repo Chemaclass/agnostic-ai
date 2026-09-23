@@ -340,6 +340,10 @@ select:hover {
   display: inline-block;
 }
 
+.select-wrap[hidden] {
+  display: none;
+}
+
 /* ─────────── Source textarea ─────────── */
 
 textarea {
@@ -383,13 +387,14 @@ textarea::placeholder {
   transition: background 120ms, border-color 120ms, color 120ms;
 }
 
-.tabs button:hover:not(:disabled) {
+.tabs button:hover {
   border-color: var(--accent);
   color: var(--fg);
 }
 
 .tabs button:disabled {
   background: var(--panel-2);
+  border-color: var(--border-strong);
   border-style: dashed;
   color: var(--fg-muted);
   cursor: not-allowed;

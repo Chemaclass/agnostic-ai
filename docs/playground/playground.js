@@ -22,7 +22,9 @@ Subject line under 72 chars. Body explains why, not what.
   agent: `---
 name: code-reviewer
 description: Reviews diffs for bugs, style, and security issues.
-model: sonnet
+model:
+  claude: claude-opus-5-5
+  cursor: gpt-6-sol
 tools:
   - Read
   - Grep
