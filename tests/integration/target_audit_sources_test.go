@@ -89,18 +89,27 @@ func TestAuditSources_EverySectionCarriesDocsAndWatch(t *testing.T) {
 	}
 }
 
-// maxSectionWords caps one target's section. Each audit loads it into an
-// auditor, and dated history appended run after run once pushed several
-// sections past 1,000 words (#1109). Git history, signals.tsv, and the
-// closed target-audit issues keep that record instead.
-const maxSectionWords = 400
+// maxProseWords caps one target's section, minus its `docs:` and
+// `changelog:` lines, which carry the fetched URLs and so are not trimmed.
+// Each audit loads the section into an auditor, and dated history
+// appended run after run once pushed several sections past 1,000 words
+// (#1109). Git history, signals.tsv, and the closed target-audit issues
+// keep that record instead.
+const maxProseWords = 350
 
 // TestAuditSources_SectionsStayShort stops the file growing back.
 func TestAuditSources_SectionsStayShort(t *testing.T) {
 	for name, body := range sourceSections(t) {
-		if n := len(strings.Fields(body)); n > maxSectionWords {
-			t.Errorf("section %q has %d words, over the %d cap; drop dated notes and summaries of releases that changed nothing we emit",
-				name, n, maxSectionWords)
+		n := 0
+		for _, line := range strings.Split(body, "\n") {
+			if strings.HasPrefix(line, "- docs:") || strings.HasPrefix(line, "- changelog:") {
+				continue
+			}
+			n += len(strings.Fields(line))
+		}
+		if n > maxProseWords {
+			t.Errorf("section %q has %d words of prose outside its docs and changelog lines, over the %d cap; cut dated notes and fold repeated traps",
+				name, n, maxProseWords)
 		}
 	}
 }
