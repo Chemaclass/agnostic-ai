@@ -94,10 +94,9 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 }
 
 // kitSinkBundle returns a Bundle exercising every kind the kilo
-// adapter declares in caps.Supports (Rule, Agent, Skill, Command, Hook,
-// MCP, Ignore), with three specimens per kind except Ignore and Hook.
-// "disabled-server"
-// actually sets `disabled: true` (B9, target-audit 2026-08-01
+// adapter declares in caps.Supports (Settings, Rule, Agent, Skill,
+// Command, Hook, MCP, Ignore), with three specimens per kind except
+// Settings, Ignore and Hook. "disabled-server" actually sets `disabled: true` (B9, target-audit 2026-08-01
 // follow-up: the fixture was named for a server that never carried the
 // flag, so the kit sink emitted with no disable state at all before
 // and after the #518 schema fix; this fixture now exercises the path

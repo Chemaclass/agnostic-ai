@@ -62,15 +62,15 @@ Ignore specs write project-root `.kilocodeignore`. Kilo's [compatibility migrato
 
 ## Config keys
 
-| Key | Default |
-|-----|---------|
-| `outputs.kilo.rules-dir` | `.kilo/rules` |
-| `outputs.kilo.agents-dir` | `.kilo/agents` |
-| `outputs.kilo.skills-dir` | `.agents/skills` |
-| `outputs.kilo.commands-dir` | `.kilo/commands` |
-| `outputs.kilo.hooks-dir` | `.kilo/plugin` |
-| `outputs.kilo.mcp-file` | `kilo.jsonc` |
-| `outputs.kilo.ignore-file` | `.kilocodeignore` |
+| Key | Default | Notes |
+|-----|---------|-------|
+| `outputs.kilo.rules-dir` | `.kilo/rules` | |
+| `outputs.kilo.agents-dir` | `.kilo/agents` | |
+| `outputs.kilo.skills-dir` | `.agents/skills` | |
+| `outputs.kilo.commands-dir` | `.kilo/commands` | |
+| `outputs.kilo.hooks-dir` | `.kilo/plugin` | Kilo only loads plugins from `plugin/` or `plugins/`, so moving this takes the hooks out of range |
+| `outputs.kilo.mcp-file` | `kilo.jsonc` | |
+| `outputs.kilo.ignore-file` | `.kilocodeignore` | |
 
 ## Verify
 
