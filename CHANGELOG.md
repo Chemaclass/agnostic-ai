@@ -32,6 +32,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import cline` reads a single-file `.clinerules` as one rule, and `sync` turns it into the rules directory once imported (#1057, #1060).
 - `doctor --fix` replaces an imported single-file `.clinerules` like `sync` does, instead of failing with `not a directory` (#1064).
 - Sync reports a coverage note when Copilot drops an agent `effort`, since Copilot agent profiles have no effort key (#1066).
+- Sync reports a coverage note on every target that drops an agent `effort` or `mcpServers` list, instead of on a few (#1072).
 
 ### Site
 

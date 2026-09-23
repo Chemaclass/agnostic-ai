@@ -201,6 +201,9 @@ const (
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindIgnore},
+	AgentFieldReasons: map[string]string{
+		"mcpServers": "Kiro takes inline server definitions only; set x-kiro.mcpServers",
+	},
 }
 
 // Adapter emits AWS Kiro configs.

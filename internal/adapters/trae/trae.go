@@ -200,6 +200,9 @@ var commandFrontmatterKeys = []string{"name", "description"}
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindIgnore},
+	AgentFieldReasons: map[string]string{
+		"mcpServers": "Trae writes an agent MCP list only from x-trae.mcpServers",
+	},
 }
 
 // Adapter emits Trae configs.

@@ -87,8 +87,9 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	AgentFields: []string{"effort", "mcpServers"},
 }
 
 // Adapter emits Claude Code configs.

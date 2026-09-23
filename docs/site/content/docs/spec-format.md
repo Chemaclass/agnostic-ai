@@ -122,7 +122,7 @@ x-codex:
 | [Junie](@/docs/targets/junie.md) | `model: gpt-5.5`, `effort: high` |
 | [Cursor](@/docs/targets/cursor.md) | `model: claude-opus-5[effort=high]`. The resolved `high` is discarded |
 | [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "xhigh"` from `x-codex`, overriding the mapped `high` |
-| [Trae](@/docs/targets/trae.md) | `model` dropped with a coverage note, `effort` dropped without one |
+| [Trae](@/docs/targets/trae.md) | `model` and `effort` dropped, each with a coverage note |
 
 **`effort` values by target.** Only the targets listed were checked. A top-level `effort` asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere.
 
@@ -133,11 +133,11 @@ x-codex:
 | [Junie](@/docs/targets/junie.md) | The vendor documents `effort` as an alias of `reasoningLevel` | Written verbatim as `effort` |
 | [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
 | [Codex](@/docs/targets/codex.md) | Any string. `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`, and `persistent` are named; any other string still lands as a custom effort label | Written as `model_reasoning_effort`. An integer budget has no string form and raises a coverage note instead. `x-codex.model_reasoning_effort` wins over the mapped value |
-| [Cursor](@/docs/targets/cursor.md) | none | No frontmatter key. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Cursor](@/docs/targets/cursor.md) | none | Not written, and raises a coverage note. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
 | [Copilot](@/docs/targets/copilot.md) | none in agent profiles. Per-agent `effortLevel` exists only in the user-tier `subagents.agents` setting | Not written, and raises a coverage note. `x-copilot.effort` still passes through |
-| [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written |
+| [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written, and raises a coverage note |
 
-The "How it lands" column is the point: on Claude Code, Qoder, Junie, and Codex agnostic-ai writes the string value and validates nothing beyond its shape, and on Cursor it does nothing at all.
+The "How it lands" column is the point: on Claude Code, Qoder, Junie, and Codex agnostic-ai writes the string value and validates nothing beyond its shape. Every other target drops it with a coverage note.
 
 Two targets couple the two keys, in opposite directions. Cursor encodes per-model options inside the model string rather than as a field, so its effort rides on the `model` map and never on the `effort` map. Factory goes the other way: it ignores `reasoningEffort` when `model` resolves to `inherit`, so both keys are written and the vendor drops one.
 
@@ -167,6 +167,8 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 | [OpenHands](@/docs/targets/openhands.md) | Inline server definitions only. Set `x-openhands.mcp_servers` |
 | [Antigravity](@/docs/targets/antigravity.md) | Inline server objects only. Set `x-antigravity.mcpServers` |
 | [Kiro](@/docs/targets/kiro.md) | Inline server definitions only. Set `x-kiro.mcpServers` |
+
+Every target not listed drops the list with a coverage note, and so do the three inline targets, whose note names the `x-<target>` key to set instead.
 
 Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands, Antigravity, and Kiro embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
 

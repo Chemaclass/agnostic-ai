@@ -162,6 +162,8 @@ var caps = emit.Capabilities{
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
+	// effort: frontmatter_policy.go notes the values outside the enum.
+	AgentFields: []string{"effort", "mcpServers"},
 }
 
 // Adapter emits Factory Droid CLI configs.

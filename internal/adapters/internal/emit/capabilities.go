@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +20,22 @@ type Capabilities struct {
 	Target string
 	// Supports lists the spec kinds this adapter emits natively.
 	Supports []spec.Kind
+	// AgentFields lists the portable agent fields from
+	// trackedAgentFields that this adapter writes, or drops under a
+	// coverage note of its own. Every other tracked field an agent sets
+	// is reported by ReportUnsupported, so no target drops one silently.
+	AgentFields []string
+	// AgentFieldReasons replaces the default reason of a dropped
+	// tracked field when the target has a more specific one, such as
+	// a native key that takes a different shape.
+	AgentFieldReasons map[string]string
+}
+
+// trackedAgentFields maps each portable agent field with a native key on
+// only some targets to the reason used when a target has none.
+var trackedAgentFields = []struct{ field, reason string }{
+	{"effort", "the agent file has no reasoning effort key"},
+	{"mcpServers", "the agent file has no MCP server list"},
 }
 
 // supports reports whether the adapter declares native support for k.
@@ -68,7 +85,37 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 			capabilityWarnState.mu.Unlock()
 		}
 	}
+	if c.supports(spec.KindAgent) {
+		noteDroppedAgentFields(c, b.Agents)
+	}
 	return nil
+}
+
+// noteDroppedAgentFields raises one field no-op note per tracked agent
+// field the target neither writes nor reports itself. A field set only
+// under `x-<target>` passes through with the rest of that block, so it is
+// not dropped.
+func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
+	for _, t := range trackedAgentFields {
+		if slices.Contains(c.AgentFields, t.field) {
+			continue
+		}
+		dropped := 0
+		for _, a := range agents {
+			custom, _ := a.Meta[XPrefix+c.Target].(map[string]any)
+			if _, explicit := custom[t.field]; explicit {
+				continue
+			}
+			if v := ResolveMeta(a.Meta, c.Target)[t.field]; v != nil && v != "" {
+				dropped++
+			}
+		}
+		reason := t.reason
+		if r, ok := c.AgentFieldReasons[t.field]; ok {
+			reason = r
+		}
+		NoteFieldNoOp(c.Target, spec.KindAgent, t.field, dropped, reason)
+	}
 }
 
 type pendingWarn struct {
