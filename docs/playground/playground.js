@@ -24,7 +24,10 @@ name: code-reviewer
 description: Reviews diffs for bugs, style, and security issues.
 model:
   claude: claude-opus-5-5
-  cursor: gpt-6-sol
+  codex: gpt-6-sol
+effort:
+  claude: xhigh
+  default: high
 tools:
   - Read
   - Grep
@@ -80,28 +83,9 @@ permissions:
   ask:
     - Bash(git push:*)
 model: claude-opus-4-8
-`,
-  review: `---
-name: backend-review
-scope: backend
----
-
-Flag handlers that access the database without going through a repository.
-`,
-  environment: `name: development
-install: go mod download
-terminals:
-  - name: dev
-    command: go run ./cmd/agnostic-ai
-`,
-  ignore: `---
-name: private-files
----
-
-# Secrets and build artifacts the agent should never read
-*.env
-secrets/
-dist/
+effort:
+  claude: xhigh
+  default: high
 `,
 };
 
@@ -143,21 +127,6 @@ const KINDS = {
     summary: "Portable permission rules and the default model.",
     anchor: "settings",
     docLabel: "Spec format: settings",
-  },
-  review: {
-    summary: "Guidance for a code-review bot. Cursor Bugbot and Goose read it.",
-    anchor: "reviews",
-    docLabel: "Spec format: reviews",
-  },
-  environment: {
-    summary: "How an agent boots the dev environment: install, services, terminals.",
-    anchor: "environments",
-    docLabel: "Spec format: environments",
-  },
-  ignore: {
-    summary: "Gitignore-syntax patterns an agent must not read or index.",
-    anchor: "ignore",
-    docLabel: "Spec format: ignore",
   },
 };
 

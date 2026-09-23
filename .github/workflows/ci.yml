@@ -115,6 +115,9 @@ jobs:
       - name: Build WASM playground
         run: GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
 
+      - name: Test WASM playground
+        run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
+
   schema:
     name: Schema drift
     runs-on: ubuntu-latest

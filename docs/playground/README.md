@@ -29,7 +29,7 @@ http://127.0.0.1:8080/playground/.
 |------|---------|
 | `index.html` | Two-pane UI: spec input on the left, emitted outputs on the right. |
 | `style.css` | Layout + dark/light theme. |
-| `playground.js` | Wires up all ten spec kinds, five demo targets with a link to the rest, capability-aware output tabs, and debounced rendering. |
+| `playground.js` | Wires up seven spec kinds, five demo targets with a link to the rest, capability-aware output tabs, and debounced rendering. |
 | `wasm_exec.js` | Go toolchain shim. Generated; gitignored. |
 | `agnostic-ai.wasm` | Built from `cmd/agnostic-ai-wasm`. Generated; gitignored. |
 

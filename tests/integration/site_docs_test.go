@@ -212,6 +212,9 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	}
 }
 
+// The playground offers the kinds a newcomer meets first; the rest live in the spec format.
+var playgroundKinds = []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings"}
+
 var siteNavLink = regexp.MustCompile(`>([^<>]+)</a>`)
 
 func siteNavLabels(t *testing.T, page string) []string {
@@ -265,7 +268,7 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	if !strings.Contains(page, `<option value="agent" selected>agent</option>`) {
 		t.Error("playground does not default to the agent spec kind")
 	}
-	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
+	for _, kind := range playgroundKinds {
 		if !strings.Contains(page, `value="`+kind+`"`) {
 			t.Errorf("playground kind picker is missing %s", kind)
 		}
@@ -339,7 +342,7 @@ func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
 			t.Errorf("playground kind %s has no usable one-line description", kind)
 		}
 	}
-	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
+	for _, kind := range playgroundKinds {
 		if !found[kind] {
 			t.Errorf("playground kind %s has no description entry", kind)
 		}

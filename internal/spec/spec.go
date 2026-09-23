@@ -774,8 +774,8 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 	}, nil
 }
 
-// ParseYAMLBytes parses an in-memory hook or MCP spec (pure YAML, no
-// frontmatter) and returns the Entry.
+// ParseYAMLBytes parses an in-memory YAML spec (hook, MCP, settings, or
+// environment; no frontmatter) and returns the Entry.
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
 	meta, keys, styles, err := decodeYAMLOrdered(data)
 	if err != nil {
