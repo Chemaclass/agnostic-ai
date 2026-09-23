@@ -43,7 +43,6 @@ func TestSyncGlobal_CopilotAgentEffortLandsInUserSettings(t *testing.T) {
 	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	settings := filepath.Join(home, ".copilot", "settings.json")
 	mustWriteGlobalTest(t, settings, `{
-  // user comment
   "theme": "dark",
   "subagents": {"agents": {"reviewer": {"model": "gpt-6-sol"}}}
 }`)
@@ -179,5 +178,56 @@ func TestSyncGlobal_CopilotAgentEffortKeepsKeyOrderAndIndent(t *testing.T) {
 	}
 	if !strings.HasPrefix(body, "{\n    \"theme\"") {
 		t.Errorf("the file's four-space indent must survive:\n%s", body)
+	}
+}
+
+func TestSyncGlobal_CopilotCommentedSettingsStopBeforeRewrite(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	original := "{\n  // keep me\n  \"theme\": \"dark\"\n}\n"
+	mustWriteGlobalTest(t, settings, original)
+
+	_, _, err := runGlobalAgentTest("--only", "copilot")
+	if err == nil || !strings.Contains(err.Error(), "comments") || !strings.Contains(err.Error(), "--backup") {
+		t.Fatalf("a rewrite that drops comments must stop and name --backup, got %v", err)
+	}
+	if data, _ := os.ReadFile(settings); string(data) != original {
+		t.Errorf("settings.json changed despite the stop:\n%s", data)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".copilot", "agents", "reviewer.agent.md")); !os.IsNotExist(err) {
+		t.Errorf("no planned write may land after the stop, stat err = %v", err)
+	}
+
+	if _, _, err := runGlobalAgentTest("--only", "copilot", "--backup"); err != nil {
+		t.Fatalf("--backup must rewrite: %v", err)
+	}
+	if backup, err := os.ReadFile(settings + ".bak"); err != nil || string(backup) != original {
+		t.Errorf("the backup must keep the commented original, err = %v:\n%s", err, backup)
+	}
+	if got := copilotAgentEffort(readCopilotSettings(t, home), "reviewer"); got != "xhigh" {
+		t.Errorf("effortLevel = %v, want xhigh", got)
+	}
+}
+
+func TestSyncGlobal_CopilotCommentedSettingsWithNothingToWriteSync(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commented := strings.Replace(string(data), "{\n", "{\n  // added by hand\n", 1)
+	mustWriteGlobalTest(t, settings, commented)
+
+	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
+		t.Fatalf("an unchanged effort needs no rewrite, so comments cannot block the sync: %v", err)
+	}
+	if after, _ := os.ReadFile(settings); string(after) != commented {
+		t.Errorf("an unchanged file must stay byte for byte:\n%s", after)
 	}
 }

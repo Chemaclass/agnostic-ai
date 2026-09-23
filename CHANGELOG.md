@@ -46,6 +46,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --global` keeps the key order and indent of `~/.copilot/settings.json` when it writes an agent effort, instead of sorting every key and forcing two-space indent (#1090).
 - `sync --global --check`, `--check --diff`, and `--dry-run` name each file a sync would remove, such as a skill whose source was deleted, instead of reporting only the ownership state file (#1091).
 - `import` writes each tool's portable settings to its own `settings/<target>.yaml`, so `import all` no longer keeps only the last of Copilot, Gemini, Junie, OpenCode, Kilo, and Qoder. A `settings/imported.yaml` from an earlier import stays and can be deleted after re-importing (#1096).
+- `sync --global` stops before a rewrite of `~/.copilot/settings.json` would drop its comments; `--backup` rewrites and keeps the original (#1098).
 
 ### Site
 
