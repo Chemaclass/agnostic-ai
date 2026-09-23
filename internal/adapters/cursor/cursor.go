@@ -2,8 +2,9 @@
 //
 // Rules emit as .cursor/rules/*.mdc with alwaysApply=true (frontmatter
 // override honored). Agents emit natively as Cursor subagents at
-// .cursor/agents/<name>.md (Cursor 2.4+). Skills emit natively as one
-// folder per skill under .cursor/skills/<name>/SKILL.md (the Agent
+// .cursor/agents/<name>.md (Cursor 2.4+); Cursor also reads .claude/agents/
+// and .codex/agents/, and .cursor/ wins a name clash. Skills emit natively
+// as one folder per skill under .cursor/skills/<name>/SKILL.md (the Agent
 // Skills layout Cursor 2.4+ discovers), including bundled asset files.
 // Commands emit to .cursor/commands/<name>.md, Cursor's standard
 // project commands location. Hooks land in .cursor/hooks.json, MCP
