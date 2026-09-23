@@ -26,6 +26,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --global` without `--only` warns and skips a target it cannot write instead of failing the run (#1033).
 - GitHub issue forms ask only for a problem description or tool name.
 - Target audits hash a JSON source with its keys sorted, so a vendor API that reorders a map no longer reads as a changed page (#1092).
+- Target audits read Kiro's Powers pages, and record that Powers install per user with no project path agnostic-ai could write (#1093).
 
 ### Fixed
 
