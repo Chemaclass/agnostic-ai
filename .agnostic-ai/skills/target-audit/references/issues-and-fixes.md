@@ -22,7 +22,7 @@ Include applicable checklist items, marking exclusions with a reason:
 
 - Adapter emission, `caps.Supports`, and package doc comment.
 - Import side when the affected surface is read back.
-- `docs/site/data/capabilities.toml`, the target page, and cross-target notes in `docs/site/content/docs/targets/_index.md`.
+- `docs/site/data/capabilities.toml`, the target page, and cross-target notes in `docs/site/content/docs/target-behavior.md`.
 - Configuration/spec docs and schema when their public contract changes; README for visible behavior.
 - `CHANGELOG.md` under Unreleased.
 - Source-registry URL corrections, plus `scripts/target-audit/sources.lock` and `signals.tsv`.

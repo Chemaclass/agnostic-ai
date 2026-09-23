@@ -22,7 +22,7 @@ The prompt supplies your targets, audited commit, date window, run directory, sh
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, adapter package doc, and the
-  `docs/site/content/docs/targets/_index.md` rows and the target's own docs page. One call per target, no
+  `docs/site/content/docs/target-behavior.md` lines and the target's own docs page. One call per target, no
   grepping.
 - Their side: the run directory's `docfetch.tsv` holds one row per vendor URL, already fetched this run, with its mode, content hash, status against the committed lock, and the saved body under `pages/<target>/`. Read your targets' rows. Run `scripts/target-facts.sh --sources <target>...` for the per-target notes that go with them, and do not load unrelated vendor sections.
 

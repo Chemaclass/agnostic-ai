@@ -31,7 +31,7 @@ Fetch the `target-audit` issue index into the run directory with three scoped ca
 
 Read `scripts/target-audit/signals.tsv` for the signal history, and the published capability entries under `docs/site/content/updates/` for the articles behind it. Preserve every stable signal ID. Give each batch only relevant entries and their source paths. A later briefing omitting a signal does not resolve it.
 
-Read the cross-target kind notes in `docs/site/content/docs/targets/_index.md` once and pass relevant claims to each batch. The fact script's per-target row filter does not include those shared paragraphs; they can stay stale after a target page is fixed.
+Read the cross-target kind notes in `docs/site/content/docs/target-behavior.md` once and pass relevant claims to each batch. The fact script prints only the lines that name a target, so a shared paragraph that lists no targets is missing from it; those can stay stale after a target page is fixed.
 
 Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit touching `.agnostic-ai/skills/target-audit/references/sources.md`. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
 

@@ -7,7 +7,7 @@ alwaysApply: true
 
 When a change is visible to the user, update the matching artifacts in the same PR so they never drift:
 
-- New or changed flag, target, or output field: update the target's page at `docs/site/content/docs/targets/<target>.md` (and `targets/_index.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
+- New or changed flag, target, or output field: update the target's page at `docs/site/content/docs/targets/<target>.md` (and `target-behavior.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
 - New or changed spec field: update `docs/site/content/docs/spec-format.md`.
 - Any change to `internal/config/config.go` struct tags: run `go run ./cmd/schemagen` to regenerate `docs/schemas/config.schema.json`. CI fails if the schema is stale.
 - New command or visible behavior: update `README.md` capability or quickstart section.
