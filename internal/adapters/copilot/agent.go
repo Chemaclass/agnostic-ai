@@ -21,22 +21,29 @@ import (
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	droppedEffort := 0
 	for _, a := range agents {
-		if effort := emit.ResolveMeta(a.Meta, target)["effort"]; effort != nil && effort != "" {
+		body, dropped := agentMarkdown(a)
+		if dropped {
 			droppedEffort++
 		}
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
-		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", droppedEffort,
-		"Copilot agent profiles have no effort key; per-agent effortLevel exists only in the user-tier subagents.agents setting")
+		"Copilot agent profiles have no effort key; set a per-agent effortLevel under subagents.agents in ~/.copilot/settings.json")
 	return nil
 }
 
-func agentMarkdown(e spec.Entry) string {
+// agentMarkdown renders one profile and reports whether a portable
+// `effort` was dropped. An explicit `x-copilot.effort` passes through like
+// any other x-copilot key, so it is written, not dropped.
+func agentMarkdown(e spec.Entry) (string, bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
+	custom, _ := e.Meta[emit.XPrefix+target].(map[string]any)
+	_, explicit := custom["effort"]
+	effort := resolved["effort"]
+	dropped := !explicit && effort != nil && effort != ""
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
 		desc = e.Name
@@ -58,7 +65,7 @@ func agentMarkdown(e spec.Entry) string {
 	front := emit.FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(e.Body)
 	if body == "" {
-		return front + "\n"
+		return front + "\n", dropped
 	}
-	return front + "\n" + body + "\n"
+	return front + "\n" + body + "\n", dropped
 }

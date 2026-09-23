@@ -90,3 +90,32 @@ func TestEmitAgents_EffortDropRaisesCoverageNote(t *testing.T) {
 		t.Errorf("expected an effort no-op note for one agent, got: %s", buf.String())
 	}
 }
+
+// An explicit x-copilot.effort is the author's own passthrough: it lands
+// in the profile, so reporting it as dropped would contradict the file.
+// A per-target map with no copilot entry collapses away for copilot and
+// is not a drop either.
+func TestEmitAgents_EffortNoteSkipsPassthroughAndOtherTargets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	agents := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "explicit", Meta: map[string]any{"description": "Explicit", "x-copilot": map[string]any{"effort": "high"}}, Body: "Explicit."},
+		{Kind: spec.KindAgent, Name: "other", Meta: map[string]any{"description": "Other", "effort": map[string]any{"claude": "xhigh"}}, Body: "Other."},
+	}
+	if err := New().EmitAgents(emit.NewSession(), agents, filepath.Join(dir, ".github", "agents"), false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".github", "agents", "explicit.agent.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "effort: high") {
+		t.Errorf("x-copilot.effort must pass through to the profile:\n%s", raw)
+	}
+
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "`effort`") {
+		t.Errorf("no effort note expected for a passthrough or another target's value, got: %s", buf.String())
+	}
+}
