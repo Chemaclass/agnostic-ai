@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - The playground is simpler: edit a spec and see what Claude Code, Codex, Copilot, Gemini, and Cursor receive as you type, with a link to the other targets. It offers the seven kinds a newcomer meets first, and its agent and settings samples set a per-target model and effort so each tool's own key shows. The target picker and Download button are gone, each file path shows once, and the header gains the Targets link other pages have.
 - The playground renders settings specs. It read them as Markdown, so only the instruction files appeared.
+- The target matrix drops the Code review and Dev setup columns, which two and three tools read, and names those tools under the table instead. The docs sidebar lists every target under Targets while you browse that section.
 - The landing hero keeps every rail label inside the hero on wide screens, the "one spec" and "native output" labels share one row on narrow screens, and the file note loses its left border.
 
 ## v0.66.0 - 2026-09-23

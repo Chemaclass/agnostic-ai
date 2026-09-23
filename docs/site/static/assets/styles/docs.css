@@ -421,6 +421,17 @@
   text-decoration: none;
 }
 
+.docs-nav-sub {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.docs-nav-group .docs-nav-sub a {
+  min-height: 1.75rem;
+  padding-left: 1.6rem;
+  font-size: 0.78rem;
+}
+
 .docs-nav a:hover {
   background: var(--surface-quiet);
   color: var(--ink);
@@ -887,6 +898,12 @@
   vertical-align: middle;
 }
 
+.docs-content .capability-tool-specific {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .capability-kind-details {
   margin: -0.5rem 0 1.25rem;
   color: var(--muted);
@@ -1271,22 +1288,12 @@
   }
 
   .docs-content .capability-matrix td::before {
+    content: attr(data-label);
     color: var(--muted);
     font-family: var(--mono);
     font-size: 0.72rem;
     font-weight: 700;
   }
-
-  .docs-content .capability-matrix td:nth-child(2)::before { content: "Agents"; }
-  .docs-content .capability-matrix td:nth-child(3)::before { content: "Skills"; }
-  .docs-content .capability-matrix td:nth-child(4)::before { content: "Rules"; }
-  .docs-content .capability-matrix td:nth-child(5)::before { content: "Hooks"; }
-  .docs-content .capability-matrix td:nth-child(6)::before { content: "MCP"; }
-  .docs-content .capability-matrix td:nth-child(7)::before { content: "Commands"; }
-  .docs-content .capability-matrix td:nth-child(8)::before { content: "Settings"; }
-  .docs-content .capability-matrix td:nth-child(9)::before { content: "Code review"; }
-  .docs-content .capability-matrix td:nth-child(10)::before { content: "Dev setup"; }
-  .docs-content .capability-matrix td:nth-child(11)::before { content: "Ignored files"; }
 }
 
 @media (max-width: 620px) {

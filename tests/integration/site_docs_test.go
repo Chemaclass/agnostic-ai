@@ -495,7 +495,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`Another native format preserves the content.`,
 		`Each column is a portable spec kind.`,
 		`Why these columns?`,
-		`A kind earns its place by normalizing equivalent files or settings documented by multiple tools.`,
+		`Tool-specific kinds:`,
 		`href="https://agnostic-ai.org/docs/spec-format/#reviews"`,
 		`Compare targets`,
 		`Clear filters`,
@@ -510,6 +510,18 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		if !strings.Contains(targets, required) {
 			t.Errorf("targets guide is missing capability UI %q", required)
 		}
+	}
+	for _, label := range []string{"Code review", "Dev setup"} {
+		if strings.Contains(targets, ">"+label+"</a></th>") {
+			t.Errorf("targets matrix still has a %s column; tool-specific kinds belong under the table", label)
+		}
+	}
+	cursorPage := readBuiltFile(t, filepath.Join(outputDir, "docs", "targets", "cursor", "index.html"))
+	if !strings.Contains(cursorPage, `class="docs-nav-sub"`) || !strings.Contains(cursorPage, `aria-current="page" href="https://agnostic-ai.org/docs/targets/cursor/">Cursor</a>`) {
+		t.Error("a target page must list every target under Targets in the sidebar and mark itself current")
+	}
+	if strings.Contains(guide, `class="docs-nav-sub"`) {
+		t.Error("pages outside the targets section must keep the target submenu collapsed")
 	}
 	if strings.Contains(targets, `class="target-grid"`) || strings.Contains(targets, `id="global-output"`) {
 		t.Error("targets guide still contains the duplicated target directory or advanced output reference")

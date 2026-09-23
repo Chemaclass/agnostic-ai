@@ -37,11 +37,13 @@ href = "@/docs/spec-format.md#settings"
 id = "review"
 label = "Code review"
 href = "@/docs/spec-format.md#reviews"
+tool_specific = true
 
 [[features]]
 id = "environment"
 label = "Dev setup"
 href = "@/docs/spec-format.md#environments"
+tool_specific = true
 
 [[features]]
 id = "ignore"

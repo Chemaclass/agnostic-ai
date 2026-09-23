@@ -2,8 +2,8 @@
    blank or whitespace-only line: markdown would close the HTML block there and
    wrap whatever follows in a paragraph. Hence the `{%-` trims and no blank
    lines between the sections. #}
-{% component capability_matrix() %}{% set matrix = load_data(path="data/capabilities.toml") %}
-<section class="capability-browser" data-capability-browser data-capability-count="{{ matrix.features | length }}">
+{% component capability_matrix() %}{% set matrix = load_data(path="data/capabilities.toml") %}{% set_global columns = 0 %}{% for feature in matrix.features %}{% if not feature.tool_specific %}{% set_global columns = columns + 1 %}{% endif %}{% endfor %}
+<section class="capability-browser" data-capability-browser data-capability-count="{{ columns }}">
   <form class="capability-filters" data-capability-filter hidden>
     <label class="capability-search">
       <span>Find a target</span>
@@ -37,7 +37,7 @@
   </section>
   <details class="capability-kind-details">
     <summary>Why these columns?</summary>
-    <p>A kind earns its place by normalizing equivalent files or settings documented by multiple tools. <a href="{{ get_url(path='@/docs/spec-format.md#reviews') }}">Code review</a>, <a href="{{ get_url(path='@/docs/spec-format.md#environments') }}">dev setup</a>, and <a href="{{ get_url(path='@/docs/spec-format.md#ignore') }}">ignored files</a> follow the same rule as agents, skills, and hooks.</p>
+    <p>A column is a kind that many tools read, each in its own native file. Kinds that only a few tools read are listed under the table instead.</p>
   </details>
   <div class="capability-matrix-region" role="region" aria-label="Target capability comparison" tabindex="0">
     <table class="capability-matrix">
@@ -45,21 +45,27 @@
       <thead>
         <tr>
           <th scope="col">Target</th>
-          {% for feature in matrix.features %}<th scope="col"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a></th>{% endfor %}
+          {% for feature in matrix.features %}{% if not feature.tool_specific %}<th scope="col"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a></th>{% endif %}{% endfor %}
         </tr>
       </thead>
       <tbody>
         {%- for target in matrix.targets %}
         <tr data-capability-target="{{ target.id }}" data-capability-search="{{ target.name }} {{ target.id }}">
           <th scope="row"><a href="{{ get_url(path=target.href) }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
-          {%- for status in target.statuses %}
-          <td class="capability-cell capability-cell-{{ status }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>
+          {%- for status in target.statuses %}{% set i = loop.index0 %}{% set feature = matrix.features[i] %}{% if not feature.tool_specific %}
+          <td class="capability-cell capability-cell-{{ status }}" data-label="{{ feature.label }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>{% endif %}
           {%- endfor %}
         </tr>
         {%- endfor %}
       </tbody>
     </table>
   </div>
+  <p class="capability-tool-specific">Tool-specific kinds:
+    {%- set_global listed = 0 %}
+    {%- for feature in matrix.features %}{% if feature.tool_specific %}{% set index = loop.index0 %}{% set_global listed = listed + 1 %}{% if listed > 1 %},{% endif %}
+    <a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a> ({% set_global readers = 0 %}{% for target in matrix.targets %}{% if target.statuses[index] != "no" %}{% set_global readers = readers + 1 %}{% if readers > 1 %}, {% endif %}{{ target.name }}{% endif %}{% endfor %})
+    {%- endif %}{% endfor %}.
+  </p>
   <div class="capability-empty" data-capability-empty hidden>
     <p>No targets match this comparison.</p>
     <button class="button button-secondary" type="button" data-clear-capabilities>Show all targets</button>
