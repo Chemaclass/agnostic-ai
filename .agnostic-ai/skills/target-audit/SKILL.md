@@ -33,7 +33,7 @@ Read `scripts/target-audit/signals.tsv` for the signal history, and the publishe
 
 Read the cross-target kind notes in `docs/site/content/docs/target-behavior.md` once and pass relevant claims to each batch. The fact script prints only the lines that name a target, so a shared paragraph that lists no targets is missing from it; those can stay stale after a target page is fixed.
 
-Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit touching `.agnostic-ai/skills/target-audit/references/sources.md`. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
+Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit that records an audit's source corrections in `.agnostic-ai/skills/target-audit/references/sources.md`. A commit that only trims or restructures that file, such as #1109's, is not an audit and does not move the window. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
 
 Dedupe rules:
 
