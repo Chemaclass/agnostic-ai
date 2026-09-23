@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -495,6 +496,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
 		}
 		doc, err := mergeGlobalHooks(path, g.hooksFormat, hooks, old.Hooks[target], next.Hooks[target])
+		if errors.Is(err, errGlobalFileUnchanged) {
+			if slices.Contains(old.Files, path) {
+				next.Files = append(next.Files, path)
+			}
+			continue
+		}
 		if err != nil {
 			return nil, next, err
 		}
@@ -638,12 +645,28 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	return body + managed + "\n", nil
 }
 
+// errGlobalFileUnchanged reports that a merge leaves an existing file's
+// content as it is, so sync must neither rewrite nor remove it.
+var errGlobalFileUnchanged = errors.New("global file unchanged")
+
+// mergeGlobalHooks returns the hooks file with the managed entries
+// replaced, nil when the file should not exist, or errGlobalFileUnchanged
+// when its parsed content would not change. A rewrite keeps the file's
+// key order and indent.
 func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[string][]any, next map[string][]any) ([]byte, error) {
 	doc := map[string]any{}
+	before := map[string]any{}
+	ordered := adapters.NewOrderedJSON()
 	data, err := os.ReadFile(path)
 	absent := os.IsNotExist(err)
 	if err == nil {
 		if err := json.Unmarshal(data, &doc); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := json.Unmarshal(data, &before); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := json.Unmarshal(data, ordered); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 	} else if !absent {
@@ -723,7 +746,31 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 	if format == "cursor" {
 		doc["version"] = float64(1)
 	}
-	out, err := json.MarshalIndent(doc, "", "  ")
+	if !absent {
+		// Round-trip so spec integers compare equal to decoded JSON numbers.
+		raw, err := json.Marshal(doc)
+		if err != nil {
+			return nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
+		var merged map[string]any
+		if err := json.Unmarshal(raw, &merged); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if reflect.DeepEqual(merged, before) {
+			return nil, errGlobalFileUnchanged
+		}
+	}
+	for _, key := range []string{"version", "hooks"} {
+		value, ok := doc[key]
+		if !ok {
+			ordered.Delete(key)
+			continue
+		}
+		if err := ordered.Set(key, value); err != nil {
+			return nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
+	}
+	out, err := adapters.MarshalJSONIndentWith(ordered, adapters.DetectJSONIndent(data))
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
