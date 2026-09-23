@@ -88,3 +88,19 @@ func TestAuditSources_EverySectionCarriesDocsAndWatch(t *testing.T) {
 		}
 	}
 }
+
+// maxSectionWords caps one target's section. Each audit loads it into an
+// auditor, and dated history appended run after run once pushed several
+// sections past 1,000 words (#1109). Git history, signals.tsv, and the
+// closed target-audit issues keep that record instead.
+const maxSectionWords = 400
+
+// TestAuditSources_SectionsStayShort stops the file growing back.
+func TestAuditSources_SectionsStayShort(t *testing.T) {
+	for name, body := range sourceSections(t) {
+		if n := len(strings.Fields(body)); n > maxSectionWords {
+			t.Errorf("section %q has %d words, over the %d cap; drop dated notes and summaries of releases that changed nothing we emit",
+				name, n, maxSectionWords)
+		}
+	}
+}
