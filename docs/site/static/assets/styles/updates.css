@@ -781,6 +781,7 @@ details[open] summary::after {
   .archive-filter-search,
   .target-filter,
   .archive-filter-actions,
+  .archive-pager,
   .filter-noscript,
   .archive-empty {
     display: none !important;
