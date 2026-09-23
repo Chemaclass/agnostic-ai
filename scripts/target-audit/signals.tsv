@@ -1,10 +1,12 @@
 # target-audit capability signal history. One row per stable signal ID.
 # Seeded 2026-09-22 from the local reports and the published update articles;
 # disposition and issues fill in as later runs settle each signal.
+# The issues column holds comma-separated GitHub issue numbers without a leading #.
 # signal-id	first-seen	last-seen	disposition	issues	note
+cap-acp-agent-server-mode	2026-09-22	2026-09-22	watch		Junie --acp has no persisted project artifact; .junie/config.json field table carries no acp key.
 cap-agent-approval-policy	2026-09-16	2026-09-16			
 cap-agent-mcp-scoping	2026-09-15	2026-09-15			published
-cap-agent-reasoning-effort	2026-09-16	2026-09-18			
+cap-agent-reasoning-effort	2026-09-16	2026-09-23	spec-candidate	824	published; the portable agent effort field shipped from the 824 design.
 cap-agent-scoped-lifecycle-hooks	2026-09-16	2026-09-16			
 cap-agent-scoped-mcp-allowlist	2026-09-18	2026-09-18			
 cap-agent-shared-board	2026-09-15	2026-09-21			
@@ -13,12 +15,14 @@ cap-agent-tool-permission-policy	2026-09-15	2026-09-15
 cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18			
 cap-directory-scoped-skills	2026-09-15	2026-09-21			published
 cap-fail-closed-hook-policy	2026-09-15	2026-09-15			
+cap-kilo-session-goals	2026-09-22	2026-09-22	target-extension		Reachable today through x-kilo.permission (goal, goal_report); reproduced end to end, no code change needed.
+cap-kilo-skill-metadata-fields	2026-09-23	2026-09-23	target-extension		Kilo skill license, compatibility, metadata reach SKILL.md through x-kilo today; reproduced, no code change needed.
 cap-manual-only-skill-invocation	2026-09-15	2026-09-16			published
 cap-orb-environment-lifecycle	2026-09-15	2026-09-15			
 cap-outbound-http-lifecycle-hooks	2026-09-15	2026-09-21			
 cap-project-config-trust-gates	2026-09-15	2026-09-15			
 cap-project-default-model-settings	2026-09-15	2026-09-16			
-cap-project-default-reasoning-effort	2026-09-18	2026-09-18			
+cap-project-default-reasoning-effort	2026-09-18	2026-09-23	spec-candidate	1069	claude, copilot, codex verified 2026-09-23; x-<target> reaches each today; factory project scope to recheck.
 cap-project-demo-environments	2026-09-21	2026-09-21			
 cap-project-extension-bundles	2026-09-15	2026-09-18			published
 cap-project-index-exclusions	2026-09-15	2026-09-15			
@@ -26,9 +30,7 @@ cap-project-model-allowlist	2026-09-16	2026-09-18
 cap-project-permission-policy	2026-09-18	2026-09-18			
 cap-project-provider-policy	2026-09-18	2026-09-18			
 cap-prompt-hook-continue-on-block	2026-09-15	2026-09-15			
+cap-rule-activation-policy	2026-09-22	2026-09-22	adapter-gap	1029	Qoder manual, model, and file activation metadata is lost on import and emission; existing metadata can represent it.
 cap-scheduled-project-agents	2026-09-15	2026-09-15			
 cap-session-start-prompt-injection	2026-09-15	2026-09-15			
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15			
-cap-kilo-session-goals	2026-09-22	2026-09-22	target-extension		Reachable today through x-kilo.permission (goal, goal_report); reproduced end to end, no code change needed.
-cap-acp-agent-server-mode	2026-09-22	2026-09-22	watch		Junie --acp has no persisted project artifact; .junie/config.json field table carries no acp key.
-cap-rule-activation-policy	2026-09-22	2026-09-22	adapter-gap	1029	Qoder manual, model, and file activation metadata is lost on import and emission; existing metadata can represent it.

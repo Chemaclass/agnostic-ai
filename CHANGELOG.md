@@ -34,6 +34,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The Amp page documents that Amp loads a same-named skill once, and the Kiro page lists its three new agent fields (#1067, #1068).
 - The Devin target page documents recursive rule discovery in Devin CLI (#1030).
 - The home diagram takes about a third less height, and the hero rails pulse more often.
 
