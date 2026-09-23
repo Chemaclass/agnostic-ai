@@ -5,7 +5,7 @@ export const NotifyIdlePlugin: Plugin = async ({ $ }) => {
   return {
     event: async ({ event }) => {
       if (event.type !== "session.idle") return
-      await $`echo done`
+      await $`${{ raw: "echo done" }}`.nothrow()
     },
   }
 }

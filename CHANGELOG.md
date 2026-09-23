@@ -12,6 +12,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- OpenCode, Kilo: plugin hooks pass commands to the shell unchanged, match tool names exactly, and block a tool only when a command exits 2 (#1110).
+- OpenCode, Kilo: a hook with `disabled: true` writes no plugin module, and a matcher JavaScript reads differently from RE2 emits no guard (#1110).
 - Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.
 - Target audits ignore site chrome when hashing a vendor page: navigation, footers, the page `<head>`, "last modified" stamps, and the sidebar inside a router payload. A rebuilt docs site no longer marks every page changed, and a router-data page is saved as its own text instead of the whole payload.
 

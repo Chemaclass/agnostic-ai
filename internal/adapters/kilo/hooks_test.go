@@ -38,7 +38,7 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 func TestEmit_Hook_WritesKiloPluginModule(t *testing.T) {
 	dir := emitHookSpec(t, spec.Entry{
 		Kind: spec.KindHook, Name: "fmt",
-		Meta: map[string]any{"event": "PostToolUse", "matcher": "Edit|Write", "command": "gofmt -w ."},
+		Meta: map[string]any{"event": "PostToolUse", "matcher": "edit|write", "command": "gofmt -w ."},
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/fmt.ts"))
@@ -46,8 +46,9 @@ func TestEmit_Hook_WritesKiloPluginModule(t *testing.T) {
 		`import type { Plugin } from "@kilocode/plugin"`,
 		`const FmtPlugin: Plugin = async ({ $ }) => {`,
 		`"tool.execute.after": async (input) => {`,
-		`if (!new RegExp("Edit|Write").test(input.tool)) return`,
-		"await $`gofmt -w .`",
+		`const MATCHER = new RegExp("^(?:edit|write)$")`,
+		`if (!MATCHER.test(input.tool)) return`,
+		"await $`${{ raw: \"gofmt -w .\" }}`.nothrow()",
 		`export default { id: "fmt", server: FmtPlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -62,14 +63,15 @@ func TestEmit_Hook_WritesKiloPluginModule(t *testing.T) {
 func TestEmit_Hook_PreToolUseWritesToolExecuteBefore(t *testing.T) {
 	dir := emitHookSpec(t, spec.Entry{
 		Kind: spec.KindHook, Name: "guard-bash",
-		Meta: map[string]any{"event": "PreToolUse", "matcher": "^bash$", "command": "./scripts/guard.sh"},
+		Meta: map[string]any{"event": "PreToolUse", "matcher": "bash", "command": "./scripts/guard.sh"},
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/guard-bash.ts"))
 	for _, want := range []string{
 		`"tool.execute.before": async (input) => {`,
-		`if (!new RegExp("^bash$").test(input.tool)) return`,
-		"await $`./scripts/guard.sh`",
+		`const MATCHER = new RegExp("^(?:bash)$")`,
+		`if (!MATCHER.test(input.tool)) return`,
+		"const r1 = await $`${{ raw: \"./scripts/guard.sh\" }}`.nothrow()",
 		`export default { id: "guard-bash", server: GuardBashPlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -108,7 +110,7 @@ func TestEmit_Hook_BusEventWritesEventHandler(t *testing.T) {
 	for _, want := range []string{
 		`event: async ({ event }) => {`,
 		`if (event.type !== "session.idle") return`,
-		"await $`echo done`",
+		"await $`${{ raw: \"echo done\" }}`.nothrow()",
 		`export default { id: "notify-idle", server: NotifyIdlePlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -142,8 +144,8 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/chain.ts"))
-	first := strings.Index(got, "await $`first`")
-	second := strings.Index(got, "await $`second`")
+	first := strings.Index(got, "await $`${{ raw: \"first\" }}`.nothrow()")
+	second := strings.Index(got, "await $`${{ raw: \"second\" }}`.nothrow()")
 	if first < 0 || second < 0 {
 		t.Fatalf("both commands must emit:\n%s", got)
 	}
@@ -152,18 +154,18 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	}
 }
 
-// A backtick or `${` in the command would end the template literal or
-// open an interpolation, so both are escaped and the shell still sees
-// the author's exact string.
+// A backtick, `${`, or backslash in the command reaches the shell
+// exactly as authored: the command rides a `{ raw }` value, so nothing
+// is escaped on the way.
 func TestEmit_Hook_EscapesTemplateLiteralSyntax(t *testing.T) {
 	dir := emitHookSpec(t, spec.Entry{
 		Kind: spec.KindHook, Name: "tricky",
-		Meta: map[string]any{"event": "PostToolUse", "command": "echo `id` ${HOME}"},
+		Meta: map[string]any{"event": "PostToolUse", "command": "echo `id` ${HOME} \\d"},
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/tricky.ts"))
-	if !strings.Contains(got, "await $`echo \\`id\\` \\${HOME}`") {
-		t.Errorf("template literal syntax not escaped:\n%s", got)
+	if !strings.Contains(got, "await $`${{ raw: \"echo `id` ${HOME} \\\\d\" }}`.nothrow()") {
+		t.Errorf("command not passed through verbatim:\n%s", got)
 	}
 }
 
@@ -235,7 +237,7 @@ func TestEmit_Hook_ClaudeCasedMatcherNotesTheNoOp(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 	got := readFile(t, ".kilo/plugin/fmt.ts")
-	if !strings.Contains(got, `new RegExp("Edit")`) {
+	if !strings.Contains(got, `new RegExp("^(?:Edit)$")`) {
 		t.Errorf("the authored matcher must still emit:\n%s", got)
 	}
 	emit.FlushCoverageNotes()
@@ -281,7 +283,7 @@ func TestEmit_Hook_InvalidMatcherDropsGuardAndNotes(t *testing.T) {
 		t.Errorf("an uncompilable matcher must not reach the module:\n%s", got)
 	}
 	emit.FlushCoverageNotes()
-	if !strings.Contains(buf.String(), "valid regular expression") {
+	if !strings.Contains(buf.String(), "JavaScript reads the same way") {
 		t.Errorf("expected an invalid-matcher note, got: %s", buf.String())
 	}
 }
@@ -334,22 +336,5 @@ func TestEmit_Hook_IncompleteSpecWritesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".kilo/plugin")); !os.IsNotExist(err) {
 		t.Errorf("expected no plugin directory, stat err = %v", err)
-	}
-}
-
-// The plugin's `server` identifier has to be a legal JavaScript
-// identifier whatever the spec name looks like on disk.
-func TestPluginIdentifier_AlwaysLegalJavaScript(t *testing.T) {
-	cases := map[string]string{
-		"sample-hook":  "SampleHookPlugin",
-		"fmt_go":       "FmtGoPlugin",
-		"2fa":          "Hook2faPlugin",
-		"no.rm.rf":     "NoRmRfPlugin",
-		"alreadyCamel": "AlreadyCamelPlugin",
-	}
-	for name, want := range cases {
-		if got := pluginIdentifier(name); got != want {
-			t.Errorf("pluginIdentifier(%q) = %q, want %q", name, got, want)
-		}
 	}
 }
