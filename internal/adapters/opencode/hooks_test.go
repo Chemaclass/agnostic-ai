@@ -37,7 +37,7 @@ func TestEmit_Hook_PreToolUseWritesToolExecuteBefore(t *testing.T) {
 		`"tool.execute.before": async (input) => {`,
 		`const MATCHER = new RegExp("^(?:bash)$")`,
 		`if (!MATCHER.test(input.tool)) return`,
-		"const r1 = await $`${{ raw: \"./scripts/guard.sh\" }}`.nothrow()",
+		"const r1 = await run(\"./scripts/guard.sh\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -56,7 +56,7 @@ func TestEmit_Hook_PostToolUseWritesToolExecuteAfter(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/fmt-go.ts"))
 	for _, want := range []string{
 		`"tool.execute.after": async () => {`,
-		"await $`${{ raw: \"gofmt -w .\" }}`.nothrow()",
+		"await run(\"gofmt -w .\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -80,7 +80,7 @@ func TestEmit_Hook_BusEventWritesEventHandler(t *testing.T) {
 	for _, want := range []string{
 		`event: async ({ event }) => {`,
 		`if (event.type !== "session.idle") return`,
-		"await $`${{ raw: \"echo done\" }}`.nothrow()",
+		"await run(\"echo done\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -113,8 +113,8 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/chain.ts"))
-	first := strings.Index(got, "await $`${{ raw: \"first\" }}`.nothrow()")
-	second := strings.Index(got, "await $`${{ raw: \"second\" }}`.nothrow()")
+	first := strings.Index(got, "await run(\"first\")")
+	second := strings.Index(got, "await run(\"second\")")
 	if first < 0 || second < 0 {
 		t.Fatalf("both commands must emit:\n%s", got)
 	}
@@ -133,7 +133,7 @@ func TestEmit_Hook_EscapesTemplateLiteralSyntax(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/tricky.ts"))
-	if !strings.Contains(got, "await $`${{ raw: \"echo `id` ${HOME} \\\\d\" }}`.nothrow()") {
+	if !strings.Contains(got, "await run(\"echo `id` ${HOME} \\\\d\")") {
 		t.Errorf("command not passed through verbatim:\n%s", got)
 	}
 }

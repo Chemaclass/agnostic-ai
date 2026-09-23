@@ -4,10 +4,21 @@ import type { Plugin } from "@kilocode/plugin"
 const MATCHER = new RegExp("^(?:Edit)$")
 
 const SampleHookPlugin: Plugin = async ({ $ }) => {
+  const run = async (cmd: string) => {
+    try {
+      const r = await $`${{ raw: cmd }}`.nothrow()
+      if (r.exitCode !== 0) console.error("agnostic-ai hook sample-hook:", cmd, "exited", r.exitCode)
+      return r
+    } catch (err) {
+      console.error("agnostic-ai hook sample-hook:", cmd, err)
+      return undefined
+    }
+  }
+
   return {
     "tool.execute.after": async (input) => {
       if (!MATCHER.test(input.tool)) return
-      await $`${{ raw: "echo edited" }}`.nothrow()
+      await run("echo edited")
     },
   }
 }

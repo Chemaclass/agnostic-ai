@@ -30,3 +30,9 @@ var pluginHost = emit.PluginHookHost{
 func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
 	return emit.EmitPluginHooks(sess, pluginHost, hooks, dir, dryRun)
 }
+
+// HookEvents lists every event a hook spec may name for this target, so
+// `validate` reads the same vocabulary the emitter maps.
+func HookEvents() []string {
+	return pluginHost.Events()
+}

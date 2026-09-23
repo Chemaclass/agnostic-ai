@@ -48,7 +48,7 @@ func TestEmit_Hook_WritesKiloPluginModule(t *testing.T) {
 		`"tool.execute.after": async (input) => {`,
 		`const MATCHER = new RegExp("^(?:edit|write)$")`,
 		`if (!MATCHER.test(input.tool)) return`,
-		"await $`${{ raw: \"gofmt -w .\" }}`.nothrow()",
+		"await run(\"gofmt -w .\")",
 		`export default { id: "fmt", server: FmtPlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -71,7 +71,7 @@ func TestEmit_Hook_PreToolUseWritesToolExecuteBefore(t *testing.T) {
 		`"tool.execute.before": async (input) => {`,
 		`const MATCHER = new RegExp("^(?:bash)$")`,
 		`if (!MATCHER.test(input.tool)) return`,
-		"const r1 = await $`${{ raw: \"./scripts/guard.sh\" }}`.nothrow()",
+		"const r1 = await run(\"./scripts/guard.sh\")",
 		`export default { id: "guard-bash", server: GuardBashPlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -110,7 +110,7 @@ func TestEmit_Hook_BusEventWritesEventHandler(t *testing.T) {
 	for _, want := range []string{
 		`event: async ({ event }) => {`,
 		`if (event.type !== "session.idle") return`,
-		"await $`${{ raw: \"echo done\" }}`.nothrow()",
+		"await run(\"echo done\")",
 		`export default { id: "notify-idle", server: NotifyIdlePlugin }`,
 	} {
 		if !strings.Contains(got, want) {
@@ -144,8 +144,8 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/chain.ts"))
-	first := strings.Index(got, "await $`${{ raw: \"first\" }}`.nothrow()")
-	second := strings.Index(got, "await $`${{ raw: \"second\" }}`.nothrow()")
+	first := strings.Index(got, "await run(\"first\")")
+	second := strings.Index(got, "await run(\"second\")")
 	if first < 0 || second < 0 {
 		t.Fatalf("both commands must emit:\n%s", got)
 	}
@@ -164,7 +164,7 @@ func TestEmit_Hook_EscapesTemplateLiteralSyntax(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".kilo/plugin/tricky.ts"))
-	if !strings.Contains(got, "await $`${{ raw: \"echo `id` ${HOME} \\\\d\" }}`.nothrow()") {
+	if !strings.Contains(got, "await run(\"echo `id` ${HOME} \\\\d\")") {
 		t.Errorf("command not passed through verbatim:\n%s", got)
 	}
 }

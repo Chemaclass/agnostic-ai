@@ -31,7 +31,7 @@ func TestPluginIdentifier_AlwaysLegalJavaScript(t *testing.T) {
 // shell exactly as authored.
 func TestPluginModule_CommandReachesShellVerbatim(t *testing.T) {
 	got := pluginModule(testPluginHost, "g", "tool.execute.after", "PostToolUse", "", []string{"grep -qE '\\.go$' f && echo `x` ${HOME}"})
-	want := "await $`${{ raw: \"grep -qE '\\\\.go$' f && echo `x` ${HOME}\" }}`.nothrow()"
+	want := "await run(\"grep -qE '\\\\.go$' f && echo `x` ${HOME}\")"
 	if !strings.Contains(got, want) {
 		t.Errorf("want %s in:\n%s", want, got)
 	}
@@ -42,9 +42,9 @@ func TestPluginModule_CommandReachesShellVerbatim(t *testing.T) {
 func TestPluginModule_BeforeHookBlocksOnlyOnExitTwo(t *testing.T) {
 	got := pluginModule(testPluginHost, "guard", "tool.execute.before", "PreToolUse", "", []string{"a", "b"})
 	for _, want := range []string{
-		"const r1 = await $`${{ raw: \"a\" }}`.nothrow()",
-		"if (r1.exitCode === 2) throw new Error(r1.stderr.toString() || \"blocked by hook guard\")",
-		"const r2 = await $`${{ raw: \"b\" }}`.nothrow()",
+		"const r1 = await run(\"a\")",
+		"if (r1?.exitCode === 2) throw new Error(r1.stderr.toString() || \"blocked by hook guard\")",
+		"const r2 = await run(\"b\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("want %s in:\n%s", want, got)
@@ -104,9 +104,25 @@ func TestJSCompatibleMatcher(t *testing.T) {
 }
 
 func TestHasClaudeToolName_CatchesAlternations(t *testing.T) {
-	for m, want := range map[string]bool{"Bash": true, "Edit|Write": true, "(Read|grep)": true, "edit|write": false} {
+	for m, want := range map[string]bool{"Bash": true, "Edit|Write": true, "(Read|grep)": true, "(?:Edit)": true, "Bash.*": true, `Write\b`: true, "edit|write": false, "Bashful": false} {
 		if got := hasClaudeToolName(m); got != want {
 			t.Errorf("hasClaudeToolName(%q) = %v, want %v", m, got, want)
+		}
+	}
+}
+
+// Bun's shell cannot parse some shell syntax (`>&2`) and throws even
+// under .nothrow(). The run helper catches that and logs every failure,
+// so a failing command never aborts the handler.
+func TestPluginModule_RunHelperCatchesAndLogs(t *testing.T) {
+	got := pluginModule(testPluginHost, "fmt", "tool.execute.after", "PostToolUse", "", []string{"x"})
+	for _, want := range []string{
+		"const r = await $`${{ raw: cmd }}`.nothrow()",
+		`if (r.exitCode !== 0) console.error("agnostic-ai hook fmt:", cmd, "exited", r.exitCode)`,
+		"} catch (err) {",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("want %s in:\n%s", want, got)
 		}
 	}
 }

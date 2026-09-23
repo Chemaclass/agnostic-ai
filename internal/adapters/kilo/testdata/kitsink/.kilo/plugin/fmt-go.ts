@@ -4,10 +4,21 @@ import type { Plugin } from "@kilocode/plugin"
 const MATCHER = new RegExp("^(?:edit)$")
 
 const FmtGoPlugin: Plugin = async ({ $ }) => {
+  const run = async (cmd: string) => {
+    try {
+      const r = await $`${{ raw: cmd }}`.nothrow()
+      if (r.exitCode !== 0) console.error("agnostic-ai hook fmt-go:", cmd, "exited", r.exitCode)
+      return r
+    } catch (err) {
+      console.error("agnostic-ai hook fmt-go:", cmd, err)
+      return undefined
+    }
+  }
+
   return {
     "tool.execute.after": async (input) => {
       if (!MATCHER.test(input.tool)) return
-      await $`${{ raw: "gofmt -w ." }}`.nothrow()
+      await run("gofmt -w .")
     },
   }
 }

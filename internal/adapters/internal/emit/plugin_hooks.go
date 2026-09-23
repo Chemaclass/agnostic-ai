@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -30,6 +31,24 @@ type PluginHookHost struct {
 	// BusEvents is the event vocabulary a plugin reaches through the
 	// single `event` hook. Start from PluginBusEvents.
 	BusEvents map[string]bool
+}
+
+// Events lists every event name the host accepts in a hook spec: the
+// portable and native tool hooks, the bus events, and the two shell
+// events sync declines with a note. `validate` reads this list, so the
+// validator and the emitter cannot drift apart.
+func (h PluginHookHost) Events() []string {
+	out := make([]string, 0, len(PluginToolHookKeys)+len(h.BusEvents)+len(pluginMutationHooks))
+	for _, set := range []map[string]bool{h.BusEvents, pluginMutationHooks} {
+		for e := range set {
+			out = append(out, e)
+		}
+	}
+	for e := range PluginToolHookKeys {
+		out = append(out, e)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // PluginToolHookKeys maps a spec event to one of the two direct tool
@@ -82,7 +101,9 @@ var claudeToolNames = map[string]bool{
 
 // blockExitCode is the exit status that blocks a tool call, matching
 // Claude's PreToolUse contract: exit 2 blocks, any other failure is a
-// warning and the tool still runs.
+// warning and the tool still runs. Claude also feeds a PostToolUse exit
+// 2 back to the model; a plugin handler has no such channel, so there
+// the status is only logged.
 const blockExitCode = 2
 
 // EmitPluginHooks writes one plugin module per hook spec at
@@ -169,41 +190,63 @@ func EmitPluginHooks(sess *Session, host PluginHookHost, hooks []spec.Entry, dir
 	return nil
 }
 
-// hasClaudeToolName reports whether any alternative of matcher is a
-// Claude tool name, so `Edit|Write` is caught as well as `Bash`.
+// hasClaudeToolName reports whether any alternative of matcher starts
+// with a Claude tool name, so `Edit|Write`, `(?:Edit)` and `Bash.*` are
+// caught as well as `Bash`.
 func hasClaudeToolName(matcher string) bool {
 	for _, alt := range strings.Split(matcher, "|") {
-		if claudeToolNames[strings.Trim(alt, "()^$ ")] {
+		alt = strings.TrimLeft(alt, "(?:^ ")
+		end := strings.IndexFunc(alt, func(r rune) bool { return !unicode.IsLetter(r) })
+		if end < 0 {
+			end = len(alt)
+		}
+		if claudeToolNames[alt[:end]] {
 			return true
 		}
 	}
 	return false
 }
 
+// posixClassRE finds a POSIX class such as `[:space:]`, which RE2 reads
+// inside any bracket expression and JavaScript reads as literal
+// characters.
+var posixClassRE = regexp.MustCompile(`\[:[a-z]+:\]`)
+
 // jsCompatibleMatcher reports whether matcher compiles and means the
 // same thing to JavaScript's RegExp as it does to Go's RE2. RE2 accepts
-// inline flags (`(?i)`), `(?P<name>`, `\A`, `\z`, `\Q...\E`, `\pL` and
-// POSIX classes. JavaScript either throws on those or reads them as
-// literal letters, so a matcher using them is dropped rather than
-// shipped as a guard that throws or never matches.
+// inline flags (`(?i)`), `(?P<name>`, `\A`, `\z`, `\Q...\E`, `\pL`,
+// `\x{41}` and POSIX classes. JavaScript either throws on those or
+// reads them as literal characters, so a matcher using them is dropped
+// rather than shipped as a guard that throws or never matches.
 func jsCompatibleMatcher(matcher string) bool {
 	if _, err := regexp.Compile(matcher); err != nil {
 		return false
 	}
-	if strings.Contains(matcher, "[[:") {
+	if posixClassRE.MatchString(matcher) {
 		return false
 	}
+	inClass := false
 	for i := 0; i < len(matcher); i++ {
-		switch matcher[i] {
-		case '\\':
+		switch c := matcher[i]; {
+		case c == '\\':
 			if i+1 < len(matcher) && strings.IndexByte("AzQECpP", matcher[i+1]) >= 0 {
 				return false
 			}
-			i++
-		case '(':
-			if !strings.HasPrefix(matcher[i+1:], "?") {
-				continue
+			if strings.HasPrefix(matcher[i+1:], "x{") {
+				return false
 			}
+			i++
+		case inClass:
+			inClass = c != ']'
+		case c == '[':
+			inClass = true
+			// A `]` right after `[` or `[^` is a literal member.
+			if strings.HasPrefix(matcher[i+1:], "^]") {
+				i += 2
+			} else if strings.HasPrefix(matcher[i+1:], "]") {
+				i++
+			}
+		case c == '(' && strings.HasPrefix(matcher[i+1:], "?"):
 			rest := matcher[i+2:]
 			named := strings.HasPrefix(rest, "<") && len(rest) > 1 && unicode.IsLetter(rune(rest[1]))
 			if !strings.HasPrefix(rest, ":") && !named {
@@ -234,6 +277,7 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 		sb.WriteString("export ")
 	}
 	sb.WriteString("const " + ident + ": Plugin = async ({ $ }) => {\n")
+	sb.WriteString(runHelper(name))
 	sb.WriteString("  return {\n")
 	if isToolHook {
 		params := ""
@@ -250,14 +294,13 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 	}
 	blocking := hookKey == "tool.execute.before"
 	for i, cmd := range commands {
-		run := shellCall(cmd)
 		if !blocking {
-			sb.WriteString("      await " + run + "\n")
+			sb.WriteString("      await run(" + jsString(cmd) + ")\n")
 			continue
 		}
 		v := "r" + strconv.Itoa(i+1)
-		sb.WriteString("      const " + v + " = await " + run + "\n")
-		sb.WriteString("      if (" + v + ".exitCode === " + strconv.Itoa(blockExitCode) + ") throw new Error(" +
+		sb.WriteString("      const " + v + " = await run(" + jsString(cmd) + ")\n")
+		sb.WriteString("      if (" + v + "?.exitCode === " + strconv.Itoa(blockExitCode) + ") throw new Error(" +
 			v + ".stderr.toString() || " + jsString("blocked by hook "+name) + ")\n")
 	}
 	sb.WriteString("    },\n")
@@ -269,13 +312,27 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 	return sb.String()
 }
 
-// shellCall renders one command as a Bun `$` call. The command goes in
-// as a `{ raw }` value, which Bun passes to its shell untouched, so no
-// template-literal escaping can change what the author wrote. Bun's `$`
-// throws on a non-zero exit, which would abort the tool call or skip the
-// next command, so `.nothrow()` hands the exit status back instead.
-func shellCall(cmd string) string {
-	return "$`${{ raw: " + jsString(cmd) + " }}`.nothrow()"
+// runHelper renders the `run` function each handler calls once per
+// command. The command goes to Bun's `$` as a `{ raw }` value, which
+// Bun passes to its shell untouched, so no template-literal escaping
+// can change what the author wrote. `.nothrow()` hands a non-zero exit
+// back instead of throwing, and the catch covers a command Bun's shell
+// cannot parse (it has no `>&2`, for one). Either way the failure is
+// logged and `run` returns, so a failing command never aborts the tool
+// call or skips the next command; only exit 2 on tool.execute.before
+// blocks.
+func runHelper(name string) string {
+	label := jsString("agnostic-ai hook " + name + ":")
+	return "  const run = async (cmd: string) => {\n" +
+		"    try {\n" +
+		"      const r = await $`${{ raw: cmd }}`.nothrow()\n" +
+		"      if (r.exitCode !== 0) console.error(" + label + ", cmd, \"exited\", r.exitCode)\n" +
+		"      return r\n" +
+		"    } catch (err) {\n" +
+		"      console.error(" + label + ", cmd, err)\n" +
+		"      return undefined\n" +
+		"    }\n" +
+		"  }\n\n"
 }
 
 // pluginIdentifier turns a hook spec name into a legal JavaScript

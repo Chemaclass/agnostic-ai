@@ -2,10 +2,21 @@
 import type { Plugin } from "@kilocode/plugin"
 
 const NotifyIdlePlugin: Plugin = async ({ $ }) => {
+  const run = async (cmd: string) => {
+    try {
+      const r = await $`${{ raw: cmd }}`.nothrow()
+      if (r.exitCode !== 0) console.error("agnostic-ai hook notify-idle:", cmd, "exited", r.exitCode)
+      return r
+    } catch (err) {
+      console.error("agnostic-ai hook notify-idle:", cmd, err)
+      return undefined
+    }
+  }
+
   return {
     event: async ({ event }) => {
       if (event.type !== "session.idle") return
-      await $`${{ raw: "echo done" }}`.nothrow()
+      await run("echo done")
     },
   }
 }
