@@ -43,7 +43,7 @@ Dedupe rules:
 
 ## 2. Audit in bounded batches
 
-Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv`. Numbered lines are deep batches of targets whose pages or changelog moved, at most five and sized to available worker slots. The `sweep` line is one batch of targets whose rows are all unchanged. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`; give a sweep of more than five targets its own agent. Queue batches when needed; every requested target must be assigned exactly once.
+Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv`. Numbered lines are deep batches of targets whose pages or changelog moved, at most five and sized to available worker slots. The `sweep` line lists targets whose rows are all unchanged; record them as fast path without an agent, since nothing they serve moved since an auditor last read it. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`. Queue batches when needed; every requested target must be assigned exactly once.
 
 Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Prefer minimal-context spawns when supported. Pass:
 

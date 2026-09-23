@@ -124,7 +124,9 @@ docfetch_curl() {
 }
 
 # strip_html <file> prints the page's visible text, so a nonce or a rebuilt
-# script bundle does not read as a documentation change.
+# script bundle does not read as a documentation change. Navigation, footers,
+# the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
+# or a rebuild date would otherwise mark every page on the host as changed.
 strip_html() {
   awk '
     { all = all $0 "\n" }
@@ -139,7 +141,10 @@ strip_html() {
         text = substr(p, gt + 1)
         if (tag ~ /^(script|style)[ \t>]?/ || tag ~ /^(script|style)$/) skip = 1
         else if (tag ~ /^\/(script|style)$/) { skip = 0; continue }
-        if (!skip) out = out " " text
+        else if (tag ~ /^(nav|footer|head|title)([ \t]|$)/) chrome++
+        else if (tag ~ /^\/(nav|footer|head|title)$/) { if (chrome > 0) chrome--; continue }
+        if (tag ~ /class="[^"]*last-(modified|updated)/) continue
+        if (!skip && !chrome) out = out " " text
       }
       gsub(/[ \t\r\n]+/, " ", out)
       sub(/^ /, "", out)
@@ -230,6 +235,14 @@ sha256_of() {
   else
     openssl dgst -sha256 "$1" | awk '{ print $NF }'
   fi
+}
+
+# delta_text <file> prints the Quill delta text of a router payload, one ops
+# list per line. The payload also embeds the whole site's sidebar with each
+# page's publish time, so hashing it marks every page changed when any one is.
+delta_text() {
+  command -v jq >/dev/null 2>&1 &&
+    jq -r '[.. | objects | select(has("ops")) | [.ops[]? | .insert? | strings] | join("")] | join("\n")' "$1" 2>/dev/null
 }
 
 # json_sum <file> hashes a JSON document with its object keys sorted, since
@@ -385,6 +398,14 @@ fetch_one() {
       ;;
     json)
       result=$(json_sum "$body")
+      ;;
+    router-data)
+      if delta_text "$body" >"$stem.txt" && [ -s "$stem.txt" ]; then
+        result=$(sha256_of "$stem.txt")
+      else
+        rm -f "$stem.txt"
+        result=$(json_sum "$body")
+      fi
       ;;
     app-shell | soft-404)
       result="-"

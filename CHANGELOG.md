@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.
+- Target audits ignore site chrome when hashing a vendor page: navigation, footers, the page `<head>`, "last modified" stamps, and the sidebar inside a router payload. A rebuilt docs site no longer marks every page changed, and a router-data page is saved as its own text instead of the whole payload.
 
 ### Site
 
