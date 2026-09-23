@@ -67,8 +67,11 @@ type globalWrite struct {
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
-	if o.watch || o.watchPoll || o.plan || o.jsonOut || o.allTargets || o.diff || o.gitignore != "" || o.jobs != 0 {
-		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --plan, --json, --all, --diff, --gitignore, or --jobs")
+	if o.watch || o.watchPoll || o.plan || o.jsonOut || o.allTargets || o.gitignore != "" || o.jobs != 0 {
+		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --plan, --json, --all, --gitignore, or --jobs")
+	}
+	if o.diff && !o.check {
+		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check with --global")
 	}
 	if len(o.only) > 0 && len(o.except) > 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
@@ -188,19 +191,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	if o.check {
-		for _, w := range writes {
-			if w.path == statePath {
-				if !globalStateCurrent(statePath, next) {
-					return fmt.Errorf("global configuration drift: %s", w.path)
-				}
-				continue
-			}
-			data, err := os.ReadFile(w.path)
-			if err != nil || !reflect.DeepEqual(data, w.data) {
-				return fmt.Errorf("global configuration drift: %s", w.path)
-			}
-		}
-		return nil
+		return checkGlobalWrites(cmd, writes, statePath, next, o.diff)
 	}
 	if o.dryRun {
 		for _, w := range writes {
@@ -226,6 +217,53 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	pruneEmptyGlobalDirs(removals, trees)
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
 		return fmt.Errorf("write sync summary: %w", err)
+	}
+	return nil
+}
+
+// checkGlobalWrites reports every planned write that differs from disk.
+// With diff it prints a unified diff per file, limited to the managed
+// block when both sides carry one.
+func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, statePath string, next globalState, diff bool) error {
+	var drifted []string
+	out := cmd.OutOrStdout()
+	for _, w := range writes {
+		if w.path == statePath {
+			if globalStateCurrent(statePath, next) {
+				continue
+			}
+			drifted = append(drifted, w.path)
+			if diff {
+				if _, err := fmt.Fprintf(out, "would update ownership state %s\n", filepath.ToSlash(w.path)); err != nil {
+					return fmt.Errorf("write global diff: %w", err)
+				}
+			}
+			continue
+		}
+		data, err := os.ReadFile(w.path)
+		if err == nil && bytes.Equal(data, w.data) {
+			continue
+		}
+		drifted = append(drifted, w.path)
+		if !diff {
+			continue
+		}
+		if err != nil {
+			if _, werr := fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(w.path), len(w.data)); werr != nil {
+				return fmt.Errorf("write global diff: %w", werr)
+			}
+			continue
+		}
+		have, want := globalBlock(data), globalBlock(w.data)
+		if have == want {
+			have, want = string(data), string(w.data)
+		}
+		if _, werr := fmt.Fprint(out, unifiedDiff(w.path, have, want, diffBodyMax)); werr != nil {
+			return fmt.Errorf("write global diff: %w", werr)
+		}
+	}
+	if len(drifted) > 0 {
+		return fmt.Errorf("global configuration drift: %s", strings.Join(drifted, ", "))
 	}
 	return nil
 }
@@ -494,12 +532,18 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 // globalSum fingerprints what sync owns in a file: the managed block
 // when the file has one, otherwise the whole content.
 func globalSum(data []byte) string {
+	return adapters.ContentSum(globalBlock(data))
+}
+
+// globalBlock returns the managed block when data carries one, otherwise
+// all of data.
+func globalBlock(data []byte) string {
 	body := string(data)
 	start, end := strings.Index(body, globalStart), strings.Index(body, globalEnd)
 	if start >= 0 && end > start {
-		body = body[start : end+len(globalEnd)]
+		return body[start : end+len(globalEnd)]
 	}
-	return adapters.ContentSum(body)
+	return body
 }
 
 // handEditedGlobalFiles lists owned files whose content no longer
