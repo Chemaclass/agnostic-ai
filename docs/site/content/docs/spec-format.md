@@ -492,6 +492,9 @@ permissions:
   ask:
     - Bash(git push:*)
 model: claude-opus-4-8
+effort:
+  claude: xhigh
+  default: high
 ```
 
 | Field | Required | Default | Description |
@@ -500,12 +503,22 @@ model: claude-opus-4-8
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `model` | no | empty | Default model. |
+| `effort` | no | empty | Repository default reasoning effort: a scalar for every target, or a map per target with an optional `default`, the same shape as [agent `effort`](#per-target-model-and-effort). |
 
 A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
 
 Keep a `Bash` wildcard at the end of an `allow` rule. `Bash(git * main)` also approves any options inserted at the `*`, and `agnostic-ai lint` reports it as LINT009.
 
-Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` wins.
+Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win.
+
+`effort` reaches four targets, each under its own key and value set. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` still wins, so `x-claude.effortLevel` overrides the portable value. Every other settings target reports a coverage note. Keep this separate from an agent's own `effort`, which applies to that agent alone.
+
+| Target | Native key | Accepted values |
+|---|---|---|
+| Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |
+| Copilot | `effortLevel` in `.github/copilot/settings.json` | `low`, `medium`, `high`, `xhigh` |
+| Codex | `model_reasoning_effort` in `.codex/config.toml` | any string; `outputs.codex.config.model-reasoning-effort` and the captured overlay win |
+| Factory | `reasoningEffort` in `.factory/settings.json` | `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each model accepts a subset |
 
 | Target | `permissions` | `model` |
 |---|---|---|

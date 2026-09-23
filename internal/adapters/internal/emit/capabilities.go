@@ -29,6 +29,10 @@ type Capabilities struct {
 	// tracked field when the target has a more specific one, such as
 	// a native key that takes a different shape.
 	AgentFieldReasons map[string]string
+	// SettingsFields lists the portable settings fields from
+	// trackedSettingsFields this adapter writes. Every other tracked
+	// field a settings spec sets is reported by ReportUnsupported.
+	SettingsFields []string
 }
 
 // trackedAgentFields maps each portable agent field with a native key on
@@ -36,6 +40,12 @@ type Capabilities struct {
 var trackedAgentFields = []struct{ field, reason string }{
 	{"effort", "the agent file has no reasoning effort key"},
 	{"mcpServers", "the agent file has no MCP server list"},
+}
+
+// trackedSettingsFields maps each portable settings field with a native
+// key on only some targets to the reason used when a target has none.
+var trackedSettingsFields = []struct{ field, reason string }{
+	{"effort", "the settings file has no repository effort key"},
 }
 
 // supports reports whether the adapter declares native support for k.
@@ -85,6 +95,9 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 			capabilityWarnState.mu.Unlock()
 		}
 	}
+	if c.supports(spec.KindSettings) {
+		noteDroppedSettingsFields(c, b.Settings)
+	}
 	if c.supports(spec.KindAgent) {
 		noteDroppedAgentFields(c, b.Agents)
 	}
@@ -115,6 +128,23 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 			reason = r
 		}
 		NoteFieldNoOp(c.Target, spec.KindAgent, t.field, dropped, reason)
+	}
+}
+
+// noteDroppedSettingsFields raises one field no-op note per tracked
+// settings field the target does not write.
+func noteDroppedSettingsFields(c Capabilities, settings []spec.Entry) {
+	for _, t := range trackedSettingsFields {
+		if slices.Contains(c.SettingsFields, t.field) {
+			continue
+		}
+		dropped := 0
+		for _, entry := range settings {
+			if SettingsEffort([]spec.Entry{entry}, c.Target) != nil {
+				dropped++
+			}
+		}
+		NoteFieldNoOp(c.Target, spec.KindSettings, t.field, dropped, t.reason)
 	}
 }
 

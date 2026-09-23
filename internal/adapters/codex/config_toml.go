@@ -23,11 +23,15 @@ import (
 // `statusMessage` metadata that the TOML schema discarded.
 func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
 	portableModel := emit.LastSettingsModel(settings)
-	effectiveCfg := &config.CodexConfig{Model: portableModel}
+	portableEffort := emit.SettingsEffortLevel(settings, target, nil)
+	effectiveCfg := &config.CodexConfig{Model: portableModel, ModelReasoningEffort: portableEffort}
 	if cfg != nil {
 		copy := *cfg
 		if copy.Model == "" {
 			copy.Model = portableModel
+		}
+		if copy.ModelReasoningEffort == "" {
+			copy.ModelReasoningEffort = portableEffort
 		}
 		effectiveCfg = &copy
 	}

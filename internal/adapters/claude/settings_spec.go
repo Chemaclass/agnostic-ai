@@ -13,6 +13,7 @@ import (
 //
 //	permissions.allow / deny / ask  -> permissions.{allow,deny,ask}
 //	model                           -> model
+//	effort                          -> effortLevel (low, medium, high, xhigh)
 //
 // Multiple settings specs merge: permission lists concatenate (de-duped,
 // source order preserved) and the last non-empty model wins. Returns an
@@ -33,8 +34,14 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 	if perms := mergePermissions(permLayers...); perms != nil {
 		out["permissions"] = perms
 	}
+	if level := emit.SettingsEffortLevel(entries, target, projectEffortLevels); level != "" {
+		out["effortLevel"] = level
+	}
 	return out
 }
+
+// projectEffortLevels are the effortLevel values Claude Code documents.
+var projectEffortLevels = []string{"low", "medium", "high", "xhigh"}
 
 // mergePermissions unions the allow/deny/ask lists across the given
 // permission layers in order (base first), de-duping while preserving
