@@ -165,8 +165,9 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 | [Factory](@/docs/targets/factory.md) | Server names, written to the droid file |
 | [OpenHands](@/docs/targets/openhands.md) | Inline server definitions only. Set `x-openhands.mcp_servers` |
 | [Antigravity](@/docs/targets/antigravity.md) | Inline server objects only. Set `x-antigravity.mcpServers` |
+| [Kiro](@/docs/targets/kiro.md) | Inline server definitions only. Set `x-kiro.mcpServers` |
 
-Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands and Antigravity embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
+Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands, Antigravity, and Kiro embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
 
 **An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
 

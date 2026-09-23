@@ -13,10 +13,14 @@
 // in ampcode.com/cli-settings.schema.json. Amp keeps the first skill
 // with a given `name`, and project `.agents/skills/` precedes
 // `.claude/skills/` (ampcode.com/docs/customize/skills, "Skill Sources
-// and Precedence"), so a repo syncing `claude` and `amp` loads each
-// skill once, from our `.agents/skills/` copy. User-level skills mask
-// project ones of the same name. `disableClaudeCodeSkills` and its
-// user-level counterpart, `amp.skills.disableGlobalAgentsSkills`, are reachable only through
+// and Precedence"). A skill synced to both `claude` and `amp` under one
+// name therefore loads once, from our `.agents/skills/` copy. A skill
+// that reaches only `claude` still loads in Amp from `.claude/skills/`.
+// The user-level `~/.config/agents/skills/`, `~/.agents/skills/`, and
+// `~/.config/amp/skills/` mask a project skill of the same name;
+// `~/.claude/skills/` comes after it and does not.
+// `amp.skills.disableClaudeCodeSkills` and its user-level counterpart,
+// `amp.skills.disableGlobalAgentsSkills`, are reachable only through
 // `x-amp` on a settings spec; `amp.skills.path` adds directories
 // instead of gating a read (#1023).
 //

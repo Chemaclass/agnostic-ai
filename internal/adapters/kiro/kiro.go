@@ -85,7 +85,8 @@
 // outright over the translated form (never merged alongside it), so an
 // author who already knows Kiro's own vocabulary can bypass the table
 // entirely or set `mcpServers`, `permissions`, `hooks`,
-// `keyboardShortcut`, or `welcomeMessage` directly. A prior version of
+// `keyboardShortcut`, `welcomeMessage`, `excludedTools`,
+// `includeMcpJson`, or `includePowers` directly. A prior version of
 // this adapter flattened agents into `.kiro/steering/agent-<name>.md`
 // with `inclusion: manual`; that path never reached Kiro's agent picker
 // and dropped every field steering has no key for, so this adapter now
@@ -386,8 +387,9 @@ func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 // `description` (falls back to the spec name), optional `model`, and
 // `tools` translated onto Kiro's own category vocabulary (see
 // translateTools and the package doc), plus arbitrary x-kiro passthrough
-// (mcpServers, permissions, hooks, keyboardShortcut, welcomeMessage, or
-// an explicit tools override already in Kiro's own vocabulary), followed
+// (mcpServers, permissions, hooks, keyboardShortcut, welcomeMessage,
+// excludedTools, includeMcpJson, includePowers, or an explicit tools
+// override already in Kiro's own vocabulary), followed
 // by the spec body as the agent's system prompt. The spec name remains the
 // filename identity; `x-kiro.name` supplies Kiro's separate display name.
 // `name` and `model` are excluded from the x-kiro passthrough merge below
