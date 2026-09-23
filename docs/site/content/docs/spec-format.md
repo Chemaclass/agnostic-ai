@@ -134,6 +134,7 @@ x-codex:
 | [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
 | [Codex](@/docs/targets/codex.md) | Any string. `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`, and `persistent` are named; any other string still lands as a custom effort label | Written as `model_reasoning_effort`. An integer budget has no string form and raises a coverage note instead. `x-codex.model_reasoning_effort` wins over the mapped value |
 | [Cursor](@/docs/targets/cursor.md) | none | No frontmatter key. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Copilot](@/docs/targets/copilot.md) | none in agent profiles. Per-agent `effortLevel` exists only in the user-tier `subagents.agents` setting | Not written, and raises a coverage note |
 | [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written |
 
 The "How it lands" column is the point: on Claude Code, Qoder, Junie, and Codex agnostic-ai writes the string value and validates nothing beyond its shape, and on Cursor it does nothing at all.

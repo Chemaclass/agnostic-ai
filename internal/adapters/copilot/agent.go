@@ -14,15 +14,24 @@ import (
 // frontmatter carries `name`, `description` (required), and the
 // optional `tools` and `model` keys, with the prompt as the body.
 // Arbitrary `x-copilot` keys (target, user-invocable, mcp-servers, ...)
-// pass through for the rest of the documented schema.
+// pass through for the rest of the documented schema. The profile table
+// has no effort key, and per-agent `effortLevel` lives only in the
+// user-tier `subagents.agents` setting, so a portable `effort` raises a
+// coverage note instead of reaching a file (#1066).
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	droppedEffort := 0
 	for _, a := range agents {
+		if effort := emit.ResolveMeta(a.Meta, target)["effort"]; effort != nil && effort != "" {
+			droppedEffort++
+		}
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
 		body := emit.WithHeader(agentMarkdown(a), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", droppedEffort,
+		"Copilot agent profiles have no effort key; per-agent effortLevel exists only in the user-tier subagents.agents setting")
 	return nil
 }
 
