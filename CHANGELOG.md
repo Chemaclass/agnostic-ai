@@ -42,6 +42,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - The home diagram takes about a third less height, and the hero rails pulse more often.
 - The home diagram's sample agent uses Claude Opus 5.5 and GPT-6 Sol.
 - The updates archive shows six editions per page. Search and target filters still cover every edition, and the page number stays in the URL.
+- The Cursor page documents the subagents cross-read from `.claude/` and `.codex/`; the Copilot page cites VS Code's own root `.mcp.json` read (#1079).
 
 ## v0.65.0 - 2026-09-22
 
