@@ -57,6 +57,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - The Cursor page documents the subagents cross-read from `.claude/` and `.codex/`; the Copilot page cites VS Code's own root `.mcp.json` read (#1079).
 - The home diagram's sample agent sets `effort: high`, showing one key land as `effort` for Claude Code and Junie, `model_reasoning_effort` for Codex, and a coverage note for Cursor and Gemini.
 - The copyable agent setup prompt on the docs is readable in the light theme; a contrast sweep of every page in both themes found no other low-contrast text.
+- Every docs code block shows a Copy button in its top-right corner on hover, always on touch screens, and copies the command without a trailing newline.
 
 ## v0.65.0 - 2026-09-22
 

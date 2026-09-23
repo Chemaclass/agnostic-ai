@@ -26,6 +26,25 @@
     });
   }
 
+  // Every docs code block gets the same copy control the setup prompt has.
+  Array.prototype.forEach.call(document.querySelectorAll(".docs-content pre"), function (pre) {
+    if (pre.closest("[data-copy-container]") || !pre.querySelector("code")) {
+      return;
+    }
+    var block = document.createElement("div");
+    block.className = "code-block";
+    block.setAttribute("data-copy-container", "");
+    pre.parentNode.insertBefore(block, pre);
+    block.appendChild(pre);
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "code-copy";
+    button.setAttribute("data-copy", "");
+    button.setAttribute("aria-label", "Copy code");
+    button.textContent = "Copy";
+    block.appendChild(button);
+  });
+
   Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (button) {
     button.addEventListener("click", function () {
       var container = button.closest("[data-copy-container]") || button.parentElement;
@@ -33,7 +52,7 @@
       if (!code) {
         return;
       }
-      copyText(code.textContent).then(function () {
+      copyText(code.textContent.replace(/\s+$/, "")).then(function () {
         button.textContent = "Copied";
         window.setTimeout(function () {
           button.textContent = "Copy";

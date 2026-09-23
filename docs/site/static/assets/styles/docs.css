@@ -533,6 +533,55 @@
   line-height: 1.65;
 }
 
+.docs-content .code-block {
+  position: relative;
+  margin-block: 1.25rem;
+}
+
+.docs-content .code-block > pre {
+  margin-block: 0;
+}
+
+.code-copy {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--slab-line);
+  border-radius: 4px;
+  background: var(--slab-raised);
+  color: var(--slab-ink);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.code-copy:hover,
+.code-copy:focus-visible {
+  border-color: var(--accent);
+  color: var(--slab-ink);
+}
+
+/* Touch devices have no hover, so the control only hides where a pointer can reveal it. */
+@media (hover: hover) and (pointer: fine) {
+  .code-copy {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .code-block:hover .code-copy,
+  .code-block:focus-within .code-copy {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-copy {
+    transition: none;
+  }
+}
+
 .docs-content pre code {
   padding: 0;
   background: transparent;
