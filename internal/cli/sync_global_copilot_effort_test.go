@@ -143,3 +143,41 @@ func TestSyncGlobal_CopilotUnsupportedEffortKeepsNote(t *testing.T) {
 		t.Errorf("nothing valid to write, so settings.json must not be created, stat err = %v", err)
 	}
 }
+
+func TestSyncGlobal_CopilotAgentEffortKeepsKeyOrderAndIndent(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	mustWriteGlobalTest(t, settings, `{
+    "theme": "dark",
+    "subagents": {
+        "maxDepth": 3,
+        "agents": {
+            "scout": {"model": "gpt-6-sol"}
+        }
+    },
+    "model": "claude-opus-5-5"
+}
+`)
+
+	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	order := []string{`"theme"`, `"subagents"`, `"maxDepth"`, `"agents"`, `"scout"`, `"reviewer"`, `"effortLevel": "xhigh"`, `"model": "claude-opus-5-5"`}
+	last := -1
+	for _, key := range order {
+		at := strings.Index(body, key)
+		if at <= last {
+			t.Fatalf("%s is out of order; keys must keep their place and new ones append:\n%s", key, body)
+		}
+		last = at
+	}
+	if !strings.HasPrefix(body, "{\n    \"theme\"") {
+		t.Errorf("the file's four-space indent must survive:\n%s", body)
+	}
+}

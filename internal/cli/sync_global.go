@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -780,7 +781,8 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 // mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for
 // each managed effort in a JSONC user settings file, removing values an
 // earlier sync placed. A value set by hand stops the run. It returns nil
-// when the file needs no change, so its comments survive.
+// when the file needs no change, so its comments survive; a rewrite keeps
+// key order and indent.
 func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -792,62 +794,101 @@ func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) (
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	stripped, _ := adapters.StripJSONC(data)
-	var doc, before map[string]any
-	if err := json.Unmarshal(stripped, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
+	var before map[string]any
 	if err := json.Unmarshal(stripped, &before); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if doc == nil {
-		doc = map[string]any{}
+	root := adapters.NewOrderedJSON()
+	if err := json.Unmarshal(stripped, root); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	subagents, _ := doc["subagents"].(map[string]any)
-	if subagents == nil {
-		subagents = map[string]any{}
-	}
-	agents, _ := subagents["agents"].(map[string]any)
-	if agents == nil {
-		agents = map[string]any{}
-	}
+	subagents, _ := orderedChild(root, "subagents")
+	agents, _ := orderedChild(subagents, "agents")
 	for name, level := range previous {
-		agent, _ := agents[name].(map[string]any)
-		if agent["effortLevel"] == level {
-			delete(agent, "effortLevel")
+		agent, isObject := orderedChild(agents, name)
+		if !isObject {
+			continue
 		}
-		if agent != nil && len(agent) == 0 {
-			delete(agents, name)
+		if current, _ := orderedValue(agent, "effortLevel"); current == level {
+			agent.Delete("effortLevel")
+		}
+		if err := putOrderedChild(agents, name, agent); err != nil {
+			return nil, fmt.Errorf("marshal %s: %w", path, err)
 		}
 	}
-	for name, level := range efforts {
-		agent, _ := agents[name].(map[string]any)
-		if agent == nil {
-			agent = map[string]any{}
-			agents[name] = agent
-		}
-		if current, ok := agent["effortLevel"]; ok && current != level {
+	for _, name := range slices.Sorted(maps.Keys(efforts)) {
+		level := efforts[name]
+		agent, _ := orderedChild(agents, name)
+		if current, ok := orderedValue(agent, "effortLevel"); ok && current != level {
 			return nil, fmt.Errorf("%s: subagents.agents.%s.effortLevel is %v, set outside agnostic-ai; remove it or drop the agent's effort", path, name, current)
 		}
-		agent["effortLevel"] = level
+		if err := agent.Set("effortLevel", level); err != nil {
+			return nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
+		if err := putOrderedChild(agents, name, agent); err != nil {
+			return nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
 	}
-	if len(agents) > 0 {
-		subagents["agents"] = agents
-	} else {
-		delete(subagents, "agents")
+	if err := putOrderedChild(subagents, "agents", agents); err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
-	if len(subagents) > 0 {
-		doc["subagents"] = subagents
-	} else {
-		delete(doc, "subagents")
+	if err := putOrderedChild(root, "subagents", subagents); err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
-	if reflect.DeepEqual(doc, before) {
+	raw, err := json.Marshal(root)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", path, err)
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(raw, &merged); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if reflect.DeepEqual(merged, before) {
 		return nil, nil
 	}
-	out, err := json.MarshalIndent(doc, "", "  ")
+	out, err := adapters.MarshalJSONIndentWith(root, adapters.DetectJSONIndent(data))
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	return append(out, '\n'), nil
+}
+
+// orderedChild returns the object under key, or an empty one when the key
+// is absent or holds another shape. isObject is false only for another
+// shape, which a caller may replace but must not clear.
+func orderedChild(parent *adapters.OrderedJSON, key string) (child *adapters.OrderedJSON, isObject bool) {
+	child = adapters.NewOrderedJSON()
+	raw, ok := parent.Get(key)
+	if !ok {
+		return child, true
+	}
+	if json.Unmarshal(raw, child) != nil {
+		return adapters.NewOrderedJSON(), false
+	}
+	return child, true
+}
+
+// putOrderedChild stores child under key in place, or removes the key
+// once child is empty.
+func putOrderedChild(parent *adapters.OrderedJSON, key string, child *adapters.OrderedJSON) error {
+	if child.Len() == 0 {
+		parent.Delete(key)
+		return nil
+	}
+	return parent.Set(key, child)
+}
+
+// orderedValue decodes the value under key.
+func orderedValue(o *adapters.OrderedJSON, key string) (any, bool) {
+	raw, ok := o.Get(key)
+	if !ok {
+		return nil, false
+	}
+	var value any
+	if json.Unmarshal(raw, &value) != nil {
+		return nil, false
+	}
+	return value, true
 }
 
 func removeEqual(items []any, want any) ([]any, bool) {
