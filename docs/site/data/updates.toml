@@ -1,3 +1,7 @@
+# Editions per page in the archive. Search and target filters run over
+# every edition first, then the matches are paged.
+page_size = 6
+
 [copy]
 search_label = "Search titles and summaries"
 search_placeholder = "Try skills, hooks, or a target"

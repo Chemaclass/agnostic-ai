@@ -184,6 +184,7 @@
 }
 
 .archive-filter[hidden],
+.archive-pager[hidden],
 .archive-row[hidden],
 .filter-notice[hidden],
 .archive-empty[hidden] {
@@ -379,7 +380,9 @@
   text-decoration: none;
 }
 
-.archive-row:last-child {
+/* The last row in the markup may be filtered or paged out, so the
+   closing rule belongs to the list whenever any row is showing. */
+.archive-list:has(.archive-row:not([hidden])) {
   border-bottom: 1px solid var(--line);
 }
 
@@ -414,6 +417,41 @@
 
 .archive-row:hover h3 {
   color: var(--accent);
+}
+
+.archive-pager ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.archive-pager a {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 0.78rem var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.archive-pager a:hover {
+  border-color: var(--accent);
+}
+
+.archive-pager a[aria-current="page"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 .archive-empty {
