@@ -232,6 +232,19 @@ sha256_of() {
   fi
 }
 
+# json_sum <file> hashes a JSON document with its object keys sorted, since
+# key order carries no meaning and a vendor API may reorder a map between
+# fetches. It hashes the raw bytes when jq is missing or the body is not JSON.
+json_sum() {
+  local sorted="$1.sorted"
+  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null; then
+    sha256_of "$sorted"
+  else
+    sha256_of "$1"
+  fi
+  rm -f "$sorted"
+}
+
 # row_status <url> <mode> <sha> compares one row against the committed lock.
 row_status() {
   local url="$1" mode="$2" sha="$3" locked
@@ -369,6 +382,9 @@ fetch_one() {
       # line filter keeps the whole payload and hashes its download counts.
       grep -oE '"(tag_name|published_at)":"[^"]*"' "$body" >"$stem.txt" || true
       result=$(sha256_of "$stem.txt")
+      ;;
+    json)
+      result=$(json_sum "$body")
       ;;
     app-shell | soft-404)
       result="-"

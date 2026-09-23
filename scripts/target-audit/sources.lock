@@ -110,7 +110,7 @@ goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guid
 jules	changelog	https://jules.google/docs/changelog/	200	html	03fd51e23f5565fa3401baa2fde129138a7129c666ea4a0f78b4414900fc7485	2026-09-22
 jules	docs	https://jules.google/docs	200	html	47fbaa92453df4d425a5885160483dceab0050945069680ed94f22144b068517	2026-09-22
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	3f835f0537f35bd9b7a80e692c13d36eee7742f6509407040aa786991b155b2d	2026-09-22
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	50ea5334803dfcefdb9a551d08e36fa798d40385186bb4a9b1e04162bfce1094	2026-09-23
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	92f9081f28570d494ea284d5daf8921937ee3f3122b6f9e2ab0ef11af66c7ea6	2026-09-23
 junie	changelog	https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions	200	app-shell	-	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	9a4692be85ebcda0a6caec7f7722e8e0bea3ec271ac04627d0b0bcaaa8e736d3	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	7634731435c38db4a13ae7b874dcada0dbf2852e3bf1b26b0945564e80644480	2026-09-22
@@ -127,7 +127,7 @@ junie	docs	https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html	200
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-subagents.html	200	html	cb8837e1a8b3abcdf8675cf36ff2b10df9f75db65a7b9ed8e461aa387e8eedb2	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/junie-ide-plugin.html	200	html	7e852212e1296b31a4b07b465ad8c7c4bcf62a3d1ac8ddab142d04c6ad4b8155	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/junie-review-agent.html	200	html	ce0b1baa8b8e6656a0a5fa8caf6f48d095c2165008dbce34becdf58236be12f0	2026-09-22
-junie	docs	https://junie.jetbrains.com/docs/starting-page-get-started-with-junie.json	200	json	c9b2470752389e5ee208f6be82b021b8ac1bad69275d899a8012d43ac3a91685	2026-09-22
+junie	docs	https://junie.jetbrains.com/docs/starting-page-get-started-with-junie.json	200	json	1d42da67ad9bb962ea8f6262b2ac744f89fcc5b9a973ad394d0cc982321cbcf3	2026-09-22
 kilo	changelog	https://github.com/Kilo-Org/kilocode/releases	200	github-api	0417d049ec6c48b0de0a64f16794e8592bf2e11f50193ecc3ee6892a4a5c29d7	2026-09-23
 kilo	docs	https://kilo.ai/docs	200	html	7f28fab58eb34ac9ecf5f9bb2da3f55e546d8170a7f264da417dc4e8b29f0397	2026-09-22
 kilo	docs	https://kilo.ai/docs/automate/tools	200	html	5b81f1bf13684bf910a835fa9fe5d405c2d548c603876142cdb65b62bfb8a491	2026-09-22
@@ -187,7 +187,7 @@ qoder	docs	https://docs.qoder.com/user-guide/chat/model-context-protocol	200	htm
 qoder	docs	https://docs.qoder.com/user-guide/commands	200	html	21f0b82668f33589e9572498b59c3b96dd00330183bdcf98ef48fc42359fe199	2026-09-22
 qoder	docs	https://docs.qoder.com/user-guide/rules	200	html	0108e7ebfa295f55549d72f5f47c22e95456881ee6e306fc9b72916d8632b5ba	2026-09-22
 trae	changelog	https://docs.trae.ai/ide/changelog	200	router-data	4e5aa52bb2ebdbe195956b8c44b77430d5c9605a884bb83e227ce14d5744d437	2026-09-22
-trae	changelog	https://www.trae.ai/api/changelog	200	json	4c98abfcbb948e92f1282960c63610772f887a4261f066201afc6966375b8cd6	2026-09-22
+trae	changelog	https://www.trae.ai/api/changelog	200	json	db52938b565f9ec0e435d6243c2084309d2911248e16ff9939fadefd8bc5aff0	2026-09-22
 trae	docs	https://docs.trae.ai/ide/add-mcp-servers	200	router-data	2da944068d00ffe73b5780533852837cb4a53d5372fee4fd4271fa1a0cf730bf	2026-09-22
 trae	docs	https://docs.trae.ai/ide/automate-actions-with-hooks	200	router-data	2199d46a3e9d7cde44069fe44cadb86d546faf3749faebbfa4b55cb34de45d21	2026-09-22
 trae	docs	https://docs.trae.ai/ide/hook-configuration-reference	200	router-data	22a50c650ed341295387a9ab57b185e47b2e4a1999ef28a14bf7d53443796bc1	2026-09-22
