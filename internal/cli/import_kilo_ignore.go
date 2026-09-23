@@ -14,7 +14,7 @@ func importKiloIgnore(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, "kilo.jsonc", filepath.Join(root, src.Settings), false, false)
+	settings, err := importPortableSettings(root, "kilo.jsonc", filepath.Join(root, src.Settings), portableSettingsShape{})
 	if err != nil {
 		return err
 	}

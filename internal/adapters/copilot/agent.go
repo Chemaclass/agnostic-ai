@@ -41,6 +41,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // effortLevels are the values Copilot documents for effortLevel.
 var effortLevels = []string{"low", "medium", "high", "xhigh"}
 
+// SettingsEffortLevels returns the values the repository effortLevel accepts.
+func (Adapter) SettingsEffortLevels() []string { return effortLevels }
+
 // AgentEffortLevels maps each agent name to the portable effort that
 // belongs in `subagents.agents.<name>.effortLevel`, skipping agents with
 // an explicit x-copilot.effort and values Copilot does not accept.

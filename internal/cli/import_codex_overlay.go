@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -22,6 +24,10 @@ const (
 	// sandbox, profiles, model_providers, history, notify, and any
 	// other top-level keys the user had configured.
 	codexOverlayFile = "codex.config.toml"
+
+	// codexSettingsSpec is the settings spec a promoted
+	// model_reasoning_effort lands in.
+	codexSettingsSpec = "codex.yaml"
 )
 
 // codexOverlayDir is an alias for the shared overlay directory. Kept
@@ -52,18 +58,22 @@ func codexOverlayRelPath() string {
 // MCP sections. Without the overlay, a wipe of `.codex/` between
 // import and sync would destroy every non-managed key.
 //
+// A promotable top-level `model_reasoning_effort` moves to the portable
+// settings `effort` in settingsDir instead, so every target syncs it;
+// promoted reports that.
+//
 // Returns (false, nil) when config.toml is missing or contains only
 // `hooks` and/or `mcp_servers`, so a fresh project does not get a
 // surprise empty overlay file. Returns (true, nil) when the overlay
 // was actually written.
-func importCodexConfigOverlay(root string) (bool, error) {
+func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, err error) {
 	src := filepath.Join(root, codexConfigTOML)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+		return false, false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", src, err)
+		return false, false, fmt.Errorf("read %s: %w", src, err)
 	}
 
 	// Validate that the input is parseable as TOML before trying to strip
@@ -72,12 +82,15 @@ func importCodexConfigOverlay(root string) (bool, error) {
 	raw := header.Strip(string(data))
 	doc := map[string]any{}
 	if _, err := toml.Decode(raw, &doc); err != nil {
-		return false, fmt.Errorf("parse %s: %w", src, err)
+		return false, false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	delete(doc, "hooks")
 	delete(doc, "mcp_servers")
+	if raw, promoted, err = promoteCodexEffort(raw, doc, settingsDir); err != nil {
+		return false, false, err
+	}
 	if len(doc) == 0 {
-		return false, nil
+		return false, promoted, nil
 	}
 
 	// Text-level strip preserves multi-line string literals, comments,
@@ -92,19 +105,76 @@ func importCodexConfigOverlay(root string) (bool, error) {
 	if filtered == "" {
 		var buf bytes.Buffer
 		if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
-			return false, fmt.Errorf("encode overlay: %w", err)
+			return false, promoted, fmt.Errorf("encode overlay: %w", err)
 		}
 		filtered = buf.String()
 	}
 
 	dst := codexOverlayPath(root)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, promoted, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, []byte(filtered), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", dst, err)
+		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
 	}
-	return true, nil
+	return true, promoted, nil
+}
+
+// promoteCodexEffort moves a top-level model_reasoning_effort out of raw
+// and doc into the portable settings `effort`. A value another settings
+// spec shadows stays, since the overlay outranks portable settings. The
+// text edit is kept only when raw still decodes to doc without the key,
+// so an unusual layout stays in the overlay untouched.
+func promoteCodexEffort(raw string, doc map[string]any, settingsDir string) (string, bool, error) {
+	const key = "model_reasoning_effort"
+	plan, level, err := planSettingsEffort("codex", doc[key], settingsDir, codexSettingsSpec)
+	if err != nil || plan != effortPromote {
+		return raw, false, err
+	}
+	stripped := stripTopLevelTOMLKey(raw, key)
+	got := map[string]any{}
+	if _, err := toml.Decode(stripped, &got); err != nil {
+		return raw, false, nil
+	}
+	delete(got, "hooks")
+	delete(got, "mcp_servers")
+	want := maps.Clone(doc)
+	delete(want, key)
+	if !reflect.DeepEqual(got, want) {
+		return raw, false, nil
+	}
+	if err := writeSettingsSpec(settingsDir, codexSettingsSpec, settingsEffortSpec(plan, "codex", key, level)); err != nil {
+		return raw, false, err
+	}
+	delete(doc, key)
+	return stripped, true, nil
+}
+
+// stripTopLevelTOMLKey removes the single-line `key = value` assignment
+// that precedes the first table header in raw.
+func stripTopLevelTOMLKey(raw, key string) string {
+	lines := strings.Split(raw, "\n")
+	inMultiline := ""
+	for i, line := range lines {
+		if inMultiline != "" {
+			if strings.Contains(line, inMultiline) {
+				inMultiline = ""
+			}
+			continue
+		}
+		trimmed := strings.TrimSpace(line)
+		if isCodexSectionHeader(trimmed) {
+			break
+		}
+		if name, _, found := strings.Cut(trimmed, "="); found && strings.TrimSpace(name) == key {
+			if openMultilineDelimiter(line) != "" {
+				return raw
+			}
+			return strings.Join(append(lines[:i:i], lines[i+1:]...), "\n")
+		}
+		inMultiline = openMultilineDelimiter(line)
+	}
+	return raw
 }
 
 // stripCodexSpecManagedSections removes every `[[hooks.<event>]]` and

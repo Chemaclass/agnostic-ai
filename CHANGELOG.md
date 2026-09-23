@@ -17,6 +17,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --global` writes a Copilot agent's `effort` to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`, instead of dropping it with a coverage note (#1073).
 - `sync --global --check --diff` prints a unified diff per drifted file, limited to the managed block of an instructions file, and the drift error names every drifted file (#1083).
 - Settings specs take `effort`, a repository default reasoning effort in the same scalar-or-map shape as agent `effort`. It writes Claude and Copilot `effortLevel`, Codex `model_reasoning_effort`, and Factory `reasoningEffort`; other settings targets report a coverage note (#1069).
+- `import` fills the settings `effort` from Claude's and Copilot's `effortLevel`, Codex's top-level `model_reasoning_effort`, and Factory's `reasoningEffort`, so an imported effort syncs to every target. When another settings spec already sets a different effort, the value stays target-only under `x-<target>` (#1089).
 
 ### Changed
 

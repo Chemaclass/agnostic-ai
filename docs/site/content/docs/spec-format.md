@@ -513,6 +513,8 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 
 `effort` reaches four targets, each under its own key and value set. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` still wins, so `x-claude.effortLevel` overrides the portable value. Every other settings target reports a coverage note. Keep this separate from an agent's own `effort`, which applies to that agent alone.
 
+`import` fills `effort` from these same four keys when the value is one the target accepts and no other settings spec sets `effort`. If another spec already sets a different effort, the imported value lands under `x-<target>` instead, so `import all` never replaces one tool's effort with another's.
+
 | Target | Native key | Accepted values |
 |---|---|---|
 | Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |

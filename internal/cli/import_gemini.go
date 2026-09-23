@@ -58,7 +58,7 @@ func importFromGemini(root string, src config.Sources) error {
 	if err := captureHookScripts(root, "gemini"); err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, geminiSettings, filepath.Join(root, src.Settings), true, false)
+	settings, err := importPortableSettings(root, geminiSettings, filepath.Join(root, src.Settings), portableSettingsShape{nestedModel: true})
 	if err != nil {
 		return err
 	}

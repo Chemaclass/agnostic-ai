@@ -73,7 +73,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, opencodeMCPFile, filepath.Join(root, src.Settings), false, false)
+	settings, err := importPortableSettings(root, opencodeMCPFile, filepath.Join(root, src.Settings), portableSettingsShape{})
 	if err != nil {
 		return err
 	}

@@ -93,6 +93,9 @@ const permissionsNonShellReason = "Factory's commandAllowlist, commandDenylist, 
 // settings reference lists; each model accepts a subset.
 var reasoningEffortLevels = []string{"none", "dynamic", "off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
+// SettingsEffortLevels returns the values reasoningEffort accepts.
+func (Adapter) SettingsEffortLevels() []string { return reasoningEffortLevels }
+
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if model := emit.LastSettingsModel(settings); model != "" {
