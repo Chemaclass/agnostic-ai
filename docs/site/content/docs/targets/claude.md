@@ -38,6 +38,8 @@ Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers. HTTP uses `u
 
 Stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` apply to command handlers only. A `command` list becomes one handler per entry. Setting `args` switches to exec form, which keeps the executable in `command`.
 
+`once` is written but has no effect here. [Hooks](https://code.claude.com/docs/en/hooks) says it is "Only honored for hooks declared in skill frontmatter; ignored in settings files and agent frontmatter", and every portable hook lands in `.claude/settings.json`. `sync` prints a note saying so (#1078).
+
 `event` passes through verbatim. Common events:
 
 | Event | When it fires |

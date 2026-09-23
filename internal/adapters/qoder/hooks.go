@@ -94,12 +94,15 @@ var hookLifecycle = []string{
 // lose what the user authored. The user hears about it through a field
 // no-op note instead.
 //
+// Qoder honors `once` only for session-scoped (Subagent frontmatter) hooks, so it gets the same note.
+//
 // Returns nil when no hook spec produces an entry.
 func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]hookEntry{}
 	var keyOrder []matcherKey
 	execFormShell := 0
+	onceNoOp := 0
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -111,6 +114,9 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			entry := nonCommandHook(h, hookType)
 			if entry == nil {
 				continue
+			}
+			if entry.Once {
+				onceNoOp++
 			}
 			matcher, _ := h.Meta["matcher"].(string)
 			k := matcherKey{event: event, matcher: matcher}
@@ -136,6 +142,9 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		if len(args) > 0 && shell != "" {
 			execFormShell++
 		}
+		if once {
+			onceNoOp++
+		}
 
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
@@ -158,6 +167,8 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "shell", execFormShell,
 		"Qoder ignores shell once args is set: exec form runs the binary directly, with no shell")
+	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
+		"Qoder only honors once for session-scoped hooks, such as those in Subagent frontmatter; a settings.json hook keeps running every time")
 	if len(keyOrder) == 0 {
 		return nil
 	}
