@@ -25,6 +25,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Global sync honors each tool's root variable, such as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, for every surface. Delete files left under the old root (#1033).
 - `sync --global` without `--only` warns and skips a target it cannot write instead of failing the run (#1033).
 - GitHub issue forms ask only for a problem description or tool name.
+- Target audits hash a JSON source with its keys sorted, so a vendor API that reorders a map no longer reads as a changed page (#1092).
 
 ### Fixed
 

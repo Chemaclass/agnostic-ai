@@ -6,7 +6,7 @@ Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`
 
 ## What each mode means
 
-`html` is a normal page; the hash covers its visible text only, so a nonce or a rebuilt script bundle does not read as a documentation change. `markdown-mirror`, `llms-txt`, `raw-github`, `json`, and `text` are raw sources, hashed as fetched. `github-api` hashes only the release tags and dates, so download counters do not churn. `meta-refresh` and `reader-proxy` are successful recoveries, and the row's `final_url` says where the content actually came from.
+`html` is a normal page; the hash covers its visible text only, so a nonce or a rebuilt script bundle does not read as a documentation change. `markdown-mirror`, `llms-txt`, `raw-github`, and `text` are raw sources, hashed as fetched. `json` is hashed with its object keys sorted, so an API that reorders a map between fetches does not read as a change. `github-api` hashes only the release tags and dates, so download counters do not churn. `meta-refresh` and `reader-proxy` are successful recoveries, and the row's `final_url` says where the content actually came from.
 
 `app-shell` means the page served 200 with almost no visible text and every automatic fallback failed. `soft-404` means the body announces a missing page behind a 200. `redirected` means the fetch landed somewhere other than the path requested. `failed` means no usable bytes at all. None of these are clean checks.
 

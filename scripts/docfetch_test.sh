@@ -196,6 +196,25 @@ function test_sha256_of_falls_back_when_sha256sum_is_absent() {
   assert_equals "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" "$out"
 }
 
+# ---- json_sum -----------------------------------------------------------------
+
+function test_json_sum_ignores_object_key_order() {
+  printf '{"a":1,"b":{"x":[1,2],"y":"z"}}' >"$FIXTURES/one.json"
+  printf '{ "b": { "y": "z", "x": [1, 2] }, "a": 1 }\n' >"$FIXTURES/two.json"
+  assert_equals "$(json_sum "$FIXTURES/one.json")" "$(json_sum "$FIXTURES/two.json")"
+}
+
+function test_json_sum_still_sees_a_changed_value_or_array_order() {
+  printf '{"a":[1,2]}' >"$FIXTURES/one.json"
+  printf '{"a":[2,1]}' >"$FIXTURES/two.json"
+  assert_not_equals "$(json_sum "$FIXTURES/one.json")" "$(json_sum "$FIXTURES/two.json")"
+}
+
+function test_json_sum_hashes_the_raw_body_when_it_is_not_json() {
+  printf 'abc' >"$FIXTURES/abc"
+  assert_equals "$(sha256_of "$FIXTURES/abc")" "$(json_sum "$FIXTURES/abc")"
+}
+
 # ---- row_status --------------------------------------------------------------
 
 function test_row_status_is_new_without_a_lock() {
