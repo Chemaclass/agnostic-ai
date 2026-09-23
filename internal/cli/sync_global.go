@@ -192,8 +192,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err := preflightGlobalWrites(writes, trees, old); err != nil {
 		return err
 	}
+	removals := removedGlobalFiles(old.Files, next.Files)
 	if o.check {
-		return checkGlobalWrites(cmd, writes, statePath, next, o.diff)
+		return checkGlobalWrites(cmd, writes, existingPaths(removals), statePath, next, o.diff)
 	}
 	if o.dryRun {
 		for _, w := range writes {
@@ -201,9 +202,13 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 				return fmt.Errorf("write dry-run output: %w", err)
 			}
 		}
+		for _, path := range existingPaths(removals) {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: remove %s\n", path); err != nil {
+				return fmt.Errorf("write dry-run output: %w", err)
+			}
+		}
 		return nil
 	}
-	removals := removedGlobalFiles(old.Files, next.Files)
 	if !o.backup {
 		edited, err := handEditedGlobalFiles(writes, removals, old)
 		if err != nil {
@@ -223,10 +228,10 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	return nil
 }
 
-// checkGlobalWrites reports every planned write that differs from disk.
-// With diff it prints a unified diff per file, limited to the managed
-// block when both sides carry one.
-func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, statePath string, next globalState, diff bool) error {
+// checkGlobalWrites reports every planned write that differs from disk
+// and every file a sync would remove. With diff it prints a unified diff
+// per file, limited to the managed block when both sides carry one.
+func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []string, statePath string, next globalState, diff bool) error {
 	var drifted []string
 	out := cmd.OutOrStdout()
 	for _, w := range writes {
@@ -264,10 +269,30 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, statePath strin
 			return fmt.Errorf("write global diff: %w", werr)
 		}
 	}
+	for _, path := range removals {
+		drifted = append(drifted, path)
+		if diff {
+			if _, err := fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path)); err != nil {
+				return fmt.Errorf("write global diff: %w", err)
+			}
+		}
+	}
 	if len(drifted) > 0 {
 		return fmt.Errorf("global configuration drift: %s", strings.Join(drifted, ", "))
 	}
 	return nil
+}
+
+// existingPaths keeps the paths still on disk, the only ones a removal
+// changes.
+func existingPaths(paths []string) []string {
+	var out []string
+	for _, path := range paths {
+		if _, err := os.Lstat(path); err == nil {
+			out = append(out, path)
+		}
+	}
+	return out
 }
 
 // agentFailure decides what a target's agent render error does: an
