@@ -156,8 +156,9 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
+	AgentFields: []string{"effort", "mcpServers"},
 }
 
 // Adapter emits Qoder configs.

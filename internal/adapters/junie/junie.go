@@ -172,8 +172,9 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	AgentFields: []string{"effort", "mcpServers"},
 }
 
 // agentNameRule is the regex the subagent frontmatter table states for

@@ -156,3 +156,58 @@ func TestReportUnsupported_FlushClearsBuffer(t *testing.T) {
 		t.Errorf("second flush should be no-op, got extra output:\n%s", buf.String())
 	}
 }
+
+func droppedAgentFieldNotes(t *testing.T, c Capabilities, agents ...spec.Entry) string {
+	t.Helper()
+	buf := swapWarner(t)
+	ResetCoverageNotes()
+	t.Cleanup(ResetCoverageNotes)
+	c.Supports = []spec.Kind{spec.KindAgent}
+	if err := ReportUnsupported(c, spec.Bundle{Agents: agents}, OnUnsupportedWarn); err != nil {
+		t.Fatal(err)
+	}
+	FlushCoverageNotes()
+	return buf.String()
+}
+
+// A target without a per-agent key for effort or mcpServers must say so,
+// instead of dropping the field silently on some targets and noting it on
+// others (#1072).
+func TestReportUnsupported_NotesDroppedAgentFields(t *testing.T) {
+	got := droppedAgentFieldNotes(t, Capabilities{Target: "kilo"},
+		spec.Entry{Name: "a", Meta: map[string]any{"effort": "high", "mcpServers": []any{"github"}}},
+		spec.Entry{Name: "b", Meta: map[string]any{"effort": "low"}},
+		spec.Entry{Name: "c", Meta: map[string]any{}},
+	)
+	for _, want := range []string{
+		"`effort` on 2 agents has no effect on kilo (the agent file has no reasoning effort key)",
+		"`mcpServers` on 1 agent has no effect on kilo (the agent file has no MCP server list)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestReportUnsupported_AgentFieldsCarriedOrPassedThroughStaySilent(t *testing.T) {
+	agents := []spec.Entry{
+		{Name: "a", Meta: map[string]any{"effort": map[string]any{"claude": "xhigh"}}},
+		{Name: "b", Meta: map[string]any{"mcpServers": []any{"github"}, "x-kiro": map[string]any{"mcpServers": map[string]any{}}}},
+	}
+	if got := droppedAgentFieldNotes(t, Capabilities{Target: "claude", AgentFields: []string{"effort", "mcpServers"}}, agents...); got != "" {
+		t.Errorf("claude carries both fields, got notes:\n%s", got)
+	}
+	// effort resolves to nothing for kiro, and x-kiro.mcpServers writes the
+	// native key, so neither field is dropped.
+	if got := droppedAgentFieldNotes(t, Capabilities{Target: "kiro"}, agents...); got != "" {
+		t.Errorf("kiro drops nothing here, got notes:\n%s", got)
+	}
+}
+
+func TestReportUnsupported_AgentFieldReasonOverridesDefault(t *testing.T) {
+	got := droppedAgentFieldNotes(t, Capabilities{Target: "kiro", AgentFieldReasons: map[string]string{"mcpServers": "set x-kiro.mcpServers"}},
+		spec.Entry{Name: "a", Meta: map[string]any{"mcpServers": []any{"github"}}})
+	if !strings.Contains(got, "`mcpServers` on 1 agent has no effect on kiro (set x-kiro.mcpServers)") {
+		t.Errorf("expected the target reason, got:\n%s", got)
+	}
+}

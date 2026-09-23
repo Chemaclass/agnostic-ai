@@ -112,6 +112,9 @@ var caps = emit.Capabilities{
 	// centrally, while a path-triggered rule (paths/globs/scope) writes
 	// its own skill folder directly (see path_rules.go).
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
+	AgentFieldReasons: map[string]string{
+		"mcpServers": "OpenHands takes inline server definitions only; set x-openhands.mcp_servers",
+	},
 }
 
 // Adapter emits OpenHands configs.

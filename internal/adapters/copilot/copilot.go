@@ -164,6 +164,8 @@ const (
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindSettings},
+	// effort: agent.go notes the drop with the user-tier alternative.
+	AgentFields: []string{"effort"},
 }
 
 // Adapter emits GitHub Copilot configs.

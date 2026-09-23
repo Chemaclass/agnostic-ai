@@ -128,6 +128,8 @@ var caps = emit.Capabilities{
 	// ~/.codex/prompts only and deprecates them in favor of skills, so
 	// a project-level prompts tree would never be read.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	// effort: effort.go notes the integer budgets it cannot write.
+	AgentFields: []string{"effort"},
 }
 
 // Adapter emits Codex configs.

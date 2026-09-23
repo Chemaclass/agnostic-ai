@@ -162,6 +162,8 @@ var caps = emit.Capabilities{
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
+	// effort: frontmatter_policy.go notes the values outside the enum.
+	AgentFields: []string{"effort", "mcpServers"},
 }
 
 // Adapter emits Factory Droid CLI configs.
@@ -321,8 +323,10 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
 			hasDroppedTools = dropped || len(mapped) == 0
 		}
 	}
-	if servers := emit.StringSlice(resolved["mcpServers"]); len(servers) > 0 {
-		meta["mcpServers"] = servers
+	// An empty list is written too: Factory reads `mcpServers: []` as
+	// no servers at all, while an absent key inherits every server.
+	if _, set := resolved["mcpServers"].([]any); set {
+		meta["mcpServers"] = append([]string{}, emit.StringSlice(resolved["mcpServers"])...)
 		keys = append(keys, "mcpServers")
 	}
 	if effort, ok := droidReasoningEffort(resolved); ok {

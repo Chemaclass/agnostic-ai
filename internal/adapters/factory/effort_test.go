@@ -32,6 +32,35 @@ func TestDroidMarkdown_EmitsPortableMCPScopeAndEffort(t *testing.T) {
 	}
 }
 
+// Factory documents `mcpServers: []` as excluding every server, "even
+// globally configured ones", while an absent key inherits them all. An
+// empty list must therefore reach the droid file, or a droid meant to
+// have no MCP access silently gets every server.
+func TestDroidMarkdown_KeepsEmptyMCPServersList(t *testing.T) {
+	body, _ := droidMarkdown(spec.Entry{
+		Kind: spec.KindAgent, Name: "offline", Body: "No MCP.",
+		Meta: map[string]any{"description": "No MCP", "mcpServers": []any{}},
+	})
+	if !strings.Contains(body, "mcpServers: []\n") {
+		t.Errorf("empty mcpServers must be written, got:\n%s", body)
+	}
+
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "offline", Meta: map[string]any{"mcpServers": []any{}}}
+	if err := emit.ReportUnsupported(caps, spec.Bundle{Agents: []spec.Entry{agent}}, ""); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "mcpServers") {
+		t.Errorf("a written list must not raise a drop note, got: %s", buf.String())
+	}
+}
+
 // Factory's enum stops at high. Qoder and Claude Code document xhigh,
 // max, and an integer budget, so those have no Factory spelling and
 // must not be written into a file Droid CLI validates at load time.
