@@ -101,7 +101,15 @@ type Session struct {
 	// on a session other goroutines already write through.
 	unmanaged atomic.Pointer[[]string]
 	skipped   []string // user-owned paths refused; may repeat a path
+	userTier  bool
 }
+
+// SetUserTier marks a session that writes a tool's user-level
+// configuration, where user settings files are reachable.
+func (s *Session) SetUserTier() { s.userTier = true }
+
+// UserTier reports whether SetUserTier was called.
+func (s *Session) UserTier() bool { return s.userTier }
 
 // NewSession returns a Session with every mode off, ready to be threaded
 // through one emission pass. Adapters and the CLI toggle modes on it and

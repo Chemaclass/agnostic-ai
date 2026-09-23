@@ -27,8 +27,8 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// Version 3 records agent owners for targets sharing a directory.
-	globalStateVersion = 3
+	// Version 4 records the per-agent effort written into user settings.
+	globalStateVersion = 4
 )
 
 type globalSyncOptions struct {
@@ -42,6 +42,9 @@ type globalState struct {
 	Version int                 `json:"version"`
 	Files   []string            `json:"files"`
 	Agents  map[string][]string `json:"agents,omitempty"`
+	// AgentEfforts records the effortLevel written per target and agent
+	// name, so a later sync removes only values it placed.
+	AgentEfforts map[string]map[string]string `json:"agentEfforts,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -292,10 +295,15 @@ func loadGlobalState(path string) (globalState, error) {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, AgentEfforts: map[string]map[string]string{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
+		}
+	}
+	for target, efforts := range old.AgentEfforts {
+		if !slices.Contains(targets, target) {
+			next.AgentEfforts[target] = efforts
 		}
 	}
 	for target, hooks := range old.Hooks {
@@ -316,17 +324,23 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	var writes []globalWrite
 	seen := map[string]int{}
-	add := func(path string, data []byte, mode fs.FileMode) error {
+	place := func(path string, data []byte, mode fs.FileMode) (bool, error) {
 		if i, ok := seen[path]; ok {
 			if !bytes.Equal(writes[i].data, data) {
-				return fmt.Errorf("%s: two global targets emit different content to one path", path)
+				return false, fmt.Errorf("%s: two global targets emit different content to one path", path)
 			}
-			return nil
+			return false, nil
 		}
 		seen[path] = len(writes)
 		writes = append(writes, globalWrite{path, data, mode})
-		next.Files = append(next.Files, path)
-		return nil
+		return true, nil
+	}
+	add := func(path string, data []byte, mode fs.FileMode) error {
+		placed, err := place(path, data, mode)
+		if placed {
+			next.Files = append(next.Files, path)
+		}
+		return err
 	}
 	body := strings.TrimSpace(string(intro))
 	for _, rule := range b.Rules {
@@ -340,9 +354,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		g := globalTargets[target]
 		if g.agents != "" {
 			dir := g.agentsPath(home)
-			files, err := adapters.RenderAgents(target, b.Agents, dir)
-			if err != nil {
-				if err := agentErr(target, err); err != nil {
+			files, renderErr := adapters.RenderAgents(target, b.Agents, dir)
+			if renderErr != nil {
+				if err := agentErr(target, renderErr); err != nil {
 					return nil, next, err
 				}
 				// Keep what the last successful sync placed.
@@ -353,6 +367,30 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 					return nil, next, err
 				}
 				next.Agents[target] = append(next.Agents[target], file.Path)
+			}
+			if g.agentEfforts != "" {
+				efforts := old.AgentEfforts[target]
+				if renderErr == nil {
+					var err error
+					if efforts, err = adapters.AgentEffortLevels(target, b.Agents); err != nil {
+						return nil, next, err
+					}
+				}
+				// The settings file is the user's own, so ownership is per
+				// key and the file never enters Files or removal.
+				path := g.path(home, g.agentEfforts)
+				doc, err := mergeGlobalAgentEfforts(path, efforts, old.AgentEfforts[target])
+				if err != nil {
+					return nil, next, err
+				}
+				if doc != nil {
+					if _, err := place(path, doc, 0o644); err != nil {
+						return nil, next, err
+					}
+				}
+				if len(efforts) > 0 {
+					next.AgentEfforts[target] = efforts
+				}
 			}
 		}
 		if g.instructions != "" {
@@ -559,6 +597,79 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 	}
 	if format == "cursor" {
 		doc["version"] = float64(1)
+	}
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", path, err)
+	}
+	return append(out, '\n'), nil
+}
+
+// mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for
+// each managed effort in a JSONC user settings file, removing values an
+// earlier sync placed. A value set by hand stops the run. It returns nil
+// when the file needs no change, so its comments survive.
+func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		if len(efforts) == 0 {
+			return nil, nil
+		}
+		data = []byte("{}")
+	} else if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	stripped, _ := adapters.StripJSONC(data)
+	var doc, before map[string]any
+	if err := json.Unmarshal(stripped, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if err := json.Unmarshal(stripped, &before); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if doc == nil {
+		doc = map[string]any{}
+	}
+	subagents, _ := doc["subagents"].(map[string]any)
+	if subagents == nil {
+		subagents = map[string]any{}
+	}
+	agents, _ := subagents["agents"].(map[string]any)
+	if agents == nil {
+		agents = map[string]any{}
+	}
+	for name, level := range previous {
+		agent, _ := agents[name].(map[string]any)
+		if agent["effortLevel"] == level {
+			delete(agent, "effortLevel")
+		}
+		if agent != nil && len(agent) == 0 {
+			delete(agents, name)
+		}
+	}
+	for name, level := range efforts {
+		agent, _ := agents[name].(map[string]any)
+		if agent == nil {
+			agent = map[string]any{}
+			agents[name] = agent
+		}
+		if current, ok := agent["effortLevel"]; ok && current != level {
+			return nil, fmt.Errorf("%s: subagents.agents.%s.effortLevel is %v, set outside agnostic-ai; remove it or drop the agent's effort", path, name, current)
+		}
+		agent["effortLevel"] = level
+	}
+	if len(agents) > 0 {
+		subagents["agents"] = agents
+	} else {
+		delete(subagents, "agents")
+	}
+	if len(subagents) > 0 {
+		doc["subagents"] = subagents
+	} else {
+		delete(doc, "subagents")
+	}
+	if reflect.DeepEqual(doc, before) {
+		return nil, nil
 	}
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
