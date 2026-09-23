@@ -323,8 +323,10 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
 			hasDroppedTools = dropped || len(mapped) == 0
 		}
 	}
-	if servers := emit.StringSlice(resolved["mcpServers"]); len(servers) > 0 {
-		meta["mcpServers"] = servers
+	// An empty list is written too: Factory reads `mcpServers: []` as
+	// no servers at all, while an absent key inherits every server.
+	if _, set := resolved["mcpServers"].([]any); set {
+		meta["mcpServers"] = append([]string{}, emit.StringSlice(resolved["mcpServers"])...)
 		keys = append(keys, "mcpServers")
 	}
 	if effort, ok := droidReasoningEffort(resolved); ok {
