@@ -25,7 +25,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	droppedEffort := 0
 	for _, a := range agents {
 		body, dropped := agentMarkdown(a)
-		if dropped && !(sess.UserTier() && supportedEffortLevel(a)) {
+		if dropped && (!sess.UserTier() || !supportedEffort(a)) {
 			droppedEffort++
 		}
 		path := filepath.Join(dir, a.Name+agentFileSuffix)
@@ -47,16 +47,16 @@ var effortLevels = []string{"low", "medium", "high", "xhigh"}
 func (Adapter) AgentEffortLevels(agents []spec.Entry) map[string]string {
 	levels := map[string]string{}
 	for _, a := range agents {
-		if level, ok := droppedEffort(a); ok && slices.Contains(effortLevels, level) {
-			levels[a.Name] = level
+		if supportedEffort(a) {
+			levels[a.Name], _ = droppedEffort(a)
 		}
 	}
 	return levels
 }
 
-func supportedEffortLevel(e spec.Entry) bool {
-	level, _ := droppedEffort(e)
-	return slices.Contains(effortLevels, level)
+func supportedEffort(e spec.Entry) bool {
+	level, dropped := droppedEffort(e)
+	return dropped && slices.Contains(effortLevels, level)
 }
 
 // droppedEffort returns the portable effort a profile cannot carry. An
