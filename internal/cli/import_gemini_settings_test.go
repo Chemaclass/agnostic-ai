@@ -21,7 +21,7 @@ func TestImportFromGemini_ImportsDefaultModel(t *testing.T) {
 	if err := importFromGemini(root, sources); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(root, "settings/imported.yaml"))
+	raw, err := os.ReadFile(filepath.Join(root, "settings/gemini.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

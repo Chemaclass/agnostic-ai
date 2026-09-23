@@ -78,7 +78,7 @@ Multiple specs concatenate. Override via `outputs.junie.ignore-file`.
 
 Skills import from `.junie/skills/` and `.agents/skills/`, with the native directory first for duplicate names. Each selected skill keeps its bundled assets.
 
-`agnostic-ai import junie` reads the sentinel-marked Rules block in `.junie/AGENTS.md`, the file Junie's guidelines lookup opens first and `sync` always writes (#552). It reads agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`) and commands from `.junie/commands/<name>.md`. Skills come from `.junie/skills/<name>/SKILL.md` folders, with bundled sibling assets copied byte-for-byte. The default `model` in `.junie/config.json` is restored to `settings/imported.yaml`.
+`agnostic-ai import junie` reads the sentinel-marked Rules block in `.junie/AGENTS.md`, the file Junie's guidelines lookup opens first and `sync` always writes (#552). It reads agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`) and commands from `.junie/commands/<name>.md`. Skills come from `.junie/skills/<name>/SKILL.md` folders, with bundled sibling assets copied byte-for-byte. The default `model` in `.junie/config.json` is restored to `settings/junie.yaml`.
 
 Older layouts still import:
 
