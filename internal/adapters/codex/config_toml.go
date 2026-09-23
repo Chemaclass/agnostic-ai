@@ -55,6 +55,10 @@ func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, over
 	return sb.String()
 }
 
+// SettingsEffortLevels returns nil: model_reasoning_effort takes any
+// string, since the levels depend on the model and client.
+func (Adapter) SettingsEffortLevels() []string { return nil }
+
 func hasCodexConfig(cfg *config.CodexConfig) bool {
 	if cfg == nil {
 		return false

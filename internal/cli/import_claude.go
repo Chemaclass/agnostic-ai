@@ -81,7 +81,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {
 		return err
 	}
-	overlaySeeded, err := importClaudeSettingsOverlay(root)
+	overlaySeeded, effortPromoted, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
 	if err != nil {
 		return err
 	}
@@ -97,6 +97,10 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
+	}
+	if effortPromoted {
+		summaryf("  → %s seeded with effortLevel from %s/settings.json\n",
+			filepath.Join(src.Settings, claudeSettingsSpec), claudeDir)
 	}
 	for _, h := range helpers {
 		summaryf("  → %s seeded from %s/%s\n",

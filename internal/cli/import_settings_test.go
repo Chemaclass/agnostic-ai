@@ -34,7 +34,7 @@ func TestImportPortableSettings_TargetShapes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			writeFile(t, filepath.Join(dir, tt.nativePath), tt.body)
-			count, err := importPortableSettings(dir, tt.nativePath, filepath.Join(dir, "settings"), tt.nestedModel, tt.permissions)
+			count, err := importPortableSettings(dir, tt.nativePath, filepath.Join(dir, "settings"), portableSettingsShape{nestedModel: tt.nestedModel, permissions: tt.permissions})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestImportPortableSettings_TargetShapes(t *testing.T) {
 func TestImportPortableSettings_NoPortableFields(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"theme":"dark"}`)
-	count, err := importPortableSettings(dir, "config.json", filepath.Join(dir, "settings"), false, false)
+	count, err := importPortableSettings(dir, "config.json", filepath.Join(dir, "settings"), portableSettingsShape{})
 	if err != nil {
 		t.Fatal(err)
 	}

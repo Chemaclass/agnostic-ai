@@ -182,6 +182,8 @@ The instructions file is looked up in the order Claude Code itself reads: `CLAUD
 
 The settings overlay captures every non-`hooks` key of `.claude/settings.json` (statusLine, enabledPlugins, model overrides, any other top-level key). `sync -t claude` layers the spec-derived `hooks` key on top, so it reproduces the full settings.json after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence against `outputs.claude.settings`, see [Claude settings](#claude-settings).
 
+`effortLevel` is the one key import moves out of the overlay. A value Claude Code accepts, with no other settings spec setting `effort`, becomes `effort` in `<settings>/claude.yaml`, so every target syncs it. When another settings spec already sets a different effort, the value goes under `x-claude.effortLevel` in that file instead, so Claude keeps its own. A value Claude Code rejects stays in the overlay.
+
 Each imported MCP spec round-trips to every MCP-aware target on the next `sync`: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
 
 ## Verify

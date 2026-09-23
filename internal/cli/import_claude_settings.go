@@ -26,6 +26,9 @@ const (
 	// the user's authored event order survives a round-trip instead of
 	// being normalized to the canonical lifecycle order.
 	claudeHookOrderFile = "claude.settings.hook-events.json"
+
+	// claudeSettingsSpec is the settings spec a promoted effortLevel lands in.
+	claudeSettingsSpec = "claude.yaml"
 )
 
 // claudeOverlayDir is an alias for the shared overlay directory.
@@ -54,49 +57,77 @@ func claudeOverlayPath(root string) string {
 // overwrites the sentinel with the spec-derived hook map on every sync,
 // keeping hooks at the position the user authored (#227).
 //
+// A promotable `effortLevel` moves to the portable settings `effort` in
+// settingsDir instead, so every target syncs it; promoted reports that.
+//
 // Returns (false, nil) when settings.json is missing or contains only
 // `hooks`, so a fresh project does not get a surprise empty overlay
 // file. Returns (true, nil) when the overlay was actually written.
-func importClaudeSettingsOverlay(root string) (bool, error) {
+func importClaudeSettingsOverlay(root, settingsDir string) (seeded, promoted bool, err error) {
 	src := filepath.Join(root, claudeDir, "settings.json")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+		return false, false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", src, err)
+		return false, false, fmt.Errorf("read %s: %w", src, err)
 	}
 	doc := adapters.NewOrderedJSON()
 	if err := json.Unmarshal(data, doc); err != nil {
-		return false, fmt.Errorf("parse %s: %w", src, err)
+		return false, false, fmt.Errorf("parse %s: %w", src, err)
 	}
 	removedPolicy, err := excludeGeneratedClaudeRejections(root, doc)
 	if err != nil {
-		return false, err
+		return false, false, err
+	}
+	if promoted, err = promoteClaudeEffortLevel(doc, settingsDir); err != nil {
+		return false, false, err
 	}
 	hadHooks := false
 	if rawHooks, ok := doc.Get("hooks"); ok {
 		hadHooks = true
 		if err := captureClaudeHookEventOrder(root, rawHooks); err != nil {
-			return false, err
+			return false, promoted, err
 		}
 		doc.SetRaw("hooks", json.RawMessage(`null`))
 	}
 	if !removedPolicy && (doc.Len() == 0 || (hadHooks && doc.Len() == 1)) {
-		return false, nil
+		return false, promoted, nil
 	}
 	indent := adapters.DetectJSONIndent(data)
 	raw, err := adapters.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
-		return false, fmt.Errorf("marshal overlay: %w", err)
+		return false, promoted, fmt.Errorf("marshal overlay: %w", err)
 	}
 	dst := claudeOverlayPath(root)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, promoted, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, append(raw, '\n'), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", dst, err)
+		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
 	}
+	return true, promoted, nil
+}
+
+// promoteClaudeEffortLevel moves effortLevel out of doc into a settings
+// spec whenever a settings spec decides what sync writes for it.
+func promoteClaudeEffortLevel(doc *adapters.OrderedJSON, settingsDir string) (bool, error) {
+	raw, ok := doc.Get("effortLevel")
+	if !ok {
+		return false, nil
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false, nil
+	}
+	plan, level, err := planSettingsEffort("claude", value, settingsDir, claudeSettingsSpec)
+	if err != nil || plan == effortStays {
+		return false, err
+	}
+	if err := writeSettingsSpec(settingsDir, claudeSettingsSpec, settingsEffortSpec(plan, "claude", "effortLevel", level)); err != nil {
+		return false, err
+	}
+	doc.Delete("effortLevel")
 	return true, nil
 }
 

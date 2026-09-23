@@ -93,7 +93,7 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
-	overlaySeeded, err := importCodexConfigOverlay(root)
+	overlaySeeded, effortPromoted, err := importCodexConfigOverlay(root, filepath.Join(root, src.Settings))
 	if err != nil {
 		return err
 	}
@@ -113,6 +113,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)
+	}
+	if effortPromoted {
+		summaryf("  → %s seeded with model_reasoning_effort from %s (sync writes it for every target)\n",
+			filepath.Join(src.Settings, codexSettingsSpec), codexConfigTOML)
 	}
 	if execPoliciesSeeded {
 		summaryf("  → %s seeded from %s (sync re-emits prefix_rule entries)\n",

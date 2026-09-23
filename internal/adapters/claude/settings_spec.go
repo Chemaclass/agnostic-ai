@@ -43,6 +43,9 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 // projectEffortLevels are the effortLevel values Claude Code documents.
 var projectEffortLevels = []string{"low", "medium", "high", "xhigh"}
 
+// SettingsEffortLevels returns the values effortLevel accepts.
+func (Adapter) SettingsEffortLevels() []string { return projectEffortLevels }
+
 // mergePermissions unions the allow/deny/ask lists across the given
 // permission layers in order (base first), de-duping while preserving
 // first-seen order. Each layer is the `permissions` sub-map of one settings

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -228,8 +229,8 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-// importFactorySettings reads `model` and the three command lists from
-// `.factory/settings.json` into one settings spec. Other keys stay in
+// importFactorySettings reads `model`, `reasoningEffort`, and the three
+// command lists from `.factory/settings.json` into one settings spec. Other keys stay in
 // the file, which sync merges into rather than replaces.
 func importFactorySettings(src, dstDir string) (int, error) {
 	data, err := os.ReadFile(src)
@@ -257,6 +258,11 @@ func importFactorySettings(src, dstDir string) (int, error) {
 	if len(permissions) > 0 {
 		doc["permissions"] = permissions
 	}
+	plan, level, err := planSettingsEffort("factory", native["reasoningEffort"], dstDir, factorySettingsSpec+".yaml")
+	if err != nil {
+		return 0, err
+	}
+	maps.Copy(doc, settingsEffortSpec(plan, "factory", "reasoningEffort", level))
 	if len(doc) == 0 {
 		return 0, nil
 	}

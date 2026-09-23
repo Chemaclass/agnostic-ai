@@ -77,7 +77,7 @@ Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md`, with bundled as
 | `.factory/commands/<name>.md` | `<commands>/<name>.md` |
 | `.factory/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
 | `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group |
-| `.factory/settings.json` `model` and command lists | `<settings>/factory.yaml` |
+| `.factory/settings.json` `model`, `reasoningEffort`, and command lists | `<settings>/factory.yaml`; `reasoningEffort` becomes `effort`, or `x-factory.reasoningEffort` when another settings spec sets a different effort |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 A droid's `tools` renames back: `Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`. A list holding a category (`read-only`) or an MCP tool ID has no portable spelling, so it lands under `x-factory.tools` untouched. `reasoningEffort` becomes `effort`, and every other droid key lands under `x-factory`.
