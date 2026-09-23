@@ -66,6 +66,8 @@ type globalWrite struct {
 	mode fs.FileMode
 	// owned marks a file sync writes whole, or a managed block in it.
 	owned bool
+	// dropsComments marks a JSONC rewrite that loses the file's comments.
+	dropsComments bool
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
@@ -216,6 +218,15 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 		if len(edited) > 0 {
 			return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
+		}
+		var commented []string
+		for _, w := range writes {
+			if w.dropsComments {
+				commented = append(commented, w.path)
+			}
+		}
+		if len(commented) > 0 {
+			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
 	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
@@ -461,13 +472,17 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				// The settings file is the user's own, so ownership is per
 				// key and the file never enters Files or removal.
 				path := g.path(home, g.agentEfforts)
-				doc, err := mergeGlobalAgentEfforts(path, efforts, old.AgentEfforts[target])
+				doc, dropsComments, err := mergeGlobalAgentEfforts(path, efforts, old.AgentEfforts[target])
 				if err != nil {
 					return nil, next, err
 				}
 				if doc != nil {
-					if _, err := place(path, doc, 0o644); err != nil {
+					placed, err := place(path, doc, 0o644)
+					if err != nil {
 						return nil, next, err
+					}
+					if placed {
+						writes[len(writes)-1].dropsComments = dropsComments
 					}
 				}
 				if len(efforts) > 0 {
@@ -806,26 +821,26 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 // mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for
 // each managed effort in a JSONC user settings file, removing values an
 // earlier sync placed. A value set by hand stops the run. It returns nil
-// when the file needs no change, so its comments survive; a rewrite keeps
-// key order and indent.
-func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) ([]byte, error) {
+// when the file needs no change; a rewrite keeps key order and indent,
+// and dropsComments reports that it loses the file's comments.
+func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) (doc []byte, dropsComments bool, err error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		if len(efforts) == 0 {
-			return nil, nil
+			return nil, false, nil
 		}
 		data = []byte("{}")
 	} else if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return nil, false, fmt.Errorf("read %s: %w", path, err)
 	}
-	stripped, _ := adapters.StripJSONC(data)
+	stripped, hadComments := adapters.StripJSONC(data)
 	var before map[string]any
 	if err := json.Unmarshal(stripped, &before); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	root := adapters.NewOrderedJSON()
 	if err := json.Unmarshal(stripped, root); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	subagents, _ := orderedChild(root, "subagents")
 	agents, _ := orderedChild(subagents, "agents")
@@ -838,44 +853,44 @@ func mergeGlobalAgentEfforts(path string, efforts, previous map[string]string) (
 			agent.Delete("effortLevel")
 		}
 		if err := putOrderedChild(agents, name, agent); err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", path, err)
+			return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(efforts)) {
 		level := efforts[name]
 		agent, _ := orderedChild(agents, name)
 		if current, ok := orderedValue(agent, "effortLevel"); ok && current != level {
-			return nil, fmt.Errorf("%s: subagents.agents.%s.effortLevel is %v, set outside agnostic-ai; remove it or drop the agent's effort", path, name, current)
+			return nil, false, fmt.Errorf("%s: subagents.agents.%s.effortLevel is %v, set outside agnostic-ai; remove it or drop the agent's effort", path, name, current)
 		}
 		if err := agent.Set("effortLevel", level); err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", path, err)
+			return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 		}
 		if err := putOrderedChild(agents, name, agent); err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", path, err)
+			return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 		}
 	}
 	if err := putOrderedChild(subagents, "agents", agents); err != nil {
-		return nil, fmt.Errorf("marshal %s: %w", path, err)
+		return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	if err := putOrderedChild(root, "subagents", subagents); err != nil {
-		return nil, fmt.Errorf("marshal %s: %w", path, err)
+		return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	raw, err := json.Marshal(root)
 	if err != nil {
-		return nil, fmt.Errorf("marshal %s: %w", path, err)
+		return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	var merged map[string]any
 	if err := json.Unmarshal(raw, &merged); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if reflect.DeepEqual(merged, before) {
-		return nil, nil
+		return nil, false, nil
 	}
 	out, err := adapters.MarshalJSONIndentWith(root, adapters.DetectJSONIndent(data))
 	if err != nil {
-		return nil, fmt.Errorf("marshal %s: %w", path, err)
+		return nil, false, fmt.Errorf("marshal %s: %w", path, err)
 	}
-	return append(out, '\n'), nil
+	return append(out, '\n'), hadComments, nil
 }
 
 // orderedChild returns the object under key, or an empty one when the key
