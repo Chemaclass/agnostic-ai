@@ -61,7 +61,7 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, qoderSettingsFile, filepath.Join(root, src.Settings), portableSettingsShape{nestedModel: true, permissions: true})
+	settings, err := importPortableSettings(root, qoderSettingsFile, filepath.Join(root, src.Settings), portableSettingsShape{target: "qoder", nestedModel: true, permissions: true})
 	if err != nil {
 		return err
 	}

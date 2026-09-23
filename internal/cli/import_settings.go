@@ -20,13 +20,13 @@ type portableSettingsShape struct {
 	// nestedModel reads the model from `model.name` instead of `model`.
 	nestedModel bool
 	permissions bool
+	// target names the settings spec, `<target>.yaml`, so each importer
+	// keeps its own file under `import all`.
+	target string
 	// effortKey is the native repository effort key target promotes
 	// into `effort`, when it has one.
-	target, effortKey string
+	effortKey string
 }
-
-// importPortableSettingsFile is the settings spec importPortableSettings writes.
-const importPortableSettingsFile = "imported.yaml"
 
 // importPortableSettings reads the portable settings fields exposed by a
 // target and writes one settings spec. Other native keys stay in place and
@@ -70,7 +70,7 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 		}
 	}
 	if shape.effortKey != "" {
-		plan, level, err := planSettingsEffort(shape.target, native[shape.effortKey], dstDir, importPortableSettingsFile)
+		plan, level, err := planSettingsEffort(shape.target, native[shape.effortKey], dstDir, shape.target+".yaml")
 		if err != nil {
 			return 0, err
 		}
@@ -86,7 +86,7 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("create %s: %w", dstDir, err)
 	}
-	dst := filepath.Join(dstDir, importPortableSettingsFile)
+	dst := filepath.Join(dstDir, shape.target+".yaml")
 	if err := importWriteFile(dst, raw, 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", dst, err)
 	}

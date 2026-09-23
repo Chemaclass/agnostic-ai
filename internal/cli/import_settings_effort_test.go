@@ -129,7 +129,7 @@ func TestImportCopilot_PromotesEffortLevelIntoSettings(t *testing.T) {
 
 	execCLI(t, "import", "copilot")
 
-	assertSettingsEffort(t, dir, "imported.yaml", "xhigh")
+	assertSettingsEffort(t, dir, "copilot.yaml", "xhigh")
 }
 
 func TestImportFactory_PromotesReasoningEffortIntoSettings(t *testing.T) {
