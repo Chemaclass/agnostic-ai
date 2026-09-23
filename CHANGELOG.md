@@ -56,6 +56,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - The updates archive shows six editions per page. Search and target filters still cover every edition, and the page number stays in the URL.
 - The Cursor page documents the subagents cross-read from `.claude/` and `.codex/`; the Copilot page cites VS Code's own root `.mcp.json` read (#1079).
 - The home diagram's sample agent sets `effort: high`, showing one key land as `effort` for Claude Code and Junie, `model_reasoning_effort` for Codex, and a coverage note for Cursor and Gemini.
+- The copyable agent setup prompt on the docs is readable in the light theme; a contrast sweep of every page in both themes found no other low-contrast text.
 
 ## v0.65.0 - 2026-09-22
 
