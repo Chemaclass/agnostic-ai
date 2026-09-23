@@ -159,13 +159,16 @@ main > section[id] {
    is a second layer on `::before`, over the top.
 
    --d is the rail's place in the stagger. The dot, the label and the pulse all
-   read it, so one number per rail keeps the four in step. */
+   read it, so one number per rail keeps the four in step.
+
+   The hero stops growing taller near 1440px wide while --reach keeps growing,
+   so the cap holds the steepest label inside the hero on wide screens. */
 .rails i {
   position: absolute;
   left: 3px;
   top: 0;
   display: block;
-  width: calc(var(--reach) - var(--ox));
+  width: min(calc(var(--reach) - var(--ox)), 27rem);
   height: 1px;
   transform-origin: 0 50%;
   transform: rotate(var(--a));
@@ -452,6 +455,21 @@ main > section[id] {
   align-self: stretch;
 }
 
+/* Carries the grid's own columns so each label starts over the column it
+   names, rather than being pushed to the far right edge of the section. */
+.transform-caption {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--transform-cols);
+  column-gap: 1.5rem;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* One column below the split: the panes fall under the tab list, which is the
    reading order the markup already has. */
 @media (max-width: 899px) {
@@ -474,21 +492,6 @@ main > section[id] {
   .transform-caption span:last-child {
     text-align: right;
   }
-}
-
-/* Carries the grid's own columns so each label starts over the column it
-   names, rather than being pushed to the far right edge of the section. */
-.transform-caption {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: var(--transform-cols);
-  column-gap: 1.5rem;
-  margin-bottom: 0;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.69rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .spec-card {
@@ -687,7 +690,6 @@ main > section[id] {
   margin: 0;
   padding: 0.6rem 0.9rem;
   border-bottom: 1px solid var(--slab-line);
-  border-left: 2px solid var(--accent);
   background: var(--accent-soft);
   color: var(--ink-soft);
   font-size: 0.78rem;
