@@ -57,13 +57,13 @@ func claudeOverlayPath(root string) string {
 // overwrites the sentinel with the spec-derived hook map on every sync,
 // keeping hooks at the position the user authored (#227).
 //
-// A promotable `effortLevel` moves to the portable settings `effort` in
-// settingsDir instead, so every target syncs it; promoted reports that.
+// An `effortLevel` a settings spec can carry moves to one in settingsDir
+// instead; moved reports that.
 //
 // Returns (false, nil) when settings.json is missing or contains only
 // `hooks`, so a fresh project does not get a surprise empty overlay
 // file. Returns (true, nil) when the overlay was actually written.
-func importClaudeSettingsOverlay(root, settingsDir string) (seeded, promoted bool, err error) {
+func importClaudeSettingsOverlay(root, settingsDir string) (seeded, moved bool, err error) {
 	src := filepath.Join(root, claudeDir, "settings.json")
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -80,38 +80,38 @@ func importClaudeSettingsOverlay(root, settingsDir string) (seeded, promoted boo
 	if err != nil {
 		return false, false, err
 	}
-	if promoted, err = promoteClaudeEffortLevel(doc, settingsDir); err != nil {
+	if moved, err = moveClaudeEffortLevel(doc, settingsDir); err != nil {
 		return false, false, err
 	}
 	hadHooks := false
 	if rawHooks, ok := doc.Get("hooks"); ok {
 		hadHooks = true
 		if err := captureClaudeHookEventOrder(root, rawHooks); err != nil {
-			return false, promoted, err
+			return false, moved, err
 		}
 		doc.SetRaw("hooks", json.RawMessage(`null`))
 	}
 	if !removedPolicy && (doc.Len() == 0 || (hadHooks && doc.Len() == 1)) {
-		return false, promoted, nil
+		return false, moved, nil
 	}
 	indent := adapters.DetectJSONIndent(data)
 	raw, err := adapters.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
-		return false, promoted, fmt.Errorf("marshal overlay: %w", err)
+		return false, moved, fmt.Errorf("marshal overlay: %w", err)
 	}
 	dst := claudeOverlayPath(root)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return false, promoted, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		return false, moved, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := importWriteFile(dst, append(raw, '\n'), 0o644); err != nil {
-		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
+		return false, moved, fmt.Errorf("write %s: %w", dst, err)
 	}
-	return true, promoted, nil
+	return true, moved, nil
 }
 
-// promoteClaudeEffortLevel moves effortLevel out of doc into a settings
+// moveClaudeEffortLevel moves effortLevel out of doc into a settings
 // spec whenever a settings spec decides what sync writes for it.
-func promoteClaudeEffortLevel(doc *adapters.OrderedJSON, settingsDir string) (bool, error) {
+func moveClaudeEffortLevel(doc *adapters.OrderedJSON, settingsDir string) (bool, error) {
 	raw, ok := doc.Get("effortLevel")
 	if !ok {
 		return false, nil
