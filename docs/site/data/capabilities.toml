@@ -208,7 +208,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "native"
 id = "kilo"
 name = "Kilo Code"
 href = "@/docs/targets/kilo.md"
-statuses = ["native", "native", "native", "no", "native", "native", "native", "no", "no", "native"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
 
 [[targets]]
 id = "jules"

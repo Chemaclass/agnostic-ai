@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- Kilo: hook specs emit as `.kilo/plugin/<name>.ts` plugin modules, auto-loaded at startup (#1105).
+
 ### Fixed
 
 - Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.
