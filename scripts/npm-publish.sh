@@ -118,8 +118,8 @@ wait_for() {
   # cover about 20 minutes without polling the registry aggressively.
   # Read at call time, not load time, so the test suite can shorten it.
   local name="$1" version="$2" attempt
-  local retries="${NPM_PUBLISH_RETRIES:-10}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
-  local max_delay="${NPM_PUBLISH_MAX_DELAY:-300}"
+  local retries="${NPM_PUBLISH_RETRIES:-24}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
+  local max_delay="${NPM_PUBLISH_MAX_DELAY:-60}"
   for ((attempt = 1; attempt <= retries; attempt++)); do
     if published "$name" "$version"; then
       printf 'attempt %s: %s@%s is served\n' "$attempt" "$name" "$version"

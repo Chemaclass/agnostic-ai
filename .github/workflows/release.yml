@@ -251,9 +251,9 @@ jobs:
           # shellcheck disable=SC2086
           for pkg in agnostic-ai $pkgs; do
             delay=5
-            max_delay=300
+            max_delay=60
             found=""
-            for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            for attempt in $(seq 24); do
               got=$(npm view "${pkg}@${want}" version 2>/dev/null || true)
               tagged=$(npm view "${pkg}@${dist_tag}" version 2>/dev/null || true)
               echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>} ${dist_tag}=${tagged:-<absent>}"
@@ -261,7 +261,7 @@ jobs:
                 found=yes
                 break
               fi
-              if [ "$attempt" -lt 10 ]; then
+              if [ "$attempt" -lt 24 ]; then
                 sleep "$delay"
                 delay=$((delay * 2))
                 [ "$delay" -le "$max_delay" ] || delay="$max_delay"

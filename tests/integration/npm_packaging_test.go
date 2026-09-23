@@ -306,7 +306,7 @@ func TestReleaseWorkflow_DistributionChecksTheDistTag(t *testing.T) {
 // the old 155-second replica-lag window.
 func TestNpmReleaseWaitsForPublishTimeScanning(t *testing.T) {
 	publish := readRepoFile(t, npmPublishScript)
-	if !strings.Contains(publish, `NPM_PUBLISH_RETRIES:-10`) || !strings.Contains(publish, `NPM_PUBLISH_MAX_DELAY:-300`) {
+	if !strings.Contains(publish, `NPM_PUBLISH_RETRIES:-24`) || !strings.Contains(publish, `NPM_PUBLISH_MAX_DELAY:-60`) {
 		t.Errorf("%s does not allow about 20 minutes for npm publish-time scanning", npmPublishScript)
 	}
 
@@ -319,7 +319,7 @@ func TestNpmReleaseWaitsForPublishTimeScanning(t *testing.T) {
 		{installWorkflowPath, "published", "Wait for the registry to serve the latest release"},
 	} {
 		script := workflowRun(t, tc.path, tc.job, tc.step)
-		if !strings.Contains(script, "1 2 3 4 5 6 7 8 9 10") || !strings.Contains(script, "max_delay=300") {
+		if !strings.Contains(script, "$(seq 24)") || !strings.Contains(script, "max_delay=60") {
 			t.Errorf("%s %q does not allow about 20 minutes for npm publish-time scanning:\n%s", tc.path, tc.step, script)
 		}
 	}
