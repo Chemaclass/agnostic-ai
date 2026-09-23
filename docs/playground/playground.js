@@ -161,11 +161,9 @@ const KINDS = {
 
 const SPEC_FORMAT_URL = "../docs/spec-format/";
 
-const DEFAULT_TARGETS = ["claude", "codex", "gemini"];
-// A demo keeps the picker short; the rest link to the full target list.
-const FEATURED_TARGETS = ["claude", "cline", "codex", "copilot", "cursor", "gemini", "opencode", "windsurf"];
+// A demo renders a few well-known targets; the rest link to the full target list.
+const DEMO_TARGETS = ["claude", "codex", "copilot", "gemini", "cursor"];
 const TARGETS_URL = "../docs/targets/";
-const STORAGE_KEY = "agnostic-ai-playground";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -174,8 +172,6 @@ const els = {
   source: $("source"),
   kind: $("kind"),
   sample: $("sample"),
-  targets: $("targets"),
-  capabilitySummary: $("capability-summary"),
   kindSummary: $("kind-summary"),
   kindDoc: $("kind-doc"),
   tabs: $("tabs"),
@@ -184,13 +180,13 @@ const els = {
   filemeta: $("filemeta"),
   content: $("content"),
   copy: $("copy"),
-  download: $("download"),
 };
 
 let renderResults = [];
 let currentTarget = null;
 let currentFile = null;
 let capabilityByTarget = new Map();
+let moreTargets = null;
 
 /* ─── Status ─── */
 
@@ -204,93 +200,22 @@ function setStatus(msg, isError) {
   els.status.classList.toggle("error", !!isError);
 }
 
-/* ─── Persistence ─── */
-
-function savePrefs() {
-  const data = {
-    kind: els.kind.value,
-    targets: selectedTargets(),
-  };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (_) {}
-}
-
-function loadPrefs() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch (_) {
-    return {};
-  }
-}
-
 /* ─── Targets ─── */
 
-function buildTargetChips(capabilities, preselected) {
-  els.targets.querySelectorAll("label, .more-targets").forEach((n) => n.remove());
-  const featured = capabilities.filter(({ name }) => FEATURED_TARGETS.includes(name));
-  const kept = (preselected || []).filter((name) => FEATURED_TARGETS.includes(name));
-  const wanted = kept.length ? kept : DEFAULT_TARGETS;
-  featured.forEach(({ name, supports }) => {
-    capabilityByTarget.set(name, new Set(supports));
-    const id = `target-${name}`;
-    const label = document.createElement("label");
-    label.htmlFor = id;
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.id = id;
-    cb.value = name;
-    cb.checked = wanted.includes(name);
-    cb.addEventListener("change", () => {
-      savePrefs();
-      scheduleRender();
-    });
-    const span = document.createElement("span");
-    span.textContent = name;
-    const supportStatus = document.createElement("span");
-    supportStatus.className = "sr-only support-status";
-    label.append(cb, span, supportStatus);
-    els.targets.append(label);
-  });
-  const hidden = capabilities.length - featured.length;
-  if (hidden > 0) {
-    const more = document.createElement("a");
-    more.className = "more-targets";
-    more.href = TARGETS_URL;
-    more.textContent = `+${hidden} more`;
-    more.setAttribute("aria-label", `+${hidden} more targets in the CLI`);
-    more.title = `This demo shows ${featured.length} of ${capabilities.length} targets. The CLI supports all of them.`;
-    els.targets.append(more);
-  }
-  updateCapabilityState();
-}
-
-function selectedTargets() {
-  return Array.from(
-    els.targets.querySelectorAll('input[type="checkbox"]:checked'),
-  ).map((cb) => cb.value);
+function loadTargets(capabilities) {
+  capabilities.forEach(({ name, supports }) => capabilityByTarget.set(name, new Set(supports)));
+  const hidden = capabilities.length - DEMO_TARGETS.length;
+  if (hidden <= 0) return;
+  moreTargets = document.createElement("a");
+  moreTargets.className = "more-targets";
+  moreTargets.href = TARGETS_URL;
+  moreTargets.textContent = `+${hidden} more`;
+  moreTargets.setAttribute("aria-label", `+${hidden} more targets in the CLI`);
+  moreTargets.title = `This demo shows ${DEMO_TARGETS.length} of ${capabilities.length} targets. The CLI supports all of them.`;
 }
 
 function supportsKind(target, kind) {
   return capabilityByTarget.get(target)?.has(kind) || false;
-}
-
-function updateCapabilityState() {
-  const kind = els.kind.value;
-  let supportedCount = 0;
-  els.targets.querySelectorAll("label").forEach((label) => {
-    const input = label.querySelector('input[type="checkbox"]');
-    const supported = supportsKind(input.value, kind);
-    if (supported) supportedCount += 1;
-    label.classList.toggle("unsupported", !supported);
-    label.title = supported
-      ? `${input.value} supports ${kind} specs`
-      : `${input.value} does not support ${kind} specs and will be skipped`;
-    label.querySelector(".support-status").textContent = supported
-      ? `, supports ${kind}`
-      : `, does not support ${kind}`;
-  });
-  els.capabilitySummary.textContent = `${supportedCount} of ${capabilityByTarget.size} targets support ${kind} specs. Unsupported selections have dashed outlines and are skipped.`;
 }
 
 /* ─── Kind description ─── */
@@ -343,32 +268,41 @@ function renderTabs() {
     byTarget.get(f.target).push(f);
   });
 
-  if (byTarget.size === 0) {
+  if (!byTarget.has(currentTarget)) {
+    currentTarget = DEMO_TARGETS.find((t) => byTarget.has(t)) || null;
+  }
+
+  const kind = els.kind.value;
+  DEMO_TARGETS.forEach((t) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.role = "tab";
+    const count = byTarget.get(t)?.length || 0;
+    btn.textContent = count > 1 ? `${t} · ${count}` : t;
+    btn.setAttribute("aria-selected", t === currentTarget);
+    if (count === 0) {
+      btn.disabled = true;
+      btn.title = supportsKind(t, kind)
+        ? `${t} writes no file for this spec`
+        : `${t} does not support ${kind} specs`;
+    } else {
+      btn.addEventListener("click", () => {
+        currentTarget = t;
+        currentFile = null;
+        renderTabs();
+      });
+    }
+    els.tabs.append(btn);
+  });
+  if (moreTargets) els.tabs.append(moreTargets);
+
+  if (!currentTarget) {
     els.content.textContent = "";
     els.fileSelectWrap.hidden = true;
     els.filemeta.textContent = "";
     els.copy.disabled = true;
-    els.download.disabled = true;
     return;
   }
-
-  const targets = Array.from(byTarget.keys()).sort();
-  if (!targets.includes(currentTarget)) currentTarget = targets[0];
-
-  targets.forEach((t) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.role = "tab";
-    const count = byTarget.get(t).length;
-    btn.textContent = count > 1 ? `${t} · ${count}` : t;
-    btn.setAttribute("aria-selected", t === currentTarget);
-    btn.addEventListener("click", () => {
-      currentTarget = t;
-      currentFile = null;
-      renderTabs();
-    });
-    els.tabs.append(btn);
-  });
 
   const files = byTarget.get(currentTarget) || [];
   if (!currentFile || !files.some((f) => f.path === currentFile)) {
@@ -388,9 +322,10 @@ function renderTabs() {
   const file = files.find((f) => f.path === currentFile) || files[0];
   if (file) {
     els.content.textContent = file.content;
-    els.filemeta.textContent = `${file.path} · ${bytesLabel(file.content)}`;
+    els.filemeta.textContent = files.length > 1
+      ? bytesLabel(file.content)
+      : `${file.path} · ${bytesLabel(file.content)}`;
     els.copy.disabled = false;
-    els.download.disabled = false;
   }
 }
 
@@ -406,22 +341,8 @@ function scheduleRender() {
 }
 
 function runRender() {
-  const selected = selectedTargets();
-  if (selected.length === 0) {
-    renderResults = [];
-    setStatus("Pick at least one target.");
-    renderTabs();
-    return;
-  }
   const kind = els.kind.value;
-  const targets = selected.filter((target) => supportsKind(target, kind));
-  const skipped = selected.filter((target) => !supportsKind(target, kind));
-  if (targets.length === 0) {
-    renderResults = [];
-    setStatus(`None of the selected targets support ${kind}. Pick a target shown at full contrast.`);
-    renderTabs();
-    return;
-  }
+  const targets = DEMO_TARGETS.filter((target) => supportsKind(target, kind));
   let result;
   try {
     result = window.agnosticAIRender(els.kind.value, els.source.value, targets);
@@ -429,16 +350,11 @@ function runRender() {
     setStatus(`render failed: ${e.message || e}`, true);
     return;
   }
-  const messages = [];
-  if (result.errors && result.errors.length) {
-    messages.push(result.errors
-      .map((e) => `${e.target || "(input)"}: ${e.message}`)
-      .join(" · "));
-  }
-  if (skipped.length) {
-    messages.push(`Skipped for ${kind}: ${skipped.join(", ")}.`);
-  }
-  setStatus(messages.length ? messages.join(" ") : null, !!result.errors?.length);
+  const errors = result.errors || [];
+  setStatus(
+    errors.length ? errors.map((e) => `${e.target || "(input)"}: ${e.message}`).join(" · ") : null,
+    errors.length > 0,
+  );
   renderResults = result.files || [];
   renderTabs();
 }
@@ -468,20 +384,6 @@ async function handleCopy() {
   }
 }
 
-function handleDownload() {
-  const f = currentFileObject();
-  if (!f) return;
-  const blob = new Blob([f.content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = f.path.split("/").pop() || "output.txt";
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /* ─── Init ─── */
 
 async function init() {
@@ -505,12 +407,8 @@ async function init() {
   }
   go.run(module.instance);
 
-  const prefs = loadPrefs();
-  if (prefs.kind && SAMPLES[prefs.kind]) els.kind.value = prefs.kind;
-  const capabilities = window.agnosticAICapabilities()
-    .sort((a, b) => a.name.localeCompare(b.name));
-  buildTargetChips(capabilities, prefs.targets);
-  els.source.value = SAMPLES[els.kind.value] || SAMPLES.agent;
+  loadTargets(window.agnosticAICapabilities());
+  els.source.value = SAMPLES[els.kind.value];
   updateKindHint();
   buildSampleAction();
 
@@ -524,8 +422,6 @@ async function init() {
     }
     updateSampleAction();
     updateKindHint();
-    updateCapabilityState();
-    savePrefs();
     scheduleRender();
   });
   els.files.addEventListener("change", () => {
@@ -533,7 +429,6 @@ async function init() {
     renderTabs();
   });
   els.copy.addEventListener("click", handleCopy);
-  els.download.addEventListener("click", handleDownload);
 
   els.app.hidden = false;
   setStatus(null);

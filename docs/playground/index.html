@@ -36,7 +36,7 @@
     <meta name="twitter:title" content="agnostic-ai Playground: see what every AI CLI receives" />
     <meta
       name="twitter:description"
-      content="Author one spec, pick your targets, and see each AI CLI's native output. Runs in-browser via WebAssembly."
+      content="Edit one spec and see each AI CLI's native output as you type. Runs in-browser via WebAssembly."
     />
     <meta name="twitter:image" content="https://agnostic-ai.org/og.png" />
 
@@ -94,7 +94,7 @@
         <h1>Author once. Ship to every AI CLI.</h1>
         <p>
           Paste an <a href="https://github.com/Chemaclass/agnostic-ai">agnostic-ai</a>
-          spec, pick your targets, and see exactly what each CLI receives.
+          spec and see exactly what each CLI receives, updated as you type.
           Runs entirely in your browser via WebAssembly. No server, no upload.
         </p>
       </div>
@@ -131,10 +131,6 @@
             <span id="kind-summary"></span>
             <a id="kind-doc" href="../docs/spec-format/">Read the spec format</a>
           </p>
-          <fieldset id="targets" class="chips" aria-describedby="capability-summary">
-            <legend>Targets</legend>
-          </fieldset>
-          <p id="capability-summary" class="capability-summary" aria-live="polite"></p>
         </div>
         <textarea
           id="source"
@@ -153,9 +149,6 @@
           <div class="panel-actions">
             <button id="copy" class="ghost" type="button" aria-label="Copy current file">
               <span class="icon">⧉</span> Copy
-            </button>
-            <button id="download" class="ghost" type="button" aria-label="Download current file">
-              <span class="icon">↓</span> Download
             </button>
           </div>
         </header>
@@ -179,7 +172,6 @@
           Built with WebAssembly. Source at
           <a href="https://github.com/Chemaclass/agnostic-ai">Chemaclass/agnostic-ai</a>.
         </span>
-        <span>Capabilities come from this build's adapter declarations.</span>
       </div>
     </footer>
 

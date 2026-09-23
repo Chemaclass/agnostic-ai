@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- The playground picks from eight well-known targets and links the rest to the target list, and its header gains the Targets link other pages have.
+- The playground is simpler: edit a spec and see what Claude Code, Codex, Copilot, Gemini, and Cursor receive as you type, with a link to the other targets. The target picker and Download button are gone, each file path shows once, and the header gains the Targets link other pages have.
 
 ## v0.66.0 - 2026-09-23
 

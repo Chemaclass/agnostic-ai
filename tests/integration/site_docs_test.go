@@ -230,30 +230,26 @@ func siteNavLabels(t *testing.T, page string) []string {
 
 // The playground is a demo, so it offers a short list of well-known targets
 // and points to the full list instead of showing every registered target.
-func TestSiteDocs_PlaygroundOffersFeaturedTargets(t *testing.T) {
+func TestSiteDocs_PlaygroundDemoesWellKnownTargets(t *testing.T) {
 	script := readBuiltFile(t, "../../docs/playground/playground.js")
-	match := regexp.MustCompile(`const FEATURED_TARGETS = \[([^\]]*)\];`).FindStringSubmatch(script)
+	match := regexp.MustCompile(`const DEMO_TARGETS = \[([^\]]*)\];`).FindStringSubmatch(script)
 	if match == nil {
-		t.Fatal("playground has no FEATURED_TARGETS list")
+		t.Fatal("playground has no DEMO_TARGETS list")
 	}
-	featured := regexp.MustCompile(`"([a-z]+)"`).FindAllStringSubmatch(match[1], -1)
-	if len(featured) < 7 || len(featured) > 8 {
-		t.Errorf("playground features %d targets, want 7 or 8", len(featured))
+	var demo []string
+	for _, m := range regexp.MustCompile(`"([a-z]+)"`).FindAllStringSubmatch(match[1], -1) {
+		demo = append(demo, m[1])
+	}
+	if want := []string{"claude", "codex", "copilot", "gemini", "cursor"}; !slices.Equal(demo, want) {
+		t.Errorf("playground demoes %v, want %v", demo, want)
 	}
 	registered := map[string]bool{}
 	for _, target := range adapters.CapabilityMatrix() {
 		registered[target.Name] = true
 	}
-	names := map[string]bool{}
-	for _, m := range featured {
-		if !registered[m[1]] {
-			t.Errorf("featured target %q is not a registered adapter", m[1])
-		}
-		names[m[1]] = true
-	}
-	for _, name := range []string{"claude", "codex", "gemini"} {
-		if !names[name] {
-			t.Errorf("default target %q must be featured", name)
+	for _, name := range demo {
+		if !registered[name] {
+			t.Errorf("demo target %q is not a registered adapter", name)
 		}
 	}
 	for _, required := range []string{`"../docs/targets/"`, "more-targets"} {
@@ -269,9 +265,6 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	if !strings.Contains(page, `<option value="agent" selected>agent</option>`) {
 		t.Error("playground does not default to the agent spec kind")
 	}
-	if !strings.Contains(script, `const DEFAULT_TARGETS = ["claude", "codex", "gemini"];`) {
-		t.Error("playground defaults must select only claude, codex, and gemini")
-	}
 	for _, kind := range []string{"agent", "skill", "rule", "hook", "mcp", "command", "settings", "review", "environment", "ignore"} {
 		if !strings.Contains(page, `value="`+kind+`"`) {
 			t.Errorf("playground kind picker is missing %s", kind)
@@ -282,10 +275,9 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 	}
 	for _, required := range []string{
 		"window.agnosticAICapabilities()",
-		"updateCapabilityState()",
+		"supportsKind(target, kind)",
 		"sampleKind(els.source.value)",
 		"buildSampleAction()",
-		"Unsupported selections have dashed outlines and are skipped.",
 	} {
 		if !strings.Contains(script, required) {
 			t.Errorf("playground capability UI is missing %q", required)

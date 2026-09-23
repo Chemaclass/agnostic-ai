@@ -2,9 +2,9 @@
 
 [All docs](../README.md) · [Contributor setup](../../CONTRIBUTING.md)
 
-In-browser playground for agnostic-ai. Paste a spec, pick targets, see
-each adapter's emission live. Target support comes from each adapter's
-declared capabilities, so unsupported choices are clear before rendering.
+In-browser playground for agnostic-ai. Edit a spec and see what five
+well-known targets receive as you type. A target that does not support the
+spec kind shows as a disabled tab, and a link leads to the rest.
 Runs entirely client-side via WebAssembly,
 so the page costs zero server resources and works on any static host.
 
@@ -29,7 +29,7 @@ http://127.0.0.1:8080/playground/.
 |------|---------|
 | `index.html` | Two-pane UI: spec input on the left, emitted outputs on the right. |
 | `style.css` | Layout + dark/light theme. |
-| `playground.js` | Wires up all ten spec kinds, eight featured targets with a link to the rest, capability-aware target choices, output tabs, and debounced rendering. |
+| `playground.js` | Wires up all ten spec kinds, five demo targets with a link to the rest, capability-aware output tabs, and debounced rendering. |
 | `wasm_exec.js` | Go toolchain shim. Generated; gitignored. |
 | `agnostic-ai.wasm` | Built from `cmd/agnostic-ai-wasm`. Generated; gitignored. |
 
