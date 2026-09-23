@@ -1206,3 +1206,29 @@ func TestEmit_CodexConfig_NoFileWhenEmpty(t *testing.T) {
 		t.Error("expected no config.toml when CodexConfig is empty")
 	}
 }
+
+func TestEmit_SettingsEffortWritesModelReasoningEffort(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": map[string]any{"codex": "ultra", "default": "high"}}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".codex/config.toml")); !strings.Contains(got, `model_reasoning_effort = "ultra"`) {
+		t.Errorf("portable effort did not reach config.toml:\n%s", got)
+	}
+}
+
+func TestEmit_CodexConfigEffortWinsOverSettings(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "low"}}}
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"codex": {Config: &config.CodexConfig{ModelReasoningEffort: "xhigh"}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `model_reasoning_effort = "xhigh"`) || strings.Contains(got, `"low"`) {
+		t.Errorf("outputs.codex.config.model-reasoning-effort should win:\n%s", got)
+	}
+}

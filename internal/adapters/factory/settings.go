@@ -89,10 +89,17 @@ const permissionsNonShellReason = "Factory's commandAllowlist, commandDenylist, 
 // `commandBlocklist`, the tier with no approval path, cannot fall out
 // of the file because a Factory-only pattern was added beside it
 // (#966).
+// reasoningEffortLevels are the reasoningEffort values Droid CLI's
+// settings reference lists; each model accepts a subset.
+var reasoningEffortLevels = []string{"none", "dynamic", "off", "minimal", "low", "medium", "high", "xhigh", "max"}
+
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if model := emit.LastSettingsModel(settings); model != "" {
 		keys["model"] = model
+	}
+	if level := emit.SettingsEffortLevel(settings, target, reasoningEffortLevels); level != "" {
+		keys["reasoningEffort"] = level
 	}
 	lists, dropped := buildCommandLists(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionsNonShellReason)

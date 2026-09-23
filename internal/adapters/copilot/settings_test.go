@@ -345,3 +345,22 @@ func TestEmit_SettingsCustomDisabledServersJoinTheManagedOnes(t *testing.T) {
 		t.Errorf("disabledMcpServers = %#v, want %#v", got["disabledMcpServers"], want)
 	}
 }
+
+func TestEmit_SettingsWritesRepositoryEffortLevel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "high"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, defaultSettingsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["effortLevel"] != "high" {
+		t.Errorf("effortLevel = %#v, want high", got["effortLevel"])
+	}
+}

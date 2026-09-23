@@ -129,7 +129,8 @@ var caps = emit.Capabilities{
 	// a project-level prompts tree would never be read.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
 	// effort: effort.go notes the integer budgets it cannot write.
-	AgentFields: []string{"effort"},
+	AgentFields:    []string{"effort"},
+	SettingsFields: []string{"effort"},
 }
 
 // Adapter emits Codex configs.

@@ -422,3 +422,22 @@ func TestEmit_SettingsAllRulesOutOfScopeWritesNoFile(t *testing.T) {
 		t.Errorf("a spec with no translatable rule must write no file, got err=%v", err)
 	}
 }
+
+func TestEmit_SettingsEffortWritesReasoningEffort(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "max"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".factory", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["reasoningEffort"] != "max" {
+		t.Errorf("reasoningEffort = %#v, want max", got["reasoningEffort"])
+	}
+}

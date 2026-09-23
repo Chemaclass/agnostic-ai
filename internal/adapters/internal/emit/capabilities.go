@@ -29,6 +29,10 @@ type Capabilities struct {
 	// tracked field when the target has a more specific one, such as
 	// a native key that takes a different shape.
 	AgentFieldReasons map[string]string
+	// SettingsFields lists the portable settings fields with a native
+	// key on only some targets, today just "effort", that this adapter
+	// writes. ReportUnsupported notes the field on every other target.
+	SettingsFields []string
 }
 
 // trackedAgentFields maps each portable agent field with a native key on
@@ -85,6 +89,9 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 			capabilityWarnState.mu.Unlock()
 		}
 	}
+	if c.supports(spec.KindSettings) && !slices.Contains(c.SettingsFields, "effort") {
+		noteDroppedSettingsEffort(c.Target, b.Settings)
+	}
 	if c.supports(spec.KindAgent) {
 		noteDroppedAgentFields(c, b.Agents)
 	}
@@ -116,6 +123,16 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 		}
 		NoteFieldNoOp(c.Target, spec.KindAgent, t.field, dropped, reason)
 	}
+}
+
+func noteDroppedSettingsEffort(target string, settings []spec.Entry) {
+	dropped := 0
+	for _, entry := range settings {
+		if SettingsEffort([]spec.Entry{entry}, target) != nil {
+			dropped++
+		}
+	}
+	NoteFieldNoOp(target, spec.KindSettings, "effort", dropped, "the settings file has no repository effort key")
 }
 
 type pendingWarn struct {

@@ -280,3 +280,13 @@ func TestEmit_SettingsCustomPermissionsJoinTheTranslatedOnes(t *testing.T) {
 		t.Errorf("defaultMode = %#v, want the hatch sibling key kept", perms["defaultMode"])
 	}
 }
+
+func TestBuildSpecSettings_MapsEffortToEffortLevel(t *testing.T) {
+	got := buildSpecSettings([]spec.Entry{settingsEntry(map[string]any{"effort": map[string]any{"claude": "xhigh", "default": "high"}})})
+	if got["effortLevel"] != "xhigh" {
+		t.Errorf("effortLevel = %v, want xhigh", got["effortLevel"])
+	}
+	if got := buildSpecSettings([]spec.Entry{settingsEntry(map[string]any{"effort": "max"})}); got["effortLevel"] != nil {
+		t.Errorf("max is not a project effortLevel, got %v", got["effortLevel"])
+	}
+}
