@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - VS Code: `agnostic-ai: Open canonical source` opens the spec behind a generated file (#1038).
 - `import openhands` and `import factory` read each tool's native files back into specs, so `import all` no longer skips them (#1055).
 - `sync --global` writes a Copilot agent's `effort` to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`, instead of dropping it with a coverage note (#1073).
+- `sync --global --check --diff` prints a unified diff per drifted file, limited to the managed block of an instructions file, and the drift error names every drifted file (#1083).
 
 ### Changed
 
