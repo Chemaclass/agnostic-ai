@@ -94,12 +94,7 @@ var hookLifecycle = []string{
 // lose what the user authored. The user hears about it through a field
 // no-op note instead.
 //
-// `once` is "only effective for session-scoped hooks"
-// (docs.qoder.com/cli/hooks), and session-scoped means "hooks in
-// Subagent frontmatter" (docs.qoder.com/cli/subagent). Every hook this
-// adapter writes lands in the project-tier `.qoder/settings.json`, not
-// Subagent frontmatter, so `once` still emits but never deregisters the
-// hook there; a field no-op note says so instead (#1078).
+// Qoder honors `once` only for session-scoped (Subagent frontmatter) hooks, so it gets the same note.
 //
 // Returns nil when no hook spec produces an entry.
 func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {

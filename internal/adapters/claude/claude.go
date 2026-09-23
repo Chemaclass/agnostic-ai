@@ -51,10 +51,7 @@
 // Hooks support command, http, mcp_tool, and prompt handlers. Non-command
 // payloads retain common filters and timeouts without command-only options.
 // Import preserves these stable handlers; experimental agent hooks are excluded.
-// `once` is "only honored for hooks declared in skill frontmatter; ignored
-// in settings files and agent frontmatter" (code.claude.com/docs/en/hooks),
-// so this adapter's only hook sink, settings.json, still writes it but a
-// field no-op note says it never deregisters the hook there (#1078).
+// Claude Code ignores hook `once` in settings files, so it emits with a field no-op note.
 // The dedicated .mcp.json is managed as a whole document.
 package claude
 
