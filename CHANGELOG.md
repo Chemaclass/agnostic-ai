@@ -6,59 +6,36 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.66.0 - 2026-09-23
+
 ### Added
 
-- Global sync writes native agents from `~/.agnostic-ai/agents/` for 18 targets, with drift checks and cleanup (#1033).
-- `import --dry-run --diff` shows the content an import would write and flags sources that disagree on one file (#1035).
-- `compare <a> <b>` shows what each target keeps or drops; `explain --file <path> --target cursor` lists the rules one file gets (#1034, #1036).
-- `doctor --check-references` reports relative links in generated skills that point at missing files (#1037).
-- VS Code: `agnostic-ai: Open canonical source` opens the spec behind a generated file (#1038).
-- `import openhands` and `import factory` read each tool's native files back into specs, so `import all` no longer skips them (#1055).
-- `sync --global` writes a Copilot agent's `effort` to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`, instead of dropping it with a coverage note (#1073).
-- `sync --global --check --diff` prints a unified diff per drifted file, limited to the managed block of an instructions file, and the drift error names every drifted file (#1083).
-- Settings specs take `effort`, a repository default reasoning effort in the same scalar-or-map shape as agent `effort`. It writes Claude and Copilot `effortLevel`, Codex `model_reasoning_effort`, and Factory `reasoningEffort`; other settings targets report a coverage note (#1069).
-- `import` fills the settings `effort` from Claude's and Copilot's `effortLevel`, Codex's top-level `model_reasoning_effort`, and Factory's `reasoningEffort`, so an imported effort syncs to every target. When another settings spec already sets a different effort, the value stays target-only under `x-<target>` (#1089).
+- Settings `effort`: one repository default reasoning effort for Claude, Copilot, Codex, and Factory, filled by `import` (#1069, #1089).
+- Global sync writes native agents for 18 targets, including a Copilot agent's `effort` (#1033, #1073).
+- Previews: `sync --global --check --diff`, `import --dry-run --diff`, `compare <a> <b>`, and `explain --file` (#1034, #1035, #1036, #1083).
+- Import: `import openhands` and `import factory` read native files back (#1055).
+- Debugging: `doctor --check-references` finds broken skill links, and VS Code opens a file's source spec (#1037, #1038).
 
 ### Changed
 
-- Continue skills move to `.continue/skills/<name>/` with their bundled files. Run `agnostic-ai sync` and commit the move (#1043).
-- Global sync honors each tool's root variable, such as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, for every surface. Delete files left under the old root (#1033).
-- `sync --global` without `--only` warns and skips a target it cannot write instead of failing the run (#1033).
-- GitHub issue forms ask only for a problem description or tool name.
-- Target audits hash a JSON source with its keys sorted, so a vendor API that reorders a map no longer reads as a changed page (#1092).
-- Target audits read Kiro's Powers pages, and record that Powers install per user with no project path agnostic-ai could write (#1093).
+- Continue skills move to `.continue/skills/<name>/`. Run `agnostic-ai sync` and commit the move (#1043).
+- `import` writes each tool's settings to `settings/<target>.yaml`. Delete an old `settings/imported.yaml` after re-importing (#1096).
+- Global sync honors root variables such as `CLAUDE_CONFIG_DIR` and skips a target it cannot write. Delete files under the old root (#1033).
+- Target audits hash JSON with sorted keys and read Kiro's Powers pages (#1092, #1093).
 
 ### Fixed
 
-- `import --dry-run` writes nothing and no longer fails on a step that reads an earlier one's output, such as `import codex` with skills (#1035, #1046).
-- `import all` skips a detected tool with no importer, such as OpenHands or Factory, instead of failing (#1052).
-- `why` names the right spec in a project opened through a symlink, and `--format json` adds `configured` (#1047).
-- The VS Code extension works in projects configured with `agnostic-ai.yaml` (#1049).
-- Qoder rules keep manual, model-selected, and file activation through import and sync (#1029).
-- `import cline` reads a single-file `.clinerules` as one rule, and `sync` turns it into the rules directory once imported (#1057, #1060).
-- `doctor --fix` replaces an imported single-file `.clinerules` like `sync` does, instead of failing with `not a directory` (#1064).
-- Sync reports a coverage note when Copilot drops an agent `effort`, since Copilot agent profiles have no effort key (#1066).
-- Sync reports a coverage note on every target that drops an agent `effort` or `mcpServers` list, instead of on a few (#1072).
-- Factory droids keep an empty `mcpServers: []`, which blocks every server, instead of dropping it and inheriting all of them (#1075).
-- Sync reports a coverage note when Claude or Qoder write a hook's `once: true` into a settings file, since both tools ignore it there (#1078).
-- `sync --global` stops before writing when a file it owns, or its managed block, was edited by hand since the last sync, and names the file. `--backup` overwrites and keeps a copy (#1082).
-- `sync --global` leaves a hooks file such as `~/.claude/settings.json` untouched when its managed hooks did not change, and a rewrite keeps the file's key order and indent (#1084).
-- `sync --global` keeps the key order and indent of `~/.copilot/settings.json` when it writes an agent effort, instead of sorting every key and forcing two-space indent (#1090).
-- `sync --global --check`, `--check --diff`, and `--dry-run` name each file a sync would remove, such as a skill whose source was deleted, instead of reporting only the ownership state file (#1091).
-- `import` writes each tool's portable settings to its own `settings/<target>.yaml`, so `import all` no longer keeps only the last of Copilot, Gemini, Junie, OpenCode, Kilo, and Qoder. A `settings/imported.yaml` from an earlier import stays and can be deleted after re-importing (#1096).
-- `sync --global` stops before a rewrite of `~/.copilot/settings.json` would drop its comments; `--backup` rewrites and keeps the original (#1098).
+- Global sync stops before it overwrites a hand edit or drops `~/.copilot/settings.json` comments; `--backup` keeps a copy (#1082, #1098).
+- Global sync leaves unchanged settings files alone, keeps key order, and names files it would remove (#1084, #1090, #1091).
+- Import: `--dry-run` writes nothing, `import all` skips tools without an importer, and a single-file `.clinerules` imports (#1046, #1052, #1057, #1060, #1064).
+- Coverage notes: sync reports every dropped agent `effort` or `mcpServers`, and a hook `once` that Claude or Qoder ignore (#1066, #1072, #1078).
+- Adapters: Qoder rules keep activation, Factory keeps `mcpServers: []`, `why` follows symlinks, VS Code reads `agnostic-ai.yaml` (#1029, #1047, #1049, #1075).
 
 ### Site
 
-- The Amp page documents that Amp loads a same-named skill once, and the Kiro page lists its three new agent fields (#1067, #1068).
-- The Devin target page documents recursive rule discovery in Devin CLI (#1030).
-- The home diagram takes about a third less height, and the hero rails pulse more often.
-- The home diagram's sample agent uses Claude Opus 5.5 and GPT-6 Sol.
-- The updates archive shows six editions per page. Search and target filters still cover every edition, and the page number stays in the URL.
-- The Cursor page documents the subagents cross-read from `.claude/` and `.codex/`; the Copilot page cites VS Code's own root `.mcp.json` read (#1079).
-- The home diagram's sample agent sets `effort: high`, showing one key land as `effort` for Claude Code and Junie, `model_reasoning_effort` for Codex, and a coverage note for Cursor and Gemini.
-- The copyable agent setup prompt on the docs is readable in the light theme; a contrast sweep of every page in both themes found no other low-contrast text.
-- Every docs code block shows a Copy button in its top-right corner on hover, always on touch screens, and copies the command without a trailing newline.
+- Target pages for Amp, Kiro, Devin, Cursor, and Copilot document new vendor behavior (#1030, #1067, #1068, #1079).
+- Docs code blocks have a Copy button, and the agent setup prompt is readable in light mode.
+- The home diagram is shorter and shows `effort`; the updates archive shows six editions per page.
 
 ## v0.65.0 - 2026-09-22
 
