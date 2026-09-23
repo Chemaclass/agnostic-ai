@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Site
+
+- The playground picks from eight well-known targets and links the rest to the target list, and its header gains the Targets link other pages have.
+
 ## v0.66.0 - 2026-09-23
 
 ### Added

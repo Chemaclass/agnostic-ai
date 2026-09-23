@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -199,16 +200,66 @@ func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 			t.Errorf("playground navigation is missing %q", required)
 		}
 	}
-	for _, label := range []string{"Home", "Docs", "Updates", "Playground"} {
-		if !strings.Contains(page, ">"+label+"</a>") {
-			t.Errorf("playground navigation is missing %s", label)
-		}
+	site := readBuiltFile(t, "../../docs/site/templates/base.html")
+	if got, want := siteNavLabels(t, page), siteNavLabels(t, site); !slices.Equal(got, want) {
+		t.Errorf("playground navigation = %v, want the site's %v", got, want)
 	}
 	if strings.Contains(page, `class="topbar"`) || strings.Contains(page, `class="topbar-links"`) {
 		t.Error("playground still carries its separate navigation implementation")
 	}
 	if strings.Contains(page, "chemaclass.github.io/agnostic-ai") {
 		t.Error("playground still references the legacy GitHub Pages project URL")
+	}
+}
+
+var siteNavLink = regexp.MustCompile(`>([^<>]+)</a>`)
+
+func siteNavLabels(t *testing.T, page string) []string {
+	t.Helper()
+	_, nav, ok := strings.Cut(page, `<nav class="site-nav"`)
+	if !ok {
+		t.Fatal("page has no site navigation")
+	}
+	nav, _, _ = strings.Cut(nav, "</nav>")
+	var labels []string
+	for _, m := range siteNavLink.FindAllStringSubmatch(nav, -1) {
+		labels = append(labels, m[1])
+	}
+	return labels
+}
+
+// The playground is a demo, so it offers a short list of well-known targets
+// and points to the full list instead of showing every registered target.
+func TestSiteDocs_PlaygroundOffersFeaturedTargets(t *testing.T) {
+	script := readBuiltFile(t, "../../docs/playground/playground.js")
+	match := regexp.MustCompile(`const FEATURED_TARGETS = \[([^\]]*)\];`).FindStringSubmatch(script)
+	if match == nil {
+		t.Fatal("playground has no FEATURED_TARGETS list")
+	}
+	featured := regexp.MustCompile(`"([a-z]+)"`).FindAllStringSubmatch(match[1], -1)
+	if len(featured) < 7 || len(featured) > 8 {
+		t.Errorf("playground features %d targets, want 7 or 8", len(featured))
+	}
+	registered := map[string]bool{}
+	for _, target := range adapters.CapabilityMatrix() {
+		registered[target.Name] = true
+	}
+	names := map[string]bool{}
+	for _, m := range featured {
+		if !registered[m[1]] {
+			t.Errorf("featured target %q is not a registered adapter", m[1])
+		}
+		names[m[1]] = true
+	}
+	for _, name := range []string{"claude", "codex", "gemini"} {
+		if !names[name] {
+			t.Errorf("default target %q must be featured", name)
+		}
+	}
+	for _, required := range []string{`"../docs/targets/"`, "more-targets"} {
+		if !strings.Contains(script, required) {
+			t.Errorf("playground does not point to the full target list: missing %q", required)
+		}
 	}
 }
 

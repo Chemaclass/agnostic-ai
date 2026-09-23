@@ -162,6 +162,9 @@ const KINDS = {
 const SPEC_FORMAT_URL = "../docs/spec-format/";
 
 const DEFAULT_TARGETS = ["claude", "codex", "gemini"];
+// A demo keeps the picker short; the rest link to the full target list.
+const FEATURED_TARGETS = ["claude", "cline", "codex", "copilot", "cursor", "gemini", "opencode", "windsurf"];
+const TARGETS_URL = "../docs/targets/";
 const STORAGE_KEY = "agnostic-ai-playground";
 
 const $ = (id) => document.getElementById(id);
@@ -224,9 +227,11 @@ function loadPrefs() {
 /* ─── Targets ─── */
 
 function buildTargetChips(capabilities, preselected) {
-  els.targets.querySelectorAll("label").forEach((n) => n.remove());
-  const wanted = preselected && preselected.length ? preselected : DEFAULT_TARGETS;
-  capabilities.forEach(({ name, supports }) => {
+  els.targets.querySelectorAll("label, .more-targets").forEach((n) => n.remove());
+  const featured = capabilities.filter(({ name }) => FEATURED_TARGETS.includes(name));
+  const kept = (preselected || []).filter((name) => FEATURED_TARGETS.includes(name));
+  const wanted = kept.length ? kept : DEFAULT_TARGETS;
+  featured.forEach(({ name, supports }) => {
     capabilityByTarget.set(name, new Set(supports));
     const id = `target-${name}`;
     const label = document.createElement("label");
@@ -247,6 +252,16 @@ function buildTargetChips(capabilities, preselected) {
     label.append(cb, span, supportStatus);
     els.targets.append(label);
   });
+  const hidden = capabilities.length - featured.length;
+  if (hidden > 0) {
+    const more = document.createElement("a");
+    more.className = "more-targets";
+    more.href = TARGETS_URL;
+    more.textContent = `+${hidden} more`;
+    more.setAttribute("aria-label", `+${hidden} more targets in the CLI`);
+    more.title = `This demo shows ${featured.length} of ${capabilities.length} targets. The CLI supports all of them.`;
+    els.targets.append(more);
+  }
   updateCapabilityState();
 }
 

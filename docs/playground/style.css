@@ -411,6 +411,21 @@ select:hover {
   border-radius: 999px;
 }
 
+.chips .more-targets {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font: 12px var(--mono);
+  color: var(--fg-dim);
+  text-decoration: none;
+}
+
+.chips .more-targets:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .capability-summary {
   flex: 1 0 100%;
   margin: 0;
@@ -637,6 +652,7 @@ textarea::placeholder {
   }
 
   .chips label,
+  .chips .more-targets,
   .tabs button,
   .ghost,
   select {
