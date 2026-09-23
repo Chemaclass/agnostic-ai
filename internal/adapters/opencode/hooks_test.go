@@ -27,7 +27,7 @@ func emitHookSpec(t *testing.T, e spec.Entry) (dir string) {
 func TestEmit_Hook_PreToolUseWritesToolExecuteBefore(t *testing.T) {
 	dir := emitHookSpec(t, spec.Entry{
 		Kind: spec.KindHook, Name: "guard-bash",
-		Meta: map[string]any{"event": "PreToolUse", "matcher": "^bash$", "command": "./scripts/guard.sh"},
+		Meta: map[string]any{"event": "PreToolUse", "matcher": "bash", "command": "./scripts/guard.sh"},
 	})
 
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/guard-bash.ts"))
@@ -35,8 +35,9 @@ func TestEmit_Hook_PreToolUseWritesToolExecuteBefore(t *testing.T) {
 		`import type { Plugin } from "@opencode-ai/plugin"`,
 		`export const GuardBashPlugin: Plugin = async ({ $ }) => {`,
 		`"tool.execute.before": async (input) => {`,
-		`if (!new RegExp("^bash$").test(input.tool)) return`,
-		"await $`./scripts/guard.sh`",
+		`const MATCHER = new RegExp("^(?:bash)$")`,
+		`if (!MATCHER.test(input.tool)) return`,
+		"const r1 = await run(\"./scripts/guard.sh\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -55,7 +56,7 @@ func TestEmit_Hook_PostToolUseWritesToolExecuteAfter(t *testing.T) {
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/fmt-go.ts"))
 	for _, want := range []string{
 		`"tool.execute.after": async () => {`,
-		"await $`gofmt -w .`",
+		"await run(\"gofmt -w .\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -79,7 +80,7 @@ func TestEmit_Hook_BusEventWritesEventHandler(t *testing.T) {
 	for _, want := range []string{
 		`event: async ({ event }) => {`,
 		`if (event.type !== "session.idle") return`,
-		"await $`echo done`",
+		"await run(\"echo done\")",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -112,8 +113,8 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	})
 
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/chain.ts"))
-	first := strings.Index(got, "await $`first`")
-	second := strings.Index(got, "await $`second`")
+	first := strings.Index(got, "await run(\"first\")")
+	second := strings.Index(got, "await run(\"second\")")
 	if first < 0 || second < 0 {
 		t.Fatalf("both commands must emit:\n%s", got)
 	}
@@ -122,18 +123,18 @@ func TestEmit_Hook_CommandListAwaitsEachInOrder(t *testing.T) {
 	}
 }
 
-// A backtick or `${` in the command would end the template literal or
-// open an interpolation, so both are escaped and the shell still sees
-// the author's exact string.
+// A backtick, `${`, or backslash in the command reaches the shell
+// exactly as authored: the command rides a `{ raw }` value, so nothing
+// is escaped on the way.
 func TestEmit_Hook_EscapesTemplateLiteralSyntax(t *testing.T) {
 	dir := emitHookSpec(t, spec.Entry{
 		Kind: spec.KindHook, Name: "tricky",
-		Meta: map[string]any{"event": "PostToolUse", "command": "echo `id` ${HOME}"},
+		Meta: map[string]any{"event": "PostToolUse", "command": "echo `id` ${HOME} \\d"},
 	})
 
 	got := readFile(t, filepath.Join(dir, ".opencode/plugins/tricky.ts"))
-	if !strings.Contains(got, "await $`echo \\`id\\` \\${HOME}`") {
-		t.Errorf("template literal syntax not escaped:\n%s", got)
+	if !strings.Contains(got, "await run(\"echo `id` ${HOME} \\\\d\")") {
+		t.Errorf("command not passed through verbatim:\n%s", got)
 	}
 }
 
@@ -205,7 +206,7 @@ func TestEmit_Hook_ClaudeCasedMatcherNotesTheNoOp(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 	got := readFile(t, ".opencode/plugins/fmt.ts")
-	if !strings.Contains(got, `new RegExp("Edit")`) {
+	if !strings.Contains(got, `new RegExp("^(?:Edit)$")`) {
 		t.Errorf("the authored matcher must still emit:\n%s", got)
 	}
 	emit.FlushCoverageNotes()
@@ -251,7 +252,7 @@ func TestEmit_Hook_InvalidMatcherDropsGuardAndNotes(t *testing.T) {
 		t.Errorf("an uncompilable matcher must not reach the module:\n%s", got)
 	}
 	emit.FlushCoverageNotes()
-	if !strings.Contains(buf.String(), "valid regular expression") {
+	if !strings.Contains(buf.String(), "JavaScript reads the same way") {
 		t.Errorf("expected an invalid-matcher note, got: %s", buf.String())
 	}
 }
@@ -307,19 +308,15 @@ func TestEmit_Hook_IncompleteSpecWritesNothing(t *testing.T) {
 	}
 }
 
-// The export has to be a legal JavaScript identifier whatever the spec
-// name looks like on disk.
-func TestPluginIdentifier_AlwaysLegalJavaScript(t *testing.T) {
-	cases := map[string]string{
-		"sample-hook":  "SampleHookPlugin",
-		"fmt_go":       "FmtGoPlugin",
-		"2fa":          "Hook2faPlugin",
-		"no.rm.rf":     "NoRmRfPlugin",
-		"alreadyCamel": "AlreadyCamelPlugin",
-	}
-	for name, want := range cases {
-		if got := pluginIdentifier(name); got != want {
-			t.Errorf("pluginIdentifier(%q) = %q, want %q", name, got, want)
-		}
+// A module in the plugin directory always runs, so a disabled hook
+// writes no module at all.
+func TestEmit_Hook_DisabledWritesNothing(t *testing.T) {
+	dir := emitHookSpec(t, spec.Entry{
+		Kind: spec.KindHook, Name: "off",
+		Meta: map[string]any{"event": "PostToolUse", "command": "echo hi", "disabled": true},
+	})
+
+	if _, err := os.Stat(filepath.Join(dir, ".opencode/plugins/off.ts")); !os.IsNotExist(err) {
+		t.Errorf("a disabled hook must write no module, stat err = %v", err)
 	}
 }

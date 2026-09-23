@@ -293,7 +293,7 @@ command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
 | `args` | no | empty | Argument list. Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset when the command needs a pipe or `&&`. |
 | `type` | no | `command` | Handler type: `command`, `http`, `mcp_tool`, or `prompt`, where the target supports it. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Some targets convert to milliseconds or apply their own default. |
-| `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; other targets emit the hook unchanged. |
+| `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other targets emit the hook unchanged. |
 
 Handler-specific and tool-specific fields emit only where the target's schema defines them, and other targets ignore them.
 

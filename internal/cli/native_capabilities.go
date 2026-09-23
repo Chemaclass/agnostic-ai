@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/chemaclass/agnostic-ai/internal/spec"
+import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
 
 // hookEventsByTarget enumerates the hook events each target's
 // underlying CLI consumes. Specs whose `event:` falls outside the
@@ -199,34 +203,9 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreToolUse", "PreToolUseResult", "PostToolUse", "PostToolUseFailure",
 		"BeforeReadFile", "AfterFileEdit", "BeforeShellExecution", "AfterShellExecution",
 	),
-	// opencode.ai/docs/plugins' own "Events" section, plus the two
-	// compaction keys its Compaction hooks example names and the two
-	// portable spellings this repo's other hook emitters share.
-	// PreToolUse and PostToolUse are aliases the adapter rewrites to
-	// tool.execute.before and tool.execute.after; the dotted names are
-	// OpenCode's own and pass through untouched (re-read 2026-09-19).
-	// shell.env and experimental.session.compacting are listed because
-	// OpenCode does consume them, even though a command-running hook
-	// spec cannot express either and sync notes the gap.
-	"opencode": setOf(
-		"PreToolUse", "PostToolUse",
-		"tool.execute.before", "tool.execute.after",
-		"command.executed",
-		"file.edited", "file.watcher.updated",
-		"installation.updated",
-		"lsp.client.diagnostics", "lsp.updated",
-		"message.part.removed", "message.part.updated",
-		"message.removed", "message.updated",
-		"permission.asked", "permission.replied",
-		"server.connected",
-		"session.created", "session.compacted", "session.deleted",
-		"session.diff", "session.error", "session.idle",
-		"session.status", "session.updated",
-		"todo.updated",
-		"shell.env",
-		"tui.prompt.append", "tui.command.execute", "tui.toast.show",
-		"experimental.session.compacting",
-	),
+	// OpenCode and Kilo share one plugin hook renderer, which owns their
+	// event lists: tool hooks, bus events, and the shell events sync notes.
+	"opencode": setOf(opencode.HookEvents()...),
 	// cline discovers a hook by file name, so the event vocabulary is
 	// the HookConfigFileName enum and nothing else.
 	"cline": setOf(
@@ -236,31 +215,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreCompact",
 		"SessionShutdown",
 	),
-	// kilo.ai/docs/automate/extending/plugins' own "Hooks reference" and
-	// "Events" sections (#1105). PreToolUse and PostToolUse are aliases
-	// the adapter rewrites to tool.execute.before and tool.execute.after;
-	// the dotted names are Kilo's own and pass through untouched. Kilo's
-	// page documents its plugin behavior as identical to OpenCode's, but
-	// lists no `tui.*` events, so this set is OpenCode's minus that
-	// group.
-	"kilo": setOf(
-		"PreToolUse", "PostToolUse",
-		"tool.execute.before", "tool.execute.after",
-		"command.executed",
-		"file.edited", "file.watcher.updated",
-		"installation.updated",
-		"lsp.client.diagnostics", "lsp.updated",
-		"message.part.removed", "message.part.updated",
-		"message.removed", "message.updated",
-		"permission.asked", "permission.replied",
-		"server.connected",
-		"session.created", "session.compacted", "session.deleted",
-		"session.diff", "session.error", "session.idle",
-		"session.status", "session.updated",
-		"todo.updated",
-		"shell.env",
-		"experimental.session.compacting",
-	),
+	"kilo": setOf(kilo.HookEvents()...),
 }
 
 // matcherAcceptingEvents lists the hook events whose native CLI consumes a
