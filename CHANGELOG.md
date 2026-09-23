@@ -42,6 +42,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --global` stops before writing when a file it owns, or its managed block, was edited by hand since the last sync, and names the file. `--backup` overwrites and keeps a copy (#1082).
 - `sync --global` leaves a hooks file such as `~/.claude/settings.json` untouched when its managed hooks did not change, and a rewrite keeps the file's key order and indent (#1084).
 - `sync --global` keeps the key order and indent of `~/.copilot/settings.json` when it writes an agent effort, instead of sorting every key and forcing two-space indent (#1090).
+- `sync --global --check`, `--check --diff`, and `--dry-run` name each file a sync would remove, such as a skill whose source was deleted, instead of reporting only the ownership state file (#1091).
 
 ### Site
 

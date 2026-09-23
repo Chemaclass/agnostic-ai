@@ -61,3 +61,34 @@ func TestSyncGlobal_DiffRequiresCheck(t *testing.T) {
 		t.Errorf("--diff without --check must be rejected, got %v", err)
 	}
 }
+
+func TestSyncGlobal_PreviewsNameAFileSyncWouldRemove(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
+	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Dir(src)); err != nil {
+		t.Fatal(err)
+	}
+	removed := filepath.Join(home, ".claude", "skills", "tidy", "SKILL.md")
+
+	out, _, err := runGlobalAgentTest("--only", "claude", "--check", "--diff")
+	if err == nil || !strings.Contains(err.Error(), removed) {
+		t.Errorf("check must name the file sync would remove, got %v", err)
+	}
+	if !strings.Contains(out, "would remove "+filepath.ToSlash(removed)) {
+		t.Errorf("diff must print the removal:\n%s", out)
+	}
+	out, _, err = runGlobalAgentTest("--only", "claude", "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "dry-run: remove "+removed) {
+		t.Errorf("dry-run must list the removal:\n%s", out)
+	}
+	if _, err := os.Stat(removed); err != nil {
+		t.Errorf("previews must not remove anything: %v", err)
+	}
+}
