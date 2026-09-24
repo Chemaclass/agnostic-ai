@@ -530,7 +530,7 @@ write_deltas() {
     case "$status" in new | changed) ;; *) continue ;; esac
     [ -n "$body" ] || continue
     snap=$(snapshot_path "$url")
-    if [ ! -f "$snap" ]; then
+    if [ ! -f "$snap" ] || ! snapshot_matches_lock "$url" "$snap"; then
       printf '%s\t%s\t%s\tno-snapshot\t\n' "$target" "$kind" "$url" >>"$dir/deltas.tsv"
       continue
     fi
@@ -572,6 +572,26 @@ snapshot_save() {
     snap=$(snapshot_path "$url")
     cp "$(hashed_file "$dir" "$body")" "$snap"
   done <"$file"
+}
+
+# json_text <body> <out> writes a JSON body key-sorted and indented, one
+# value per line, so a snapshot and a delta see what json_sum hashed and a
+# minified document does not diff as one word. No jq, or not JSON: no file,
+# and hashed_file falls back to the body, which is what was hashed then.
+json_text() {
+  command -v jq >/dev/null 2>&1 && jq -S . "$1" >"$2" 2>/dev/null || rm -f "$2"
+}
+
+# snapshot_matches_lock <url> <snapshot> succeeds when the snapshot is the
+# text the committed lock row was hashed from. Snapshots are local and the
+# lock is tracked: after a pull or a branch switch they can disagree, and
+# a delta against the wrong text hides a vendor revert.
+snapshot_matches_lock() {
+  local locked
+  [ -r "$LOCK" ] || return 1
+  locked=$(awk -F '\t' -v u="$1" '$3 == u { print $6; exit }' "$LOCK")
+  [ -n "$locked" ] && [ "$locked" != "-" ] || return 1
+  [ "$(sha256_of "$2")" = "$locked" ] || [ "$(json_sum "$2")" = "$locked" ]
 }
 
 # row_status <url> <mode> <sha> compares one row against the committed lock.
@@ -723,6 +743,7 @@ fetch_one() {
       ;;
     json)
       result=$(json_sum "$body")
+      json_text "$body" "$stem.txt"
       ;;
     router-data)
       if delta_text "$body" >"$stem.txt" && [ -s "$stem.txt" ]; then
@@ -730,6 +751,7 @@ fetch_one() {
       else
         rm -f "$stem.txt"
         result=$(json_sum "$body")
+        json_text "$body" "$stem.txt"
       fi
       ;;
     reader-proxy)

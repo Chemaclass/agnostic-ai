@@ -798,13 +798,14 @@ function test_delta_vocab_keeps_paths_and_keys_but_not_plain_words() {
 # ---- snapshots and deltas ----------------------------------------------------
 
 # seed_run <dir> <url> <text> writes a one-row changed run with its hashed text.
+# The row's hash is the real digest of its text, as fetch_one writes it.
 function seed_run() {
   local dir="$1" url="$2" text="$3"
   mkdir -p "$dir/pages/cursor"
   printf '%s\n' "$text" >"$dir/pages/cursor/docs-1-x.txt"
   : >"$dir/pages/cursor/docs-1-x.body"
-  printf 'cursor\tdocs\t%s\t200\thtml\tabc\t2026-09-24\tchanged\t%s\tpages/cursor/docs-1-x.body\n' \
-    "$url" "$url" >"$dir/docfetch.tsv"
+  printf 'cursor\tdocs\t%s\t200\thtml\t%s\t2026-09-24\tchanged\t%s\tpages/cursor/docs-1-x.body\n' \
+    "$url" "$(sha256_of "$dir/pages/cursor/docs-1-x.txt")" "$url" >"$dir/docfetch.tsv"
 }
 
 function test_update_saves_the_hashed_text_as_the_snapshot() {
@@ -856,7 +857,7 @@ function test_update_keeps_the_last_good_snapshot_over_an_app_shell() {
   seed_run "$FIXTURES/good" https://cursor.com/docs/bugbot "real page text"
   lock_merge "$FIXTURES/good/docfetch.tsv"
   seed_run "$FIXTURES/shell" https://cursor.com/docs/bugbot "<div id=app></div>"
-  sed -i.bak -e 's/\thtml\tabc\t/\tapp-shell\t-\t/' -e 's/\tchanged\t/\tfailed\t/' "$FIXTURES/shell/docfetch.tsv"
+  sed -i.bak -e 's/\thtml\t[0-9a-f]*\t/\tapp-shell\t-\t/' -e 's/\tchanged\t/\tfailed\t/' "$FIXTURES/shell/docfetch.tsv"
   lock_merge "$FIXTURES/shell/docfetch.tsv"
   assert_equals "real page text" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
 }
@@ -869,4 +870,35 @@ function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
   assert_contains "# truncated: " "$(cat "$FIXTURES/d")"
   : >"$FIXTURES/vocab"
   assert_equals "whitespace-only:truncated" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_write_deltas_distrusts_a_snapshot_the_lock_does_not_match() {
+  # The snapshot came from an older audit; the tracked lock moved since
+  # (a pull, a branch switch). The vendor then reverts to the old text.
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/newer" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  awk -F '\t' -v OFS='\t' 'NR <= 2 { print; next } { $6 = "'"$(sha256_of "$FIXTURES/newer/pages/cursor/docs-1-x.txt")"'"; print }' \
+    "$LOCK" >"$LOCK.new" && mv "$LOCK.new" "$LOCK"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+}
+
+function test_json_text_sorts_keys_one_value_per_line() {
+  printf '{"b":1,"a":{"d":2,"c":3}}' >"$FIXTURES/j"
+  json_text "$FIXTURES/j" "$FIXTURES/j.txt"
+  assert_equals '"a": {' "$(sed -n 2p "$FIXTURES/j.txt" | sed 's/^ *//')"
+  assert_equals "$(json_sum "$FIXTURES/j")" "$(json_sum "$FIXTURES/j.txt")"
+}
+
+function test_fetch_one_keeps_the_sorted_json_it_hashed() {
+  function docfetch_curl() {
+    printf '{"z":1,"a":2}' >"$2"
+    printf '200\t%s\tapplication/json\n' "$1"
+  }
+  local row
+  row=$(fetch_one openhands docs https://x.example/api "$FIXTURES/run" 1)
+  assert_equals "json" "$(printf '%s' "$row" | cut -f5)"
+  assert_equals '"a": 2,' "$(sed -n 2p "$FIXTURES/run/pages/openhands/docs-1-x.example-api.txt" | sed 's/^ *//')"
 }
