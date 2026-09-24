@@ -63,8 +63,8 @@ func TestImportIgnore_NormalizesBOMAndWindowsLineEndings(t *testing.T) {
 	}
 }
 
-// Devin reads `.devinignore` for indexing and `.windsurfignore` for
-// agent file access, and sync writes both. A project that hand-authored
+// Devin reads `.devinignore` and the legacy `.windsurfignore`, and sync
+// writes both. A project that hand-authored
 // only the second one must still have its patterns read back before
 // sync takes the file over (#863).
 func TestImportIgnore_WindsurfFallsBackToWindsurfignore(t *testing.T) {
