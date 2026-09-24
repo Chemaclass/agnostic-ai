@@ -39,6 +39,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv"
 
+      # Measurement for #1127, after the issue is published and allowed to
+      # fail: a second fetch that also saves each scraped page's .md copy.
+      # Download two days' artifacts and run
+      # `scripts/docfetch.sh --compare-mirrors <day1>/mirrors <day2>/mirrors`.
+      - name: Measure Markdown mirrors
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DOCFETCH_TIMEOUT: "10"
+        run: scripts/docfetch.sh --mirrors --out "$RUNNER_TEMP/mirrors" | tail -n 1
+
       # After the report, and on every outcome: a failed upload must not cost
       # the issue its report, and a failed fetch still leaves pages to diff.
       - name: Keep the fetched pages
@@ -46,5 +58,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: vendor-watch-pages
-          path: ${{ runner.temp }}/watch
+          path: |
+            ${{ runner.temp }}/watch
+            ${{ runner.temp }}/mirrors
           retention-days: 14
