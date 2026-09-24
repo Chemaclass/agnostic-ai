@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -125,7 +126,7 @@ func TestImportWindsurf_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T)
 			"---\nname: shared\n---\n\nfrom "+path.name+"\n")
 	}
 
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -312,7 +313,7 @@ func TestImportWindsurf_HooksImportWithNoWrapperKey(t *testing.T) {
   ]
 }`
 	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
@@ -335,7 +336,7 @@ func TestImportWindsurf_PromptTypeHookImportsPromptField(t *testing.T) {
   ]
 }`
 	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "userpromptsubmit")
@@ -370,5 +371,101 @@ func TestImportWindsurf_KnownSourceWiredIn(t *testing.T) {
 	sources := importSources()
 	if !strings.Contains(sources, "windsurf") {
 		t.Errorf("importSources() missing %q: %s", "windsurf", sources)
+	}
+}
+
+// TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs pins #1123:
+// `CheckScopePath` accepts a scope like `.github`, `vendor`, or
+// `node_modules`, so emission can write a scoped rule under any of
+// them, and import must round-trip it instead of pruning the directory
+// by a hidden-dir prefix or a hardcoded name list before ever looking
+// inside it, the way an earlier draft of windsurfScopedRulesDirs did
+// (matching antigravityScopedRulesDirs's own earlier draft, #1114).
+func TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".github", ".devin", "rules", "release.md"), "# release\n\nrelease body\n")
+	writeFile(t, filepath.Join(dir, "vendor", ".devin", "rules", "pkg.md"), "# pkg\n\npkg body\n")
+	writeFile(t, filepath.Join(dir, "node_modules", ".devin", "rules", "pkg2.md"), "# pkg2\n\npkg2 body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", ".github", "release.md"),
+		filepath.Join("rules", "vendor", "pkg.md"),
+		filepath.Join("rules", "node_modules", "pkg2.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromWindsurf_NestedScopeMatchingSourceRootNameStillImports
+// pins #1123's second finding: pruning by directory basename at every
+// depth, not just the exact root-relative source path, treated
+// `packages/api/config` as the configured `config/rules` source root
+// and pruned it, so `packages/api/config/.devin/rules/auth.md` never
+// imported.
+func TestImportFromWindsurf_NestedScopeMatchingSourceRootNameStillImports(t *testing.T) {
+	dir := t.TempDir()
+	src := rootSources()
+	src.Rules = filepath.Join("config", "rules")
+	writeFile(t, filepath.Join(dir, "packages", "api", "config", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromWindsurf(dir, src, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "config", "rules", "packages", "api", "config", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromWindsurf_UsesConfiguredRulesDir pins #1123's second
+// finding for the root (unscoped) rules dir: `importFromWindsurf` never
+// received `cfg`, so it read only `.devin/rules/` and the legacy
+// `.windsurf/rules/`, and a project that set
+// `outputs.windsurf.rules-dir` imported nothing from the path sync
+// wrote there.
+func TestImportFromWindsurf_UsesConfiguredRulesDir(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {RulesDir: filepath.Join("custom", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "custom", "rules", "house.md"), "# house\n\nhouse body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "house.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride pins #1123's
+// second finding for a scoped rules dir: emission honors
+// `outputs.windsurf.rules-dir` for a scoped rule too
+// (`<scope>/<rules-dir>/<name>.md`), so import must resolve the same
+// configured directory instead of only ever looking for `.devin/rules`
+// / `.windsurf/rules`.
+func TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {RulesDir: filepath.Join("custom", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "backend", "custom", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "backend", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
 	}
 }
