@@ -393,7 +393,14 @@ word_delta() {
     printf '%s\n' "$words"
   elif ! cmp -s "$1" "$2"; then
     printf '# whitespace\n'
-    { diff -U2 "$1" "$2" || true; } | awk 'NR > 2 && NR <= 202 { print substr($0, 1, 400) }'
+    # Past the cap, say so: a silent cut could hide the one indent that
+    # matters, and the label carries it so the auditor opens the page.
+    { diff -U2 "$1" "$2" || true; } | awk '
+      NR <= 2 { next }
+      ++n <= 200 { print substr($0, 1, 400); next }
+      { more++ }
+      END { if (more) printf "# truncated: %d more diff lines, read the page\n", more }
+    '
   fi
 }
 
@@ -462,7 +469,11 @@ delta_vocab() {
 # A label ranks what an auditor reads first. It never skips a row.
 delta_label() {
   if [ "$(head -n 1 "$1")" = "# whitespace" ]; then
-    printf 'whitespace-only\n'
+    if grep -q '^# truncated: ' "$1"; then
+      printf 'whitespace-only:truncated\n'
+    else
+      printf 'whitespace-only\n'
+    fi
     return 0
   fi
   awk -v vocab="$2" '
@@ -548,9 +559,13 @@ snapshot_save() {
   shift
   dir=$(dirname "$file")
   mkdir -p "$(snapshot_dir)"
-  while IFS=$'\t' read -r target _ url code _ _ _ _ _ body; do
+  while IFS=$'\t' read -r target _ url code mode sha _ status _ body; do
     case "$target" in '#'* | '') continue ;; esac
-    [ "$code" = "200" ] && [ -n "$body" ] && [ -f "$dir/$body" ] || continue
+    # An app shell or soft 404 answers 200 with no page in it; keep the
+    # last good snapshot so the recovered page diffs against real text.
+    [ "$code" = "200" ] && [ "$status" != "failed" ] && [ "$sha" != "-" ] || continue
+    case "$mode" in app-shell | soft-404 | failed) continue ;; esac
+    [ -n "$body" ] && [ -f "$dir/$body" ] || continue
     if [ "$#" -gt 0 ]; then
       case " $* " in *" $target "*) ;; *) continue ;; esac
     fi

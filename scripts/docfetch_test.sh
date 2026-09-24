@@ -851,3 +851,22 @@ function test_write_deltas_survives_the_scripts_strict_mode() {
   out=$(bash -c 'set -euo pipefail; source "$1"; write_deltas "$2"' _ "$SCRIPT_DIR/docfetch.sh" "$FIXTURES/run")
   assert_equals "deltas: 1 (1 prose)" "$out"
 }
+
+function test_update_keeps_the_last_good_snapshot_over_an_app_shell() {
+  seed_run "$FIXTURES/good" https://cursor.com/docs/bugbot "real page text"
+  lock_merge "$FIXTURES/good/docfetch.tsv"
+  seed_run "$FIXTURES/shell" https://cursor.com/docs/bugbot "<div id=app></div>"
+  sed -i.bak -e 's/\thtml\tabc\t/\tapp-shell\t-\t/' -e 's/\tchanged\t/\tfailed\t/' "$FIXTURES/shell/docfetch.tsv"
+  lock_merge "$FIXTURES/shell/docfetch.tsv"
+  assert_equals "real page text" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+}
+
+function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
+  local i
+  for i in $(seq 1 300); do printf '  key%d: v\n' "$i"; done >"$FIXTURES/old.txt"
+  for i in $(seq 1 300); do printf 'key%d: v\n' "$i"; done >"$FIXTURES/new.txt"
+  word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" >"$FIXTURES/d"
+  assert_contains "# truncated: " "$(cat "$FIXTURES/d")"
+  : >"$FIXTURES/vocab"
+  assert_equals "whitespace-only:truncated" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
