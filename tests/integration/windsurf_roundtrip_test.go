@@ -119,6 +119,187 @@ func TestWindsurfRoundTrip_EveryNativeSkillPathPreservesTriggers(t *testing.T) {
 	}
 }
 
+// TestWindsurfRoundTrip_HiddenScopeRoundTrips is the import->sync
+// regression for #1123's first finding: `windsurfScopedRulesDirs`
+// pruned every hidden directory before ever looking inside it, so a
+// rule scoped to `.github` (accepted the same as any other name by
+// `CheckScopePath`) emitted fine but never imported back, and a later
+// full sync could orphan-sweep the only native copy.
+func TestWindsurfRoundTrip_HiddenScopeRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - windsurf
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".github", ".devin", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".github", ".devin", "rules", "release.md"),
+		[]byte("# release\n\nrelease body\n"), 0o644))
+
+	runCmd(t, "import", "windsurf")
+
+	imported := filepath.Join(dir, ".agnostic-ai", "rules", ".github", "release.md")
+	if _, err := os.Stat(imported); err != nil {
+		t.Fatalf("missing imported spec %s: %v", imported, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".github")))
+	runCmd(t, "sync", "-t", "windsurf")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".github", ".devin", "rules", "release.md"))
+	if err != nil {
+		t.Fatalf("scope .github did not re-emit at .github/.devin/rules/release.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "release body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestWindsurfRoundTrip_VendorScopeRoundTrips is the same #1123
+// regression for a `vendor`-named scope, which the earlier
+// `windsurfScopedRulesDirs` pruned via a hardcoded name list rather
+// than a hidden-dir prefix.
+func TestWindsurfRoundTrip_VendorScopeRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - windsurf
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "vendor", ".devin", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "vendor", ".devin", "rules", "pkg.md"),
+		[]byte("# pkg\n\npkg body\n"), 0o644))
+
+	runCmd(t, "import", "windsurf")
+
+	imported := filepath.Join(dir, ".agnostic-ai", "rules", "vendor", "pkg.md")
+	if _, err := os.Stat(imported); err != nil {
+		t.Fatalf("missing imported spec %s: %v", imported, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, "vendor")))
+	runCmd(t, "sync", "-t", "windsurf")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "vendor", ".devin", "rules", "pkg.md"))
+	if err != nil {
+		t.Fatalf("scope vendor did not re-emit at vendor/.devin/rules/pkg.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "pkg body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestWindsurfRoundTrip_NestedScopeMatchingSourceRootNameRoundTrips is
+// the import->sync regression for #1123's second finding: pruning by
+// directory basename at every depth, not just the exact root-relative
+// source path, treated `packages/api/config` as the configured
+// `config/rules` source root and pruned it, so
+// `packages/api/config/.devin/rules/auth.md` never imported.
+func TestWindsurfRoundTrip_NestedScopeMatchingSourceRootNameRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: config/rules
+targets:
+  - windsurf
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "packages", "api", "config", ".devin", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "packages", "api", "config", ".devin", "rules", "auth.md"),
+		[]byte("# auth\n\nauth body\n"), 0o644))
+
+	runCmd(t, "import", "windsurf")
+
+	imported := filepath.Join(dir, "config", "rules", "packages", "api", "config", "auth.md")
+	if _, err := os.Stat(imported); err != nil {
+		t.Fatalf("missing imported spec %s: %v", imported, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, "packages")))
+	runCmd(t, "sync", "-t", "windsurf")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "packages", "api", "config", ".devin", "rules", "auth.md"))
+	if err != nil {
+		t.Fatalf("scope packages/api/config did not re-emit: %v", err)
+	}
+	if !strings.Contains(string(raw), "auth body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestWindsurfRoundTrip_NonDefaultRulesDirRootAndScopedRoundTrips is
+// the import->sync regression for #1123's second finding on both the
+// root (unscoped) rules dir and a scoped copy of it:
+// `importFromWindsurf` never received `cfg`, so it read only
+// `.devin/rules/` and the legacy `.windsurf/rules/`, and a project that
+// set `outputs.windsurf.rules-dir` imported nothing from either path
+// sync actually wrote.
+func TestWindsurfRoundTrip_NonDefaultRulesDirRootAndScopedRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - windsurf
+outputs:
+  windsurf:
+    rules-dir: custom/rules
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "custom", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "custom", "rules", "house.md"),
+		[]byte("# house\n\nhouse body\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", "custom", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", "custom", "rules", "auth.md"),
+		[]byte("# auth\n\nauth body\n"), 0o644))
+
+	runCmd(t, "import", "windsurf")
+
+	for _, p := range []string{
+		filepath.Join(".agnostic-ai", "rules", "house.md"),
+		filepath.Join(".agnostic-ai", "rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, "custom")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "windsurf")
+
+	root, err := os.ReadFile(filepath.Join(dir, "custom", "rules", "house.md"))
+	if err != nil {
+		t.Fatalf("custom rules-dir did not re-emit at custom/rules/house.md: %v", err)
+	}
+	if !strings.Contains(string(root), "house body") {
+		t.Errorf("expected the root body to round-trip, got:\n%s", root)
+	}
+	scoped, err := os.ReadFile(filepath.Join(dir, "backend", "custom", "rules", "auth.md"))
+	if err != nil {
+		t.Fatalf("scope backend did not re-emit at backend/custom/rules/auth.md: %v", err)
+	}
+	if !strings.Contains(string(scoped), "auth body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", scoped)
+	}
+}
+
 func seedWindsurfRoundTripFixture(t *testing.T, dir string) {
 	t.Helper()
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),

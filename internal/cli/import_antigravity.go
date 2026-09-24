@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -88,13 +87,7 @@ func antigravityImportDir(root string, cfg *config.Config) string {
 // antigravityRulesDirFromCfg returns the project-relative
 // `outputs.antigravity.rules-dir` path when configured, otherwise "".
 func antigravityRulesDirFromCfg(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	if o, ok := cfg.Outputs["antigravity"]; ok {
-		return o.RulesDir
-	}
-	return ""
+	return rulesDirFromCfg(cfg, "antigravity")
 }
 
 // antigravityImportMainFile returns the first existing candidate
@@ -144,12 +137,13 @@ var antigravityOwnOutputSubtrees = map[string]bool{
 // rejects nothing about a name like `.github`, `vendor`, or
 // `node_modules`, so emission accepts a scope there and import must be
 // able to round-trip it: pruning by a hidden-dir prefix or a
-// hardcoded name list, the way an earlier draft of this function did
-// (matching windsurfScopedRulesDirs), silently orphaned
-// `.github/.agents/rules/release.md` on the next full sync (#1114).
-// Only `.git` (never a legitimate scope, and large enough that walking
-// it is wasted work), agnostic-ai's own configured source directories,
-// and antigravityOwnOutputSubtrees are pruned.
+// hardcoded name list, the way an earlier draft of this function (and
+// of windsurfScopedRulesDirs, fixed the same way in #1123) did, silently
+// orphaned `.github/.agents/rules/release.md` on the next full sync
+// (#1114). Only `.git` (never a legitimate scope, and large enough that
+// walking it is wasted work), agnostic-ai's own configured source
+// directories, and antigravityOwnOutputSubtrees are pruned; see
+// scopedRulesDirs, the walker this and windsurfScopedRulesDirs share.
 //
 // Pruning matches the exact root-relative path, never a bare directory
 // name at any depth: an earlier draft skipped every directory named
@@ -163,45 +157,7 @@ var antigravityOwnOutputSubtrees = map[string]bool{
 // review); walking them like any other directory, and pruning only
 // their known output subtrees, finds a scope at any depth underneath.
 func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
-	skipDirs := map[string]bool{".git": true}
-	for k := range antigravityOwnOutputSubtrees {
-		skipDirs[k] = true
-	}
-	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
-		if p != "" {
-			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
-		}
-	}
-	var scopes []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !d.IsDir() {
-			return nil
-		}
-		if path == root {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
-		if skipDirs[rel] {
-			return fs.SkipDir
-		}
-		if !dirExists(filepath.Join(path, rulesDir)) {
-			return nil
-		}
-		scopes = append(scopes, rel)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scan %s for scoped rules dirs: %w", root, err)
-	}
-	sort.Strings(scopes)
-	return scopes, nil
+	return scopedRulesDirs(root, rulesDir, antigravityOwnOutputSubtrees, src)
 }
 
 // normalizeAntigravityRuleMeta turns Antigravity's `trigger` frontmatter
@@ -289,16 +245,32 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		return err
 	}
 	rulesDir := antigravityImportDir(root, cfg)
+	// Scoped discovery runs before any import write below: a genuine
+	// antigravityScopedRulesDirs failure (the project root itself
+	// unreadable, not a stray directory elsewhere in the tree, which
+	// the walker now warns about and skips past on its own) then
+	// aborts with nothing imported yet, rather than leaving the
+	// root-level rules already written and everything else missing
+	// (#1124 review).
+	scopes, err := antigravityScopedRulesDirs(root, rulesDir, src)
+	if err != nil {
+		return err
+	}
+	// Discovery only Stats each candidate rules dir; preflight actually
+	// reads every one of them, root included, before any is imported,
+	// so a directory that exists but cannot be read (dirExists passed,
+	// the real read fails) aborts before the root import can overwrite
+	// its destination out from under a scoped import that then fails
+	// (#1124 review).
+	if err := preflightRulesDirs(root, rulesDir, scopes); err != nil {
+		return err
+	}
 	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
 		NormalizeMeta: normalizeAntigravityRuleMeta,
 		NativeTarget:  "antigravity",
 		NativeKeys:    []string{"trigger"},
 		FlatOnly:      true,
 	})
-	if err != nil {
-		return err
-	}
-	scopes, err := antigravityScopedRulesDirs(root, rulesDir, src)
 	if err != nil {
 		return err
 	}

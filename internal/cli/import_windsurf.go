@@ -2,9 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"io/fs"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -45,10 +43,42 @@ const windsurfMCPKey = "mcpServers"
 // (docs.devin.ai/cli/extensibility/hooks/overview, #629).
 const windsurfHooksFile = ".devin/hooks.v1.json"
 
-// windsurfImportDir returns the first existing candidate rules dir
-// under root, defaulting to the preferred `.devin/rules` when neither
-// exists yet.
-func windsurfImportDir(root string) string {
+// windsurfOwnOutputSubtrees are the root-relative directories the
+// windsurf adapter's own emit writes as always-unscoped output: the
+// preferred and legacy rules dirs, the native agents dir, and every
+// path windsurfSkillsDirs reads (windsurf.go's defaultDir/legacyDir/
+// defaultAgentsDir/defaultSkillsDir, duplicated here since adapter
+// constants are unexported the same way antigravityOwnOutputSubtrees
+// already duplicates antigravity's). These are pruned by exact
+// root-relative path so import does not misread the tool's own
+// rules/agents/skills tree as a nested scope, matching
+// antigravityOwnOutputSubtrees (#1123).
+var windsurfOwnOutputSubtrees = map[string]bool{
+	".devin/rules":     true,
+	".devin/agents":    true,
+	".devin/skills":    true,
+	".windsurf/rules":  true,
+	".windsurf/skills": true,
+	".agents/skills":   true,
+}
+
+// windsurfRulesDirFromCfg returns the project-relative
+// `outputs.windsurf.rules-dir` path when configured, otherwise "".
+func windsurfRulesDirFromCfg(cfg *config.Config) string {
+	return rulesDirFromCfg(cfg, "windsurf")
+}
+
+// windsurfImportDir returns `outputs.windsurf.rules-dir` verbatim when
+// configured, the same path emission itself resolves to
+// (emit.OutputRulesDir), so a synced custom directory round-trips
+// instead of import falling back to disk detection and finding nothing
+// at either conventional default (#1123). Unconfigured, it returns the
+// first existing candidate among windsurfRulesDirs, defaulting to the
+// preferred `.devin/rules` when neither exists yet.
+func windsurfImportDir(root string, cfg *config.Config) string {
+	if dir := windsurfRulesDirFromCfg(cfg); dir != "" {
+		return dir
+	}
 	for _, d := range windsurfRulesDirs {
 		if dirExists(filepath.Join(root, d)) {
 			return d
@@ -61,45 +91,25 @@ func windsurfImportDir(root string) string {
 // its own copy of rulesDir, sorted, root excluded. Devin reads
 // "`.devin/rules` or `.windsurf/rules` in any sub-directory of your
 // workspace" (docs.devin.ai/desktop/cascade/memories), which is where
-// sync writes a scoped rule, so import has to look there too. Hidden
-// directories, vendor trees, and the project's own spec dirs are
-// pruned, matching findHierarchicalMainFiles.
+// sync writes a scoped rule, so import has to look there too.
+// `CheckScopePath` rejects nothing about a name like `.github`,
+// `vendor`, or `node_modules`, so emission accepts a scope there and
+// import must be able to round-trip it: pruning every hidden directory
+// and a hardcoded `node_modules`/`vendor` list, the way an earlier
+// draft of this function did, silently orphaned
+// `.github/.devin/rules/release.md` on the next full sync (#1123,
+// mirroring antigravityScopedRulesDirs's own earlier draft, #1114).
+// Pruning matches the exact root-relative path, never a bare directory
+// name at any depth either: an earlier draft skipped every directory
+// named after a source root's first segment, so `sources.rules:
+// config/rules` pruned `packages/api/config` too, and a legitimate
+// `packages/api/config/.devin/rules/auth.md` scope never imported
+// (#1123). Only `.git`, agnostic-ai's own configured source
+// directories, and windsurfOwnOutputSubtrees are pruned now; see
+// scopedRulesDirs, the walker this and antigravityScopedRulesDirs
+// share.
 func windsurfScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
-	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
-	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
-		if p != "" {
-			skipDirs[firstSegment(p)] = true
-		}
-	}
-	var scopes []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !d.IsDir() {
-			return nil
-		}
-		if path == root {
-			return nil
-		}
-		if strings.HasPrefix(d.Name(), ".") || skipDirs[d.Name()] {
-			return fs.SkipDir
-		}
-		if !dirExists(filepath.Join(path, rulesDir)) {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		scopes = append(scopes, filepath.ToSlash(rel))
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scan %s for scoped rules dirs: %w", root, err)
-	}
-	sort.Strings(scopes)
-	return scopes, nil
+	return scopedRulesDirs(root, rulesDir, windsurfOwnOutputSubtrees, src)
 }
 
 // normalizeWindsurfRuleMeta turns Devin's `trigger` activation key back
@@ -164,10 +174,15 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //     skill too, covering projects synced before skills moved to a
 //     native folder. The `trigger` activation key translates back into
 //     `alwaysApply` / `globs` / `description` via
-//     normalizeWindsurfRuleMeta.
+//     normalizeWindsurfRuleMeta. The rules directory itself is
+//     `outputs.windsurf.rules-dir` when configured, the same path
+//     emission writes to, and only falls back to disk detection between
+//     the two conventional defaults when unconfigured (#1123).
 //   - `<scope>/.devin/rules/*.md` in any project sub-directory imports
 //     back to a scoped spec at `rules/<scope>/<name>.md`, the emit side
-//     of #628.
+//     of #628, scanning the whole project tree rather than a fixed list
+//     of candidate directories so a scope named `.github`, `vendor`, or
+//     anything else `CheckScopePath` accepts still round-trips (#1123).
 //   - `.devin/agents/*.md` (the native subagent directory) reconstructs
 //     agents, byte-for-byte minus the provenance header, so `model`,
 //     `max-nesting`, and any `x-windsurf` key round-trip untouched. One
@@ -191,18 +206,33 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //   - a hand-authored `.devinignore` reconstructs an ignore spec (#754),
 //     falling back to `.windsurfignore`, the second file sync writes
 //     from the same spec, when `.devinignore` is absent (#863).
-func importFromWindsurf(root string, src config.Sources) error {
+func importFromWindsurf(root string, src config.Sources, cfg *config.Config) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
 	}
-	rulesDir := windsurfImportDir(root)
-	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
-		NormalizeMeta: normalizeWindsurfRuleMeta,
-	})
+	rulesDir := windsurfImportDir(root, cfg)
+	// Scoped discovery runs before any import write below: a genuine
+	// scopedRulesDirs failure (the project root itself unreadable, not
+	// a stray directory elsewhere in the tree, which the walker now
+	// warns about and skips past on its own) then aborts with nothing
+	// imported yet, rather than leaving the root-level rules already
+	// written and everything else missing (#1124 review).
+	scopes, err := windsurfScopedRulesDirs(root, rulesDir, src)
 	if err != nil {
 		return err
 	}
-	scopes, err := windsurfScopedRulesDirs(root, rulesDir, src)
+	// Discovery only Stats each candidate rules dir; preflight actually
+	// reads every one of them, root included, before any is imported,
+	// so a directory that exists but cannot be read (dirExists passed,
+	// the real read fails) aborts before the root import can overwrite
+	// its destination out from under a scoped import that then fails
+	// (#1124 review).
+	if err := preflightRulesDirs(root, rulesDir, scopes); err != nil {
+		return err
+	}
+	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
+		NormalizeMeta: normalizeWindsurfRuleMeta,
+	})
 	if err != nil {
 		return err
 	}

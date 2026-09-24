@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -125,7 +128,7 @@ func TestImportWindsurf_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T)
 			"---\nname: shared\n---\n\nfrom "+path.name+"\n")
 	}
 
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -312,7 +315,7 @@ func TestImportWindsurf_HooksImportWithNoWrapperKey(t *testing.T) {
   ]
 }`
 	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "posttooluse")
@@ -335,7 +338,7 @@ func TestImportWindsurf_PromptTypeHookImportsPromptField(t *testing.T) {
   ]
 }`
 	writeFile(t, filepath.Join(dir, ".devin", "hooks.v1.json"), doc)
-	if err := importFromWindsurf(dir, rootSources()); err != nil {
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatal(err)
 	}
 	path := findOneHookFile(t, filepath.Join(dir, "hooks"), "userpromptsubmit")
@@ -370,5 +373,280 @@ func TestImportWindsurf_KnownSourceWiredIn(t *testing.T) {
 	sources := importSources()
 	if !strings.Contains(sources, "windsurf") {
 		t.Errorf("importSources() missing %q: %s", "windsurf", sources)
+	}
+}
+
+// TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs pins #1123:
+// `CheckScopePath` accepts a scope like `.github`, `vendor`, or
+// `node_modules`, so emission can write a scoped rule under any of
+// them, and import must round-trip it instead of pruning the directory
+// by a hidden-dir prefix or a hardcoded name list before ever looking
+// inside it, the way an earlier draft of windsurfScopedRulesDirs did
+// (matching antigravityScopedRulesDirs's own earlier draft, #1114).
+func TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".github", ".devin", "rules", "release.md"), "# release\n\nrelease body\n")
+	writeFile(t, filepath.Join(dir, "vendor", ".devin", "rules", "pkg.md"), "# pkg\n\npkg body\n")
+	writeFile(t, filepath.Join(dir, "node_modules", ".devin", "rules", "pkg2.md"), "# pkg2\n\npkg2 body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", ".github", "release.md"),
+		filepath.Join("rules", "vendor", "pkg.md"),
+		filepath.Join("rules", "node_modules", "pkg2.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromWindsurf_NestedScopeMatchingSourceRootNameStillImports
+// pins #1123's second finding: pruning by directory basename at every
+// depth, not just the exact root-relative source path, treated
+// `packages/api/config` as the configured `config/rules` source root
+// and pruned it, so `packages/api/config/.devin/rules/auth.md` never
+// imported.
+func TestImportFromWindsurf_NestedScopeMatchingSourceRootNameStillImports(t *testing.T) {
+	dir := t.TempDir()
+	src := rootSources()
+	src.Rules = filepath.Join("config", "rules")
+	writeFile(t, filepath.Join(dir, "packages", "api", "config", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromWindsurf(dir, src, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "config", "rules", "packages", "api", "config", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromWindsurf_UsesConfiguredRulesDir pins #1123's second
+// finding for the root (unscoped) rules dir: `importFromWindsurf` never
+// received `cfg`, so it read only `.devin/rules/` and the legacy
+// `.windsurf/rules/`, and a project that set
+// `outputs.windsurf.rules-dir` imported nothing from the path sync
+// wrote there.
+func TestImportFromWindsurf_UsesConfiguredRulesDir(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {RulesDir: filepath.Join("custom", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "custom", "rules", "house.md"), "# house\n\nhouse body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "house.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// skipUnlessCanDenyDirReads skips a test that relies on chmod 0o000
+// actually blocking a directory read: Windows ignores the Unix mode
+// bits, and root ignores them too, so the test's own precondition
+// would be silently false rather than exercising the unreadable-dir
+// path.
+func skipUnlessCanDenyDirReads(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0o000 does not deny directory reads on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores mode 0o000")
+	}
+}
+
+// TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules pins the
+// #1124 review regression: windsurfScopedRulesDirs used to prune
+// node_modules outright, so it never read into it. #1123 stopped
+// pruning by name (CheckScopePath accepts node_modules as a scope
+// name too), so the shared scopedRulesDirs walker now descends into
+// it, and an unrelated unreadable directory inside it (permission
+// bits, a broken cache directory, ...) used to abort the whole scoped
+// scan with the root rules already imported, leaving agents, skills,
+// and every scoped rule unimported. The walk must warn and skip past
+// it instead.
+func TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+	unreadable := filepath.Join(dir, "node_modules", "cache")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatalf("import must survive an unreadable directory, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), "node_modules") {
+		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromWindsurf_SurvivesUnreadableHiddenDir is the same
+// #1124 review regression for a hidden directory: an earlier draft of
+// windsurfScopedRulesDirs pruned every hidden directory outright, so
+// it never read into one either.
+func TestImportFromWindsurf_SurvivesUnreadableHiddenDir(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+	unreadable := filepath.Join(dir, ".cache")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatalf("import must survive an unreadable directory, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), ".cache") {
+		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromWindsurf_UnreadableRootAbortsBeforeAnyWrite pins the
+// second #1124 review regression: the `path == root` check in
+// scopedRulesDirs sat after the `d.IsDir()` -> SkipDir branch, so it
+// never ran -- root is always a directory, so that branch always fired
+// first. With the project root unreadable (mode 0111: searchable, not
+// listable), WalkDir could not list it, the walker treated that the
+// same as skipping an ordinary unrelated directory, and
+// scopedRulesDirs returned zero scopes with no error. Root-level rules
+// still imported, the command reported success, and every scoped rule
+// silently went missing, which orphan-sweeps them on the next sync.
+// The root dir's own unreadability has to abort the whole import
+// instead, before anything is written. Every source dir is
+// pre-created, and its own contents are written, before the chmod
+// below: creating a new entry under an unreadable root would fail for
+// an unrelated reason (no write permission), which is not what this
+// test is pinning.
+func TestImportFromWindsurf_UnreadableRootAbortsBeforeAnyWrite(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	src := rootSources()
+	for _, d := range []string{src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings} {
+		if err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := os.Chmod(dir, 0o111); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	if err := importFromWindsurf(dir, src, nil); err == nil {
+		t.Fatal("expected an error when the project root itself cannot be read")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "root.md")); !os.IsNotExist(err) {
+		t.Errorf("root rule must not import when the scoped-rules scan could not even see the tree, err=%v", err)
+	}
+}
+
+// TestImportFromWindsurf_UnreadableScopedRulesDirLeavesRootDestinationUntouched
+// pins the third #1124 review regression: discovery only Stats a
+// candidate scope's rules dir to confirm it exists (dirExists), which
+// succeeds even when the directory itself cannot actually be read, so
+// `scopedRulesDirs` can legitimately record a scope whose rules dir is
+// unreadable. Without a preflight, the root rules dir imports first,
+// overwriting its destination, and only then does the scoped import
+// reach the unreadable directory and fail -- the command errors, but
+// the destination it already overwrote stays overwritten. The fix
+// preflights every discovered rules dir, root included, before any of
+// them is imported, so a failure here leaves the existing destination
+// byte-identical.
+func TestImportFromWindsurf_UnreadableScopedRulesDirLeavesRootDestinationUntouched(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	src := rootSources()
+	original := "---\nname: root\n---\n\noriginal body, must survive\n"
+	writeFile(t, filepath.Join(dir, src.Rules, "root.md"), original)
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nnew body that must never land\n")
+
+	unreadable := filepath.Join(dir, "backend", ".devin", "rules")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	if err := importFromWindsurf(dir, src, nil); err == nil {
+		t.Fatal("expected an error when a discovered scoped rules dir cannot be read")
+	}
+
+	got := readFile(t, filepath.Join(dir, src.Rules, "root.md"))
+	if got != original {
+		t.Errorf("root destination must stay byte-identical when the scoped import fails, got:\n%s", got)
+	}
+}
+
+// TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride pins #1123's
+// second finding for a scoped rules dir: emission honors
+// `outputs.windsurf.rules-dir` for a scoped rule too
+// (`<scope>/<rules-dir>/<name>.md`), so import must resolve the same
+// configured directory instead of only ever looking for `.devin/rules`
+// / `.windsurf/rules`.
+func TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"windsurf": {RulesDir: filepath.Join("custom", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "backend", "custom", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromWindsurf(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "backend", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
 	}
 }
