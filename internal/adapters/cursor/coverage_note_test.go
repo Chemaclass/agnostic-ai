@@ -141,3 +141,107 @@ func TestEmit_Agent_NoToolsNoNote(t *testing.T) {
 		t.Errorf("expected no coverage note when no agent sets tools, got %d", n)
 	}
 }
+
+// "Each rule is truncated at 30,000 characters when included in a
+// review" (cursor.com/docs/bugbot#rule-limits). A BUGBOT.md file counts
+// as one rule to Bugbot, and same-scope review specs concatenate into
+// one file, so two comfortably-sized specs can still add up past the
+// cap once combined (#1125). agnostic-ai never truncates on the
+// author's behalf, so the file still emits in full; what must not
+// happen is emitting over the cap in silence.
+func TestEmit_Review_OverCharCapNotesSurfaceGap(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a.md", Body: strings.Repeat("a", 20000)},
+		{Kind: spec.KindReview, Name: "b", Path: "reviews/b.md", Body: strings.Repeat("b", 20000)},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	for _, want := range []string{"cursor", "30,000 characters", "truncates", "BUGBOT.md"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected the cap note to mention %q, got: %s", want, note)
+		}
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "BUGBOT.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), strings.Repeat("a", 20000)) || !strings.Contains(string(got), strings.Repeat("b", 20000)) {
+		t.Errorf("an over-cap review must still emit in full, no automatic splitting")
+	}
+}
+
+// A single small review comes nowhere near the cap and stays quiet.
+func TestEmit_Review_UnderCharCapIsSilent(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a.md", Body: "small review body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "30,000 characters") {
+		t.Errorf("a review under the cap must not report: %s", buf.String())
+	}
+}
+
+// One review reads the root BUGBOT.md and every BUGBOT.md on the way up
+// from a changed file; "The combined rules Bugbot includes for a review
+// are capped at 100,000 characters" (cursor.com/docs/bugbot#rule-limits).
+// Four nested files each under the per-file cap still overflow the
+// budget together for a change in the deepest scope.
+func TestEmit_Review_NestedChainOverBudgetNotes(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	body := strings.Repeat("x", 26000)
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: body},
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a/a.md", Scope: "a", Body: body},
+		{Kind: spec.KindReview, Name: "b", Path: "reviews/a/b/b.md", Scope: "a/b", Body: body},
+		{Kind: spec.KindReview, Name: "c", Path: "reviews/a/b/c/c.md", Scope: "a/b/c", Body: body},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	if strings.Contains(note, "30,000 characters") {
+		t.Errorf("no single file passes the per-file cap: %s", note)
+	}
+	if !strings.Contains(note, "100,000 characters") {
+		t.Errorf("expected the chain budget note, got: %s", note)
+	}
+}
+
+// Sibling scopes never share a review chain, so their sizes do not add.
+func TestEmit_Review_SiblingScopesStayUnderBudget(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	body := strings.Repeat("x", 26000)
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: body},
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a/a.md", Scope: "a", Body: body},
+		{Kind: spec.KindReview, Name: "b", Path: "reviews/b/b.md", Scope: "b", Body: body},
+		{Kind: spec.KindReview, Name: "c", Path: "reviews/c/c.md", Scope: "c", Body: body},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "100,000 characters") {
+		t.Errorf("sibling scopes must not sum into one chain: %s", buf.String())
+	}
+}
