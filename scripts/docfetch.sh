@@ -125,13 +125,21 @@ docfetch_curl() {
 
 # proxy_curl <url> <out> fetches <url> through the reader proxy. The free
 # tier answers 429 once a runner sends a burst of pages, so a rate-limited
-# fetch waits and retries, three times, with a growing pause.
+# fetch waits and retries, three times, with a growing pause. The pauses
+# draw on one budget per target (DOCFETCH_RETRY_BUDGET seconds, kept in
+# DOCFETCH_RETRY_STATE), so a proxy that stays down fails the remaining
+# rows fast instead of outliving the workflow timeout with no report.
 proxy_curl() {
-  local url="$1" out="$2" attempt line
+  local url="$1" out="$2" attempt line pause spent
   for attempt in 1 2 3 4; do
     line=$(docfetch_curl "$READER_PROXY/$url" "$out")
     [ "${line%%	*}" = "429" ] && [ "$attempt" -lt 4 ] || break
-    sleep $((${DOCFETCH_RETRY_SLEEP:-15} * attempt))
+    pause=$((${DOCFETCH_RETRY_SLEEP:-15} * attempt))
+    spent=$(cat "${DOCFETCH_RETRY_STATE:-/dev/null}" 2>/dev/null || true)
+    spent=${spent:-0}
+    [ $((spent + pause)) -lt "${DOCFETCH_RETRY_BUDGET:-120}" ] || break
+    [ -n "${DOCFETCH_RETRY_STATE:-}" ] && echo $((spent + pause)) >"$DOCFETCH_RETRY_STATE"
+    sleep "$pause"
   done
   printf '%s\n' "$line"
 }
@@ -530,6 +538,9 @@ fetch_target() {
   if source_sections "$target" | grep -q '^- fetch: reader-proxy'; then
     proxy=1
   fi
+  mkdir -p "$dir/rows"
+  export DOCFETCH_RETRY_STATE="$dir/rows/.retry-$target"
+  rm -f "$DOCFETCH_RETRY_STATE"
   while IFS=$'\t' read -r kind url; do
     [ -n "$url" ] || continue
     idx=$((idx + 1))

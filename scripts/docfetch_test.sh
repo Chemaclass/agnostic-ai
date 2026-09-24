@@ -343,6 +343,21 @@ function test_fetch_one_retries_a_rate_limited_proxy_fetch() {
   assert_equals "3" "$(grep -c . <"$PROXY_CALLS")"
 }
 
+function test_fetch_target_stops_retrying_once_its_retry_budget_is_spent() {
+  function docfetch_curl() {
+    : >"$2"
+    printf '429\t%s\ttext/plain\n' "$1"
+  }
+  function sleep() { printf '%s\n' "$1" >>"$FIXTURES/slept"; }
+  : >"$FIXTURES/slept"
+  local rows total
+  rows=$(DOCFETCH_RETRY_SLEEP=10 DOCFETCH_RETRY_BUDGET=40 fetch_target kiro "$FIXTURES/run")
+  total=$(awk '{ t += $1 } END { print t + 0 }' "$FIXTURES/slept")
+  assert_equals "30" "$total"
+  assert_equals "failed" "$(printf '%s\n' "$rows" | cut -f8 | sort -u)"
+  assert_equals "$(resolve_urls kiro | grep -c .)" "$(printf '%s\n' "$rows" | grep -c .)"
+}
+
 function test_fetch_target_forces_the_proxy_for_a_target_marked_fetch_reader_proxy() {
   stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nKiro reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)" \
     "https://kiro.dev/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"
