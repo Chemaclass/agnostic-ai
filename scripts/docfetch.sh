@@ -199,15 +199,19 @@ reader_text() {
       for (i = 1; i <= n; i++) {
         l = seen ? body[i] : all[i]
         sub(/\r$/, "", l)
-        if (l ~ /^[ \t]*(```|~~~)/) {
-          mark = l
-          sub(/^[ \t]*/, "", mark)
-          mark = substr(mark, 1, 1)
-          if (fence == "") { flush(); fence = mark; out = out (out != "" ? "\n" : "") l; continue }
-          if (mark == fence) { fence = ""; out = out "\n" l; continue }
+        if (match(l, /^[ \t]*(```+|~~~+)/)) {
+          run = substr(l, RSTART, RLENGTH)
+          sub(/^[ \t]*/, "", run)
+          if (fence == "") { flush(); fence = run; out = out (out != "" ? "\n" : "") l; continue }
+          # A fence closes only on its own character, at least as long,
+          # with nothing after it: "```yaml" inside a "````" block is text.
+          rest = substr(l, RSTART + RLENGTH)
+          if (substr(run, 1, 1) == substr(fence, 1, 1) && length(run) >= length(fence) && rest ~ /^[ \t]*$/) {
+            fence = ""; out = out "\n" l; continue
+          }
         }
         if (fence != "") { out = out "\n" l; continue }
-        if (l ~ /^(    |\t)[^ \t]/) { flush(); out = out (out != "" ? "\n" : "") l; continue }
+        if (l ~ /^(    |\t)/ && l ~ /[^ \t]/) { flush(); out = out (out != "" ? "\n" : "") l; continue }
         if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
         prose = prose l "\n"
       }

@@ -481,6 +481,24 @@ function test_reader_text_does_not_close_a_backtick_fence_on_tildes() {
     "$(printf 'Markdown Content:\n```\n~~~\na:\nb\n```\n' | reader_text)"
 }
 
+function test_reader_text_keeps_deeper_indentation_in_indented_code() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\nConfig:\n\n    parent:\n      allow: x\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nConfig:\n\n    parent:\n        allow: x\n' | reader_text)"
+}
+
+function test_reader_text_keeps_a_long_fence_open_past_a_shorter_one() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\n````md\n```yaml\n  allow: x\n```\n````\n' | reader_text)" \
+    "$(printf 'Markdown Content:\n````md\n```yaml\nallow: x\n```\n````\n' | reader_text)"
+}
+
+function test_reader_text_keeps_a_long_tilde_fence_open_past_a_shorter_one() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\n~~~~\n~~~\n  allow: x\n~~~\n~~~~\n' | reader_text)" \
+    "$(printf 'Markdown Content:\n~~~~\n~~~\nallow: x\n~~~\n~~~~\n' | reader_text)"
+}
+
 function test_reader_text_still_collapses_prose_around_a_code_fence() {
   assert_equals \
     "$(printf 'Markdown Content:\nSet it:\n\n\n```\na  b\n```\nDone.\n' | reader_text)" \
