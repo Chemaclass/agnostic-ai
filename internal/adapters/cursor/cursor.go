@@ -21,10 +21,11 @@
 // combined. agnostic-ai never truncates on the author's behalf, so an
 // over-cap file still emits in full; sync raises a surface-gap note
 // instead (target-audit 2026-09-24, #1125). The 100,000-character
-// combined budget spans every rule source Bugbot reads for one
-// review -- team rules, repository rules, and every BUGBOT.md on the
-// path from the changed file up to the root -- most of which live
-// outside this repo, so it is not checked here.
+// combined budget spans every rule source Bugbot reads for one review:
+// team rules, repository rules, and every BUGBOT.md on the path from the
+// changed file up to the root. Team and repository rules live outside
+// this repo, so sync checks only the chain of BUGBOT.md files it writes
+// and notes a chain that passes the budget on its own.
 //
 // An MCP spec's `disabled: true` has no file-based equivalent here:
 // cursor.com/docs/mcp documents no `disabled` (or `enabled`) key
@@ -90,7 +91,21 @@ const (
 const reviewCharLimit = 30000
 
 // reviewTooLongReason is the user-facing half of the over-cap note.
-const reviewTooLongReason = "Cursor Bugbot truncates a BUGBOT.md over 30,000 characters; split the review across scopes"
+const reviewTooLongReason = "Cursor Bugbot truncates a BUGBOT.md over 30,000 characters; split the review across sibling scopes"
+
+// reviewBudgetLimit is Bugbot's per-review budget: "The combined rules
+// Bugbot includes for a review are capped at 100,000 characters. If you
+// exceed that combined cap, some rules may be omitted."
+// (cursor.com/docs/bugbot#rule-limits). One review reads the root
+// BUGBOT.md plus every BUGBOT.md on the way up from a changed file, so
+// a scope's chain is itself and its ancestor scopes. Team rules count
+// too and live outside the repo; only the part agnostic-ai writes is
+// measured, so a chain over the budget on its own is certain to lose
+// rules.
+const reviewBudgetLimit = 100000
+
+// reviewOverBudgetReason is the user-facing half of the chain note.
+const reviewOverBudgetReason = "Cursor Bugbot caps the BUGBOT.md files one review reads (a scope and its ancestors) at 100,000 characters combined and may omit some; shorten that chain"
 
 // reviewTooLongSurface names what the over-cap file misses.
 const reviewTooLongSurface = "Bugbot's review in full"
@@ -366,6 +381,7 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 		byScope[scope] = append(byScope[scope], r)
 	}
 	over := 0
+	written := map[string]int{}
 	for _, scope := range scopeOrder {
 		if emit.ScopeEscapesRoot(scope) {
 			// A frontmatter `scope: ../x` would anchor BUGBOT.md outside the
@@ -381,7 +397,9 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 			sb.WriteString(strings.TrimRight(r.Body, "\n"))
 		}
 		content := emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown)
-		if utf8.RuneCountInString(content) > reviewCharLimit {
+		n := utf8.RuneCountInString(content)
+		written[scope] = n
+		if n > reviewCharLimit {
 			over += len(byScope[scope])
 		}
 		path := filepath.Join(scope, ".cursor", base)
@@ -390,7 +408,29 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 		}
 	}
 	emit.NoteSurfaceGap(target, spec.KindReview, over, reviewTooLongSurface, reviewTooLongReason)
+	overBudget := 0
+	for _, scope := range scopeOrder {
+		if _, ok := written[scope]; ok && reviewChainRunes(written, scope) > reviewBudgetLimit {
+			overBudget += len(byScope[scope])
+		}
+	}
+	emit.NoteSurfaceGap(target, spec.KindReview, overBudget, reviewTooLongSurface, reviewOverBudgetReason)
 	return nil
+}
+
+// reviewChainRunes sums the emitted BUGBOT.md sizes Bugbot reads for a
+// change under scope: the root file, every ancestor scope's file, and
+// scope's own.
+func reviewChainRunes(written map[string]int, scope string) int {
+	scope = filepath.ToSlash(scope)
+	total := 0
+	for other, n := range written {
+		other = filepath.ToSlash(other)
+		if other == "" || other == scope || strings.HasPrefix(scope, other+"/") {
+			total += n
+		}
+	}
+	return total
 }
 
 // emitEnvironment writes Cursor's background-agent bootstrap config to

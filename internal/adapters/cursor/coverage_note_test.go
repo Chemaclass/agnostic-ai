@@ -194,3 +194,54 @@ func TestEmit_Review_UnderCharCapIsSilent(t *testing.T) {
 		t.Errorf("a review under the cap must not report: %s", buf.String())
 	}
 }
+
+// One review reads the root BUGBOT.md and every BUGBOT.md on the way up
+// from a changed file; "The combined rules Bugbot includes for a review
+// are capped at 100,000 characters" (cursor.com/docs/bugbot#rule-limits).
+// Four nested files each under the per-file cap still overflow the
+// budget together for a change in the deepest scope.
+func TestEmit_Review_NestedChainOverBudgetNotes(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	body := strings.Repeat("x", 26000)
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: body},
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a/a.md", Scope: "a", Body: body},
+		{Kind: spec.KindReview, Name: "b", Path: "reviews/a/b/b.md", Scope: "a/b", Body: body},
+		{Kind: spec.KindReview, Name: "c", Path: "reviews/a/b/c/c.md", Scope: "a/b/c", Body: body},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	note := buf.String()
+	if strings.Contains(note, "30,000 characters") {
+		t.Errorf("no single file passes the per-file cap: %s", note)
+	}
+	if !strings.Contains(note, "100,000 characters") {
+		t.Errorf("expected the chain budget note, got: %s", note)
+	}
+}
+
+// Sibling scopes never share a review chain, so their sizes do not add.
+func TestEmit_Review_SiblingScopesStayUnderBudget(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	body := strings.Repeat("x", 26000)
+	entries := []spec.Entry{
+		{Kind: spec.KindReview, Name: "root", Path: "reviews/root.md", Body: body},
+		{Kind: spec.KindReview, Name: "a", Path: "reviews/a/a.md", Scope: "a", Body: body},
+		{Kind: spec.KindReview, Name: "b", Path: "reviews/b/b.md", Scope: "b", Body: body},
+		{Kind: spec.KindReview, Name: "c", Path: "reviews/c/c.md", Scope: "c", Body: body},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "100,000 characters") {
+		t.Errorf("sibling scopes must not sum into one chain: %s", buf.String())
+	}
+}
