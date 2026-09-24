@@ -19,6 +19,7 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 		{"cline", ".clinerules/services/payments/payments.md", "services/payments/**"},
 		{"continue", ".continue/rules/services/payments/payments.md", "services/payments/**"},
 		{"windsurf", "services/payments/.devin/rules/payments.md", "services/payments/**"},
+		{"antigravity", "services/payments/.agents/rules/payments.md", "services/payments/**"},
 		{"kiro", ".kiro/steering/payments.md", "services/payments/**"},
 		{"trae", "services/payments/.trae/rules/payments.md", "services/payments/**"},
 		{"qoder", ".qoder/rules/services/payments/payments.md", "paths:"},
@@ -92,7 +93,7 @@ func TestScopedRules_RejectIncompatibleReaders(t *testing.T) {
 }
 
 func TestScopedRules_UnsupportedNeverEmitsGlobalCopy(t *testing.T) {
-	for _, target := range []string{"aider", "zed", "junie", "crush", "jules", "antigravity"} {
+	for _, target := range []string{"aider", "zed", "junie", "crush", "jules"} {
 		t.Run(target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "payments", Scope: "payments", Body: "private subtree convention"}})

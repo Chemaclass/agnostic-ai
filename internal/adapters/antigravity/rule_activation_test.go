@@ -434,16 +434,17 @@ func TestEmit_Rule_TargetOverrideClearsGlobs(t *testing.T) {
 	}
 }
 
-// "Rules files are limited to 12,000 characters each"
-// (antigravity.google/docs/rules). The vendor does not say whether it
-// truncates or rejects past that, so the rule still emits; what must
-// not happen is emitting over the cap in silence (#896).
-func TestEmit_Rule_OverCharacterCapNotesSurfaceGap(t *testing.T) {
+// "Antigravity truncates any single rule file that exceeds 24,000
+// bytes" (antigravity.google/docs/rules). agnostic-ai never truncates
+// on the author's behalf, so the rule still emits in full; what must
+// not happen is emitting over the cap in silence (#896, cap corrected
+// to bytes, #1114).
+func TestEmit_Rule_OverByteCapNotesSurfaceGap(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindRule, Name: "huge", Body: strings.Repeat("x", 12001)},
+		{Kind: spec.KindRule, Name: "huge", Body: strings.Repeat("x", 24001)},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
@@ -451,7 +452,7 @@ func TestEmit_Rule_OverCharacterCapNotesSurfaceGap(t *testing.T) {
 	emit.FlushCoverageNotes()
 
 	note := buf.String()
-	for _, want := range []string{"antigravity", "12,000 characters", "rules loader"} {
+	for _, want := range []string{"antigravity", "24,000 bytes", "truncates", "rules loader"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("expected the cap note to mention %q, got: %s", want, note)
 		}
@@ -463,29 +464,29 @@ func TestEmit_Rule_OverCharacterCapNotesSurfaceGap(t *testing.T) {
 
 // The cap is measured on the file that lands -- frontmatter,
 // provenance header, and heading included -- not on the spec body, so
-// a body comfortably under 12,000 that this adapter's own preamble
+// a body comfortably under 24,000 that this adapter's own preamble
 // pushes over the line still reports.
 func TestEmit_Rule_CapCountsTheProvenanceHeader(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
-	body := strings.Repeat("x", 11980)
+	body := strings.Repeat("x", 23980)
 	entry := spec.Entry{Kind: spec.KindRule, Name: "edge", Body: body}
-	if utf8Len := len([]rune(rule(entry))); utf8Len <= 12000 {
-		t.Fatalf("fixture no longer straddles the cap (emitted file is %d runes); adjust the body length", utf8Len)
+	if byteLen := len(rule(entry)); byteLen <= 24000 {
+		t.Fatalf("fixture no longer straddles the cap (emitted file is %d bytes); adjust the body length", byteLen)
 	}
 	entries := []spec.Entry{entry}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	emit.FlushCoverageNotes()
-	if !strings.Contains(buf.String(), "12,000 characters") {
+	if !strings.Contains(buf.String(), "24,000 bytes") {
 		t.Errorf("a body under the cap whose emitted file is over must report: %s", buf.String())
 	}
 }
 
 // A rule comfortably under the cap stays quiet.
-func TestEmit_Rule_UnderCharacterCapIsSilent(t *testing.T) {
+func TestEmit_Rule_UnderByteCapIsSilent(t *testing.T) {
 	testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
@@ -496,7 +497,7 @@ func TestEmit_Rule_UnderCharacterCapIsSilent(t *testing.T) {
 		t.Fatal(err)
 	}
 	emit.FlushCoverageNotes()
-	if strings.Contains(buf.String(), "12,000 characters") {
+	if strings.Contains(buf.String(), "24,000 bytes") {
 		t.Errorf("a rule under the cap must not report: %s", buf.String())
 	}
 }

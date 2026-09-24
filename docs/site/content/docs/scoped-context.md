@@ -93,6 +93,7 @@ Mappings checked against vendor documentation on 2026-09-09. Tests verify genera
 | Copilot | `.github/instructions/<name>.instructions.md`, `applyTo` | [Host support](https://docs.github.com/en/copilot/reference/custom-instructions-support) |
 | Cline | `.clinerules/<scope>/<name>.md`, `paths` | [Rules](https://docs.cline.bot/customization/cline-rules) |
 | Windsurf / Devin | `<scope>/.devin/rules/<name>.md`, glob trigger | [Rules](https://docs.devin.ai/cli/extensibility/rules) |
+| Antigravity | `<scope>/.agents/rules/<name>.md`, glob trigger | [Rules](https://antigravity.google/docs/rules) |
 | Continue | `.continue/rules/<scope>/<name>.md`, `globs` without `alwaysApply` | [Rules](https://github.com/continuedev/continue/blob/main/docs/customize/deep-dives/rules.mdx) |
 | Amp | `<scope>/AGENTS.md` | [Instructions](https://ampcode.com/docs/customize/agents-md) |
 | Warp | `<scope>/AGENTS.md` | [Rules](https://docs.warp.dev/agents/capabilities/rules/) |
@@ -107,7 +108,7 @@ Mappings checked against vendor documentation on 2026-09-09. Tests verify genera
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 
 
-Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. Antigravity's Glob mode lacks a verified serialized format. These six targets skip scoped rules; root rules still work.
+Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. These five targets skip scoped rules; root rules still work.
 
 Runtime limits:
 

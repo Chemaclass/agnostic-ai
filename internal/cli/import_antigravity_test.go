@@ -81,6 +81,31 @@ func TestImportFromAntigravity_ReadsPluralRulesDir(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_ReadsScopedRulesDirs is the import half of
+// the scoped-rules fix: sync writes a scoped rule to
+// `<scope>/.agents/rules/<name>.md`, outside the project's own rules
+// tree, so import has to scan the project for that layout too (#1114).
+func TestImportFromAntigravity_ReadsScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+	writeFile(t, filepath.Join(dir, "backend", "api", ".agents", "rules", "limits.md"), "# limits\n\nlimits body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+		filepath.Join("rules", "backend", "api", "limits.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
 func TestImportFromAntigravity_ImportsNestedAgentProfiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer/agent.md"),
@@ -428,10 +453,33 @@ func TestImportFromAntigravity_UnknownTriggerPreservedVerbatimAndWarns(t *testin
 
 func TestImportFromAntigravity_MirrorsAgentsMD(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".agents"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	body := "# Project\n\nTop-level instructions.\n"
+	writeFile(t, filepath.Join(dir, ".agents", "AGENTS.md"), body)
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
+	}
+	if string(got) != body {
+		t.Errorf("%s not byte-identical to .agents/AGENTS.md. got %q", agnosticMainFile, got)
+	}
+}
+
+// A project synced before #1114 only has the legacy `.agent/AGENTS.md`.
+// Import falls back to it when the preferred `.agents/AGENTS.md` is
+// absent.
+func TestImportFromAntigravity_MirrorsLegacyAgentsMD(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "# Project\n\nLegacy top-level instructions.\n"
 	writeFile(t, filepath.Join(dir, ".agent", "AGENTS.md"), body)
 
 	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {

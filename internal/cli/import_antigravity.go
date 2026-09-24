@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -22,7 +24,16 @@ var antigravityRulesDirs = []string{
 	filepath.Join(".agent", "rules"),
 }
 
-const antigravityMainFile = ".agent/AGENTS.md"
+// antigravityMainFiles lists the project-instructions entry-point file
+// Antigravity discovers in a subdirectory, preferred first:
+// "<dir>/.agents/AGENTS.md or <dir>/.agents/GEMINI.md"
+// (antigravity.google/docs/rules). Import walks the first one that
+// exists so both post-#1114 and pre-#1114 projects round-trip; the
+// singular `.agent/AGENTS.md` predates the documented path.
+var antigravityMainFiles = []string{
+	filepath.Join(".agents", "AGENTS.md"),
+	filepath.Join(".agent", "AGENTS.md"),
+}
 
 // antigravityDefaultAgentsDir is Antigravity's native custom-subagent
 // root. New output uses `<name>/agent.md`; import falls back to the
@@ -66,6 +77,63 @@ func antigravityImportDir(root string) string {
 		}
 	}
 	return antigravityRulesDirs[0]
+}
+
+// antigravityImportMainFile returns the first existing candidate
+// entry-point file under root, defaulting to the preferred
+// `.agents/AGENTS.md` when neither exists yet.
+func antigravityImportMainFile(root string) string {
+	for _, f := range antigravityMainFiles {
+		if fileExists(filepath.Join(root, f)) {
+			return f
+		}
+	}
+	return antigravityMainFiles[0]
+}
+
+// antigravityScopedRulesDirs returns every project sub-directory
+// holding its own copy of rulesDir, sorted, root excluded. Antigravity
+// reads "a `.agents/rules/` directory ... in any subdirectory of your
+// project" (antigravity.google/docs/rules), which is where sync writes
+// a scoped rule, so import has to look there too. Hidden directories,
+// vendor trees, and the project's own spec dirs are pruned, matching
+// windsurfScopedRulesDirs (#628, #1114).
+func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
+	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
+	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
+		if p != "" {
+			skipDirs[firstSegment(p)] = true
+		}
+	}
+	var scopes []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if path == root {
+			return nil
+		}
+		if strings.HasPrefix(d.Name(), ".") || skipDirs[d.Name()] {
+			return fs.SkipDir
+		}
+		if !dirExists(filepath.Join(path, rulesDir)) {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		scopes = append(scopes, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan %s for scoped rules dirs: %w", root, err)
+	}
+	sort.Strings(scopes)
+	return scopes, nil
 }
 
 // normalizeAntigravityRuleMeta turns Antigravity's `trigger` frontmatter
@@ -125,6 +193,9 @@ func normalizeAntigravityRuleMeta(meta map[string]any) {
 //     normalizeAntigravityRuleMeta (#1113) and survives verbatim under
 //     `x-antigravity.trigger` too (#1117 review); a pre-#1113 bare rule
 //     file carries no frontmatter at all and imports unchanged.
+//   - `<scope>/.agents/rules/*.md` in any project sub-directory imports
+//     back to a scoped spec at `rules/<scope>/<name>.md`, the emit side
+//     of #1114.
 //   - `.agents/agents/<name>/agent.md` (the preferred native subagent form)
 //     reconstructs agents, byte-for-byte minus the provenance header,
 //     so `model` and any `x-antigravity` key round-trip untouched. A
@@ -137,19 +208,35 @@ func normalizeAntigravityRuleMeta(meta map[string]any) {
 //     the legacy concatenated file is sliced by H2 sections.
 //   - `.agents/mcp_config.json`'s `mcpServers` map walks via
 //     importAntigravityMCP.
-//   - `.agent/AGENTS.md` mirrors into `.agnostic-ai/AGNOSTIC_AI.md`
-//     when present so a hand-edit propagates back into the source body.
+//   - `.agents/AGENTS.md` (or the legacy `.agent/AGENTS.md`) mirrors into
+//     `.agnostic-ai/AGNOSTIC_AI.md` when present so a hand-edit propagates
+//     back into the source body.
 func importFromAntigravity(root string, src config.Sources, cfg *config.Config) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	c, err := importRulesDirectoryWith(root, antigravityImportDir(root), src, rulesDirImportOpts{
+	rulesDir := antigravityImportDir(root)
+	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
 		NormalizeMeta: normalizeAntigravityRuleMeta,
 		NativeTarget:  "antigravity",
 		NativeKeys:    []string{"trigger"},
 	})
 	if err != nil {
 		return err
+	}
+	scopes, err := antigravityScopedRulesDirs(root, rulesDir, src)
+	if err != nil {
+		return err
+	}
+	for _, scope := range scopes {
+		scoped, err := importRulesDirectoryWith(root, filepath.Join(scope, rulesDir), src, rulesDirImportOpts{
+			ScopePrefix:   scope,
+			NormalizeMeta: normalizeAntigravityRuleMeta,
+		})
+		if err != nil {
+			return err
+		}
+		c.add(scoped)
 	}
 
 	agentsDir := filepath.Join(root, antigravityAgentsDirFromCfg(cfg))
@@ -182,7 +269,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		return err
 	}
 
-	if _, err := mirrorMainFile(root, antigravityMainFile); err != nil {
+	if _, err := mirrorMainFile(root, antigravityImportMainFile(root)); err != nil {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",

@@ -9,10 +9,16 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Added
 
 - Kilo: hook specs emit as `.kilo/plugin/<name>.ts` plugin modules, auto-loaded at startup (#1105).
+- Antigravity: a `scope`d rule emits to `<scope>/.agents/rules/<name>.md` instead of skipping with a coverage note (#1114).
+
+### Changed
+
+- Antigravity: the entry-point file moves from `.agent/AGENTS.md` to `.agents/AGENTS.md`. Sync renames a managed old file to `.agent/AGENTS.md.bak` (#1114).
 
 ### Fixed
 
 - Antigravity: every rule now carries the `trigger` frontmatter Antigravity requires, so rules stop being silently discarded (#1113).
+- Antigravity: the oversized-rule note fires at Antigravity's documented 24,000-byte cap and names truncation, not a 12,000-character guess with an unknown outcome (#1114).
 - OpenCode, Kilo: plugin hooks pass commands to the shell unchanged, match tool names exactly, and block a tool only when a command exits 2 (#1110).
 - OpenCode, Kilo: a hook with `disabled: true` writes no plugin module, and a matcher JavaScript reads differently from RE2 emits no guard (#1110).
 - Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.

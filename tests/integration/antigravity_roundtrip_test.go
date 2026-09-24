@@ -13,7 +13,7 @@ import (
 // TestAntigravityRoundTrip_SyncImportSyncIsByteEqual is the
 // antigravity audit's byte-stability gate from #343:
 //
-//	sync antigravity -> snapshot .agents/* (rules, agents, mcp) + .agent/AGENTS.md
+//	sync antigravity -> snapshot .agents/* (rules, agents, mcp, AGENTS.md)
 //	                 -> wipe source specs
 //	                 -> import antigravity
 //	                 -> wipe emit

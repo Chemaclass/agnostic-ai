@@ -25,7 +25,7 @@ func scopeDocument(target string) string {
 
 func hasScopeFilters(target string) bool {
 	switch target {
-	case "claude", "cursor", "copilot", "cline", "windsurf", "continue", "kiro", "trae", "qoder", "openhands":
+	case "claude", "cursor", "copilot", "cline", "windsurf", "continue", "kiro", "trae", "qoder", "openhands", "antigravity":
 		return true
 	default:
 		return false

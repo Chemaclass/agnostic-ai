@@ -58,6 +58,32 @@ func TestPrepareScopedRules_RejectsUnrepresentableConditions(t *testing.T) {
 	}
 }
 
+// TestPrepareScopedRules_AntigravityUsesGlobTrigger pins #1114:
+// Antigravity has its own rules directory discovery (`hasScopeFilters`),
+// so a scoped rule projects into a glob condition instead of reporting
+// "no verified native directory or file-scoped instructions".
+func TestPrepareScopedRules_AntigravityUsesGlobTrigger(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "auth", Path: "rules/backend/auth.md", Meta: map[string]any{"scope": "backend"}}})
+	prepared, files, err := PrepareScopedRules(b, &config.Config{OnUnsupported: "error"}, "antigravity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 || len(prepared.Rules) != 1 {
+		t.Fatalf("wrong projection: %+v, %+v", prepared, files)
+	}
+	r := prepared.Rules[0]
+	if r.Scope != "backend" {
+		t.Errorf("expected scope backend, got %q", r.Scope)
+	}
+	if r.Meta["alwaysApply"] != false {
+		t.Errorf("expected alwaysApply: false, got %+v", r.Meta["alwaysApply"])
+	}
+	if r.Meta["globs"] != "backend/**" {
+		t.Errorf("expected globs: backend/**, got %+v", r.Meta["globs"])
+	}
+}
+
 func TestPrepareScopedRules_LayoutPrecedesMetadata(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "money", Scope: "payments", Meta: map[string]any{"scope": "catalog", "x-codex": map[string]any{"scope": "other"}}, Body: "money convention"}})
