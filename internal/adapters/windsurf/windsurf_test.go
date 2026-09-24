@@ -258,9 +258,9 @@ func TestEmit_RulesDirOverride_KeepsLegacyWindsurfTree(t *testing.T) {
 	}
 }
 
-// `.devinignore` is what Devin Desktop Indexing skips. `.codeiumignore`
-// is its legacy alias, reachable through the ignore-file override
-// (docs.devin.ai/desktop/context-awareness/windsurf-ignore).
+// `.devinignore` is the file Devin reads for indexing and agent file
+// access. `.codeiumignore` is a legacy name, reachable through the
+// ignore-file override (docs.devin.ai/desktop/context-awareness/devin-ignore).
 func TestEmit_IgnoreFile_WritesDevinignore(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -304,11 +304,11 @@ func TestEmit_IgnoreFileOverride(t *testing.T) {
 	}
 }
 
-// `.windsurfignore` is not a legacy alias for `.devinignore`. The vendor
-// gives the two files different jobs: "The agent additionally respects
-// `.windsurfignore` files when accessing files." One Ignore spec writes
-// both, so a pattern reaches the indexer and the agent (target-audit
-// 2026-09-18, #863).
+// `.windsurfignore` is a legacy name Devin still enforces: "The legacy
+// `.windsurfignore` and `.codeiumignore` filenames are still read and
+// enforced alongside `.devinignore`." Older Windsurf builds honored only
+// it for agent file access, so one Ignore spec writes both (target-audit
+// 2026-09-18, #863; 2026-09-24, #1115).
 func TestEmit_IgnoreFile_AlsoWritesWindsurfignoreForTheAgent(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

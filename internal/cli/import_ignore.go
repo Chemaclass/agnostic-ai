@@ -31,8 +31,8 @@ var ignoreFileByTarget = map[string]string{
 
 // fallbackIgnoreFiles are further files a target emits from the same
 // Ignore spec, read only when the primary file above is absent. Devin
-// reads `.devinignore` for indexing and `.windsurfignore` for agent
-// file access, and sync writes both, so a project that hand-authored
+// reads `.devinignore` and the legacy `.windsurfignore`, and sync
+// writes both, so a project that hand-authored
 // only the second one still has its patterns read back before sync
 // takes the file over (#863).
 var fallbackIgnoreFiles = map[string][]string{

@@ -190,7 +190,7 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //     imports with `prompt:` in place of `command:` (#629).
 //   - a hand-authored `.devinignore` reconstructs an ignore spec (#754),
 //     falling back to `.windsurfignore`, the second file sync writes
-//     from the same spec, when the indexing file is absent (#863).
+//     from the same spec, when `.devinignore` is absent (#863).
 func importFromWindsurf(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
