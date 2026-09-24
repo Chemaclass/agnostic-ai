@@ -127,15 +127,28 @@ docfetch_curl() {
 # script bundle does not read as a documentation change. Navigation, footers,
 # the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
 # or a rebuild date would otherwise mark every page on the host as changed.
+# A tag ends at the first ">" outside a quoted attribute: utility-class sites
+# put ">" inside class values ("[&>*:first-child]:rounded-r-none"), and
+# cutting there leaked the class list into the text on every deploy.
 strip_html() {
   awk '
+    function tag_end(s,   i, c, q) {
+      q = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (q != "") { if (c == q) q = ""; continue }
+        if (c == "\"" || c == "\047") q = c
+        else if (c == ">") return i
+      }
+      return 0
+    }
     { all = all $0 "\n" }
     END {
       n = split(all, parts, "<")
       out = parts[1]
       for (i = 2; i <= n; i++) {
         p = parts[i]
-        gt = index(p, ">")
+        gt = tag_end(p)
         if (gt == 0) continue
         tag = tolower(substr(p, 1, gt - 1))
         text = substr(p, gt + 1)
@@ -152,6 +165,60 @@ strip_html() {
       print out
     }
   ' "$1"
+}
+
+# reader_text prints a reader-proxy body without the proxy's own header, so
+# a fresh "Published Time:" stamp or a blank-line reflow does not read as a
+# documentation change. The header ends at "Markdown Content:"; a body
+# without that line is kept whole. The proxy also renders an embedded video
+# as "Video unavailable" and a lazy image as "Loading image..." on some
+# fetches only, so both drop, and so does image markup: an image is not a
+# config claim. Kiro's "Page updated: <date>" stamp drops too; the proxy
+# renders it with and without the space after the colon. Prose whitespace
+# collapses to one space, never to none, so "foo bar" and "foobar" differ.
+# Code keeps its lines and indentation verbatim, whether fenced with
+# backticks or tildes or indented four spaces: in YAML or shell a newline
+# or an indent is part of the claim.
+reader_text() {
+  awk '
+    function flush(   p) {
+      p = prose
+      gsub(/Loading image\.\.\./, "", p)
+      gsub(/!\[[^]]*\]\([^)]*\)/, "", p)
+      gsub(/[ \t\r\n]+/, " ", p)
+      sub(/^ /, "", p)
+      sub(/ $/, "", p)
+      if (p != "") out = out (out != "" ? " " : "") p
+      prose = ""
+    }
+    { all[++na] = $0 }
+    /^Markdown Content:/ && !seen { seen = 1; nb = 0; next }
+    seen { body[++nb] = $0 }
+    END {
+      n = seen ? nb : na
+      for (i = 1; i <= n; i++) {
+        l = seen ? body[i] : all[i]
+        sub(/\r$/, "", l)
+        if (match(l, /^[ \t]*(```+|~~~+)/)) {
+          run = substr(l, RSTART, RLENGTH)
+          sub(/^[ \t]*/, "", run)
+          if (fence == "") { flush(); fence = run; out = out (out != "" ? "\n" : "") l; continue }
+          # A fence closes only on its own character, at least as long,
+          # with nothing after it: "```yaml" inside a "````" block is text.
+          rest = substr(l, RSTART + RLENGTH)
+          if (substr(run, 1, 1) == substr(fence, 1, 1) && length(run) >= length(fence) && rest ~ /^[ \t]*$/) {
+            fence = ""; out = out "\n" l; continue
+          }
+        }
+        if (fence != "") { out = out "\n" l; continue }
+        if (l ~ /^(    |\t)/ && l ~ /[^ \t]/) { flush(); out = out (out != "" ? "\n" : "") l; continue }
+        if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
+        prose = prose l "\n"
+      }
+      flush()
+      print out
+    }
+  ' "$@"
 }
 
 # url_origin <url> prints the scheme and host. BSD sed has no \? operator, so
@@ -407,6 +474,10 @@ fetch_one() {
         result=$(json_sum "$body")
       fi
       ;;
+    reader-proxy)
+      reader_text "$body" >"$stem.txt"
+      result=$(sha256_of "$stem.txt")
+      ;;
     app-shell | soft-404)
       result="-"
       ;;
@@ -536,11 +607,27 @@ docfetch_main() {
   [ -n "$out" ] || out="$ROOT/local/target-audit/$(date -u +%Y-%m-%d)-run"
   mkdir -p "$out/rows"
 
-  local t
+  # Wait on each worker by PID: a bare `wait` returns 0 even when one
+  # failed, and the run would then publish a docfetch.tsv missing a target.
+  # A worker that exits 0 with fewer rows than its URLs is incomplete too.
+  local t pids=() failed=""
   for t in $targets; do
     fetch_target "$t" "$out" >"$out/rows/$t.tsv" &
+    pids+=("$!")
   done
-  wait
+  local i=0
+  for t in $targets; do
+    if ! wait "${pids[$i]}"; then
+      failed="$failed $t"
+    elif [ "$(grep -c . <"$out/rows/$t.tsv")" -lt "$(resolve_urls "$t" | grep -c .)" ]; then
+      failed="$failed $t"
+    fi
+    i=$((i + 1))
+  done
+  if [ -n "$failed" ]; then
+    echo "docfetch: incomplete run for:$failed" >&2
+    return 1
+  fi
 
   cat "$out/rows/"*.tsv >"$out/docfetch.tsv"
   sort -t"$(printf '\t')" -k8,8 -k1,1 "$out/docfetch.tsv" |
