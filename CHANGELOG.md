@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.67.0 - 2026-09-24
+
 ### Added
 
 - Antigravity: a `scope`d rule emits to `<scope>/.agents/rules/<name>.md` instead of being skipped (#1114).
