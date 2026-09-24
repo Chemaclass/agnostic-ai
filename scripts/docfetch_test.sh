@@ -985,3 +985,14 @@ function test_compare_mirrors_accepts_the_same_run_twice() {
   seed_compare "$FIXTURES/a" aaa mmm
   assert_contains "$(printf 'total\t1\t0\t0')" "$(compare_mirrors "$FIXTURES/a" "$FIXTURES/a")"
 }
+
+function test_fetch_target_rewrites_mirror_rows_on_a_rerun() {
+  local md
+  md="$(printf 'Hooks run on events. %.0s' $(seq 1 20))"
+  stub_curl "https://code.claude.com/*.md|200|$md" \
+    "https://*|200|<html><body><main>$(printf 'Real page text. %.0s' $(seq 1 60))</main></body></html>"
+  function resolve_urls() { printf 'docs\thttps://code.claude.com/docs/en/hooks\n'; }
+  DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/run" >/dev/null
+  DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/run" >/dev/null
+  assert_equals 1 "$(grep -c . "$FIXTURES/run/rows/claude.mirrors")"
+}

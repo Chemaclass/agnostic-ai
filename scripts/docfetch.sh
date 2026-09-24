@@ -856,6 +856,8 @@ fetch_target() {
     proxy=1
   fi
   mkdir -p "$dir/rows"
+  # Mirror rows append per URL; a rerun into the same run dir starts clean.
+  rm -f "$dir/rows/$target.mirrors"
   export DOCFETCH_RETRY_STATE="$dir/rows/.retry-$target"
   rm -f "$DOCFETCH_RETRY_STATE"
   while IFS=$'\t' read -r kind url; do
