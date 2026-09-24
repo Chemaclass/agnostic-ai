@@ -155,6 +155,50 @@ func TestImportFromAntigravity_SkipsGitAndOwnOutputDirs(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_NestedScopeMatchingSourceRootNameStillImports
+// regresses the second-review finding: pruning by directory basename at
+// every depth, not just the exact root-relative source path, treated
+// `packages/api/config` as the configured `config/rules` source root
+// and pruned it, so `packages/api/config/.agents/rules/auth.md` never
+// imported (#1114 review).
+func TestImportFromAntigravity_NestedScopeMatchingSourceRootNameStillImports(t *testing.T) {
+	dir := t.TempDir()
+	src := rootSources()
+	src.Rules = filepath.Join("config", "rules")
+	writeFile(t, filepath.Join(dir, "packages", "api", "config", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromAntigravity(dir, src, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "config", "rules", "packages", "api", "config", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromAntigravity_ScopedRulesFollowRulesDirOverride pins the
+// third-review finding: emission honors `outputs.antigravity.rules-dir`
+// for a scoped rule too (`<scope>/<rules-dir>/<name>.md`), so import
+// must resolve the same configured directory instead of only ever
+// looking for `.agents/rules` / `.agent/rules` (#1114 review).
+func TestImportFromAntigravity_ScopedRulesFollowRulesDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"antigravity": {RulesDir: filepath.Join(".agent", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "backend", ".agent", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "backend", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
 func TestImportFromAntigravity_ImportsNestedAgentProfiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer/agent.md"),

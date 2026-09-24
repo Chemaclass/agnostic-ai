@@ -66,16 +66,35 @@ var antigravityMCPTopLevel = map[string]bool{
 	"headers": true, "disabled": true,
 }
 
-// antigravityImportDir returns the first existing candidate rules dir
-// under root, defaulting to the preferred `.agents/rules` when neither
-// exists yet.
-func antigravityImportDir(root string) string {
+// antigravityImportDir returns `outputs.antigravity.rules-dir` verbatim
+// when configured, the same path emission itself resolves to
+// (emit.OutputRulesDir), so a synced custom directory round-trips
+// instead of import falling back to disk detection and finding nothing
+// at either conventional default. Unconfigured, it returns the first
+// existing candidate among the conventional default and legacy paths,
+// defaulting to the preferred `.agents/rules` when neither exists yet.
+func antigravityImportDir(root string, cfg *config.Config) string {
+	if dir := antigravityRulesDirFromCfg(cfg); dir != "" {
+		return dir
+	}
 	for _, d := range antigravityRulesDirs {
 		if dirExists(filepath.Join(root, d)) {
 			return d
 		}
 	}
 	return antigravityRulesDirs[0]
+}
+
+// antigravityRulesDirFromCfg returns the project-relative
+// `outputs.antigravity.rules-dir` path when configured, otherwise "".
+func antigravityRulesDirFromCfg(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if o, ok := cfg.Outputs["antigravity"]; ok {
+		return o.RulesDir
+	}
+	return ""
 }
 
 // antigravityImportMainFile returns the first existing candidate
@@ -108,11 +127,21 @@ func antigravityImportMainFile(root string) string {
 // non-scoped call already reads whichever of those two is active and
 // a `.agents/rules` or `.agent/rules` nested inside the other would
 // only be that same output tree, not a user scope.
+//
+// Pruning matches the exact root-relative path, never a bare directory
+// name at any depth: an earlier draft skipped every directory named
+// after a source root's first segment, so `sources.rules: config/rules`
+// pruned `packages/api/config` too, and a legitimate
+// `packages/api/config/.agents/rules/auth.md` scope never imported
+// (#1114 review). `.agents` and `.agent` are excluded the same way, at
+// the root only, so a scope whose own name happens to be `.agents` (or
+// one further down the tree) is never mistaken for the tool's own
+// output root.
 func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
 	skipDirs := map[string]bool{".git": true, ".agents": true, ".agent": true}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
-			skipDirs[firstSegment(p)] = true
+			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
 		}
 	}
 	var scopes []string
@@ -126,17 +155,18 @@ func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]st
 		if path == root {
 			return nil
 		}
-		if skipDirs[d.Name()] {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if skipDirs[rel] {
 			return fs.SkipDir
 		}
 		if !dirExists(filepath.Join(path, rulesDir)) {
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		scopes = append(scopes, filepath.ToSlash(rel))
+		scopes = append(scopes, rel)
 		return nil
 	})
 	if err != nil {
@@ -196,16 +226,21 @@ func normalizeAntigravityRuleMeta(meta map[string]any) {
 //   - `.agents/rules/*.md` (or the legacy `.agent/rules/*.md`) walks via
 //     the shared rules-directory importer (agent-<name>.md routes to
 //     agents, the rest to rules; the provenance header and the leading
-//     `# <heading>\n` block are stripped from each body). The
+//     `# <heading>\n` block are stripped from each body). The rules
+//     directory itself is `outputs.antigravity.rules-dir` when
+//     configured, the same path emission writes to, and only falls back
+//     to disk detection between the two conventional defaults when
+//     unconfigured (#1114 review). The
 //     `agent-<name>.md` form covers projects synced before agents moved
 //     to their own directory (#638). The mandatory `trigger` frontmatter
 //     translates back to `alwaysApply` / `globs` / `description` via
 //     normalizeAntigravityRuleMeta (#1113) and survives verbatim under
 //     `x-antigravity.trigger` too (#1117 review); a pre-#1113 bare rule
 //     file carries no frontmatter at all and imports unchanged.
-//   - `<scope>/.agents/rules/*.md` in any project sub-directory imports
+//   - `<scope>/<rules-dir>/*.md` in any project sub-directory imports
 //     back to a scoped spec at `rules/<scope>/<name>.md`, the emit side
-//     of #1114.
+//     of #1114, with the same `trigger` round-trip the root rules dir
+//     gets (#1114 review).
 //   - `.agents/agents/<name>/agent.md` (the preferred native subagent form)
 //     reconstructs agents, byte-for-byte minus the provenance header,
 //     so `model` and any `x-antigravity` key round-trip untouched. A
@@ -225,7 +260,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	rulesDir := antigravityImportDir(root)
+	rulesDir := antigravityImportDir(root, cfg)
 	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
 		NormalizeMeta: normalizeAntigravityRuleMeta,
 		NativeTarget:  "antigravity",
@@ -242,6 +277,8 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		scoped, err := importRulesDirectoryWith(root, filepath.Join(scope, rulesDir), src, rulesDirImportOpts{
 			ScopePrefix:   scope,
 			NormalizeMeta: normalizeAntigravityRuleMeta,
+			NativeTarget:  "antigravity",
+			NativeKeys:    []string{"trigger"},
 		})
 		if err != nil {
 			return err

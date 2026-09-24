@@ -154,6 +154,124 @@ gitignore:
 	}
 }
 
+// TestAntigravityScopedRoundTrip_ManualStaysManual is the scoped
+// counterpart of TestAntigravityRoundTrip_ManualTriggerWithDescriptionStaysManual
+// (second review of #1118): a scoped rule's `PrepareScopedRules` pass
+// always forces `alwaysApply: false` and a non-empty `globs` from the
+// scope pattern, so the generic mapping alone would always re-derive
+// `glob`, never `manual`, on the next sync. Only the preserved
+// `x-antigravity.trigger` override (`import`'s `NativeKeys`) stops that
+// broadening, and only when scope prep does not also strip the trigger
+// key back out.
+func TestAntigravityScopedRoundTrip_ManualStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "manual-only.md"),
+		[]byte("---\ntrigger: manual\n---\n\nOnly load this on an @-mention.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "manual-only.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("a scoped manual rule must round-trip as manual, not get promoted to glob by the scope's own forced globs:\n%s", got)
+	}
+	if strings.Contains(got, "trigger: glob") {
+		t.Errorf("must not silently broaden manual to glob:\n%s", got)
+	}
+}
+
+// TestAntigravityScopedRoundTrip_ManualWithDescriptionStaysManual is the
+// scoped variant with a description attached, so a naive re-derivation
+// from the generic fields alone would land on `model_decision` instead
+// of `glob`, an equally real broadening of activation (second review of
+// #1118).
+func TestAntigravityScopedRoundTrip_ManualWithDescriptionStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "checklist.md"),
+		[]byte("---\ntrigger: manual\ndescription: Release checklist, read on demand.\n---\n\nConfirm the changelog and version bump.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "checklist.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("a scoped manual rule with a description must round-trip as manual, not model_decision or glob:\n%s", got)
+	}
+	if !strings.Contains(got, "description: Release checklist, read on demand.") {
+		t.Errorf("expected the description to still carry through:\n%s", got)
+	}
+}
+
+// TestAntigravityScopedRoundTrip_UnknownTriggerStaysManual is the scoped
+// variant of TestAntigravityRoundTrip_UnknownTriggerDoesNotBroadenToAlwaysOn:
+// an unrecognized trigger on a scoped rule must fall to `manual`, not
+// silently broaden to `glob` from the scope's own forced globs (second
+// review of #1118).
+func TestAntigravityScopedRoundTrip_UnknownTriggerStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "typo.md"),
+		[]byte("---\ntrigger: alwaysOn\n---\n\nUse tabs.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "typo.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if strings.Contains(got, "trigger: glob") || strings.Contains(got, "trigger: always_on") {
+		t.Errorf("an unrecognized trigger on a scoped rule must fall to manual, not glob or always_on:\n%s", got)
+	}
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("an unrecognized trigger must fall to the narrowest mode, manual:\n%s", got)
+	}
+}
+
 func seedAntigravityRoundTripFixture(t *testing.T, dir string) {
 	t.Helper()
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"),

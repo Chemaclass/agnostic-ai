@@ -122,7 +122,18 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 			}
 			continue
 		}
-		custom, _ := CustomTargetMeta(original.Meta, target, "scope", "paths", "globs", "alwaysApply", "applyTo", "fileMatchPattern", "inclusion", "trigger", "glob", "regex")
+		// "trigger" stays out of this exclusion: unlike the file-matching
+		// keys below, it is an activation-mode override
+		// (antigravity's x-antigravity.trigger, honored first in
+		// ruleTrigger before any glob/alwaysApply check runs) rather
+		// than a competing selector, so keeping it does not reopen the
+		// portable scope contract those keys guard. Qoder's own
+		// ruleMarkdown strips a scoped entry's "trigger" independently
+		// at render time, so this is not qoder's only guard (#1114
+		// review: a scoped antigravity `manual` rule otherwise lost
+		// its override here and re-derived as `glob` from the scope's
+		// own forced globs on the very next sync).
+		custom, _ := CustomTargetMeta(original.Meta, target, "scope", "paths", "globs", "alwaysApply", "applyTo", "fileMatchPattern", "inclusion", "glob", "regex")
 		if len(custom) > 0 {
 			r.Meta["x-"+target] = custom
 		}
