@@ -1,0 +1,40 @@
+name: Vendor watch
+
+# Fetches every target's vendor docs and reports the pages whose text moved
+# since the last target audit, on one rolling issue labeled `vendor-watch`.
+# No AI and no API key: `scripts/docfetch.sh` is curl plus hashing against
+# `scripts/target-audit/sources.lock`, and the issue says which targets to
+# run `/target-audit` on. The lock is never written here (#1119).
+
+on:
+  schedule:
+    # 05:43 UTC daily, after CI's 04:17 run. An odd minute keeps it off the hour.
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vendor-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Vendor docs watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Fetch vendor pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/docfetch.sh --out "$RUNNER_TEMP/watch" | tail -n 1
+
+      - name: Publish moved pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv"

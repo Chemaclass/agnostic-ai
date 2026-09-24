@@ -110,6 +110,8 @@ Finish with the top findings, recommended next actions, report link, and issue/P
 
 ## Scheduling and invariants
 
+The `vendor-watch` workflow (`.github/workflows/vendor-watch.yml`) runs `scripts/docfetch.sh` daily with no AI and posts moved pages to one open issue labeled `vendor-watch`. `scripts/vendor-watch.sh` keys each page by URL and hash, so a page is reported once per text change. Start a run from that issue: audit the targets it lists, and close it once the lock moves.
+
 Weekly runs are sufficient for the full registry. A scheduler wraps this skill; unattended runs should use `--fix` or default issue filing so results survive outside ignored local files.
 
 Every registered target needs a `## <target>` section with `docs:` and `watch:` in the source registry. `tests/integration/target_audit_sources_test.go` enforces this. Add missing vendor sources, never weaken the test.

@@ -23,7 +23,7 @@ test-race:
 test-shell: build
 	bashunit scripts/release_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
-		scripts/e2e_test.sh
+		scripts/e2e_test.sh scripts/vendor-watch_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
