@@ -157,6 +157,12 @@ function test_strip_html_keeps_a_changed_body() {
 
 # ---- meta_refresh_target -----------------------------------------------------
 
+function test_strip_html_ignores_a_quoted_greater_than_inside_an_attribute() {
+  local out
+  out=$(printf '<div class="[&>*:first-child]:rounded-r-none" data-x=\x27a>b\x27>Rules text</div>' >"$FIXTURES/p.html" && strip_html "$FIXTURES/p.html")
+  assert_equals "Rules text" "$out"
+}
+
 function test_meta_refresh_target_extracts_an_absolute_url() {
   printf '<html><head><meta http-equiv="refresh" content="0; url=https://kiro.dev/docs/reference/configuration/"></head></html>' \
     >"$FIXTURES/stub.html"
@@ -336,6 +342,67 @@ function test_fetch_one_marks_a_dead_url_failed() {
   row=$(fetch_one zed docs https://nothing.example/docs "$FIXTURES/run" 1)
   assert_equals "failed" "$(printf '%s' "$row" | cut -f8)"
   assert_equals "404" "$(printf '%s' "$row" | cut -f4)"
+}
+
+# reader_page <published> <gap> prints a reader-proxy body. The proxy stamps
+# a fresh Published Time on some fetches and reflows blank lines on others.
+function reader_page() {
+  printf 'Title: Steering - Kiro\n\nURL Source: https://kiro.dev/docs/steering/\n\n'
+  [ -n "$1" ] && printf 'Published Time: %s\n\n' "$1"
+  printf 'Markdown Content:\nSteering gives Kiro persistent knowledge.%s| Capability | IDE |\n' "$2"
+}
+
+function test_reader_text_drops_the_proxy_header() {
+  local out
+  out=$(reader_page "Wed, 23 Sep 2026 09:12:16 GMT" $'\n\n' | reader_text)
+  assert_not_contains "Published Time" "$out"
+  assert_not_contains "URL Source" "$out"
+  assert_contains "Steering gives Kiro persistent knowledge." "$out"
+}
+
+function test_reader_text_ignores_a_new_timestamp_and_blank_line_reflow() {
+  assert_equals \
+    "$(reader_page "" $'\n\n' | reader_text)" \
+    "$(reader_page "Thu, 24 Sep 2026 08:00:00 GMT" $'\n' | reader_text)"
+}
+
+function test_reader_text_keeps_a_changed_body() {
+  assert_not_equals \
+    "$(reader_page "" $'\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nSteering gives Kiro nothing.\n' | reader_text)"
+}
+
+function test_reader_text_keeps_a_body_without_the_proxy_header() {
+  assert_equals "plain text body" "$(printf 'plain   text\n\nbody\n' | reader_text)"
+}
+
+function test_reader_text_drops_an_embedded_video_placeholder() {
+  assert_equals "Hooks run on save." \
+    "$(printf 'Markdown Content:\nHooks run\nVideo unavailable\non save.\n' | reader_text)"
+}
+
+function test_reader_text_ignores_images_and_their_loading_placeholder() {
+  assert_equals \
+    "$(printf 'Markdown Content:\nSee [![Image 1: K](https://x/k.png)](https://x) hooks.\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nSee [Loading image...![Image 1](https://x/k.png)](https://x) hooks.\n' | reader_text)"
+}
+
+function test_fetch_one_ignores_whitespace_inside_a_reader_proxy_line() {
+  local first second
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nLast updated: September 23\n')" "https://kiro.dev/*|403|"
+  first=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nLast updated:September 23\n')" "https://kiro.dev/*|403|"
+  second=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
+  assert_equals "$first" "$second"
+}
+
+function test_fetch_one_hashes_a_reader_proxy_page_without_its_timestamp() {
+  local first second
+  stub_curl "https://r.jina.ai/*|200|$(reader_page "" $'\n\n')" "https://kiro.dev/*|403|"
+  first=$(fetch_one kiro docs https://kiro.dev/docs/steering/ "$FIXTURES/run" 1 | cut -f6)
+  stub_curl "https://r.jina.ai/*|200|$(reader_page "Thu, 24 Sep 2026 08:00:00 GMT" $'\n')" "https://kiro.dev/*|403|"
+  second=$(fetch_one kiro docs https://kiro.dev/docs/steering/ "$FIXTURES/run" 1 | cut -f6)
+  assert_equals "$first" "$second"
 }
 
 # ---- lock_merge --------------------------------------------------------------

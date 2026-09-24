@@ -127,15 +127,28 @@ docfetch_curl() {
 # script bundle does not read as a documentation change. Navigation, footers,
 # the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
 # or a rebuild date would otherwise mark every page on the host as changed.
+# A tag ends at the first ">" outside a quoted attribute: utility-class sites
+# put ">" inside class values ("[&>*:first-child]:rounded-r-none"), and
+# cutting there leaked the class list into the text on every deploy.
 strip_html() {
   awk '
+    function tag_end(s,   i, c, q) {
+      q = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (q != "") { if (c == q) q = ""; continue }
+        if (c == "\"" || c == "\047") q = c
+        else if (c == ">") return i
+      }
+      return 0
+    }
     { all = all $0 "\n" }
     END {
       n = split(all, parts, "<")
       out = parts[1]
       for (i = 2; i <= n; i++) {
         p = parts[i]
-        gt = index(p, ">")
+        gt = tag_end(p)
         if (gt == 0) continue
         tag = tolower(substr(p, 1, gt - 1))
         text = substr(p, gt + 1)
@@ -152,6 +165,31 @@ strip_html() {
       print out
     }
   ' "$1"
+}
+
+# reader_text prints a reader-proxy body without the proxy's own header, so
+# a fresh "Published Time:" stamp or a blank-line reflow does not read as a
+# documentation change. The header ends at "Markdown Content:"; a body
+# without that line is kept whole. The proxy also renders an embedded video
+# as "Video unavailable" and a lazy image as "Loading image..." on some
+# fetches only, so both drop, and so does image markup: an image is not a
+# config claim. Whitespace runs collapse to one space.
+reader_text() {
+  awk '
+    { all = all $0 "\n" }
+    /^Markdown Content:/ && !seen { seen = 1; body = ""; next }
+    /^Video unavailable[ \t\r]*$/ { next }
+    seen { body = body $0 "\n" }
+    END {
+      out = seen ? body : all
+      gsub(/Loading image\.\.\./, "", out)
+      gsub(/!\[[^]]*\]\([^)]*\)/, "", out)
+      gsub(/[ \t\r\n]+/, " ", out)
+      sub(/^ /, "", out)
+      sub(/ $/, "", out)
+      print out
+    }
+  ' "$@"
 }
 
 # url_origin <url> prints the scheme and host. BSD sed has no \? operator, so
@@ -406,6 +444,14 @@ fetch_one() {
         rm -f "$stem.txt"
         result=$(json_sum "$body")
       fi
+      ;;
+    reader-proxy)
+      # The saved text keeps its spaces for auditors; the hash drops them,
+      # because the proxy reflows "updated: X" into "updated:X" between runs.
+      reader_text "$body" >"$stem.txt"
+      tr -d ' ' <"$stem.txt" >"$stem.hash"
+      result=$(sha256_of "$stem.hash")
+      rm -f "$stem.hash"
       ;;
     app-shell | soft-404)
       result="-"
